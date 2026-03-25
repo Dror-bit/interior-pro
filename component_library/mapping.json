@@ -1,0 +1,20 @@
+{
+  "doors": {
+    "DOOR": "standard_door",
+    "DOOR_SINGLE": "standard_door",
+    "DOOR_DOUBLE": "double_door"
+  },
+  "windows": {
+    "WINDOW": "standard_window",
+    "WIN": "standard_window"
+  },
+  "furniture": {
+    "CHAIR": "chair",
+    "TABLE": "table",
+    "DESK": "desk",
+    "SOFA": "sofa",
+    "BED": "bed",
+    "CABINET": "cabinet",
+    "BOOKSHELF": "bookshelf"
+  }
+}

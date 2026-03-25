@@ -1,0 +1,29 @@
+[project]
+name = "interior-pro"
+version = "0.1.0"
+description = "DWG to SketchUp Ruby script converter for interior design"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "ezdxf>=1.4.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "aiofiles>=24.0",
+    "pymupdf>=1.24.0",
+    "opencv-python>=4.10.0",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[tool.ruff]
+line-length = 100

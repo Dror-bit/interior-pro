@@ -1,0 +1,43 @@
+# Furniture: {{ item.block_name }} at ({{ "%.0f"|format(item.position[0]) }}, {{ "%.0f"|format(item.position[1]) }})
+furn_group = entities.add_group
+furn_group.name = '{{ item.component_name or item.block_name }}_{{ index }}'
+furn_group.layer = '{{ item.layer }}'
+f_ents = furn_group.entities
+
+f_x = sp({{ "%.2f"|format(item.position[0]) }})
+f_y = sp({{ "%.2f"|format(item.position[1]) }})
+f_rot = {{ "%.4f"|format(item.rotation) }}.degrees
+f_sx = {{ "%.4f"|format(item.scale[0]) }}
+f_sy = {{ "%.4f"|format(item.scale[1]) }}
+f_sz = {{ "%.4f"|format(item.scale[2]) }}
+
+# Create placeholder box (replace with actual component loading)
+box_w = sp({{ "%.2f"|format(placeholder_width) }}) * f_sx
+box_d = sp({{ "%.2f"|format(placeholder_depth) }}) * f_sy
+box_h = sp({{ "%.2f"|format(placeholder_height) }}) * f_sz
+
+t = Geom::Transformation.new(Geom::Point3d.new(f_x, f_y, 0))
+{% if item.rotation != 0 %}
+t = t * Geom::Transformation.rotation(Geom::Point3d.new(f_x, f_y, 0), Z_AXIS, f_rot)
+{% endif %}
+
+pt1 = Geom::Point3d.new(-box_w/2, -box_d/2, 0)
+pt2 = Geom::Point3d.new(box_w/2, -box_d/2, 0)
+pt3 = Geom::Point3d.new(box_w/2, box_d/2, 0)
+pt4 = Geom::Point3d.new(-box_w/2, box_d/2, 0)
+
+face = f_ents.add_face(pt1, pt2, pt3, pt4)
+face.pushpull(box_h)
+
+furn_group.transformation = t
+
+{% if item.color %}
+mat = model.materials.add('furn_{{ index }}_mat')
+mat.color = '{{ item.color }}'
+furn_group.material = mat
+{% endif %}
+
+# Add label
+# TODO: Load actual SketchUp component from 3D Warehouse or local library
+# defn = model.definitions.load('path/to/{{ item.component_name }}.skp')
+# instance = entities.add_instance(defn, t)

@@ -1,0 +1,30 @@
+# Wall: {{ wall.layer }} ({{ "%.0f"|format(wall.length) }}{{ units }} long)
+wall_group = entities.add_group
+wall_group.name = 'Wall_{{ index }}'
+wall_group.layer = '{{ wall.layer }}'
+w_ents = wall_group.entities
+
+{% set dx = wall.end[0] - wall.start[0] %}
+{% set dy = wall.end[1] - wall.start[1] %}
+{% set length = (dx**2 + dy**2)**0.5 %}
+{% if length > 0 %}
+{% set nx = -dy / length * wall.thickness / 2 %}
+{% set ny = dx / length * wall.thickness / 2 %}
+{% else %}
+{% set nx = 0 %}
+{% set ny = wall.thickness / 2 %}
+{% endif %}
+
+pt1 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.start[0] + nx) }}), sp({{ "%.2f"|format(wall.start[1] + ny) }}), 0)
+pt2 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.end[0] + nx) }}), sp({{ "%.2f"|format(wall.end[1] + ny) }}), 0)
+pt3 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.end[0] - nx) }}), sp({{ "%.2f"|format(wall.end[1] - ny) }}), 0)
+pt4 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.start[0] - nx) }}), sp({{ "%.2f"|format(wall.start[1] - ny) }}), 0)
+
+face = w_ents.add_face(pt1, pt2, pt3, pt4)
+face.pushpull(sp({{ "%.2f"|format(wall.height) }}))
+
+{% if wall.color %}
+mat = model.materials.add('wall_{{ index }}_mat')
+mat.color = '{{ wall.color }}'
+wall_group.material = mat
+{% endif %}

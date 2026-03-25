@@ -1,0 +1,13 @@
+
+# =============================================================
+# Finalize
+# =============================================================
+model.commit_operation
+
+# Zoom to show the entire model
+Sketchup.active_model.active_view.zoom_extents
+
+puts "Interior-Pro: Floor plan imported successfully!"
+puts "  Walls: {{ wall_count }}"
+puts "  Openings: {{ opening_count }}"
+puts "  Furniture: {{ furniture_count }}"

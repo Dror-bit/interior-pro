@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interior-Pro | DWG to SketchUp</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Interior-Pro</h1>
+        <p>Convert DWG/DXF/PDF floor plans to SketchUp Ruby scripts</p>
+    </header>
+
+    <main>
+        <!-- Upload Section -->
+        <section id="upload-section" class="card">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p>Drag & drop your file here</p>
+                    <p class="hint">DWG, DXF, or PDF</p>
+                    <button id="browse-btn" class="btn btn-secondary">Browse Files</button>
+                    <input type="file" id="file-input" accept=".dwg,.dxf,.pdf" hidden>
+                </div>
+            </div>
+            <div id="upload-progress" class="progress-bar" hidden>
+                <div class="progress-fill"></div>
+                <span class="progress-text">Processing...</span>
+            </div>
+        </section>
+
+        <!-- Config Section -->
+        <section id="config-section" class="card" hidden>
+            <h2>Settings</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="wall-height">Wall Height (mm)</label>
+                    <input type="number" id="wall-height" value="2700" min="1000" max="10000">
+                </div>
+                <div class="config-item">
+                    <label for="wall-thickness">Wall Thickness (mm)</label>
+                    <input type="number" id="wall-thickness" value="150" min="50" max="500">
+                </div>
+                <div class="config-item">
+                    <label for="units">Units</label>
+                    <select id="units">
+                        <option value="mm" selected>Millimeters</option>
+                        <option value="cm">Centimeters</option>
+                        <option value="m">Meters</option>
+                        <option value="inches">Inches</option>
+                        <option value="feet">Feet</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" hidden>
+            <!-- Info -->
+            <div id="info-card" class="card">
+                <h2>File Info</h2>
+                <div id="file-info" class="info-grid"></div>
+            </div>
+
+            <!-- Layers -->
+            <div id="layers-card" class="card">
+                <h2>Layers</h2>
+                <div id="layers-list"></div>
+                <button id="update-layers-btn" class="btn btn-secondary" hidden>Update Layers</button>
+            </div>
+
+            <!-- Preview -->
+            <div id="preview-card" class="card">
+                <h2>Preview</h2>
+                <div id="preview-container"></div>
+            </div>
+
+            <!-- Download -->
+            <div id="download-card" class="card">
+                <button id="download-btn" class="btn btn-primary btn-large">
+                    Download SketchUp Ruby Script
+                </button>
+                <p class="hint">Open in SketchUp: Window > Ruby Console > load "path/to/script.rb"</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Interior-Pro v0.1.0</p>
+    </footer>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/preview.js"></script>
+</body>
+</html>

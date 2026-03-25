@@ -1,0 +1,41 @@
+# {{ opening.type | capitalize }}: at ({{ "%.0f"|format(opening.position[0]) }}, {{ "%.0f"|format(opening.position[1]) }})
+{% if opening.wall_index is not none %}
+# Associated with Wall_{{ opening.wall_index }}
+opening_group = entities.add_group
+opening_group.name = '{{ opening.type | capitalize }}_{{ index }}'
+opening_group.layer = '{{ opening.layer }}'
+o_ents = opening_group.entities
+
+{% set half_w = opening.width / 2 %}
+{% set rad = opening.rotation * 3.14159265 / 180 %}
+
+# Create opening cutout box
+o_x = sp({{ "%.2f"|format(opening.position[0]) }})
+o_y = sp({{ "%.2f"|format(opening.position[1]) }})
+o_w = sp({{ "%.2f"|format(opening.width) }})
+o_h = sp({{ "%.2f"|format(opening.height) }})
+o_sill = sp({{ "%.2f"|format(opening.sill_height) }})
+o_depth = sp(200)
+
+# Create the opening shape
+rot = {{ "%.4f"|format(opening.rotation) }}.degrees
+cos_r = Math.cos(rot)
+sin_r = Math.sin(rot)
+
+p1 = Geom::Point3d.new(o_x - o_w/2 * cos_r, o_y - o_w/2 * sin_r, o_sill)
+p2 = Geom::Point3d.new(o_x + o_w/2 * cos_r, o_y + o_w/2 * sin_r, o_sill)
+p3 = Geom::Point3d.new(o_x + o_w/2 * cos_r, o_y + o_w/2 * sin_r, o_sill + o_h)
+p4 = Geom::Point3d.new(o_x - o_w/2 * cos_r, o_y - o_w/2 * sin_r, o_sill + o_h)
+
+face = o_ents.add_face(p1, p2, p3, p4)
+face.pushpull(o_depth)
+
+{% if opening.type == "door" %}
+# Door swing indicator
+swing_face = o_ents.add_face(
+  Geom::Point3d.new(o_x - o_w/2 * cos_r, o_y - o_w/2 * sin_r, 0),
+  Geom::Point3d.new(o_x + o_w/2 * cos_r, o_y + o_w/2 * sin_r, 0),
+  Geom::Point3d.new(o_x + o_w/2 * sin_r, o_y - o_w/2 * cos_r, 0)
+)
+{% endif %}
+{% endif %}
