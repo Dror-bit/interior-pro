@@ -60,18 +60,25 @@ async def upload_file(file: UploadFile):
         suffix = file_path.suffix.lower()
         plan = None
         if suffix == ".pdf":
+            # Try ODA CAD-PDF conversion first
+            cad_conversion_failed = False
             try:
                 dxf_path = _get_dxf_path(session_id, file_path)
                 plan = parse_dxf(dxf_path)
-            except (ConversionError, Exception):
-                # CAD-PDF conversion failed, try scanned PDF parser
+            except (ConversionError, OSError, ValueError, RuntimeError):
+                cad_conversion_failed = True
+
+            # Fall back to scanned PDF parser
+            if cad_conversion_failed or (plan and not plan.walls):
                 if is_scanner_available():
                     plan = parse_scanned_pdf(file_path)
-                else:
+                elif cad_conversion_failed:
+                    cleanup_session(session_id)
                     raise HTTPException(
                         422,
                         "PDF is not a CAD-exported PDF and scanned PDF support "
-                        "requires pymupdf and opencv-python."
+                        "requires pymupdf and opencv-python. "
+                        "Install with: pip install pymupdf opencv-python numpy"
                     )
         else:
             dxf_path = _get_dxf_path(session_id, file_path)
@@ -106,6 +113,9 @@ async def upload_file(file: UploadFile):
             units=plan.units,
             layers=layer_types,
         )
+    except HTTPException:
+        cleanup_session(session_id)
+        raise
     except ConversionError as e:
         cleanup_session(session_id)
         raise HTTPException(422, str(e))
