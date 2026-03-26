@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse, Response
 
 from app.api.schemas import LayerInfo, LayerUpdateRequest, UploadResponse
-from app.dwg.converter import ConversionError, convert_dwg_to_dxf, convert_pdf_to_dxf
+from app.dwg.converter import ConversionError, convert_dwg_to_dxf, convert_pdf_to_dxf, get_available_converter
 from app.dwg.layer_mapping import LayerMapper
 from app.dwg.parser import parse_dxf
 from app.dwg.pdf_scanner import ScannerNotAvailable, is_scanner_available, parse_scanned_pdf
@@ -184,6 +184,21 @@ async def update_layers(session_id: str, request: LayerUpdateRequest):
 
     store_plan(session_id, plan)
     return {"status": "ok", "wall_count": len(plan.walls), "opening_count": len(plan.openings)}
+
+
+@router.get("/status/converter")
+async def converter_status():
+    """Check which DWG converter is available."""
+    converter = get_available_converter()
+    return {
+        "converter": converter,
+        "dwg_supported": converter != "none",
+        "message": {
+            "libredwg": "Using LibreDWG (free, open-source)",
+            "oda": "Using ODA File Converter",
+            "none": "No DWG converter installed. DXF and PDF uploads still work.",
+        }[converter],
+    }
 
 
 @router.delete("/session/{session_id}")

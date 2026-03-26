@@ -6,16 +6,21 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import settings
-from app.dwg.converter import is_oda_available
+from app.dwg.converter import get_available_converter
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    if not is_oda_available():
-        print("WARNING: ODA File Converter not found. Only DXF uploads will work.")
-        print("Install from: https://www.opendesign.com/guestfiles/oda_file_converter")
+    converter = get_available_converter()
+    if converter == "libredwg":
+        print("DWG converter: LibreDWG (free, open-source)")
+    elif converter == "oda":
+        print("DWG converter: ODA File Converter")
+    else:
+        print("WARNING: No DWG converter found. Only DXF and PDF uploads will work.")
+        print("Install LibreDWG: sudo apt install libredwg-tools")
     yield
     # Shutdown (cleanup could go here)
 
