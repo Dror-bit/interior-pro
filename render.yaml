@@ -7,4 +7,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: LIBREDWG_PATH
+        value: "/opt/render/libredwg/bin/dwg2dxf"
     plan: free
