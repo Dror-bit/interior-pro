@@ -8,5 +8,5 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.9"
       - key: LIBREDWG_PATH
-        value: "/opt/render/libredwg/bin/dwg2dxf"
+        value: "/opt/render/project/src/libredwg/bin/dwg2dxf"
     plan: free
