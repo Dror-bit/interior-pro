@@ -1,9 +1,12 @@
 from __future__ import annotations
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ConversionError(Exception):
@@ -19,16 +22,26 @@ _LIBREDWG_PATH_FILE = Path("/opt/render/project/src/.libredwg_path")
 
 def _find_libredwg() -> str | None:
     """Find the LibreDWG dwg2dxf binary."""
+    logger.info("Looking for dwg2dxf...")
+    logger.info("settings.libredwg_path = %r", settings.libredwg_path)
+
     if settings.libredwg_path:
         path = Path(settings.libredwg_path)
+        logger.info("Checking settings path: %s (exists=%s)", path, path.exists())
         if path.exists():
+            logger.info("Found dwg2dxf via settings: %s", path)
             return str(path)
 
     # Read path written by build.sh
+    logger.info("Checking .libredwg_path file: %s (exists=%s)", _LIBREDWG_PATH_FILE, _LIBREDWG_PATH_FILE.exists())
     if _LIBREDWG_PATH_FILE.exists():
         saved = _LIBREDWG_PATH_FILE.read_text().strip()
+        logger.info(".libredwg_path content: %r", saved)
         if saved and Path(saved).exists():
+            logger.info("Found dwg2dxf via .libredwg_path file: %s", saved)
             return saved
+        else:
+            logger.warning(".libredwg_path points to non-existent file: %s", saved)
 
     # Try common install locations
     candidates = [
@@ -43,10 +56,14 @@ def _find_libredwg() -> str | None:
     ]
     for c in candidates:
         if Path(c).exists():
+            logger.info("Found dwg2dxf at candidate path: %s", c)
             return c
 
     # Check PATH
     found = shutil.which("dwg2dxf")
+    logger.info("shutil.which('dwg2dxf') = %s", found)
+    if not found:
+        logger.warning("dwg2dxf not found anywhere!")
     return found
 
 
