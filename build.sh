@@ -36,6 +36,11 @@ apt-get update -qq && apt-get install -y -qq libredwg-tools 2>/dev/null || {
 # Add LibreDWG to PATH
 export PATH="$HOME/libredwg/bin:$PATH"
 
+# Save the full path to dwg2dxf for the Python app
+DWG2DXF_PATH="$(command -v dwg2dxf 2>/dev/null || echo "$HOME/libredwg/bin/dwg2dxf")"
+echo "$DWG2DXF_PATH" > /opt/render/project/src/.libredwg_path
+echo "==> Wrote dwg2dxf path to /opt/render/project/src/.libredwg_path: $DWG2DXF_PATH"
+
 # Verify dwg2dxf is available
 if command -v dwg2dxf &>/dev/null; then
     echo "==> dwg2dxf found: $(which dwg2dxf)"

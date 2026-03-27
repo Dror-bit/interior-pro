@@ -14,12 +14,21 @@ class ConversionError(Exception):
 # LibreDWG detection (free, open-source – preferred)
 # ---------------------------------------------------------------------------
 
+_LIBREDWG_PATH_FILE = Path("/opt/render/project/src/.libredwg_path")
+
+
 def _find_libredwg() -> str | None:
     """Find the LibreDWG dwg2dxf binary."""
     if settings.libredwg_path:
         path = Path(settings.libredwg_path)
         if path.exists():
             return str(path)
+
+    # Read path written by build.sh
+    if _LIBREDWG_PATH_FILE.exists():
+        saved = _LIBREDWG_PATH_FILE.read_text().strip()
+        if saved and Path(saved).exists():
+            return saved
 
     # Try common install locations
     candidates = [
