@@ -7,7 +7,7 @@ apt-get update -qq && apt-get install -y -qq libredwg-tools 2>/dev/null || {
 
     # Download pre-built LibreDWG from GitHub releases
     LIBREDWG_VERSION="0.13.3"
-    LIBREDWG_DIR="/opt/libredwg"
+    LIBREDWG_DIR="$HOME/libredwg"
 
     if [ ! -f "$LIBREDWG_DIR/bin/dwg2dxf" ]; then
         mkdir -p "$LIBREDWG_DIR"
@@ -32,6 +32,9 @@ apt-get update -qq && apt-get install -y -qq libredwg-tools 2>/dev/null || {
     # Make dwg2dxf available on PATH
     ln -sf "$LIBREDWG_DIR/bin/dwg2dxf" /usr/local/bin/dwg2dxf 2>/dev/null || true
 }
+
+# Add LibreDWG to PATH
+export PATH="$HOME/libredwg/bin:$PATH"
 
 # Verify dwg2dxf is available
 if command -v dwg2dxf &>/dev/null; then
