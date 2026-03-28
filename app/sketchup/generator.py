@@ -4,12 +4,23 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from app.dwg.elements import FloorPlan
+from app.dwg.elements import FloorPlan, Wall
 from app.sketchup.walls import render_wall
 from app.sketchup.openings import render_opening
 from app.sketchup.furniture import render_furniture
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+MIN_WALL_LENGTH = 0.01  # meters
+
+
+def is_valid_wall(wall: Wall) -> bool:
+    """Return False for zero-length walls or walls shorter than MIN_WALL_LENGTH."""
+    if wall.start == wall.end:
+        return False
+    if wall.length < MIN_WALL_LENGTH:
+        return False
+    return True
 
 
 def generate_ruby_script(plan: FloorPlan) -> str:
@@ -30,6 +41,8 @@ def generate_ruby_script(plan: FloorPlan) -> str:
         if f.layer:
             layers.add(f.layer)
 
+    valid_walls = [w for w in plan.walls if is_valid_wall(w)]
+
     sections: list[str] = []
 
     # Header
@@ -38,18 +51,18 @@ def generate_ruby_script(plan: FloorPlan) -> str:
         source_filename=plan.source_filename,
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M"),
         units=plan.units,
-        wall_count=len(plan.walls),
+        wall_count=len(valid_walls),
         opening_count=len(plan.openings),
         furniture_count=len(plan.furniture),
         layers=sorted(layers),
     ))
 
     # Walls
-    if plan.walls:
+    if valid_walls:
         sections.append("\n# " + "=" * 60)
         sections.append("# WALLS")
         sections.append("# " + "=" * 60)
-        for i, wall in enumerate(plan.walls):
+        for i, wall in enumerate(valid_walls):
             sections.append(render_wall(env, wall, i, plan.units))
 
     # Openings
@@ -71,7 +84,7 @@ def generate_ruby_script(plan: FloorPlan) -> str:
     # Footer
     footer_tmpl = env.get_template("footer.rb.j2")
     sections.append(footer_tmpl.render(
-        wall_count=len(plan.walls),
+        wall_count=len(valid_walls),
         opening_count=len(plan.openings),
         furniture_count=len(plan.furniture),
     ))
