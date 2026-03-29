@@ -20,8 +20,15 @@ pt2 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.end[0] + nx) }}), sp({{ "%.2f"|
 pt3 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.end[0] - nx) }}), sp({{ "%.2f"|format(wall.end[1] - ny) }}), 0)
 pt4 = Geom::Point3d.new(sp({{ "%.2f"|format(wall.start[0] - nx) }}), sp({{ "%.2f"|format(wall.start[1] - ny) }}), 0)
 
-face = w_ents.add_face(pt1, pt2, pt3, pt4)
-face.pushpull(sp({{ "%.2f"|format(wall.height) }}))
+pts = [pt1, pt2, pt3, pt4]
+min_dist = Float::INFINITY
+pts.combination(2).each { |a, b| d = a.distance(b); min_dist = d if d < min_dist }
+if min_dist < 0.01
+  puts "Interior-Pro: Skipping wall_#{index} - points too close (#{min_dist.round(4)} inches)"
+else
+  face = w_ents.add_face(pt1, pt2, pt3, pt4)
+  face.pushpull(sp({{ "%.2f"|format(wall.height) }}))
+end
 
 {% if wall.color %}
 mat = model.materials.add('wall_{{ index }}_mat')
