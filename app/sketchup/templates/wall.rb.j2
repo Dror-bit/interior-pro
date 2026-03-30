@@ -24,7 +24,7 @@ pts = [pt1, pt2, pt3, pt4]
 min_dist = Float::INFINITY
 pts.combination(2).each { |a, b| d = a.distance(b); min_dist = d if d < min_dist }
 if min_dist < 0.01
-  puts "Interior-Pro: Skipping wall_#{index} - points too close (#{min_dist.round(4)} inches)"
+  puts "Interior-Pro: Skipping wall_{{ index }} - points too close"
 else
   face = w_ents.add_face(pt1, pt2, pt3, pt4)
   face.pushpull(sp({{ "%.2f"|format(wall.height) }}))
