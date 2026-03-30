@@ -12,7 +12,7 @@ module InteriorPro
       @exterior_material = 'Stucco'
       @interior_material = 'Gypsum'
       @wall_type_name = 'Default'
-      @anchor = 'center'
+      @anchor = 'bottom-center'
       @drawing = false
       @ip = nil
     end
@@ -90,31 +90,43 @@ module InteriorPro
       nx = -dy / len * @thickness / 2
       ny = dx / len * @thickness / 2
 
-      case @anchor
-      when 'left'
-        o = [@thickness / 2, 0]
-        sx = @start_point.x + nx * 2
-        sy = @start_point.y + ny * 2
-        ex = @end_point.x + nx * 2
-        ey = @end_point.y + ny * 2
-        pt1 = Geom::Point3d.new(@start_point.x, @start_point.y, 0)
-        pt2 = Geom::Point3d.new(@end_point.x, @end_point.y, 0)
-        pt3 = Geom::Point3d.new(ex, ey, 0)
-        pt4 = Geom::Point3d.new(sx, sy, 0)
-      when 'right'
-        sx = @start_point.x - nx * 2
-        sy = @start_point.y - ny * 2
-        ex = @end_point.x - nx * 2
-        ey = @end_point.y - ny * 2
-        pt1 = Geom::Point3d.new(sx, sy, 0)
-        pt2 = Geom::Point3d.new(ex, ey, 0)
-        pt3 = Geom::Point3d.new(@end_point.x, @end_point.y, 0)
-        pt4 = Geom::Point3d.new(@start_point.x, @start_point.y, 0)
+      # Parse anchor: "vertical-horizontal" (e.g. 'bottom-center', 'top-left')
+      parts = @anchor.split('-')
+      if parts.length == 2
+        v_anchor = parts[0]  # bottom, center, top
+        h_anchor = parts[1]  # left, center, right
       else
-        pt1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, 0)
-        pt2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, 0)
-        pt3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, 0)
-        pt4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, 0)
+        v_anchor = 'bottom'
+        h_anchor = 'center'
+      end
+
+      # Vertical (Z) offset
+      case v_anchor
+      when 'top'
+        z_offset = -@height
+      when 'center'
+        z_offset = -@height / 2.0
+      else # bottom
+        z_offset = 0
+      end
+
+      # Horizontal offset based on anchor
+      case h_anchor
+      when 'left'
+        pt1 = Geom::Point3d.new(@start_point.x, @start_point.y, z_offset)
+        pt2 = Geom::Point3d.new(@end_point.x, @end_point.y, z_offset)
+        pt3 = Geom::Point3d.new(@end_point.x + nx * 2, @end_point.y + ny * 2, z_offset)
+        pt4 = Geom::Point3d.new(@start_point.x + nx * 2, @start_point.y + ny * 2, z_offset)
+      when 'right'
+        pt1 = Geom::Point3d.new(@start_point.x - nx * 2, @start_point.y - ny * 2, z_offset)
+        pt2 = Geom::Point3d.new(@end_point.x - nx * 2, @end_point.y - ny * 2, z_offset)
+        pt3 = Geom::Point3d.new(@end_point.x, @end_point.y, z_offset)
+        pt4 = Geom::Point3d.new(@start_point.x, @start_point.y, z_offset)
+      else # center
+        pt1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, z_offset)
+        pt2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, z_offset)
+        pt3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, z_offset)
+        pt4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, z_offset)
       end
 
       group = model.active_entities.add_group

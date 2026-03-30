@@ -28,7 +28,7 @@ module InteriorPro
         tool.exterior_material = wall['exterior_material']
         tool.interior_material = wall['interior_material']
         tool.wall_type_name = wall['name']
-        tool.anchor = wall['anchor'] || 'left'
+        tool.anchor = wall['anchor'] || 'bottom-center'
         dialog.close
         Sketchup.active_model.select_tool(tool)
       }
@@ -85,7 +85,7 @@ module InteriorPro
           input, select { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
           .row { display: flex; gap: 8px; }
           .row > div { flex: 1; }
-          .anchor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 4px; }
+          .anchor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 4px; }
           .anchor-btn { padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer; font-size: 11px; text-align: center; }
           .anchor-btn.active { background: #1565C0; color: white; border-color: #1565C0; }
           .form-actions { display: flex; gap: 8px; margin-top: 14px; }
@@ -128,11 +128,17 @@ module InteriorPro
             </div>
             <label>Draw from (anchor point)</label>
             <div class="anchor-grid">
-              <button class="anchor-btn" onclick="setAnchor('left')" id="anchor-left">Left Side</button>
-              <button class="anchor-btn active" onclick="setAnchor('center')" id="anchor-center">Center</button>
-              <button class="anchor-btn" onclick="setAnchor('right')" id="anchor-right">Right Side</button>
+              <button class="anchor-btn" onclick="setAnchor('top-left')" id="anchor-top-left">Top Left</button>
+              <button class="anchor-btn" onclick="setAnchor('top-center')" id="anchor-top-center">Top Center</button>
+              <button class="anchor-btn" onclick="setAnchor('top-right')" id="anchor-top-right">Top Right</button>
+              <button class="anchor-btn" onclick="setAnchor('center-left')" id="anchor-center-left">Center Left</button>
+              <button class="anchor-btn" onclick="setAnchor('center')" id="anchor-center">Center</button>
+              <button class="anchor-btn" onclick="setAnchor('center-right')" id="anchor-center-right">Center Right</button>
+              <button class="anchor-btn" onclick="setAnchor('bottom-left')" id="anchor-bottom-left">Bottom Left</button>
+              <button class="anchor-btn active" onclick="setAnchor('bottom-center')" id="anchor-bottom-center">Bottom Center</button>
+              <button class="anchor-btn" onclick="setAnchor('bottom-right')" id="anchor-bottom-right">Bottom Right</button>
             </div>
-            <input type="hidden" id="anchorVal" value="center">
+            <input type="hidden" id="anchorVal" value="bottom-center">
             <div class="form-actions">
               <button class="btn-save" onclick="saveWall()">Save</button>
               <button class="btn-cancel" onclick="hideForm()">Cancel</button>
@@ -140,7 +146,7 @@ module InteriorPro
           </div>
         </div>
         <script>
-          var currentAnchor = 'center';
+          var currentAnchor = 'bottom-center';
           var library = [];
 
           window.onload = function() { sketchup.get_library(); };
@@ -180,7 +186,7 @@ module InteriorPro
             document.getElementById('wallThickness').value = w.thickness;
             document.getElementById('extMat').value = w.exterior_material;
             document.getElementById('intMat').value = w.interior_material;
-            setAnchor(w.anchor || 'center');
+            setAnchor(w.anchor || 'bottom-center');
             document.getElementById('formPanel').className = 'form-panel visible';
           }
 
@@ -194,7 +200,7 @@ module InteriorPro
             document.getElementById('wallName').value = '';
             document.getElementById('wallHeight').value = 96;
             document.getElementById('wallThickness').value = 6;
-            setAnchor('center');
+            setAnchor('bottom-center');
             document.getElementById('formPanel').className = 'form-panel visible';
           }
 
@@ -205,7 +211,7 @@ module InteriorPro
           function setAnchor(val) {
             currentAnchor = val;
             document.getElementById('anchorVal').value = val;
-            ['left','center','right'].forEach(function(a) {
+            ['top-left','top-center','top-right','center-left','center','center-right','bottom-left','bottom-center','bottom-right'].forEach(function(a) {
               document.getElementById('anchor-' + a).className = 'anchor-btn' + (a === val ? ' active' : '');
             });
           }
