@@ -2,22 +2,24 @@
 
 module InteriorPro
   class WallTool
-    WALL_HEIGHT_DEFAULT = 96.0   # inches (8 feet)
-    WALL_THICKNESS_DEFAULT = 6.0 # inches
+    attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor
 
     def initialize
       @start_point = nil
       @end_point = nil
-      @height = WALL_HEIGHT_DEFAULT
-      @thickness = WALL_THICKNESS_DEFAULT
+      @height = 96.0
+      @thickness = 6.0
       @exterior_material = 'Stucco'
       @interior_material = 'Gypsum'
+      @wall_type_name = 'Default'
+      @anchor = 'center'
       @drawing = false
+      @ip = nil
     end
 
     def activate
       @ip = Sketchup::InputPoint.new
-      update_status_bar
+      Sketchup.set_status_text('Click to start drawing a wall. Press Escape to cancel.', SB_PROMPT)
       Sketchup.active_model.active_view.invalidate
     end
 
@@ -27,18 +29,23 @@ module InteriorPro
 
     def onMouseMove(flags, x, y, view)
       @ip.pick(view, x, y)
-      @end_point = @ip.position if @drawing
+      if @drawing
+        raw = @ip.position
+        @end_point = snap_to_axis(raw)
+      end
       view.invalidate
     end
 
     def onLButtonDown(flags, x, y, view)
       @ip.pick(view, x, y)
+      raw = @ip.position
+      pt = snap_to_axis(raw)
       if !@drawing
-        @start_point = @ip.position
+        @start_point = pt
         @drawing = true
-        update_status_bar
+        Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
       else
-        @end_point = @ip.position
+        @end_point = pt
         create_wall
         @start_point = @end_point
       end
@@ -49,64 +56,89 @@ module InteriorPro
     end
 
     def onKeyDown(key, repeat, flags, view)
-      if key == 27 # Escape
-        finish_drawing
-      end
+      finish_drawing if key == 27
     end
 
     def draw(view)
       return unless @drawing && @start_point && @end_point
-      view.set_color_from_line(@start_point, @end_point)
       view.line_width = 2
+      view.drawing_color = 'blue'
       view.draw_line(@start_point, @end_point)
+    end
+
+    def snap_to_axis(pt)
+      return pt unless @drawing && @start_point
+      dx = (pt.x - @start_point.x).abs
+      dy = (pt.y - @start_point.y).abs
+      if dx > dy
+        Geom::Point3d.new(pt.x, @start_point.y, 0)
+      else
+        Geom::Point3d.new(@start_point.x, pt.y, 0)
+      end
     end
 
     def create_wall
       return unless @start_point && @end_point
-      length = @start_point.distance(@end_point)
-      return if length < 0.1
+      return if @start_point.distance(@end_point) < 0.1
 
       model = Sketchup.active_model
       model.start_operation('Create Wall', true)
 
-      entities = model.active_entities
       dx = @end_point.x - @start_point.x
       dy = @end_point.y - @start_point.y
       len = Math.sqrt(dx**2 + dy**2)
       nx = -dy / len * @thickness / 2
       ny = dx / len * @thickness / 2
 
-      pt1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, 0)
-      pt2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, 0)
-      pt3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, 0)
-      pt4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, 0)
+      case @anchor
+      when 'left'
+        o = [@thickness / 2, 0]
+        sx = @start_point.x + nx * 2
+        sy = @start_point.y + ny * 2
+        ex = @end_point.x + nx * 2
+        ey = @end_point.y + ny * 2
+        pt1 = Geom::Point3d.new(@start_point.x, @start_point.y, 0)
+        pt2 = Geom::Point3d.new(@end_point.x, @end_point.y, 0)
+        pt3 = Geom::Point3d.new(ex, ey, 0)
+        pt4 = Geom::Point3d.new(sx, sy, 0)
+      when 'right'
+        sx = @start_point.x - nx * 2
+        sy = @start_point.y - ny * 2
+        ex = @end_point.x - nx * 2
+        ey = @end_point.y - ny * 2
+        pt1 = Geom::Point3d.new(sx, sy, 0)
+        pt2 = Geom::Point3d.new(ex, ey, 0)
+        pt3 = Geom::Point3d.new(@end_point.x, @end_point.y, 0)
+        pt4 = Geom::Point3d.new(@start_point.x, @start_point.y, 0)
+      else
+        pt1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, 0)
+        pt2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, 0)
+        pt3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, 0)
+        pt4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, 0)
+      end
 
-      group = entities.add_group
+      group = model.active_entities.add_group
       group.name = 'InteriorPro_Wall'
       group.set_attribute('InteriorPro', 'type', 'wall')
+      group.set_attribute('InteriorPro', 'wall_type', @wall_type_name)
       group.set_attribute('InteriorPro', 'height', @height)
       group.set_attribute('InteriorPro', 'thickness', @thickness)
       group.set_attribute('InteriorPro', 'exterior_material', @exterior_material)
       group.set_attribute('InteriorPro', 'interior_material', @interior_material)
-      group.set_attribute('InteriorPro', 'start', @start_point.to_a.inspect)
-      group.set_attribute('InteriorPro', 'end', @end_point.to_a.inspect)
+      group.set_attribute('InteriorPro', 'anchor', @anchor)
 
       w_ents = group.entities
       face = w_ents.add_face(pt1, pt2, pt3, pt4)
       face.pushpull(@height)
-
-      apply_materials(group, face)
+      apply_materials(face)
 
       model.commit_operation
     end
 
-    def apply_materials(group, face)
-      model = Sketchup.active_model
-      mats = model.materials
-
+    def apply_materials(face)
+      mats = Sketchup.active_model.materials
       ext_mat = mats[@exterior_material] || mats.add(@exterior_material)
       int_mat = mats[@interior_material] || mats.add(@interior_material)
-
       face.material = int_mat
       face.back_material = ext_mat
     end
@@ -117,19 +149,5 @@ module InteriorPro
       @end_point = nil
       Sketchup.active_model.select_tool(nil)
     end
-
-    def update_status_bar
-      if @drawing
-        Sketchup.set_status_text('Click to add point. Double-click or Escape to finish.', SB_PROMPT)
-      else
-        Sketchup.set_status_text('Click to start drawing a wall.', SB_PROMPT)
-      end
-    end
-
-    def show_settings_dialog
-      InteriorPro::UIDialogs.wall_settings(self)
-    end
-
-    attr_accessor :height, :thickness, :exterior_material, :interior_material
   end
 end
