@@ -27,6 +27,81 @@ module InteriorPro
       view.invalidate
     end
 
+    def draw(view)
+      return unless @drawing && @end_point
+
+      dx = @end_point.x - @start_point.x
+      dy = @end_point.y - @start_point.y
+      len = Math.sqrt(dx**2 + dy**2)
+      return if len < 0.1
+
+      nx = -dy / len * @thickness / 2
+      ny = dx / len * @thickness / 2
+
+      parts = @anchor.split('-')
+      h_anchor = parts.last
+      v_anchor = parts.first
+
+      # Vertical Z range
+      case v_anchor
+      when 'top'
+        z1 = -@height
+        z2 = 0
+      when 'center'
+        z1 = -@height / 2.0
+        z2 = @height / 2.0
+      else # bottom
+        z1 = 0
+        z2 = @height
+      end
+
+      # Horizontal corner points (bottom face)
+      case h_anchor
+      when 'left'
+        b1 = Geom::Point3d.new(@start_point.x, @start_point.y, z1)
+        b2 = Geom::Point3d.new(@end_point.x, @end_point.y, z1)
+        b3 = Geom::Point3d.new(@end_point.x + nx * 2, @end_point.y + ny * 2, z1)
+        b4 = Geom::Point3d.new(@start_point.x + nx * 2, @start_point.y + ny * 2, z1)
+      when 'right'
+        b1 = Geom::Point3d.new(@start_point.x - nx * 2, @start_point.y - ny * 2, z1)
+        b2 = Geom::Point3d.new(@end_point.x - nx * 2, @end_point.y - ny * 2, z1)
+        b3 = Geom::Point3d.new(@end_point.x, @end_point.y, z1)
+        b4 = Geom::Point3d.new(@start_point.x, @start_point.y, z1)
+      else # center
+        b1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, z1)
+        b2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, z1)
+        b3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, z1)
+        b4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, z1)
+      end
+
+      # Top face points
+      t1 = Geom::Point3d.new(b1.x, b1.y, z2)
+      t2 = Geom::Point3d.new(b2.x, b2.y, z2)
+      t3 = Geom::Point3d.new(b3.x, b3.y, z2)
+      t4 = Geom::Point3d.new(b4.x, b4.y, z2)
+
+      view.line_width = 2
+      view.drawing_color = Sketchup::Color.new(0, 120, 255, 180)
+
+      # Bottom edges
+      view.draw_line(b1, b2)
+      view.draw_line(b2, b3)
+      view.draw_line(b3, b4)
+      view.draw_line(b4, b1)
+
+      # Top edges
+      view.draw_line(t1, t2)
+      view.draw_line(t2, t3)
+      view.draw_line(t3, t4)
+      view.draw_line(t4, t1)
+
+      # Vertical edges
+      view.draw_line(b1, t1)
+      view.draw_line(b2, t2)
+      view.draw_line(b3, t3)
+      view.draw_line(b4, t4)
+    end
+
     def onMouseMove(flags, x, y, view)
       @ip.pick(view, x, y)
       if @drawing
@@ -57,13 +132,6 @@ module InteriorPro
 
     def onKeyDown(key, repeat, flags, view)
       finish_drawing if key == 27
-    end
-
-    def draw(view)
-      return unless @drawing && @start_point && @end_point
-      view.line_width = 2
-      view.drawing_color = 'blue'
-      view.draw_line(@start_point, @end_point)
     end
 
     def snap_to_axis(pt)
