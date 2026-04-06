@@ -14,6 +14,7 @@ module InteriorPro
       @wall_type_name = 'Default'
       @anchor = 'bottom-center'
       @drawing = false
+      @locked_axis = nil
       @ip = nil
     end
 
@@ -132,16 +133,34 @@ module InteriorPro
 
     def onKeyDown(key, repeat, flags, view)
       finish_drawing if key == 27
+      if key == 16 && @drawing
+        if @locked_axis.nil?
+          dx = @end_point ? (@end_point.x - @start_point.x).abs : 0
+          dy = @end_point ? (@end_point.y - @start_point.y).abs : 0
+          @locked_axis = dx > dy ? :x : :y
+          Sketchup.set_status_text('Direction locked. Press Shift again to unlock.', SB_PROMPT)
+        else
+          @locked_axis = nil
+          Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
+        end
+        view.invalidate
+      end
     end
 
     def snap_to_axis(pt)
       return pt unless @drawing && @start_point
-      dx = (pt.x - @start_point.x).abs
-      dy = (pt.y - @start_point.y).abs
-      if dx > dy
+      if @locked_axis == :x
         Geom::Point3d.new(pt.x, @start_point.y, 0)
-      else
+      elsif @locked_axis == :y
         Geom::Point3d.new(@start_point.x, pt.y, 0)
+      else
+        dx = (pt.x - @start_point.x).abs
+        dy = (pt.y - @start_point.y).abs
+        if dx > dy
+          Geom::Point3d.new(pt.x, @start_point.y, 0)
+        else
+          Geom::Point3d.new(@start_point.x, pt.y, 0)
+        end
       end
     end
 
