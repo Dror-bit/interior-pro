@@ -12,6 +12,8 @@ module InteriorPro
       }
       wall_cmd.tooltip = 'Draw Walls - Opens Wall Library'
       wall_cmd.status_bar_text = 'Select wall type and start drawing'
+      wall_cmd.small_icon = File.join(__dir__, 'icons', 'wall_tool_16.png')
+      wall_cmd.large_icon = File.join(__dir__, 'icons', 'wall_tool_24.png')
       toolbar.add_item(wall_cmd)
 
       # Edit Wall Button
@@ -20,6 +22,8 @@ module InteriorPro
       }
       edit_cmd.tooltip = 'Edit Wall - Double-click a wall to edit'
       edit_cmd.status_bar_text = 'Double-click a wall to edit it'
+      edit_cmd.small_icon = File.join(__dir__, 'icons', 'edit_wall_16.png')
+      edit_cmd.large_icon = File.join(__dir__, 'icons', 'edit_wall_24.png')
       toolbar.add_item(edit_cmd)
 
       toolbar.restore
