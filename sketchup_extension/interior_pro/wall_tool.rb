@@ -2,7 +2,7 @@
 
 module InteriorPro
   class WallTool
-    attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor
+    attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category
 
     def initialize
       @start_point = nil
@@ -13,6 +13,7 @@ module InteriorPro
       @interior_material = 'Gypsum'
       @wall_type_name = 'Default'
       @anchor = 'bottom-center'
+      @wall_category = 'both'
       @drawing = false
       @locked_axis = nil
       @ip = nil

@@ -29,6 +29,7 @@ module InteriorPro
         tool.interior_material = wall['interior_material']
         tool.wall_type_name = wall['name']
         tool.anchor = wall['anchor'] || 'bottom-center'
+        tool.wall_category = wall['wall_category'] || 'both'
         dialog.close
         Sketchup.active_model.select_tool(tool)
       }
@@ -106,6 +107,12 @@ module InteriorPro
             <input type="hidden" id="editIndex" value="-1">
             <label>Wall Type Name</label>
             <input type="text" id="wallName" placeholder="e.g. Exterior Stucco Wall">
+            <label>Wall Category</label>
+            <select id="wallCategory">
+              <option value="interior">Interior</option>
+              <option value="exterior">Exterior</option>
+              <option value="both" selected>Both</option>
+            </select>
             <div class="row">
               <div>
                 <label>Height (inches)</label>
@@ -161,7 +168,7 @@ module InteriorPro
             list.innerHTML = data.map(function(w, i) {
               return '<div class="wall-item">' +
                 '<div>' +
-                  '<div class="wall-name">' + w.name + '</div>' +
+                  '<div class="wall-name">' + w.name + ' <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:#e3f2fd;color:#1565C0;font-weight:normal;">' + (w.wall_category || 'both') + '</span></div>' +
                   '<div class="wall-info">H: ' + w.height + '" | T: ' + w.thickness + '" | Ext: ' + w.exterior_material + ' | Int: ' + w.interior_material + '</div>' +
                 '</div>' +
                 '<div class="wall-actions">' +
@@ -187,6 +194,7 @@ module InteriorPro
             document.getElementById('extMat').value = w.exterior_material;
             document.getElementById('intMat').value = w.interior_material;
             setAnchor(w.anchor || 'bottom-center');
+            document.getElementById('wallCategory').value = w.wall_category || 'both';
             document.getElementById('formPanel').className = 'form-panel visible';
           }
 
@@ -225,7 +233,8 @@ module InteriorPro
               thickness: parseFloat(document.getElementById('wallThickness').value),
               exterior_material: document.getElementById('extMat').value,
               interior_material: document.getElementById('intMat').value,
-              anchor: currentAnchor
+              anchor: currentAnchor,
+              wall_category: document.getElementById('wallCategory').value
             };
             sketchup.save_wall(JSON.stringify(wall));
             hideForm();
