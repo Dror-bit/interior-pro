@@ -229,11 +229,7 @@ module InteriorPro
 
       w_ents = group.entities
       face = w_ents.add_face(pt1, pt2, pt3, pt4)
-      if face.normal.z >= 0
-        face.pushpull(@height)
-      else
-        face.pushpull(-@height)
-      end
+      face.pushpull(-@height)
       apply_materials(face)
 
       model.commit_operation
