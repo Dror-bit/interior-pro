@@ -40,9 +40,14 @@ module InteriorPro
       nx = -dy / len * @thickness / 2
       ny = dx / len * @thickness / 2
 
-      parts = @anchor.split('-')
-      h_anchor = parts.last
-      v_anchor = parts.first
+      if @anchor == 'center'
+        v_anchor = 'center'
+        h_anchor = 'center'
+      else
+        parts = @anchor.split('-')
+        v_anchor = parts[0]
+        h_anchor = parts[1] || 'center'
+      end
 
       # Vertical Z range
       case v_anchor
@@ -178,14 +183,13 @@ module InteriorPro
       nx = -dy / len * @thickness / 2
       ny = dx / len * @thickness / 2
 
-      # Parse anchor: "vertical-horizontal" (e.g. 'bottom-center', 'top-left')
-      parts = @anchor.split('-')
-      if parts.length == 2
-        v_anchor = parts[0]  # bottom, center, top
-        h_anchor = parts[1]  # left, center, right
-      else
-        v_anchor = 'bottom'
+      if @anchor == 'center'
+        v_anchor = 'center'
         h_anchor = 'center'
+      else
+        parts = @anchor.split('-')
+        v_anchor = parts[0]
+        h_anchor = parts[1] || 'center'
       end
 
       # Vertical (Z) offset
