@@ -154,19 +154,13 @@ module InteriorPro
     end
 
     def snap_to_axis(pt)
-      return pt unless @drawing && @start_point
+      return Geom::Point3d.new(pt.x, pt.y, 0) unless @drawing && @start_point
       if @locked_axis == :x
         Geom::Point3d.new(pt.x, @start_point.y, 0)
       elsif @locked_axis == :y
         Geom::Point3d.new(@start_point.x, pt.y, 0)
       else
-        dx = (pt.x - @start_point.x).abs
-        dy = (pt.y - @start_point.y).abs
-        if dx > dy
-          Geom::Point3d.new(pt.x, @start_point.y, 0)
-        else
-          Geom::Point3d.new(@start_point.x, pt.y, 0)
-        end
+        Geom::Point3d.new(pt.x, pt.y, 0)
       end
     end
 
