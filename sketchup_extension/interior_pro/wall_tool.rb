@@ -186,6 +186,8 @@ module InteriorPro
         h_anchor = parts[1] || 'center'
       end
 
+      Sketchup.set_status_text("anchor=#{@anchor} v=#{v_anchor} h=#{h_anchor} nx=#{nx.round(2)} ny=#{ny.round(2)}", SB_PROMPT)
+
       # Vertical (Z) offset
       case v_anchor
       when 'top'
