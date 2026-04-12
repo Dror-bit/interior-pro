@@ -138,9 +138,6 @@ module InteriorPro
               <button class="anchor-btn" onclick="setAnchor('top-left')" id="anchor-top-left">Top Left</button>
               <button class="anchor-btn" onclick="setAnchor('top-center')" id="anchor-top-center">Top Center</button>
               <button class="anchor-btn" onclick="setAnchor('top-right')" id="anchor-top-right">Top Right</button>
-              <button class="anchor-btn" onclick="setAnchor('center-left')" id="anchor-center-left">Center Left</button>
-              <button class="anchor-btn" onclick="setAnchor('center')" id="anchor-center">Center</button>
-              <button class="anchor-btn" onclick="setAnchor('center-right')" id="anchor-center-right">Center Right</button>
               <button class="anchor-btn" onclick="setAnchor('bottom-left')" id="anchor-bottom-left">Bottom Left</button>
               <button class="anchor-btn active" onclick="setAnchor('bottom-center')" id="anchor-bottom-center">Bottom Center</button>
               <button class="anchor-btn" onclick="setAnchor('bottom-right')" id="anchor-bottom-right">Bottom Right</button>
@@ -219,7 +216,7 @@ module InteriorPro
           function setAnchor(val) {
             currentAnchor = val;
             document.getElementById('anchorVal').value = val;
-            ['top-left','top-center','top-right','center-left','center','center-right','bottom-left','bottom-center','bottom-right'].forEach(function(a) {
+            ['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].forEach(function(a) {
               document.getElementById('anchor-' + a).className = 'anchor-btn' + (a === val ? ' active' : '');
             });
           }

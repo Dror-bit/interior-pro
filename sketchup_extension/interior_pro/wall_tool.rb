@@ -17,6 +17,7 @@ module InteriorPro
       @drawing = false
       @locked_axis = nil
       @auto_snap = nil
+      @length_input = ''
       @ip = nil
     end
 
@@ -93,7 +94,7 @@ module InteriorPro
               when :manual
                 Sketchup::Color.new(0, 120, 255, 180)
               when :auto
-                @locked_axis == :x ? Sketchup::Color.new(0, 200, 0, 200) : Sketchup::Color.new(220, 0, 0, 200)
+                @locked_axis == :x ? Sketchup::Color.new(220, 0, 0, 200) : Sketchup::Color.new(0, 200, 0, 200)
               else
                 Sketchup::Color.new(0, 120, 255, 180)
               end
@@ -135,11 +136,13 @@ module InteriorPro
       if !@drawing
         @start_point = pt
         @drawing = true
+        @length_input = ''
         Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
       else
         @end_point = pt
         create_wall
         @start_point = @end_point
+        @length_input = ''
       end
     end
 
@@ -148,7 +151,10 @@ module InteriorPro
     end
 
     def onKeyDown(key, repeat, flags, view)
-      finish_drawing if key == 27
+      if key == 27
+        finish_drawing
+        return
+      end
       if key == 16 && @drawing && @start_point
         dx = @end_point ? (@end_point.x - @start_point.x).abs : 0
         dy = @end_point ? (@end_point.y - @start_point.y).abs : 0
@@ -156,7 +162,40 @@ module InteriorPro
         @auto_snap = :manual
         Sketchup.set_status_text('Direction locked (hold Shift).', SB_PROMPT)
         view.invalidate
+        return
       end
+
+      return unless @drawing && @start_point
+
+      if key >= 48 && key <= 57
+        @length_input += (key - 48).to_s
+        Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+      elsif key == 190 || key == 110 || key == 46
+        @length_input += '.' unless @length_input.include?('.')
+        Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+      elsif key == 8
+        @length_input = @length_input[0...-1] if @length_input.length > 0
+        Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+      elsif key == 13
+        apply_length_input if @length_input.length > 0
+      end
+    end
+
+    def apply_length_input
+      return unless @start_point && @end_point
+      length = @length_input.to_f
+      @length_input = ''
+      return if length <= 0
+      dx = @end_point.x - @start_point.x
+      dy = @end_point.y - @start_point.y
+      cur_len = Math.sqrt(dx**2 + dy**2)
+      return if cur_len < 0.001
+      new_x = @start_point.x + dx / cur_len * length
+      new_y = @start_point.y + dy / cur_len * length
+      @end_point = Geom::Point3d.new(new_x, new_y, 0)
+      create_wall
+      @start_point = @end_point
+      Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
     end
 
     def onKeyUp(key, repeat, flags, view)
