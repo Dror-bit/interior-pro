@@ -16,6 +16,7 @@ module InteriorPro
       @wall_category = 'both'
       @drawing = false
       @locked_axis = nil
+      @auto_snap = nil
       @ip = nil
     end
 
@@ -88,7 +89,15 @@ module InteriorPro
       t4 = Geom::Point3d.new(b4.x, b4.y, z2)
 
       view.line_width = 2
-      view.drawing_color = Sketchup::Color.new(0, 120, 255, 180)
+      color = case @auto_snap
+              when :manual
+                Sketchup::Color.new(0, 120, 255, 180)
+              when :auto
+                @locked_axis == :x ? Sketchup::Color.new(0, 200, 0, 200) : Sketchup::Color.new(220, 0, 0, 200)
+              else
+                Sketchup::Color.new(0, 120, 255, 180)
+              end
+      view.drawing_color = color
 
       # Bottom edges
       view.draw_line(b1, b2)
@@ -113,6 +122,7 @@ module InteriorPro
       @ip.pick(view, x, y)
       if @drawing
         raw = @ip.position
+        detect_auto_snap(raw) unless @auto_snap == :manual
         @end_point = snap_to_axis(raw)
       end
       view.invalidate
@@ -139,17 +149,44 @@ module InteriorPro
 
     def onKeyDown(key, repeat, flags, view)
       finish_drawing if key == 27
-      if key == 16 && @drawing
-        if @locked_axis.nil?
-          dx = @end_point ? (@end_point.x - @start_point.x).abs : 0
-          dy = @end_point ? (@end_point.y - @start_point.y).abs : 0
-          @locked_axis = dx > dy ? :x : :y
-          Sketchup.set_status_text('Direction locked. Press Shift again to unlock.', SB_PROMPT)
-        else
-          @locked_axis = nil
-          Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
-        end
+      if key == 16 && @drawing && @start_point
+        dx = @end_point ? (@end_point.x - @start_point.x).abs : 0
+        dy = @end_point ? (@end_point.y - @start_point.y).abs : 0
+        @locked_axis = dx > dy ? :x : :y
+        @auto_snap = :manual
+        Sketchup.set_status_text('Direction locked (hold Shift).', SB_PROMPT)
         view.invalidate
+      end
+    end
+
+    def onKeyUp(key, repeat, flags, view)
+      if key == 16
+        @locked_axis = nil
+        @auto_snap = nil
+        view.invalidate
+      end
+    end
+
+    def detect_auto_snap(pt)
+      return unless @start_point
+      dx = pt.x - @start_point.x
+      dy = pt.y - @start_point.y
+      if dx.abs < 0.1 && dy.abs < 0.1
+        @locked_axis = nil
+        @auto_snap = nil
+        return
+      end
+      angle = Math.atan2(dy, dx) * 180 / Math::PI
+      angle += 360 if angle < 0
+      if angle < 10 || angle > 350 || (angle > 170 && angle < 190)
+        @locked_axis = :x
+        @auto_snap = :auto
+      elsif (angle > 80 && angle < 100) || (angle > 260 && angle < 280)
+        @locked_axis = :y
+        @auto_snap = :auto
+      else
+        @locked_axis = nil
+        @auto_snap = nil
       end
     end
 
