@@ -24,7 +24,9 @@ module InteriorPro
     def activate
       @ip = Sketchup::InputPoint.new
       Sketchup.set_status_text('Click to start drawing a wall. Press Escape to cancel.', SB_PROMPT)
-      Sketchup.active_model.active_view.invalidate
+      view = Sketchup.active_model.active_view
+      view.vcb_label = 'Length'
+      view.invalidate
     end
 
     def deactivate(view)
@@ -168,12 +170,15 @@ module InteriorPro
       if key >= 48 && key <= 57
         @length_input += (key - 48).to_s
         Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+        view.vcb_value = @length_input
       elsif key == 190 || key == 110 || key == 46
         @length_input += '.' unless @length_input.include?('.')
         Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+        view.vcb_value = @length_input
       elsif key == 8
         @length_input = @length_input[0...-1] if @length_input.length > 0
         Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+        view.vcb_value = @length_input
       elsif key == 13
         apply_length_input if @length_input.length > 0
       end
@@ -181,7 +186,7 @@ module InteriorPro
 
     def apply_length_input
       return unless @start_point && @end_point
-      length = @length_input.to_f
+      length = @length_input.to_l
       @length_input = ''
       return if length <= 0
       dx = @end_point.x - @start_point.x
