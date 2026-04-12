@@ -122,17 +122,15 @@ module InteriorPro
     def onMouseMove(flags, x, y, view)
       @ip.pick(view, x, y)
       if @drawing
-        raw = @ip.position
-        detect_auto_snap(raw) unless @auto_snap == :manual
-        @end_point = snap_to_axis(raw)
+        detect_auto_snap(@ip.position) unless @auto_snap == :manual
+        @end_point = snap_to_axis(@ip.position)
       end
       view.invalidate
     end
 
     def onLButtonDown(flags, x, y, view)
       @ip.pick(view, x, y)
-      raw = @ip.position
-      pt = snap_to_axis(raw)
+      pt = snap_to_axis(@ip.position)
       if !@drawing
         @start_point = pt
         @drawing = true
