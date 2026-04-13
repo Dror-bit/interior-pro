@@ -175,6 +175,14 @@ module InteriorPro
         @length_input += '.' unless @length_input.include?('.')
         Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
         view.vcb_value = @length_input
+      elsif key == 222 || key == 39
+        @length_input += "'"
+        Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+        view.vcb_value = @length_input
+      elsif key == 186 || key == 34
+        @length_input += '"'
+        Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
+        view.vcb_value = @length_input
       elsif key == 8
         @length_input = @length_input[0...-1] if @length_input.length > 0
         Sketchup.set_status_text("Length: #{@length_input}", SB_PROMPT)
