@@ -34,6 +34,7 @@ module InteriorPro
     end
 
     def draw(view)
+      @ip.draw(view) if @ip && @ip.display?
       return unless @drawing && @end_point
 
       dx = @end_point.x - @start_point.x
@@ -124,15 +125,25 @@ module InteriorPro
     def onMouseMove(flags, x, y, view)
       @ip.pick(view, x, y)
       if @drawing
-        detect_auto_snap(@ip.position) unless @auto_snap == :manual
-        @end_point = snap_to_axis(@ip.position)
+        if snapped_to_geometry?
+          @end_point = @ip.position
+          @auto_snap = nil
+          @locked_axis = nil
+        else
+          detect_auto_snap(@ip.position) unless @auto_snap == :manual
+          @end_point = snap_to_axis(@ip.position)
+        end
       end
       view.invalidate
     end
 
+    def snapped_to_geometry?
+      !@ip.vertex.nil? || !@ip.edge.nil?
+    end
+
     def onLButtonDown(flags, x, y, view)
       @ip.pick(view, x, y)
-      pt = snap_to_axis(@ip.position)
+      pt = snapped_to_geometry? ? @ip.position : snap_to_axis(@ip.position)
       if !@drawing
         @start_point = pt
         @drawing = true
