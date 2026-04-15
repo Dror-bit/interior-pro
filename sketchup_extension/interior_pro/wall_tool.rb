@@ -25,7 +25,6 @@ module InteriorPro
       @ip = Sketchup::InputPoint.new
       Sketchup.set_status_text('Click to start drawing a wall. Press Escape to cancel.', SB_PROMPT)
       view = Sketchup.active_model.active_view
-      view.vcb_label = 'Length'
       view.invalidate
     end
 
