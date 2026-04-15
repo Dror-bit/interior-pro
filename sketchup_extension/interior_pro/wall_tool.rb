@@ -92,7 +92,6 @@ module InteriorPro
       t3 = Geom::Point3d.new(b3.x, b3.y, z2)
       t4 = Geom::Point3d.new(b4.x, b4.y, z2)
 
-      view.line_width = 2
       color = case @auto_snap
               when :manual
                 Sketchup::Color.new(0, 120, 255, 180)
@@ -101,18 +100,15 @@ module InteriorPro
               else
                 Sketchup::Color.new(0, 120, 255, 180)
               end
+
+      view.line_width = 2
+      view.line_stipple = ''
       view.drawing_color = color
-
-      puts "[WallTool.draw] h=#{@height} v_anchor=#{v_anchor} h_anchor=#{h_anchor} z1=#{z1} z2=#{z2}"
-      puts "[WallTool.draw] b1=#{b1.to_a} b2=#{b2.to_a} b3=#{b3.to_a} b4=#{b4.to_a}"
-      puts "[WallTool.draw] t1=#{t1.to_a} t2=#{t2.to_a} t3=#{t3.to_a} t4=#{t4.to_a}"
-
-      edges = [
-        b1, b2, b2, b3, b3, b4, b4, b1,
-        t1, t2, t2, t3, t3, t4, t4, t1,
-        b1, t1, b2, t2, b3, t3, b4, t4
-      ]
-      view.draw(GL_LINES, edges)
+      [[b1,b2],[b2,b3],[b3,b4],[b4,b1],
+       [t1,t2],[t2,t3],[t3,t4],[t4,t1],
+       [b1,t1],[b2,t2],[b3,t3],[b4,t4]].each do |a,b|
+        view.draw_line(a, b)
+      end
     end
 
     def onMouseMove(flags, x, y, view)
