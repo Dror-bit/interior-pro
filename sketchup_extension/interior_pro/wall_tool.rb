@@ -102,13 +102,9 @@ module InteriorPro
               end
 
       view.line_width = 2
-      view.line_stipple = ''
       view.drawing_color = color
-      [[b1,b2],[b2,b3],[b3,b4],[b4,b1],
-       [t1,t2],[t2,t3],[t3,t4],[t4,t1],
-       [b1,t1],[b2,t2],[b3,t3],[b4,t4]].each do |a,b|
-        view.draw_line(a, b)
-      end
+      edges = [b1,b2, b2,b3, b3,b4, b4,b1, t1,t2, t2,t3, t3,t4, t4,t1, b1,t1, b2,t2, b3,t3, b4,t4]
+      view.draw(GL_LINES, edges)
     end
 
     def onMouseMove(flags, x, y, view)
