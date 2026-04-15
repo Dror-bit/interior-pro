@@ -36,6 +36,21 @@ module InteriorPro
 
     def draw(view)
       @ip.draw(view) if @ip && @ip.display?
+      return unless @drawing && @start_point && @locked_axis
+
+      if @locked_axis == :x
+        view.drawing_color = Sketchup::Color.new(255, 0, 0)
+        p1 = Geom::Point3d.new(@start_point.x - 10000, @start_point.y, @start_point.z)
+        p2 = Geom::Point3d.new(@start_point.x + 10000, @start_point.y, @start_point.z)
+      else
+        view.drawing_color = Sketchup::Color.new(0, 200, 0)
+        p1 = Geom::Point3d.new(@start_point.x, @start_point.y - 10000, @start_point.z)
+        p2 = Geom::Point3d.new(@start_point.x, @start_point.y + 10000, @start_point.z)
+      end
+      view.line_width = 1
+      view.line_stipple = '_'
+      view.draw(GL_LINES, [p1, p2])
+      view.line_stipple = ''
     end
 
     def compute_wall_points
