@@ -103,23 +103,16 @@ module InteriorPro
               end
       view.drawing_color = color
 
-      # Bottom edges
-      view.draw_line(b1, b2)
-      view.draw_line(b2, b3)
-      view.draw_line(b3, b4)
-      view.draw_line(b4, b1)
+      puts "[WallTool.draw] h=#{@height} v_anchor=#{v_anchor} h_anchor=#{h_anchor} z1=#{z1} z2=#{z2}"
+      puts "[WallTool.draw] b1=#{b1.to_a} b2=#{b2.to_a} b3=#{b3.to_a} b4=#{b4.to_a}"
+      puts "[WallTool.draw] t1=#{t1.to_a} t2=#{t2.to_a} t3=#{t3.to_a} t4=#{t4.to_a}"
 
-      # Top edges
-      view.draw_line(t1, t2)
-      view.draw_line(t2, t3)
-      view.draw_line(t3, t4)
-      view.draw_line(t4, t1)
-
-      # Vertical edges
-      view.draw_line(b1, t1)
-      view.draw_line(b2, t2)
-      view.draw_line(b3, t3)
-      view.draw_line(b4, t4)
+      edges = [
+        b1, b2, b2, b3, b3, b4, b4, b1,
+        t1, t2, t2, t3, t3, t4, t4, t1,
+        b1, t1, b2, t2, b3, t3, b4, t4
+      ]
+      view.draw(GL_LINES, edges)
     end
 
     def onMouseMove(flags, x, y, view)
