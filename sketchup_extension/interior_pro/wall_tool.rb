@@ -19,6 +19,7 @@ module InteriorPro
       @auto_snap = nil
       @length_input = ''
       @ip = nil
+      @preview_group = nil
     end
 
     def activate
@@ -29,17 +30,20 @@ module InteriorPro
     end
 
     def deactivate(view)
+      clear_preview
       view.invalidate
     end
 
     def draw(view)
       @ip.draw(view) if @ip && @ip.display?
-      return unless @drawing && @end_point
+    end
 
+    def compute_wall_points
+      return nil unless @start_point && @end_point
       dx = @end_point.x - @start_point.x
       dy = @end_point.y - @start_point.y
       len = Math.sqrt(dx**2 + dy**2)
-      return if len < 0.1
+      return nil if len < 0.1
 
       nx = -dy / len * @thickness / 2
       ny = dx / len * @thickness / 2
@@ -53,7 +57,6 @@ module InteriorPro
         h_anchor = parts[1] || 'center'
       end
 
-      # Vertical Z range
       case v_anchor
       when 'top'
         z1 = -@height
@@ -61,12 +64,11 @@ module InteriorPro
       when 'center'
         z1 = -@height / 2.0
         z2 = @height / 2.0
-      else # bottom
+      else
         z1 = 0
         z2 = @height
       end
 
-      # Horizontal corner points (bottom face)
       case h_anchor
       when 'left'
         b1 = Geom::Point3d.new(@start_point.x, @start_point.y, z1)
@@ -78,32 +80,58 @@ module InteriorPro
         b2 = Geom::Point3d.new(@end_point.x - nx * 2, @end_point.y - ny * 2, z1)
         b3 = Geom::Point3d.new(@end_point.x, @end_point.y, z1)
         b4 = Geom::Point3d.new(@start_point.x, @start_point.y, z1)
-      else # center
+      else
         b1 = Geom::Point3d.new(@start_point.x + nx, @start_point.y + ny, z1)
         b2 = Geom::Point3d.new(@end_point.x + nx, @end_point.y + ny, z1)
         b3 = Geom::Point3d.new(@end_point.x - nx, @end_point.y - ny, z1)
         b4 = Geom::Point3d.new(@start_point.x - nx, @start_point.y - ny, z1)
       end
 
-      # Top face points
-      t1 = Geom::Point3d.new(b1.x, b1.y, z2)
-      t2 = Geom::Point3d.new(b2.x, b2.y, z2)
-      t3 = Geom::Point3d.new(b3.x, b3.y, z2)
-      t4 = Geom::Point3d.new(b4.x, b4.y, z2)
+      { b: [b1, b2, b3, b4], z1: z1, z2: z2 }
+    end
 
-      color = case @auto_snap
-              when :manual
-                Sketchup::Color.new(0, 120, 255, 180)
-              when :auto
-                @locked_axis == :x ? Sketchup::Color.new(220, 0, 0, 200) : Sketchup::Color.new(0, 200, 0, 200)
-              else
-                Sketchup::Color.new(0, 120, 255, 180)
-              end
+    def preview_material
+      model = Sketchup.active_model
+      mat = model.materials['InteriorPro_Preview']
+      unless mat
+        mat = model.materials.add('InteriorPro_Preview')
+        mat.color = Sketchup::Color.new(100, 180, 255)
+      end
+      mat.alpha = 0.5
+      mat
+    end
 
-      view.line_width = 2
-      view.drawing_color = color
-      edges = [b1,b2, b2,b3, b3,b4, b4,b1, t1,t2, t2,t3, t3,t4, t4,t1, b1,t1, b2,t2, b3,t3, b4,t4]
-      view.draw(GL_LINES, edges)
+    def create_preview
+      return unless @drawing
+      pts = compute_wall_points
+      return unless pts
+
+      model = Sketchup.active_model
+      model.start_operation('Preview Wall', true, false, true)
+      begin
+        @preview_group = model.active_entities.add_group
+        @preview_group.set_attribute('InteriorPro', 'type', 'wall_preview')
+        ents = @preview_group.entities
+        face = ents.add_face(*pts[:b])
+        height = pts[:z2] - pts[:z1]
+        dir = face.normal.z >= 0 ? 1 : -1
+        face.pushpull(height * dir)
+        @preview_group.material = preview_material
+        model.commit_operation
+      rescue => e
+        model.abort_operation
+        @preview_group = nil
+        puts "[WallTool.create_preview] error: #{e.message}"
+      end
+    end
+
+    def clear_preview
+      return unless @preview_group && @preview_group.valid?
+      model = Sketchup.active_model
+      model.start_operation('Clear Preview', true, false, true)
+      @preview_group.erase!
+      model.commit_operation
+      @preview_group = nil
     end
 
     def onMouseMove(flags, x, y, view)
@@ -119,6 +147,8 @@ module InteriorPro
           detect_auto_snap(@ip.position)
           @end_point = snap_to_axis(@ip.position)
         end
+        clear_preview
+        create_preview
       end
       view.invalidate
     end
@@ -258,6 +288,8 @@ module InteriorPro
       return unless @start_point && @end_point
       return if @start_point.distance(@end_point) < 0.1
 
+      clear_preview
+
       model = Sketchup.active_model
       model.start_operation('Create Wall', true)
 
@@ -334,6 +366,7 @@ module InteriorPro
     end
 
     def finish_drawing
+      clear_preview
       @drawing = false
       @start_point = nil
       @end_point = nil
