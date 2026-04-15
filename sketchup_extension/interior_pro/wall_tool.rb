@@ -110,7 +110,7 @@ module InteriorPro
       mat = model.materials['InteriorPro_Preview']
       unless mat
         mat = model.materials.add('InteriorPro_Preview')
-        mat.color = Sketchup::Color.new(100, 180, 255)
+        mat.color = Sketchup::Color.new(200, 200, 200, 80)
       end
       mat.alpha = 0.5
       mat
