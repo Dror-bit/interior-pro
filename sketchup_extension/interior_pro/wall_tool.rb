@@ -126,6 +126,7 @@ module InteriorPro
       begin
         @preview_group = model.active_entities.add_group
         @preview_group.set_attribute('InteriorPro', 'type', 'wall_preview')
+        @preview_group.layer = Sketchup.active_model.layers['Untagged'] rescue nil
         ents = @preview_group.entities
         face = ents.add_face(*pts[:b])
         height = pts[:z2] - pts[:z1]
@@ -150,7 +151,9 @@ module InteriorPro
     end
 
     def onMouseMove(flags, x, y, view)
+      @preview_group.hidden = true if @preview_group && @preview_group.valid?
       @ip.pick(view, x, y)
+      @preview_group.hidden = false if @preview_group && @preview_group.valid?
       if @drawing
         if @auto_snap == :manual
           @end_point = snap_to_axis(@ip.position)
@@ -173,7 +176,9 @@ module InteriorPro
     end
 
     def onLButtonDown(flags, x, y, view)
+      @preview_group.hidden = true if @preview_group && @preview_group.valid?
       @ip.pick(view, x, y)
+      @preview_group.hidden = false if @preview_group && @preview_group.valid?
       pt = if @auto_snap == :manual
              snap_to_axis(@ip.position)
            elsif snapped_to_geometry?
