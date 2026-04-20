@@ -477,8 +477,8 @@ module InteriorPro
         ex_t = g.get_attribute('InteriorPro', 'thickness')
         ex_h = g.get_attribute('InteriorPro', 'height')
         ex_a = g.get_attribute('InteriorPro', 'anchor')
-        unless ex_t == new_attrs[:thickness] && ex_h == new_attrs[:height] && ex_a == new_attrs[:anchor]
-          puts "[InteriorPro.join_corners] skip group #{g.entityID}: mismatched thickness/height/anchor"
+        unless ex_t == new_attrs[:thickness] && ex_h == new_attrs[:height]
+          puts "[InteriorPro.join_corners] skip group #{g.entityID}: mismatched thickness/height"
           next
         end
 
@@ -536,19 +536,20 @@ module InteriorPro
       return if nlen < 0.001
       new_unit = Geom::Vector3d.new(new_vec.x / nlen, new_vec.y / nlen, 0)
 
+      new_retract = new_attrs[:anchor] == 'center' ? t / 2.0 : t
       new_start_adj = new_start
       new_end_adj   = new_end
       matches.each do |m|
         if m[:tag_n] == :new_start
           new_start_adj = Geom::Point3d.new(
-            new_start.x + new_unit.x * t / 2.0,
-            new_start.y + new_unit.y * t / 2.0,
+            new_start.x + new_unit.x * new_retract,
+            new_start.y + new_unit.y * new_retract,
             0
           )
         else
           new_end_adj = Geom::Point3d.new(
-            new_end.x - new_unit.x * t / 2.0,
-            new_end.y - new_unit.y * t / 2.0,
+            new_end.x - new_unit.x * new_retract,
+            new_end.y - new_unit.y * new_retract,
             0
           )
         end
@@ -568,18 +569,19 @@ module InteriorPro
           return
         end
         ex_unit = Geom::Vector3d.new(ex_vec.x / elen, ex_vec.y / elen, 0)
+        ex_retract = m[:ex_attrs][:anchor] == 'center' ? t / 2.0 : t
         if m[:tag_e] == :ex_start
           adj_start = Geom::Point3d.new(
-            m[:ex_start].x - ex_unit.x * t / 2.0,
-            m[:ex_start].y - ex_unit.y * t / 2.0,
+            m[:ex_start].x - ex_unit.x * ex_retract,
+            m[:ex_start].y - ex_unit.y * ex_retract,
             0
           )
           adj_end = m[:ex_end]
         else
           adj_start = m[:ex_start]
           adj_end = Geom::Point3d.new(
-            m[:ex_end].x + ex_unit.x * t / 2.0,
-            m[:ex_end].y + ex_unit.y * t / 2.0,
+            m[:ex_end].x + ex_unit.x * ex_retract,
+            m[:ex_end].y + ex_unit.y * ex_retract,
             0
           )
         end
