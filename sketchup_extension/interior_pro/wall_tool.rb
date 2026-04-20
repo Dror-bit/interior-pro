@@ -333,7 +333,35 @@ module InteriorPro
       }
     end
 
-    def build_wall_group(start_pt, end_pt, attrs, model)
+    def calculate_miter_points(wall1_start, wall1_end, wall2_start, wall2_end, thickness)
+      dx1 = wall1_end.x - wall1_start.x
+      dy1 = wall1_end.y - wall1_start.y
+      len1 = Math.sqrt(dx1**2 + dy1**2)
+      dx2 = wall2_end.x - wall2_start.x
+      dy2 = wall2_end.y - wall2_start.y
+      len2 = Math.sqrt(dx2**2 + dy2**2)
+      return nil if len1 < 0.001 || len2 < 0.001
+
+      vec1 = Geom::Vector3d.new(dx1 / len1, dy1 / len1, 0)
+      vec2 = Geom::Vector3d.new(dx2 / len2, dy2 / len2, 0)
+      return nil if vec1.parallel?(vec2)
+
+      perp1 = Geom::Vector3d.new(-vec1.y, vec1.x, 0)
+      perp2 = Geom::Vector3d.new(-vec2.y, vec2.x, 0)
+      half = thickness / 2.0
+
+      p1_outer = Geom::Point3d.new(wall1_start.x + perp1.x * half, wall1_start.y + perp1.y * half, 0)
+      p1_inner = Geom::Point3d.new(wall1_start.x - perp1.x * half, wall1_start.y - perp1.y * half, 0)
+      p2_outer = Geom::Point3d.new(wall2_start.x + perp2.x * half, wall2_start.y + perp2.y * half, 0)
+      p2_inner = Geom::Point3d.new(wall2_start.x - perp2.x * half, wall2_start.y - perp2.y * half, 0)
+
+      outer = Geom.intersect_line_line([p1_outer, vec1], [p2_outer, vec2])
+      inner = Geom.intersect_line_line([p1_inner, vec1], [p2_inner, vec2])
+      return nil unless outer && inner
+      { outer: outer, inner: inner }
+    end
+
+    def build_wall_group(start_pt, end_pt, attrs, model, miter_start = nil, miter_end = nil)
       return nil if start_pt.distance(end_pt) < 0.1
 
       dx = end_pt.x - start_pt.x
@@ -376,10 +404,20 @@ module InteriorPro
         pt3 = Geom::Point3d.new(end_pt.x, end_pt.y, z_offset)
         pt4 = Geom::Point3d.new(start_pt.x, start_pt.y, z_offset)
       else
-        pt1 = Geom::Point3d.new(start_pt.x + nx, start_pt.y + ny, z_offset)
-        pt2 = Geom::Point3d.new(end_pt.x + nx, end_pt.y + ny, z_offset)
-        pt3 = Geom::Point3d.new(end_pt.x - nx, end_pt.y - ny, z_offset)
-        pt4 = Geom::Point3d.new(start_pt.x - nx, start_pt.y - ny, z_offset)
+        if miter_start
+          pt1 = Geom::Point3d.new(miter_start[:outer].x, miter_start[:outer].y, z_offset)
+          pt4 = Geom::Point3d.new(miter_start[:inner].x, miter_start[:inner].y, z_offset)
+        else
+          pt1 = Geom::Point3d.new(start_pt.x + nx, start_pt.y + ny, z_offset)
+          pt4 = Geom::Point3d.new(start_pt.x - nx, start_pt.y - ny, z_offset)
+        end
+        if miter_end
+          pt2 = Geom::Point3d.new(miter_end[:outer].x, miter_end[:outer].y, z_offset)
+          pt3 = Geom::Point3d.new(miter_end[:inner].x, miter_end[:inner].y, z_offset)
+        else
+          pt2 = Geom::Point3d.new(end_pt.x + nx, end_pt.y + ny, z_offset)
+          pt3 = Geom::Point3d.new(end_pt.x - nx, end_pt.y - ny, z_offset)
+        end
       end
 
       group = model.active_entities.add_group
@@ -437,6 +475,10 @@ module InteriorPro
       return unless new_sx && new_ex
 
       tol = 20.0
+      new_miter_start = nil
+      new_miter_end = nil
+      existing_rebuilds = []
+
       model.active_entities.grep(Sketchup::Group).each do |g|
         next if g == new_group
         next unless g.get_attribute('InteriorPro','type') == 'wall'
@@ -449,8 +491,14 @@ module InteriorPro
         ex_attrs = {
           thickness: g.get_attribute('InteriorPro','thickness'),
           height: g.get_attribute('InteriorPro','height'),
-          anchor: g.get_attribute('InteriorPro','anchor')
+          anchor: g.get_attribute('InteriorPro','anchor'),
+          wall_type: g.get_attribute('InteriorPro','wall_type'),
+          exterior_material: g.get_attribute('InteriorPro','exterior_material'),
+          interior_material: g.get_attribute('InteriorPro','interior_material')
         }
+
+        ex_miter_start = nil
+        ex_miter_end = nil
 
         pairs = [
           [[new_sx,new_sy],[ex_sx,ex_sy],:start,:start],
@@ -461,21 +509,60 @@ module InteriorPro
         pairs.each do |np, ep, nside, eside|
           dist = Math.sqrt((np[0]-ep[0])**2 + (np[1]-ep[1])**2)
           next if dist > tol
-          # snap new wall endpoint to existing wall endpoint
-          if nside == :start
-            new_sx = ep[0]; new_sy = ep[1]
+
+          miter = calculate_miter_points(
+            Geom::Point3d.new(new_sx, new_sy, 0),
+            Geom::Point3d.new(new_ex, new_ey, 0),
+            Geom::Point3d.new(ex_sx, ex_sy, 0),
+            Geom::Point3d.new(ex_ex, ex_ey, 0),
+            new_attrs[:thickness]
+          )
+
+          if miter
+            if nside == :start
+              new_miter_start = miter
+            else
+              new_miter_end = miter
+            end
+            if eside == :start
+              ex_miter_start = miter
+            else
+              ex_miter_end = miter
+            end
+            puts "[InteriorPro] mitered new #{nside} to existing #{eside}"
           else
-            new_ex = ep[0]; new_ey = ep[1]
+            # Parallel walls fallback: snap endpoint
+            if nside == :start
+              new_sx = ep[0]; new_sy = ep[1]
+            else
+              new_ex = ep[0]; new_ey = ep[1]
+            end
+            puts "[InteriorPro] snapped #{nside} to existing #{eside} (parallel)"
           end
-          puts "[InteriorPro] snapped #{nside} to existing wall #{eside}"
+        end
+
+        if ex_miter_start || ex_miter_end
+          existing_rebuilds << {
+            group: g,
+            attrs: ex_attrs,
+            start_pt: Geom::Point3d.new(ex_sx, ex_sy, 0),
+            end_pt: Geom::Point3d.new(ex_ex, ex_ey, 0),
+            miter_start: ex_miter_start,
+            miter_end: ex_miter_end
+          }
         end
       end
 
-      # rebuild new wall with snapped endpoints
+      existing_rebuilds.each do |rb|
+        rb[:group].erase! if rb[:group].valid?
+        build_wall_group(rb[:start_pt], rb[:end_pt], rb[:attrs], model,
+                         rb[:miter_start], rb[:miter_end])
+      end
+
       new_start = Geom::Point3d.new(new_sx, new_sy, 0)
       new_end = Geom::Point3d.new(new_ex, new_ey, 0)
       new_group.erase! if new_group.valid?
-      build_wall_group(new_start, new_end, new_attrs, model)
+      build_wall_group(new_start, new_end, new_attrs, model, new_miter_start, new_miter_end)
     end
 
     def finish_drawing
