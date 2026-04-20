@@ -436,12 +436,6 @@ module InteriorPro
         interior_material: new_group.get_attribute('InteriorPro', 'interior_material')
       }
 
-      h_anc = new_attrs[:anchor] == 'center' ? 'center' : (new_attrs[:anchor].split('-')[1] || 'center')
-      unless h_anc == 'center'
-        puts "[InteriorPro.join_corners] skip: non-center horizontal anchor '#{new_attrs[:anchor]}' not supported"
-        return
-      end
-
       sx = new_group.get_attribute('InteriorPro', 'start_x')
       sy = new_group.get_attribute('InteriorPro', 'start_y')
       ex = new_group.get_attribute('InteriorPro', 'end_x')
