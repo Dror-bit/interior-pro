@@ -437,6 +437,8 @@ module InteriorPro
       return unless new_sx && new_ex
 
       tol = 20.0
+      snapped_start = false
+      snapped_end = false
       model.active_entities.grep(Sketchup::Group).each do |g|
         next if g == new_group
         next unless g.get_attribute('InteriorPro','type') == 'wall'
@@ -464,10 +466,30 @@ module InteriorPro
           # snap new wall endpoint to existing wall endpoint
           if nside == :start
             new_sx = ep[0]; new_sy = ep[1]
+            snapped_start = true
           else
             new_ex = ep[0]; new_ey = ep[1]
+            snapped_end = true
           end
           puts "[InteriorPro] snapped #{nside} to existing wall #{eside}"
+        end
+      end
+
+      # retract snapped end(s) by full thickness along the wall direction
+      t = new_attrs[:thickness].to_f
+      dx = new_ex - new_sx
+      dy = new_ey - new_sy
+      dlen = Math.sqrt(dx*dx + dy*dy)
+      if dlen > 0.001
+        ux = dx / dlen
+        uy = dy / dlen
+        if snapped_start
+          new_sx += ux * t
+          new_sy += uy * t
+        end
+        if snapped_end
+          new_ex -= ux * t
+          new_ey -= uy * t
         end
       end
 
