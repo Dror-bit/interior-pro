@@ -468,6 +468,36 @@ module InteriorPro
         rescue => e
           puts "[InteriorPro] trim failed: #{e.message}"
         end
+
+        begin
+          if new_group.valid? && new_group.manifold?
+            target_old_wall = if trimmed && trimmed.valid?
+                                trimmed
+                              elsif old_wall.valid?
+                                old_wall
+                              end
+            if target_old_wall
+              # save new_group attributes before reverse trim (trim creates a new group)
+              new_attrs = {}
+              ['type','wall_type','height','thickness','exterior_material',
+               'interior_material','anchor','start_x','start_y','end_x','end_y'].each do |k|
+                new_attrs[k] = new_group.get_attribute('InteriorPro', k)
+              end
+              new_name = new_group.name
+              result = new_group.trim(target_old_wall)
+              if result && result.valid?
+                result.name = new_name
+                new_attrs.each { |k,v| result.set_attribute('InteriorPro', k, v) if v }
+                new_group = result
+                puts "[InteriorPro] reverse-trimmed new wall"
+              else
+                puts "[InteriorPro] reverse trim returned nil"
+              end
+            end
+          end
+        rescue => e
+          puts "[InteriorPro] reverse trim failed: #{e.message}"
+        end
       end
     end
 
