@@ -421,178 +421,58 @@ module InteriorPro
       face.back_material = ext_mat
     end
 
-    # L-corner butt-join: new wall retracts t/2 along its centerline at the shared
-    # corner; matching existing wall extends t/2 past the corner. Produces a clean L
-    # only when both walls have matching thickness/height/anchor AND h_anchor == 'center'.
     def join_corners(new_group, model)
-      return unless new_group && new_group.valid?
-
+      new_sx = new_group.get_attribute('InteriorPro','start_x')
+      new_sy = new_group.get_attribute('InteriorPro','start_y')
+      new_ex = new_group.get_attribute('InteriorPro','end_x')
+      new_ey = new_group.get_attribute('InteriorPro','end_y')
       new_attrs = {
-        thickness: new_group.get_attribute('InteriorPro', 'thickness'),
-        height: new_group.get_attribute('InteriorPro', 'height'),
-        anchor: new_group.get_attribute('InteriorPro', 'anchor'),
-        wall_type: new_group.get_attribute('InteriorPro', 'wall_type'),
-        exterior_material: new_group.get_attribute('InteriorPro', 'exterior_material'),
-        interior_material: new_group.get_attribute('InteriorPro', 'interior_material')
+        thickness: new_group.get_attribute('InteriorPro','thickness'),
+        height: new_group.get_attribute('InteriorPro','height'),
+        anchor: new_group.get_attribute('InteriorPro','anchor')
       }
+      return unless new_sx && new_ex
 
-      sx = new_group.get_attribute('InteriorPro', 'start_x')
-      sy = new_group.get_attribute('InteriorPro', 'start_y')
-      ex = new_group.get_attribute('InteriorPro', 'end_x')
-      ey = new_group.get_attribute('InteriorPro', 'end_y')
-      return if sx.nil? || sy.nil? || ex.nil? || ey.nil?
-
-      new_start = Geom::Point3d.new(sx, sy, 0)
-      new_end   = Geom::Point3d.new(ex, ey, 0)
-      tol = 0.01
-
-      matches = collect_corner_matches(new_group, new_start, new_end, new_attrs, model, tol)
-      return if matches.empty?
-
-      apply_corner_joins(new_group, new_start, new_end, new_attrs, matches, model)
-    end
-
-    def collect_corner_matches(new_group, new_start, new_end, new_attrs, model, tol)
-      matches = []
-      model.active_entities.grep(Sketchup::Group).each do |g|
+      tol = 20.0
+      model.entities.grep(Sketchup::Group).each do |g|
         next if g == new_group
+        next unless g.get_attribute('InteriorPro','type') == 'wall'
         next unless g.valid?
-        next unless g.get_attribute('InteriorPro', 'type') == 'wall'
 
-        ex_sx = g.get_attribute('InteriorPro', 'start_x')
-        ex_sy = g.get_attribute('InteriorPro', 'start_y')
-        ex_ex = g.get_attribute('InteriorPro', 'end_x')
-        ex_ey = g.get_attribute('InteriorPro', 'end_y')
-        if ex_sx.nil? || ex_sy.nil? || ex_ex.nil? || ex_ey.nil?
-          puts "[InteriorPro.join_corners] skip group #{g.entityID}: missing centerline attributes (legacy wall)"
-          next
-        end
+        ex_sx = g.get_attribute('InteriorPro','start_x'); next unless ex_sx
+        ex_sy = g.get_attribute('InteriorPro','start_y')
+        ex_ex = g.get_attribute('InteriorPro','end_x')
+        ex_ey = g.get_attribute('InteriorPro','end_y')
+        ex_attrs = {
+          thickness: g.get_attribute('InteriorPro','thickness'),
+          height: g.get_attribute('InteriorPro','height'),
+          anchor: g.get_attribute('InteriorPro','anchor')
+        }
 
-        ex_t = g.get_attribute('InteriorPro', 'thickness')
-        ex_h = g.get_attribute('InteriorPro', 'height')
-        ex_a = g.get_attribute('InteriorPro', 'anchor')
-        unless ex_t == new_attrs[:thickness] && ex_h == new_attrs[:height]
-          puts "[InteriorPro.join_corners] skip group #{g.entityID}: mismatched thickness/height"
-          next
-        end
-
-        ex_start = Geom::Point3d.new(ex_sx, ex_sy, 0)
-        ex_end   = Geom::Point3d.new(ex_ex, ex_ey, 0)
-
-        pairings = [
-          [:new_start, :ex_start, new_start, ex_start],
-          [:new_start, :ex_end,   new_start, ex_end],
-          [:new_end,   :ex_start, new_end,   ex_start],
-          [:new_end,   :ex_end,   new_end,   ex_end]
+        pairs = [
+          [[new_sx,new_sy],[ex_sx,ex_sy],:start,:start],
+          [[new_sx,new_sy],[ex_ex,ex_ey],:start,:end],
+          [[new_ex,new_ey],[ex_sx,ex_sy],:end,:start],
+          [[new_ex,new_ey],[ex_ex,ex_ey],:end,:end]
         ]
-
-        matched = nil
-        pairings.each do |tag_n, tag_e, pt_n, pt_e|
-          next unless pt_n.distance(pt_e) < tol
-
-          nd = tag_n == :new_start ? (new_end - new_start) : (new_start - new_end)
-          ed = tag_e == :ex_start ? (ex_end - ex_start) : (ex_start - ex_end)
-          next if nd.length < 0.01 || ed.length < 0.01
-          nd.normalize!
-          ed.normalize!
-          cos_angle = nd % ed
-          if cos_angle.abs > 0.95
-            puts "[InteriorPro.join_corners] skip group #{g.entityID}: walls nearly parallel/collinear"
-            break
+        pairs.each do |np, ep, nside, eside|
+          dist = Math.sqrt((np[0]-ep[0])**2 + (np[1]-ep[1])**2)
+          next if dist > tol
+          # snap new wall endpoint to existing wall endpoint
+          if nside == :start
+            new_sx = ep[0]; new_sy = ep[1]
+          else
+            new_ex = ep[0]; new_ey = ep[1]
           end
-          if cos_angle.abs > 0.2
-            puts "[InteriorPro.join_corners] skip group #{g.entityID}: angle not near 90°"
-            break
-          end
-
-          matched = {
-            group: g, tag_n: tag_n, tag_e: tag_e,
-            ex_start: ex_start, ex_end: ex_end,
-            ex_attrs: {
-              thickness: ex_t, height: ex_h, anchor: ex_a,
-              wall_type: g.get_attribute('InteriorPro', 'wall_type'),
-              exterior_material: g.get_attribute('InteriorPro', 'exterior_material'),
-              interior_material: g.get_attribute('InteriorPro', 'interior_material')
-            }
-          }
-          break
-        end
-
-        matches << matched if matched
-      end
-      matches
-    end
-
-    def apply_corner_joins(new_group, new_start, new_end, new_attrs, matches, model)
-      t = new_attrs[:thickness]
-      new_vec = new_end - new_start
-      nlen = new_vec.length
-      return if nlen < 0.001
-      new_unit = Geom::Vector3d.new(new_vec.x / nlen, new_vec.y / nlen, 0)
-
-      new_retract = new_attrs[:anchor] == 'center' ? t / 2.0 : t
-      new_start_adj = new_start
-      new_end_adj   = new_end
-      matches.each do |m|
-        if m[:tag_n] == :new_start
-          new_start_adj = Geom::Point3d.new(
-            new_start.x + new_unit.x * new_retract,
-            new_start.y + new_unit.y * new_retract,
-            0
-          )
-        else
-          new_end_adj = Geom::Point3d.new(
-            new_end.x - new_unit.x * new_retract,
-            new_end.y - new_unit.y * new_retract,
-            0
-          )
+          puts "[InteriorPro] snapped #{nside} to existing wall #{eside}"
         end
       end
 
-      if new_start_adj.distance(new_end_adj) < 0.5
-        puts "[InteriorPro.join_corners] abort: new wall too short after adjustment"
-        return
-      end
-
-      per_match = []
-      matches.each do |m|
-        ex_vec = m[:ex_end] - m[:ex_start]
-        elen = ex_vec.length
-        if elen < 0.001
-          puts "[InteriorPro.join_corners] abort: existing wall #{m[:group].entityID} has zero-length centerline"
-          return
-        end
-        ex_unit = Geom::Vector3d.new(ex_vec.x / elen, ex_vec.y / elen, 0)
-        ex_retract = m[:ex_attrs][:anchor] == 'center' ? t / 2.0 : t
-        if m[:tag_e] == :ex_start
-          adj_start = Geom::Point3d.new(
-            m[:ex_start].x - ex_unit.x * ex_retract,
-            m[:ex_start].y - ex_unit.y * ex_retract,
-            0
-          )
-          adj_end = m[:ex_end]
-        else
-          adj_start = m[:ex_start]
-          adj_end = Geom::Point3d.new(
-            m[:ex_end].x + ex_unit.x * ex_retract,
-            m[:ex_end].y + ex_unit.y * ex_retract,
-            0
-          )
-        end
-        if adj_start.distance(adj_end) < 0.5
-          puts "[InteriorPro.join_corners] abort: existing wall #{m[:group].entityID} too short after adjustment"
-          return
-        end
-        per_match << m.merge(adj_start: adj_start, adj_end: adj_end)
-      end
-
-      new_group.erase!
-      build_wall_group(new_start_adj, new_end_adj, new_attrs, model)
-
-      per_match.each do |m|
-        m[:group].erase! if m[:group].valid?
-        build_wall_group(m[:adj_start], m[:adj_end], m[:ex_attrs], model)
-      end
+      # rebuild new wall with snapped endpoints
+      new_start = Geom::Point3d.new(new_sx, new_sy, 0)
+      new_end = Geom::Point3d.new(new_ex, new_ey, 0)
+      new_group.erase! if new_group.valid?
+      build_wall_group(new_start, new_end, new_attrs, model)
     end
 
     def finish_drawing
