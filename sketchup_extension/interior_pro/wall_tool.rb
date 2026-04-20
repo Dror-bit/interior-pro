@@ -439,12 +439,19 @@ module InteriorPro
 
       return if touching_walls.empty?
 
+      # tag new_group so we can find it after trim invalidates the reference
+      new_wall_id = Time.now.to_f.to_s
+      new_group.set_attribute('InteriorPro', 'temp_id', new_wall_id)
+
       # trim each existing wall against the new wall
       # this cuts the overlap from the OLD wall, leaving the new one intact
       touching_walls.each do |old_wall|
         next unless old_wall.valid?
         next unless old_wall.manifold?
-        next unless new_group.valid?
+
+        # refresh new_group reference via temp_id (prior trim may have replaced it)
+        new_group = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
+        next unless new_group && new_group.valid?
         next unless new_group.manifold?
 
         # save attributes of old wall before trim (trim creates a new group)
@@ -469,38 +476,38 @@ module InteriorPro
           puts "[InteriorPro] trim failed: #{e.message}"
         end
 
+        # refresh new_group again in case forward trim replaced it
+        new_group = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
+
         begin
-          puts "[InteriorPro] DEBUG reverse-trim: new_group.valid?=#{new_group.valid?}, new_group.manifold?=#{new_group.manifold? rescue 'err'}"
-          if new_group.valid? && new_group.manifold?
-            target_old_wall = if trimmed && trimmed.valid?
-                                trimmed
-                              elsif old_wall.valid?
-                                old_wall
-                              end
-            puts "[InteriorPro] DEBUG target_old_wall=#{target_old_wall.nil? ? 'nil' : 'present'}, trimmed.valid?=#{trimmed && trimmed.valid?}, old_wall.valid?=#{old_wall.valid?}"
-            if target_old_wall
-              # save new_group attributes before reverse trim (trim creates a new group)
-              new_attrs = {}
-              ['type','wall_type','height','thickness','exterior_material',
-               'interior_material','anchor','start_x','start_y','end_x','end_y'].each do |k|
-                new_attrs[k] = new_group.get_attribute('InteriorPro', k)
-              end
-              new_name = new_group.name
-              result = new_group.trim(target_old_wall)
-              if result && result.valid?
-                result.name = new_name
-                new_attrs.each { |k,v| result.set_attribute('InteriorPro', k, v) if v }
-                new_group = result
-                puts "[InteriorPro] reverse-trimmed new wall"
-              else
-                puts "[InteriorPro] reverse trim returned nil"
-              end
+          target_old = (trimmed && trimmed.valid? && trimmed.manifold?) ? trimmed :
+                       ((old_wall.valid? && old_wall.manifold?) ? old_wall : nil)
+          if new_group && new_group.valid? && new_group.manifold? && target_old
+            # save new_group attributes before reverse trim (trim creates a new group)
+            new_attrs = {}
+            ['type','wall_type','height','thickness','exterior_material',
+             'interior_material','anchor','start_x','start_y','end_x','end_y'].each do |k|
+              new_attrs[k] = new_group.get_attribute('InteriorPro', k)
+            end
+            new_name = new_group.name
+            result = new_group.trim(target_old)
+            if result && result.valid?
+              result.name = new_name
+              new_attrs.each { |k,v| result.set_attribute('InteriorPro', k, v) if v }
+              result.set_attribute('InteriorPro', 'temp_id', new_wall_id)
+              puts "[InteriorPro] reverse-trimmed new wall"
+            else
+              puts "[InteriorPro] reverse trim returned nil"
             end
           end
         rescue => e
           puts "[InteriorPro] reverse trim failed: #{e.message}"
         end
       end
+
+      # clean up temp_id on the final new_group
+      final = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
+      final.delete_attribute('InteriorPro', 'temp_id') if final
     end
 
     def bounds_overlap?(b1, b2)
