@@ -370,7 +370,13 @@ module InteriorPro
       group.set_attribute('InteriorPro', 'anchor', @anchor)
 
       w_ents = group.entities
-      face = w_ents.add_face(pt1, pt2, pt3, pt4)
+      pts = [pt1, pt2, pt3, pt4].uniq { |p| [p.x.round(4), p.y.round(4), p.z.round(4)] }
+      if pts.length < 3
+        group.erase!
+        model.commit_operation
+        return
+      end
+      face = w_ents.add_face(pts)
       face.pushpull(-@height)
       apply_materials(face)
 
