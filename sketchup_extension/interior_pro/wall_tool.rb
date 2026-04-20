@@ -429,12 +429,15 @@ module InteriorPro
       new_attrs = {
         thickness: new_group.get_attribute('InteriorPro','thickness'),
         height: new_group.get_attribute('InteriorPro','height'),
-        anchor: new_group.get_attribute('InteriorPro','anchor')
+        anchor: new_group.get_attribute('InteriorPro','anchor'),
+        wall_type: new_group.get_attribute('InteriorPro','wall_type'),
+        exterior_material: new_group.get_attribute('InteriorPro','exterior_material'),
+        interior_material: new_group.get_attribute('InteriorPro','interior_material')
       }
       return unless new_sx && new_ex
 
       tol = 20.0
-      model.entities.grep(Sketchup::Group).each do |g|
+      model.active_entities.grep(Sketchup::Group).each do |g|
         next if g == new_group
         next unless g.get_attribute('InteriorPro','type') == 'wall'
         next unless g.valid?
