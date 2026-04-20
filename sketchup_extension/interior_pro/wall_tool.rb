@@ -470,12 +470,14 @@ module InteriorPro
         end
 
         begin
+          puts "[InteriorPro] DEBUG reverse-trim: new_group.valid?=#{new_group.valid?}, new_group.manifold?=#{new_group.manifold? rescue 'err'}"
           if new_group.valid? && new_group.manifold?
             target_old_wall = if trimmed && trimmed.valid?
                                 trimmed
                               elsif old_wall.valid?
                                 old_wall
                               end
+            puts "[InteriorPro] DEBUG target_old_wall=#{target_old_wall.nil? ? 'nil' : 'present'}, trimmed.valid?=#{trimmed && trimmed.valid?}, old_wall.valid?=#{old_wall.valid?}"
             if target_old_wall
               # save new_group attributes before reverse trim (trim creates a new group)
               new_attrs = {}
