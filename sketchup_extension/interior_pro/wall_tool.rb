@@ -422,98 +422,60 @@ module InteriorPro
     end
 
     def join_corners(new_group, model)
-      return unless new_group && new_group.valid?
-      return unless new_group.get_attribute('InteriorPro','type') == 'wall'
+      new_sx = new_group.get_attribute('InteriorPro','start_x')
+      new_sy = new_group.get_attribute('InteriorPro','start_y')
+      new_ex = new_group.get_attribute('InteriorPro','end_x')
+      new_ey = new_group.get_attribute('InteriorPro','end_y')
+      new_attrs = {
+        thickness: new_group.get_attribute('InteriorPro','thickness'),
+        height: new_group.get_attribute('InteriorPro','height'),
+        anchor: new_group.get_attribute('InteriorPro','anchor'),
+        wall_type: new_group.get_attribute('InteriorPro','wall_type'),
+        exterior_material: new_group.get_attribute('InteriorPro','exterior_material'),
+        interior_material: new_group.get_attribute('InteriorPro','interior_material')
+      }
+      return unless new_sx && new_ex
 
-      # find existing walls that touch/overlap the new wall
-      touching_walls = []
-      new_bounds = new_group.bounds
+      tol = 20.0
       model.active_entities.grep(Sketchup::Group).each do |g|
         next if g == new_group
-        next unless g.valid?
         next unless g.get_attribute('InteriorPro','type') == 'wall'
-        # quick bounds overlap check
-        next unless bounds_overlap?(new_bounds, g.bounds)
-        touching_walls << g
-      end
+        next unless g.valid?
 
-      return if touching_walls.empty?
+        ex_sx = g.get_attribute('InteriorPro','start_x'); next unless ex_sx
+        ex_sy = g.get_attribute('InteriorPro','start_y')
+        ex_ex = g.get_attribute('InteriorPro','end_x')
+        ex_ey = g.get_attribute('InteriorPro','end_y')
+        ex_attrs = {
+          thickness: g.get_attribute('InteriorPro','thickness'),
+          height: g.get_attribute('InteriorPro','height'),
+          anchor: g.get_attribute('InteriorPro','anchor')
+        }
 
-      # tag new_group so we can find it after trim invalidates the reference
-      new_wall_id = Time.now.to_f.to_s
-      new_group.set_attribute('InteriorPro', 'temp_id', new_wall_id)
-
-      # trim each existing wall against the new wall
-      # this cuts the overlap from the OLD wall, leaving the new one intact
-      touching_walls.each do |old_wall|
-        next unless old_wall.valid?
-        next unless old_wall.manifold?
-
-        # refresh new_group reference via temp_id (prior trim may have replaced it)
-        new_group = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
-        next unless new_group && new_group.valid?
-        next unless new_group.manifold?
-
-        # save attributes of old wall before trim (trim creates a new group)
-        old_attrs = {}
-        ['type','wall_type','height','thickness','exterior_material',
-         'interior_material','anchor','start_x','start_y','end_x','end_y'].each do |k|
-          old_attrs[k] = old_wall.get_attribute('InteriorPro', k)
-        end
-        old_name = old_wall.name
-
-        begin
-          trimmed = old_wall.trim(new_group)
-          if trimmed && trimmed.valid?
-            # restore attributes on the new trimmed group
-            trimmed.name = old_name
-            old_attrs.each { |k,v| trimmed.set_attribute('InteriorPro', k, v) if v }
-            puts "[InteriorPro] trimmed existing wall at corner"
+        pairs = [
+          [[new_sx,new_sy],[ex_sx,ex_sy],:start,:start],
+          [[new_sx,new_sy],[ex_ex,ex_ey],:start,:end],
+          [[new_ex,new_ey],[ex_sx,ex_sy],:end,:start],
+          [[new_ex,new_ey],[ex_ex,ex_ey],:end,:end]
+        ]
+        pairs.each do |np, ep, nside, eside|
+          dist = Math.sqrt((np[0]-ep[0])**2 + (np[1]-ep[1])**2)
+          next if dist > tol
+          # snap new wall endpoint to existing wall endpoint
+          if nside == :start
+            new_sx = ep[0]; new_sy = ep[1]
           else
-            puts "[InteriorPro] trim returned nil - skipping"
+            new_ex = ep[0]; new_ey = ep[1]
           end
-        rescue => e
-          puts "[InteriorPro] trim failed: #{e.message}"
-        end
-
-        # refresh new_group again in case forward trim replaced it
-        new_group = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
-
-        begin
-          target_old = (trimmed && trimmed.valid? && trimmed.manifold?) ? trimmed :
-                       ((old_wall.valid? && old_wall.manifold?) ? old_wall : nil)
-          if new_group && new_group.valid? && new_group.manifold? && target_old
-            # save new_group attributes before reverse trim (trim creates a new group)
-            new_attrs = {}
-            ['type','wall_type','height','thickness','exterior_material',
-             'interior_material','anchor','start_x','start_y','end_x','end_y'].each do |k|
-              new_attrs[k] = new_group.get_attribute('InteriorPro', k)
-            end
-            new_name = new_group.name
-            result = new_group.trim(target_old)
-            if result && result.valid?
-              result.name = new_name
-              new_attrs.each { |k,v| result.set_attribute('InteriorPro', k, v) if v }
-              result.set_attribute('InteriorPro', 'temp_id', new_wall_id)
-              puts "[InteriorPro] reverse-trimmed new wall"
-            else
-              puts "[InteriorPro] reverse trim returned nil"
-            end
-          end
-        rescue => e
-          puts "[InteriorPro] reverse trim failed: #{e.message}"
+          puts "[InteriorPro] snapped #{nside} to existing wall #{eside}"
         end
       end
 
-      # clean up temp_id on the final new_group
-      final = model.active_entities.grep(Sketchup::Group).find { |g| g.valid? && g.get_attribute('InteriorPro', 'temp_id') == new_wall_id }
-      final.delete_attribute('InteriorPro', 'temp_id') if final
-    end
-
-    def bounds_overlap?(b1, b2)
-      return false unless b1 && b2
-      !(b1.max.x < b2.min.x || b2.max.x < b1.min.x ||
-        b1.max.y < b2.min.y || b2.max.y < b1.min.y)
+      # rebuild new wall with snapped endpoints
+      new_start = Geom::Point3d.new(new_sx, new_sy, 0)
+      new_end = Geom::Point3d.new(new_ex, new_ey, 0)
+      new_group.erase! if new_group.valid?
+      build_wall_group(new_start, new_end, new_attrs, model)
     end
 
     def finish_drawing
