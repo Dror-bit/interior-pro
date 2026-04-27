@@ -62,15 +62,35 @@ module InteriorPro
       ph.count.times do |i|
         path = ph.path_at(i)
         next unless path
-        path.each do |entity|
-          if entity.is_a?(Sketchup::Group) &&
-             entity.valid? &&
-             entity.get_attribute('InteriorPro', 'type') == 'wall'
-            return [entity, ph.picked_point]
-          end
-        end
+        wall = path.find { |e|
+          e.is_a?(Sketchup::Group) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'wall'
+        }
+        next unless wall
+
+        point = world_pick_point(view, x, y, ph, i)
+        return [wall, point] if point
       end
       [nil, nil]
+    end
+
+    # PickHelper has no picked_point method. Recover the 3D world-space pick
+    # by intersecting the view's pickray with the leaf face's plane (transformed
+    # from the group's local space to world space).
+    def world_pick_point(view, x, y, ph, index)
+      leaf = ph.leaf_at(index)
+      if leaf.is_a?(Sketchup::Face)
+        transform = ph.transformation_at(index)
+        ray = view.pickray(x, y)
+        plane_pt = leaf.vertices.first.position.transform(transform)
+        plane_normal = leaf.normal.transform(transform)
+        pt = Geom.intersect_line_plane(ray, [plane_pt, plane_normal])
+        return pt if pt
+      end
+      # Fallback for non-face leaves (edge picks, etc.)
+      ip = Sketchup::InputPoint.new
+      ip.pick(view, x, y)
+      ip.valid? ? ip.position : nil
     end
 
     def cut_window_opening(wall_group, picked_point)
