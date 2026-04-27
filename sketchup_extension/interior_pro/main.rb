@@ -4,6 +4,9 @@ require_relative 'wall_library.rb'
 require_relative 'wall_library_dialog.rb'
 require_relative 'wall_tool.rb'
 require_relative 'wall_edit_tool.rb'
+require_relative 'window_library.rb'
+require_relative 'window_library_dialog.rb'
+require_relative 'window_tool.rb'
 require_relative 'toolbar.rb'
 
 module InteriorPro

@@ -26,6 +26,17 @@ module InteriorPro
       edit_cmd.large_icon = File.join(__dir__, 'icons', 'edit_wall_24.png')
       toolbar.add_item(edit_cmd)
 
+      # Window Tool Button
+      window_cmd = UI::Command.new('Window Tool') {
+        tool = InteriorPro::WindowTool.new
+        InteriorPro::WindowLibraryDialog.show(tool)
+      }
+      window_cmd.tooltip = 'Place Window - Opens Window Library'
+      window_cmd.status_bar_text = 'Configure window and click on a wall to place it'
+      window_cmd.small_icon = File.join(__dir__, 'icons', 'window_tool_16.png')
+      window_cmd.large_icon = File.join(__dir__, 'icons', 'window_tool_24.png')
+      toolbar.add_item(window_cmd)
+
       toolbar.restore
     end
   end
@@ -41,6 +52,11 @@ module InteriorPro
 
       menu.add_item('Edit Wall') {
         Sketchup.active_model.select_tool(InteriorPro::WallEditTool.new)
+      }
+
+      menu.add_item('Window Tool') {
+        tool = InteriorPro::WindowTool.new
+        InteriorPro::WindowLibraryDialog.show(tool)
       }
     end
   end
