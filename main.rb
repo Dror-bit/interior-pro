@@ -14,6 +14,9 @@ module InteriorPro
     window_library.rb
     window_library_dialog.rb
     window_tool.rb
+    door_library.rb
+    door_library_dialog.rb
+    door_tool.rb
     toolbar.rb
   ].freeze unless defined?(PLUGIN_FILES)
 

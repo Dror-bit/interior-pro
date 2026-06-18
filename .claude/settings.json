@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(./wall_tool.rb)",
+      "Write(./wall_tool.rb)",
+      "Edit(./wall_edit_tool.rb)",
+      "Write(./wall_edit_tool.rb)",
+      "Edit(./wall_move_tool.rb)",
+      "Write(./wall_move_tool.rb)",
+      "Edit(./wall_merge_tool.rb)",
+      "Write(./wall_merge_tool.rb)",
+      "Edit(./wall_library.rb)",
+      "Write(./wall_library.rb)",
+      "Edit(./wall_library_dialog.rb)",
+      "Write(./wall_library_dialog.rb)",
+      "Edit(./window_tool.rb)",
+      "Write(./window_tool.rb)",
+      "Edit(./window_library.rb)",
+      "Write(./window_library.rb)",
+      "Edit(./window_library_dialog.rb)",
+      "Write(./window_library_dialog.rb)",
+      "Edit(./ui_dialogs.rb)",
+      "Write(./ui_dialogs.rb)"
+    ]
+  }
+}

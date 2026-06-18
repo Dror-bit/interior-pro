@@ -8,6 +8,8 @@ require_relative 'wall_merge_tool.rb'
 require_relative 'wall_library_dialog.rb'
 require_relative 'window_tool.rb'
 require_relative 'window_library_dialog.rb'
+require_relative 'door_tool.rb'
+require_relative 'door_library_dialog.rb'
 
 module InteriorPro
   module Toolbar
@@ -66,6 +68,17 @@ module InteriorPro
       window_cmd.large_icon = File.join(__dir__, 'icons', 'window_tool.svg')
       toolbar.add_item(window_cmd)
 
+      # Door Tool Button
+      door_cmd = UI::Command.new('Door Tool') {
+        tool = InteriorPro::DoorTool.new
+        InteriorPro::DoorLibraryDialog.show(tool)
+      }
+      door_cmd.tooltip = 'Place Door - Opens Door Library'
+      door_cmd.status_bar_text = 'Configure door and click on a wall to place it'
+      door_cmd.small_icon = File.join(__dir__, 'icons', 'door_tool.svg')
+      door_cmd.large_icon = File.join(__dir__, 'icons', 'door_tool.svg')
+      toolbar.add_item(door_cmd)
+
       toolbar.restore
     end
   end
@@ -94,6 +107,11 @@ module InteriorPro
       menu.add_item('Window Tool') {
         tool = InteriorPro::WindowTool.new
         InteriorPro::WindowLibraryDialog.show(tool)
+      }
+
+      menu.add_item('Door Tool') {
+        tool = InteriorPro::DoorTool.new
+        InteriorPro::DoorLibraryDialog.show(tool)
       }
     end
   end
