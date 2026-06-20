@@ -10,6 +10,10 @@ require_relative 'window_tool.rb'
 require_relative 'window_library_dialog.rb'
 require_relative 'door_tool.rb'
 require_relative 'door_library_dialog.rb'
+require_relative 'door_manager.rb'
+require_relative 'door_edit_tool.rb'
+require_relative 'door_move_tool.rb'
+require_relative 'door_delete_tool.rb'
 
 module InteriorPro
   module Toolbar
@@ -79,6 +83,33 @@ module InteriorPro
       door_cmd.large_icon = File.join(__dir__, 'icons', 'door_tool.svg')
       toolbar.add_item(door_cmd)
 
+      door_edit_cmd = UI::Command.new('Edit Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorEditTool.new)
+      }
+      door_edit_cmd.tooltip = 'Edit Door — click a door to change its settings'
+      door_edit_cmd.status_bar_text = 'Click a door to edit'
+      door_edit_cmd.small_icon = File.join(__dir__, 'icons', 'edit_door.svg')
+      door_edit_cmd.large_icon = File.join(__dir__, 'icons', 'edit_door.svg')
+      toolbar.add_item(door_edit_cmd)
+
+      door_move_cmd = UI::Command.new('Move Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorMoveTool.new)
+      }
+      door_move_cmd.tooltip = 'Move Door — slide along the wall'
+      door_move_cmd.status_bar_text = 'Click a door to move it left/right along the wall'
+      door_move_cmd.small_icon = File.join(__dir__, 'icons', 'move_door.svg')
+      door_move_cmd.large_icon = File.join(__dir__, 'icons', 'move_door.svg')
+      toolbar.add_item(door_move_cmd)
+
+      door_delete_cmd = UI::Command.new('Delete Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorDeleteTool.new)
+      }
+      door_delete_cmd.tooltip = 'Delete Door'
+      door_delete_cmd.status_bar_text = 'Click a door to delete it'
+      door_delete_cmd.small_icon = File.join(__dir__, 'icons', 'delete_door.svg')
+      door_delete_cmd.large_icon = File.join(__dir__, 'icons', 'delete_door.svg')
+      toolbar.add_item(door_delete_cmd)
+
       toolbar.restore
     end
   end
@@ -112,6 +143,18 @@ module InteriorPro
       menu.add_item('Door Tool') {
         tool = InteriorPro::DoorTool.new
         InteriorPro::DoorLibraryDialog.show(tool)
+      }
+
+      menu.add_item('Edit Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorEditTool.new)
+      }
+
+      menu.add_item('Move Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorMoveTool.new)
+      }
+
+      menu.add_item('Delete Door') {
+        Sketchup.active_model.select_tool(InteriorPro::DoorDeleteTool.new)
       }
     end
   end
