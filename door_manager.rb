@@ -535,13 +535,59 @@ module InteriorPro
 
       model = Sketchup.active_model
 
-      model.start_operation('Edit Door — Patch', true)
-      begin
-        door.erase! if door.valid?
-        unless fill_opening!(wall, ctx, geo)
-          raise 'Could not patch the old opening.'
+      # If the OPENING geometry (width/height/floor_offset) is unchanged, only
+      # the door body differs (type/casing/swing/glass). In that case DON'T touch
+      # the wall at all — just swap the door component in the existing opening.
+      # This is the robust path: patching + re-cutting the same wall region is
+      # what distorts the wall.
+      opening_unchanged =
+        (new_ctx[:width] - ctx[:width]).abs < 0.001 &&
+        (new_ctx[:height] - ctx[:height]).abs < 0.001 &&
+        (new_ctx[:floor_offset] - ctx[:floor_offset]).abs < 0.001
+
+      tool = InteriorPro::DoorTool.new
+      InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings)
+
+      if opening_unchanged
+        puts '[DoorManager] edit: opening unchanged — swapping door body only (wall untouched)'
+        model.start_operation('Edit Door', true)
+        begin
+          erase_door_entity!(door, door_id)
+          unlink_door(wall, door_id)
+
+          place_data = tool.build_opening_data(
+            wall, geo,
+            width: new_ctx[:width],
+            height: new_ctx[:height],
+            floor_offset: new_ctx[:floor_offset],
+            t: ctx[:t],
+            clicked_side: ctx[:clicked_side],
+            fx: ctx[:fx],
+            fy: ctx[:fy]
+          )
+          place_data[:outward] = ctx[:outward]
+
+          unless tool.build_door_in_existing_opening(wall, place_data, mark: door_mark)
+            raise 'Could not build the updated door body.'
+          end
+          model.commit_operation
+          return true
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorManager] edit body-swap error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          UI.messagebox("Error editing door: #{e.message}")
+          return false
         end
+      end
+
+      # Opening size/offset changed → must patch old opening and cut a new one.
+      # Operation 1: erase old door on its own so a later fill/cut failure can't
+      # bring it back.
+      model.start_operation('Edit Door — Remove', true)
+      begin
+        erased = erase_door_entity!(door, door_id)
         unlink_door(wall, door_id)
+        puts "[DoorManager] edit: old door_id=#{door_id.inspect} erased=#{erased}"
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
@@ -549,8 +595,17 @@ module InteriorPro
         return false
       end
 
-      tool = InteriorPro::DoorTool.new
-      InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings)
+      # Operation 2: patch the old opening (independent).
+      model.start_operation('Edit Door — Patch', true)
+      begin
+        fill_ok = fill_opening!(wall, ctx, geo)
+        model.commit_operation
+        puts '[DoorManager] edit: old opening patch incomplete' unless fill_ok
+      rescue => e
+        model.abort_operation rescue nil
+        puts "[DoorManager] edit patch error: #{e.message}"
+      end
+
       puts "[DoorManager] edit: placing type=#{tool.door_type.inspect} w=#{tool.width} h=#{tool.height}"
 
       place_data = tool.build_opening_data(

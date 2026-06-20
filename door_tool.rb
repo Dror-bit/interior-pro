@@ -117,6 +117,12 @@ module InteriorPro
       build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
     end
 
+    # Build door body in an EXISTING opening (edit when opening is unchanged).
+    # Does NOT cut the wall — just creates the door component.
+    def build_door_in_existing_opening(wall_group, data, mark: nil)
+      build_door_at(wall_group, data, mark: mark, use_operations: false)
+    end
+
     # Place door using pre-built placement data (edit/replace).
     def place_door_from_data(wall_group, data, mark: nil)
       cut_and_build_door_at(wall_group, data, mark: mark)
