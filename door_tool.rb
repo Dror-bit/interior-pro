@@ -88,7 +88,11 @@ module InteriorPro
 
     # Cut opening from known door position (move/edit — no pick ambiguity).
     def cut_opening_from_data(wall_group, data, geo = nil)
-      apply_wall_cut(wall_group, data, geo) || apply_wall_cut_snapped!(wall_group, data, geo)
+      # Same robust path as resize: deterministic tunnel rebuild first (works on
+      # a wall that was just patched), pushpull cut only as a fallback.
+      cut_opening_clean!(wall_group, data, geo) ||
+        apply_wall_cut(wall_group, data, geo) ||
+        apply_wall_cut_snapped!(wall_group, data, geo)
     end
 
     # Cut opening then build door body — same sequence as interactive placement.
@@ -289,26 +293,19 @@ module InteriorPro
       center_local = opening_center_local(data, local_xform)
       ok = false
 
-      sheets = parallel_wall_faces(wall_group, data)
-      puts "[DoorTool] close_large_sheet_holes: sheets=#{sheets.compact.length}"
-      sheets.each_with_index do |sheet, idx|
+      parallel_wall_faces(wall_group, data).each do |sheet|
         next unless sheet&.valid?
 
-        inner_loops = sheet.loops.reject(&:outer?)
-        inner_loops.each do |lp|
+        sheet.loops.reject(&:outer?).each do |lp|
           ok = true if cap_loop_flat!(wall_group, lp)
         end
 
         # Check coverage by ANY coplanar face on this side — including a cap we
         # added on a previous pass. Checking only `sheet` (which still has the
         # hole) makes us add a SECOND overlapping cap → z-fighting ("warp").
-        covered = opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward)
-        puts "[DoorTool] close_large_sheet_holes: sheet#{idx} inner_loops=#{inner_loops.length} center_covered=#{covered}"
-        unless covered
-          closed = close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
-          puts "[DoorTool] close_large_sheet_holes: sheet#{idx} close_lines=#{closed}"
-          ok = true if closed
-        end
+        next if opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward)
+
+        ok = true if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
       end
       ok
     end
@@ -343,16 +340,13 @@ module InteriorPro
         ordered_opening_loop(snapped, -data[:clicked_side])
       ]
 
-      orders.each_with_index do |ordered, oi|
+      orders.each do |ordered|
         begin
           cap = wall_group.entities.add_face(ordered)
           cap ||= wall_group.entities.add_face(ordered.reverse)
-          if cap&.valid?
-            puts "[DoorTool] close_sheet_hole_with_lines! add_face ok order=#{oi} area=#{cap.area.round(1)}"
-            return true
-          end
-        rescue ArgumentError => e
-          puts "[DoorTool] close_sheet_hole_with_lines! add_face skip order=#{oi}: #{e.message}"
+          return true if cap&.valid?
+        rescue ArgumentError
+          # try next ordering / the add_line fallback below
         end
 
         begin
@@ -366,15 +360,11 @@ module InteriorPro
           cap_face = new_edges.flat_map { |e| e.faces }.uniq.find do |f|
             f.valid? && f.normal.parallel?(local_outward)
           end
-          if cap_face
-            puts "[DoorTool] close_sheet_hole_with_lines! add_line ok order=#{oi}"
-            return true
-          end
-        rescue ArgumentError => e
-          puts "[DoorTool] close_sheet_hole_with_lines! add_line skip order=#{oi}: #{e.message}"
+          return true if cap_face
+        rescue ArgumentError
+          # try next ordering
         end
       end
-      puts '[DoorTool] close_sheet_hole_with_lines! all orders failed'
       false
     end
 
@@ -960,9 +950,7 @@ module InteriorPro
         return false
       end
 
-      void = opening_void_through_wall?(wall_group, data, geo)
-      hole = opening_hole_at_center?(wall_group, data, geo)
-      puts "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)} void=#{void} hole=#{hole}"
+      puts "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)}"
       true
     rescue => e
       puts "[DoorTool] apply_wall_cut error: #{e.message}"
@@ -1027,7 +1015,6 @@ module InteriorPro
         return false
       end
 
-      puts "[DoorTool] cut_face: inner face area=#{new_face.area.round(1)} depth=#{depth.round(2)}"
       pushpull_through_wall!(new_face, local_outward, depth)
       true
     end
@@ -1081,19 +1068,11 @@ module InteriorPro
       end
 
       void = opening_void_through_wall?(wall_group, data, geo)
-      ext2, int2 = parallel_wall_faces(wall_group, data)
-      puts "[DoorTool] clean cut: sides=#{sides} void=#{void} ext_flat=#{face_planar_dev(ext2)} int_flat=#{face_planar_dev(int2)}"
+      puts "[DoorTool] clean cut: sides=#{sides} void=#{void}"
       void
     rescue => e
       puts "[DoorTool] cut_opening_clean! error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
       false
-    end
-
-    # Max distance of a face's vertices from its own plane (0 = perfectly flat).
-    def face_planar_dev(face)
-      return 'nil' unless face&.valid?
-      pl = face.plane
-      face.vertices.map { |v| v.position.distance_to_plane(pl) }.max.round(4)
     end
 
     # Draw the opening rectangle on a wall sheet plane and return the inner face.
