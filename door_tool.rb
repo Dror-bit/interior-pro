@@ -299,7 +299,10 @@ module InteriorPro
           ok = true if cap_loop_flat!(wall_group, lp)
         end
 
-        covered = point_covered_on_wall_sheet?(wall_group, center_local, sheet, local_outward)
+        # Check coverage by ANY coplanar face on this side — including a cap we
+        # added on a previous pass. Checking only `sheet` (which still has the
+        # hole) makes us add a SECOND overlapping cap → z-fighting ("warp").
+        covered = opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward)
         puts "[DoorTool] close_large_sheet_holes: sheet#{idx} inner_loops=#{inner_loops.length} center_covered=#{covered}"
         unless covered
           closed = close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
@@ -415,8 +418,11 @@ module InteriorPro
       ext, int = parallel_wall_faces(wall_group, data)
       return true unless ext&.valid? && int&.valid?
 
-      !point_covered_on_wall_sheet?(wall_group, center_local, ext, local_outward) ||
-        !point_covered_on_wall_sheet?(wall_group, center_local, int, local_outward)
+      # Use any-coplanar-face coverage (not just the big sheet) so a cap that
+      # already fills the hole counts as covered — otherwise fill loops and
+      # stacks duplicate caps.
+      !opening_center_covered_on_side?(wall_group, center_local, ext, local_outward) ||
+        !opening_center_covered_on_side?(wall_group, center_local, int, local_outward)
     end
 
     def point_covered_on_wall_sheet?(wall_group, point_local, sheet_face, local_outward)
@@ -427,6 +433,28 @@ module InteriorPro
       cls == Sketchup::Face::PointInside ||
         cls == Sketchup::Face::PointOnEdge ||
         cls == Sketchup::Face::PointOnVertex
+    end
+
+    # True if the opening center is already covered by ANY face coplanar with
+    # this sheet on the same side (the big sheet OR a cap added on a prior pass).
+    # Prevents stacking duplicate overlapping caps that cause z-fighting.
+    def opening_center_covered_on_side?(wall_group, point_local, sheet, local_outward)
+      return false unless sheet&.valid?
+      sheet_plane = sheet.plane
+      sheet_normal = sheet.normal
+      proj = point_local.project_to_plane(sheet_plane)
+
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        next false unless f.normal.parallel?(sheet_normal)
+        # Only faces coplanar with THIS sheet (e.g. a cap filling its hole).
+        next false if f.vertices.first.position.distance_to_plane(sheet_plane) > 0.05
+
+        cls = f.classify_point(proj)
+        cls == Sketchup::Face::PointInside ||
+          cls == Sketchup::Face::PointOnEdge ||
+          cls == Sketchup::Face::PointOnVertex
+      end
     end
 
     def opening_void_through_wall?(wall_group, data, geo = nil)
@@ -603,17 +631,16 @@ module InteriorPro
     end
 
     def soften_opening_sheet_edges!(wall_group, data, geo = nil)
-      local_outward = data[:outward].transform(wall_group.transformation.inverse)
       xform = wall_group.transformation
       wall_group.entities.grep(Sketchup::Edge).each do |e|
         next unless e.valid?
         mid = edge_midpoint_world(e, xform)
         next unless opening_point_in_heal_volume?(mid, data, geo)
-        on_sheet = e.faces.any? { |f| f.valid? && face_matches_outward_local?(f, local_outward) }
-        # Also hide the seam left where the fill patch meets the original sheet:
-        # two coplanar faces sharing an edge that heal couldn't merge away.
-        seam = e.faces.length == 2 && faces_coplanar?(e.faces[0], e.faces[1])
-        next unless on_sheet || seam
+        # ONLY hide seams between two COPLANAR faces (e.g. where the fill patch
+        # meets the original sheet). NEVER smooth an edge between a sheet and a
+        # perpendicular jamb/tunnel face — smoothing that averages their normals
+        # and shades the whole wall as a gradient ("diagonal warp").
+        next unless e.faces.length == 2 && faces_coplanar?(e.faces[0], e.faces[1])
         e.soft = true
         e.smooth = true
       end
