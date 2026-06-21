@@ -659,8 +659,12 @@ module InteriorPro
       return false unless f1.valid? && f2.valid?
       return false unless f1.normal.parallel?(f2.normal)
 
-      v = f1.vertices.first.position
-      v.distance_to_plane(f2.plane) < 0.08
+      # Tight tolerance + check ALL vertices: merging faces that are only
+      # *nearly* coplanar makes the merged face non-planar, which SketchUp
+      # triangulates into a visible diagonal/shading warp across the wall.
+      # An exact cap (project_to_plane) deviates ~0 and still merges.
+      plane2 = f2.plane
+      f1.vertices.all? { |vx| vx.position.distance_to_plane(plane2) < 0.02 }
     end
 
     def erase_dangling_edges_in_volume!(wall_group, data, geo = nil)
@@ -1049,13 +1053,20 @@ module InteriorPro
         end
       end
 
-      heal_opening_after_fill!(wall_group, data, geo)
       void = opening_void_through_wall?(wall_group, data, geo)
-      puts "[DoorTool] clean cut: sides=#{sides} void=#{void}"
+      ext2, int2 = parallel_wall_faces(wall_group, data)
+      puts "[DoorTool] clean cut: sides=#{sides} void=#{void} ext_flat=#{face_planar_dev(ext2)} int_flat=#{face_planar_dev(int2)}"
       void
     rescue => e
       puts "[DoorTool] cut_opening_clean! error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
       false
+    end
+
+    # Max distance of a face's vertices from its own plane (0 = perfectly flat).
+    def face_planar_dev(face)
+      return 'nil' unless face&.valid?
+      pl = face.plane
+      face.vertices.map { |v| v.position.distance_to_plane(pl) }.max.round(4)
     end
 
     # Draw the opening rectangle on a wall sheet plane and return the inner face.
