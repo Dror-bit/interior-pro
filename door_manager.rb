@@ -620,7 +620,7 @@ module InteriorPro
       )
       place_data[:outward] = ctx[:outward]
 
-      unless tool.cut_and_build_door_at(wall, place_data, geo, mark: door_mark)
+      unless tool.cut_and_build_door_at(wall, place_data, geo, mark: door_mark, clean_cut: true)
         UI.messagebox('Error editing door: Could not place the updated door.')
         return false
       end

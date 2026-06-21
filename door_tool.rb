@@ -92,10 +92,18 @@ module InteriorPro
     end
 
     # Cut opening then build door body — same sequence as interactive placement.
-    def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true)
+    def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false)
       model = Sketchup.active_model
       cut_ok = lambda {
-        apply_wall_cut(wall_group, data, geo) || apply_wall_cut_snapped!(wall_group, data, geo)
+        if clean_cut
+          # Resize/edit on a non-pristine wall: deterministic tunnel rebuild,
+          # falling back to the raw pushpull cut if it cannot find the faces.
+          cut_opening_clean!(wall_group, data, geo) ||
+            apply_wall_cut(wall_group, data, geo) ||
+            apply_wall_cut_snapped!(wall_group, data, geo)
+        else
+          apply_wall_cut(wall_group, data, geo) || apply_wall_cut_snapped!(wall_group, data, geo)
+        end
       }
       if use_operations
         model.start_operation('Cut Door Opening', true)
@@ -281,15 +289,22 @@ module InteriorPro
       center_local = opening_center_local(data, local_xform)
       ok = false
 
-      parallel_wall_faces(wall_group, data).each do |sheet|
+      sheets = parallel_wall_faces(wall_group, data)
+      puts "[DoorTool] close_large_sheet_holes: sheets=#{sheets.compact.length}"
+      sheets.each_with_index do |sheet, idx|
         next unless sheet&.valid?
 
-        sheet.loops.reject(&:outer?).each do |lp|
+        inner_loops = sheet.loops.reject(&:outer?)
+        inner_loops.each do |lp|
           ok = true if cap_loop_flat!(wall_group, lp)
         end
 
-        unless point_covered_on_wall_sheet?(wall_group, center_local, sheet, local_outward)
-          ok = true if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+        covered = point_covered_on_wall_sheet?(wall_group, center_local, sheet, local_outward)
+        puts "[DoorTool] close_large_sheet_holes: sheet#{idx} inner_loops=#{inner_loops.length} center_covered=#{covered}"
+        unless covered
+          closed = close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+          puts "[DoorTool] close_large_sheet_holes: sheet#{idx} close_lines=#{closed}"
+          ok = true if closed
         end
       end
       ok
@@ -325,13 +340,16 @@ module InteriorPro
         ordered_opening_loop(snapped, -data[:clicked_side])
       ]
 
-      orders.each do |ordered|
+      orders.each_with_index do |ordered, oi|
         begin
           cap = wall_group.entities.add_face(ordered)
           cap ||= wall_group.entities.add_face(ordered.reverse)
-          return true if cap&.valid?
+          if cap&.valid?
+            puts "[DoorTool] close_sheet_hole_with_lines! add_face ok order=#{oi} area=#{cap.area.round(1)}"
+            return true
+          end
         rescue ArgumentError => e
-          puts "[DoorTool] close_sheet_hole_with_lines! add_face skip: #{e.message}"
+          puts "[DoorTool] close_sheet_hole_with_lines! add_face skip order=#{oi}: #{e.message}"
         end
 
         begin
@@ -345,11 +363,15 @@ module InteriorPro
           cap_face = new_edges.flat_map { |e| e.faces }.uniq.find do |f|
             f.valid? && f.normal.parallel?(local_outward)
           end
-          return true if cap_face
+          if cap_face
+            puts "[DoorTool] close_sheet_hole_with_lines! add_line ok order=#{oi}"
+            return true
+          end
         rescue ArgumentError => e
-          puts "[DoorTool] close_sheet_hole_with_lines! add_line skip: #{e.message}"
+          puts "[DoorTool] close_sheet_hole_with_lines! add_line skip order=#{oi}: #{e.message}"
         end
       end
+      puts '[DoorTool] close_sheet_hole_with_lines! all orders failed'
       false
     end
 
@@ -907,7 +929,9 @@ module InteriorPro
         return false
       end
 
-      puts "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)}"
+      void = opening_void_through_wall?(wall_group, data, geo)
+      hole = opening_hole_at_center?(wall_group, data, geo)
+      puts "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)} void=#{void} hole=#{hole}"
       true
     rescue => e
       puts "[DoorTool] apply_wall_cut error: #{e.message}"
@@ -972,8 +996,89 @@ module InteriorPro
         return false
       end
 
+      puts "[DoorTool] cut_face: inner face area=#{new_face.area.round(1)} depth=#{depth.round(2)}"
       pushpull_through_wall!(new_face, local_outward, depth)
       true
+    end
+
+    # Robust opening cut that does NOT rely on pushpull. Rebuilds a clean
+    # rectangular tunnel between the two main wall sheets. Used for edit/resize
+    # where the wall is no longer pristine (old patched opening) and raw pushpull
+    # fails to punch a real hole ("door stuck on surface"). Deterministic — no
+    # pushpull direction quirks.
+    def cut_opening_clean!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+
+      # De-fragment the opening region so each sheet is a single clean face
+      # (removes leftover rim edges from a previous patched opening).
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      ext, int = parallel_wall_faces(wall_group, data)
+      unless ext&.valid? && int&.valid?
+        puts "[DoorTool] clean cut: missing wall face ext=#{!ext.nil?} int=#{!int.nil?}"
+        return false
+      end
+
+      ext_normal = ext.normal
+      int_normal = int.normal
+      ext_corners = opening_corners_local(data, local_xform, ext.plane)
+      int_corners = opening_corners_local(data, local_xform, int.plane)
+
+      ext_face = imprint_opening_face!(wall_group, ext_corners, ext_normal)
+      int_face = imprint_opening_face!(wall_group, int_corners, int_normal)
+      unless ext_face && int_face
+        puts "[DoorTool] clean cut: imprint failed ext=#{!ext_face.nil?} int=#{!int_face.nil?}"
+        return false
+      end
+
+      # Open the hole on both sheets first, then connect with tunnel walls.
+      ext_face.erase! if ext_face.valid?
+      int_face.erase! if int_face.valid?
+
+      sides = 0
+      4.times do |i|
+        a = ext_corners[i]
+        b = ext_corners[(i + 1) % 4]
+        c = int_corners[(i + 1) % 4]
+        d = int_corners[i]
+        begin
+          f = wall_group.entities.add_face(a, b, c, d)
+          sides += 1 if f&.valid?
+        rescue ArgumentError => e
+          puts "[DoorTool] clean cut: side#{i} skip #{e.message}"
+        end
+      end
+
+      heal_opening_after_fill!(wall_group, data, geo)
+      void = opening_void_through_wall?(wall_group, data, geo)
+      puts "[DoorTool] clean cut: sides=#{sides} void=#{void}"
+      void
+    rescue => e
+      puts "[DoorTool] cut_opening_clean! error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    # Draw the opening rectangle on a wall sheet plane and return the inner face.
+    def imprint_opening_face!(wall_group, corners, face_normal)
+      edges = []
+      4.times do |i|
+        edges << wall_group.entities.add_line(corners[i], corners[(i + 1) % 4])
+      end
+      edges.compact!
+      edges.each(&:find_faces)
+
+      center = Geom::Point3d.new(
+        (corners[0].x + corners[2].x) / 2.0,
+        (corners[0].y + corners[2].y) / 2.0,
+        (corners[0].z + corners[2].z) / 2.0
+      )
+      wall_group.entities.grep(Sketchup::Face).find do |f|
+        f.valid? && f.normal.parallel?(face_normal) &&
+          f.classify_point(center) == Sketchup::Face::PointInside
+      end
+    rescue ArgumentError => e
+      puts "[DoorTool] imprint_opening_face! skip: #{e.message}"
+      nil
     end
 
     def prepare_wall_for_cut!(wall_group, data, geo = nil)
