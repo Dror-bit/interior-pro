@@ -1,5 +1,5 @@
 # Interior Pro - Door Tool
-# Cuts a door opening through a wall and (for French Hinged) builds a real body.
+# Cuts a door opening through a wall and builds a real body for French Hinged / exterior Sliding.
 # Modeled on WindowTool, but the opening sits on the wall floor + an optional
 # threshold offset instead of being measured down from a header height.
 
@@ -1773,18 +1773,18 @@ module InteriorPro
         return false
       end
 
-      puts "[DoorTool] build_door_at: comp=#{comp.entityID} french=#{french_hinged_type?} type=#{@door_type.inspect} use_op=#{use_operations}"
+      puts "[DoorTool] build_door_at: comp=#{comp.entityID} body=#{door_body_type?} type=#{@door_type.inspect} use_op=#{use_operations}"
 
-      if french_hinged_type?
+      if door_body_type?
         if use_operations
-          return build_french_hinged_in_component!(comp, data, unit, n, thickness)
+          return build_door_body_in_component!(comp, data, unit, n, thickness)
         end
 
-        ok = build_french_hinged_geometry!(comp.definition.entities, data, unit, n, thickness)
+        ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
         if ok && door_body_present?(comp.definition)
           true
         else
-          puts '[DoorTool] French Hinged body missing after build'
+          puts "[DoorTool] door body missing after build (type=#{@door_type.inspect})"
           false
         end
       else
@@ -1862,25 +1862,38 @@ module InteriorPro
       comp
     end
 
-    def build_french_hinged_in_component!(comp, data, unit, n, thickness)
+    def build_door_body_in_component!(comp, data, unit, n, thickness)
+      label = exterior_sliding_type? ? 'Sliding' : 'French Hinged'
       model = Sketchup.active_model
-      model.start_operation('Build French Hinged Body', true)
+      model.start_operation("Build #{label} Body", true)
       begin
-        puts "[DoorTool] french body: comp=#{comp.entityID} valid=#{comp.valid?} def_ents=#{comp.definition.entities.length}"
-        ok = build_french_hinged_geometry!(comp.definition.entities, data, unit, n, thickness)
-        puts "[DoorTool] french body: build_ok=#{ok} ents_after=#{comp.definition.entities.length} body_present=#{door_body_present?(comp.definition)}"
+        puts "[DoorTool] door body: comp=#{comp.entityID} type=#{label} def_ents=#{comp.definition.entities.length}"
+        ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
+        puts "[DoorTool] door body: build_ok=#{ok} ents_after=#{comp.definition.entities.length} body_present=#{door_body_present?(comp.definition)}"
         model.commit_operation
         if ok && door_body_present?(comp.definition)
           true
         else
-          puts '[DoorTool] French Hinged body missing after build'
+          puts "[DoorTool] #{label} body missing after build"
           false
         end
       rescue => e
         model.abort_operation rescue nil
-        puts "[DoorTool] french hinged body error: #{e.message}\n#{e.backtrace.first(8).join("\n")}"
+        puts "[DoorTool] door body error: #{e.message}\n#{e.backtrace.first(8).join("\n")}"
         false
       end
+    end
+
+    def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
+      if exterior_sliding_type?
+        build_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      else
+        build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      end
+    end
+
+    def build_french_hinged_in_component!(comp, data, unit, n, thickness)
+      build_door_body_in_component!(comp, data, unit, n, thickness)
     end
 
     def door_body_present?(definition)
@@ -1958,6 +1971,82 @@ module InteriorPro
       build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
                  leaf_front_v, leaf_back_v, stile_w, unit, n,
                  frame_mat, glass_mat)
+
+      if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: true)
+      end
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, thickness,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: false)
+      end
+
+      smooth_door_body(parent_ents)
+      true
+    end
+
+    # Exterior sliding: same jamb/head/threshold/casing as French Hinged; panels on two
+    # depth tracks (exterior + interior) instead of hinged meeting leaves.
+    def build_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      puts "[DoorTool] sliding geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} slide=#{@slide_direction.inspect}"
+      model = Sketchup.active_model
+      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                         Sketchup::Color.new(245, 245, 240), 1.0)
+      glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
+                                         Sketchup::Color.new(180, 180, 180), 0.4)
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      if half_w < 3.0 || half_h < 3.0
+        puts "[DoorTool] invalid door size for Sliding body: half_w=#{half_w} half_h=#{half_h}"
+        return false
+      end
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      stile_w = (@glass_frame_width && @glass_frame_width > 0) ? @glass_frame_width : 2.0
+      leaf_depth = [1.5, thickness * 0.4].min
+
+      iw = half_w - jamb_width
+      if iw < 1.0
+        puts "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        return false
+      end
+
+      head_inner = half_h - jamb_width
+      leaf_top   = head_inner
+      leaf_bot   = -half_h
+
+      jamb_outer_v = 0.0
+      jamb_inner_v = thickness
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, jamb_outer_v, jamb_inner_v,
+                   unit, n, frame_mat, 'Jamb')
+
+      if @exterior_threshold && @door_category.to_s != 'interior'
+        build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+      end
+
+      meeting_gap = 0.125
+      back_vf  = LEAF_FRAME_INSET
+      back_vb  = LEAF_FRAME_INSET + leaf_depth
+      front_vf = thickness - LEAF_FRAME_INSET - leaf_depth
+      front_vb = thickness - LEAF_FRAME_INSET
+
+      slide_left = @slide_direction.to_s.downcase != 'right'
+
+      if slide_left
+        # Right panel slides left behind the fixed left panel.
+        build_leaf(parent_ents, -iw, -meeting_gap, leaf_bot, leaf_top,
+                   back_vf, back_vb, stile_w, unit, n, frame_mat, glass_mat)
+        build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
+                   front_vf, front_vb, stile_w, unit, n, frame_mat, glass_mat)
+      else
+        # Left panel slides right behind the fixed right panel.
+        build_leaf(parent_ents, -iw, -meeting_gap, leaf_bot, leaf_top,
+                   front_vf, front_vb, stile_w, unit, n, frame_mat, glass_mat)
+        build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
+                   back_vf, back_vb, stile_w, unit, n, frame_mat, glass_mat)
+      end
 
       if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
         safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
@@ -2109,6 +2198,15 @@ module InteriorPro
 
     def french_hinged_type?
       @door_type.to_s.strip == 'French Hinged'
+    end
+
+    # Exterior catalog only — interior Sliding stays opening-only.
+    def exterior_sliding_type?
+      @door_type.to_s.strip == 'Sliding' && @door_category.to_s != 'interior'
+    end
+
+    def door_body_type?
+      french_hinged_type? || exterior_sliding_type?
     end
 
     def casing_enabled?(style)

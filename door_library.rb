@@ -13,7 +13,7 @@ module InteriorPro
 
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'door_types.json')
 
-    EXTERIOR_TYPES = ['Sliding', 'French Sliding', 'French Hinged'].freeze
+    EXTERIOR_TYPES = ['French Hinged', 'Sliding'].freeze
     INTERIOR_TYPES = ['Single', 'Double', 'Sliding', 'Pocket', 'French Hinged'].freeze
 
     BUILT_IN_BY_CATEGORY = {
@@ -68,6 +68,23 @@ module InteriorPro
         'exterior_threshold'     => false
       }
     }.freeze
+
+    # Per-type glass defaults (exterior catalog). Applied when the user picks a type in the dialog.
+    TYPE_SETTING_OVERRIDES = {
+      'exterior' => {
+        'Sliding'       => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
+        'French Hinged' => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' }
+      }
+    }.freeze
+
+    def self.type_setting_overrides(category, door_type)
+      cat = normalize_category(category)
+      (TYPE_SETTING_OVERRIDES[cat] || {})[door_type.to_s] || {}
+    end
+
+    def self.defaults_for_type(category, door_type)
+      defaults_for(category).merge(type_setting_overrides(category, door_type))
+    end
 
     def self.ensure_dir
       dir = File.dirname(LIBRARY_FILE)

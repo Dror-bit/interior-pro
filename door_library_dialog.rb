@@ -226,7 +226,7 @@ module InteriorPro
             <div class="section-title">Door Type</div>
             <label>Type</label>
             <div class="type-row">
-              <select id="doorType" onchange="syncTypeFields()"></select>
+              <select id="doorType" onchange="onDoorTypeChange()"></select>
               <button class="btn-add-type" onclick="addCustomType()">+ Add Custom Type</button>
             </div>
 
@@ -405,6 +405,24 @@ module InteriorPro
           }
 
           // Show swing fields for hinged doors, slide field for sliding doors.
+          function onDoorTypeChange() {
+            applyTypeDefaults();
+            syncTypeFields();
+          }
+
+          function applyTypeDefaults() {
+            var t = document.getElementById('doorType').value;
+            var cat = document.getElementById('doorCategory').value;
+            if (cat !== 'exterior') return;
+            if (t === 'Sliding') {
+              document.getElementById('glassFrameWidth').value = 2;
+              document.getElementById('glassGridStyle').value = 'none';
+            } else if (t === 'French Hinged') {
+              document.getElementById('glassFrameWidth').value = 5;
+              document.getElementById('glassGridStyle').value = '2x2';
+            }
+          }
+
           function syncTypeFields() {
             var t = document.getElementById('doorType').value;
             var isSliding = (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket');
