@@ -68,15 +68,21 @@ module InteriorPro
 
       return nil unless sx && sy && ex && ey && thickness > 0 && wall_height > 0
 
+      xform = wall_group.transformation
       drawn_start = Geom::Point3d.new(sx, sy, 0)
       drawn_end = Geom::Point3d.new(ex, ey, 0)
+      unless xform.identity?
+        drawn_start = drawn_start.transform(xform)
+        drawn_end = drawn_end.transform(xform)
+      end
+
       wall_vec = drawn_end - drawn_start
       wall_length = wall_vec.length
       return nil if wall_length < 0.1
 
       unit = wall_vec.clone
       unit.normalize!
-      n = Geom::Vector3d.new(-unit.y, unit.x, 0)
+      n = horizontal_perpendicular(unit)
 
       v_anchor, h_anchor = parse_anchor(anchor)
       center_offset = case h_anchor
@@ -84,11 +90,7 @@ module InteriorPro
                       when 'right' then -thickness / 2.0
                       else 0.0
                       end
-      cline_start = Geom::Point3d.new(
-        drawn_start.x + n.x * center_offset,
-        drawn_start.y + n.y * center_offset,
-        0
-      )
+      cline_start = drawn_start.offset(n, center_offset)
 
       floor_z = case v_anchor
                 when 'top'    then -wall_height
@@ -117,6 +119,18 @@ module InteriorPro
         parts = anchor.split('-')
         [parts[0] || 'bottom', parts[1] || 'center']
       end
+    end
+
+    # Horizontal outward normal for vertical walls (world space).
+    def self.horizontal_perpendicular(unit)
+      z_up = Geom::Vector3d.new(0, 0, 1)
+      perp = unit.cross(z_up)
+      if perp.length < 0.001
+        perp = Geom::Vector3d.new(-unit.y, unit.x, 0)
+      else
+        perp.normalize!
+      end
+      perp
     end
 
     def self.opening_context(door, geo)
@@ -204,14 +218,14 @@ module InteriorPro
     end
 
     # Scan wall mesh near door position t — works when there are no SketchUp inner loops.
-    def self.detect_opening_from_wall_geometry!(wall_group, data, geo, t)
+    def self.detect_opening_from_wall_geometry!(wall_group, data, geo, t, search_pad: 3.0)
       xform = wall_group.transformation
       unit = geo[:unit]
       n = geo[:n]
       cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
       cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
       original_half_w = data[:half_w]
-      search_along = original_half_w + 3.0
+      search_along = original_half_w + search_pad
       max_perp = geo[:thickness] * 1.5
 
       world_pts = []
@@ -246,39 +260,53 @@ module InteriorPro
       fx = sx / nf
       fy = sy / nf
 
-      data[:door_bot_z] = z_min
-      data[:door_top_z] = z_max
       data[:half_w] = half_w
       data[:fx] = fx
       data[:fy] = fy
       data[:ux] = unit.x * half_w
       data[:uy] = unit.y * half_w
       data[:t] = t
-      data[:picked_point] = Geom::Point3d.new(fx, fy, z_min)
       data[:mesh_pts] = near
+      sync_opening_z_world_to_local!(wall_group, data, z_min, z_max)
       true
+    end
+
+    def self.sync_opening_z_world_to_local!(wall_group, data, bot_world, top_world)
+      inv = wall_group.transformation.inverse
+      data[:door_bot_z] = Geom::Point3d.new(data[:fx], data[:fy], bot_world).transform(inv).z
+      data[:door_top_z] = Geom::Point3d.new(data[:fx], data[:fy], top_world).transform(inv).z
+      data[:picked_point] = Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z])
     end
 
     def self.fill_opening!(wall_group, ctx, geo)
       tool = InteriorPro::DoorTool.new
+      # Rebuild from wall position t — stored fx/fy can drift after moves/edits.
       data = tool.build_opening_data(
         wall_group, geo,
         width: ctx[:width],
         height: ctx[:height],
         floor_offset: ctx[:floor_offset],
         t: ctx[:t],
-        clicked_side: ctx[:clicked_side],
-        fx: ctx[:fx],
-        fy: ctx[:fy]
+        clicked_side: ctx[:clicked_side]
       )
-      if ctx[:door_bot_z] && ctx[:door_top_z]
-        data[:door_bot_z] = ctx[:door_bot_z]
-        data[:door_top_z] = ctx[:door_top_z]
-        data[:picked_point] = Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z])
-      end
       data[:outward] = ctx[:outward]
       data[:clicked_side] = ctx[:clicked_side]
+      snap_opening_data_to_wall!(wall_group, data, geo, ctx)
+      unless data[:mesh_pts]
+        detect_opening_from_wall_geometry!(wall_group, data, geo, ctx[:t], search_pad: 24.0)
+      end
       tool.fill_wall_opening(wall_group, data, geo)
+      tool.force_seal_wall_sheets!(wall_group, data, geo)
+      if tool.opening_geometry_near_wall_t?(
+        wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
+      )
+        puts '[DoorManager] fill: retrying aggressive patch at wall position'
+        tool.fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
+        tool.force_seal_wall_sheets!(wall_group, data, geo)
+      end
+      !tool.opening_geometry_near_wall_t?(
+        wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
+      )
     end
 
     # Snap fill/cut data to the actual hole geometry on the wall.
@@ -287,6 +315,20 @@ module InteriorPro
       mid_z = (ctx[:door_bot_z] + ctx[:door_top_z]) / 2.0
       lp = tool.find_inner_loop_near_position(wall_group, geo, ctx[:t], mid_z, ctx[:half_w])
       lp ||= tool.find_opening_inner_loop(wall_group, data)
+      unless lp
+        near = tool.inner_loops_near_wall_t(wall_group, geo, ctx[:t], ctx[:half_w] + 12.0)
+        if near.any?
+          xform = wall_group.transformation
+          unit = geo[:unit]
+          cx = geo[:cline_start].x + unit.x * ctx[:t] + geo[:n].x * geo[:n_side]
+          cy = geo[:cline_start].y + unit.y * ctx[:t] + geo[:n].y * geo[:n_side]
+          lp = near.min_by do |l|
+            c = tool.send(:loop_centroid, l).transform(xform)
+            along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+            along.abs
+          end
+        end
+      end
 
       if lp
         snap_opening_data_from_loop!(wall_group, data, geo, ctx, lp)
@@ -301,8 +343,9 @@ module InteriorPro
       return if world_pts.empty?
 
       z_vals = world_pts.map(&:z)
-      data[:door_bot_z] = z_vals.min
-      data[:door_top_z] = z_vals.max
+      bot_world = z_vals.min
+      top_world = z_vals.max
+      sync_opening_z_world_to_local!(wall_group, data, bot_world, top_world)
 
       unit = geo[:unit]
       sx = sy = 0.0
@@ -414,8 +457,28 @@ module InteriorPro
       true
     end
 
-    # Erase the door instance. Falls back to searching the model by id so a
+    # Erase door instance. Falls back to searching the model by id so a
     # stale/duplicated reference can't leave a visible door behind.
+    def self.erase_door_at_placement(wall_group, t)
+      wall_id = wall_group.get_attribute('InteriorPro', 'id')
+      return false unless wall_id
+
+      model = Sketchup.active_model
+      tol = 2.0
+      found = search_entities(model.entities) do |e|
+        door_entity?(e) &&
+          e.get_attribute('InteriorPro', 'host_wall_id') == wall_id &&
+          (e.get_attribute('InteriorPro', 'position_along_wall_in').to_f - t.to_f).abs <= tol
+      end
+      if found&.valid?
+        door_id = found.get_attribute('InteriorPro', 'id')
+        found.erase!
+        unlink_door(wall_group, door_id)
+        return true
+      end
+      false
+    end
+
     def self.erase_door_entity!(door, door_id)
       erased = false
       if door && door.valid?

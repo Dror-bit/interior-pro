@@ -13,8 +13,8 @@
 module InteriorPro
   class DoorMoveTool
 
-    GREEN = Sketchup::Color.new(40, 150, 60)
-    RED   = Sketchup::Color.new(200, 40, 40)
+    GREEN = Sketchup::Color.new(40, 150, 60) unless const_defined?(:GREEN, false)
+    RED   = Sketchup::Color.new(200, 40, 40) unless const_defined?(:RED, false)
 
     def activate
       reset_state

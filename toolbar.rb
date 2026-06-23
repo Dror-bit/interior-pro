@@ -17,8 +17,31 @@ require_relative 'door_delete_tool.rb'
 
 module InteriorPro
   module Toolbar
+    LEGACY_TOOLBAR_NAME = 'Interior Pro'
+    CLEAN_TOOLBAR_NAME = 'Interior Pro Tools'
+    TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
+
+    # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
+    def self.resolve_toolbar
+      legacy = UI::Toolbar.new(LEGACY_TOOLBAR_NAME)
+      if legacy.length > TOOLBAR_ITEM_COUNT
+        legacy.hide
+        return UI::Toolbar.new(CLEAN_TOOLBAR_NAME)
+      end
+      legacy
+    end
+
+    def self.bloated_toolbars?
+      UI::Toolbar.new(LEGACY_TOOLBAR_NAME).length > TOOLBAR_ITEM_COUNT ||
+        UI::Toolbar.new(CLEAN_TOOLBAR_NAME).length > TOOLBAR_ITEM_COUNT
+    end
+
     def self.setup
-      toolbar = UI::Toolbar.new('Interior Pro')
+      return if @setup_done
+      @setup_done = true
+
+      toolbar = resolve_toolbar
+      return if toolbar.length >= TOOLBAR_ITEM_COUNT
 
       # Wall Tool Button
       wall_cmd = UI::Command.new('Wall Tool') {
@@ -116,7 +139,10 @@ module InteriorPro
 
   module Menu
     def self.setup
-      menu = UI.menu('Extensions').add_submenu('Interior Pro')
+      return if @setup_done
+      @setup_done = true
+
+      menu = @interior_pro_submenu ||= UI.menu('Extensions').add_submenu('Interior Pro')
 
       menu.add_item('Wall Tool') {
         tool = InteriorPro::WallTool.new

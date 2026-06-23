@@ -101,6 +101,7 @@ module InteriorPro
     end
 
     def self.show(tool)
+      tool.placement_ready = false if tool.respond_to?(:placement_ready=)
       cat = InteriorPro::DoorLibrary.normalize_category(
         (@session_last && @session_last['door_category']) || 'exterior'
       )
@@ -181,6 +182,79 @@ module InteriorPro
       )
     end
 
+    # Return OS focus to the SketchUp model view (HtmlDialog steals it on Windows).
+    def self.yield_focus_to_sketchup
+      if Sketchup.respond_to?(:focus)
+        begin
+          Sketchup.focus
+        rescue StandardError
+          nil
+        end
+      end
+
+      begin
+        dummy = UI::HtmlDialog.new(
+          dialog_title: 'Focus',
+          preferences_key: 'InteriorPro_FocusYield',
+          width: 10,
+          height: 10,
+          left: 0,
+          top: 0,
+          resizable: false,
+          scrollable: false
+        )
+        dummy.set_html('<html><body></body></html>')
+        dummy.show
+        UI.start_timer(0.1, false) {
+          dummy.close
+          if Sketchup.respond_to?(:focus)
+            begin
+              Sketchup.focus
+            rescue StandardError
+              nil
+            end
+          end
+        }
+      rescue StandardError
+        nil
+      end
+    end
+
+    def self.activate_placement_tool!(tool)
+      model = Sketchup.active_model
+      model.select_tool(tool)
+      tool.start_preview_pump! if tool.respond_to?(:start_preview_pump!)
+      UI.start_timer(0, false) {
+        yield_focus_to_sketchup
+        if model.tools.active_tool != tool
+          model.select_tool(tool)
+        end
+        tool.focus_model_view if tool.respond_to?(:focus_model_view)
+        model.active_view.invalidate
+      }
+      UI.start_timer(0.25, false) {
+        yield_focus_to_sketchup
+        model.active_view.invalidate
+      }
+    end
+
+    def self.finish_place_door(dialog, data_json)
+      door = JSON.parse(data_json)
+      remember_session!(door)
+      placement_tool = InteriorPro::DoorTool.new
+      apply_to_tool(placement_tool, door)
+      placement_tool.placement_ready = true
+      placement_tool.reset_preview!
+      Sketchup.set_status_text(
+        'Hover a wall to preview the opening (green/red box), then click to place.',
+        SB_PROMPT
+      )
+      dialog.set_on_closed {
+        activate_placement_tool!(placement_tool)
+      }
+      dialog.close
+    end
+
     def self.wire_place_dialog_callbacks(dialog, tool)
       dialog.add_action_callback('get_types') { |_|
         cat = InteriorPro::DoorLibrary.normalize_category(
@@ -205,11 +279,10 @@ module InteriorPro
       }
 
       dialog.add_action_callback('place_door') { |_, data|
-        door = JSON.parse(data)
-        remember_session!(door)
-        apply_to_tool(tool, door)
-        dialog.close
-        Sketchup.active_model.select_tool(tool)
+        payload = data.to_s
+        UI.start_timer(0, false) {
+          finish_place_door(dialog, payload)
+        }
       }
     end
 

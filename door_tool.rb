@@ -4,20 +4,31 @@
 # threshold offset instead of being measured down from a header height.
 
 module InteriorPro
-  remove_const(:DoorTool) if const_defined?(:DoorTool, false)
-
   class DoorTool
 
-    GREEN = Sketchup::Color.new(40, 150, 60)
-    RED   = Sketchup::Color.new(200, 40, 40)
+    GREEN = Sketchup::Color.new(40, 150, 60) unless const_defined?(:GREEN, false)
+    RED   = Sketchup::Color.new(200, 40, 40) unless const_defined?(:RED, false)
 
     attr_accessor :door_category, :door_type, :width, :height, :frame_width, :glass_frame_width,
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
-                  :interior_casing_style, :exterior_threshold, :preset_name
+                  :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready
 
     def initialize
+      @placement_ready = false
+      @ip = nil
+      @last_mouse_x = nil
+      @last_mouse_y = nil
+      @preview_pump_id = nil
       apply_category_defaults('exterior')
+    end
+
+    def mark_placement_ready!
+      @placement_ready = true
+      Sketchup.set_status_text(
+        'Hover a wall in the model to preview (green/red box), then click to place. Dialog can stay open.',
+        SB_PROMPT
+      )
     end
 
     def apply_category_defaults(category)
@@ -41,20 +52,49 @@ module InteriorPro
     end
 
     def activate
+      @ip = Sketchup::InputPoint.new
       reset_preview!
-      Sketchup.set_status_text(
-        "Door Tool: hover over a wall — green = fits, red = too tight. Click to place. Escape to exit.",
-        SB_PROMPT
-      )
-      Sketchup.active_model.active_view.invalidate
+      if @placement_ready
+        focus_model_view
+        Sketchup.set_status_text(
+          'Hover a wall in the model to preview (green/red box), then click to place.',
+          SB_PROMPT
+        )
+        view = Sketchup.active_model.active_view
+        view.invalidate
+        UI.start_timer(0, false) {
+          focus_model_view
+          view.invalidate
+        }
+      end
     end
 
     def deactivate(view)
+      stop_preview_pump!
       reset_preview!
       view.invalidate
     end
 
+    def resume(view)
+      view.invalidate
+    end
+
+    def onMouseEnter(view)
+      return unless @placement_ready
+      focus_model_view
+      view.invalidate
+    end
+
     def onMouseMove(flags, x, y, view)
+      @last_mouse_x = x
+      @last_mouse_y = y
+      return unless @placement_ready
+
+      refresh_preview_at(x, y, view)
+    end
+
+    def refresh_preview_at(x, y, view)
+      @ip&.pick(view, x, y)
       reset_preview!
       wall, picked_point, picked_face = find_wall_under_cursor(view, x, y)
       if wall && picked_point
@@ -75,7 +115,36 @@ module InteriorPro
       view.invalidate
     end
 
+    def start_preview_pump!
+      stop_preview_pump!
+      @preview_pump_id = UI.start_timer(0.05, true) {
+        next unless @placement_ready
+        view = Sketchup.active_model.active_view
+        if @last_mouse_x && @last_mouse_y
+          refresh_preview_at(@last_mouse_x, @last_mouse_y, view)
+        else
+          view.invalidate
+        end
+      }
+    end
+
+    def stop_preview_pump!
+      return unless @preview_pump_id
+      if UI.respond_to?(:stop_timer)
+        UI.stop_timer(@preview_pump_id)
+      end
+      @preview_pump_id = nil
+    end
+
     def onLButtonDown(flags, x, y, view)
+      unless @placement_ready
+        focus_model_view
+        Sketchup.set_status_text(
+          'Click Place Door on Wall in the dialog before clicking the model.',
+          SB_PROMPT
+        )
+        return
+      end
       wall, picked_point, picked_face = find_wall_under_cursor(view, x, y)
       unless wall
         Sketchup.set_status_text("No wall under cursor. Hover over a wall to place a door.", SB_PROMPT)
@@ -85,20 +154,45 @@ module InteriorPro
     end
 
     def onCancel(reason, view)
+      stop_preview_pump!
       reset_preview!
       Sketchup.active_model.select_tool(nil)
     end
 
     def draw(view)
-      return unless @preview_corners
+      return unless @placement_ready
+
+      @ip.draw(view) if @ip&.display?
+
+      return unless @preview_corners && @preview_corners.length == 8
 
       front = @preview_corners[0, 4]
       back  = @preview_corners[4, 4]
+      color = @preview_valid ? GREEN : RED
       view.line_width = 3
-      view.drawing_color = @preview_valid ? GREEN : RED
+      view.line_stipple = ''
+      view.drawing_color = color
       view.draw(GL_LINE_LOOP, front)
       view.draw(GL_LINE_LOOP, back)
       4.times { |i| view.draw(GL_LINES, [front[i], back[i]]) }
+
+      draw_screen_loop(view, front, color)
+      draw_screen_loop(view, back, color)
+      4.times { |i|
+        p1 = view.screen_coords(front[i])
+        p2 = view.screen_coords(back[i])
+        view.line_width = 3
+        view.drawing_color = color
+        view.draw2d(GL_LINES, p1, p2)
+      }
+    end
+
+    def draw_screen_loop(view, points, color)
+      screen = points.map { |p| view.screen_coords(p) }
+      return if screen.empty?
+      view.line_width = 3
+      view.drawing_color = color
+      view.draw2d(GL_LINE_LOOP, screen)
     end
 
     def getExtents
@@ -112,6 +206,10 @@ module InteriorPro
       @preview_wall = nil
       @preview_corners = nil
       @preview_valid = false
+    end
+
+    def focus_model_view
+      Sketchup.focus if Sketchup.respond_to?(:focus)
     end
 
     # 8 corners of the opening volume: front face (clicked side) + back face.
@@ -197,7 +295,31 @@ module InteriorPro
         erase_opening_bottom_seam_faces!(wall_group, data, geo)
       end
 
-      build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
+      build_ok = build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
+      unless build_ok
+        rollback_failed_door_placement!(wall_group, data, geo, use_operations: use_operations)
+        return false
+      end
+      true
+    end
+
+    # Cut succeeded but door body failed — remove partial door + patch the hole.
+    def rollback_failed_door_placement!(wall_group, data, geo, use_operations: true)
+      geo ||= InteriorPro::DoorManager.wall_geometry(wall_group)
+      return unless geo
+
+      model = Sketchup.active_model
+      if use_operations
+        model.start_operation('Undo Failed Door', true)
+      end
+      begin
+        InteriorPro::DoorManager.erase_door_at_placement(wall_group, data[:t])
+        fill_wall_opening(wall_group, data, geo)
+        model.commit_operation if use_operations
+      rescue => e
+        model.abort_operation rescue nil if use_operations
+        puts "[DoorTool] rollback failed door: #{e.message}"
+      end
     end
 
     # Build door body in an EXISTING opening (edit when opening is unchanged).
@@ -262,6 +384,7 @@ module InteriorPro
       puts "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{collect_inner_loops_near(wall_group, data, geo).length}"
 
       cap_all_inner_loops_in_volume!(wall_group, data, geo)
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
       cap_inner_loops_at_door_position!(wall_group, data, geo)
       close_large_sheet_holes!(wall_group, data, geo)
       cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
@@ -277,6 +400,7 @@ module InteriorPro
       erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
       erase_cap_faces_in_opening_hole!(wall_group, data, geo)
       cap_all_inner_loops_in_volume!(wall_group, data, geo)
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
       close_large_sheet_holes!(wall_group, data, geo)
       cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
       heal_opening_after_fill!(wall_group, data, geo)
@@ -289,8 +413,10 @@ module InteriorPro
 
       if opening_void_through_wall?(wall_group, data, geo) || tunnel_faces_in_volume?(wall_group, data, geo)
         fill_tunnel_through_opening!(wall_group, data, geo) ||
-          reconstruct_solid_patch!(wall_group, data)
+          reconstruct_solid_patch!(wall_group, data) ||
+          reconstruct_opening_axis_slab!(wall_group, data)
         cap_all_inner_loops_in_volume!(wall_group, data, geo)
+        cap_parallel_sheet_inner_loops!(wall_group, data, geo)
         close_large_sheet_holes!(wall_group, data, geo)
         cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
         heal_opening_after_fill!(wall_group, data, geo)
@@ -320,7 +446,11 @@ module InteriorPro
     # walls and causes delete to abort_operation (door comes back).
     def opening_still_open_after_fill?(wall_group, data, geo = nil)
       opening_hole_at_center?(wall_group, data, geo) ||
-        tunnel_faces_in_volume?(wall_group, data, geo)
+        tunnel_faces_in_volume?(wall_group, data, geo) ||
+        (geo && opening_geometry_near_wall_t?(
+          wall_group, geo, data[:t], data[:half_w], data[:door_bot_z], data[:door_top_z],
+          data[:clicked_side]
+        ))
     end
 
     def log_fill_v5_result(wall_group, data, geo = nil)
@@ -339,6 +469,7 @@ module InteriorPro
         next unless f.valid?
         f.loops.each do |lp|
           next if lp.outer?
+          next unless loop_capable?(lp)
           c = loop_centroid(lp).transform(xform)
           next unless opening_point_in_heal_volume?(c, data, geo)
           found += 1
@@ -362,12 +493,17 @@ module InteriorPro
       local_xform = wall_group.transformation.inverse
       local_outward = data[:outward].transform(local_xform)
       center_local = opening_center_local(data, local_xform)
+      xform = wall_group.transformation
       ok = false
 
       parallel_wall_faces(wall_group, data).each do |sheet|
         next unless sheet&.valid?
 
+        # Only cap inner loops for THIS opening — never every hole on the sheet.
         sheet.loops.reject(&:outer?).each do |lp|
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+
           ok = true if cap_loop_flat!(wall_group, lp)
         end
 
@@ -398,6 +534,19 @@ module InteriorPro
     end
 
     def close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+      erase_floating_caps_on_sheet!(wall_group, sheet, data, geo)
+
+      lp = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+      if lp && cap_loop_flat!(wall_group, lp)
+        return true
+      end
+
+      center_local = opening_center_local(data, local_xform)
+      if opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward) &&
+         sheet_inner_loop_in_volume(wall_group, sheet, data, geo).nil?
+        return true
+      end
+
       plane = sheet.plane
       # Try EXACT door-data corners first (no vertex snapping). For a fresh
       # delete these are precise; snapping can grab a wrong vertex up to 8" away
@@ -415,7 +564,11 @@ module InteriorPro
         begin
           cap = wall_group.entities.add_face(ordered)
           cap ||= wall_group.entities.add_face(ordered.reverse)
-          return true if cap&.valid?
+          if cap&.valid?
+            lp_after = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+            return true if lp_after.nil? || cap_loop_flat!(wall_group, lp_after)
+            return true
+          end
         rescue ArgumentError
           # try next ordering / the add_line fallback below
         end
@@ -431,12 +584,61 @@ module InteriorPro
           cap_face = new_edges.flat_map { |e| e.faces }.uniq.find do |f|
             f.valid? && f.normal.parallel?(local_outward)
           end
-          return true if cap_face
+          if cap_face
+            lp_after = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+            return true if lp_after.nil? || cap_loop_flat!(wall_group, lp_after)
+            return true
+          end
         rescue ArgumentError
           # try next ordering
         end
       end
       false
+    end
+
+    def sheet_inner_loop_in_volume(wall_group, sheet, data, geo = nil)
+      return nil unless sheet&.valid?
+
+      xform = wall_group.transformation
+      sheet.loops.reject(&:outer?).find do |lp|
+        c = loop_centroid(lp).transform(xform)
+        opening_point_in_heal_volume?(c, data, geo)
+      end
+    end
+
+    def cap_parallel_sheet_inner_loops!(wall_group, data, geo = nil)
+      capped = 0
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+        erase_floating_caps_on_sheet!(wall_group, sheet, data, geo)
+        lp = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+        capped += 1 if lp && cap_loop_flat!(wall_group, lp)
+      end
+      puts "[DoorTool] cap_sheet_loops: capped=#{capped}" if capped > 0
+      capped
+    end
+
+    # Remove orphan caps sitting inside a sheet hole (not merged with the hole boundary).
+    def erase_floating_caps_on_sheet!(wall_group, sheet, data, geo = nil)
+      return unless sheet&.valid?
+
+      plane = sheet.plane
+      normal = sheet.normal
+      xform = wall_group.transformation
+      max_area = sheet.area * 0.85
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next if f == sheet
+        next unless f.valid?
+        next unless f.normal.parallel?(normal)
+        next if f.vertices.first.position.distance_to_plane(plane) > 0.05
+        next unless f.area < max_area
+
+        ctr = face_centroid_world(f, xform)
+        next unless opening_point_in_heal_volume?(ctr, data, geo)
+
+        f.erase!
+      end
     end
 
     def fill_tunnel_through_opening!(wall_group, data, geo = nil)
@@ -521,8 +723,7 @@ module InteriorPro
     def opening_void_through_wall?(wall_group, data, geo = nil)
       local_xform = wall_group.transformation.inverse
       local_outward = data[:outward].transform(local_xform)
-      mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
-      base = Geom::Point3d.new(data[:fx], data[:fy], mid_z).transform(local_xform)
+      base = opening_center_local(data, local_xform)
       outward = local_outward.clone
       outward.normalize! if outward.length > 0.001
 
@@ -582,6 +783,7 @@ module InteriorPro
 
         f.loops.each do |lp|
           next if lp.outer?
+          next unless loop_capable?(lp)
           c = loop_centroid(lp).transform(xform)
           next unless opening_point_in_heal_volume?(c, data, geo)
 
@@ -595,7 +797,17 @@ module InteriorPro
       capped
     end
 
+    def loop_capable?(lp)
+      return false unless lp
+      return false if lp.edges.length < 3
+
+      verts = lp.vertices
+      verts.length >= 3 && verts.uniq.length >= 3
+    end
+
     def cap_loop_flat!(wall_group, lp)
+      return false unless loop_capable?(lp)
+
       edges = order_edges_chain(lp.edges)
       if edges.length >= 3
         cap = wall_group.entities.add_face(edges)
@@ -618,8 +830,7 @@ module InteriorPro
         return true if cap&.valid?
       end
       false
-    rescue => e
-      puts "[DoorTool] cap_loop_flat error: #{e.message}"
+    rescue ArgumentError
       false
     end
 
@@ -648,6 +859,12 @@ module InteriorPro
 
       parallel_wall_faces(wall_group, data).each do |sheet|
         next unless sheet&.valid?
+
+        sheet.loops.reject(&:outer?).each do |lp|
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
 
         hole_edges = sheet.edges.select do |e|
           next false unless e.valid?
@@ -794,12 +1011,13 @@ module InteriorPro
     end
 
     # Broad search along wall centerline when stored coordinates are off.
-    def find_inner_loop_near_position(wall_group, geo, t, mid_z, half_w = 24.0)
-      local_xform = wall_group.transformation.inverse
-      cx = geo[:cline_start].x + geo[:unit].x * t + geo[:n].x * geo[:n_side]
-      cy = geo[:cline_start].y + geo[:unit].y * t + geo[:n].y * geo[:n_side]
-      center_local = Geom::Point3d.new(cx, cy, mid_z).transform(local_xform)
-      max_dist = half_w + 6.0
+    def find_inner_loop_near_position(wall_group, geo, t, mid_z_local, half_w = 24.0)
+      unit = geo[:unit]
+      n = geo[:n]
+      cx_w = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy_w = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      center_local = opening_local_point(wall_group, cx_w, cy_w, mid_z_local)
+      max_dist = half_w + 12.0
 
       best_lp = nil
       best_dist = Float::INFINITY
@@ -816,12 +1034,127 @@ module InteriorPro
       best_lp
     end
 
+    # Inner loops near position t along the wall (ignores stored fx/fy).
+    def inner_loops_near_wall_t(wall_group, geo, t, half_w_pad)
+      xform = wall_group.transformation
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      max_along = half_w_pad + 8.0
+
+      all_inner_loops(wall_group).select do |lp|
+        next false unless loop_capable?(lp)
+        c = loop_centroid(lp).transform(xform)
+        along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+        along.abs <= max_along
+      end
+    end
+
+    def point_near_opening_at_t?(pt, wall_group, geo, t, half_w, door_bot_z, door_top_z)
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
+      perp = (pt.x - cx) * n.x + (pt.y - cy) * n.y
+      bot_w = opening_world_point(wall_group, cx, cy, door_bot_z).z
+      top_w = opening_world_point(wall_group, cx, cy, door_top_z).z
+      along.abs <= half_w + 24.0 &&
+        perp.abs <= geo[:thickness] + 8.0 &&
+        pt.z >= bot_w - 8.0 && pt.z <= top_w + 8.0
+    end
+
+    def tunnel_faces_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side = 1)
+      local_outward = data_outward_local(wall_group, geo, clicked_side)
+      xform = wall_group.transformation
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        next false if face_matches_outward_local?(f, local_outward)
+        ctr = face_centroid_world(f, xform)
+        point_near_opening_at_t?(ctr, wall_group, geo, t, half_w, door_bot_z, door_top_z)
+      end
+    end
+
+    def opening_geometry_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side = 1)
+      tunnel_faces_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side) ||
+        inner_loops_near_wall_t(wall_group, geo, t, half_w + 24.0).any?
+    end
+
+    # Last-resort delete patch — wide search at stored wall position t.
+    def fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
+      puts "[DoorTool] fill aggressive at t=#{ctx[:t].round(2)}"
+      erase_opening_tunnel!(wall_group, data, geo)
+      erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
+      erase_cap_faces_in_opening_hole!(wall_group, data, geo)
+
+      inner_loops_near_wall_t(wall_group, geo, ctx[:t], ctx[:half_w] + 24.0).each do |lp|
+        cap_loop_flat!(wall_group, lp)
+      end
+
+      fill_tunnel_through_opening!(wall_group, data, geo)
+      reconstruct_solid_patch!(wall_group, data)
+      close_large_sheet_holes!(wall_group, data, geo)
+      cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      !opening_still_open_after_fill?(wall_group, data, geo)
+    end
+
+    # Delete path: always cap exterior + interior sheets (ignore "already covered" false positives).
+    def force_seal_wall_sheets!(wall_group, data, geo = nil)
+      puts '[DoorTool] force_seal_wall_sheets'
+      erase_opening_tunnel!(wall_group, data, geo)
+
+      inner_loops_near_wall_t(wall_group, geo, data[:t], data[:half_w] + 24.0).each do |lp|
+        cap_loop_flat!(wall_group, lp)
+      end
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      capped = 0
+
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+        if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+          capped += 1
+        end
+      end
+
+      if capped < 2
+        reconstruct_solid_patch!(wall_group, data)
+        reconstruct_opening_axis_slab!(wall_group, data)
+        heal_opening_after_fill!(wall_group, data, geo)
+        cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+        parallel_wall_faces(wall_group, data).each do |sheet|
+          next unless sheet&.valid?
+          if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+            capped += 1
+          end
+        end
+      end
+      puts "[DoorTool] force_seal: sheet_caps=#{capped}"
+
+      heal_opening_after_fill!(wall_group, data, geo)
+      soften_opening_sheet_edges!(wall_group, data, geo)
+    end
+
+    def data_outward_local(wall_group, geo, clicked_side)
+      n = geo[:n]
+      outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
+      outward.transform(wall_group.transformation.inverse)
+    end
+
     private
 
     def find_wall_under_cursor(view, x, y)
       ph = view.pick_helper
       ph.do_pick(x, y)
       return [nil, nil, nil] if ph.count == 0
+
+      ip = Sketchup::InputPoint.new
+      ip.pick(view, x, y)
 
       ph.count.times do |i|
         path = ph.path_at(i)
@@ -835,6 +1168,7 @@ module InteriorPro
         leaf = ph.leaf_at(i)
         face = leaf.is_a?(Sketchup::Face) ? leaf : nil
         point = world_pick_point(view, x, y, ph, i)
+        point ||= ip.valid? ? ip.position : nil
         return [wall, point, face] if point
       end
       [nil, nil, nil]
@@ -884,52 +1218,20 @@ module InteriorPro
     end
 
     def compute_placement_data(wall_group, picked_point, picked_face)
-      sx = wall_group.get_attribute('InteriorPro', 'start_x')
-      sy = wall_group.get_attribute('InteriorPro', 'start_y')
-      ex = wall_group.get_attribute('InteriorPro', 'end_x')
-      ey = wall_group.get_attribute('InteriorPro', 'end_y')
-      thickness = wall_group.get_attribute('InteriorPro', 'thickness').to_f
-      wall_height = wall_group.get_attribute('InteriorPro', 'height').to_f
-      anchor = wall_group.get_attribute('InteriorPro', 'anchor') || 'bottom-center'
-
-      unless sx && sy && ex && ey && thickness > 0 && wall_height > 0
+      geo = InteriorPro::DoorManager.wall_geometry(wall_group)
+      unless geo
         return [nil, false, 'Wall is missing required attributes.']
       end
 
-      drawn_start = Geom::Point3d.new(sx, sy, 0)
-      drawn_end = Geom::Point3d.new(ex, ey, 0)
-      wall_vec = drawn_end - drawn_start
-      wall_length = wall_vec.length
-      if wall_length < 0.1
-        return [nil, false, 'Wall is too short.']
-      end
+      unit = geo[:unit]
+      n = geo[:n]
+      cline_start = geo[:cline_start]
+      wall_length = geo[:wall_length]
+      thickness = geo[:thickness]
+      floor_z = geo[:floor_z]
+      ceiling_z = geo[:ceiling_z]
 
-      unit = wall_vec.clone
-      unit.normalize!
-      n = Geom::Vector3d.new(-unit.y, unit.x, 0)
-
-      v_anchor, h_anchor = parse_anchor(anchor)
-
-      center_offset = case h_anchor
-                        when 'left'  then thickness / 2.0
-                        when 'right' then -thickness / 2.0
-                        else 0.0
-                        end
-      cline_start = Geom::Point3d.new(
-        drawn_start.x + n.x * center_offset,
-        drawn_start.y + n.y * center_offset,
-        0
-      )
-
-      floor_z = case v_anchor
-                  when 'top'    then -wall_height
-                  when 'center' then -wall_height / 2.0
-                  else 0.0
-                  end
-      ceiling_z = floor_z + wall_height
-
-      click_xy = Geom::Point3d.new(picked_point.x, picked_point.y, 0)
-      to_click = click_xy - cline_start
+      to_click = picked_point - cline_start
       t = to_click.dot(unit)
       n_offset = to_click.dot(n)
       clicked_side = n_offset >= 0 ? 1 : -1
@@ -943,7 +1245,7 @@ module InteriorPro
       valid = valid_length && valid_height
 
       error = nil
-      unless valid_length
+      if !valid_length
         error = "Door does not fit in wall.\n\n" \
                 "Wall length: #{wall_length.round(2)}\"\n" \
                 "Door width: #{@width}\"\n" \
@@ -952,10 +1254,10 @@ module InteriorPro
       elsif !valid_height
         error = "Door does not fit in wall height.\n\n" \
                 "Floor offset (#{@floor_offset}\") + door height (#{@height}\") " \
-                "exceeds wall height (#{wall_height}\")."
+                "exceeds wall height (#{geo[:wall_height]}\")."
       end
 
-      n_side = -thickness / 2.0
+      n_side = geo[:n_side]
       cx = cline_start.x + unit.x * t + n.x * n_side
       cy = cline_start.y + unit.y * t + n.y * n_side
       ux = unit.x * half_w
@@ -1007,12 +1309,7 @@ module InteriorPro
       end
 
       target_plane = target_face.plane
-      local_corners = [
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
-      ].map { |p| p.transform(local_xform).project_to_plane(target_plane) }
+      local_corners = opening_corners_local(data, local_xform, target_plane)
       ordered = data[:clicked_side] >= 0 ?
         [local_corners[0], local_corners[3], local_corners[2], local_corners[1]] :
         [local_corners[0], local_corners[1], local_corners[2], local_corners[3]]
@@ -1186,9 +1483,16 @@ module InteriorPro
         next false unless f.valid?
         next false if face_matches_outward_local?(f, local_outward)
         ctr = face_centroid_world(f, xform)
-        opening_point_in_volume?(ctr, data, geo)
+        opening_point_in_heal_volume?(ctr, data, geo) ||
+          (geo && point_near_opening_at_t?(
+            ctr, wall_group, geo, data[:t], data[:half_w],
+            data[:door_bot_z], data[:door_top_z]
+          ))
       end
+      erased = to_erase.length
       to_erase.each { |f| f.erase! if f.valid? }
+      puts "[DoorTool] erase_opening_tunnel: #{erased}" if erased > 0
+      erased
     end
 
     def opening_volume_faces?(wall_group, data, geo = nil)
@@ -1242,11 +1546,42 @@ module InteriorPro
       cx, cy = opening_axis_center_xy(data, geo)
       along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
       perp = (pt.x - cx) * n.x + (pt.y - cy) * n.y
-      half_h = (data[:door_top_z] - data[:door_bot_z]) / 2.0
-      mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      wall_group = data[:wall_group]
+      if wall_group&.valid?
+        bot_w = opening_bot_z_world(wall_group, data)
+        top_w = opening_top_z_world(wall_group, data)
+        mid_z = (bot_w + top_w) / 2.0
+        half_h = (top_w - bot_w) / 2.0
+      else
+        half_h = (data[:door_top_z] - data[:door_bot_z]) / 2.0
+        mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      end
       along.abs <= data[:half_w] + along_pad &&
         (pt.z - mid_z).abs <= half_h + z_pad &&
         perp.abs <= data[:thickness] + perp_pad
+    end
+
+    # fx/fy are world XY; door_bot_z/door_top_z are wall-local Z.
+    def opening_local_point(wall_group, fx, fy, z_local)
+      inv = wall_group.transformation.inverse
+      local_xy = Geom::Point3d.new(fx, fy, 0).transform(inv)
+      Geom::Point3d.new(local_xy.x, local_xy.y, z_local)
+    end
+
+    def opening_world_point(wall_group, fx, fy, z_local)
+      opening_local_point(wall_group, fx, fy, z_local).transform(wall_group.transformation)
+    end
+
+    def opening_bot_z_world(wall_group, data)
+      opening_world_point(wall_group, data[:fx], data[:fy], data[:door_bot_z]).z
+    end
+
+    def opening_top_z_world(wall_group, data)
+      opening_world_point(wall_group, data[:fx], data[:fy], data[:door_top_z]).z
+    end
+
+    def opening_mid_z_world(wall_group, data)
+      (opening_bot_z_world(wall_group, data) + opening_top_z_world(wall_group, data)) / 2.0
     end
 
     def opening_axis_center_xy(data, geo)
@@ -1278,21 +1613,23 @@ module InteriorPro
       xform = wall_group.transformation
       unit = data[:unit]
       n = data[:n]
-      cx = data[:fx]
-      cy = data[:fy]
+      cx, cy = opening_axis_center_xy(data, geo)
       half_w = data[:half_w]
-      half_h = (data[:door_top_z] - data[:door_bot_z]) / 2.0
-      mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      bot_w = opening_bot_z_world(wall_group, data)
+      top_w = opening_top_z_world(wall_group, data)
+      mid_z_world = (bot_w + top_w) / 2.0
+      half_h_world = (top_w - bot_w) / 2.0
       max_along = half_w + 8.0
-      max_z = half_h + 8.0
+      max_z = half_h_world + 8.0
       max_perp = data[:thickness] + 6.0
 
       all_inner_loops(wall_group).select do |lp|
+        next false unless loop_capable?(lp)
         c = loop_centroid(lp).transform(xform)
         along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
         perp = (c.x - cx) * n.x + (c.y - cy) * n.y
         along.abs <= max_along &&
-          (c.z - mid_z).abs <= max_z &&
+          (c.z - mid_z_world).abs <= max_z &&
           perp.abs <= max_perp
       end
     end
@@ -1322,7 +1659,7 @@ module InteriorPro
 
       local_xform = wall_group.transformation.inverse
       center_local = Geom::Point3d.new(
-        data[:fx], data[:fy], (data[:door_bot_z] + data[:door_top_z]) / 2.0
+        data[:cx], data[:cy], (data[:door_bot_z] + data[:door_top_z]) / 2.0
       ).transform(local_xform)
       span = (center_local.distance_to_plane(ext.plane) - center_local.distance_to_plane(int.plane)).abs
       span > 0.1 && span <= t * 1.25 ? span : t
@@ -1336,19 +1673,33 @@ module InteriorPro
     def parallel_wall_faces(wall_group, data)
       local_xform = wall_group.transformation.inverse
       local_outward = data[:outward].transform(local_xform)
+      center_local = opening_center_local(data, local_xform)
       parallel = wall_group.entities.grep(Sketchup::Face).select do |f|
         f.valid? && face_matches_outward_local?(f, local_outward)
       end
       return [nil, nil] if parallel.empty?
 
-      # Pick the largest faces on each side — not battens/small fragments
-      # (max_by dot used to select the outermost batten face on Board-and-Batten walls).
       exterior_candidates = parallel.select { |f| f.normal.dot(local_outward) > 0.25 }
       interior_candidates = parallel.select { |f| f.normal.dot(local_outward) < -0.25 }
 
-      exterior = exterior_candidates.max_by(&:area)
-      interior = interior_candidates.max_by(&:area)
+      exterior = pick_best_sheet_near_opening(wall_group, data, exterior_candidates, center_local)
+      interior = pick_best_sheet_near_opening(wall_group, data, interior_candidates, center_local)
       [exterior, interior].compact.uniq
+    end
+
+    def pick_best_sheet_near_opening(wall_group, data, candidates, center_local)
+      return nil if candidates.empty?
+
+      xform = wall_group.transformation
+      candidates.max_by do |f|
+        proj = center_local.project_to_plane(f.plane)
+        cls = f.classify_point(proj)
+        on_opening = cls == Sketchup::Face::PointInside ||
+                     cls == Sketchup::Face::PointOnEdge ||
+                     cls == Sketchup::Face::PointOnVertex
+        in_vol = opening_point_in_heal_volume?(face_centroid_world(f, xform), data, nil)
+        f.area + (on_opening ? 1e9 : 0) + (in_vol ? 1e6 : 0)
+      end
     end
 
     def fill_both_parallel_sheets!(wall_group, data, geo = nil)
@@ -1413,12 +1764,17 @@ module InteriorPro
     end
 
     def raw_corners_world(data)
-      [
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
-      ]
+      wall_group = data[:wall_group]
+      if wall_group&.valid?
+        opening_corners_world(wall_group, data)
+      else
+        [
+          Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
+          Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
+          Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
+          Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
+        ]
+      end
     end
 
     def mesh_corners_world(data, geo)
@@ -1491,7 +1847,8 @@ module InteriorPro
       corners_local = corners_world_from_data(data, geo).map do |wpt|
         local = wpt.transform(local_xform)
         local = plane ? local.project_to_plane(plane) : local
-        snap_local_vertex_near(wall_group, local, 6.0)
+        snapped = snap_local_vertex_near(wall_group, local, 6.0)
+        plane ? snapped.project_to_plane(plane) : snapped
       end
       orders = [
         ordered_opening_loop(corners_local, data[:clicked_side]),
@@ -1628,12 +1985,8 @@ module InteriorPro
     end
 
     def opening_corners_local_raw(data, local_xform)
-      [
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
-      ].map { |p| p.transform(local_xform) }
+      wall_group = data[:wall_group]
+      opening_corners_world(wall_group, data).map { |p| p.transform(local_xform) }
     end
 
     def cap_inner_loop!(wall_group, lp, thickness)
@@ -1690,9 +2043,10 @@ module InteriorPro
     end
 
     def opening_center_local(data, local_xform)
-      Geom::Point3d.new(
-        data[:fx], data[:fy], (data[:door_bot_z] + data[:door_top_z]) / 2.0
-      ).transform(local_xform)
+      wall_group = data[:wall_group]
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      opening_local_point(wall_group, ax, ay, mid_local)
     end
 
     def face_matches_outward?(face, local_outward)
@@ -1745,8 +2099,8 @@ module InteriorPro
 
       target_face = find_wall_face_near_opening(wall_group, data, local_xform, local_outward)
       unless target_face
-        puts '[DoorTool] reconstruct_solid_patch: no target face'
-        return false
+        puts '[DoorTool] reconstruct_solid_patch: no target face, trying axis slab'
+        return reconstruct_opening_axis_slab!(wall_group, data)
       end
 
       target_plane = target_face.plane
@@ -1770,25 +2124,99 @@ module InteriorPro
       ext, _int = parallel_wall_faces(wall_group, data)
       return ext if ext&.valid?
 
-      local_picked = data[:picked_point].transform(local_xform)
-      test_local = Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z]).transform(local_xform)
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      test_locals = [
+        Geom::Point3d.new(data[:cx], data[:cy], mid_local).transform(local_xform),
+        data[:picked_point].transform(local_xform),
+        Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z]).transform(local_xform)
+      ]
 
-      wall_group.entities.grep(Sketchup::Face).find do |f|
-        next false unless f.valid? && face_matches_outward?(f, local_outward)
-        proj = local_picked.project_to_plane(f.plane)
-        next true if local_picked.distance(proj) < 2.0
-        proj2 = test_local.project_to_plane(f.plane)
-        test_local.distance(proj2) < 2.0
+      parallel = wall_group.entities.grep(Sketchup::Face).select do |f|
+        f.valid? && face_matches_outward_local?(f, local_outward)
       end
+
+      parallel.each do |f|
+        test_locals.each do |pt|
+          proj = pt.project_to_plane(f.plane)
+          cls = f.classify_point(proj)
+          if cls == Sketchup::Face::PointInside ||
+             cls == Sketchup::Face::PointOnEdge ||
+             cls == Sketchup::Face::PointOnVertex
+            return f
+          end
+        end
+      end
+
+      axis_pt = test_locals.first
+      parallel.min_by { |f| axis_pt.distance_to_plane(f.plane) }
+    end
+
+    # Rebuild wall solid through opening using axis geometry (no sheet face required).
+    def reconstruct_opening_axis_slab!(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      thickness = data[:thickness].to_f
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      origin = opening_local_point(wall_group, ax, ay, mid_local)
+
+      n_local = Geom::Vector3d.new(data[:n].x, data[:n].y, 0).transform(local_xform)
+      if n_local.length < 0.001
+        puts '[DoorTool] reconstruct axis slab: bad n'
+        return false
+      end
+      n_local.normalize!
+      plane = [origin, n_local]
+
+      corners = opening_corners_world(wall_group, data).map do |p|
+        p.transform(local_xform).project_to_plane(plane)
+      end
+      orders = [
+        [corners[0], corners[3], corners[2], corners[1]],
+        [corners[0], corners[1], corners[2], corners[3]]
+      ]
+
+      orders.each do |ordered|
+        begin
+          cap = wall_group.entities.add_face(ordered)
+          cap ||= wall_group.entities.add_face(ordered.reverse)
+          if cap&.valid?
+            pushpull_through_wall!(cap, local_outward, thickness)
+            puts '[DoorTool] reconstruct axis slab: ok'
+            return true
+          end
+        rescue ArgumentError
+          # try next ordering
+        end
+      end
+
+      puts '[DoorTool] reconstruct axis slab: failed'
+      false
     end
 
     def opening_corners_local(data, local_xform, plane)
-      [
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
-        Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
-        Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
-      ].map { |p| p.transform(local_xform).project_to_plane(plane) }
+      wall_group = data[:wall_group]
+      opening_corners_world(wall_group, data).map { |p| p.transform(local_xform).project_to_plane(plane) }
+    end
+
+    def opening_axis_xy(data)
+      [data[:cx], data[:cy]]
+    end
+
+    def opening_corners_world(wall_group, data)
+      unit = data[:unit]
+      half_w = data[:half_w]
+      uvec = Geom::Vector3d.new(unit.x * half_w, unit.y * half_w, unit.z * half_w)
+      ax, ay = opening_axis_xy(data)
+      bot = opening_world_point(wall_group, ax, ay, data[:door_bot_z])
+      top = opening_world_point(wall_group, ax, ay, data[:door_top_z])
+      [bot - uvec, bot + uvec, top + uvec, top - uvec]
+    end
+
+    def door_opening_center_world(wall_group, data)
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      opening_world_point(wall_group, ax, ay, mid_local)
     end
 
     def pushpull_through_wall!(face, local_outward, thickness)
@@ -1893,7 +2321,7 @@ module InteriorPro
       door_group.name = 'InteriorPro_Door'
       door_group.entities.add_cpoint(Geom::Point3d.new(0, 0, 0))
       door_group.transformation = Geom::Transformation.new(
-        Geom::Point3d.new(cx, cy, (door_bot_z + door_top_z) / 2.0)
+        door_opening_center_world(wall_group, data)
       )
 
       door_id      = generate_door_id
