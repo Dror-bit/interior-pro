@@ -9,11 +9,17 @@ module InteriorPro
     %i[
       EXTERIOR_TYPES INTERIOR_TYPES BUILT_IN_BY_CATEGORY
       EXTERIOR_CASING_STYLES INTERIOR_CASING_STYLES CASING_LEGACY_MAP CATEGORY_DEFAULTS
+      FOUR_PANEL_PANEL_IN FOUR_PANEL_WIDTH_IN PANEL_WIDTH_IN JAMB_TOTAL_IN
+      TYPE_SETTING_OVERRIDES
     ].each { |c| remove_const(c) if const_defined?(c, false) }
 
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'door_types.json')
 
-    EXTERIOR_TYPES = ['French Hinged', 'Sliding'].freeze
+    EXTERIOR_TYPES = [
+      'French Hinged', 'Sliding',
+      '4-Panel Center Hinged', '4-Panel Sliding', '6-Panel Sliding',
+      '3-Panel Folding', '4-Panel Folding', '6-Panel Folding'
+    ].freeze
     INTERIOR_TYPES = ['Single', 'Double', 'Sliding', 'Pocket', 'French Hinged'].freeze
 
     BUILT_IN_BY_CATEGORY = {
@@ -69,11 +75,32 @@ module InteriorPro
       }
     }.freeze
 
+    # Multi-panel doors (3+): each panel 3 ft (36") min. Width = panels × 36" + jambs.
+    PANEL_WIDTH_IN = 36.0
+    JAMB_TOTAL_IN = 3.0
+    FOUR_PANEL_PANEL_IN = PANEL_WIDTH_IN
+    FOUR_PANEL_WIDTH_IN = (4 * PANEL_WIDTH_IN) + JAMB_TOTAL_IN
+
+    MULTI_PANEL_GLASS = {
+      'glass_frame_width' => 2.5,
+      'glass_grid_style'  => 'none'
+    }.freeze
+
+    def self.width_for_panel_count(count)
+      (count.to_i * PANEL_WIDTH_IN) + JAMB_TOTAL_IN
+    end
+
     # Per-type glass defaults (exterior catalog). Applied when the user picks a type in the dialog.
     TYPE_SETTING_OVERRIDES = {
       'exterior' => {
-        'Sliding'       => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
-        'French Hinged' => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' }
+        'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
+        'French Hinged'           => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },
+        '4-Panel Center Hinged'   => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
+        '4-Panel Sliding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
+        '6-Panel Sliding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(6)),
+        '3-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(3)),
+        '4-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
+        '6-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(6))
       }
     }.freeze
 

@@ -8,6 +8,9 @@ module InteriorPro
 
   class DoorTool
 
+    GREEN = Sketchup::Color.new(40, 150, 60)
+    RED   = Sketchup::Color.new(200, 40, 40)
+
     attr_accessor :door_category, :door_type, :width, :height, :frame_width, :glass_frame_width,
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
@@ -38,19 +41,38 @@ module InteriorPro
     end
 
     def activate
+      reset_preview!
       Sketchup.set_status_text(
-        "Door Tool: hover over a wall and click to cut opening. Press Escape to exit.",
+        "Door Tool: hover over a wall — green = fits, red = too tight. Click to place. Escape to exit.",
         SB_PROMPT
       )
+      Sketchup.active_model.active_view.invalidate
     end
 
     def deactivate(view)
+      reset_preview!
       view.invalidate
     end
 
     def onMouseMove(flags, x, y, view)
-      wall, _ = find_wall_under_cursor(view, x, y)
-      view.tooltip = wall ? "Click to place #{@width}\" x #{@height}\" door opening" : ''
+      reset_preview!
+      wall, picked_point, picked_face = find_wall_under_cursor(view, x, y)
+      if wall && picked_point
+        data, valid, = compute_placement_data(wall, picked_point, picked_face)
+        if data
+          @preview_wall = wall
+          @preview_corners = opening_ghost_corners(data)
+          @preview_valid = valid
+        end
+        view.tooltip = if valid
+                         "Click to place #{@width}\" x #{@height}\" door"
+                       else
+                         "Door does not fit here"
+                       end
+      else
+        view.tooltip = ''
+      end
+      view.invalidate
     end
 
     def onLButtonDown(flags, x, y, view)
@@ -63,7 +85,53 @@ module InteriorPro
     end
 
     def onCancel(reason, view)
+      reset_preview!
       Sketchup.active_model.select_tool(nil)
+    end
+
+    def draw(view)
+      return unless @preview_corners
+
+      front = @preview_corners[0, 4]
+      back  = @preview_corners[4, 4]
+      view.line_width = 3
+      view.drawing_color = @preview_valid ? GREEN : RED
+      view.draw(GL_LINE_LOOP, front)
+      view.draw(GL_LINE_LOOP, back)
+      4.times { |i| view.draw(GL_LINES, [front[i], back[i]]) }
+    end
+
+    def getExtents
+      bb = Geom::BoundingBox.new
+      bb.add(@preview_wall.bounds) if @preview_wall&.valid?
+      @preview_corners&.each { |p| bb.add(p) }
+      bb
+    end
+
+    def reset_preview!
+      @preview_wall = nil
+      @preview_corners = nil
+      @preview_valid = false
+    end
+
+    # 8 corners of the opening volume: front face (clicked side) + back face.
+    def opening_ghost_corners(data)
+      fx = data[:fx]
+      fy = data[:fy]
+      ux = data[:ux]
+      uy = data[:uy]
+      bot = data[:door_bot_z]
+      top = data[:door_top_z]
+      ow = data[:outward]
+      th = data[:thickness]
+      front = [
+        Geom::Point3d.new(fx - ux, fy - uy, bot),
+        Geom::Point3d.new(fx + ux, fy + uy, bot),
+        Geom::Point3d.new(fx + ux, fy + uy, top),
+        Geom::Point3d.new(fx - ux, fy - uy, top)
+      ]
+      back = front.map { |p| p.offset(ow, -th) }
+      front + back
     end
 
     def onKeyDown(key, repeat, flags, view)
@@ -115,6 +183,7 @@ module InteriorPro
           unless cut_ok.call
             raise 'Wall cut failed'
           end
+          erase_opening_bottom_seam_faces!(wall_group, data, geo)
           model.commit_operation
         rescue => e
           model.abort_operation rescue nil
@@ -124,6 +193,8 @@ module InteriorPro
       elsif !cut_ok.call
         puts '[DoorTool] cut failed (no operation wrap)'
         return false
+      else
+        erase_opening_bottom_seam_faces!(wall_group, data, geo)
       end
 
       build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
@@ -804,6 +875,15 @@ module InteriorPro
     end
 
     def prepare_door_placement(wall_group, picked_point, picked_face)
+      data, valid, error = compute_placement_data(wall_group, picked_point, picked_face)
+      unless valid
+        UI.messagebox(error) if error
+        return nil
+      end
+      data
+    end
+
+    def compute_placement_data(wall_group, picked_point, picked_face)
       sx = wall_group.get_attribute('InteriorPro', 'start_x')
       sy = wall_group.get_attribute('InteriorPro', 'start_y')
       ex = wall_group.get_attribute('InteriorPro', 'end_x')
@@ -813,8 +893,7 @@ module InteriorPro
       anchor = wall_group.get_attribute('InteriorPro', 'anchor') || 'bottom-center'
 
       unless sx && sy && ex && ey && thickness > 0 && wall_height > 0
-        UI.messagebox("Wall is missing required attributes.")
-        return nil
+        return [nil, false, 'Wall is missing required attributes.']
       end
 
       drawn_start = Geom::Point3d.new(sx, sy, 0)
@@ -822,8 +901,7 @@ module InteriorPro
       wall_vec = drawn_end - drawn_start
       wall_length = wall_vec.length
       if wall_length < 0.1
-        UI.messagebox("Wall is too short.")
-        return nil
+        return [nil, false, 'Wall is too short.']
       end
 
       unit = wall_vec.clone
@@ -832,56 +910,49 @@ module InteriorPro
 
       v_anchor, h_anchor = parse_anchor(anchor)
 
-      # Adjust drawn line to true centerline based on horizontal anchor (same
-      # convention as build_wall_group / WindowTool).
       center_offset = case h_anchor
-                      when 'left'  then thickness / 2.0
-                      when 'right' then -thickness / 2.0
-                      else 0.0
-                      end
+                        when 'left'  then thickness / 2.0
+                        when 'right' then -thickness / 2.0
+                        else 0.0
+                        end
       cline_start = Geom::Point3d.new(
         drawn_start.x + n.x * center_offset,
         drawn_start.y + n.y * center_offset,
         0
       )
 
-      # Floor of wall (bottom z) depends on vertical anchor.
       floor_z = case v_anchor
-                when 'top'    then -wall_height
-                when 'center' then -wall_height / 2.0
-                else 0.0
-                end
+                  when 'top'    then -wall_height
+                  when 'center' then -wall_height / 2.0
+                  else 0.0
+                  end
       ceiling_z = floor_z + wall_height
 
-      # Project picked point (XY) onto centerline.
       click_xy = Geom::Point3d.new(picked_point.x, picked_point.y, 0)
       to_click = click_xy - cline_start
       t = to_click.dot(unit)
       n_offset = to_click.dot(n)
       clicked_side = n_offset >= 0 ? 1 : -1
 
-      # Validate fit along wall length.
       half_w = @width / 2.0
-      if t - half_w < 0 || t + half_w > wall_length
-        UI.messagebox(
-          "Door does not fit in wall.\n\n" \
-          "Wall length: #{wall_length.round(2)}\"\n" \
-          "Door width: #{@width}\"\n" \
-          "Click position: #{t.round(2)}\" from wall start\n" \
-          "Need at least #{half_w}\" from each end."
-        )
-        return nil
-      end
+      valid_length = t - half_w >= 0 && t + half_w <= wall_length
 
       door_bot_z = floor_z + @floor_offset
       door_top_z = door_bot_z + @height
-      if door_top_z > ceiling_z + 0.001
-        UI.messagebox(
-          "Door does not fit in wall height.\n\n" \
-          "Floor offset (#{@floor_offset}\") + door height (#{@height}\") " \
-          "exceeds wall height (#{wall_height}\")."
-        )
-        return nil
+      valid_height = door_top_z <= ceiling_z + 0.001
+      valid = valid_length && valid_height
+
+      error = nil
+      unless valid_length
+        error = "Door does not fit in wall.\n\n" \
+                "Wall length: #{wall_length.round(2)}\"\n" \
+                "Door width: #{@width}\"\n" \
+                "Click position: #{t.round(2)}\" from wall start\n" \
+                "Need at least #{half_w}\" from each end."
+      elsif !valid_height
+        error = "Door does not fit in wall height.\n\n" \
+                "Floor offset (#{@floor_offset}\") + door height (#{@height}\") " \
+                "exceeds wall height (#{wall_height}\")."
       end
 
       n_side = -thickness / 2.0
@@ -893,7 +964,7 @@ module InteriorPro
       fy = picked_point.y
       outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
 
-      {
+      data = {
         wall_group: wall_group,
         picked_point: picked_point,
         picked_face: picked_face,
@@ -913,6 +984,7 @@ module InteriorPro
         fy: fy,
         outward: outward
       }
+      [data, valid, error]
     end
 
     def apply_wall_cut(wall_group, data, geo = nil)
@@ -1140,6 +1212,28 @@ module InteriorPro
 
     def opening_point_in_heal_volume?(pt, data, geo = nil)
       opening_point_in_axis_box?(pt, data, geo, along_pad: 4.0, z_pad: 4.0, perp_pad: 5.0)
+    end
+
+    # Remove horizontal wall faces at the opening floor line (z-fight with door sill).
+    def erase_opening_bottom_seam_faces!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      bot_z = data[:door_bot_z]
+      tol = 0.25
+      erased = 0
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - bot_z).abs < tol
+        next unless opening_point_in_volume?(center, data, geo)
+
+        f.erase!
+        erased += 1
+      end
+      puts "[DoorTool] erase bottom seam faces: #{erased}" if erased > 0
+      erased
     end
 
     def opening_point_in_axis_box?(pt, data, geo, along_pad:, z_pad:, perp_pad:)
@@ -1863,7 +1957,7 @@ module InteriorPro
     end
 
     def build_door_body_in_component!(comp, data, unit, n, thickness)
-      label = exterior_sliding_type? ? 'Sliding' : 'French Hinged'
+      label = @door_type.to_s.strip
       model = Sketchup.active_model
       model.start_operation("Build #{label} Body", true)
       begin
@@ -1885,10 +1979,20 @@ module InteriorPro
     end
 
     def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
-      if exterior_sliding_type?
+      t = @door_type.to_s.strip
+      if t.match?(/\A\d+-Panel Sliding\z/)
+        build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t.match?(/\A\d+-Panel Folding\z/)
+        build_folding_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Sliding'
+        return false if @door_category.to_s == 'interior'
         build_sliding_geometry!(parent_ents, data, unit, n, thickness)
-      else
+      elsif t == '4-Panel Center Hinged'
+        build_four_panel_center_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'French Hinged'
         build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      else
+        false
       end
     end
 
@@ -1949,7 +2053,7 @@ module InteriorPro
 
       head_inner = half_h - jamb_width
       leaf_top   = head_inner
-      leaf_bot   = -half_h
+      leaf_bot   = -half_h + exterior_sill_plate_height
 
       jamb_outer_v = 0.0
       jamb_inner_v = thickness
@@ -2014,7 +2118,7 @@ module InteriorPro
 
       head_inner = half_h - jamb_width
       leaf_top   = head_inner
-      leaf_bot   = -half_h
+      leaf_bot   = -half_h + exterior_sill_plate_height
 
       jamb_outer_v = 0.0
       jamb_inner_v = thickness
@@ -2059,6 +2163,219 @@ module InteriorPro
 
       smooth_door_body(parent_ents)
       true
+    end
+
+    def door_body_materials
+      model = Sketchup.active_model
+      {
+        frame_mat: get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                          Sketchup::Color.new(245, 245, 240), 1.0),
+        glass_mat: get_or_create_material(model, 'InteriorPro_Glass',
+                                          Sketchup::Color.new(180, 180, 180), 0.4)
+      }
+    end
+
+    # Builds jamb + threshold; returns panel layout hash or nil on failure.
+    def build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness, frame_mat,
+                                        default_stile_w:)
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      return nil if half_w < 3.0 || half_h < 3.0
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      stile_w = (@glass_frame_width && @glass_frame_width > 0) ? @glass_frame_width : default_stile_w
+      iw = half_w - jamb_width
+      return nil if iw < 1.0
+
+      head_inner = half_h - jamb_width
+      leaf_bot = -half_h + exterior_sill_plate_height
+      leaf_top = head_inner
+
+      meeting_gap = 0.125
+      track_gap = 0.125
+      inset = LEAF_FRAME_INSET
+      usable = thickness - 2 * inset - track_gap
+      leaf_depth = [1.75, usable / 2.0].min
+      back_vf = inset
+      back_vb = inset + leaf_depth
+      front_vb = thickness - inset
+      front_vf = front_vb - leaf_depth
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, 0.0, thickness, unit, n, frame_mat, 'Jamb')
+      if @exterior_threshold && @door_category.to_s != 'interior'
+        if multi_panel_sliding_type?
+          build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness,
+                                               door_type_panel_count, unit, n, frame_mat)
+        elsif folding_type?
+          build_folding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+        elsif four_panel_center_hinged_type?
+          build_four_panel_threshold(parent_ents, half_w, half_h, iw, thickness,
+                                     back_vb, front_vf, unit, n, frame_mat)
+        else
+          build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+        end
+      end
+
+      {
+        half_w: half_w, half_h: half_h, iw: iw, leaf_bot: leaf_bot, leaf_top: leaf_top,
+        stile_w: stile_w, meeting_gap: meeting_gap, thickness: thickness,
+        leaf_front_v: LEAF_FRAME_INSET, leaf_back_v: LEAF_FRAME_INSET + leaf_depth,
+        back_vf: back_vf, back_vb: back_vb, front_vf: front_vf, front_vb: front_vb
+      }
+    end
+
+    def finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
+      half_w = layout[:half_w]
+      half_h = layout[:half_h]
+      if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: true)
+      end
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, thickness,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: false)
+      end
+      smooth_door_body(parent_ents)
+      true
+    end
+
+    # Four panels (4 ft each). Outer panels fixed; two center panels hinge from middle.
+    def build_four_panel_center_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = four_panel_center_hinged_spans(layout)
+      puts "[DoorTool] 4-panel center hinged: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      4.times do |i|
+        vf, vb = four_panel_center_track_depth(layout, i)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    # N equal panels on interior tracks (4-Panel / 6-Panel Sliding).
+    def build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      count = door_type_panel_count
+      return false unless count && count >= 2
+
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = multi_panel_equal_spans(layout, count)
+      puts "[DoorTool] #{count}-panel sliding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} slide=#{@slide_direction.inspect}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      count.times do |i|
+        vf, vb = multi_panel_sliding_track_depth(layout, i, count)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    # Bi-fold: equal panels, zigzag interior depths (3 / 4 / 6 panels).
+    def build_folding_geometry!(parent_ents, data, unit, n, thickness)
+      count = door_type_panel_count
+      return false unless count && count >= 2
+
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = multi_panel_equal_spans(layout, count)
+      puts "[DoorTool] #{count}-panel folding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} fold=#{@slide_direction.inspect}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      count.times do |i|
+        vf, vb = folding_panel_track_depth(layout, i)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    def multi_panel_equal_spans(layout, count)
+      iw = layout[:iw]
+      panel_w = (2 * iw) / count.to_f
+      u_left = -iw
+      count.times.map { |i| [u_left + i * panel_w, u_left + (i + 1) * panel_w] }
+    end
+
+    def four_panel_center_hinged_spans(layout)
+      iw = layout[:iw]
+      gap = layout[:meeting_gap]
+      panel_w = (2 * iw - gap) / 4.0
+      u_left = -iw
+      [
+        [u_left, u_left + panel_w],
+        [u_left + panel_w, u_left + 2 * panel_w],
+        [u_left + 2 * panel_w + gap, u_left + 3 * panel_w + gap],
+        [u_left + 3 * panel_w + gap, iw]
+      ]
+    end
+
+    # Center hinged: outers recessed, center pair forward (exterior-near).
+    def four_panel_center_track_depth(layout, index)
+      outer = index == 0 || index == 3
+      if outer
+        [layout[:front_vf], layout[:front_vb]]
+      else
+        [layout[:back_vf], layout[:back_vb]]
+      end
+    end
+
+    def multi_panel_sliding_track_depth(layout, index, count)
+      slide_left = @slide_direction.to_s.downcase != 'right'
+      level = slide_left ? (count - 1 - index) : index
+      interior_track_at_level(layout, level, count)
+    end
+
+    def interior_track_at_level(layout, level, track_count)
+      thickness = layout[:thickness]
+      inset = LEAF_FRAME_INSET
+      track_gap = 0.0625
+      usable = thickness - 2 * inset - track_gap * (track_count - 1)
+      depth = usable / track_count.to_f
+      vb = thickness - inset - level * (depth + track_gap)
+      [vb - depth, vb]
+    end
+
+    # All folding panels coplanar on interior track — one row, side by side.
+    def folding_panel_track_depth(layout, _index)
+      [layout[:front_vf], layout[:front_vb]]
+    end
+
+    def door_type_panel_count
+      m = @door_type.to_s.strip.match(/\A(\d+)-Panel/)
+      m ? m[1].to_i : nil
+    end
+
+    def multi_panel_sliding_type?
+      @door_type.to_s.strip.match?(/\A\d+-Panel Sliding\z/)
+    end
+
+    def folding_type?
+      @door_type.to_s.strip.match?(/\A\d+-Panel Folding\z/)
     end
 
     # Legacy entry — builds inside a group (prefer build_french_hinged_in_component!).
@@ -2200,13 +2517,22 @@ module InteriorPro
       @door_type.to_s.strip == 'French Hinged'
     end
 
+    def four_panel_center_hinged_type?
+      @door_type.to_s.strip == '4-Panel Center Hinged'
+    end
+
+    def four_panel_sliding_type?
+      @door_type.to_s.strip == '4-Panel Sliding'
+    end
+
     # Exterior catalog only — interior Sliding stays opening-only.
     def exterior_sliding_type?
-      @door_type.to_s.strip == 'Sliding' && @door_category.to_s != 'interior'
+      @door_category.to_s != 'interior' &&
+        (@door_type.to_s.strip == 'Sliding' || multi_panel_sliding_type?)
     end
 
     def door_body_type?
-      french_hinged_type? || exterior_sliding_type?
+      french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
     end
 
     def casing_enabled?(style)
@@ -2227,6 +2553,55 @@ module InteriorPro
       grp
     end
 
+    # Interior-track sills for N-panel sliding doors.
+    def build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness, track_count,
+                                             unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    # Single interior-track sill — folding panels sit in one row.
+    def build_folding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    # Four interior-track sills for all-sliding panels (legacy alias).
+    def build_four_panel_sliding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
+      build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness, 4, unit, n, mat)
+    end
+
+    # Two-track sill: outer panels ride on rear track, center panels on front track.
+    def build_four_panel_threshold(parent_ents, half_w, half_h, iw, thickness, back_vb, front_vf,
+                                   unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
     # Threshold (סף): flat sill under the door (through wall) + ~1" stepped exterior nose.
     def build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
       grp = parent_ents.add_group
@@ -2234,25 +2609,36 @@ module InteriorPro
       ge = grp.entities
       wf = -half_h
 
-      # Sill through the wall (exterior face -> interior face).
-      extrude_rect(ge, -iw, iw, wf - SILL_UNDER_DOOR_DEPTH, wf, 0.0, thickness, unit, n)
-
-      # Stepped nose outside the wall only (0 -> -overhang).
-      exterior_tiers = [
-        { vf0: 0.00, vf1: 0.35, wt: 0.000,  wb: -0.125  },
-        { vf0: 0.35, vf1: 0.65, wt: -0.125, wb: -0.250  },
-        { vf0: 0.65, vf1: 0.88, wt: -0.250, wb: -0.375  },
-        { vf0: 0.88, vf1: 1.00, wt: -0.375, wb: -0.500  }
-      ]
-
-      exterior_tiers.each do |tier|
-        va = -THRESHOLD_OVERHANG * tier[:vf0]
-        vb = -THRESHOLD_OVERHANG * tier[:vf1]
-        extrude_rect(ge, -half_w, half_w, wf + tier[:wb], wf + tier[:wt], va, vb, unit, n)
-      end
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
 
       grp.material = mat
       grp
+    end
+
+    def exterior_sill_plate_height
+      (@exterior_threshold && @door_category.to_s != 'interior') ? SILL_PLATE_HEIGHT : 0.0
+    end
+
+    # Sill plate at opening floor line (does not extend below floor into wall/floor).
+    def append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      extrude_rect(ge, -iw, iw, wf, wf + SILL_PLATE_HEIGHT, 0.0, thickness, unit, n)
+    end
+
+    # Stepped nose outside the wall, rising from the sill plate (not below floor line).
+    def append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+      base = wf + SILL_PLATE_HEIGHT
+      exterior_tiers = [
+        { vf0: 0.00, vf1: 0.35, wb: 0.000, wt: 0.125 },
+        { vf0: 0.35, vf1: 0.65, wb: 0.125, wt: 0.250 },
+        { vf0: 0.65, vf1: 0.88, wb: 0.250, wt: 0.375 },
+        { vf0: 0.88, vf1: 1.00, wb: 0.375, wt: 0.500 }
+      ]
+      exterior_tiers.each do |tier|
+        va = -THRESHOLD_OVERHANG * tier[:vf0]
+        vb = -THRESHOLD_OVERHANG * tier[:vf1]
+        extrude_rect(ge, -half_w, half_w, base + tier[:wb], base + tier[:wt], va, vb, unit, n)
+      end
     end
 
     # Solid rectangular strip extruded through the wall (v_start -> v_end).
@@ -2447,15 +2833,16 @@ module InteriorPro
       "door-#{Time.now.to_f}-#{rand(1_000_000)}"
     end
 
-    %i[SWING_ANGLE MUNTIN_WIDTH MUNTIN_DEPTH THRESHOLD_OVERHANG SILL_UNDER_DOOR_DEPTH
-       LEAF_FRAME_INSET].each do |c|
+    %i[SWING_ANGLE MUNTIN_WIDTH MUNTIN_DEPTH THRESHOLD_OVERHANG SILL_PLATE_HEIGHT
+       SILL_UNDER_DOOR_DEPTH LEAF_FRAME_INSET].each do |c|
       remove_const(c) if const_defined?(c, false)
     end
     SWING_ANGLE             = 35.degrees
     MUNTIN_WIDTH            = 0.5
     MUNTIN_DEPTH            = 0.375
     THRESHOLD_OVERHANG      = 1.0
-    SILL_UNDER_DOOR_DEPTH   = 0.625
+    SILL_PLATE_HEIGHT       = 0.125
+    SILL_UNDER_DOOR_DEPTH   = 0.0
     LEAF_FRAME_INSET        = 1.0
 
   end

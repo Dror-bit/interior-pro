@@ -175,28 +175,17 @@ module InteriorPro
     # 8 corners of the opening volume at position t: front face (clicked side)
     # then back face (through the wall).
     def ghost_box_corners(t)
+      geo = @geo
       tool = InteriorPro::DoorTool.new
       data = tool.build_opening_data(
-        @wall, @geo,
+        @wall, geo,
         width: @ctx[:width],
         height: @ctx[:height],
         floor_offset: @ctx[:floor_offset],
         t: t,
         clicked_side: @ctx[:clicked_side]
       )
-      fx = data[:fx]; fy = data[:fy]
-      ux = data[:ux]; uy = data[:uy]
-      bot = data[:door_bot_z]; top = data[:door_top_z]
-      ow = data[:outward]
-      th = data[:thickness]
-      front = [
-        Geom::Point3d.new(fx - ux, fy - uy, bot),
-        Geom::Point3d.new(fx + ux, fy + uy, bot),
-        Geom::Point3d.new(fx + ux, fy + uy, top),
-        Geom::Point3d.new(fx - ux, fy - uy, top)
-      ]
-      back = front.map { |p| p.offset(ow, -th) }
-      front + back
+      tool.opening_ghost_corners(data)
     rescue => e
       puts "[DoorMoveTool] ghost error: #{e.message}"
       nil

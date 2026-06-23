@@ -14,7 +14,46 @@ module InteriorPro
       cat = InteriorPro::DoorLibrary.normalize_category(
         category || (@session_last && @session_last['door_category']) || 'exterior'
       )
-      @session_by_category[cat] || InteriorPro::DoorLibrary.defaults_for(cat)
+      saved = @session_by_category[cat]
+      door_type = saved ? (saved['door_type'] || saved[:door_type]) : nil
+      s = InteriorPro::DoorLibrary.defaults_for_type(cat, door_type)
+      if saved
+        merged = saved.transform_keys(&:to_s)
+        s = s.merge(merged)
+        s['door_type'] = merged['door_type'] || s['door_type']
+      end
+      apply_type_catalog_defaults!(s, cat)
+      s
+    end
+
+    def self.apply_type_catalog_defaults!(settings, category)
+      cat = InteriorPro::DoorLibrary.normalize_category(category)
+      type = settings['door_type'].to_s
+      overrides = InteriorPro::DoorLibrary.type_setting_overrides(cat, type)
+      settings.merge!(overrides) if overrides.any?
+
+      if type =~ /\A(\d+)-Panel/
+        n = $1.to_i
+        settings['width'] = InteriorPro::DoorLibrary.width_for_panel_count(n)
+        settings['glass_frame_width'] = 2.5
+        settings['glass_grid_style'] = 'none'
+      elsif type == 'Sliding'
+        settings['glass_frame_width'] = 2.0
+        settings['glass_grid_style'] = 'none'
+      elsif type == 'French Hinged'
+        settings['width'] = 60.0
+        settings['glass_frame_width'] = 5.0
+        settings['glass_grid_style'] = '2x2'
+      end
+    end
+
+    def self.type_defaults_payload(door_type, category)
+      s = {
+        'door_type' => door_type.to_s,
+        'door_category' => InteriorPro::DoorLibrary.normalize_category(category)
+      }
+      apply_type_catalog_defaults!(s, s['door_category'])
+      s
     end
 
     def self.session_last
@@ -68,38 +107,20 @@ module InteriorPro
       settings = session_settings(cat)
       apply_to_tool(tool, settings)
 
+      types = InteriorPro::DoorLibrary.all_types(cat)
+
       dialog = build_door_html_dialog(
         dialog_title: 'Interior Pro - Door',
-        preferences_key: 'InteriorPro_Door'
+        preferences_key: 'InteriorPro_Door_v2'
       )
 
-      dialog.set_html(build_html)
-
-      dialog.add_action_callback('get_types') { |action_context|
-        cat = InteriorPro::DoorLibrary.normalize_category(
-          (@session_last && @session_last['door_category']) || 'exterior'
-        )
-        load_category_into_dialog(dialog, cat)
-      }
-
-      dialog.add_action_callback('load_category') { |action_context, category|
-        load_category_into_dialog(dialog, category)
-      }
-
-      dialog.add_action_callback('add_custom_type') { |action_context, name, category|
-        cat = InteriorPro::DoorLibrary.normalize_category(category)
-        types = InteriorPro::DoorLibrary.add_custom(name.to_s, cat)
-        dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
-      }
-
-      dialog.add_action_callback('place_door') { |action_context, data|
-        door = JSON.parse(data)
-        remember_session!(door)
-        apply_to_tool(tool, door)
-        dialog.close
-        Sketchup.active_model.select_tool(tool)
-      }
-
+      wire_place_dialog_callbacks(dialog, tool)
+      dialog.set_html(build_html(
+        edit_mode: false,
+        initial_category: cat,
+        initial_settings: settings,
+        initial_types: types
+      ))
       dialog.show
     end
 
@@ -107,40 +128,20 @@ module InteriorPro
       settings = InteriorPro::DoorManager.settings_from_door(door)
       cat = InteriorPro::DoorLibrary.normalize_category(settings['door_category'])
 
+      types = InteriorPro::DoorLibrary.all_types(cat)
+
       dialog = build_door_html_dialog(
         dialog_title: 'Interior Pro - Edit Door',
-        preferences_key: 'InteriorPro_DoorEdit'
+        preferences_key: 'InteriorPro_DoorEdit_v2'
       )
 
-      dialog.set_html(build_html(edit_mode: true))
-
-      dialog.add_action_callback('get_types') { |action_context|
-        types = InteriorPro::DoorLibrary.all_types(cat)
-        dialog.execute_script(
-          "document.getElementById('doorCategory').value = #{cat.to_json}; " \
-          "loadTypes(#{types.to_json}, #{settings['door_type'].to_json}); " \
-          "loadForm(#{settings.to_json}); syncCategoryFields()"
-        )
-      }
-
-      dialog.add_action_callback('load_category') { |action_context, category|
-        load_category_into_dialog(dialog, category)
-      }
-
-      dialog.add_action_callback('add_custom_type') { |action_context, name, category|
-        c = InteriorPro::DoorLibrary.normalize_category(category)
-        types = InteriorPro::DoorLibrary.add_custom(name.to_s, c)
-        dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
-      }
-
-      dialog.add_action_callback('apply_edit') { |action_context, data|
-        door_settings = JSON.parse(data)
-        if InteriorPro::DoorManager.update_door(door, door_settings)
-          remember_session!(door_settings)
-          dialog.close
-        end
-      }
-
+      wire_edit_dialog_callbacks(dialog, door)
+      dialog.set_html(build_html(
+        edit_mode: true,
+        initial_category: cat,
+        initial_settings: settings,
+        initial_types: types
+      ))
       dialog.show
     end
 
@@ -168,20 +169,100 @@ module InteriorPro
       dialog
     end
 
-    def self.load_category_into_dialog(dialog, category)
+    def self.load_category_into_dialog(dialog, category, edit_mode: false)
       cat = InteriorPro::DoorLibrary.normalize_category(category)
       s = session_settings(cat)
       types = InteriorPro::DoorLibrary.all_types(cat)
+      tail = edit_mode ? 'syncCategoryFields()' : 'syncCategoryFields(); applyTypeDefaults()'
       dialog.execute_script(
         "document.getElementById('doorCategory').value = #{cat.to_json}; " \
         "loadTypes(#{types.to_json}, #{s['door_type'].to_json}); " \
-        "loadForm(#{s.to_json}); syncCategoryFields()"
+        "loadForm(#{s.to_json}); #{tail}"
       )
     end
 
-    def self.build_html(edit_mode: false)
+    def self.wire_place_dialog_callbacks(dialog, tool)
+      dialog.add_action_callback('get_types') { |_|
+        cat = InteriorPro::DoorLibrary.normalize_category(
+          (@session_last && @session_last['door_category']) || 'exterior'
+        )
+        load_category_into_dialog(dialog, cat, edit_mode: false)
+      }
+
+      dialog.add_action_callback('load_category') { |_, category|
+        load_category_into_dialog(dialog, category, edit_mode: false)
+      }
+
+      dialog.add_action_callback('type_changed') { |_, type, category|
+        payload = type_defaults_payload(type, category)
+        dialog.execute_script("applyRubyTypeDefaults(#{payload.to_json})")
+      }
+
+      dialog.add_action_callback('add_custom_type') { |_, name, category|
+        cat = InteriorPro::DoorLibrary.normalize_category(category)
+        types = InteriorPro::DoorLibrary.add_custom(name.to_s, cat)
+        dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
+      }
+
+      dialog.add_action_callback('place_door') { |_, data|
+        door = JSON.parse(data)
+        remember_session!(door)
+        apply_to_tool(tool, door)
+        dialog.close
+        Sketchup.active_model.select_tool(tool)
+      }
+    end
+
+    def self.wire_edit_dialog_callbacks(dialog, door)
+      settings = InteriorPro::DoorManager.settings_from_door(door)
+      cat = InteriorPro::DoorLibrary.normalize_category(settings['door_category'])
+
+      dialog.add_action_callback('get_types') { |_|
+        types = InteriorPro::DoorLibrary.all_types(cat)
+        dialog.execute_script(
+          "document.getElementById('doorCategory').value = #{cat.to_json}; " \
+          "loadTypes(#{types.to_json}, #{settings['door_type'].to_json}); " \
+          "loadForm(#{settings.to_json}); syncCategoryFields()"
+        )
+      }
+
+      dialog.add_action_callback('load_category') { |_, category|
+        load_category_into_dialog(dialog, category, edit_mode: true)
+      }
+
+      dialog.add_action_callback('add_custom_type') { |_, name, category|
+        c = InteriorPro::DoorLibrary.normalize_category(category)
+        types = InteriorPro::DoorLibrary.add_custom(name.to_s, c)
+        dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
+      }
+
+      dialog.add_action_callback('apply_edit') { |_, data|
+        door_settings = JSON.parse(data)
+        if InteriorPro::DoorManager.update_door(door, door_settings)
+          remember_session!(door_settings)
+          dialog.close
+        end
+      }
+    end
+
+    def self.build_html(edit_mode: false, initial_category: 'exterior', initial_settings: nil, initial_types: nil)
+      cat = InteriorPro::DoorLibrary.normalize_category(initial_category)
+      settings = (initial_settings || session_settings(cat)).transform_keys(&:to_s)
+      apply_type_catalog_defaults!(settings, cat)
+      types = initial_types || InteriorPro::DoorLibrary.all_types(cat)
+      initial_width = settings['width']
+      initial_height = settings['height']
+      initial_frame = settings['frame_width']
+      initial_glass_frame = settings['glass_frame_width']
+      initial_depth = settings['interior_depth']
+      initial_floor = settings['floor_offset']
       place_label = edit_mode ? 'Apply Changes' : 'Place Door on Wall'
       place_fn = edit_mode ? 'applyEdit()' : 'placeDoor()'
+      door_place_mode = !edit_mode
+      panel_width_in = InteriorPro::DoorLibrary::PANEL_WIDTH_IN
+      jamb_total_in = InteriorPro::DoorLibrary::JAMB_TOTAL_IN
+      settings_json = settings.to_json
+      types_json = types.to_json
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -234,30 +315,30 @@ module InteriorPro
             <div class="row">
               <div>
                 <label>Door Width (in)</label>
-                <input type="number" id="doorWidth" value="60" min="1" step="0.5">
+                <input type="number" id="doorWidth" value="#{initial_width}" min="1" step="0.5">
               </div>
               <div>
                 <label>Door Height (in)</label>
-                <input type="number" id="doorHeight" value="80" min="1" step="0.5">
+                <input type="number" id="doorHeight" value="#{initial_height}" min="1" step="0.5">
               </div>
             </div>
             <div class="row">
               <div>
                 <label>Frame Width (in)</label>
-                <input type="number" id="frameWidth" value="1.5" min="0.25" step="0.25">
+                <input type="number" id="frameWidth" value="#{initial_frame}" min="0.25" step="0.25">
               </div>
               <div>
                 <label>Interior Depth (in)</label>
-                <input type="number" id="interiorDepth" value="1" min="0.25" step="0.25">
+                <input type="number" id="interiorDepth" value="#{initial_depth}" min="0.25" step="0.25">
               </div>
             </div>
             <label>Glass Frame Width (in)</label>
-            <input type="number" id="glassFrameWidth" value="5" min="0.5" step="0.25"
+            <input type="number" id="glassFrameWidth" value="#{initial_glass_frame}" min="0.5" step="0.25"
                    title="Width of the frame around each glass pane (reduces glass area)">
 
             <div class="section-title">Position</div>
             <label>Threshold / Floor Offset (in)</label>
-            <input type="number" id="floorOffset" value="0" min="0" step="0.25">
+            <input type="number" id="floorOffset" value="#{initial_floor}" min="0" step="0.25">
 
             <div class="section-title">Opening Direction</div>
             <div id="hingedFields">
@@ -339,6 +420,12 @@ module InteriorPro
         </div>
         </div>
         <script>
+          var doorPlaceMode = #{door_place_mode};
+          var panelWidthIn = #{panel_width_in};
+          var jambTotalIn = #{jamb_total_in};
+          var initialSettings = #{settings_json};
+          var initialTypes = #{types_json};
+
           function resizeDialogToContent() {
             var root = document.getElementById('doorDialogRoot');
             if (!root) return;
@@ -348,8 +435,17 @@ module InteriorPro
             }
           }
 
+          function bootstrapDoorForm() {
+            var s = initialSettings || {};
+            var cat = s.door_category || 'exterior';
+            document.getElementById('doorCategory').value = cat;
+            loadTypes(initialTypes || [], s.door_type);
+            loadForm(s);
+            syncCategoryFields();
+          }
+
           window.onload = function() {
-            sketchup.get_types();
+            bootstrapDoorForm();
             setTimeout(resizeDialogToContent, 120);
           };
 
@@ -361,6 +457,7 @@ module InteriorPro
             }).join('');
             if (current && types.indexOf(current) !== -1) sel.value = current;
             syncTypeFields();
+            if (doorPlaceMode) applyTypeDefaults();
             resizeDialogToContent();
           }
 
@@ -389,6 +486,7 @@ module InteriorPro
               s.exterior_threshold !== undefined ? !!s.exterior_threshold : true;
             syncTypeFields();
             syncCategoryFields();
+            if (doorPlaceMode) applyTypeDefaults();
             resizeDialogToContent();
           }
 
@@ -404,10 +502,42 @@ module InteriorPro
             resizeDialogToContent();
           }
 
+          function applyRubyTypeDefaults(s) {
+            if (!s) return;
+            if (s.width != null) document.getElementById('doorWidth').value = s.width;
+            if (s.glass_frame_width != null) {
+              document.getElementById('glassFrameWidth').value = s.glass_frame_width;
+            }
+            if (s.glass_grid_style) {
+              document.getElementById('glassGridStyle').value = s.glass_grid_style;
+            }
+            resizeDialogToContent();
+          }
+
           // Show swing fields for hinged doors, slide field for sliding doors.
           function onDoorTypeChange() {
-            applyTypeDefaults();
+            if (doorPlaceMode && window.sketchup && sketchup.type_changed) {
+              sketchup.type_changed(
+                document.getElementById('doorType').value,
+                document.getElementById('doorCategory').value
+              );
+            } else {
+              applyTypeDefaults();
+            }
             syncTypeFields();
+          }
+
+          function panelCountFromType(t) {
+            var m = t.match(/^(\d+)-Panel/);
+            return m ? parseInt(m[1], 10) : null;
+          }
+
+          function isMultiPanelSliding(t) {
+            return /^\d+-Panel Sliding$/.test(t);
+          }
+
+          function isFolding(t) {
+            return /^\d+-Panel Folding$/.test(t);
           }
 
           function applyTypeDefaults() {
@@ -420,12 +550,22 @@ module InteriorPro
             } else if (t === 'French Hinged') {
               document.getElementById('glassFrameWidth').value = 5;
               document.getElementById('glassGridStyle').value = '2x2';
+            } else if (isMultiPanelSliding(t) || isFolding(t) || t === '4-Panel Center Hinged') {
+              document.getElementById('glassFrameWidth').value = 2.5;
+              document.getElementById('glassGridStyle').value = 'none';
+            }
+            var pc = panelCountFromType(t);
+            if (pc) {
+              document.getElementById('doorWidth').value = pc * panelWidthIn + jambTotalIn;
+            } else if (t === 'French Hinged') {
+              document.getElementById('doorWidth').value = 60;
             }
           }
 
           function syncTypeFields() {
             var t = document.getElementById('doorType').value;
-            var isSliding = (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket');
+            var isSliding = (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket' ||
+                             isMultiPanelSliding(t) || isFolding(t));
             document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
             document.getElementById('hingedFields').style.display = isSliding ? 'none' : 'block';
             resizeDialogToContent();
