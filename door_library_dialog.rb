@@ -298,7 +298,7 @@ module InteriorPro
     def self.build_html(edit_mode: false, initial_category: 'exterior', initial_settings: nil, initial_types: nil)
       cat = InteriorPro::DoorLibrary.normalize_category(initial_category)
       settings = (initial_settings || session_settings(cat)).transform_keys(&:to_s)
-      apply_type_catalog_defaults!(settings, cat)
+      apply_type_catalog_defaults!(settings, cat) unless edit_mode
       types = initial_types || InteriorPro::DoorLibrary.all_types(cat)
       initial_width = settings['width']
       initial_height = settings['height']
@@ -576,7 +576,7 @@ module InteriorPro
                 document.getElementById('doorType').value,
                 document.getElementById('doorCategory').value
               );
-            } else {
+            } else if (doorPlaceMode) {
               applyTypeDefaults();
             }
             syncTypeFields();

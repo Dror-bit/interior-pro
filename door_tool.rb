@@ -261,26 +261,57 @@ module InteriorPro
 
     # Cut opening from known door position (move/edit — no pick ambiguity).
     def cut_opening_from_data(wall_group, data, geo = nil)
-      # Same robust path as resize: deterministic tunnel rebuild first (works on
-      # a wall that was just patched), pushpull cut only as a fallback.
-      cut_opening_clean!(wall_group, data, geo) ||
-        apply_wall_cut(wall_group, data, geo) ||
-        apply_wall_cut_snapped!(wall_group, data, geo)
+      cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: true)
+    end
+
+    # Stage 2 boolean cut — load if SketchUp session started before these files existed.
+    def ensure_boolean_cut_loaded!
+      plugin_dir = defined?(InteriorPro::PLUGIN_DIR) ? InteriorPro::PLUGIN_DIR : File.dirname(__FILE__)
+      unless InteriorPro.const_defined?(:SolidBoolean, false)
+        load File.join(plugin_dir, 'solid_boolean', 'load.rb')
+      end
+      unless InteriorPro.const_defined?(:DoorBoolean, false)
+        load File.join(plugin_dir, 'door_boolean.rb')
+      end
+    rescue StandardError => e
+      door_log "[DoorTool] boolean load failed: #{e.message}"
+    end
+
+    # Boolean subtract first; legacy tunnel/pushpull if wall is not solid or op fails.
+    def cut_opening_with_fallback!(wall_group, data, geo = nil, prefer_clean: false)
+      ensure_boolean_cut_loaded!
+      cut_ok = false
+      if InteriorPro.const_defined?(:DoorBoolean, false) &&
+         InteriorPro::DoorBoolean.cut_opening!(wall_group, data, geo, self)
+        cut_ok = true
+      elsif prefer_clean
+        cut_ok = cut_opening_clean!(wall_group, data, geo) ||
+                 apply_wall_cut(wall_group, data, geo) ||
+                 apply_wall_cut_snapped!(wall_group, data, geo)
+      else
+        cut_ok = apply_wall_cut(wall_group, data, geo) ||
+                 apply_wall_cut_snapped!(wall_group, data, geo)
+      end
+
+      if cut_ok
+        seal_opening_bottom!(wall_group, data, geo)
+        return true
+      end
+
+      false
+    end
+
+    # After cut or fill — remove floor-line seams and cap notches on the wall bottom slab.
+    def seal_opening_bottom!(wall_group, data, geo = nil)
+      erase_opening_bottom_seam_faces!(wall_group, data, geo)
+      cap_bottom_slab_inner_loops!(wall_group, data, geo)
     end
 
     # Cut opening then build door body — same sequence as interactive placement.
     def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false)
       model = Sketchup.active_model
       cut_ok = lambda {
-        if clean_cut
-          # Resize/edit on a non-pristine wall: deterministic tunnel rebuild,
-          # falling back to the raw pushpull cut if it cannot find the faces.
-          cut_opening_clean!(wall_group, data, geo) ||
-            apply_wall_cut(wall_group, data, geo) ||
-            apply_wall_cut_snapped!(wall_group, data, geo)
-        else
-          apply_wall_cut(wall_group, data, geo) || apply_wall_cut_snapped!(wall_group, data, geo)
-        end
+        cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: clean_cut)
       }
       if use_operations
         model.start_operation('Cut Door Opening', true)
@@ -288,7 +319,6 @@ module InteriorPro
           unless cut_ok.call
             raise 'Wall cut failed'
           end
-          erase_opening_bottom_seam_faces!(wall_group, data, geo)
           model.commit_operation
         rescue => e
           model.abort_operation rescue nil
@@ -298,8 +328,6 @@ module InteriorPro
       elsif !cut_ok.call
         door_log '[DoorTool] cut failed (no operation wrap)'
         return false
-      else
-        erase_opening_bottom_seam_faces!(wall_group, data, geo)
       end
 
       build_ok = build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
@@ -1542,7 +1570,7 @@ module InteriorPro
     # Remove horizontal wall faces at the opening floor line (z-fight with door sill).
     def erase_opening_bottom_seam_faces!(wall_group, data, geo = nil)
       xform = wall_group.transformation
-      bot_z = data[:door_bot_z]
+      bot_z = opening_bot_z_world(wall_group, data)
       tol = 0.25
       erased = 0
       wall_group.entities.grep(Sketchup::Face).each do |f|
@@ -1552,13 +1580,44 @@ module InteriorPro
 
         center = f.bounds.center.transform(xform)
         next unless (center.z - bot_z).abs < tol
-        next unless opening_point_in_volume?(center, data, geo)
+        next unless opening_point_in_volume?(center, data, geo) ||
+                    opening_point_in_heal_volume?(center, data, geo)
 
         f.erase!
         erased += 1
       end
       door_log "[DoorTool] erase bottom seam faces: #{erased}" if erased > 0
       erased
+    end
+
+    # Cap rectangular notches boolean cut leaves on the wall bottom slab face.
+    def cap_bottom_slab_inner_loops!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 0.4
+      capped = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < tol_z
+
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      door_log "[DoorTool] cap bottom slab loops: #{capped}" if capped > 0
+      capped
     end
 
     def opening_point_in_axis_box?(pt, data, geo, along_pad:, z_pad:, perp_pad:)

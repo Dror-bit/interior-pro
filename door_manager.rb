@@ -476,6 +476,7 @@ module InteriorPro
         tool.fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
         tool.force_seal_wall_sheets!(wall_group, data, geo)
       end
+      tool.seal_opening_bottom!(wall_group, data, geo)
       !tool.opening_geometry_near_wall_t?(
         wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
       )
