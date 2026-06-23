@@ -6,6 +6,12 @@
 module InteriorPro
   class DoorTool
 
+    DOOR_DEBUG_LOG = false unless const_defined?(:DOOR_DEBUG_LOG, false)
+
+    def door_log(msg)
+      puts msg if DOOR_DEBUG_LOG
+    end
+
     GREEN = Sketchup::Color.new(40, 150, 60) unless const_defined?(:GREEN, false)
     RED   = Sketchup::Color.new(200, 40, 40) unless const_defined?(:RED, false)
 
@@ -56,6 +62,7 @@ module InteriorPro
       reset_preview!
       if @placement_ready
         focus_model_view
+        start_preview_pump!
         Sketchup.set_status_text(
           'Hover a wall in the model to preview (green/red box), then click to place.',
           SB_PROMPT
@@ -289,7 +296,7 @@ module InteriorPro
           return false
         end
       elsif !cut_ok.call
-        puts '[DoorTool] cut failed (no operation wrap)'
+        door_log '[DoorTool] cut failed (no operation wrap)'
         return false
       else
         erase_opening_bottom_seam_faces!(wall_group, data, geo)
@@ -326,6 +333,20 @@ module InteriorPro
     # Does NOT cut the wall — just creates the door component.
     def build_door_in_existing_opening(wall_group, data, mark: nil)
       build_door_at(wall_group, data, mark: mark, use_operations: false)
+    end
+
+    # Parametric regen — public API for DoorManager (edit / move).
+    def apply_door_transform!(door, wall_group, data)
+      door.transformation = Geom::Transformation.new(
+        door_opening_center_world(wall_group, data)
+      )
+    end
+
+    def regen_door_body!(door, data, unit, n, thickness)
+      return true unless door_body_type?
+
+      ok = build_door_body_geometry!(door.definition.entities, data, unit, n, thickness)
+      ok && door_body_present?(door.definition)
     end
 
     # Place door using pre-built placement data (edit/replace).
@@ -381,7 +402,7 @@ module InteriorPro
 
     # Close a door opening in the wall (inverse of apply_wall_cut).
     def fill_wall_opening(wall_group, data, geo = nil)
-      puts "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{collect_inner_loops_near(wall_group, data, geo).length}"
+      door_log "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{collect_inner_loops_near(wall_group, data, geo).length}"
 
       cap_all_inner_loops_in_volume!(wall_group, data, geo)
       cap_parallel_sheet_inner_loops!(wall_group, data, geo)
@@ -426,7 +447,7 @@ module InteriorPro
       log_fill_v5_result(wall_group, data, geo)
 
       if opening_still_open_after_fill?(wall_group, data, geo)
-        puts '[DoorTool] fill v5: opening still open after fill'
+        door_log '[DoorTool] fill v5: opening still open after fill'
         return false
       end
 
@@ -458,7 +479,7 @@ module InteriorPro
       hole = opening_hole_at_center?(wall_group, data, geo)
       void = opening_void_through_wall?(wall_group, data, geo)
       tunnel = tunnel_faces_in_volume?(wall_group, data, geo)
-      puts "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{loops} hole=#{hole} void=#{void} tunnel=#{tunnel}"
+      door_log "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{loops} hole=#{hole} void=#{void} tunnel=#{tunnel}"
     end
 
     def cap_all_inner_loops_in_volume!(wall_group, data, geo = nil)
@@ -476,7 +497,7 @@ module InteriorPro
           capped += 1 if cap_loop_flat!(wall_group, lp)
         end
       end
-      puts "[DoorTool] cap_inner_loops: found=#{found} capped=#{capped}"
+      door_log "[DoorTool] cap_inner_loops: found=#{found} capped=#{capped}"
       capped > 0
     end
 
@@ -614,7 +635,7 @@ module InteriorPro
         lp = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
         capped += 1 if lp && cap_loop_flat!(wall_group, lp)
       end
-      puts "[DoorTool] cap_sheet_loops: capped=#{capped}" if capped > 0
+      door_log "[DoorTool] cap_sheet_loops: capped=#{capped}" if capped > 0
       capped
     end
 
@@ -893,7 +914,7 @@ module InteriorPro
           capped += 1 if cap&.valid?
         end
       end
-      puts "[DoorTool] cap_boundary_edges: capped=#{capped}"
+      door_log "[DoorTool] cap_boundary_edges: capped=#{capped}"
       capped > 0
     end
 
@@ -1083,7 +1104,7 @@ module InteriorPro
 
     # Last-resort delete patch — wide search at stored wall position t.
     def fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
-      puts "[DoorTool] fill aggressive at t=#{ctx[:t].round(2)}"
+      door_log "[DoorTool] fill aggressive at t=#{ctx[:t].round(2)}"
       erase_opening_tunnel!(wall_group, data, geo)
       erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
       erase_cap_faces_in_opening_hole!(wall_group, data, geo)
@@ -1103,7 +1124,7 @@ module InteriorPro
 
     # Delete path: always cap exterior + interior sheets (ignore "already covered" false positives).
     def force_seal_wall_sheets!(wall_group, data, geo = nil)
-      puts '[DoorTool] force_seal_wall_sheets'
+      door_log '[DoorTool] force_seal_wall_sheets'
       erase_opening_tunnel!(wall_group, data, geo)
 
       inner_loops_near_wall_t(wall_group, geo, data[:t], data[:half_w] + 24.0).each do |lp|
@@ -1134,7 +1155,7 @@ module InteriorPro
           end
         end
       end
-      puts "[DoorTool] force_seal: sheet_caps=#{capped}"
+      door_log "[DoorTool] force_seal: sheet_caps=#{capped}"
 
       heal_opening_after_fill!(wall_group, data, geo)
       soften_opening_sheet_edges!(wall_group, data, geo)
@@ -1304,7 +1325,7 @@ module InteriorPro
       end
       target_face ||= find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
       unless target_face
-        puts '[DoorTool] apply_wall_cut: no target face'
+        door_log '[DoorTool] apply_wall_cut: no target face'
         return false
       end
 
@@ -1315,11 +1336,11 @@ module InteriorPro
         [local_corners[0], local_corners[1], local_corners[2], local_corners[3]]
 
       unless cut_face_from_ordered_loop!(wall_group, ordered, local_outward, depth)
-        puts '[DoorTool] apply_wall_cut: could not create opening face'
+        door_log '[DoorTool] apply_wall_cut: could not create opening face'
         return false
       end
 
-      puts "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)}"
+      door_log "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)}"
       true
     rescue => e
       puts "[DoorTool] apply_wall_cut error: #{e.message}"
@@ -1334,7 +1355,7 @@ module InteriorPro
 
       target_face = find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
       unless target_face
-        puts '[DoorTool] apply_wall_cut_snapped: no target face'
+        door_log '[DoorTool] apply_wall_cut_snapped: no target face'
         return false
       end
 
@@ -1346,7 +1367,7 @@ module InteriorPro
 
       orders.each do |ordered|
         if cut_face_from_ordered_loop!(wall_group, ordered, local_outward, depth)
-          puts '[DoorTool] apply_wall_cut_snapped: ok'
+          door_log '[DoorTool] apply_wall_cut_snapped: ok'
           return true
         end
       end
@@ -1380,7 +1401,7 @@ module InteriorPro
           f.area >= min_area
       end
       unless new_face
-        puts '[DoorTool] cut_face: no inner face found'
+        door_log '[DoorTool] cut_face: no inner face found'
         return false
       end
 
@@ -1402,7 +1423,7 @@ module InteriorPro
 
       ext, int = parallel_wall_faces(wall_group, data)
       unless ext&.valid? && int&.valid?
-        puts "[DoorTool] clean cut: missing wall face ext=#{!ext.nil?} int=#{!int.nil?}"
+        door_log "[DoorTool] clean cut: missing wall face ext=#{!ext.nil?} int=#{!int.nil?}"
         return false
       end
 
@@ -1414,7 +1435,7 @@ module InteriorPro
       ext_face = imprint_opening_face!(wall_group, ext_corners, ext_normal)
       int_face = imprint_opening_face!(wall_group, int_corners, int_normal)
       unless ext_face && int_face
-        puts "[DoorTool] clean cut: imprint failed ext=#{!ext_face.nil?} int=#{!int_face.nil?}"
+        door_log "[DoorTool] clean cut: imprint failed ext=#{!ext_face.nil?} int=#{!int_face.nil?}"
         return false
       end
 
@@ -1432,12 +1453,12 @@ module InteriorPro
           f = wall_group.entities.add_face(a, b, c, d)
           sides += 1 if f&.valid?
         rescue ArgumentError => e
-          puts "[DoorTool] clean cut: side#{i} skip #{e.message}"
+          door_log "[DoorTool] clean cut: side#{i} skip #{e.message}"
         end
       end
 
       void = opening_void_through_wall?(wall_group, data, geo)
-      puts "[DoorTool] clean cut: sides=#{sides} void=#{void}"
+      door_log "[DoorTool] clean cut: sides=#{sides} void=#{void}"
       void
     rescue => e
       puts "[DoorTool] cut_opening_clean! error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
@@ -1463,7 +1484,7 @@ module InteriorPro
           f.classify_point(center) == Sketchup::Face::PointInside
       end
     rescue ArgumentError => e
-      puts "[DoorTool] imprint_opening_face! skip: #{e.message}"
+      door_log "[DoorTool] imprint_opening_face! skip: #{e.message}"
       nil
     end
 
@@ -1491,7 +1512,7 @@ module InteriorPro
       end
       erased = to_erase.length
       to_erase.each { |f| f.erase! if f.valid? }
-      puts "[DoorTool] erase_opening_tunnel: #{erased}" if erased > 0
+      door_log "[DoorTool] erase_opening_tunnel: #{erased}" if erased > 0
       erased
     end
 
@@ -1536,7 +1557,7 @@ module InteriorPro
         f.erase!
         erased += 1
       end
-      puts "[DoorTool] erase bottom seam faces: #{erased}" if erased > 0
+      door_log "[DoorTool] erase bottom seam faces: #{erased}" if erased > 0
       erased
     end
 
@@ -2099,7 +2120,7 @@ module InteriorPro
 
       target_face = find_wall_face_near_opening(wall_group, data, local_xform, local_outward)
       unless target_face
-        puts '[DoorTool] reconstruct_solid_patch: no target face, trying axis slab'
+        door_log '[DoorTool] reconstruct_solid_patch: no target face, trying axis slab'
         return reconstruct_opening_axis_slab!(wall_group, data)
       end
 
@@ -2162,7 +2183,7 @@ module InteriorPro
 
       n_local = Geom::Vector3d.new(data[:n].x, data[:n].y, 0).transform(local_xform)
       if n_local.length < 0.001
-        puts '[DoorTool] reconstruct axis slab: bad n'
+        door_log '[DoorTool] reconstruct axis slab: bad n'
         return false
       end
       n_local.normalize!
@@ -2182,7 +2203,7 @@ module InteriorPro
           cap ||= wall_group.entities.add_face(ordered.reverse)
           if cap&.valid?
             pushpull_through_wall!(cap, local_outward, thickness)
-            puts '[DoorTool] reconstruct axis slab: ok'
+            door_log '[DoorTool] reconstruct axis slab: ok'
             return true
           end
         rescue ArgumentError
@@ -2190,7 +2211,7 @@ module InteriorPro
         end
       end
 
-      puts '[DoorTool] reconstruct axis slab: failed'
+      door_log '[DoorTool] reconstruct axis slab: failed'
       false
     end
 
@@ -2295,7 +2316,7 @@ module InteriorPro
         return false
       end
 
-      puts "[DoorTool] build_door_at: comp=#{comp.entityID} body=#{door_body_type?} type=#{@door_type.inspect} use_op=#{use_operations}"
+      door_log "[DoorTool] build_door_at: comp=#{comp.entityID} body=#{door_body_type?} type=#{@door_type.inspect} use_op=#{use_operations}"
 
       if door_body_type?
         if use_operations
@@ -2310,7 +2331,7 @@ module InteriorPro
           false
         end
       else
-        puts "[DoorTool] build_door_at: opening only (type=#{@door_type.inspect})"
+        door_log "[DoorTool] build_door_at: opening only (type=#{@door_type.inspect})"
         true
       end
     end
@@ -2363,6 +2384,7 @@ module InteriorPro
       connected = (wall_group.get_attribute('InteriorPro', 'connected_doors') || []).dup
       connected << door_id
       wall_group.set_attribute('InteriorPro', 'connected_doors', connected)
+      InteriorPro::DoorManager.sync_door_params_from_entity!(door_group)
       door_group
     end
 
@@ -2381,6 +2403,7 @@ module InteriorPro
       d_id = saved_attrs['id'] || comp.get_attribute('InteriorPro', 'id')
       definition.name = "InteriorPro_Door_#{d_id}"
       comp.name = 'InteriorPro_Door'
+      InteriorPro::DoorManager.sync_door_params_from_entity!(comp)
       comp
     end
 
@@ -2389,9 +2412,9 @@ module InteriorPro
       model = Sketchup.active_model
       model.start_operation("Build #{label} Body", true)
       begin
-        puts "[DoorTool] door body: comp=#{comp.entityID} type=#{label} def_ents=#{comp.definition.entities.length}"
+        door_log "[DoorTool] door body: comp=#{comp.entityID} type=#{label} def_ents=#{comp.definition.entities.length}"
         ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
-        puts "[DoorTool] door body: build_ok=#{ok} ents_after=#{comp.definition.entities.length} body_present=#{door_body_present?(comp.definition)}"
+        door_log "[DoorTool] door body: build_ok=#{ok} ents_after=#{comp.definition.entities.length} body_present=#{door_body_present?(comp.definition)}"
         model.commit_operation
         if ok && door_body_present?(comp.definition)
           true
@@ -2455,7 +2478,7 @@ module InteriorPro
     end
 
     def build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
-      puts "[DoorTool] french geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} type=#{@door_type.inspect}"
+      door_log "[DoorTool] french geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} type=#{@door_type.inspect}"
       model = Sketchup.active_model
       frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
                                          Sketchup::Color.new(245, 245, 240), 1.0)
@@ -2465,7 +2488,7 @@ module InteriorPro
       half_w = data[:half_w].to_f
       half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
       if half_w < 3.0 || half_h < 3.0
-        puts "[DoorTool] invalid door size for French body: half_w=#{half_w} half_h=#{half_h}"
+        door_log "[DoorTool] invalid door size for French body: half_w=#{half_w} half_h=#{half_h}"
         return false
       end
 
@@ -2475,7 +2498,7 @@ module InteriorPro
 
       iw = half_w - jamb_width
       if iw < 1.0
-        puts "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
         return false
       end
 
@@ -2520,7 +2543,7 @@ module InteriorPro
     # Exterior sliding: same jamb/head/threshold/casing as French Hinged; panels on two
     # depth tracks (exterior + interior) instead of hinged meeting leaves.
     def build_sliding_geometry!(parent_ents, data, unit, n, thickness)
-      puts "[DoorTool] sliding geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} slide=#{@slide_direction.inspect}"
+      door_log "[DoorTool] sliding geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} slide=#{@slide_direction.inspect}"
       model = Sketchup.active_model
       frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
                                          Sketchup::Color.new(245, 245, 240), 1.0)
@@ -2530,7 +2553,7 @@ module InteriorPro
       half_w = data[:half_w].to_f
       half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
       if half_w < 3.0 || half_h < 3.0
-        puts "[DoorTool] invalid door size for Sliding body: half_w=#{half_w} half_h=#{half_h}"
+        door_log "[DoorTool] invalid door size for Sliding body: half_w=#{half_w} half_h=#{half_h}"
         return false
       end
 
@@ -2540,7 +2563,7 @@ module InteriorPro
 
       iw = half_w - jamb_width
       if iw < 1.0
-        puts "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
         return false
       end
 
@@ -2675,7 +2698,7 @@ module InteriorPro
       return false unless layout
 
       spans = four_panel_center_hinged_spans(layout)
-      puts "[DoorTool] 4-panel center hinged: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)}"
+      door_log "[DoorTool] 4-panel center hinged: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)}"
       bot = layout[:leaf_bot]
       top = layout[:leaf_top]
       stile_w = layout[:stile_w]
@@ -2701,7 +2724,7 @@ module InteriorPro
       return false unless layout
 
       spans = multi_panel_equal_spans(layout, count)
-      puts "[DoorTool] #{count}-panel sliding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} slide=#{@slide_direction.inspect}"
+      door_log "[DoorTool] #{count}-panel sliding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} slide=#{@slide_direction.inspect}"
       bot = layout[:leaf_bot]
       top = layout[:leaf_top]
       stile_w = layout[:stile_w]
@@ -2727,7 +2750,7 @@ module InteriorPro
       return false unless layout
 
       spans = multi_panel_equal_spans(layout, count)
-      puts "[DoorTool] #{count}-panel folding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} fold=#{@slide_direction.inspect}"
+      door_log "[DoorTool] #{count}-panel folding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} fold=#{@slide_direction.inspect}"
       bot = layout[:leaf_bot]
       top = layout[:leaf_top]
       stile_w = layout[:stile_w]

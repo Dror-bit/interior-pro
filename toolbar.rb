@@ -17,8 +17,8 @@ require_relative 'door_delete_tool.rb'
 
 module InteriorPro
   module Toolbar
-    LEGACY_TOOLBAR_NAME = 'Interior Pro'
-    CLEAN_TOOLBAR_NAME = 'Interior Pro Tools'
+    LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
+    CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
     TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
 
     # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
@@ -95,9 +95,12 @@ module InteriorPro
       window_cmd.large_icon = File.join(__dir__, 'icons', 'window_tool.svg')
       toolbar.add_item(window_cmd)
 
-      # Door Tool Button
+      # Door Tool Button — activate tool first (viewport focus), then modeless settings panel.
       door_cmd = UI::Command.new('Door Tool') {
-        tool = InteriorPro::DoorTool.new
+        model = Sketchup.active_model
+        active = model.tools.active_tool
+        tool = active.is_a?(InteriorPro::DoorTool) ? active : InteriorPro::DoorTool.new
+        model.select_tool(tool)
         InteriorPro::DoorLibraryDialog.show(tool)
       }
       door_cmd.tooltip = 'Place Door - Opens Door Library'
@@ -167,7 +170,10 @@ module InteriorPro
       }
 
       menu.add_item('Door Tool') {
-        tool = InteriorPro::DoorTool.new
+        model = Sketchup.active_model
+        active = model.tools.active_tool
+        tool = active.is_a?(InteriorPro::DoorTool) ? active : InteriorPro::DoorTool.new
+        model.select_tool(tool)
         InteriorPro::DoorLibraryDialog.show(tool)
       }
 

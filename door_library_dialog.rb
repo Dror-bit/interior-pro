@@ -9,6 +9,7 @@ module InteriorPro
     DOOR_DIALOG_MIN_HEIGHT = 900
 
     @session_by_category = {}
+    @place_dialog = nil
 
     def self.session_settings(category = nil)
       cat = InteriorPro::DoorLibrary.normalize_category(
@@ -101,6 +102,10 @@ module InteriorPro
     end
 
     def self.show(tool)
+      model = Sketchup.active_model
+      if model.tools.active_tool != tool
+        model.select_tool(tool)
+      end
       tool.placement_ready = false if tool.respond_to?(:placement_ready=)
       cat = InteriorPro::DoorLibrary.normalize_category(
         (@session_last && @session_last['door_category']) || 'exterior'
@@ -110,12 +115,28 @@ module InteriorPro
 
       types = InteriorPro::DoorLibrary.all_types(cat)
 
+      if @place_dialog
+        begin
+          @place_dialog.close
+        rescue StandardError
+          nil
+        end
+        @place_dialog = nil
+      end
+
       dialog = build_door_html_dialog(
         dialog_title: 'Interior Pro - Door',
         preferences_key: 'InteriorPro_Door_v2'
       )
+      @place_dialog = dialog
 
       wire_place_dialog_callbacks(dialog, tool)
+      dialog.set_on_closed {
+        @place_dialog = nil
+        if tool.respond_to?(:stop_preview_pump!)
+          tool.stop_preview_pump!
+        end
+      }
       dialog.set_html(build_html(
         edit_mode: false,
         initial_category: cat,
@@ -184,75 +205,30 @@ module InteriorPro
 
     # Return OS focus to the SketchUp model view (HtmlDialog steals it on Windows).
     def self.yield_focus_to_sketchup
-      if Sketchup.respond_to?(:focus)
-        begin
-          Sketchup.focus
-        rescue StandardError
-          nil
-        end
-      end
+      return unless Sketchup.respond_to?(:focus)
 
       begin
-        dummy = UI::HtmlDialog.new(
-          dialog_title: 'Focus',
-          preferences_key: 'InteriorPro_FocusYield',
-          width: 10,
-          height: 10,
-          left: 0,
-          top: 0,
-          resizable: false,
-          scrollable: false
-        )
-        dummy.set_html('<html><body></body></html>')
-        dummy.show
-        UI.start_timer(0.1, false) {
-          dummy.close
-          if Sketchup.respond_to?(:focus)
-            begin
-              Sketchup.focus
-            rescue StandardError
-              nil
-            end
-          end
-        }
+        Sketchup.focus
       rescue StandardError
         nil
       end
     end
 
-    def self.activate_placement_tool!(tool)
+    # Arm the active DoorTool for ghost preview + placement (dialog stays open).
+    def self.arm_placement_tool!(tool, door_settings)
+      remember_session!(door_settings)
+      apply_to_tool(tool, door_settings)
       model = Sketchup.active_model
-      model.select_tool(tool)
+      if model.tools.active_tool != tool
+        model.select_tool(tool)
+      end
+      tool.mark_placement_ready! if tool.respond_to?(:mark_placement_ready!)
+      tool.reset_preview! if tool.respond_to?(:reset_preview!)
       tool.start_preview_pump! if tool.respond_to?(:start_preview_pump!)
       UI.start_timer(0, false) {
         yield_focus_to_sketchup
-        if model.tools.active_tool != tool
-          model.select_tool(tool)
-        end
-        tool.focus_model_view if tool.respond_to?(:focus_model_view)
         model.active_view.invalidate
       }
-      UI.start_timer(0.25, false) {
-        yield_focus_to_sketchup
-        model.active_view.invalidate
-      }
-    end
-
-    def self.finish_place_door(dialog, data_json)
-      door = JSON.parse(data_json)
-      remember_session!(door)
-      placement_tool = InteriorPro::DoorTool.new
-      apply_to_tool(placement_tool, door)
-      placement_tool.placement_ready = true
-      placement_tool.reset_preview!
-      Sketchup.set_status_text(
-        'Hover a wall to preview the opening (green/red box), then click to place.',
-        SB_PROMPT
-      )
-      dialog.set_on_closed {
-        activate_placement_tool!(placement_tool)
-      }
-      dialog.close
     end
 
     def self.wire_place_dialog_callbacks(dialog, tool)
@@ -278,11 +254,12 @@ module InteriorPro
         dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
       }
 
+      dialog.add_action_callback('return_focus_to_model') { |_|
+        yield_focus_to_sketchup
+      }
+
       dialog.add_action_callback('place_door') { |_, data|
-        payload = data.to_s
-        UI.start_timer(0, false) {
-          finish_place_door(dialog, payload)
-        }
+        arm_placement_tool!(tool, JSON.parse(data.to_s))
       }
     end
 
@@ -520,6 +497,11 @@ module InteriorPro
           window.onload = function() {
             bootstrapDoorForm();
             setTimeout(resizeDialogToContent, 120);
+            window.addEventListener('focus', function () {
+              if (window.sketchup && sketchup.return_focus_to_model) {
+                sketchup.return_focus_to_model();
+              }
+            });
           };
 
           function loadTypes(types, selectName) {

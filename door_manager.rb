@@ -3,6 +3,10 @@
 module InteriorPro
   module DoorManager
 
+    def self.door_log(msg)
+      puts msg if InteriorPro::DoorTool::DOOR_DEBUG_LOG
+    end
+
     def self.door_entity?(entity)
       return false unless entity&.valid?
       return false unless entity.is_a?(Sketchup::Group) || entity.is_a?(Sketchup::ComponentInstance)
@@ -55,6 +59,174 @@ module InteriorPro
         'interior_casing_style' => door.get_attribute('InteriorPro', 'interior_casing_style', 'none'),
         'exterior_threshold'    => door.get_attribute('InteriorPro', 'exterior_threshold', true)
       }
+    end
+
+    # Parametric door layer — single source of truth for regen (Stage 1).
+    DOOR_PARAM_DICT = 'InteriorPro_door' unless const_defined?(:DOOR_PARAM_DICT, false)
+
+    DOOR_SETTING_KEYS = %w[
+      door_category door_type width height frame_width glass_frame_width
+      interior_depth floor_offset swing_direction swing_side slide_direction
+      glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
+    ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
+
+    DOOR_PLACEMENT_KEYS = %w[
+      door_id mark host_wall_id position_t face_x face_y clicked_side bottom_z top_z
+    ].freeze unless const_defined?(:DOOR_PLACEMENT_KEYS, false)
+
+    # InteriorPro attrs win over InteriorPro_door (live entity state beats stale dict).
+    def self.params_from_door(door)
+      params = {}
+      dict = door.attribute_dictionary(DOOR_PARAM_DICT, false)
+      if dict
+        dict.each_pair { |k, v| params[k.to_s] = v }
+      end
+      params.merge!(settings_from_door(door))
+      params.merge!(
+        'door_id'      => door.get_attribute('InteriorPro', 'id'),
+        'mark'         => door.get_attribute('InteriorPro', 'mark', ''),
+        'host_wall_id' => door.get_attribute('InteriorPro', 'host_wall_id'),
+        'position_t'   => door.get_attribute('InteriorPro', 'position_along_wall_in'),
+        'face_x'       => door.get_attribute('InteriorPro', 'face_x'),
+        'face_y'       => door.get_attribute('InteriorPro', 'face_y'),
+        'clicked_side' => door.get_attribute('InteriorPro', 'clicked_side'),
+        'bottom_z'     => door.get_attribute('InteriorPro', 'bottom_z'),
+        'top_z'        => door.get_attribute('InteriorPro', 'top_z')
+      )
+      params
+    end
+
+    def self.settings_from_params(params)
+      h = params.transform_keys(&:to_s)
+      DOOR_SETTING_KEYS.each_with_object({}) { |k, out| out[k] = h[k] if h.key?(k) }
+    end
+
+    # Persist params to InteriorPro_door + legacy InteriorPro attributes.
+    def self.write_door_params!(door, params)
+      params = params.transform_keys(&:to_s)
+      (DOOR_SETTING_KEYS + DOOR_PLACEMENT_KEYS).each do |key|
+        next unless params.key?(key)
+        door.set_attribute(DOOR_PARAM_DICT, key, params[key])
+      end
+
+      door.set_attribute('InteriorPro', 'door_category',          params['door_category'])
+      door.set_attribute('InteriorPro', 'door_type',              params['door_type'])
+      door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
+      door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
+      door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)
+      door.set_attribute('InteriorPro', 'glass_frame_width_in',   params['glass_frame_width'].to_f)
+      door.set_attribute('InteriorPro', 'interior_depth_in',      params['interior_depth'].to_f)
+      door.set_attribute('InteriorPro', 'floor_offset_in',        params['floor_offset'].to_f)
+      door.set_attribute('InteriorPro', 'swing_direction',        params['swing_direction'])
+      door.set_attribute('InteriorPro', 'swing_side',             params['swing_side'])
+      door.set_attribute('InteriorPro', 'slide_direction',        params['slide_direction'])
+      door.set_attribute('InteriorPro', 'glass_grid_style',       params['glass_grid_style'])
+      door.set_attribute('InteriorPro', 'exterior_casing_style',  params['exterior_casing_style'])
+      door.set_attribute('InteriorPro', 'interior_casing_style',  params['interior_casing_style'])
+      if params.key?('exterior_threshold')
+        door.set_attribute('InteriorPro', 'exterior_threshold', params['exterior_threshold'] ? true : false)
+      end
+
+      if params['door_id']
+        door.set_attribute('InteriorPro', 'id', params['door_id'])
+      end
+      if params.key?('mark')
+        door.set_attribute('InteriorPro', 'mark', params['mark'].to_s)
+      end
+      if params['host_wall_id']
+        door.set_attribute('InteriorPro', 'host_wall_id', params['host_wall_id'])
+      end
+      if params['position_t']
+        door.set_attribute('InteriorPro', 'position_along_wall_in', params['position_t'].to_f)
+      end
+      if params['face_x']
+        door.set_attribute('InteriorPro', 'face_x', params['face_x'].to_f)
+      end
+      if params['face_y']
+        door.set_attribute('InteriorPro', 'face_y', params['face_y'].to_f)
+      end
+      if params['clicked_side']
+        door.set_attribute('InteriorPro', 'clicked_side', params['clicked_side'].to_i)
+      end
+      if params['bottom_z']
+        door.set_attribute('InteriorPro', 'bottom_z', params['bottom_z'].to_f)
+      end
+      if params['top_z']
+        door.set_attribute('InteriorPro', 'top_z', params['top_z'].to_f)
+      end
+      door
+    end
+
+    def self.sync_door_params_from_entity!(door)
+      write_door_params!(door, params_from_door(door))
+    end
+
+    def self.clear_door_geometry!(door)
+      definition = door.is_a?(Sketchup::ComponentInstance) ? door.definition : nil
+      return false unless definition
+
+      ents = definition.entities
+      ents.to_a.each { |e| e.erase! if e.valid? }
+      ents.add_cpoint(Geom::Point3d.new(0, 0, 0))
+      true
+    end
+
+    # Rebuild door geometry from stored params (single undo step when wrapped).
+    def self.door_regen(door, settings: nil)
+      model = Sketchup.active_model
+      model.start_operation('Regenerate Door', true)
+      begin
+        ok = door_regen!(door, settings: settings)
+        model.commit_operation
+        ok
+      rescue => e
+        model.abort_operation rescue nil
+        UI.messagebox("Error regenerating door: #{e.message}")
+        false
+      end
+    end
+
+    # Regenerate inside an existing operation (edit / move).
+    def self.door_regen!(door, settings: nil)
+      return false unless door_entity?(door) && door.valid?
+
+      params = params_from_door(door)
+      if settings
+        params = params.merge(settings.transform_keys(&:to_s))
+        write_door_params!(door, params)
+      end
+
+      wall_id = params['host_wall_id'] || door.get_attribute('InteriorPro', 'host_wall_id')
+      wall = find_wall_by_id(Sketchup.active_model, wall_id)
+      geo = wall ? wall_geometry(wall) : nil
+      unless wall && geo
+        raise 'Host wall not found or invalid.'
+      end
+
+      ctx = opening_context(door, geo)
+      tool = InteriorPro::DoorTool.new
+      InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings_from_params(params))
+
+      data = tool.build_opening_data(
+        wall, geo,
+        width: params['width'].to_f,
+        height: params['height'].to_f,
+        floor_offset: params['floor_offset'].to_f,
+        t: ctx[:t],
+        clicked_side: ctx[:clicked_side],
+        fx: ctx[:fx],
+        fy: ctx[:fy]
+      )
+      data[:outward] = ctx[:outward]
+
+      tool.apply_door_transform!(door, wall, data)
+      clear_door_geometry!(door)
+      unless tool.regen_door_body!(door, data, geo[:unit], geo[:n], geo[:thickness])
+        raise 'Could not rebuild door geometry.'
+      end
+
+      sync_door_params_from_entity!(door)
+      true
     end
 
     def self.wall_geometry(wall_group)
@@ -300,7 +472,7 @@ module InteriorPro
       if tool.opening_geometry_near_wall_t?(
         wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
       )
-        puts '[DoorManager] fill: retrying aggressive patch at wall position'
+        door_log '[DoorManager] fill: retrying aggressive patch at wall position'
         tool.fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
         tool.force_seal_wall_sheets!(wall_group, data, geo)
       end
@@ -430,7 +602,7 @@ module InteriorPro
       begin
         erased = erase_door_entity!(door, door_id)
         unlink_door(wall, door_id) if wall
-        puts "[DoorManager] delete: door_id=#{door_id.inspect} erased=#{erased}"
+        door_log "[DoorManager] delete: door_id=#{door_id.inspect} erased=#{erased}"
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
@@ -541,16 +713,15 @@ module InteriorPro
         )
         tool.cut_opening_from_data(wall, cut_data, geo) || (raise 'Could not cut the new opening.')
 
-        old_origin = door.transformation.origin
-        new_cx = geo[:cline_start].x + geo[:unit].x * new_t + geo[:n].x * geo[:n_side]
-        new_cy = geo[:cline_start].y + geo[:unit].y * new_t + geo[:n].y * geo[:n_side]
-        new_origin = Geom::Point3d.new(new_cx, new_cy, old_origin.z)
-        door.transform!(Geom::Transformation.translation(new_origin - old_origin))
-        door.set_attribute('InteriorPro', 'position_along_wall_in', new_t)
-        door.set_attribute('InteriorPro', 'face_x', cut_data[:fx])
-        door.set_attribute('InteriorPro', 'face_y', cut_data[:fy])
-        door.set_attribute('InteriorPro', 'bottom_z', cut_data[:door_bot_z])
-        door.set_attribute('InteriorPro', 'top_z', cut_data[:door_top_z])
+        params = params_from_door(door).merge(
+          'position_t' => new_t,
+          'face_x'     => cut_data[:fx],
+          'face_y'     => cut_data[:fy],
+          'bottom_z'   => cut_data[:door_bot_z],
+          'top_z'      => cut_data[:door_top_z]
+        )
+        write_door_params!(door, params)
+        door_regen!(door)
 
         model.commit_operation
         true
@@ -612,32 +783,17 @@ module InteriorPro
       InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings)
 
       if opening_unchanged
-        puts '[DoorManager] edit: opening unchanged — swapping door body only (wall untouched)'
+        door_log '[DoorManager] edit: opening unchanged — regen door body (wall untouched)'
         model.start_operation('Edit Door', true)
         begin
-          erase_door_entity!(door, door_id)
-          unlink_door(wall, door_id)
-
-          place_data = tool.build_opening_data(
-            wall, geo,
-            width: new_ctx[:width],
-            height: new_ctx[:height],
-            floor_offset: new_ctx[:floor_offset],
-            t: ctx[:t],
-            clicked_side: ctx[:clicked_side],
-            fx: ctx[:fx],
-            fy: ctx[:fy]
-          )
-          place_data[:outward] = ctx[:outward]
-
-          unless tool.build_door_in_existing_opening(wall, place_data, mark: door_mark)
-            raise 'Could not build the updated door body.'
+          unless door_regen!(door, settings: settings)
+            raise 'Could not rebuild the updated door.'
           end
           model.commit_operation
           return true
         rescue => e
           model.abort_operation rescue nil
-          puts "[DoorManager] edit body-swap error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          puts "[DoorManager] edit regen error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
           UI.messagebox("Error editing door: #{e.message}")
           return false
         end
@@ -650,7 +806,7 @@ module InteriorPro
       begin
         erased = erase_door_entity!(door, door_id)
         unlink_door(wall, door_id)
-        puts "[DoorManager] edit: old door_id=#{door_id.inspect} erased=#{erased}"
+        door_log "[DoorManager] edit: old door_id=#{door_id.inspect} erased=#{erased}"
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
@@ -669,7 +825,7 @@ module InteriorPro
         puts "[DoorManager] edit patch error: #{e.message}"
       end
 
-      puts "[DoorManager] edit: placing type=#{tool.door_type.inspect} w=#{tool.width} h=#{tool.height}"
+      door_log "[DoorManager] edit: placing type=#{tool.door_type.inspect} w=#{tool.width} h=#{tool.height}"
 
       place_data = tool.build_opening_data(
         wall, geo,
