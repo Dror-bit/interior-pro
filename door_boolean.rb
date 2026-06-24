@@ -17,9 +17,12 @@ module InteriorPro
       ops = InteriorPro::SolidBoolean::Operations
 
       unless ops.solid?(wall_group)
-        modifier.erase!
-        door_warn "boolean cut: wall is not a solid (#{odd_face_edge_count(wall_group)} odd edges) — fallback"
-        return nil
+        heal_wall_for_boolean!(wall_group)
+        unless ops.solid?(wall_group)
+          modifier.erase!
+          door_warn "boolean cut: wall is not a solid (#{odd_face_edge_count(wall_group)} odd edges) — fallback"
+          return nil
+        end
       end
       unless ops.solid?(modifier)
         modifier.erase!
@@ -53,6 +56,10 @@ module InteriorPro
       ops = InteriorPro::SolidBoolean::Operations
 
       wall_solid = ops.solid?(wall_group)
+      unless wall_solid
+        heal_wall_for_boolean!(wall_group)
+        wall_solid = ops.solid?(wall_group)
+      end
       mod_solid = ops.solid?(modifier)
 
       unless mod_solid
@@ -168,13 +175,38 @@ module InteriorPro
     end
     private_class_method :merge_opening_box_into_wall!
 
+    def self.prepare_wall!(wall_group, geo = nil, tool = nil, repair: false)
+      return 0 unless wall_group&.valid?
+
+      removed = heal_wall_for_boolean!(wall_group)
+
+      unless repair
+        return removed
+      end
+
+      2.times do
+        n = heal_wall_for_boolean!(wall_group)
+        removed += n
+        break if n == 0
+      end
+
+      if geo && tool
+        tool.send(:erase_orphan_floor_shelf_faces!, wall_group, geo)
+        tool.send(:merge_coplanar_on_floor_band!, wall_group, geo)
+        tool.send(:heal_entire_wall_bottom!, wall_group, geo)
+        removed += heal_wall_for_boolean!(wall_group)
+      end
+      removed
+    end
+
     def self.heal_wall_for_boolean!(wall_group)
       ents = wall_group.entities
       stray = ents.grep(Sketchup::Edge).select { |e| e.valid? && e.faces.length < 2 }
+      return 0 if stray.empty?
+
       ents.erase_entities(stray)
       stray.length
     end
-    private_class_method :heal_wall_for_boolean!
 
     def self.odd_face_edge_count(wall_group)
       wall_group.entities.grep(Sketchup::Edge).count { |e| e.valid? && e.faces.length.odd? }
@@ -184,7 +216,7 @@ module InteriorPro
     def self.merge_coplanar_on_floor_band!(wall_group, geo, tool)
       return 0 unless geo
 
-      tool.merge_coplanar_on_floor_band!(wall_group, geo)
+      tool.send(:merge_coplanar_on_floor_band!, wall_group, geo)
     end
     private_class_method :merge_coplanar_on_floor_band!
 

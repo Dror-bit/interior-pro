@@ -3,6 +3,15 @@
 module InteriorPro
   PLUGIN_DIR = File.dirname(__FILE__) unless defined?(PLUGIN_DIR)
 
+  def self.emergency_fix_wall_preview!
+    if respond_to?(:stabilize_door_plugin!)
+      stabilize_door_plugin!
+    elsif respond_to?(:strip_all_interior_pro_model_hooks!)
+      strip_all_interior_pro_model_hooks!
+    end
+    nil
+  end
+
   def self.plugin_files
     %w[
       wall_library.rb
@@ -26,6 +35,8 @@ module InteriorPro
       door_move_tool.rb
       door_delete_tool.rb
       toolbar.rb
+      door_observer.rb
+      door_wall_observer.rb
     ]
   end
 
@@ -155,6 +166,7 @@ module InteriorPro
 
   def self.reload!
     load_files
+    stabilize_door_plugin! if respond_to?(:stabilize_door_plugin!)
     puts 'InteriorPro: classes reloaded (toolbar/menu preserved).'
     nil
   end
@@ -168,6 +180,11 @@ begin
   end
   if failed.any? && !InteriorPro.const_defined?(:Toolbar, false)
     puts '[InteriorPro] Run InteriorPro.diagnose_load! in Ruby Console for details.'
+  end
+  begin
+    InteriorPro.stabilize_door_plugin! if InteriorPro.respond_to?(:stabilize_door_plugin!)
+  rescue StandardError => e
+    puts "[InteriorPro] door stabilization skipped: #{e.message}"
   end
 rescue StandardError => e
   puts "[InteriorPro] startup failed: #{e.class}: #{e.message}"
