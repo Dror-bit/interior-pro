@@ -19,7 +19,7 @@ module InteriorPro
   module Toolbar
     LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
     CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
-    TOOLBAR_ITEM_COUNT = 10 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
+    TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
 
     # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
     def self.resolve_toolbar
@@ -136,15 +136,6 @@ module InteriorPro
       door_delete_cmd.large_icon = File.join(__dir__, 'icons', 'delete_door.svg')
       toolbar.add_item(door_delete_cmd)
 
-      sync_doors_cmd = UI::Command.new('Sync Doors') {
-        InteriorPro::DoorManager.sync_all_doors_to_walls!
-      }
-      sync_doors_cmd.tooltip = 'Sync Doors to Walls'
-      sync_doors_cmd.status_bar_text = 'Reposition doors on their host walls after a wall move'
-      sync_doors_cmd.small_icon = File.join(__dir__, 'icons', 'move_door.svg')
-      sync_doors_cmd.large_icon = File.join(__dir__, 'icons', 'move_door.svg')
-      toolbar.add_item(sync_doors_cmd)
-
       toolbar.restore
     end
   end
@@ -196,10 +187,6 @@ module InteriorPro
 
       menu.add_item('Delete Door') {
         Sketchup.active_model.select_tool(InteriorPro::DoorDeleteTool.new)
-      }
-
-      menu.add_item('Sync Doors to Walls') {
-        InteriorPro::DoorManager.sync_all_doors_to_walls!
       }
     end
   end

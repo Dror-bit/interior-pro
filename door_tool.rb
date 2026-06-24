@@ -323,11 +323,6 @@ module InteriorPro
 
     # Cut opening then build door body — same sequence as interactive placement.
     def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false)
-      unless wall_group&.valid?
-        puts '[DoorTool] cut_and_build_door_at: wall is invalid or deleted'
-        return false
-      end
-
       model = Sketchup.active_model
       cut_ok = lambda {
         cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: clean_cut)
@@ -2707,10 +2702,6 @@ module InteriorPro
 
     def create_door_group_with_attrs!(wall_group, data, unit, n, t, clicked_side,
                                       door_bot_z, door_top_z, cx, cy, mark: nil)
-      unless wall_group&.valid?
-        raise 'Host wall is invalid or was deleted'
-      end
-
       door_group = wall_group.parent.entities.add_group
       door_group.name = 'InteriorPro_Door'
       door_group.entities.add_cpoint(Geom::Point3d.new(0, 0, 0))

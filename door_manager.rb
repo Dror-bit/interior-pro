@@ -8,9 +8,8 @@ module InteriorPro
     end
 
     def self.door_entity?(entity)
-      return false if entity.nil?
+      return false unless entity&.valid?
       return false unless entity.is_a?(Sketchup::Group) || entity.is_a?(Sketchup::ComponentInstance)
-      return false unless entity.valid?
       entity.get_attribute('InteriorPro', 'type') == 'door'
     end
 
@@ -77,8 +76,6 @@ module InteriorPro
 
     # InteriorPro attrs win over InteriorPro_door (live entity state beats stale dict).
     def self.params_from_door(door)
-      return {} unless door.respond_to?(:attribute_dictionary)
-
       params = {}
       dict = door.attribute_dictionary(DOOR_PARAM_DICT, false)
       if dict
@@ -454,12 +451,7 @@ module InteriorPro
     end
 
     def self.ensure_door_boolean_loaded!
-      plugin_dir = if defined?(InteriorPro::PLUGIN_DIR)
-                     InteriorPro::PLUGIN_DIR
-                   else
-                     File.dirname(__FILE__)
-                   end
-      path = File.join(plugin_dir, 'door_boolean.rb')
+      path = File.join(InteriorPro::PLUGIN_DIR, 'door_boolean.rb')
       load path if File.exist?(path)
     rescue StandardError => e
       puts "[DoorManager] door_boolean load failed: #{e.message}"
@@ -540,14 +532,11 @@ module InteriorPro
         next unless geo
 
         tool = InteriorPro::DoorTool.new
-        if InteriorPro.const_defined?(:DoorBoolean, false)
-          InteriorPro::DoorBoolean.prepare_wall!(wall, geo, tool, repair: true)
-        end
-        tool.send(:erase_orphan_floor_shelf_faces!, wall, geo)
-        tool.send(:merge_coplanar_on_floor_band!, wall, geo)
-        tool.send(:heal_entire_wall_bottom!, wall, geo)
-        tool.send(:heal_wall_horizontal_floor_faces!, wall, geo)
-        tool.send(:heal_opening_after_fill!, wall,
+        tool.erase_orphan_floor_shelf_faces!(wall, geo)
+        tool.merge_coplanar_on_floor_band!(wall, geo)
+        tool.heal_entire_wall_bottom!(wall, geo)
+        tool.heal_wall_horizontal_floor_faces!(wall, geo)
+        tool.heal_opening_after_fill!(
           wall,
           {
             wall_group: wall, half_w: 1, t: 0, unit: geo[:unit], n: geo[:n],
@@ -887,15 +876,9 @@ module InteriorPro
         end
       end
 
-      # Opening size/offset changed — erase door, then cut new opening at new size.
-      # Skip fill/patch when enlarging: a new cut at the same t replaces the old hole.
-      # Fill only when shrinking (patch old hole before smaller cut).
-      shrinking =
-        new_ctx[:width] < ctx[:width] - 0.001 ||
-        new_ctx[:height] < ctx[:height] - 0.001 ||
-        new_ctx[:floor_offset] > ctx[:floor_offset] + 0.001
-
-      InteriorPro::DoorManager.instance_variable_set(:@syncing_wall_doors, true)
+      # Opening size/offset changed → must patch old opening and cut a new one.
+      # Operation 1: erase old door on its own so a later fill/cut failure can't
+      # bring it back.
       model.start_operation('Edit Door — Remove', true)
       begin
         erased = erase_door_entity!(door, door_id)
@@ -904,23 +887,19 @@ module InteriorPro
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
-        InteriorPro::DoorManager.instance_variable_set(:@syncing_wall_doors, false)
         UI.messagebox("Error editing door: #{e.message}")
         return false
       end
 
-      if shrinking
-        model.start_operation('Edit Door — Patch', true)
-        begin
-          fill_ok = fill_opening!(wall, ctx, geo)
-          model.commit_operation
-          puts '[DoorManager] edit: old opening patch incomplete' unless fill_ok
-        rescue => e
-          model.abort_operation rescue nil
-          puts "[DoorManager] edit patch error: #{e.message}"
-        end
-      else
-        door_log '[DoorManager] edit: enlarge — skip patch, cut new opening directly'
+      # Operation 2: patch the old opening (independent).
+      model.start_operation('Edit Door — Patch', true)
+      begin
+        fill_ok = fill_opening!(wall, ctx, geo)
+        model.commit_operation
+        puts '[DoorManager] edit: old opening patch incomplete' unless fill_ok
+      rescue => e
+        model.abort_operation rescue nil
+        puts "[DoorManager] edit patch error: #{e.message}"
       end
 
       door_log "[DoorManager] edit: placing type=#{tool.door_type.inspect} w=#{tool.width} h=#{tool.height}"
@@ -937,16 +916,7 @@ module InteriorPro
       )
       place_data[:outward] = ctx[:outward]
 
-      unless wall.valid?
-        InteriorPro::DoorManager.instance_variable_set(:@syncing_wall_doors, false)
-        UI.messagebox('Host wall is no longer valid — try repair_wall_floor! on the wall.')
-        return false
-      end
-
-      ok = tool.cut_and_build_door_at(wall, place_data, geo, mark: door_mark, clean_cut: true)
-      InteriorPro::DoorManager.instance_variable_set(:@syncing_wall_doors, false)
-      refresh_door_observer_snapshots! if ok
-      unless ok
+      unless tool.cut_and_build_door_at(wall, place_data, geo, mark: door_mark, clean_cut: true)
         UI.messagebox('Error editing door: Could not place the updated door.')
         return false
       end
@@ -999,334 +969,5 @@ module InteriorPro
       dialog.show
     end
 
-    # --- Doors follow host wall (native move + Interior Pro Move Wall) ------------
-
-    def self.interior_walls(model)
-      model.entities.grep(Sketchup::Group).select { |g| g.get_attribute('InteriorPro', 'type') == 'wall' }
-    end
-
-    def self.doors_in_model
-      collect_entities(Sketchup.active_model.entities) { |e| door_entity?(e) }
-    end
-
-    def self.same_xform?(a, b)
-      a.to_a.zip(b.to_a).all? { |x, y| (x - y).abs < 1e-4 }
-    end
-
-    def self.observer_snapshot(model)
-      xforms = {}
-      endpoints = {}
-      interior_walls(model).each do |w|
-        id = w.entityID
-        xforms[id] = w.transformation
-        endpoints[id] = wall_endpoint_tuple(w)
-      end
-      { xforms: xforms, endpoints: endpoints }
-    end
-
-    def self.walls_needing_door_sync(model, last_xforms, last_endpoints)
-      walls_with_hosted_doors(model).select do |w|
-        id = w.entityID
-        prev_x = last_xforms[id]
-        prev_ep = last_endpoints[id]
-        next false if prev_x.nil? || prev_ep.nil?
-
-        !same_xform?(prev_x, w.transformation) || prev_ep != wall_endpoint_tuple(w)
-      end
-    end
-
-    def self.wall_ids_with_doors(model)
-      ids = {}
-      collect_entities(model.entities) do |e|
-        if door_entity?(e)
-          wall_id = e.get_attribute('InteriorPro', 'host_wall_id')
-          ids[wall_id] = true unless wall_id.to_s.empty?
-        end
-        false
-      end
-      ids
-    end
-
-    def self.walls_with_hosted_doors(model)
-      ids = wall_ids_with_doors(model)
-      return [] if ids.empty?
-
-      interior_walls(model).select { |w|
-        wall_id = w.get_attribute('InteriorPro', 'id') || w.get_attribute('InteriorPro', 'wall_id')
-        ids[wall_id]
-      }
-    end
-
-    def self.refresh_door_observer_snapshots!
-      nil
-    end
-
-    def self.wall_endpoint_tuple(wall)
-      [
-        wall.get_attribute('InteriorPro', 'start_x').to_f,
-        wall.get_attribute('InteriorPro', 'start_y').to_f,
-        wall.get_attribute('InteriorPro', 'end_x').to_f,
-        wall.get_attribute('InteriorPro', 'end_y').to_f
-      ]
-    end
-
-    # Bring one door to stored t on current wall geometry; re-cut only if opening missing.
-    def self.sync_door_to_host_wall!(door, tool: nil)
-      return false unless door_entity?(door) && door.valid?
-
-      wall_id = door.get_attribute('InteriorPro', 'host_wall_id')
-      wall = find_wall_by_id(Sketchup.active_model, wall_id)
-      return false unless wall&.valid?
-
-      geo = wall_geometry(wall)
-      return false unless geo
-
-      tool ||= InteriorPro::DoorTool.new
-      params = params_from_door(door)
-      InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings_from_params(params))
-
-      t = params['position_t'].to_f
-      clicked_side = params['clicked_side'].to_i
-      clicked_side = 1 if clicked_side == 0
-
-      data = tool.build_opening_data(
-        wall, geo,
-        width: params['width'].to_f,
-        height: params['height'].to_f,
-        floor_offset: params['floor_offset'].to_f,
-        t: t,
-        clicked_side: clicked_side
-      )
-      data[:outward] = Geom::Vector3d.new(geo[:n].x * clicked_side, geo[:n].y * clicked_side, 0)
-
-      tool.apply_door_transform!(door, wall, data)
-
-      unless tool.opening_hole_at_center?(wall, data, geo)
-        cut_ok = tool.cut_opening_with_fallback!(wall, data, geo, prefer_clean: true)
-        if cut_ok
-          tool.seal_opening_bottom!(wall, data, geo, after_fill: false)
-          tool.apply_door_transform!(door, wall, data)
-        else
-          puts "[DoorManager] sync_door_to_host_wall: cut failed at t=#{t.round(2)}"
-        end
-      end
-
-      if tool.send(:door_body_type?)
-        clear_door_geometry!(door)
-        unless tool.regen_door_body!(door, data, geo[:unit], geo[:n], geo[:thickness])
-          puts "[DoorManager] sync_door_to_host_wall: body regen failed"
-        end
-      end
-
-      door.set_attribute('InteriorPro', 'face_x', data[:fx].to_f)
-      door.set_attribute('InteriorPro', 'face_y', data[:fy].to_f)
-      door.set_attribute('InteriorPro', 'bottom_z', data[:door_bot_z].to_f)
-      door.set_attribute('InteriorPro', 'top_z', data[:door_top_z].to_f)
-      sync_door_params_from_entity!(door)
-      true
-    rescue => e
-      puts "[DoorManager] sync_door_to_host_wall: #{e.message}"
-      false
-    end
-
-    def self.sync_doors_for_wall!(wall)
-      count = 0
-      doors_on_wall(wall).each do |d|
-        count += 1 if sync_door_to_host_wall!(d)
-      end
-      count
-    end
-
-    def self.sync_all_doors_to_walls!
-      model = Sketchup.active_model
-      model.start_operation('Sync Doors to Walls', true)
-      count = doors_in_model.count { |d| sync_door_to_host_wall!(d) }
-      model.commit_operation
-      refresh_door_observer_snapshots!
-      puts "InteriorPro: synced #{count} door(s) to host walls."
-      count
-    rescue => e
-      model.abort_operation rescue nil
-      puts "[DoorManager] sync_all: #{e.message}"
-      0
-    end
-
-    # Auto-sync disabled — use Sync Doors toolbar/menu (sync_all_doors_to_walls!).
-    def self.auto_sync_doors_if_needed!(model = nil)
-      return 0 unless InteriorPro.const_defined?(:AUTO_DOOR_WALL_SYNC, false) &&
-                      InteriorPro::AUTO_DOOR_WALL_SYNC
-
-      return 0 if @syncing_wall_doors
-
-      model ||= Sketchup.active_model
-      return unless model
-
-      walls = walls_with_hosted_doors(model).select { |w| wall_doors_need_sync?(w) }
-
-      observer = InteriorPro.instance_variable_get(:@door_observer_models)&.[](model.object_id)
-      if observer
-        changed = walls_needing_door_sync(
-          model,
-          observer.instance_variable_get(:@last_xforms),
-          observer.instance_variable_get(:@last_endpoints)
-        )
-        walls = (walls + changed).uniq
-      end
-
-      return 0 if walls.empty?
-
-      puts "[DoorManager] auto-sync #{walls.length} wall(s)"
-      @syncing_wall_doors = true
-      begin
-        model.start_operation('Auto-sync Doors', true)
-        walls.each { |w| sync_doors_for_wall!(w) }
-        model.commit_operation
-        observer&.refresh_snapshot!(model)
-        walls.length
-      rescue => e
-        model.abort_operation rescue nil
-        puts "[DoorManager] auto-sync: #{e.message}"
-        0
-      ensure
-        @syncing_wall_doors = false
-      end
-    end
-
-    def self.sync_doors_after_wall_move!(wall, wrap_operation: true)
-      if wrap_operation
-        model = Sketchup.active_model
-        model.start_operation('Sync Doors to Wall', true)
-        count = sync_doors_for_wall!(wall)
-        model.commit_operation
-        refresh_door_observer_snapshots!
-        count > 0
-      else
-        sync_doors_for_wall!(wall) > 0
-      end
-    end
-
-    # Ruby Console: quick wall + door health check
-    def self.test_wall_door_check!
-      model = Sketchup.active_model
-      walls = model.entities.grep(Sketchup::Group).select { |g| g.get_attribute('InteriorPro', 'type') == 'wall' }
-      doors = collect_entities(model.entities) { |e| door_entity?(e) }
-      puts '--- Interior Pro: Wall + Door Check ---'
-      puts "Walls: #{walls.length}  Doors: #{doors.length}"
-      puts "Toolbar: #{InteriorPro.const_defined?(:Toolbar, false) ? 'loaded' : 'MISSING'}"
-      walls.each do |wall|
-        geo = wall_geometry(wall)
-        dcount = doors_on_wall(wall).length
-        puts "  wall #{wall.entityID}: doors=#{dcount} geo=#{geo ? 'ok' : 'BAD'}"
-      end
-      doors.each do |door|
-        wall_id = door.get_attribute('InteriorPro', 'host_wall_id')
-        wall = find_wall_by_id(model, wall_id)
-        geo = wall ? wall_geometry(wall) : nil
-        if wall && geo
-          tool = InteriorPro::DoorTool.new
-          mis = door_misaligned_with_wall?(door, wall, geo, tool)
-          puts "  door #{door.get_attribute('InteriorPro', 'id')}: host=#{wall_id} misaligned=#{mis}"
-        else
-          puts "  door #{door.get_attribute('InteriorPro', 'id')}: host wall MISSING"
-        end
-      end
-      puts '--- end ---'
-    end
-
-    # Ruby Console diagnostics
-    def self.diagnose_wall_door_sync!(wall = nil)
-      model = Sketchup.active_model
-      wall ||= model.entities.grep(Sketchup::Group).find { |g| g.get_attribute('InteriorPro', 'type') == 'wall' }
-      unless wall
-        puts '[DoorManager] diagnose: no wall found'
-        return
-      end
-      doors = doors_on_wall(wall)
-      geo = wall_geometry(wall)
-      puts "[DoorManager] diagnose wall=#{wall.entityID} doors=#{doors.length} geo=#{!geo.nil?}"
-      puts "[DoorManager] observer=#{InteriorPro.instance_variable_get(:@door_observer_models)&.key?(model.object_id)}"
-      doors.each do |d|
-        tool = InteriorPro::DoorTool.new
-        params = params_from_door(d)
-        data = tool.build_opening_data(
-          wall, geo,
-          width: params['width'].to_f,
-          height: params['height'].to_f,
-          floor_offset: params['floor_offset'].to_f,
-          t: params['position_t'].to_f,
-          clicked_side: params['clicked_side'].to_i
-        )
-        expected = tool.send(:door_opening_center_world, wall, data)
-        actual = d.transformation.origin
-        puts "[DoorManager] door #{d.get_attribute('InteriorPro', 'id')}: dist=#{actual.distance(expected).round(2)}\""
-      end
-    end
-
-    def self.collect_entities(entities, &block)
-      found = []
-      entities.each do |e|
-        found << e if block.call(e)
-        if e.is_a?(Sketchup::Group)
-          found.concat(collect_entities(e.entities, &block))
-        elsif e.is_a?(Sketchup::ComponentInstance)
-          found.concat(collect_entities(e.definition.entities, &block))
-        end
-      end
-      found
-    end
-
-    def self.doors_on_wall(wall_group)
-      return [] unless wall_group&.valid?
-      wall_id = wall_group.get_attribute('InteriorPro', 'id')
-      return [] if wall_id.to_s.empty?
-
-      found = collect_entities(Sketchup.active_model.entities) do |e|
-        door_entity?(e) && e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
-      end
-
-      connected = wall_group.get_attribute('InteriorPro', 'connected_doors') || []
-      connected.each do |door_id|
-        door = find_door_by_id(door_id)
-        found << door if door && !found.include?(door)
-      end
-      found.select { |d| door_entity?(d) }
-    end
-
-    def self.find_door_by_id(door_id)
-      return nil if door_id.to_s.empty?
-      search_entities(Sketchup.active_model.entities) do |e|
-        door_entity?(e) && e.get_attribute('InteriorPro', 'id') == door_id
-      end
-    end
-
-    def self.door_misaligned_with_wall?(door, wall, geo, tool, tolerance: 1.0)
-      params = params_from_door(door)
-      t = params['position_t'].to_f
-      clicked_side = params['clicked_side'].to_i
-      clicked_side = 1 if clicked_side == 0
-      data = tool.build_opening_data(
-        wall, geo,
-        width: params['width'].to_f,
-        height: params['height'].to_f,
-        floor_offset: params['floor_offset'].to_f,
-        t: t,
-        clicked_side: clicked_side
-      )
-      expected = tool.send(:door_opening_center_world, wall, data)
-      door.transformation.origin.distance(expected) > tolerance
-    end
-
-    def self.wall_doors_need_sync?(wall)
-      geo = wall_geometry(wall)
-      return false unless geo
-
-      doors = doors_on_wall(wall)
-      return false if doors.empty?
-
-      tool = InteriorPro::DoorTool.new
-      doors.any? { |d| door_misaligned_with_wall?(d, wall, geo, tool) }
-    end
-
   end
 end
-
