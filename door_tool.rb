@@ -264,15 +264,14 @@ module InteriorPro
       cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: true)
     end
 
-    # Stage 2 boolean cut — load if SketchUp session started before these files existed.
+    # Stage 2 boolean — always reload door_boolean so cut/fill share latest build_opening_box.
     def ensure_boolean_cut_loaded!
       plugin_dir = defined?(InteriorPro::PLUGIN_DIR) ? InteriorPro::PLUGIN_DIR : File.dirname(__FILE__)
       unless InteriorPro.const_defined?(:SolidBoolean, false)
         load File.join(plugin_dir, 'solid_boolean', 'load.rb')
       end
-      unless InteriorPro.const_defined?(:DoorBoolean, false)
-        load File.join(plugin_dir, 'door_boolean.rb')
-      end
+      door_boolean_path = File.join(plugin_dir, 'door_boolean.rb')
+      load door_boolean_path if File.exist?(door_boolean_path)
     rescue StandardError => e
       door_log "[DoorTool] boolean load failed: #{e.message}"
     end
@@ -283,7 +282,11 @@ module InteriorPro
       cut_ok = false
       if InteriorPro.const_defined?(:DoorBoolean, false) &&
          InteriorPro::DoorBoolean.cut_opening!(wall_group, data, geo, self)
-        cut_ok = true
+        if opening_void_through_wall?(wall_group, data, geo)
+          cut_ok = true
+        else
+          puts '[DoorBoolean] boolean cut: no void through wall — fallback'
+        end
       elsif prefer_clean
         cut_ok = cut_opening_clean!(wall_group, data, geo) ||
                  apply_wall_cut(wall_group, data, geo) ||
@@ -294,17 +297,28 @@ module InteriorPro
       end
 
       if cut_ok
-        seal_opening_bottom!(wall_group, data, geo)
+        seal_opening_bottom!(wall_group, data, geo, after_fill: false)
         return true
       end
 
       false
     end
 
-    # After cut or fill — remove floor-line seams and cap notches on the wall bottom slab.
-    def seal_opening_bottom!(wall_group, data, geo = nil)
+    # Cut path: remove shelf faces. Fill path: also rebuild bottom slab + heal all floor notches.
+    def seal_opening_bottom!(wall_group, data, geo = nil, after_fill: false)
+      if after_fill
+        heal_entire_wall_bottom!(wall_group, geo)
+        heal_bottom_inner_loops_near_t!(wall_group, data, geo)
+        erase_opening_floor_band_faces!(wall_group, data, geo)
+      end
       erase_opening_bottom_seam_faces!(wall_group, data, geo)
       cap_bottom_slab_inner_loops!(wall_group, data, geo)
+      if after_fill
+        reconstruct_opening_axis_slab!(wall_group, data)
+        cap_opening_at_floor_plane!(wall_group, data, geo)
+        repair_exterior_bottom_sheet!(wall_group, data, geo)
+        heal_opening_after_fill!(wall_group, data, geo)
+      end
     end
 
     # Cut opening then build door body — same sequence as interactive placement.
@@ -1130,6 +1144,66 @@ module InteriorPro
         inner_loops_near_wall_t(wall_group, geo, t, half_w + 24.0).any?
     end
 
+    # Floor-band notches (boolean bottom slab) not caught by opening_geometry_near_wall_t?.
+    def bottom_notch_near_t?(wall_group, geo, t, half_w)
+      return false unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.5
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      max_along = half_w + 12.0
+      max_perp = geo[:thickness] + 8.0
+
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        c = f.bounds.center.transform(xform)
+        next unless (c.z - floor_z).abs < tol_z
+
+        along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+        perp = (c.x - cx) * n.x + (c.y - cy) * n.y
+        next unless along.abs <= max_along && perp.abs <= max_perp
+
+        f.loops.any? { |lp| !lp.outer? } ||
+          f.edges.any? { |e| e.valid? && e.faces.size == 1 }
+      end
+    end
+
+    # After boolean union patch — merge coplanar edges on the wall floor slab.
+    def merge_coplanar_on_floor_band!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.5
+      erased = 0
+
+      8.times do
+        batch = 0
+        wall_group.entities.grep(Sketchup::Edge).each do |e|
+          next unless e.valid? && e.faces.size == 2
+
+          f1, f2 = e.faces
+          next unless faces_coplanar?(f1, f2)
+
+          mid = edge_midpoint_world(e, xform)
+          next unless (mid.z - floor_z).abs < tol_z
+
+          e.erase!
+          batch += 1
+        end
+        erased += batch
+        break if batch == 0
+      end
+      erased
+    end
+
     # Last-resort delete patch — wide search at stored wall position t.
     def fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
       door_log "[DoorTool] fill aggressive at t=#{ctx[:t].round(2)}"
@@ -1246,7 +1320,8 @@ module InteriorPro
       data = prepare_door_placement(wall_group, picked_point, picked_face)
       return unless data
 
-      unless cut_and_build_door_at(wall_group, data)
+      geo = InteriorPro::DoorManager.wall_geometry(wall_group)
+      unless cut_and_build_door_at(wall_group, data, geo, clean_cut: true)
         UI.messagebox("Error cutting or building door: see Ruby Console for details.")
         return
       end
@@ -1596,7 +1671,7 @@ module InteriorPro
 
       xform = wall_group.transformation
       floor_z = geo[:floor_z]
-      tol_z = 0.4
+      tol_z = 1.0
       capped = 0
 
       wall_group.entities.grep(Sketchup::Face).each do |f|
@@ -1611,13 +1686,239 @@ module InteriorPro
           next if lp.outer?
           next unless loop_capable?(lp)
           c = loop_centroid(lp).transform(xform)
-          next unless opening_point_in_heal_volume?(c, data, geo)
+          next unless bottom_opening_point?(c, wall_group, geo, data)
 
           capped += 1 if cap_loop_flat!(wall_group, lp)
         end
       end
       door_log "[DoorTool] cap bottom slab loops: #{capped}" if capped > 0
       capped
+    end
+
+    # Cap every inner loop sitting on the wall floor slab (cleans old move footprints).
+    def heal_entire_wall_bottom!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.0
+      capped = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < tol_z
+
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless (c.z - floor_z).abs < tol_z
+
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      door_log "[DoorTool] heal entire wall bottom: #{capped}" if capped > 0
+      capped
+    end
+
+    # Same as heal_entire_wall_bottom but also runs close_sheet on floor horizontal faces.
+    def heal_wall_horizontal_floor_faces!(wall_group, geo = nil)
+      return 0 unless geo
+
+      capped = heal_entire_wall_bottom!(wall_group, geo)
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      local_xform = wall_group.transformation.inverse
+      local_outward = Geom::Vector3d.new(geo[:n].x, geo[:n].y, 0).transform(local_xform)
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.0
+
+        dummy = {
+          wall_group: wall_group,
+          half_w: geo[:wall_length] / 2.0,
+          t: geo[:wall_length] / 2.0,
+          unit: geo[:unit],
+          n: geo[:n],
+          thickness: geo[:thickness],
+          door_bot_z: geo[:floor_z],
+          door_top_z: geo[:floor_z] + geo[:wall_height],
+          clicked_side: 1,
+          outward: Geom::Vector3d.new(geo[:n].x, geo[:n].y, 0),
+          cx: geo[:cline_start].x + geo[:unit].x * geo[:wall_length] / 2.0,
+          cy: geo[:cline_start].y + geo[:unit].y * geo[:wall_length] / 2.0,
+          fx: geo[:cline_start].x,
+          fy: geo[:cline_start].y
+        }
+        if close_sheet_hole_with_lines!(wall_group, dummy, geo, f, local_xform, local_outward)
+          capped += 1
+        end
+      end
+      capped
+    end
+
+    # Remove small horizontal shelf faces along the wall floor (boolean leftovers).
+    def erase_orphan_floor_shelf_faces!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      max_area = geo[:thickness] * 80.0
+      erased = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.5
+        next if f.area > max_area
+
+        f.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def heal_bottom_inner_loops_near_t!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      capped = 0
+      inner_loops_near_wall_t(wall_group, geo, data[:t], data[:half_w] + 28.0).each do |lp|
+        next unless loop_capable?(lp)
+        c = loop_centroid(lp).transform(xform)
+        next unless (c.z - floor_z).abs < 1.5
+
+        capped += 1 if cap_loop_flat!(wall_group, lp)
+      end
+      capped
+    end
+
+    # Solidify floor plane inside opening (boolean cut leaves tunnel open at floor).
+    def cap_opening_at_floor_plane!(wall_group, data, geo = nil)
+      return false unless geo
+
+      local_xform = wall_group.transformation.inverse
+      ax, ay = opening_axis_xy(data)
+      unit = data[:unit]
+      half_w = data[:half_w]
+      n = geo[:n]
+      thickness = geo[:thickness].to_f
+
+      floor_local = world_point_to_local(wall_group, ax, ay, geo[:floor_z])
+      u_local = Geom::Vector3d.new(unit.x * half_w, unit.y * half_w, 0).transform(local_xform)
+      n_local = Geom::Vector3d.new(n.x, n.y, 0).transform(local_xform)
+      return false if u_local.length < 0.001 || n_local.length < 0.001
+
+      n_local.normalize!
+      half_t = thickness / 2.0
+      center = floor_local
+      p0 = center.offset(u_local.reverse).offset(n_local, -half_t)
+      p1 = center.offset(u_local).offset(n_local, -half_t)
+      p2 = center.offset(u_local).offset(n_local, half_t)
+      p3 = center.offset(u_local.reverse).offset(n_local, half_t)
+
+      cap = add_face_try_orders(wall_group, [p0, p1, p2, p3])
+      return false unless cap&.valid?
+
+      bot_local_z = world_point_to_local(wall_group, ax, ay, data[:door_bot_z]).z
+      depth = bot_local_z - floor_local.z
+      if depth > 0.05
+        cap.reverse! if cap.normal.z < 0
+        cap.pushpull(depth)
+      end
+      true
+    rescue ArgumentError, RuntimeError
+      false
+    end
+
+    def repair_exterior_bottom_sheet!(wall_group, data, geo = nil)
+      return false unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      repaired = false
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.0
+
+        if close_sheet_hole_with_lines!(wall_group, data, geo, f, local_xform, local_outward)
+          repaired = true
+        end
+        f.loops.reject(&:outer?).each do |lp|
+          next unless loop_capable?(lp)
+          repaired = true if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      repaired
+    end
+
+    def erase_opening_floor_band_faces!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      top_z = opening_bot_z_world(wall_group, data) + 2.0
+      erased = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless center.z >= floor_z - 0.5 && center.z <= top_z
+        next unless opening_point_in_heal_volume?(center, data, geo)
+
+        f.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def add_face_try_orders(wall_group, pts)
+      attempts = [pts, pts.reverse, pts.rotate(1), pts.rotate(2)]
+      attempts.each do |ordered|
+        begin
+          face = wall_group.entities.add_face(ordered)
+          face ||= wall_group.entities.add_face(ordered.reverse)
+          return face if face&.valid?
+        rescue ArgumentError
+          next
+        end
+      end
+      nil
+    end
+
+    def bottom_opening_point?(pt, wall_group, geo, data)
+      return false unless (pt.z - geo[:floor_z]).abs < 1.5
+
+      unit = geo[:unit]
+      cx = geo[:cline_start].x + unit.x * data[:t] + geo[:n].x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * data[:t] + geo[:n].y * geo[:n_side]
+      along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
+      perp = (pt.x - cx) * geo[:n].x + (pt.y - cy) * geo[:n].y
+      along.abs <= data[:half_w] + 12.0 &&
+        perp.abs <= data[:thickness] + 8.0
     end
 
     def opening_point_in_axis_box?(pt, data, geo, along_pad:, z_pad:, perp_pad:)
@@ -1641,15 +1942,17 @@ module InteriorPro
         perp.abs <= data[:thickness] + perp_pad
     end
 
-    # fx/fy are world XY; door_bot_z/door_top_z are wall-local Z.
-    def opening_local_point(wall_group, fx, fy, z_local)
-      inv = wall_group.transformation.inverse
-      local_xy = Geom::Point3d.new(fx, fy, 0).transform(inv)
-      Geom::Point3d.new(local_xy.x, local_xy.y, z_local)
+    # fx/fy and z are world coordinates.
+    def world_point_to_local(wall_group, x, y, z_world)
+      Geom::Point3d.new(x, y, z_world).transform(wall_group.transformation.inverse)
     end
 
-    def opening_world_point(wall_group, fx, fy, z_local)
-      opening_local_point(wall_group, fx, fy, z_local).transform(wall_group.transformation)
+    def opening_local_point(wall_group, fx, fy, z_world)
+      world_point_to_local(wall_group, fx, fy, z_world)
+    end
+
+    def opening_world_point(wall_group, fx, fy, z_world)
+      Geom::Point3d.new(fx, fy, z_world)
     end
 
     def opening_bot_z_world(wall_group, data)
@@ -2278,6 +2581,8 @@ module InteriorPro
       wall_group = data[:wall_group]
       opening_corners_world(wall_group, data).map { |p| p.transform(local_xform).project_to_plane(plane) }
     end
+
+    public :parallel_wall_faces, :opening_corners_local
 
     def opening_axis_xy(data)
       [data[:cx], data[:cy]]

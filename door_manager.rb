@@ -450,6 +450,13 @@ module InteriorPro
       data[:picked_point] = Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z])
     end
 
+    def self.ensure_door_boolean_loaded!
+      path = File.join(InteriorPro::PLUGIN_DIR, 'door_boolean.rb')
+      load path if File.exist?(path)
+    rescue StandardError => e
+      puts "[DoorManager] door_boolean load failed: #{e.message}"
+    end
+
     def self.fill_opening!(wall_group, ctx, geo)
       tool = InteriorPro::DoorTool.new
       # Rebuild from wall position t — stored fx/fy can drift after moves/edits.
@@ -467,19 +474,88 @@ module InteriorPro
       unless data[:mesh_pts]
         detect_opening_from_wall_geometry!(wall_group, data, geo, ctx[:t], search_pad: 24.0)
       end
+
+      ensure_door_boolean_loaded!
+      if InteriorPro::DoorBoolean.respond_to?(:patch_opening!) &&
+         InteriorPro::DoorBoolean.patch_opening!(wall_group, data, geo, tool)
+        if fill_opening_success?(wall_group, geo, ctx, data, tool)
+          return true
+        end
+        puts '[DoorManager] fill: boolean patch incomplete — retrying legacy'
+      end
+
+      fill_opening_legacy!(wall_group, ctx, geo, tool, data)
+    end
+
+    def self.fill_opening_legacy!(wall_group, ctx, geo, tool, data)
       tool.fill_wall_opening(wall_group, data, geo)
       tool.force_seal_wall_sheets!(wall_group, data, geo)
       if tool.opening_geometry_near_wall_t?(
         wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
       )
         door_log '[DoorManager] fill: retrying aggressive patch at wall position'
-        tool.fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
+        unless tool.fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
+          puts '[DoorManager] fill: aggressive patch did not close opening'
+        end
         tool.force_seal_wall_sheets!(wall_group, data, geo)
       end
-      tool.seal_opening_bottom!(wall_group, data, geo)
+      tool.seal_opening_bottom!(wall_group, data, geo, after_fill: true)
+      ok = fill_opening_success?(wall_group, geo, ctx, data, tool)
+      unless ok
+        puts '[DoorManager] fill: legacy path incomplete (opening or floor notch remains)'
+      end
+      ok
+    end
+
+    def self.fill_opening_success?(wall_group, geo, ctx, data, tool)
       !tool.opening_geometry_near_wall_t?(
         wall_group, geo, ctx[:t], data[:half_w], data[:door_bot_z], data[:door_top_z], data[:clicked_side]
-      )
+      ) && !tool.bottom_notch_near_t?(wall_group, geo, ctx[:t], data[:half_w])
+    end
+
+    # Ruby Console: repair bottom notches left by boolean cut + move/delete.
+    # Pass the wall group (or nil to repair every Interior Pro wall in the model).
+    def self.repair_wall_floor!(wall_group = nil)
+      model = Sketchup.active_model
+      walls = if wall_group&.valid?
+                [wall_group]
+              else
+                model.entities.grep(Sketchup::Group).select { |g|
+                  g.get_attribute('InteriorPro', 'type') == 'wall'
+                }
+              end
+      return false if walls.empty?
+
+      model.start_operation('Repair Wall Floor', true)
+      walls.each do |wall|
+        geo = wall_geometry(wall)
+        next unless geo
+
+        tool = InteriorPro::DoorTool.new
+        tool.erase_orphan_floor_shelf_faces!(wall, geo)
+        tool.merge_coplanar_on_floor_band!(wall, geo)
+        tool.heal_entire_wall_bottom!(wall, geo)
+        tool.heal_wall_horizontal_floor_faces!(wall, geo)
+        tool.heal_opening_after_fill!(
+          wall,
+          {
+            wall_group: wall, half_w: 1, t: 0, unit: geo[:unit], n: geo[:n],
+            thickness: geo[:thickness], door_bot_z: geo[:floor_z],
+            door_top_z: geo[:floor_z] + 1, clicked_side: 1,
+            outward: Geom::Vector3d.new(geo[:n].x, geo[:n].y, 0),
+            cx: geo[:cline_start].x, cy: geo[:cline_start].y,
+            fx: geo[:cline_start].x, fy: geo[:cline_start].y
+          },
+          geo
+        )
+      end
+      model.commit_operation
+      puts "InteriorPro: repaired floor geometry on #{walls.length} wall(s)."
+      true
+    rescue => e
+      model.abort_operation rescue nil
+      puts "[DoorManager] repair_wall_floor: #{e.message}"
+      false
     end
 
     # Snap fill/cut data to the actual hole geometry on the wall.
