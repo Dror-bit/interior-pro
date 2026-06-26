@@ -874,6 +874,17 @@ module InteriorPro
 
     def rebuild_wall_geometry(group, corners_xy, data)
       return unless group&.valid?
+
+      if InteriorPro::WallTool::USE_NATIVE_OPENINGS &&
+         !InteriorPro::WallTool.read_door_openings(group).empty?
+        begin
+          InteriorPro::WallTool.rebuild_wall_native_geometry!(group)
+        rescue StandardError => e
+          puts "[WallTool] rebuild_wall_geometry native: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        end
+        return
+      end
+
       group.entities.clear!
       build_geometry_in_group(group, corners_xy, data[:z_offset], data[:height],
                               data[:ext_mat], data[:int_mat])
@@ -1165,6 +1176,10 @@ module InteriorPro
       InteriorPro::WallTool.new.paint_wall_long_faces!(group, ext_mat, int_mat)
     end
 
+    def self.join_corners(wall, model, allow_centerline_fallback: false)
+      InteriorPro::WallTool.new.join_corners(wall, model, allow_centerline_fallback: allow_centerline_fallback)
+    end
+
     def self.native_floor_z(v_anchor, height)
       case v_anchor
       when 'top' then -height
@@ -1185,7 +1200,7 @@ module InteriorPro
       end
     end
 
-    def self.rebuild_wall_native!(wall)
+    def self.rebuild_wall_native_geometry!(wall)
       return false unless wall&.valid?
 
       sx = wall.get_attribute('InteriorPro', 'start_x')
@@ -1227,6 +1242,20 @@ module InteriorPro
       )
       ext_mat, int_mat = wall_side_material_names(wall)
       paint_wall_long_faces!(wall, ext_mat, int_mat)
+      true
+    rescue StandardError => e
+      puts "[WallTool] rebuild_wall_native_geometry!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    def self.rebuild_wall_native!(wall)
+      return false unless rebuild_wall_native_geometry!(wall)
+
+      begin
+        join_corners(wall, Sketchup.active_model)
+      rescue StandardError => e
+        puts "[WallTool] rebuild_wall_native! join_corners: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      end
       true
     rescue StandardError => e
       puts "[WallTool] rebuild_wall_native!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
