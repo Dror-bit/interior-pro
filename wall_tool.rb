@@ -887,40 +887,47 @@ module InteriorPro
       return false unless face
       sign = face.normal.z >= 0 ? 1 : -1
       face.pushpull(height * sign)
-      # Apply materials only to the two long faces (interior/exterior), leave top/bottom/ends unpainted
-      if ext_mat && int_mat
-        sx = group.get_attribute('InteriorPro', 'start_x')
-        sy = group.get_attribute('InteriorPro', 'start_y')
-        ex = group.get_attribute('InteriorPro', 'end_x')
-        ey = group.get_attribute('InteriorPro', 'end_y')
-        if sx && sy && ex && ey
-          dir = Geom::Vector3d.new(ex - sx, ey - sy, 0)
-          if dir.length > 0.001
-            dir.normalize!
-            # Right perpendicular = exterior side (clockwise drawing convention)
-            right = Geom::Vector3d.new(dir.y, -dir.x, 0)
-            ext_material = load_or_create_material(ext_mat)
-            int_material = load_or_create_material(int_mat)
-            group.entities.grep(Sketchup::Face).each do |f|
-              n = f.normal
-              # Skip top and bottom faces (vertical normals)
-              next if n.z.abs > 0.5
-              # Skip end caps (normal parallel to wall direction)
-              next if n.dot(dir).abs > 0.5
-              # This is a long face - paint based on side
-              if n.dot(right) > 0
-                f.material = ext_material
-                f.back_material = nil
-              else
-                f.material = int_material
-                f.back_material = nil
-              end
-            end
-          end
-        end
-      end
+      paint_wall_long_faces!(group, ext_mat, int_mat)
       add_board_and_batten(group) if ext_mat == 'Board and Batten'
       true
+    end
+
+    # Paint exterior/interior on the two long wall faces (skip top/bottom and end caps).
+    def paint_wall_long_faces!(group, ext_mat, int_mat)
+      return unless group&.valid?
+      return unless ext_mat && int_mat
+
+      sx = group.get_attribute('InteriorPro', 'start_x')
+      sy = group.get_attribute('InteriorPro', 'start_y')
+      ex = group.get_attribute('InteriorPro', 'end_x')
+      ey = group.get_attribute('InteriorPro', 'end_y')
+      return unless sx && sy && ex && ey
+
+      dir = Geom::Vector3d.new(ex - sx, ey - sy, 0)
+      return if dir.length <= 0.001
+
+      dir.normalize!
+      # Right perpendicular = exterior side (clockwise drawing convention)
+      right = Geom::Vector3d.new(dir.y, -dir.x, 0)
+      ext_material = load_or_create_material(ext_mat)
+      int_material = load_or_create_material(int_mat)
+      group.entities.grep(Sketchup::Face).each do |f|
+        n = f.normal
+        # Skip top and bottom faces (vertical normals)
+        next if n.z.abs > 0.5
+        # Skip end caps (normal parallel to wall direction)
+        next if n.dot(dir).abs > 0.5
+        # This is a long face - paint based on side
+        if n.dot(right) > 0
+          f.material = ext_material
+          f.back_material = nil
+        else
+          f.material = int_material
+          f.back_material = nil
+        end
+      end
+    rescue StandardError => e
+      puts "[WallTool] paint_wall_long_faces!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
     end
 
     def wall_data(group)
@@ -1141,6 +1148,23 @@ module InteriorPro
       false
     end
 
+    def self.wall_side_material_names(group)
+      ext_mat = group.get_attribute('InteriorPro', 'exterior_material')
+      int_mat = group.get_attribute('InteriorPro', 'interior_material')
+      wall_category = group.get_attribute('InteriorPro', 'wall_category') || 'exterior'
+      if wall_category == 'interior'
+        ext_mat = group.get_attribute('InteriorPro', 'side_a_color') || '#ffffff'
+        int_mat = group.get_attribute('InteriorPro', 'side_b_color') || '#ffffff'
+      end
+      [ext_mat, int_mat]
+    rescue StandardError
+      [nil, nil]
+    end
+
+    def self.paint_wall_long_faces!(group, ext_mat, int_mat)
+      InteriorPro::WallTool.new.paint_wall_long_faces!(group, ext_mat, int_mat)
+    end
+
     def self.native_floor_z(v_anchor, height)
       case v_anchor
       when 'top' then -height
@@ -1201,6 +1225,8 @@ module InteriorPro
         thickness_pull,
         openings
       )
+      ext_mat, int_mat = wall_side_material_names(wall)
+      paint_wall_long_faces!(wall, ext_mat, int_mat)
       true
     rescue StandardError => e
       puts "[WallTool] rebuild_wall_native!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
