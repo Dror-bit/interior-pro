@@ -322,7 +322,12 @@ module InteriorPro
     end
 
     # Cut opening then build door body — same sequence as interactive placement.
-    def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false)
+    def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false,
+                              native_openings: false)
+      if native_openings && InteriorPro::WallTool::USE_NATIVE_OPENINGS
+        return place_door_via_native_openings!(wall_group, data, geo, mark: mark, use_operations: use_operations)
+      end
+
       model = Sketchup.active_model
       cut_ok = lambda {
         cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: clean_cut)
@@ -350,6 +355,45 @@ module InteriorPro
         return false
       end
       true
+    end
+
+    def place_door_via_native_openings!(wall_group, data, geo = nil, mark: nil, use_operations: true)
+      geo ||= InteriorPro::DoorManager.wall_geometry(wall_group)
+      model = Sketchup.active_model
+      if use_operations
+        model.start_operation('Place Door (Native Openings)', true)
+      end
+      begin
+        opening = native_opening_hash_from_placement(data)
+        unless InteriorPro::WallTool.append_door_opening!(wall_group, opening)
+          raise 'Failed to append door opening'
+        end
+        unless InteriorPro::WallTool.rebuild_wall_native!(wall_group)
+          raise 'Native wall rebuild failed'
+        end
+        unless build_door_at(wall_group, data, mark: mark, use_operations: false)
+          raise 'Door build failed'
+        end
+        model.commit_operation if use_operations
+        true
+      rescue => e
+        model.abort_operation rescue nil if use_operations
+        puts "[DoorTool] native openings error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+        false
+      end
+    end
+
+    def native_opening_hash_from_placement(data)
+      t = data[:t]
+      width = @width
+      height = @height
+      floor_offset = @floor_offset
+      {
+        't' => t.to_f,
+        'width' => width.to_f,
+        'height' => height.to_f,
+        'floor_offset' => floor_offset.to_f
+      }
     end
 
     # Cut succeeded but door body failed — remove partial door + patch the hole.
@@ -1321,7 +1365,8 @@ module InteriorPro
       return unless data
 
       geo = InteriorPro::DoorManager.wall_geometry(wall_group)
-      unless cut_and_build_door_at(wall_group, data, geo, clean_cut: true)
+      native = InteriorPro::WallTool::USE_NATIVE_OPENINGS
+      unless cut_and_build_door_at(wall_group, data, geo, clean_cut: true, native_openings: native)
         UI.messagebox("Error cutting or building door: see Ruby Console for details.")
         return
       end

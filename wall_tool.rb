@@ -2,6 +2,8 @@
 
 module InteriorPro
   class WallTool
+    USE_NATIVE_OPENINGS = true
+
     attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category, :side_a_color, :side_b_color
 
     def initialize
@@ -1061,6 +1063,224 @@ module InteriorPro
       SecureRandom.uuid
     rescue StandardError
       "wall-#{Time.now.to_f}-#{rand(1_000_000)}"
+    end
+
+    def self.read_door_openings(wall)
+      raw = wall.get_attribute('InteriorPro', 'door_openings')
+      case raw
+      when Array
+        if raw.empty?
+          []
+        elsif raw.first.is_a?(Array)
+          raw.compact.map { |row| normalize_door_opening(row) }.compact
+        else
+          raw.compact.map { |o| normalize_door_opening(o) }.compact
+        end
+      when String
+        require 'json'
+        JSON.parse(raw).map { |o| normalize_door_opening(o) }.compact
+      else
+        []
+      end
+    rescue StandardError => e
+      puts "[WallTool] read_door_openings: #{e.message}"
+      []
+    end
+
+    def self.normalize_door_opening(o)
+      return nil if o.nil?
+
+      if o.is_a?(Array) && o.length >= 4
+        return {
+          t: o[0].to_f,
+          width: o[1].to_f,
+          height: o[2].to_f,
+          floor_offset: o[3].to_f
+        }
+      end
+
+      return nil unless o.is_a?(Hash)
+
+      t = o[:t] || o['t']
+      width = o[:width] || o['width']
+      height = o[:height] || o['height']
+      floor_offset = o[:floor_offset] || o['floor_offset']
+      return nil if width.nil? || height.nil?
+
+      {
+        t: t.to_f,
+        width: width.to_f,
+        height: height.to_f,
+        floor_offset: floor_offset.to_f
+      }
+    rescue StandardError
+      nil
+    end
+
+    def self.persist_door_openings!(wall, openings)
+      rows = openings.compact.map { |o| normalize_door_opening(o) }.compact.map do |o|
+        [o[:t], o[:width], o[:height], o[:floor_offset]]
+      end
+      wall.set_attribute('InteriorPro', 'door_openings', rows)
+    end
+
+    def self.append_door_opening!(wall, opening)
+      entry = normalize_door_opening(opening)
+      unless entry
+        puts '[WallTool] append_door_opening!: skipped invalid opening'
+        return false
+      end
+
+      openings = read_door_openings(wall)
+      puts "[WallTool] door_opening append: #{entry.inspect}"
+      openings << entry
+      persist_door_openings!(wall, openings)
+      true
+    rescue StandardError => e
+      puts "[WallTool] append_door_opening!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    def self.native_floor_z(v_anchor, height)
+      case v_anchor
+      when 'top' then -height
+      when 'center' then -height / 2.0
+      else 0.0
+      end
+    end
+
+    # Spine offset along DoorManager n and pushpull distance to match build_geometry_in_group footprint.
+    def self.native_spine_offset_and_pull(h_anchor, thickness)
+      case h_anchor
+      when 'left'
+        [0.0, -thickness]
+      when 'right'
+        [thickness, -thickness]
+      else
+        [-thickness / 2.0, thickness]
+      end
+    end
+
+    def self.rebuild_wall_native!(wall)
+      return false unless wall&.valid?
+
+      sx = wall.get_attribute('InteriorPro', 'start_x')
+      sy = wall.get_attribute('InteriorPro', 'start_y')
+      ex = wall.get_attribute('InteriorPro', 'end_x')
+      ey = wall.get_attribute('InteriorPro', 'end_y')
+      thickness = wall.get_attribute('InteriorPro', 'thickness')
+      height = wall.get_attribute('InteriorPro', 'height')
+      return false unless sx && sy && ex && ey && thickness && height
+
+      anchor = wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center'
+      v_anchor, h_anchor = InteriorPro::DoorManager.parse_anchor(anchor)
+
+      thickness_f = thickness.to_f
+      height_f = height.to_f
+      drawn_start = Geom::Point3d.new(sx.to_f, sy.to_f, 0)
+      drawn_end = Geom::Point3d.new(ex.to_f, ey.to_f, 0)
+      wall_vec = drawn_end - drawn_start
+      return false if wall_vec.length < 0.1
+
+      unit = wall_vec.clone
+      unit.normalize!
+      n = InteriorPro::DoorManager.horizontal_perpendicular(unit)
+
+      spine_offset, thickness_pull = native_spine_offset_and_pull(h_anchor, thickness_f)
+      spine_start = drawn_start.offset(n, spine_offset)
+      spine_end = drawn_end.offset(n, spine_offset)
+      z_base = native_floor_z(v_anchor, height_f)
+
+      openings = read_door_openings(wall)
+      wall.entities.clear!
+      build_wall_with_openings_oriented(
+        wall.entities,
+        [spine_start.x, spine_start.y, z_base],
+        [spine_end.x, spine_end.y, z_base],
+        height_f,
+        thickness_pull,
+        openings
+      )
+      true
+    rescue StandardError => e
+      puts "[WallTool] rebuild_wall_native!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    def self.build_wall_with_openings_test(ents, length, height, thickness, openings)
+      floor_ops  = openings.select { |o| o[:floor_offset].to_f <= 0.001 }.sort_by { |o| o[:t] }
+      raised_ops = openings.reject { |o| o[:floor_offset].to_f <= 0.001 }
+
+      pts = [[0.0, 0.0]]
+      floor_ops.each do |o|
+        x1 = o[:t] - o[:width] / 2.0
+        x2 = o[:t] + o[:width] / 2.0
+        h  = o[:height].to_f
+        pts << [x1, 0.0] << [x1, h] << [x2, h] << [x2, 0.0]
+      end
+      pts << [length, 0.0] << [length, height] << [0.0, height]
+
+      face = ents.add_face(pts.map { |x, z| Geom::Point3d.new(x, 0, z) })
+      return nil unless face
+
+      raised_ops.each do |o|
+        x1 = o[:t] - o[:width] / 2.0
+        x2 = o[:t] + o[:width] / 2.0
+        z1 = o[:floor_offset].to_f
+        z2 = z1 + o[:height].to_f
+        rect = [[x1, z1], [x2, z1], [x2, z2], [x1, z2]].map { |x, z| Geom::Point3d.new(x, 0, z) }
+        hole = ents.add_face(rect)
+        hole.erase! if hole
+      end
+
+      wall_face = ents.grep(Sketchup::Face).max_by(&:area)
+      wall_face.pushpull(thickness) if wall_face
+      wall_face
+    end
+
+    def self.build_wall_with_openings_oriented(ents, start_pt, end_pt, height, thickness, openings)
+      openings = openings.compact.map { |o| normalize_door_opening(o) }.compact
+
+      sp = Geom::Point3d.new(*start_pt)
+      ep = Geom::Point3d.new(*end_pt)
+      u = ep - sp
+      length = u.length
+      return nil if length < 1e-3
+      u.normalize!
+      up = Geom::Vector3d.new(0, 0, 1)
+      n = u.cross(up)
+      return nil if n.length < 1e-3
+      n.normalize!
+      pt = ->(s, z) { sp.offset(u, s).offset(up, z) }
+
+      floor_ops  = openings.select { |o| o[:floor_offset].to_f <= 0.001 }.sort_by { |o| o[:t] }
+      raised_ops = openings.reject { |o| o[:floor_offset].to_f <= 0.001 }
+
+      outline = [pt.call(0.0, 0.0)]
+      floor_ops.each do |o|
+        x1 = o[:t] - o[:width] / 2.0
+        x2 = o[:t] + o[:width] / 2.0
+        h  = o[:height].to_f
+        outline << pt.call(x1, 0.0) << pt.call(x1, h) << pt.call(x2, h) << pt.call(x2, 0.0)
+      end
+      outline << pt.call(length, 0.0) << pt.call(length, height) << pt.call(0.0, height)
+
+      face = ents.add_face(outline)
+      return nil unless face
+
+      raised_ops.each do |o|
+        x1 = o[:t] - o[:width] / 2.0
+        x2 = o[:t] + o[:width] / 2.0
+        z1 = o[:floor_offset].to_f
+        z2 = z1 + o[:height].to_f
+        rect = [pt.call(x1, z1), pt.call(x2, z1), pt.call(x2, z2), pt.call(x1, z2)]
+        hole = ents.add_face(rect)
+        hole.erase! if hole
+      end
+
+      wall_face = ents.grep(Sketchup::Face).max_by(&:area)
+      wall_face.pushpull(thickness) if wall_face
+      wall_face
     end
 
     def finish_drawing
