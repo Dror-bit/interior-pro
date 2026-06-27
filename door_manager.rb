@@ -663,18 +663,48 @@ module InteriorPro
       true
     end
 
+    # Remove the door_openings entry near position t from the wall's native
+    # openings list (self-healing: drops any stale entry at that position too).
+    def self.remove_native_opening!(wall, t, tol = 1.0)
+      openings = InteriorPro::WallTool.read_door_openings(wall)
+      kept = openings.reject { |o| (o[:t].to_f - t.to_f).abs <= tol }
+      InteriorPro::WallTool.persist_door_openings!(wall, kept)
+      puts "[DoorManager] remove_native_opening!: #{openings.size} -> #{kept.size} (t=#{t.round(2)})"
+      kept.size
+    end
+
     def self.delete_door(door)
       return false unless door_entity?(door)
       wall_id = door.get_attribute('InteriorPro', 'host_wall_id')
       door_id = door.get_attribute('InteriorPro', 'id')
+      door_t  = door.get_attribute('InteriorPro', 'position_along_wall_in').to_f
       wall = find_wall_by_id(Sketchup.active_model, wall_id)
       geo = wall ? wall_geometry(wall) : nil
       ctx = (wall && geo) ? opening_context(door, geo) : nil
 
       model = Sketchup.active_model
 
-      # Operation 1: erase the door. Committed on its own so a later fill
-      # failure can never abort it and bring the door back.
+      # NATIVE path (reliable): erase door, drop its opening from the list, and
+      # rebuild the wall WITHOUT it. No boolean, no fill. One atomic operation,
+      # so any failure rolls everything back (door stays, wall intact).
+      if wall && InteriorPro::WallTool::USE_NATIVE_OPENINGS
+        model.start_operation('Delete Door', true)
+        begin
+          erase_door_entity!(door, door_id)
+          unlink_door(wall, door_id)
+          remove_native_opening!(wall, door_t)
+          InteriorPro::WallTool.rebuild_wall_native!(wall)
+          model.commit_operation
+          return true
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorManager] delete (native) error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          UI.messagebox("Error deleting door: #{e.message}")
+          return false
+        end
+      end
+
+      # LEGACY fallback (non-native wall): erase door, then patch via fill.
       model.start_operation('Delete Door', true)
       begin
         erased = erase_door_entity!(door, door_id)
@@ -688,8 +718,6 @@ module InteriorPro
         return false
       end
 
-      # Operation 2: patch the wall opening. Independent — if it fails the door
-      # is already gone.
       return true unless wall && geo && ctx
 
       model.start_operation('Patch Wall Opening', true)
@@ -749,6 +777,24 @@ module InteriorPro
       erased
     end
 
+    # Move the door's opening entry from old_t to new_t in the wall's native
+    # openings list (matches the first entry within tol). Returns true if found.
+    def self.update_native_opening_t!(wall, old_t, new_t, tol = 1.0)
+      openings = InteriorPro::WallTool.read_door_openings(wall)
+      hit = false
+      updated = openings.map do |o|
+        if !hit && (o[:t].to_f - old_t.to_f).abs <= tol
+          hit = true
+          o.merge(t: new_t.to_f)
+        else
+          o
+        end
+      end
+      InteriorPro::WallTool.persist_door_openings!(wall, updated)
+      puts "[DoorManager] update_native_opening_t!: #{old_t.round(2)} -> #{new_t.round(2)} (hit=#{hit})"
+      hit
+    end
+
     def self.move_door(door, delta_t)
       return false unless door_entity?(door)
       delta_t = delta_t.to_f
@@ -773,14 +819,15 @@ module InteriorPro
       new_ctx = ctx.merge(t: new_t)
       return false unless validate_position(geo, new_ctx, new_t)
 
+      native = InteriorPro::WallTool::USE_NATIVE_OPENINGS
+
       model = Sketchup.active_model
       model.start_operation('Move Door', true)
       begin
-        fill_opening!(wall, ctx, geo) || (raise 'Could not patch the old opening in the wall.')
-
         tool = InteriorPro::DoorTool.new
         InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings)
-        cut_data = tool.build_opening_data(
+        # build_opening_data only computes the anchor (fx/fy/z); it does NOT cut.
+        place_data = tool.build_opening_data(
           wall, geo,
           width: settings['width'],
           height: settings['height'],
@@ -788,14 +835,25 @@ module InteriorPro
           t: new_t,
           clicked_side: ctx[:clicked_side]
         )
-        tool.cut_opening_from_data(wall, cut_data, geo) || (raise 'Could not cut the new opening.')
+
+        if native
+          # DATA + REGENERATION: move the opening in the list, rebuild the wall
+          # from scratch (no fill, no boolean, no healing of existing faces).
+          update_native_opening_t!(wall, ctx[:t], new_t)
+          InteriorPro::WallTool.rebuild_wall_native!(wall) ||
+            (raise 'Native wall rebuild failed')
+        else
+          # Legacy fallback (non-native wall): patch + recut.
+          fill_opening!(wall, ctx, geo) || (raise 'Could not patch the old opening in the wall.')
+          tool.cut_opening_from_data(wall, place_data, geo) || (raise 'Could not cut the new opening.')
+        end
 
         params = params_from_door(door).merge(
           'position_t' => new_t,
-          'face_x'     => cut_data[:fx],
-          'face_y'     => cut_data[:fy],
-          'bottom_z'   => cut_data[:door_bot_z],
-          'top_z'      => cut_data[:door_top_z]
+          'face_x'     => place_data[:fx],
+          'face_y'     => place_data[:fy],
+          'bottom_z'   => place_data[:door_bot_z],
+          'top_z'      => place_data[:door_top_z]
         )
         write_door_params!(door, params)
         door_regen!(door)
@@ -804,9 +862,28 @@ module InteriorPro
         true
       rescue => e
         model.abort_operation rescue nil
+        puts "[DoorManager] move_door: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
         UI.messagebox("Error moving door: #{e.message}")
         false
       end
+    end
+
+    # Update width/height/floor_offset of the opening at position t in the
+    # wall's native openings list (matches first entry within tol).
+    def self.update_native_opening_dims!(wall, t, width, height, floor_offset, tol = 1.0)
+      openings = InteriorPro::WallTool.read_door_openings(wall)
+      hit = false
+      updated = openings.map do |o|
+        if !hit && (o[:t].to_f - t.to_f).abs <= tol
+          hit = true
+          o.merge(width: width.to_f, height: height.to_f, floor_offset: floor_offset.to_f)
+        else
+          o
+        end
+      end
+      InteriorPro::WallTool.persist_door_openings!(wall, updated)
+      puts "[DoorManager] update_native_opening_dims!: t=#{t.round(2)} w=#{width} h=#{height} (hit=#{hit})"
+      hit
     end
 
     def self.update_door(door, settings)
@@ -876,7 +953,40 @@ module InteriorPro
         end
       end
 
-      # Opening size/offset changed → must patch old opening and cut a new one.
+      # Opening size/offset changed.
+      if InteriorPro::WallTool::USE_NATIVE_OPENINGS
+        # NATIVE: update the opening dims in the list, rebuild the wall, and
+        # regen the door body — keeping the SAME door entity. No erase, no fill,
+        # no boolean. One atomic operation; any failure rolls everything back.
+        model.start_operation('Edit Door', true)
+        begin
+          update_native_opening_dims!(wall, ctx[:t],
+                                      new_ctx[:width], new_ctx[:height], new_ctx[:floor_offset])
+          InteriorPro::WallTool.rebuild_wall_native!(wall) ||
+            (raise 'Native wall rebuild failed')
+
+          params = params_from_door(door).merge(
+            'width'        => new_ctx[:width],
+            'height'       => new_ctx[:height],
+            'floor_offset' => new_ctx[:floor_offset],
+            'bottom_z'     => new_ctx[:door_bot_z],
+            'top_z'        => new_ctx[:door_top_z]
+          )
+          write_door_params!(door, params)
+          door_regen!(door, settings: settings) ||
+            (raise 'Could not rebuild the updated door.')
+
+          model.commit_operation
+          return true
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorManager] edit (native): #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          UI.messagebox("Error editing door: #{e.message}")
+          return false
+        end
+      end
+
+      # LEGACY fallback (non-native wall): patch old opening and cut a new one.
       # Operation 1: erase old door on its own so a later fill/cut failure can't
       # bring it back.
       model.start_operation('Edit Door — Remove', true)
