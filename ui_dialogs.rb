@@ -248,6 +248,10 @@ module InteriorPro
         wt.join_corners(group, model)
         by_wall.each_key { |w| wt.join_corners(w, model) }
 
+        # The hole follows via the rebuild; the door BODY is a separate entity,
+        # so translate the moving wall's doors by the same offset.
+        InteriorPro::DoorManager.move_hosted_doors!(group, ox, oy)
+
         model.commit_operation
         dialog.close
         Sketchup.active_model.active_view.invalidate
