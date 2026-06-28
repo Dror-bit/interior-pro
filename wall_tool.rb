@@ -1240,6 +1240,7 @@ module InteriorPro
         thickness_pull,
         openings
       )
+      apply_native_miter_corners!(wall, drawn_start, drawn_end, thickness_f, h_anchor)
       ext_mat, int_mat = wall_side_material_names(wall)
       paint_wall_long_faces!(wall, ext_mat, int_mat)
       true
@@ -1336,6 +1337,62 @@ module InteriorPro
       wall_face = ents.grep(Sketchup::Face).max_by(&:area)
       wall_face.pushpull(thickness) if wall_face
       wall_face
+    end
+
+    # Move the 4 end columns (8 vertices) of a freshly-built native (opening)
+    # wall to the mitered corner positions stored in corners_xy, so a wall WITH
+    # openings miters at corners exactly like a wall without openings. Opening
+    # vertices in the middle are untouched. No-op when there is no miter or no
+    # corners_xy. Runs as part of the build, so the miter survives every rebuild.
+    def self.apply_native_miter_corners!(wall, drawn_start, drawn_end, thickness_f, h_anchor)
+      return unless wall&.valid?
+      flat = wall.get_attribute('InteriorPro', 'corners_xy')
+      return unless flat && flat.length == 8
+      mit = [[flat[0], flat[1]], [flat[2], flat[3]], [flat[4], flat[5]], [flat[6], flat[7]]]
+
+      dx = drawn_end.x - drawn_start.x
+      dy = drawn_end.y - drawn_start.y
+      len = Math.sqrt(dx * dx + dy * dy)
+      return if len < 0.001
+      half = thickness_f / 2.0
+      nx = -dy / len * half
+      ny =  dx / len * half
+      case h_anchor
+      when 'left'
+        perp = [[drawn_start.x + nx * 2, drawn_start.y + ny * 2],
+                [drawn_end.x   + nx * 2, drawn_end.y   + ny * 2],
+                [drawn_end.x,            drawn_end.y],
+                [drawn_start.x,          drawn_start.y]]
+      when 'right'
+        perp = [[drawn_start.x,          drawn_start.y],
+                [drawn_end.x,            drawn_end.y],
+                [drawn_end.x   - nx * 2, drawn_end.y   - ny * 2],
+                [drawn_start.x - nx * 2, drawn_start.y - ny * 2]]
+      else
+        perp = [[drawn_start.x + nx, drawn_start.y + ny],
+                [drawn_end.x   + nx, drawn_end.y   + ny],
+                [drawn_end.x   - nx, drawn_end.y   - ny],
+                [drawn_start.x - nx, drawn_start.y - ny]]
+      end
+
+      tol = 0.01
+      verts = wall.entities.grep(Sketchup::Edge).flat_map(&:vertices).uniq
+      move_verts = []
+      move_vecs  = []
+      perp.each_with_index do |(px, py), i|
+        mx, my = mit[i]
+        next if (mx - px).abs < tol && (my - py).abs < tol
+        verts.each do |v|
+          pos = v.position
+          next unless (pos.x - px).abs < tol && (pos.y - py).abs < tol
+          move_verts << v
+          move_vecs  << Geom::Vector3d.new(mx - px, my - py, 0)
+        end
+      end
+      return if move_verts.empty?
+      wall.entities.transform_by_vectors(move_verts, move_vecs)
+    rescue StandardError => e
+      puts "[WallTool] apply_native_miter_corners!: #{e.message}"
     end
 
     def finish_drawing
