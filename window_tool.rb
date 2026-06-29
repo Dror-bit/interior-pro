@@ -376,52 +376,17 @@ module InteriorPro
           jamb_grp.material = frame_mat
         end
 
-        # Sash: operable inner frame ring (sash outer -> sash inner bound),
-        # 2" deep starting at the outer face.
-        sash_grp = ents.add_group
-        sash_grp.name = 'Sash'
-        sents = sash_grp.entities
-
-        sash_outer = [
-          local_uvw(-so_w, sash_back, -so_h, unit, n),
-          local_uvw( so_w, sash_back, -so_h, unit, n),
-          local_uvw( so_w, sash_back,  so_h, unit, n),
-          local_uvw(-so_w, sash_back,  so_h, unit, n)
-        ]
-        sash_inner = [
-          local_uvw(-si_w, sash_back, -si_h, unit, n),
-          local_uvw( si_w, sash_back, -si_h, unit, n),
-          local_uvw( si_w, sash_back,  si_h, unit, n),
-          local_uvw(-si_w, sash_back,  si_h, unit, n)
-        ]
-
-        sash_face = sents.add_face(sash_outer)
-        if sash_face
-          sash_hole = sents.add_face(sash_inner)
-          sash_hole.erase! if sash_hole
-          sash_depth = sash_front - sash_back
-          sash_depth = -sash_depth if sash_face.normal.dot(n) < 0
-          sash_face.pushpull(sash_depth)
-          sash_grp.material = frame_mat
-        end
-
-        # Glass pane: single thin face at the sash inner bound, mid-sash depth.
-        glass_corners = [
-          local_uvw(-si_w, glass_v, -si_h, unit, n),
-          local_uvw( si_w, glass_v, -si_h, unit, n),
-          local_uvw( si_w, glass_v,  si_h, unit, n),
-          local_uvw(-si_w, glass_v,  si_h, unit, n)
-        ]
-        glass_face = ents.add_face(glass_corners)
-        if glass_face
-          glass_face.material = glass_mat
-          glass_face.back_material = glass_mat
-        end
-
-        # Per-type dividers (mullions/rails) so each window style looks distinct.
+        # Sliders: panels sit side by side on OFFSET depth tracks (so they pass
+        # each other) with a small interlock overlap. Other types tile the
+        # interior into a cols x rows grid of sash + glass panes.
         cols, rows = window_grid(@window_type)
-        build_window_dividers(window_group, cols, rows, si_w, si_h,
-                              sash_back, sash_front, unit, n, frame_mat) if cols > 1 || rows > 1
+        if ['Slider XO', 'Slider XOX'].include?(@window_type)
+          build_slider_panes(ents, cols, so_w, so_h, sash_width,
+                             clicked_side, unit, n, frame_mat, glass_mat)
+        else
+          build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
+                           sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+        end
 
         model.commit_operation
       rescue => e
@@ -430,8 +395,92 @@ module InteriorPro
       end
     end
 
-    # Panes per type as [cols, rows]. (cols-1) vertical mullions + (rows-1)
-    # horizontal rails are drawn, so each window style reads differently.
+    # Build one pane: a sash ring (v_back..v_front) + a glass face at glass_v.
+    def build_pane(ents, u_lo, u_hi, w_lo, w_hi, gi_lo, gi_hi, gj_lo, gj_hi,
+                   v_back, v_front, glass_v, unit, n, frame_mat, glass_mat)
+      sg = ents.add_group
+      sg.name = 'Sash'
+      sf = sg.entities.add_face([
+        local_uvw(u_lo, v_back, w_lo, unit, n),
+        local_uvw(u_hi, v_back, w_lo, unit, n),
+        local_uvw(u_hi, v_back, w_hi, unit, n),
+        local_uvw(u_lo, v_back, w_hi, unit, n)
+      ])
+      if sf
+        hole = sg.entities.add_face([
+          local_uvw(gi_lo, v_back, gj_lo, unit, n),
+          local_uvw(gi_hi, v_back, gj_lo, unit, n),
+          local_uvw(gi_hi, v_back, gj_hi, unit, n),
+          local_uvw(gi_lo, v_back, gj_hi, unit, n)
+        ])
+        hole.erase! if hole
+        d = v_front - v_back
+        d = -d if sf.normal.dot(n) < 0
+        sf.pushpull(d)
+        sg.material = frame_mat
+      end
+      gf = ents.add_face([
+        local_uvw(gi_lo, glass_v, gj_lo, unit, n),
+        local_uvw(gi_hi, glass_v, gj_lo, unit, n),
+        local_uvw(gi_hi, glass_v, gj_hi, unit, n),
+        local_uvw(gi_lo, glass_v, gj_hi, unit, n)
+      ])
+      if gf
+        gf.material = glass_mat
+        gf.back_material = glass_mat
+      end
+    end
+
+    # Tile the interior into cols x rows panes (all coplanar). Mullions/rails
+    # emerge from the small gap between adjacent panes.
+    def build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
+                         sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+      cell_w = (2.0 * so_w) / cols
+      cell_h = (2.0 * so_h) / rows
+      half_mull = 0.5
+      cols.times do |ci|
+        rows.times do |ri|
+          pu_lo = -so_w + ci * cell_w + (ci > 0 ? half_mull : 0.0)
+          pu_hi = -so_w + (ci + 1) * cell_w - (ci < cols - 1 ? half_mull : 0.0)
+          pw_lo = -so_h + ri * cell_h + (ri > 0 ? half_mull : 0.0)
+          pw_hi = -so_h + (ri + 1) * cell_h - (ri < rows - 1 ? half_mull : 0.0)
+          gi_lo = pu_lo + sash_width
+          gi_hi = pu_hi - sash_width
+          gj_lo = pw_lo + sash_width
+          gj_hi = pw_hi - sash_width
+          next if (gi_hi - gi_lo) <= 0.1 || (gj_hi - gj_lo) <= 0.1
+          build_pane(ents, pu_lo, pu_hi, pw_lo, pw_hi, gi_lo, gi_hi, gj_lo, gj_hi,
+                     sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+        end
+      end
+    end
+
+    # Slider panels: side by side, each on its own depth track (alternating), with
+    # a small interlock overlap so adjacent panels pass each other (no big gap).
+    def build_slider_panes(ents, cols, so_w, so_h, sash_width,
+                           clicked_side, unit, n, frame_mat, glass_mat)
+      interlock = 1.0
+      track = clicked_side * 1.0          # each track 1" deep (two tracks in the 2" sash)
+      step  = (2.0 * so_w) / cols
+      gj_lo = -so_h + sash_width
+      gj_hi =  so_h - sash_width
+      return if (gj_hi - gj_lo) <= 0.1
+      cols.times do |i|
+        u_lo = -so_w + i * step - (i > 0 ? interlock : 0.0)
+        u_hi = -so_w + (i + 1) * step + (i < cols - 1 ? interlock : 0.0)
+        t = i % 2
+        v_back  = -track * t
+        v_front = v_back - track
+        glass_v = v_back - track / 2.0
+        gi_lo = u_lo + sash_width
+        gi_hi = u_hi - sash_width
+        next if (gi_hi - gi_lo) <= 0.1
+        build_pane(ents, u_lo, u_hi, -so_h, so_h, gi_lo, gi_hi, gj_lo, gj_hi,
+                   v_back, v_front, glass_v, unit, n, frame_mat, glass_mat)
+      end
+    end
+
+    # Panes per type as [cols, rows].
     def window_grid(type)
       case type.to_s
       when 'Single Hung', 'Single Hung XL', 'Double Hung' then [1, 2]   # horizontal rail
