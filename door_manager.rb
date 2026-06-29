@@ -41,7 +41,10 @@ module InteriorPro
       tr = Geom::Transformation.translation(Geom::Vector3d.new(ox, oy, 0))
       moved = 0
       model.entities.to_a.each do |e|
-        next unless door_entity?(e)
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        type = e.get_attribute('InteriorPro', 'type')
+        # Doors AND windows are separate body entities hosted on the wall.
+        next unless type == 'door' || type == 'window'
         next unless e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
 
         e.transform!(tr)
@@ -51,7 +54,7 @@ module InteriorPro
         e.set_attribute('InteriorPro', 'face_y', fy.to_f + oy) unless fy.nil?
         moved += 1
       end
-      puts "[DoorManager] move_hosted_doors!: moved #{moved} door(s) by (#{ox.round(3)}, #{oy.round(3)})"
+      puts "[DoorManager] move_hosted_doors!: moved #{moved} opening(s) by (#{ox.round(3)}, #{oy.round(3)})"
       moved
     rescue StandardError => e
       puts "[DoorManager] move_hosted_doors!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"

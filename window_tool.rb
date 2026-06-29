@@ -193,80 +193,20 @@ module InteriorPro
       fy = picked_point.y
       outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
 
+      # NATIVE: register the window as a raised opening (floor_offset = sill) in
+      # the wall's shared openings list and rebuild the wall from data. Same
+      # mechanism as doors — no direct cut, no boolean. The opening now survives
+      # every wall rebuild, and a wall can hold both doors and windows.
       model = Sketchup.active_model
+      sill_offset = @header_height - @height
       model.start_operation('Cut Window Opening', true)
       begin
-        local_xform = wall_group.transformation.inverse
-        local_picked = picked_point.transform(local_xform)
-        local_outward = outward.transform(local_xform)
-
-        # Step 1: Use pick_helper's actual face when it is a wall side face;
-        # only fall back to entities-search if pick_helper gave us something
-        # else (top/end face, edge pick, or no face at all).
-        target_face = nil
-        if picked_face && picked_face.valid? &&
-           picked_face.parent == wall_group.entities.parent &&
-           picked_face.normal.parallel?(local_outward)
-          target_face = picked_face
-        end
-        target_face ||= wall_group.entities.grep(Sketchup::Face).find do |f|
-          next false unless f.normal.parallel?(local_outward)
-          proj = local_picked.project_to_plane(f.plane)
-          next false unless local_picked.distance(proj) < 0.01
-          f.classify_point(proj) == Sketchup::Face::PointInside
-        end
-        unless target_face
-          model.abort_operation
-          UI.messagebox("Could not identify a wall side face under the click.")
-          return
-        end
-
-        # Step 2: Build opening corners on target_face's exact plane.
-        target_plane = target_face.plane
-        local_corners = [
-          Geom::Point3d.new(fx - ux, fy - uy, win_bot_z),
-          Geom::Point3d.new(fx + ux, fy + uy, win_bot_z),
-          Geom::Point3d.new(fx + ux, fy + uy, win_top_z),
-          Geom::Point3d.new(fx - ux, fy - uy, win_top_z)
-        ].map { |p| p.transform(local_xform).project_to_plane(target_plane) }
-        ordered = clicked_side >= 0 ?
-          [local_corners[0], local_corners[3], local_corners[2], local_corners[1]] :
-          [local_corners[0], local_corners[1], local_corners[2], local_corners[3]]
-
-        # Step 3: Add 4 edges as a closed inner loop on target_face. A closed
-        # coplanar loop interior to a face deterministically splits the face
-        # into a remainder + the inner sub-face. No add_face, no merge.
-        new_edges = []
-        4.times do |i|
-          new_edges << wall_group.entities.add_line(ordered[i], ordered[(i + 1) % 4])
-        end
-        # Force SketchUp to find/create the new face from the closed loop of edges
-        new_edges.each(&:find_faces)
-
-        # Step 4: Locate the resulting inner sub-face (the window) by
-        # classify_point on the loop's centroid.
-        loop_center = Geom::Point3d.new(
-          (ordered[0].x + ordered[2].x) / 2.0,
-          (ordered[0].y + ordered[2].y) / 2.0,
-          (ordered[0].z + ordered[2].z) / 2.0
-        )
-        new_face = wall_group.entities.grep(Sketchup::Face).find do |f|
-          f.valid? &&
-            f.normal.parallel?(local_outward) &&
-            f.classify_point(loop_center) == Sketchup::Face::PointInside
-        end
-        unless new_face
-          model.abort_operation
-          UI.messagebox("Window opening loop did not yield an inner sub-face.")
-          return
-        end
-
-        # Step 5: Pushpull that exact face through the wall thickness.
-        new_face.reverse! if new_face.normal.dot(local_outward) < 0
-        sign = new_face.normal.dot(local_outward) > 0 ? -1 : 1
-        new_face.pushpull(sign * thickness)
-        puts "[WindowTool] xform=#{wall_group.transformation.to_a.map{|v|v.round(3)}} target_face=#{target_face.valid? ? target_face.entityID : 'DELETED'} new_face=#{new_face.valid? ? new_face.entityID : 'INVALID'} normal=#{new_face.valid? ? new_face.normal.to_a.map{|v|v.round(4)} : 'INVALID'} outward=(#{outward.x.round(4)},#{outward.y.round(4)},#{outward.z.round(4)}) sign=#{sign}"
-
+        InteriorPro::WallTool.append_door_opening!(
+          wall_group,
+          { t: t, width: @width, height: @height, floor_offset: sill_offset }
+        ) || (raise 'Failed to append window opening')
+        InteriorPro::WallTool.rebuild_wall_native!(wall_group) ||
+          (raise 'Native wall rebuild failed')
         model.commit_operation
         Sketchup.set_status_text(
           "Window opening cut. Click another wall or press Escape to exit.",
