@@ -83,11 +83,9 @@ module InteriorPro
       tool.glass_grid_style        = normalize_grid_style(settings)
       tool.exterior_casing_style   = InteriorPro::DoorLibrary.normalize_casing_style(settings, 'exterior')
       tool.interior_casing_style   = InteriorPro::DoorLibrary.normalize_casing_style(settings, 'interior')
-      tool.exterior_threshold = if settings.key?('exterior_threshold')
-        !!settings['exterior_threshold']
-      else
-        InteriorPro::DoorLibrary.normalize_category(settings['door_category']) != 'interior'
-      end
+      # Threshold (floor sill) disabled by request — it protruded under the door.
+      # To restore the option later, revert to reading settings['exterior_threshold'].
+      tool.exterior_threshold = false
       tool.preset_name        = settings['door_type']
     end
 

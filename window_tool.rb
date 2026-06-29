@@ -265,10 +265,12 @@ module InteriorPro
         puts "[WindowTool] window data error (cut succeeded): #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
 
-      # Build a real window body for supported types. Wrapped in its own
-      # operation so a failure here cannot roll back the wall cut or the
-      # window_group data above.
-      if @window_type == 'Casement' && window_group && window_group.valid?
+      # Build a window body for ALL types so every window is visible. For now
+      # this is a generic frame + glass body (the casement builder); per-style
+      # details (rails, mullions, operable sash) are refined per type later.
+      # Wrapped in its own operation so a failure here cannot roll back the wall
+      # cut or the window_group data above.
+      if window_group && window_group.valid?
         build_casement_body(window_group, unit, n, thickness, clicked_side)
       end
 
@@ -416,11 +418,66 @@ module InteriorPro
           glass_face.back_material = glass_mat
         end
 
+        # Per-type dividers (mullions/rails) so each window style looks distinct.
+        cols, rows = window_grid(@window_type)
+        build_window_dividers(window_group, cols, rows, si_w, si_h,
+                              sash_back, sash_front, unit, n, frame_mat) if cols > 1 || rows > 1
+
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
         puts "[WindowTool] casement body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
+    end
+
+    # Panes per type as [cols, rows]. (cols-1) vertical mullions + (rows-1)
+    # horizontal rails are drawn, so each window style reads differently.
+    def window_grid(type)
+      case type.to_s
+      when 'Single Hung', 'Single Hung XL', 'Double Hung' then [1, 2]   # horizontal rail
+      when 'Slider XO', 'Casement XX'                     then [2, 1]   # one vertical mullion
+      when 'Slider XOX'                                   then [3, 1]   # two vertical mullions
+      else [1, 1]                                                       # Casement / Awning / Picture / Garden
+      end
+    end
+
+    # Build divider bars (frame material) across the glass area at even spacings.
+    def build_window_dividers(window_group, cols, rows, si_w, si_h, sash_back, sash_front, unit, n, frame_mat)
+      grp = window_group.entities.add_group
+      grp.name = 'Dividers'
+      ents = grp.entities
+      bar = 0.5
+      depth = sash_front - sash_back
+
+      (1...cols).each do |k|
+        u0 = -si_w + (2.0 * si_w) * k / cols
+        f = ents.add_face([
+          local_uvw(u0 - bar, sash_back, -si_h, unit, n),
+          local_uvw(u0 + bar, sash_back, -si_h, unit, n),
+          local_uvw(u0 + bar, sash_back,  si_h, unit, n),
+          local_uvw(u0 - bar, sash_back,  si_h, unit, n)
+        ])
+        next unless f
+        d = depth
+        d = -d if f.normal.dot(n) < 0
+        f.pushpull(d)
+      end
+
+      (1...rows).each do |k|
+        w0 = -si_h + (2.0 * si_h) * k / rows
+        f = ents.add_face([
+          local_uvw(-si_w, sash_back, w0 - bar, unit, n),
+          local_uvw( si_w, sash_back, w0 - bar, unit, n),
+          local_uvw( si_w, sash_back, w0 + bar, unit, n),
+          local_uvw(-si_w, sash_back, w0 + bar, unit, n)
+        ])
+        next unless f
+        d = depth
+        d = -d if f.normal.dot(n) < 0
+        f.pushpull(d)
+      end
+
+      grp.material = frame_mat
     end
 
     def add_frame_box(parent_entities, u1, u2, v1, v2, w1, w2, unit, n, material, name)

@@ -53,7 +53,7 @@ module InteriorPro
       @glass_grid_style         = d['glass_grid_style']
       @exterior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'exterior')
       @interior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'interior')
-      @exterior_threshold       = d['exterior_threshold'] ? true : false
+      @exterior_threshold       = false  # threshold disabled by request (protruded under door)
       @preset_name         = ''
     end
 

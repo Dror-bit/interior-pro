@@ -9,7 +9,32 @@ module InteriorPro
 
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'window_types.json')
 
-    BUILT_IN_TYPES = ['Single Hung', 'Double Hung', 'Slider', 'Casement', 'Picture'].freeze
+    # Casement first: it is the only type with a real built body. The others cut
+    # the opening (native) but still need per-style body geometry built.
+    BUILT_IN_TYPES = [
+      'Casement', 'Casement XX',
+      'Single Hung', 'Single Hung XL',
+      'Double Hung',
+      'Slider XO', 'Slider XOX',
+      'Awning',
+      'Picture',
+      'Garden Window'
+    ].freeze
+
+    # Default unit (frame) size + frame depth per type, in inches (Milgard ref).
+    # Used to prefill the dialog when a type is selected.
+    PRESETS = {
+      'Casement'       => { 'width' => 24, 'height' => 48, 'frame_depth' => 3.25 },
+      'Casement XX'    => { 'width' => 48, 'height' => 48, 'frame_depth' => 3.25 },
+      'Single Hung'    => { 'width' => 24, 'height' => 36, 'frame_depth' => 3.25 },
+      'Single Hung XL' => { 'width' => 36, 'height' => 60, 'frame_depth' => 3.25 },
+      'Double Hung'    => { 'width' => 32, 'height' => 48, 'frame_depth' => 3.25 },
+      'Slider XO'      => { 'width' => 48, 'height' => 36, 'frame_depth' => 3.25 },
+      'Slider XOX'     => { 'width' => 72, 'height' => 48, 'frame_depth' => 3.25 },
+      'Awning'         => { 'width' => 36, 'height' => 24, 'frame_depth' => 3.25 },
+      'Picture'        => { 'width' => 60, 'height' => 48, 'frame_depth' => 3.25 },
+      'Garden Window'  => { 'width' => 60, 'height' => 48, 'frame_depth' => 3.25 }
+    }.freeze
 
     def self.ensure_dir
       dir = File.dirname(LIBRARY_FILE)
