@@ -36,6 +36,8 @@ module InteriorPro
         tool.header_height = window['header_height'].to_f
         tool.frame_width = window['frame_width'].to_f
         tool.interior_depth = window['interior_depth'].to_f
+        tool.garden_depth   = window['garden_depth'].to_f if window['garden_depth']
+        tool.glass_grid_style = window['glass_grid_style'] if window['glass_grid_style']
         tool.install_window = window['install_window']
         tool.exterior_trim = window['exterior_trim']
         tool.interior_casing = window['interior_casing']
@@ -55,7 +57,9 @@ module InteriorPro
         'height'         => window.get_attribute('InteriorPro', 'height_in'),
         'header_height'  => window.get_attribute('InteriorPro', 'header_height_in'),
         'frame_width'    => window.get_attribute('InteriorPro', 'frame_width_in'),
-        'interior_depth' => window.get_attribute('InteriorPro', 'interior_depth_in')
+        'interior_depth' => window.get_attribute('InteriorPro', 'interior_depth_in'),
+        'garden_depth'   => window.get_attribute('InteriorPro', 'garden_depth_in'),
+        'glass_grid_style' => window.get_attribute('InteriorPro', 'glass_grid_style')
       }
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Edit Window',
@@ -93,6 +97,8 @@ module InteriorPro
       dhh = s['header_height']  || 80
       dfw = s['frame_width']    || 1.5
       did = s['interior_depth'] || 1
+      dgd = s['garden_depth']   || 16
+      dgs = s['glass_grid_style'] || 'none'
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -157,6 +163,24 @@ module InteriorPro
                 <label>Interior Depth (in)</label>
                 <input type="number" id="interiorDepth" value="#{did}" min="0.25" step="0.25">
               </div>
+              <div>
+                <label>Garden Depth (in)</label>
+                <input type="number" id="gardenDepth" value="#{dgd}" min="1" step="1">
+              </div>
+            </div>
+
+            <div class="section-title">Glass</div>
+            <div class="row">
+              <div>
+                <label>Glass Grid</label>
+                <select id="glassGridStyle">
+                  <option value="none">None</option>
+                  <option value="2x2">2 x 2</option>
+                  <option value="3x3">3 x 3</option>
+                  <option value="2x3">2 x 3</option>
+                  <option value="3x2">3 x 2</option>
+                </select>
+              </div>
             </div>
 
             <div class="section-title">Install Options</div>
@@ -179,7 +203,10 @@ module InteriorPro
           </div>
         </div>
         <script>
-          window.onload = function() { sketchup.get_types(); };
+          window.onload = function() {
+            sketchup.get_types();
+            document.getElementById('glassGridStyle').value = '#{dgs}';
+          };
 
           function loadTypes(types, selectName) {
             var sel = document.getElementById('winType');
@@ -206,6 +233,8 @@ module InteriorPro
               header_height: parseFloat(document.getElementById('headerHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),
               interior_depth: parseFloat(document.getElementById('interiorDepth').value),
+              garden_depth: parseFloat(document.getElementById('gardenDepth').value),
+              glass_grid_style: document.getElementById('glassGridStyle').value,
               install_window: document.getElementById('installWindow').checked,
               exterior_trim: document.getElementById('exteriorTrim').checked,
               interior_casing: document.getElementById('interiorCasing').checked

@@ -138,6 +138,8 @@ module InteriorPro
       tool.header_height  = settings['header_height'].to_f  if tool.respond_to?(:header_height=)
       tool.frame_width    = settings['frame_width'].to_f    if tool.respond_to?(:frame_width=)
       tool.interior_depth = settings['interior_depth'].to_f if tool.respond_to?(:interior_depth=)
+      tool.garden_depth   = settings['garden_depth'].to_f   if settings['garden_depth'] && tool.respond_to?(:garden_depth=)
+      tool.glass_grid_style = settings['glass_grid_style']  if settings['glass_grid_style'] && tool.respond_to?(:glass_grid_style=)
       tool.preset_name    = settings['window_type']         if tool.respond_to?(:preset_name=)
       tool.send(:cut_window_opening, wall, picked, nil)   # cut_window_opening is private
       true

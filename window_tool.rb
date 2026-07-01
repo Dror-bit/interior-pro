@@ -5,10 +5,12 @@ module InteriorPro
 
     attr_accessor :window_type, :width, :height, :header_height,
                   :frame_width, :install_window, :exterior_trim,
-                  :interior_casing, :preset_name, :interior_depth
+                  :interior_casing, :preset_name, :interior_depth, :garden_depth,
+                  :glass_grid_style
 
     def initialize
       @window_type = 'Single Hung'
+      @glass_grid_style = 'none'
       @width = 36.0
       @height = 48.0
       @header_height = 80.0
@@ -18,6 +20,7 @@ module InteriorPro
       @exterior_trim = false
       @interior_casing = false
       @preset_name = ''
+      @garden_depth = 16.0
     end
 
     def activate
@@ -32,15 +35,16 @@ module InteriorPro
     end
 
     def onMouseMove(flags, x, y, view)
-      wall, _pt, _face = find_wall_under_cursor(view, x, y)
-      if wall
+      wall, pt, _face = find_wall_under_cursor(view, x, y)
+      if wall && pt
         geo = InteriorPro::DoorManager.wall_geometry(wall)
         if geo
-          ray = view.pickray(x, y)
-          hit = Geom.closest_points([geo[:cline_start], geo[:unit]], ray).first
+          # Project the picked FACE point onto the centerline — exactly how
+          # cut_window_opening computes t — so the ghost matches the placement.
+          click = Geom::Point3d.new(pt.x, pt.y, 0)
           @preview_wall = wall
           @preview_geo  = geo
-          @preview_t    = hit ? (hit - geo[:cline_start]).dot(geo[:unit]) : nil
+          @preview_t    = (click - geo[:cline_start]).dot(geo[:unit])
           view.tooltip = "Click to place #{@width}\" x #{@height}\" window opening"
         end
       else
@@ -300,6 +304,8 @@ module InteriorPro
         window_group.set_attribute('InteriorPro', 'height_in',              @height.to_f)
         window_group.set_attribute('InteriorPro', 'frame_width_in',         @frame_width.to_f)
         window_group.set_attribute('InteriorPro', 'interior_depth_in',      @interior_depth.to_f)
+        window_group.set_attribute('InteriorPro', 'garden_depth_in',        @garden_depth.to_f)
+        window_group.set_attribute('InteriorPro', 'glass_grid_style',        @glass_grid_style.to_s)
         window_group.set_attribute('InteriorPro', 'header_height_in',       @header_height.to_f)
         window_group.set_attribute('InteriorPro', 'sill_height_in',         sill_height_in.to_f)
         window_group.set_attribute('InteriorPro', 'area_sqft',              area_sqft)
@@ -480,7 +486,8 @@ module InteriorPro
 
         hw = @width / 2.0
         hh = @height / 2.0
-        out = clicked_side * (@width * 0.5)   # projection depth, toward exterior
+        proj = (@garden_depth && @garden_depth > 0) ? @garden_depth : (@width * 0.5)
+        out = clicked_side * proj             # projection depth, toward exterior
         front_top = hh - @height * 0.15       # gently sloped top (front a bit lower)
 
         grp = window_group.entities.add_group
@@ -613,16 +620,61 @@ module InteriorPro
         sf.pushpull(d)
         sg.material = frame_mat
       end
-      gf = ents.add_face([
-        local_uvw(gi_lo, glass_v, gj_lo, unit, n),
-        local_uvw(gi_hi, glass_v, gj_lo, unit, n),
-        local_uvw(gi_hi, glass_v, gj_hi, unit, n),
-        local_uvw(gi_lo, glass_v, gj_hi, unit, n)
+      # Glass as a 1/4" deep pane centered on glass_v (grids sit inside it).
+      gg = ents.add_group
+      gg.name = 'Glass'
+      gv0 = glass_v - 0.125
+      gf = gg.entities.add_face([
+        local_uvw(gi_lo, gv0, gj_lo, unit, n),
+        local_uvw(gi_hi, gv0, gj_lo, unit, n),
+        local_uvw(gi_hi, gv0, gj_hi, unit, n),
+        local_uvw(gi_lo, gv0, gj_hi, unit, n)
       ])
       if gf
-        gf.material = glass_mat
-        gf.back_material = glass_mat
+        dd = 0.25
+        dd = -dd if gf.normal.dot(n) < 0
+        gf.pushpull(dd)
+        gg.material = glass_mat
       end
+      build_pane_grid(ents, gi_lo, gi_hi, gj_lo, gj_hi, glass_v, unit, n, frame_mat)
+    end
+
+    # Colonial grid muntins on a pane's glass, per @glass_grid_style (e.g. "2x2").
+    def parse_window_grid(style)
+      return [1, 1] if style.nil? || style.to_s.strip.empty? || style.to_s.downcase == 'none'
+      style.to_s =~ /^(\d+)x(\d+)$/i ? [$1.to_i, $2.to_i] : [1, 1]
+    end
+
+    def build_pane_grid(ents, u_lo, u_hi, w_lo, w_hi, glass_v, unit, n, mat)
+      cols, rows = parse_window_grid(@glass_grid_style)
+      return if cols <= 1 && rows <= 1
+      mw = 0.375         # muntin width (< 1/2")
+      hd = 0.1           # half depth — muntins sit INSIDE the 1/4" glass pane
+      grp = ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+      (1...cols).each do |i|
+        u = u_lo + (u_hi - u_lo) * i / cols.to_f
+        add_muntin_bar(ge, u - mw / 2.0, u + mw / 2.0, w_lo, w_hi, glass_v, hd, unit, n)
+      end
+      (1...rows).each do |j|
+        w = w_lo + (w_hi - w_lo) * j / rows.to_f
+        add_muntin_bar(ge, u_lo, u_hi, w - mw / 2.0, w + mw / 2.0, glass_v, hd, unit, n)
+      end
+      grp.material = mat
+    end
+
+    def add_muntin_bar(ge, u0, u1, w0, w1, v, hd, unit, n)
+      f = ge.add_face([
+        local_uvw(u0, v - hd, w0, unit, n),
+        local_uvw(u1, v - hd, w0, unit, n),
+        local_uvw(u1, v - hd, w1, unit, n),
+        local_uvw(u0, v - hd, w1, unit, n)
+      ])
+      return unless f
+      d = 2.0 * hd
+      d = -d if f.normal.dot(n) < 0
+      f.pushpull(d)
     end
 
     # Tile the interior into cols x rows panes (all coplanar). Mullions/rails
