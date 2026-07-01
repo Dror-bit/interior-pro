@@ -152,7 +152,12 @@ module InteriorPro
       to_click = click_xy - cline_start
       t = to_click.dot(unit)
       n_offset = to_click.dot(n)
-      clicked_side = n_offset >= 0 ? 1 : -1
+      # Always orient the window exterior-out, regardless of which side was
+      # clicked: the wall's exterior face is the right perpendicular of the drawn
+      # direction (= the -n side, same convention the wall material uses). So the
+      # window exterior always lands on the wall exterior, interior on interior.
+      click_side_raw = n_offset >= 0 ? 1 : -1
+      clicked_side = -1
       puts "[WindowTool] clicked_side=#{clicked_side} n_offset=#{n_offset.round(4)} pp=(#{picked_point.x.round(3)}, #{picked_point.y.round(3)}, #{picked_point.z.round(3)}) unit=(#{unit.x.round(4)}, #{unit.y.round(4)}) n=(#{n.x.round(4)}, #{n.y.round(4)})"
 
       # Validate fit along wall length.
@@ -383,6 +388,9 @@ module InteriorPro
         if ['Slider XO', 'Slider XOX'].include?(@window_type)
           build_slider_panes(ents, cols, so_w, so_h, sash_width,
                              clicked_side, unit, n, frame_mat, glass_mat)
+        elsif ['Single Hung', 'Single Hung XL', 'Double Hung'].include?(@window_type)
+          build_hung_panes(ents, rows, so_w, so_h, sash_width,
+                           clicked_side, unit, n, frame_mat, glass_mat)
         else
           build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
                            sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
@@ -434,10 +442,11 @@ module InteriorPro
     # Tile the interior into cols x rows panes (all coplanar). Mullions/rails
     # emerge from the small gap between adjacent panes.
     def build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
-                         sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+                         sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat,
+                         gap = 0.5)
       cell_w = (2.0 * so_w) / cols
       cell_h = (2.0 * so_h) / rows
-      half_mull = 0.5
+      half_mull = gap
       cols.times do |ci|
         rows.times do |ri|
           pu_lo = -so_w + ci * cell_w + (ci > 0 ? half_mull : 0.0)
@@ -459,8 +468,11 @@ module InteriorPro
     # a small interlock overlap so adjacent panels pass each other (no big gap).
     def build_slider_panes(ents, cols, so_w, so_h, sash_width,
                            clicked_side, unit, n, frame_mat, glass_mat)
-      interlock = 1.0
-      track = clicked_side * 1.0          # each track 1" deep (two tracks in the 2" sash)
+      # Overlap by half a stile so the two meeting stiles land on the SAME X:
+      # the front panel occludes the back one -> looks like a single center post.
+      interlock = sash_width / 2.0
+      # Each panel 1.25" deep on its own stacked track (one proud, one recessed).
+      track = clicked_side * 1.25
       step  = (2.0 * so_w) / cols
       gj_lo = -so_h + sash_width
       gj_hi =  so_h - sash_width
@@ -468,7 +480,7 @@ module InteriorPro
       cols.times do |i|
         u_lo = -so_w + i * step - (i > 0 ? interlock : 0.0)
         u_hi = -so_w + (i + 1) * step + (i < cols - 1 ? interlock : 0.0)
-        t = i % 2
+        t = (cols - 1 - i) % 2   # rightmost panel proud (front), alternating
         v_back  = -track * t
         v_front = v_back - track
         glass_v = v_back - track / 2.0
@@ -476,6 +488,32 @@ module InteriorPro
         gi_hi = u_hi - sash_width
         next if (gi_hi - gi_lo) <= 0.1
         build_pane(ents, u_lo, u_hi, -so_h, so_h, gi_lo, gi_hi, gj_lo, gj_hi,
+                   v_back, v_front, glass_v, unit, n, frame_mat, glass_mat)
+      end
+    end
+
+    # Hung windows: sashes stacked vertically on offset depth tracks, bottom
+    # sash proud of the top, with a small overlap at the meeting rail.
+    def build_hung_panes(ents, rows, so_w, so_h, sash_width,
+                         clicked_side, unit, n, frame_mat, glass_mat)
+      # Overlap by half a rail so the two meeting rails land on the SAME line.
+      interlock = sash_width / 2.0
+      track = clicked_side * 1.25
+      step  = (2.0 * so_h) / rows
+      gi_lo = -so_w + sash_width
+      gi_hi =  so_w - sash_width
+      return if (gi_hi - gi_lo) <= 0.1
+      rows.times do |i|
+        w_lo = -so_h + i * step - (i > 0 ? interlock : 0.0)
+        w_hi = -so_h + (i + 1) * step + (i < rows - 1 ? interlock : 0.0)
+        t = i % 2                          # bottom sash (i=0) proud, top (i=1) back
+        v_back  = -track * t
+        v_front = v_back - track
+        glass_v = v_back - track / 2.0
+        gj_lo = w_lo + sash_width
+        gj_hi = w_hi - sash_width
+        next if (gj_hi - gj_lo) <= 0.1
+        build_pane(ents, -so_w, so_w, w_lo, w_hi, gi_lo, gi_hi, gj_lo, gj_hi,
                    v_back, v_front, glass_v, unit, n, frame_mat, glass_mat)
       end
     end
