@@ -32,8 +32,59 @@ module InteriorPro
     end
 
     def onMouseMove(flags, x, y, view)
-      wall, _ = find_wall_under_cursor(view, x, y)
-      view.tooltip = wall ? "Click to place #{@width}\" x #{@height}\" window opening" : ''
+      wall, _pt, _face = find_wall_under_cursor(view, x, y)
+      if wall
+        geo = InteriorPro::DoorManager.wall_geometry(wall)
+        if geo
+          ray = view.pickray(x, y)
+          hit = Geom.closest_points([geo[:cline_start], geo[:unit]], ray).first
+          @preview_wall = wall
+          @preview_geo  = geo
+          @preview_t    = hit ? (hit - geo[:cline_start]).dot(geo[:unit]) : nil
+          view.tooltip = "Click to place #{@width}\" x #{@height}\" window opening"
+        end
+      else
+        @preview_wall = @preview_geo = @preview_t = nil
+        view.tooltip = ''
+      end
+      view.invalidate
+    end
+
+    def draw(view)
+      return unless @preview_wall && @preview_geo && @preview_t
+      corners = preview_ghost_corners(@preview_wall, @preview_geo, @preview_t)
+      return unless corners
+      half_w = @width / 2.0
+      valid = @preview_t - half_w >= 0 && @preview_t + half_w <= @preview_geo[:wall_length]
+      front = corners[0, 4]
+      back  = corners[4, 4]
+      view.line_width = 3
+      view.drawing_color = valid ? Sketchup::Color.new(40, 150, 60) : Sketchup::Color.new(200, 40, 40)
+      view.draw(GL_LINE_LOOP, front)
+      view.draw(GL_LINE_LOOP, back)
+      4.times { |i| view.draw(GL_LINES, [front[i], back[i]]) }
+    end
+
+    def getExtents
+      bb = Geom::BoundingBox.new
+      bb.add(@preview_wall.bounds) if @preview_wall&.valid?
+      if @preview_wall && @preview_geo && @preview_t
+        c = preview_ghost_corners(@preview_wall, @preview_geo, @preview_t)
+        c&.each { |p| bb.add(p) }
+      end
+      bb
+    end
+
+    def preview_ghost_corners(wall, geo, t)
+      return nil unless t
+      tool = InteriorPro::DoorTool.new
+      sill = @header_height - @height
+      data = tool.build_opening_data(wall, geo, width: @width, height: @height,
+                                     floor_offset: sill, t: t, clicked_side: 1)
+      tool.opening_ghost_corners(data)
+    rescue StandardError => e
+      puts "[WindowTool] preview error: #{e.message}"
+      nil
     end
 
     def onLButtonDown(flags, x, y, view)
@@ -276,7 +327,11 @@ module InteriorPro
       # Wrapped in its own operation so a failure here cannot roll back the wall
       # cut or the window_group data above.
       if window_group && window_group.valid?
-        build_casement_body(window_group, unit, n, thickness, clicked_side)
+        if @window_type == 'Garden Window'
+          build_garden_body(window_group, unit, n, thickness, clicked_side)
+        else
+          build_casement_body(window_group, unit, n, thickness, clicked_side)
+        end
       end
 
       # Convert the window group into a ComponentInstance so each window is a
@@ -385,15 +440,20 @@ module InteriorPro
         # each other) with a small interlock overlap. Other types tile the
         # interior into a cols x rows grid of sash + glass panes.
         cols, rows = window_grid(@window_type)
-        if ['Slider XO', 'Slider XOX'].include?(@window_type)
+        if @window_type == 'XOX Single Hung'
+          build_xox_hung_panes(ents, so_w, so_h, sash_width,
+                               sash_back, sash_front, glass_v, clicked_side,
+                               unit, n, frame_mat, glass_mat)
+        elsif ['Slider XO', 'Slider XOX'].include?(@window_type)
           build_slider_panes(ents, cols, so_w, so_h, sash_width,
                              clicked_side, unit, n, frame_mat, glass_mat)
         elsif ['Single Hung', 'Single Hung XL', 'Double Hung'].include?(@window_type)
           build_hung_panes(ents, rows, so_w, so_h, sash_width,
                            clicked_side, unit, n, frame_mat, glass_mat)
         else
+          # Casement XX etc.: two hinged sashes with a thin ~1/8" gap between them.
           build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
-                           sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+                           sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat, 0.0625)
         end
 
         model.commit_operation
@@ -401,6 +461,132 @@ module InteriorPro
         model.abort_operation rescue nil
         puts "[WindowTool] casement body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
+    end
+
+    # Garden window: a small glass box that projects OUTWARD from the wall
+    # (front + two trapezoid sides + a slanted top + a bottom shelf). The
+    # rectangular hole is cut in the wall as usual; this body sits proud of the
+    # exterior face (exterior = negative v, i.e. clicked_side direction).
+    def build_garden_body(window_group, unit, n, thickness, clicked_side)
+      model = Sketchup.active_model
+      model.start_operation('Build Garden Window', true)
+      begin
+        glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
+                                           Sketchup::Color.new(180, 180, 180), 0.4)
+        shelf_mat = get_or_create_material(model, 'InteriorPro_Window_Shelf',
+                                           Sketchup::Color.new(205, 175, 130), 1.0)
+        frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
+                                           Sketchup::Color.new(255, 255, 255), 1.0)
+
+        hw = @width / 2.0
+        hh = @height / 2.0
+        out = clicked_side * (@width * 0.5)   # projection depth, toward exterior
+        front_top = hh - @height * 0.15       # gently sloped top (front a bit lower)
+
+        grp = window_group.entities.add_group
+        grp.name = 'GardenWindow'
+        ge = grp.entities
+
+        # Each panel: a UNIFORM 2" frame ring with real depth (pushed INWARD into
+        # the box) + glass recessed 1/8" behind the outer face.
+        glass = lambda do |quad|
+          inner = inset_quad_uvw(quad, 2.0)
+          box_c = [0.0, out / 2.0, (front_top - hh) / 2.0]
+          inw = panel_inward_uvw(quad, box_c)
+          wi = Geom::Vector3d.new(inw[0] * unit.x + inw[1] * n.x,
+                                  inw[0] * unit.y + inw[1] * n.y, inw[2])
+          fgrp = ge.add_group
+          fgrp.name = 'Frame'
+          of = fgrp.entities.add_face(quad.map { |u, v, w| local_uvw(u, v, w, unit, n) })
+          if of
+            ih = fgrp.entities.add_face(inner.map { |u, v, w| local_uvw(u, v, w, unit, n) })
+            ih.erase! if ih
+            of.pushpull((of.normal % wi) >= 0 ? 1.0 : -1.0)
+            fgrp.material = frame_mat
+          end
+          rec = 0.125
+          gf = ge.add_face(inner.map { |u, v, w|
+            local_uvw(u + inw[0] * rec, v + inw[1] * rec, w + inw[2] * rec, unit, n)
+          })
+          if gf
+            gf.material = glass_mat
+            gf.back_material = glass_mat
+          end
+        end
+
+        # Bottom shelf (solid, ~1" thick) from the wall out to the front.
+        shelf = ge.add_face([[-hw, 0, -hh], [hw, 0, -hh], [hw, out, -hh], [-hw, out, -hh]]
+                              .map { |u, v, w| local_uvw(u, v, w, unit, n) })
+        if shelf
+          shelf.pushpull(shelf.normal.z >= 0 ? 1.0 : -1.0)
+          ge.grep(Sketchup::Face).each { |f| f.material = frame_mat if f.material.nil? }
+        end
+
+        # Front: single pane (no mid rail).
+        glass.call([[-hw, out, -hh], [hw, out, -hh], [hw, out, front_top], [-hw, out, front_top]])
+        # Left side: lower rectangle + upper trapezoid (mid rail only on the sides).
+        glass.call([[-hw, 0, -hh], [-hw, out, -hh], [-hw, out, 0.0], [-hw, 0, 0.0]])
+        glass.call([[-hw, 0, 0.0], [-hw, out, 0.0], [-hw, out, front_top], [-hw, 0, hh]])
+        # Right side: lower rectangle + upper trapezoid.
+        glass.call([[hw, 0, -hh], [hw, out, -hh], [hw, out, 0.0], [hw, 0, 0.0]])
+        glass.call([[hw, 0, 0.0], [hw, out, 0.0], [hw, out, front_top], [hw, 0, hh]])
+        # Slanted top glass (back-top at the wall down to the front top).
+        glass.call([[-hw, 0, hh], [hw, 0, hh], [hw, out, front_top], [-hw, out, front_top]])
+
+        model.commit_operation
+      rescue => e
+        model.abort_operation rescue nil
+        puts "[WindowTool] garden body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      end
+    end
+
+    # Inset a convex, planar quad (points in [u,v,w]) inward by `fw` with mitered
+    # corners, so the resulting frame ring has a UNIFORM width. Returns 4 [u,v,w].
+    def inset_quad_uvw(quad, fw)
+      pts = quad.map { |q| Geom::Point3d.new(q[0], q[1], q[2]) }
+      normal = (pts[1] - pts[0]).cross(pts[2] - pts[0])
+      return quad if normal.length < 1e-9
+      normal.normalize!
+      centroid = Geom::Point3d.new(pts.map(&:x).sum / 4.0,
+                                   pts.map(&:y).sum / 4.0,
+                                   pts.map(&:z).sum / 4.0)
+      offset_lines = []
+      4.times do |i|
+        a = pts[i]
+        edge = pts[(i + 1) % 4] - a
+        inward = normal.cross(edge)
+        return quad if inward.length < 1e-9
+        inward.normalize!
+        inward.reverse! if (centroid - a) % inward < 0
+        offset_lines << [a.offset(inward, fw), edge]
+      end
+      inner = []
+      4.times do |i|
+        l0 = offset_lines[(i - 1) % 4]
+        l1 = offset_lines[i]
+        hit = Geom.intersect_line_line([l0[0], l0[1]], [l1[0], l1[1]])
+        inner << (hit || pts[i])
+      end
+      inner.map { |p| [p.x, p.y, p.z] }
+    end
+
+    # Unit normal of a planar quad (uvw), flipped to point toward `box_center`
+    # (i.e. into the box interior). Returns [u, v, w].
+    def panel_inward_uvw(quad, box_center)
+      p0, p1, p2 = quad[0], quad[1], quad[2]
+      ax = p1[0] - p0[0]; ay = p1[1] - p0[1]; az = p1[2] - p0[2]
+      bx = p2[0] - p0[0]; by = p2[1] - p0[1]; bz = p2[2] - p0[2]
+      nx = ay * bz - az * by
+      ny = az * bx - ax * bz
+      nz = ax * by - ay * bx
+      len = Math.sqrt(nx * nx + ny * ny + nz * nz)
+      return [0.0, 0.0, 0.0] if len < 1e-9
+      nx /= len; ny /= len; nz /= len
+      cx = quad.map { |q| q[0] }.sum / 4.0
+      cy = quad.map { |q| q[1] }.sum / 4.0
+      cz = quad.map { |q| q[2] }.sum / 4.0
+      dot = nx * (box_center[0] - cx) + ny * (box_center[1] - cy) + nz * (box_center[2] - cz)
+      dot < 0 ? [-nx, -ny, -nz] : [nx, ny, nz]
     end
 
     # Build one pane: a sash ring (v_back..v_front) + a glass face at glass_v.
@@ -515,6 +701,57 @@ module InteriorPro
         next if (gj_hi - gj_lo) <= 0.1
         build_pane(ents, -so_w, so_w, w_lo, w_hi, gi_lo, gi_hi, gj_lo, gj_hi,
                    v_back, v_front, glass_v, unit, n, frame_mat, glass_mat)
+      end
+    end
+
+    # Combination window: single-hung on each side + a wide fixed picture in the
+    # middle (sides ~25% each, center ~50%).
+    def build_xox_hung_panes(ents, so_w, so_h, sash_width,
+                             sash_back, sash_front, glass_v, clicked_side,
+                             unit, n, frame_mat, glass_mat)
+      mull = 0.0   # no gap between sections — adjacent frames touch directly
+      side = (2.0 * so_w) * 0.25
+      xL0 = -so_w;        xL1 = -so_w + side
+      xC0 = xL1;          xC1 =  so_w - side
+      xR0 = xC1;          xR1 =  so_w
+
+      # Center fixed picture pane.
+      cu_lo = xC0 + mull
+      cu_hi = xC1 - mull
+      if (cu_hi - cu_lo) > 2 * sash_width + 0.1
+        build_pane(ents, cu_lo, cu_hi, -so_h, so_h,
+                   cu_lo + sash_width, cu_hi - sash_width,
+                   -so_h + sash_width, so_h - sash_width,
+                   sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat)
+      end
+
+      # Left + right single-hung columns.
+      [[xL0, xL1 - mull], [xR0 + mull, xR1]].each do |u_lo, u_hi|
+        hung_column(ents, u_lo, u_hi, so_h, sash_width, clicked_side,
+                    unit, n, frame_mat, glass_mat)
+      end
+    end
+
+    # Two stacked single-hung sashes (offset depth) inside a u-column.
+    def hung_column(ents, u_lo, u_hi, so_h, sash_width, clicked_side,
+                    unit, n, frame_mat, glass_mat)
+      gi_lo = u_lo + sash_width
+      gi_hi = u_hi - sash_width
+      return if (gi_hi - gi_lo) <= 0.1
+      interlock = sash_width / 2.0
+      track = clicked_side * 1.25
+      2.times do |i|
+        w_lo = -so_h + i * so_h - (i > 0 ? interlock : 0.0)
+        w_hi = -so_h + (i + 1) * so_h + (i < 1 ? interlock : 0.0)
+        t = (i + 1) % 2                 # top sash (i=1) proud/forward, bottom back
+        vb = -track * t
+        vf = vb - track
+        gv = vb - track / 2.0
+        gj_lo = w_lo + sash_width
+        gj_hi = w_hi - sash_width
+        next if (gj_hi - gj_lo) <= 0.1
+        build_pane(ents, u_lo, u_hi, w_lo, w_hi, gi_lo, gi_hi, gj_lo, gj_hi,
+                   vb, vf, gv, unit, n, frame_mat, glass_mat)
       end
     end
 

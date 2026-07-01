@@ -18,7 +18,8 @@ module InteriorPro
 
       dialog.add_action_callback('get_types') { |action_context|
         types = InteriorPro::WindowLibrary.all_types
-        dialog.execute_script("loadTypes(#{types.to_json})")
+        sel = (@last && @last['window_type']).to_json
+        dialog.execute_script("loadTypes(#{types.to_json}, #{sel})")
       }
 
       dialog.add_action_callback('add_custom_type') { |action_context, name|
@@ -28,6 +29,7 @@ module InteriorPro
 
       dialog.add_action_callback('place_window') { |action_context, data|
         window = JSON.parse(data)
+        @last = window   # remember for the next time the dialog opens (this session)
         tool.window_type = window['window_type']
         tool.width = window['width'].to_f
         tool.height = window['height'].to_f
@@ -45,7 +47,52 @@ module InteriorPro
       dialog.show
     end
 
+    def self.show_for_edit(window)
+      return unless window
+      @last = {
+        'window_type'    => window.get_attribute('InteriorPro', 'window_type'),
+        'width'          => window.get_attribute('InteriorPro', 'width_in'),
+        'height'         => window.get_attribute('InteriorPro', 'height_in'),
+        'header_height'  => window.get_attribute('InteriorPro', 'header_height_in'),
+        'frame_width'    => window.get_attribute('InteriorPro', 'frame_width_in'),
+        'interior_depth' => window.get_attribute('InteriorPro', 'interior_depth_in')
+      }
+      dialog = UI::HtmlDialog.new(
+        dialog_title: 'Interior Pro - Edit Window',
+        preferences_key: 'InteriorPro_WindowEdit',
+        width: 400,
+        height: 580,
+        resizable: true
+      )
+      dialog.set_html(build_html)
+
+      dialog.add_action_callback('get_types') { |action_context|
+        types = InteriorPro::WindowLibrary.all_types
+        sel = (@last && @last['window_type']).to_json
+        dialog.execute_script("loadTypes(#{types.to_json}, #{sel})")
+      }
+
+      dialog.add_action_callback('add_custom_type') { |action_context, name|
+        types = InteriorPro::WindowLibrary.add_custom(name.to_s)
+        dialog.execute_script("loadTypes(#{types.to_json}, #{name.to_json})")
+      }
+
+      dialog.add_action_callback('place_window') { |action_context, data|
+        settings = JSON.parse(data)
+        dialog.close
+        InteriorPro::WindowManager.update_window(window, settings)
+      }
+
+      dialog.show
+    end
+
     def self.build_html
+      s   = @last || {}
+      dw  = s['width']          || 36
+      dh  = s['height']         || 48
+      dhh = s['header_height']  || 80
+      dfw = s['frame_width']    || 1.5
+      did = s['interior_depth'] || 1
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -90,25 +137,25 @@ module InteriorPro
             <div class="row">
               <div>
                 <label>Window Width (in)</label>
-                <input type="number" id="winWidth" value="36" min="1" step="0.5">
+                <input type="number" id="winWidth" value="#{dw}" min="1" step="0.5">
               </div>
               <div>
                 <label>Window Height (in)</label>
-                <input type="number" id="winHeight" value="48" min="1" step="0.5">
+                <input type="number" id="winHeight" value="#{dh}" min="1" step="0.5">
               </div>
             </div>
             <div class="row">
               <div>
                 <label>Header Height (in)</label>
-                <input type="number" id="headerHeight" value="80" min="1" step="0.5">
+                <input type="number" id="headerHeight" value="#{dhh}" min="1" step="0.5">
               </div>
               <div>
                 <label>Frame Width (in)</label>
-                <input type="number" id="frameWidth" value="1.5" min="0.25" step="0.25">
+                <input type="number" id="frameWidth" value="#{dfw}" min="0.25" step="0.25">
               </div>
               <div>
                 <label>Interior Depth (in)</label>
-                <input type="number" id="interiorDepth" value="1" min="0.25" step="0.25">
+                <input type="number" id="interiorDepth" value="#{did}" min="0.25" step="0.25">
               </div>
             </div>
 

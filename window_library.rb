@@ -13,11 +13,9 @@ module InteriorPro
     # the opening (native) but still need per-style body geometry built.
     BUILT_IN_TYPES = [
       'Casement', 'Casement XX',
-      'Single Hung', 'Single Hung XL',
-      'Double Hung',
+      'Single Hung',
+      'XOX Single Hung',
       'Slider XO', 'Slider XOX',
-      'Awning',
-      'Picture',
       'Garden Window'
     ].freeze
 
@@ -27,6 +25,7 @@ module InteriorPro
       'Casement'       => { 'width' => 24, 'height' => 48, 'frame_depth' => 3.25 },
       'Casement XX'    => { 'width' => 48, 'height' => 48, 'frame_depth' => 3.25 },
       'Single Hung'    => { 'width' => 24, 'height' => 36, 'frame_depth' => 3.25 },
+      'XOX Single Hung' => { 'width' => 96, 'height' => 48, 'frame_depth' => 3.25 },
       'Single Hung XL' => { 'width' => 36, 'height' => 60, 'frame_depth' => 3.25 },
       'Double Hung'    => { 'width' => 32, 'height' => 48, 'frame_depth' => 3.25 },
       'Slider XO'      => { 'width' => 48, 'height' => 36, 'frame_depth' => 3.25 },

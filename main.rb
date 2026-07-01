@@ -25,6 +25,7 @@ module InteriorPro
       door_edit_tool.rb
       door_move_tool.rb
       door_delete_tool.rb
+      window_manager.rb
       toolbar.rb
     ]
   end

@@ -95,6 +95,36 @@ module InteriorPro
       window_cmd.large_icon = File.join(__dir__, 'icons', 'window_tool.svg')
       toolbar.add_item(window_cmd)
 
+      # Edit Window Button
+      window_edit_cmd = UI::Command.new('Edit Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowEditTool.new)
+      }
+      window_edit_cmd.tooltip = 'Edit Window — click a window to change its settings'
+      window_edit_cmd.status_bar_text = 'Click a window to edit its settings'
+      window_edit_cmd.small_icon = File.join(__dir__, 'icons', 'window_edit.svg')
+      window_edit_cmd.large_icon = File.join(__dir__, 'icons', 'window_edit.svg')
+      toolbar.add_item(window_edit_cmd)
+
+      # Move Window Button
+      window_move_cmd = UI::Command.new('Move Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowMoveTool.new)
+      }
+      window_move_cmd.tooltip = 'Move Window — slide along the wall'
+      window_move_cmd.status_bar_text = 'Click a window to move it along the wall'
+      window_move_cmd.small_icon = File.join(__dir__, 'icons', 'window_move.svg')
+      window_move_cmd.large_icon = File.join(__dir__, 'icons', 'window_move.svg')
+      toolbar.add_item(window_move_cmd)
+
+      # Delete Window Button
+      window_delete_cmd = UI::Command.new('Delete Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowDeleteTool.new)
+      }
+      window_delete_cmd.tooltip = 'Delete Window'
+      window_delete_cmd.status_bar_text = 'Click a window to delete it'
+      window_delete_cmd.small_icon = File.join(__dir__, 'icons', 'window_delete.svg')
+      window_delete_cmd.large_icon = File.join(__dir__, 'icons', 'window_delete.svg')
+      toolbar.add_item(window_delete_cmd)
+
       # Door Tool Button — activate tool first (viewport focus), then modeless settings panel.
       door_cmd = UI::Command.new('Door Tool') {
         model = Sketchup.active_model
@@ -167,6 +197,15 @@ module InteriorPro
       menu.add_item('Window Tool') {
         tool = InteriorPro::WindowTool.new
         InteriorPro::WindowLibraryDialog.show(tool)
+      }
+      menu.add_item('Edit Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowEditTool.new)
+      }
+      menu.add_item('Move Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowMoveTool.new)
+      }
+      menu.add_item('Delete Window') {
+        Sketchup.active_model.select_tool(InteriorPro::WindowDeleteTool.new)
       }
 
       menu.add_item('Door Tool') {
