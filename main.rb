@@ -17,6 +17,7 @@ module InteriorPro
       window_tool.rb
       door_library.rb
       door_casing_profiles.rb
+      door_leaf_styles.rb
       solid_boolean/load.rb
       door_boolean.rb
       door_library_dialog.rb

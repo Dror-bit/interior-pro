@@ -20,7 +20,9 @@ module InteriorPro
       '4-Panel Center Hinged', '4-Panel Sliding', '6-Panel Sliding',
       '3-Panel Folding', '4-Panel Folding', '6-Panel Folding'
     ].freeze
-    INTERIOR_TYPES = ['Single', 'Double', 'Sliding', 'Pocket', 'French Hinged'].freeze
+    # Interior types = opening mechanisms. The leaf DESIGN (Flush/Shaker/Caiman...)
+    # is a separate 'leaf_style' setting - see DoorLeafStyles.
+    INTERIOR_TYPES = ['Single', 'Double', 'Pocket', 'Folding'].freeze
 
     BUILT_IN_BY_CATEGORY = {
       'exterior' => EXTERIOR_TYPES,
@@ -59,6 +61,7 @@ module InteriorPro
       'interior' => {
         'door_category'          => 'interior',
         'door_type'              => 'Single',
+        'leaf_style'             => 'Flush',
         'width'                  => 32.0,
         'height'                 => 80.0,
         'frame_width'            => 1.5,

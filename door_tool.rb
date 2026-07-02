@@ -18,7 +18,8 @@ module InteriorPro
     attr_accessor :door_category, :door_type, :width, :height, :frame_width, :glass_frame_width,
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
-                  :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready
+                  :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
+                  :leaf_style
 
     def initialize
       @placement_ready = false
@@ -53,7 +54,8 @@ module InteriorPro
       @glass_grid_style         = d['glass_grid_style']
       @exterior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'exterior')
       @interior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'interior')
-      @exterior_threshold       = false  # threshold disabled by request (protruded under door)
+      @exterior_threshold       = d['exterior_threshold'] ? true : false
+      @leaf_style          = d['leaf_style'] || 'Flush'
       @preset_name         = ''
     end
 
@@ -2763,6 +2765,7 @@ module InteriorPro
       door_group.set_attribute('InteriorPro', 'mark', mark.nil? ? '' : mark.to_s)
       door_group.set_attribute('InteriorPro', 'door_category',          @door_category.to_s)
       door_group.set_attribute('InteriorPro', 'door_type',              @door_type)
+      door_group.set_attribute('InteriorPro', 'leaf_style',             @leaf_style.to_s)
       door_group.set_attribute('InteriorPro', 'preset_name',            @preset_name)
       door_group.set_attribute('InteriorPro', 'width_in',               @width.to_f)
       door_group.set_attribute('InteriorPro', 'height_in',              @height.to_f)
@@ -2840,6 +2843,9 @@ module InteriorPro
 
     def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
       t = @door_type.to_s.strip
+      if @door_category.to_s == 'interior' && t != 'French Hinged'
+        return build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
+      end
       if t.match?(/\A\d+-Panel Sliding\z/)
         build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
       elsif t.match?(/\A\d+-Panel Folding\z/)
@@ -2858,6 +2864,261 @@ module InteriorPro
 
     def build_french_hinged_in_component!(comp, data, unit, n, thickness)
       build_door_body_in_component!(comp, data, unit, n, thickness)
+    end
+
+    # Interior door: U-jamb + one styled leaf (DoorLeafStyles) + casing on both faces.
+    # Swing types (Single/Double/Pocket/Folding) share this for now; leaf count/split
+    # per type comes in a later step.
+    def build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
+      unless defined?(InteriorPro::DoorLeafStyles)
+        puts '[DoorTool] DoorLeafStyles missing - check main.rb load order'
+        return false
+      end
+
+      model = Sketchup.active_model
+      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                         Sketchup::Color.new(245, 245, 240), 1.0)
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      if half_w < 3.0 || half_h < 3.0
+        door_log "[DoorTool] invalid door size for interior body: half_w=#{half_w} half_h=#{half_h}"
+        return false
+      end
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      iw = half_w - jamb_width
+      if iw < 1.0
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        return false
+      end
+      head_inner = half_h - jamb_width
+
+      # Locate the wall slab along n from the WALL'S OWN FACES (robust for any
+      # anchor / clicked side - clicked_side is unreliable on edge-anchored
+      # walls). Fallback: clicked-face point +- thickness.
+      ox = data[:cx].to_f
+      oy = data[:cy].to_f
+      origin_pt = Geom::Point3d.new(ox, oy, 0)
+      v_click = (data[:fx].to_f - ox) * n.x + (data[:fy].to_f - oy) * n.y
+      span = wall_v_span_from_faces(data[:wall_group], origin_pt, n)
+      if span && (span[1] - span[0] - thickness).abs < 1.0
+        v0, v1 = span
+      else
+        side = data[:clicked_side].to_i
+        side = 1 if side.zero?
+        v_far = v_click - side * thickness
+        v0 = [v_click, v_far].min
+        v1 = [v_click, v_far].max
+      end
+      clicked_is_v1 = (v_click - v1).abs < (v_click - v0).abs
+
+      if pocket_door?
+        return build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
+                                      v0, v1, half_h, head_inner, jamb_width)
+      end
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, v0, v1,
+                   unit, n, frame_mat, 'Jamb')
+
+      gap = 0.125
+      leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
+
+      # Leaf hangs on the face AWAY from the clicked one, resting against a stop.
+      leaf_setback = 0.25
+      if clicked_is_v1
+        lv0 = v0 + leaf_setback
+        lv1 = lv0 + leaf_t
+        stop_v0 = lv1
+        stop_v1 = [stop_v0 + 0.5, v1].min
+      else
+        lv1 = v1 - leaf_setback
+        lv0 = lv1 - leaf_t
+        stop_v1 = lv0
+        stop_v0 = [stop_v1 - 0.5, v0].max
+      end
+      style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
+
+      leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
+        parent_ents, style, -iw + gap, iw - gap, -half_h, head_inner - gap,
+        lv0, lv1, unit, n, name: 'Leaf'
+      )
+      unless leaf
+        door_log "[DoorTool] leaf build failed for style=#{style}"
+        return false
+      end
+
+      build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                       unit, n, frame_mat)
+
+      if casing_enabled?(@interior_casing_style)
+        # Casing must protrude AWAY from the wall on each face:
+        # at v1 protrude +n (exterior:false), at v0 protrude -n (exterior:true).
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v1,
+                          unit, n, frame_mat, 'Casing_Front', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v0,
+                          unit, n, frame_mat, 'Casing_Back', exterior: true)
+      end
+
+      # Do NOT auto-smooth the Leaf: its raised-panel shoulders are shallow
+      # (~15 deg) and smooth_door_body would melt them. DoorLeafStyles already
+      # smooths exactly the right edges (triangle diagonals + arch seams).
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next if g.name == 'Leaf'
+        smooth_entity_edges(g.entities, 50.degrees)
+        smooth_door_body(g.entities)
+      end
+      true
+    end
+
+    # Pocket door (closed state): a NORMAL-width opening. Strike jamb on one
+    # side, split jamb (slot mouth) on the slide side, head, fully exposed leaf
+    # and finger pull. The wall next to the door stays untouched - no cavity is
+    # cut while the door is closed, so the wall faces show no seams at all.
+    def build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
+                               v0, v1, half_h, head_inner, jamb_width)
+      half_w = data[:half_w].to_f
+      dir = @slide_direction.to_s == 'right' ? 1 : -1
+      leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
+
+      min_thickness = leaf_t + 0.25 + 0.75   # slot + 3/8" wall on each side
+      if thickness < min_thickness
+        UI.messagebox("Pocket door needs a wall at least #{min_thickness.round(2)}\" thick " \
+                      "(this wall: #{thickness.round(2)}\").")
+        return false
+      end
+
+      u_out = -dir * half_w            # strike side edge of the opening
+      u_in  = u_out + dir * jamb_width
+      u_pin = dir * half_w             # slide side edge (pocket mouth)
+
+      # Head across the opening
+      head = parent_ents.add_group
+      head.name = 'Head'
+      extrude_rect(head.entities, -half_w, half_w, head_inner, half_h, v0, v1, unit, n)
+      head.material = frame_mat
+
+      # Strike jamb
+      sj = parent_ents.add_group
+      sj.name = 'Jamb'
+      extrude_rect(sj.entities, [u_out, u_in].min, [u_out, u_in].max,
+                   -half_h, head_inner, v0, v1, unit, n)
+      sj.material = frame_mat
+
+      # Split jamb at the pocket mouth: one board per face, slot between them.
+      lv0 = v0 + [(thickness - leaf_t) / 2.0, 0.0].max
+      mu0 = u_pin - dir * jamb_width
+      mj = parent_ents.add_group
+      mj.name = 'Jamb_Split'
+      me = mj.entities
+      extrude_rect(me, [mu0, u_pin].min, [mu0, u_pin].max,
+                   -half_h, head_inner, v0, lv0 - 0.125, unit, n)
+      extrude_rect(me, [mu0, u_pin].min, [mu0, u_pin].max,
+                   -half_h, head_inner, lv0 + leaf_t + 0.125, v1, unit, n)
+      mj.material = frame_mat
+
+      # Leaf: FULLY exposed when closed - from the strike jamb to the slot
+      # mouth, tucked only 1/4" into the split-jamb slot so no gap shows.
+      gap = 0.125
+      lu0 = u_in + dir * gap
+      lu1 = mu0 + dir * (jamb_width - 0.75)
+      style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
+      leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
+        parent_ents, style, [lu0, lu1].min, [lu0, lu1].max, -half_h, head_inner - gap,
+        lv0, lv0 + leaf_t, unit, n, name: 'Leaf'
+      )
+      unless leaf
+        door_log "[DoorTool] pocket leaf build failed for style=#{style}"
+        return false
+      end
+
+      add_pocket_finger_pull!(parent_ents, u_in, dir, lv0, leaf_t, half_h, unit, n)
+
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v1,
+                          unit, n, frame_mat, 'Casing_Front', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v0,
+                          unit, n, frame_mat, 'Casing_Back', exterior: true)
+      end
+
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next if g.name == 'Leaf'
+        smooth_entity_edges(g.entities, 50.degrees)
+        smooth_door_body(g.entities)
+      end
+      true
+    end
+
+    # Recessed finger pull near the strike edge of a pocket leaf (both faces).
+    def add_pocket_finger_pull!(parent_ents, u_strike_in, dir, lv0, leaf_t, half_h, unit, n)
+      mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Door_Pull',
+                                   Sketchup::Color.new(176, 148, 62), 1.0)
+      pu0 = u_strike_in + dir * 1.5
+      pu1 = pu0 + dir * 1.0
+      w0 = -half_h + 34.5
+      w1 = -half_h + 37.5
+      grp = parent_ents.add_group
+      grp.name = 'Pull'
+      ge = grp.entities
+      plate = 0.06
+      extrude_rect(ge, [pu0, pu1].min, [pu0, pu1].max, w0, w1, lv0 - plate, lv0, unit, n)
+      extrude_rect(ge, [pu0, pu1].min, [pu0, pu1].max, w0, w1,
+                   lv0 + leaf_t, lv0 + leaf_t + plate, unit, n)
+      grp.material = mat
+      grp
+    end
+
+    # The wall's two long faces projected onto n, relative to origin_pt.
+    # Returns [v_min, v_max] or nil. Works for any anchor and wall transform.
+    def wall_v_span_from_faces(wall_group, origin_pt, n)
+      return nil unless wall_group&.valid?
+      xform = wall_group.transformation
+      vs = []
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        wn = f.normal.transform(xform)
+        next if wn.length.to_f < 0.001
+        wn.normalize!
+        next if wn.dot(n).abs < 0.9
+        p = f.vertices.first.position.transform(xform)
+        vs << (p - origin_pt).dot(n)
+      end
+      return nil if vs.length < 2
+      [vs.min, vs.max]
+    end
+
+    # Pocket skins should read as wall, not as door trim.
+    def pocket_skin_material(data)
+      wall = data[:wall_group]
+      return nil unless wall&.valid?
+      names = begin
+        InteriorPro::WallTool.wall_side_material_names(wall)
+      rescue StandardError
+        nil
+      end
+      return nil unless names
+      mats = Sketchup.active_model.materials
+      mats[names[1]] || mats[names[0]]
+    end
+
+    # Door stop: thin strip on the jamb (both legs + head) that the leaf closes
+    # against. Protrudes into the opening, spans stop_v0..stop_v1 in depth.
+    def build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, mat)
+      return if stop_v1 - stop_v0 < 0.1
+      proud = 0.375
+      grp = parent_ents.add_group
+      grp.name = 'Stop'
+      ge = grp.entities
+      # Side legs
+      extrude_rect(ge, -iw, -iw + proud, -half_h, head_inner, stop_v0, stop_v1, unit, n)
+      extrude_rect(ge, iw - proud, iw, -half_h, head_inner, stop_v0, stop_v1, unit, n)
+      # Head
+      extrude_rect(ge, -iw + proud, iw - proud, head_inner - proud, head_inner,
+                   stop_v0, stop_v1, unit, n)
+      grp.material = mat
+      grp
     end
 
     def door_body_present?(definition)
@@ -3392,7 +3653,18 @@ module InteriorPro
     end
 
     def door_body_type?
-      french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
+      interior_leaf_type? ||
+        french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
+    end
+
+    # Interior doors build a styled leaf body (build_interior_leaf_geometry!).
+    # Interior French Hinged keeps the legacy French body path.
+    def interior_leaf_type?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip != 'French Hinged'
+    end
+
+    def pocket_door?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Pocket'
     end
 
     def casing_enabled?(style)

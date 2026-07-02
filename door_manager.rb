@@ -27,40 +27,6 @@ module InteriorPro
       end
     end
 
-    # When a wall is moved perpendicular by (ox, oy), the opening (hole) follows
-    # via the wall rebuild, but the door BODY is a separate entity in world space.
-    # Translate every door hosted on `wall` by the same vector and update its
-    # stored world anchor (face_x/face_y) so later edits stay correct.
-    def self.move_hosted_doors!(wall, ox, oy)
-      return 0 unless wall && wall.valid?
-      return 0 if ox.abs < 1e-6 && oy.abs < 1e-6
-      wall_id = wall.get_attribute('InteriorPro', 'id')
-      return 0 if wall_id.to_s.empty?
-
-      model = Sketchup.active_model
-      tr = Geom::Transformation.translation(Geom::Vector3d.new(ox, oy, 0))
-      moved = 0
-      model.entities.to_a.each do |e|
-        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
-        type = e.get_attribute('InteriorPro', 'type')
-        # Doors AND windows are separate body entities hosted on the wall.
-        next unless type == 'door' || type == 'window'
-        next unless e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
-
-        e.transform!(tr)
-        fx = e.get_attribute('InteriorPro', 'face_x')
-        fy = e.get_attribute('InteriorPro', 'face_y')
-        e.set_attribute('InteriorPro', 'face_x', fx.to_f + ox) unless fx.nil?
-        e.set_attribute('InteriorPro', 'face_y', fy.to_f + oy) unless fy.nil?
-        moved += 1
-      end
-      puts "[DoorManager] move_hosted_doors!: moved #{moved} opening(s) by (#{ox.round(3)}, #{oy.round(3)})"
-      moved
-    rescue StandardError => e
-      puts "[DoorManager] move_hosted_doors!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
-      0
-    end
-
     def self.search_entities(entities, &block)
       entities.each do |e|
         return e if block.call(e)
@@ -79,6 +45,7 @@ module InteriorPro
       {
         'door_category'         => door.get_attribute('InteriorPro', 'door_category', 'exterior'),
         'door_type'             => door.get_attribute('InteriorPro', 'door_type', 'French Hinged'),
+        'leaf_style'            => door.get_attribute('InteriorPro', 'leaf_style', 'Flush'),
         'width'                 => door.get_attribute('InteriorPro', 'width_in', 36).to_f,
         'height'                => door.get_attribute('InteriorPro', 'height_in', 80).to_f,
         'frame_width'           => door.get_attribute('InteriorPro', 'frame_width_in', 1.5).to_f,
@@ -99,7 +66,7 @@ module InteriorPro
     DOOR_PARAM_DICT = 'InteriorPro_door' unless const_defined?(:DOOR_PARAM_DICT, false)
 
     DOOR_SETTING_KEYS = %w[
-      door_category door_type width height frame_width glass_frame_width
+      door_category door_type leaf_style width height frame_width glass_frame_width
       interior_depth floor_offset swing_direction swing_side slide_direction
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
@@ -145,6 +112,7 @@ module InteriorPro
 
       door.set_attribute('InteriorPro', 'door_category',          params['door_category'])
       door.set_attribute('InteriorPro', 'door_type',              params['door_type'])
+      door.set_attribute('InteriorPro', 'leaf_style',             params['leaf_style'].to_s) if params.key?('leaf_style')
       door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
       door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
       door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)

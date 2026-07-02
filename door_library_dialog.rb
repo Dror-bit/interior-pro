@@ -71,6 +71,7 @@ module InteriorPro
     def self.apply_to_tool(tool, settings)
       tool.door_category       = InteriorPro::DoorLibrary.normalize_category(settings['door_category'])
       tool.door_type           = settings['door_type']
+      tool.leaf_style          = settings['leaf_style'] || 'Flush' if tool.respond_to?(:leaf_style=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -83,9 +84,11 @@ module InteriorPro
       tool.glass_grid_style        = normalize_grid_style(settings)
       tool.exterior_casing_style   = InteriorPro::DoorLibrary.normalize_casing_style(settings, 'exterior')
       tool.interior_casing_style   = InteriorPro::DoorLibrary.normalize_casing_style(settings, 'interior')
-      # Threshold (floor sill) disabled by request — it protruded under the door.
-      # To restore the option later, revert to reading settings['exterior_threshold'].
-      tool.exterior_threshold = false
+      tool.exterior_threshold = if settings.key?('exterior_threshold')
+        !!settings['exterior_threshold']
+      else
+        InteriorPro::DoorLibrary.normalize_category(settings['door_category']) != 'interior'
+      end
       tool.preset_name        = settings['door_type']
     end
 
@@ -332,6 +335,12 @@ module InteriorPro
           .type-row > select { flex: 1; }
           .btn-add-type { padding: 6px 10px; background: #43A047; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; }
           .btn-add-type:hover { background: #388E3C; }
+          .design-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 6px; }
+          .design-card { border: 2px solid #ddd; border-radius: 4px; padding: 3px 2px 2px; cursor: pointer; text-align: center; background: #fafafa; }
+          .design-card:hover { border-color: #a1887f; }
+          .design-card.selected { border-color: #5D4037; background: #f0e8e4; }
+          .design-card svg { width: 100%; height: auto; display: block; }
+          .design-card .dn { font-size: 8.5px; color: #555; margin-top: 2px; line-height: 1.1; min-height: 18px; }
           .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
           .checkbox-row input { width: auto; }
           .checkbox-row label { margin: 0; }
@@ -357,6 +366,11 @@ module InteriorPro
             <div class="type-row">
               <select id="doorType" onchange="onDoorTypeChange()"></select>
               <button class="btn-add-type" onclick="addCustomType()">+ Add Custom Type</button>
+            </div>
+
+            <div id="leafDesignSection">
+              <div class="section-title">Leaf Design</div>
+              <div class="design-grid" id="designGrid"></div>
             </div>
 
             <div class="section-title">Size</div>
@@ -474,6 +488,103 @@ module InteriorPro
           var initialSettings = #{settings_json};
           var initialTypes = #{types_json};
 
+          // ---- Leaf designs (must match InteriorPro::DoorLeafStyles::STYLES) ----
+          var FR = {
+            shaker:   { st: 13.3, tr: 12.9, br: 27.6, ir: 12.9, lock: 22.3 },
+            mas:      { st: 14.25, tr: 12.75, br: 32.6, ir: 12.75, lock: 20.25 },
+            colonial: { st: 13.7, tr: 13.5, fr2: 13.5, lock: 22.5, br: 27.75, mu: 13.5 },
+            french:   { st: 13.7, tr: 13.7, br: 27.4 }
+          };
+          var LEAF_DESIGNS = [
+            { name: 'Flush',            spec: { t: 'slab' } },
+            { name: '1 Panel Shaker',   spec: { t: 'stack', f: 'shaker', rows: 1 } },
+            { name: '2 Panel Shaker',   spec: { t: 'stack', f: 'shaker', rows: 2, useLock: true } },
+            { name: '5 Panel Shaker',   spec: { t: 'stack', f: 'shaker', rows: 5 } },
+            { name: '6 Panel Colonial', spec: { t: 'colonial' } },
+            { name: '1 Lite Clear',     spec: { t: 'lite' } },
+            { name: 'Caiman',           spec: { t: 'stack', f: 'mas', rows: 2, useLock: true, split: [0.58, 0.42], arch: 'round', inner: true } },
+            { name: 'Carrara',          spec: { t: 'stack', f: 'mas', rows: 2, useLock: true, split: [0.58, 0.42], inner: true } },
+            { name: 'Camden',           spec: { t: 'stack', f: 'mas', rows: 2, useLock: true, split: [0.58, 0.42], arch: 'eyebrow', inner: true, tex: true } },
+            { name: 'Colonist',         spec: { t: 'colonial', tex: true } }
+          ];
+          var selectedLeafStyle = 'Flush';
+
+          function svgR(x, y, w, h, f) {
+            return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
+                   '" fill="' + f + '" stroke="#777" stroke-width="1"/>';
+          }
+          function panelSvg(x, y, w, h, arch, inner) {
+            var s = '';
+            if (arch === 'round') {
+              var r = w / 2;
+              s += '<path d="M ' + x + ' ' + (y + h) + ' L ' + x + ' ' + (y + r) +
+                   ' A ' + r + ' ' + r + ' 0 0 1 ' + (x + w) + ' ' + (y + r) +
+                   ' L ' + (x + w) + ' ' + (y + h) + ' Z" fill="#efece5" stroke="#777"/>';
+              if (inner) s += '<path d="M ' + (x + 3) + ' ' + (y + h - 3) + ' L ' + (x + 3) + ' ' + (y + r) +
+                   ' A ' + (r - 3) + ' ' + (r - 3) + ' 0 0 1 ' + (x + w - 3) + ' ' + (y + r) +
+                   ' L ' + (x + w - 3) + ' ' + (y + h - 3) + ' Z" fill="none" stroke="#a99"/>';
+            } else if (arch === 'eyebrow') {
+              var a = h * 0.18;
+              s += '<path d="M ' + x + ' ' + (y + h) + ' L ' + x + ' ' + (y + a) +
+                   ' Q ' + (x + w / 2) + ' ' + (y - a) + ' ' + (x + w) + ' ' + (y + a) +
+                   ' L ' + (x + w) + ' ' + (y + h) + ' Z" fill="#efece5" stroke="#777"/>';
+              if (inner) s += '<path d="M ' + (x + 3) + ' ' + (y + h - 3) + ' L ' + (x + 3) + ' ' + (y + a + 2) +
+                   ' Q ' + (x + w / 2) + ' ' + (y - a + 5) + ' ' + (x + w - 3) + ' ' + (y + a + 2) +
+                   ' L ' + (x + w - 3) + ' ' + (y + h - 3) + ' Z" fill="none" stroke="#a99"/>';
+            } else {
+              s += svgR(x, y, w, h, '#efece5');
+              if (inner) s += '<rect x="' + (x + 3) + '" y="' + (y + 3) + '" width="' + (w - 6) +
+                   '" height="' + (h - 6) + '" fill="none" stroke="#a99"/>';
+            }
+            return s;
+          }
+          function leafThumbSvg(spec) {
+            var bg = spec.tex ? '#f3ead9' : '#fbfaf7';
+            var s = svgR(1, 1, 94, 238, bg);
+            if (spec.t === 'stack') {
+              var f = FR[spec.f], pw = 96 - 2 * f.st;
+              var top = f.tr, field = (240 - f.br) - top;
+              var mid = spec.useLock ? f.lock : f.ir;
+              var space = field - (spec.rows - 1) * mid;
+              var y = top;
+              for (var i = 0; i < spec.rows; i++) {
+                var h = spec.split ? space * spec.split[i] : space / spec.rows;
+                s += panelSvg(f.st, y, pw, h, i === 0 ? spec.arch : null, spec.inner);
+                y += h + mid;
+              }
+            } else if (spec.t === 'colonial') {
+              var f = FR.colonial;
+              var cw = (96 - 2 * f.st - f.mu) / 2;
+              var rows = [[f.tr, 35.25], [f.tr + 35.25 + f.fr2, 63.75], [f.tr + 35.25 + f.fr2 + 63.75 + f.lock, 63.75]];
+              for (var i = 0; i < rows.length; i++) {
+                s += panelSvg(f.st, rows[i][0], cw, rows[i][1], null, true);
+                s += panelSvg(f.st + cw + f.mu, rows[i][0], cw, rows[i][1], null, true);
+              }
+            } else if (spec.t === 'lite') {
+              var f = FR.french;
+              s += svgR(f.st, f.tr, 96 - 2 * f.st, 240 - f.tr - f.br, '#dce8ee');
+              s += '<line x1="' + (f.st + 5) + '" y1="' + (f.tr + 22) + '" x2="' + (f.st + 22) +
+                   '" y2="' + (f.tr + 5) + '" stroke="#fff" stroke-width="3" opacity="0.8"/>';
+            }
+            return '<svg viewBox="0 0 96 240">' + s + '</svg>';
+          }
+          function renderDesignGrid() {
+            var grid = document.getElementById('designGrid');
+            if (!grid) return;
+            grid.innerHTML = LEAF_DESIGNS.map(function(d) {
+              var sel = d.name === selectedLeafStyle ? ' selected' : '';
+              return '<div class="design-card' + sel + '" data-style="' + d.name +
+                     '" onclick="selectLeafDesign(this)">' + leafThumbSvg(d.spec) +
+                     '<div class="dn">' + d.name + '</div></div>';
+            }).join('');
+          }
+          function selectLeafDesign(el) {
+            selectedLeafStyle = el.getAttribute('data-style');
+            var cards = document.querySelectorAll('.design-card');
+            for (var i = 0; i < cards.length; i++) cards[i].className = 'design-card';
+            el.className = 'design-card selected';
+          }
+
           function resizeDialogToContent() {
             var root = document.getElementById('doorDialogRoot');
             if (!root) return;
@@ -496,9 +607,15 @@ module InteriorPro
             bootstrapDoorForm();
             setTimeout(resizeDialogToContent, 120);
             window.addEventListener('focus', function () {
-              if (window.sketchup && sketchup.return_focus_to_model) {
-                sketchup.return_focus_to_model();
-              }
+              // Don't yank focus while the user interacts with a form control -
+              // it instantly closes open <select> dropdowns ("blinking" bug).
+              setTimeout(function () {
+                var ae = document.activeElement;
+                if (ae && /SELECT|INPUT|BUTTON|TEXTAREA/.test(ae.tagName)) return;
+                if (window.sketchup && sketchup.return_focus_to_model) {
+                  sketchup.return_focus_to_model();
+                }
+              }, 60);
             });
           };
 
@@ -537,6 +654,8 @@ module InteriorPro
               s.interior_casing_style || (s.interior_casing ? 'flat' : 'none');
             document.getElementById('exteriorThreshold').checked =
               s.exterior_threshold !== undefined ? !!s.exterior_threshold : true;
+            if (s.leaf_style) selectedLeafStyle = s.leaf_style;
+            renderDesignGrid();
             syncTypeFields();
             syncCategoryFields();
             if (doorPlaceMode) applyTypeDefaults();
@@ -552,6 +671,8 @@ module InteriorPro
             document.getElementById('exteriorThresholdRow').style.display = isInterior ? 'none' : 'block';
             document.getElementById('exteriorCasingLabel').style.display = isInterior ? 'none' : 'block';
             document.getElementById('exteriorCasingStyle').style.display = isInterior ? 'none' : 'block';
+            document.getElementById('leafDesignSection').style.display = isInterior ? 'block' : 'none';
+            if (isInterior) renderDesignGrid();
             resizeDialogToContent();
           }
 
@@ -618,7 +739,7 @@ module InteriorPro
           function syncTypeFields() {
             var t = document.getElementById('doorType').value;
             var isSliding = (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket' ||
-                             isMultiPanelSliding(t) || isFolding(t));
+                             t === 'Folding' || isMultiPanelSliding(t) || isFolding(t));
             document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
             document.getElementById('hingedFields').style.display = isSliding ? 'none' : 'block';
             resizeDialogToContent();
@@ -645,6 +766,7 @@ module InteriorPro
             return {
               door_category: document.getElementById('doorCategory').value,
               door_type: document.getElementById('doorType').value,
+              leaf_style: selectedLeafStyle,
               width: parseFloat(document.getElementById('doorWidth').value),
               height: parseFloat(document.getElementById('doorHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),
