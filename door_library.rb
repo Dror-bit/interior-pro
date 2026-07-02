@@ -93,8 +93,12 @@ module InteriorPro
       (count.to_i * PANEL_WIDTH_IN) + JAMB_TOTAL_IN
     end
 
-    # Per-type glass defaults (exterior catalog). Applied when the user picks a type in the dialog.
+    # Per-type defaults. Applied when the user picks a type in the dialog.
     TYPE_SETTING_OVERRIDES = {
+      'interior' => {
+        'Double'  => { 'width' => 60.0 },
+        'Folding' => { 'width' => 48.0 }
+      },
       'exterior' => {
         'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
         'French Hinged'           => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },

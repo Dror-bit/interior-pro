@@ -2938,18 +2938,62 @@ module InteriorPro
         stop_v0 = [stop_v1 - 0.5, v0].max
       end
       style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
+      w_top = head_inner - gap
 
-      leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
-        parent_ents, style, -iw + gap, iw - gap, -half_h, head_inner - gap,
-        lv0, lv1, unit, n, name: 'Leaf'
-      )
-      unless leaf
-        door_log "[DoorTool] leaf build failed for style=#{style}"
-        return false
+      case @door_type.to_s.strip
+      when 'Double'
+        # Two leaves meeting at the center, both resting on the stop.
+        meet = 0.0625
+        l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, -meet, -half_h, w_top, lv0, lv1, unit, n,
+          name: 'Leaf_Left'
+        )
+        l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, meet, iw - gap, -half_h, w_top, lv0, lv1, unit, n,
+          name: 'Leaf_Right'
+        )
+        unless l1 && l2
+          door_log "[DoorTool] double leaf build failed for style=#{style}"
+          return false
+        end
+        build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, frame_mat)
+
+      when 'Folding'
+        # Bifold closed flat: two panels centered in depth, top track, no stop.
+        fl0 = v0 + [(thickness - leaf_t) / 2.0, 0.0].max
+        fl1 = fl0 + leaf_t
+        meet = 0.0625
+        l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, -meet, -half_h, w_top - 1.0, fl0, fl1, unit, n,
+          name: 'Leaf_Left'
+        )
+        l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, meet, iw - gap, -half_h, w_top - 1.0, fl0, fl1, unit, n,
+          name: 'Leaf_Right'
+        )
+        unless l1 && l2
+          door_log "[DoorTool] folding leaf build failed for style=#{style}"
+          return false
+        end
+        track = parent_ents.add_group
+        track.name = 'Track'
+        extrude_rect(track.entities, -iw, iw, head_inner - 1.0, head_inner,
+                     fl0 - 0.25, fl1 + 0.25, unit, n)
+        track.material = frame_mat
+
+      else # Single
+        leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, iw - gap, -half_h, w_top,
+          lv0, lv1, unit, n, name: 'Leaf'
+        )
+        unless leaf
+          door_log "[DoorTool] leaf build failed for style=#{style}"
+          return false
+        end
+        build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, frame_mat)
       end
-
-      build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
-                       unit, n, frame_mat)
 
       if casing_enabled?(@interior_casing_style)
         # Casing must protrude AWAY from the wall on each face:
@@ -2965,17 +3009,17 @@ module InteriorPro
       # smooths exactly the right edges (triangle diagonals + arch seams).
       parent_ents.grep(Sketchup::Group).each do |g|
         next unless g.valid?
-        next if g.name == 'Leaf'
+        next if g.name.to_s.start_with?('Leaf')
         smooth_entity_edges(g.entities, 50.degrees)
         smooth_door_body(g.entities)
       end
       true
     end
 
-    # Pocket door (closed state): a NORMAL-width opening. Strike jamb on one
-    # side, split jamb (slot mouth) on the slide side, head, fully exposed leaf
-    # and finger pull. The wall next to the door stays untouched - no cavity is
-    # cut while the door is closed, so the wall faces show no seams at all.
+    # Pocket door (closed state): NORMAL-width opening, no cavity. Strike jamb,
+    # split jamb (slot mouth) on the slide side, head, fully exposed leaf and
+    # finger pull. The wall next to the door stays untouched and seamless.
+    # (A real channel for floor plans can be handled later in the 2D layer.)
     def build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
                                v0, v1, half_h, head_inner, jamb_width)
       half_w = data[:half_w].to_f
@@ -2991,7 +3035,7 @@ module InteriorPro
 
       u_out = -dir * half_w            # strike side edge of the opening
       u_in  = u_out + dir * jamb_width
-      u_pin = dir * half_w             # slide side edge (pocket mouth)
+      u_pin = dir * half_w             # slide side edge (slot mouth)
 
       # Head across the opening
       head = parent_ents.add_group
@@ -3019,7 +3063,7 @@ module InteriorPro
       mj.material = frame_mat
 
       # Leaf: FULLY exposed when closed - from the strike jamb to the slot
-      # mouth, tucked only 1/4" into the split-jamb slot so no gap shows.
+      # mouth, tucked only into the split-jamb slot so no gap shows.
       gap = 0.125
       lu0 = u_in + dir * gap
       lu1 = mu0 + dir * (jamb_width - 0.75)
@@ -3044,7 +3088,7 @@ module InteriorPro
 
       parent_ents.grep(Sketchup::Group).each do |g|
         next unless g.valid?
-        next if g.name == 'Leaf'
+        next if g.name.to_s.start_with?('Leaf')
         smooth_entity_edges(g.entities, 50.degrees)
         smooth_door_body(g.entities)
       end
