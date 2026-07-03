@@ -19,7 +19,7 @@ module InteriorPro
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
-                  :leaf_style
+                  :leaf_style, :closet_leaf_count
 
     def initialize
       @placement_ready = false
@@ -56,6 +56,7 @@ module InteriorPro
       @interior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'interior')
       @exterior_threshold       = d['exterior_threshold'] ? true : false
       @leaf_style          = d['leaf_style'] || 'Flush'
+      @closet_leaf_count   = (d['closet_leaf_count'] || 2).to_i
       @preset_name         = ''
     end
 
@@ -2913,6 +2914,11 @@ module InteriorPro
       end
       clicked_is_v1 = (v_click - v1).abs < (v_click - v0).abs
 
+      if closet_door?
+        return build_closet_interior!(parent_ents, data, unit, n, thickness,
+                                      v0, v1, half_h)
+      end
+
       if pocket_door?
         return build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
                                       v0, v1, half_h, head_inner, jamb_width)
@@ -3148,6 +3154,94 @@ module InteriorPro
 
     # Door stop: thin strip on the jamb (both legs + head) that the leaf closes
     # against. Protrudes into the opening, spans stop_v0..stop_v1 in depth.
+    # Closet: thin mirror bypass sliding panels (2 or 3), each on its own depth
+    # plane, thin dark-bronze frames, top + bottom tracks. No wood jamb/casing.
+    def build_closet_interior!(parent_ents, data, unit, n, thickness, v0, v1, half_h)
+      model = Sketchup.active_model
+      frame_mat  = get_or_create_material(model, 'InteriorPro_Closet_Frame',
+                                          Sketchup::Color.new(74, 60, 48), 1.0)
+      mirror_mat = get_or_create_material(model, 'InteriorPro_Mirror',
+                                          Sketchup::Color.new(205, 218, 224), 1.0)
+
+      half_w = data[:half_w].to_f
+      count = (@closet_leaf_count.to_i == 3) ? 3 : 2
+      leaf_t = 1.0
+      gap = 0.125
+
+      # Wall must fit all depth planes (leaf per plane) + clearance.
+      need = count * leaf_t + (count + 1) * gap
+      if thickness + 0.001 < need
+        gap = 0.0625
+        need = count * leaf_t + (count + 1) * gap
+      end
+      if thickness + 0.001 < need
+        UI.messagebox("Wall too thin for #{count} closet mirror panels " \
+                      "(needs #{need.round(2)}\", wall is #{thickness.round(2)}\").")
+        return false
+      end
+
+      # Depth planes centered in the wall, front (v1) to back (v0).
+      mid = (v0 + v1) / 2.0
+      stack = count * leaf_t + (count - 1) * gap
+      v_front = mid + stack / 2.0
+
+      track_h = 1.0
+      bot_h = 0.25
+      leaf_w0 = -half_h + bot_h
+      leaf_w1 = half_h - track_h
+
+      overlap = 1.0
+      pw = (2.0 * half_w + (count - 1) * overlap) / count
+
+      count.times do |i|
+        u0 = -half_w + i * (pw - overlap)
+        u1 = u0 + pw
+        lv1 = v_front - i * (leaf_t + gap)
+        lv0 = lv1 - leaf_t
+        build_closet_leaf!(parent_ents, i, u0, u1, leaf_w0, leaf_w1, lv0, lv1,
+                           unit, n, frame_mat, mirror_mat)
+      end
+
+      # Tracks span all depth planes, clamped inside the wall.
+      tv1 = [v_front + 0.125, v1].min
+      tv0 = [v_front - stack - 0.125, v0].max
+      track = parent_ents.add_group
+      track.name = 'Closet_Track_Top'
+      extrude_rect(track.entities, -half_w, half_w, half_h - track_h, half_h,
+                   tv0, tv1, unit, n)
+      track.material = frame_mat
+
+      bot = parent_ents.add_group
+      bot.name = 'Closet_Track_Bottom'
+      extrude_rect(bot.entities, -half_w, half_w, -half_h, -half_h + bot_h,
+                   tv0, tv1, unit, n)
+      bot.material = frame_mat
+      true
+    end
+
+    # One thin mirror panel: bronze frame ring (face width 3/4") + mirror pane.
+    def build_closet_leaf!(parent_ents, idx, u0, u1, w0, w1, lv0, lv1, unit, n,
+                           frame_mat, mirror_mat)
+      leaf = parent_ents.add_group
+      leaf.name = "Leaf_Closet_#{idx + 1}"
+      le = leaf.entities
+      f = 0.75
+
+      extrude_rect(le, u0, u0 + f, w0, w1, lv0, lv1, unit, n)         # left stile
+      extrude_rect(le, u1 - f, u1, w0, w1, lv0, lv1, unit, n)         # right stile
+      extrude_rect(le, u0 + f, u1 - f, w1 - f, w1, lv0, lv1, unit, n) # top rail
+      extrude_rect(le, u0 + f, u1 - f, w0, w0 + f, lv0, lv1, unit, n) # bottom rail
+      leaf.material = frame_mat
+
+      vm = (lv0 + lv1) / 2.0
+      pane = le.add_group
+      pane.name = 'Mirror'
+      extrude_rect(pane.entities, u0 + f, u1 - f, w0 + f, w1 - f,
+                   vm - 0.125, vm + 0.125, unit, n)
+      pane.material = mirror_mat
+      leaf
+    end
+
     def build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
                          unit, n, mat)
       return if stop_v1 - stop_v0 < 0.1
@@ -3709,6 +3803,10 @@ module InteriorPro
 
     def pocket_door?
       @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Pocket'
+    end
+
+    def closet_door?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Closet'
     end
 
     def casing_enabled?(style)

@@ -22,7 +22,7 @@ module InteriorPro
     ].freeze
     # Interior types = opening mechanisms. The leaf DESIGN (Flush/Shaker/Caiman...)
     # is a separate 'leaf_style' setting - see DoorLeafStyles.
-    INTERIOR_TYPES = ['Single', 'Double', 'Pocket', 'Folding'].freeze
+    INTERIOR_TYPES = ['Single', 'Double', 'Pocket', 'Folding', 'Closet'].freeze
 
     BUILT_IN_BY_CATEGORY = {
       'exterior' => EXTERIOR_TYPES,
@@ -62,6 +62,7 @@ module InteriorPro
         'door_category'          => 'interior',
         'door_type'              => 'Single',
         'leaf_style'             => 'Flush',
+        'closet_leaf_count'      => 2,
         'width'                  => 32.0,
         'height'                 => 80.0,
         'frame_width'            => 1.5,
@@ -97,7 +98,8 @@ module InteriorPro
     TYPE_SETTING_OVERRIDES = {
       'interior' => {
         'Double'  => { 'width' => 60.0 },
-        'Folding' => { 'width' => 48.0 }
+        'Folding' => { 'width' => 48.0 },
+        'Closet'  => { 'width' => 72.0, 'closet_leaf_count' => 2 }
       },
       'exterior' => {
         'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },

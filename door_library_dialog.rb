@@ -72,6 +72,7 @@ module InteriorPro
       tool.door_category       = InteriorPro::DoorLibrary.normalize_category(settings['door_category'])
       tool.door_type           = settings['door_type']
       tool.leaf_style          = settings['leaf_style'] || 'Flush' if tool.respond_to?(:leaf_style=)
+      tool.closet_leaf_count   = (settings['closet_leaf_count'] || 2).to_i if tool.respond_to?(:closet_leaf_count=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -373,6 +374,11 @@ module InteriorPro
               <div class="design-grid" id="designGrid"></div>
             </div>
 
+            <div id="closetSection" style="display:none;">
+              <div class="section-title">Closet Panels (Mirror)</div>
+              <div class="design-grid" id="closetGrid" style="grid-template-columns: repeat(2, 1fr);"></div>
+            </div>
+
             <div class="section-title">Size</div>
             <div class="row">
               <div>
@@ -580,9 +586,48 @@ module InteriorPro
           }
           function selectLeafDesign(el) {
             selectedLeafStyle = el.getAttribute('data-style');
-            var cards = document.querySelectorAll('.design-card');
+            var cards = document.querySelectorAll('#designGrid .design-card');
             for (var i = 0; i < cards.length; i++) cards[i].className = 'design-card';
             el.className = 'design-card selected';
+          }
+
+          // ---- Closet (mirror bypass sliding) ----
+          var selectedClosetPanels = 2;
+
+          function isCloset() {
+            return document.getElementById('doorCategory').value === 'interior' &&
+                   document.getElementById('doorType').value === 'Closet';
+          }
+          function closetThumbSvg(count) {
+            var W = 150, H = 240, s = '';
+            var pw = (W - 4) / count;
+            for (var i = 0; i < count; i++) {
+              var x = 2 + i * pw;
+              var y = (i % 2 === 0) ? 6 : 2; // hint: alternating front/back tracks
+              var h = H - 8;
+              s += '<rect x="' + x + '" y="' + y + '" width="' + pw + '" height="' + h +
+                   '" fill="#4a3f35" stroke="#333" stroke-width="1"/>';
+              s += '<rect x="' + (x + 4) + '" y="' + (y + 4) + '" width="' + (pw - 8) +
+                   '" height="' + (h - 8) + '" fill="#dce8ee"/>';
+              s += '<line x1="' + (x + 8) + '" y1="' + (y + 44) + '" x2="' + (x + pw - 12) +
+                   '" y2="' + (y + 12) + '" stroke="#fff" stroke-width="4" opacity="0.7"/>';
+            }
+            return '<svg viewBox="0 0 150 240">' + s + '</svg>';
+          }
+          function renderClosetGrid() {
+            var grid = document.getElementById('closetGrid');
+            if (!grid) return;
+            var opts = [{ n: 2, label: '2 Panel Mirror' }, { n: 3, label: '3 Panel Mirror' }];
+            grid.innerHTML = opts.map(function(o) {
+              var sel = o.n === selectedClosetPanels ? ' selected' : '';
+              return '<div class="design-card' + sel + '" data-panels="' + o.n +
+                     '" onclick="selectClosetOption(this)">' + closetThumbSvg(o.n) +
+                     '<div class="dn">' + o.label + '</div></div>';
+            }).join('');
+          }
+          function selectClosetOption(el) {
+            selectedClosetPanels = parseInt(el.getAttribute('data-panels'), 10) || 2;
+            renderClosetGrid();
           }
 
           function resizeDialogToContent() {
@@ -655,6 +700,7 @@ module InteriorPro
             document.getElementById('exteriorThreshold').checked =
               s.exterior_threshold !== undefined ? !!s.exterior_threshold : true;
             if (s.leaf_style) selectedLeafStyle = s.leaf_style;
+            if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
             renderDesignGrid();
             syncTypeFields();
             syncCategoryFields();
@@ -671,8 +717,10 @@ module InteriorPro
             document.getElementById('exteriorThresholdRow').style.display = isInterior ? 'none' : 'block';
             document.getElementById('exteriorCasingLabel').style.display = isInterior ? 'none' : 'block';
             document.getElementById('exteriorCasingStyle').style.display = isInterior ? 'none' : 'block';
-            document.getElementById('leafDesignSection').style.display = isInterior ? 'block' : 'none';
-            if (isInterior) renderDesignGrid();
+            document.getElementById('leafDesignSection').style.display = (isInterior && !isCloset()) ? 'block' : 'none';
+            document.getElementById('closetSection').style.display = (isInterior && isCloset()) ? 'block' : 'none';
+            if (isInterior && !isCloset()) renderDesignGrid();
+            if (isInterior && isCloset()) renderClosetGrid();
             resizeDialogToContent();
           }
 
@@ -738,10 +786,15 @@ module InteriorPro
 
           function syncTypeFields() {
             var t = document.getElementById('doorType').value;
-            var isSliding = (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket' ||
+            var closet = isCloset();
+            var isSliding = !closet && (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket' ||
                              t === 'Folding' || isMultiPanelSliding(t) || isFolding(t));
             document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
-            document.getElementById('hingedFields').style.display = isSliding ? 'none' : 'block';
+            document.getElementById('hingedFields').style.display = (isSliding || closet) ? 'none' : 'block';
+            var isInterior = document.getElementById('doorCategory').value === 'interior';
+            document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
+            document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
+            if (closet) renderClosetGrid();
             resizeDialogToContent();
           }
 
@@ -767,6 +820,7 @@ module InteriorPro
               door_category: document.getElementById('doorCategory').value,
               door_type: document.getElementById('doorType').value,
               leaf_style: selectedLeafStyle,
+              closet_leaf_count: selectedClosetPanels,
               width: parseFloat(document.getElementById('doorWidth').value),
               height: parseFloat(document.getElementById('doorHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),
