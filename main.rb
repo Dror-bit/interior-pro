@@ -21,6 +21,7 @@ module InteriorPro
       solid_boolean/load.rb
       door_boolean.rb
       door_library_dialog.rb
+      door_handles.rb
       door_tool.rb
       door_manager.rb
       door_edit_tool.rb

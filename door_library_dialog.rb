@@ -73,6 +73,7 @@ module InteriorPro
       tool.door_type           = settings['door_type']
       tool.leaf_style          = settings['leaf_style'] || 'Flush' if tool.respond_to?(:leaf_style=)
       tool.closet_leaf_count   = (settings['closet_leaf_count'] || 2).to_i if tool.respond_to?(:closet_leaf_count=)
+      tool.handle_style        = settings['handle_style'] || 'none' if tool.respond_to?(:handle_style=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -185,7 +186,7 @@ module InteriorPro
         chrome = 40
         h = content_height.to_i + chrome
         h = DOOR_DIALOG_MIN_HEIGHT if h < DOOR_DIALOG_MIN_HEIGHT
-        h = 1200 if h > 1200
+        h = 1400 if h > 1400
         dialog.set_size(DOOR_DIALOG_WIDTH, h)
       }
 
@@ -315,6 +316,8 @@ module InteriorPro
       jamb_total_in = InteriorPro::DoorLibrary::JAMB_TOTAL_IN
       settings_json = settings.to_json
       types_json = types.to_json
+      handles_json = defined?(InteriorPro::DoorHandles) ?
+        InteriorPro::DoorHandles.handle_names('interior').to_json : '[]'
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -345,7 +348,8 @@ module InteriorPro
           .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
           .checkbox-row input { width: auto; }
           .checkbox-row label { margin: 0; }
-          .place-row { margin-top: 16px; }
+          .place-row { position: sticky; bottom: 0; margin-top: 16px; padding: 10px 0;
+                       background: white; box-shadow: 0 -6px 8px -6px rgba(0,0,0,0.35); }
           .btn-place { width: 100%; padding: 10px; background: #5D4037; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
           .btn-place:hover { background: #4E342E; }
         </style>
@@ -403,6 +407,12 @@ module InteriorPro
             <label>Glass Frame Width (in)</label>
             <input type="number" id="glassFrameWidth" value="#{initial_glass_frame}" min="0.5" step="0.25"
                    title="Width of the frame around each glass pane (reduces glass area)">
+
+            <div id="handleSection" style="display:none;">
+              <div class="section-title">Handle</div>
+              <label>Door Handle</label>
+              <select id="handleStyle"></select>
+            </div>
 
             <div class="section-title">Position</div>
             <label>Threshold / Floor Offset (in)</label>
@@ -493,6 +503,17 @@ module InteriorPro
           var jambTotalIn = #{jamb_total_in};
           var initialSettings = #{settings_json};
           var initialTypes = #{types_json};
+          var HANDLE_NAMES = #{handles_json};
+
+          function renderHandleOptions() {
+            var sel = document.getElementById('handleStyle');
+            if (!sel || sel.options.length > 0) return;
+            var opts = '<option value="none">None</option>';
+            for (var i = 0; i < HANDLE_NAMES.length; i++) {
+              opts += '<option value="' + HANDLE_NAMES[i] + '">' + HANDLE_NAMES[i] + '</option>';
+            }
+            sel.innerHTML = opts;
+          }
 
           // ---- Leaf designs (must match InteriorPro::DoorLeafStyles::STYLES) ----
           var FR = {
@@ -701,6 +722,8 @@ module InteriorPro
               s.exterior_threshold !== undefined ? !!s.exterior_threshold : true;
             if (s.leaf_style) selectedLeafStyle = s.leaf_style;
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
+            renderHandleOptions();
+            if (s.handle_style) document.getElementById('handleStyle').value = s.handle_style;
             renderDesignGrid();
             syncTypeFields();
             syncCategoryFields();
@@ -795,6 +818,9 @@ module InteriorPro
             document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
             document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
             if (closet) renderClosetGrid();
+            var showHandle = isInterior && !closet && t !== 'Pocket';
+            document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
+            if (showHandle) renderHandleOptions();
             resizeDialogToContent();
           }
 
@@ -821,6 +847,7 @@ module InteriorPro
               door_type: document.getElementById('doorType').value,
               leaf_style: selectedLeafStyle,
               closet_leaf_count: selectedClosetPanels,
+              handle_style: (document.getElementById('handleStyle').value || 'none'),
               width: parseFloat(document.getElementById('doorWidth').value),
               height: parseFloat(document.getElementById('doorHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),

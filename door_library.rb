@@ -63,6 +63,7 @@ module InteriorPro
         'door_type'              => 'Single',
         'leaf_style'             => 'Flush',
         'closet_leaf_count'      => 2,
+        'handle_style'           => 'none',
         'width'                  => 32.0,
         'height'                 => 80.0,
         'frame_width'            => 1.5,

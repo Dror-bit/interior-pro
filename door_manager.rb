@@ -46,6 +46,8 @@ module InteriorPro
         'door_category'         => door.get_attribute('InteriorPro', 'door_category', 'exterior'),
         'door_type'             => door.get_attribute('InteriorPro', 'door_type', 'French Hinged'),
         'leaf_style'            => door.get_attribute('InteriorPro', 'leaf_style', 'Flush'),
+        'closet_leaf_count'     => door.get_attribute('InteriorPro', 'closet_leaf_count', 2).to_i,
+        'handle_style'          => door.get_attribute('InteriorPro', 'handle_style', 'none'),
         'width'                 => door.get_attribute('InteriorPro', 'width_in', 36).to_f,
         'height'                => door.get_attribute('InteriorPro', 'height_in', 80).to_f,
         'frame_width'           => door.get_attribute('InteriorPro', 'frame_width_in', 1.5).to_f,
@@ -66,7 +68,7 @@ module InteriorPro
     DOOR_PARAM_DICT = 'InteriorPro_door' unless const_defined?(:DOOR_PARAM_DICT, false)
 
     DOOR_SETTING_KEYS = %w[
-      door_category door_type leaf_style width height frame_width glass_frame_width
+      door_category door_type leaf_style closet_leaf_count handle_style width height frame_width glass_frame_width
       interior_depth floor_offset swing_direction swing_side slide_direction
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
@@ -113,6 +115,8 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'door_category',          params['door_category'])
       door.set_attribute('InteriorPro', 'door_type',              params['door_type'])
       door.set_attribute('InteriorPro', 'leaf_style',             params['leaf_style'].to_s) if params.key?('leaf_style')
+      door.set_attribute('InteriorPro', 'closet_leaf_count',      params['closet_leaf_count'].to_i) if params.key?('closet_leaf_count')
+      door.set_attribute('InteriorPro', 'handle_style',           params['handle_style'].to_s) if params.key?('handle_style')
       door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
       door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
       door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)

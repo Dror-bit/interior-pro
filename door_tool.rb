@@ -19,7 +19,7 @@ module InteriorPro
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
-                  :leaf_style, :closet_leaf_count
+                  :leaf_style, :closet_leaf_count, :handle_style
 
     def initialize
       @placement_ready = false
@@ -57,6 +57,7 @@ module InteriorPro
       @exterior_threshold       = d['exterior_threshold'] ? true : false
       @leaf_style          = d['leaf_style'] || 'Flush'
       @closet_leaf_count   = (d['closet_leaf_count'] || 2).to_i
+      @handle_style        = d['handle_style'] || 'none'
       @preset_name         = ''
     end
 
@@ -2964,6 +2965,11 @@ module InteriorPro
         end
         build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
                          unit, n, frame_mat)
+        if handle_enabled?
+          # Lock edge at the center meet: levers point away from it.
+          place_leaf_handles!(parent_ents, -meet - 2.5, -1, -half_h, lv0, lv1, unit, n)
+          place_leaf_handles!(parent_ents, meet + 2.5, 1, -half_h, lv0, lv1, unit, n)
+        end
 
       when 'Folding'
         # Bifold closed flat: two panels centered in depth, top track, no stop.
@@ -2987,6 +2993,11 @@ module InteriorPro
         extrude_rect(track.entities, -iw, iw, head_inner - 1.0, head_inner,
                      fl0 - 0.25, fl1 + 0.25, unit, n)
         track.material = frame_mat
+        if handle_enabled?
+          # Bifold: one knob per leaf near the meeting edge, front face only.
+          place_handle!(parent_ents, -meet - 2.5, -half_h + 36.0, fl1, 1, -1, unit, n)
+          place_handle!(parent_ents, meet + 2.5, -half_h + 36.0, fl1, 1, 1, unit, n)
+        end
 
       else # Single
         leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
@@ -2999,6 +3010,12 @@ module InteriorPro
         end
         build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
                          unit, n, frame_mat)
+        if handle_enabled?
+          # Lock side = opposite the hinge side (swing_direction).
+          hu = @swing_direction.to_s == 'right' ? (-iw + gap + 3.0) : (iw - gap - 3.0)
+          # Lever points away from the lock edge (toward the hinges).
+          place_leaf_handles!(parent_ents, hu, hu > 0 ? -1 : 1, -half_h, lv0, lv1, unit, n)
+        end
       end
 
       if casing_enabled?(@interior_casing_style)
@@ -3807,6 +3824,51 @@ module InteriorPro
 
     def closet_door?
       @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Closet'
+    end
+
+    def handle_enabled?
+      @handle_style.to_s != '' && @handle_style.to_s != 'none' &&
+        @door_category.to_s == 'interior' && !pocket_door? && !closet_door? &&
+        defined?(InteriorPro::DoorHandles)
+    end
+
+    # Place a handle component on the leaf face at (u_pos, w_pos).
+    # v_face = leaf face plane; out_sign = +1 toward +n, -1 toward -n.
+    # Component convention: X along door width, Y away from the door face, Z up.
+    def place_handle!(parent_ents, u_pos, w_pos, v_face, out_sign, x_sign, unit, n)
+      model = Sketchup.active_model
+      hdef = InteriorPro::DoorHandles.definition_for(model, @handle_style, 'interior')
+      unless hdef
+        door_log "[DoorTool] handle definition failed: #{@handle_style}"
+        return nil
+      end
+      p = local_uvw(u_pos, v_face, w_pos, unit, n)
+      y = Geom::Vector3d.new(n.x * out_sign, n.y * out_sign, n.z * out_sign)
+      # Same x on both faces (back = mirrored) so the lever points the same
+      # way on both sides. x_sign flips the lever toward the door center.
+      x = x_sign > 0 ? unit : unit.reverse
+      t = Geom::Transformation.axes(p, x, y, Geom::Vector3d.new(0, 0, 1))
+      # Auto-fit any component: center it on (u,w), mirror it front-to-back
+      # (the wide base/rose sits at max Y in these files and must touch the
+      # door), and press that base flat onto the leaf face. The Y-mirror keeps
+      # the lever direction unchanged.
+      b = hdef.bounds
+      cx = (b.min.x + b.max.x) / 2.0
+      cz = (b.min.z + b.max.z) / 2.0
+      fit = Geom::Transformation.translation(Geom::Vector3d.new(-cx, b.max.y, -cz)) *
+            Geom::Transformation.scaling(1, -1, 1)
+      parent_ents.add_instance(hdef, t * fit)
+    rescue StandardError => e
+      door_log "[DoorTool] place_handle! error: #{e.message}"
+      nil
+    end
+
+    # Handles on both faces of a swing leaf at standard 36" above the leaf bottom.
+    # x_sign: +1 = lever points toward +u, -1 = toward -u (away from lock edge).
+    def place_leaf_handles!(parent_ents, u_pos, x_sign, leaf_w0, lv0, lv1, unit, n)
+      w_pos = leaf_w0 + 36.0
+      place_handle!(parent_ents, u_pos, w_pos, lv1, 1, x_sign, unit, n)
+      place_handle!(parent_ents, u_pos, w_pos, lv0, -1, x_sign, unit, n)
     end
 
     def casing_enabled?(style)
