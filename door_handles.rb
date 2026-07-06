@@ -43,6 +43,71 @@ module InteriorPro
       nil
     end
 
+    # Per-file calibration: shifts the anchor so the ROSE/PIVOT lands exactly
+    # on the requested point. dx = along door width (+ = lever direction),
+    # dz = up. Calibrated visually 2026-07-05 (debug_handles.rb scene).
+    # rx = rotation (deg) around the horizontal X axis for files modeled
+    # lying flat (facing up/down) instead of facing the door.
+    HANDLE_FIT = {
+      '2'         => { dx: 1.8125,  dz: -1.7875 },
+      '3'         => { dx: 0.25,    dz: -1.5875, both: true },
+      '4'         => { dx: 0.75,    dz: -1.15,   both: true },
+      '5'         => { dx: 1.7375,  dz: -1.275, dy: -6.75 },
+      'Door knob' => { dx: 0.0,     dz: 0.0, rx: 90 },
+      '6'         => { dx: -0.8125, dz: 0.0 },
+      'M - 7'     => { dx: 2.0625,  dz: 0.0, rx: 90 },
+      'M-8'       => { dx: 2.25,    dz: 0.0, dy: -9.125 }
+    }.freeze
+
+    def self.fit_offset(name)
+      HANDLE_FIT[name.to_s] || { dx: 0.0, dz: 0.0 }
+    end
+
+    # true when the .skp already contains both sides of the handle.
+    def self.both_sides?(name)
+      !!fit_offset(name)[:both]
+    end
+
+    # Complete "fit" transform for a handle definition: optional lay-flat
+    # rotation, front-back mirror, anchor on the pivot, base pressed to the
+    # door plane. Shared by DoorTool and the calibration scene.
+    def self.fit_transform(hdef, name)
+      off = fit_offset(name)
+      rx = (off[:rx] || 0).to_f
+      r = if rx.zero?
+            Geom::Transformation.new
+          else
+            Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0),
+                                          Geom::Vector3d.new(1, 0, 0),
+                                          rx.degrees)
+          end
+      rb = Geom::BoundingBox.new
+      8.times { |i| rb.add(hdef.bounds.corner(i).transform(r)) }
+      ax = (rb.min.x < -0.1 && rb.max.x > 0.1) ? 0.0 : (rb.min.x + rb.max.x) / 2.0
+      az = (rb.min.z < -0.1 && rb.max.z > 0.1) ? 0.0 : (rb.min.z + rb.max.z) / 2.0
+      dx = (off[:dx] || 0).to_f
+      dz = (off[:dz] || 0).to_f
+      dy = (off[:dy] || 0).to_f  # depth: + pushes the handle OUT of the door
+      if off[:both]
+        # File contains BOTH sides of the handle: center it on the plane
+        # (the door leaf sits in the gap between the two plates).
+        cy = (rb.min.y + rb.max.y) / 2.0
+        return Geom::Transformation.translation(
+                 Geom::Vector3d.new(-ax + dx, cy + dy, -az + dz)
+               ) * Geom::Transformation.scaling(1, -1, 1) * r
+      end
+      if off[:flip]
+        # File modeled with its base at MIN Y: no mirror, press min Y to door.
+        Geom::Transformation.translation(
+          Geom::Vector3d.new(-ax + dx, -rb.min.y + dy, -az + dz)
+        ) * r
+      else
+        Geom::Transformation.translation(
+          Geom::Vector3d.new(-ax + dx, rb.max.y + dy, -az + dz)
+        ) * Geom::Transformation.scaling(1, -1, 1) * r
+      end
+    end
+
     # Bounding box report for orientation/size debugging.
     def self.report(kind = 'interior')
       model = Sketchup.active_model

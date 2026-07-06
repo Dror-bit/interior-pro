@@ -3012,7 +3012,7 @@ module InteriorPro
                          unit, n, frame_mat)
         if handle_enabled?
           # Lock side = opposite the hinge side (swing_direction).
-          hu = @swing_direction.to_s == 'right' ? (-iw + gap + 3.0) : (iw - gap - 3.0)
+          hu = @swing_direction.to_s == 'right' ? (-iw + gap + 2.5) : (iw - gap - 2.5)
           # Lever points away from the lock edge (toward the hinges).
           place_leaf_handles!(parent_ents, hu, hu > 0 ? -1 : 1, -half_h, lv0, lv1, unit, n)
         end
@@ -3848,15 +3848,11 @@ module InteriorPro
       # way on both sides. x_sign flips the lever toward the door center.
       x = x_sign > 0 ? unit : unit.reverse
       t = Geom::Transformation.axes(p, x, y, Geom::Vector3d.new(0, 0, 1))
-      # Auto-fit any component: center it on (u,w), mirror it front-to-back
-      # (the wide base/rose sits at max Y in these files and must touch the
-      # door), and press that base flat onto the leaf face. The Y-mirror keeps
-      # the lever direction unchanged.
-      b = hdef.bounds
-      cx = (b.min.x + b.max.x) / 2.0
-      cz = (b.min.z + b.max.z) / 2.0
-      fit = Geom::Transformation.translation(Geom::Vector3d.new(-cx, b.max.y, -cz)) *
-            Geom::Transformation.scaling(1, -1, 1)
+      # Auto-fit: mirror front-to-back (wide base at max Y must touch the door)
+      # and press the base onto the leaf face. Anchor (u,w) on the component
+      # ORIGIN (= the pivot/rose, per our modeling convention) when it lies
+      # inside the bounds footprint; otherwise fall back to the bounds center.
+      fit = InteriorPro::DoorHandles.fit_transform(hdef, @handle_style)
       parent_ents.add_instance(hdef, t * fit)
     rescue StandardError => e
       door_log "[DoorTool] place_handle! error: #{e.message}"
@@ -3867,8 +3863,13 @@ module InteriorPro
     # x_sign: +1 = lever points toward +u, -1 = toward -u (away from lock edge).
     def place_leaf_handles!(parent_ents, u_pos, x_sign, leaf_w0, lv0, lv1, unit, n)
       w_pos = leaf_w0 + 36.0
-      place_handle!(parent_ents, u_pos, w_pos, lv1, 1, x_sign, unit, n)
-      place_handle!(parent_ents, u_pos, w_pos, lv0, -1, x_sign, unit, n)
+      if InteriorPro::DoorHandles.both_sides?(@handle_style)
+        # File already contains both sides: place ONCE, centered on the leaf.
+        place_handle!(parent_ents, u_pos, w_pos, (lv0 + lv1) / 2.0, 1, x_sign, unit, n)
+      else
+        place_handle!(parent_ents, u_pos, w_pos, lv1, 1, x_sign, unit, n)
+        place_handle!(parent_ents, u_pos, w_pos, lv0, -1, x_sign, unit, n)
+      end
     end
 
     def casing_enabled?(style)
