@@ -52,7 +52,7 @@ module InteriorPro
       '2'         => { dx: 1.8125,  dz: -1.7875 },
       '3'         => { dx: 0.25,    dz: -1.5875, both: true },
       '4'         => { dx: 0.75,    dz: -1.15,   both: true },
-      '5'         => { dx: 1.7375,  dz: -1.275, dy: -6.75 },
+      '5'         => { dx: 1.7375,  dz: -1.275, dy: -3.6875, yflip: true },
       'Door knob' => { dx: 0.0,     dz: 0.0, rx: 90 },
       '6'         => { dx: -0.8125, dz: 0.0 },
       'M - 7'     => { dx: 2.0625,  dz: 0.0, rx: 90 },
@@ -83,6 +83,13 @@ module InteriorPro
           end
       rb = Geom::BoundingBox.new
       8.times { |i| rb.add(hdef.bounds.corner(i).transform(r)) }
+      if off[:yflip]
+        # Front-back mirror around the component's OWN center (bounds stay
+        # identical, so dx/dy/dz calibration is unaffected).
+        cy = (rb.min.y + rb.max.y) / 2.0
+        r = Geom::Transformation.translation(Geom::Vector3d.new(0, 2 * cy, 0)) *
+            Geom::Transformation.scaling(1, -1, 1) * r
+      end
       ax = (rb.min.x < -0.1 && rb.max.x > 0.1) ? 0.0 : (rb.min.x + rb.max.x) / 2.0
       az = (rb.min.z < -0.1 && rb.max.z > 0.1) ? 0.0 : (rb.min.z + rb.max.z) / 2.0
       dx = (off[:dx] || 0).to_f
