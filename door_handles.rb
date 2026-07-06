@@ -56,7 +56,7 @@ module InteriorPro
       'Door knob' => { dx: 0.0,     dz: 0.0, rx: 90 },
       '6'         => { dx: -0.8125, dz: 0.0 },
       'M - 7'     => { dx: 2.0625,  dz: 0.0, rx: 90 },
-      'M-8'       => { dx: 2.25,    dz: 0.0, dy: -9.125 }
+      'M-8'       => { dx: 2.25,    dz: 0.0, dy: -3.25, yflip: true }
     }.freeze
 
     def self.fit_offset(name)
