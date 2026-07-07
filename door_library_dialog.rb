@@ -75,6 +75,8 @@ module InteriorPro
       tool.closet_leaf_count   = (settings['closet_leaf_count'] || 2).to_i if tool.respond_to?(:closet_leaf_count=)
       tool.handle_style        = settings['handle_style'] || 'none' if tool.respond_to?(:handle_style=)
       tool.front_config        = settings['front_config'] || 'single' if tool.respond_to?(:front_config=)
+      tool.front_leaf_style    = settings['front_leaf_style'] || 'Craftsman 3-Lite' if tool.respond_to?(:front_leaf_style=)
+      tool.front_glass_ratio   = (settings['front_glass_ratio'] || 50.0).to_f if tool.respond_to?(:front_glass_ratio=)
       tool.sidelite_width      = (settings['sidelite_width'] || 14.0).to_f if tool.respond_to?(:sidelite_width=)
       tool.transom             = !!settings['transom'] if tool.respond_to?(:transom=)
       tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
@@ -420,6 +422,8 @@ module InteriorPro
 
             <div id="frontDoorSection" style="display:none;">
               <div class="section-title">Front Door</div>
+              <label>Design</label>
+              <div class="design-grid" id="frontDesignGrid"></div>
               <label>Configuration</label>
               <select id="frontConfig" onchange="onFrontConfigChange()">
                 <option value="single">Single</option>
@@ -429,6 +433,8 @@ module InteriorPro
               </select>
               <label>Sidelite Width (in)</label>
               <input type="number" id="sideliteWidth" value="14" min="6" step="0.5">
+              <label>Glass Height (% of door, Farmhouse)</label>
+              <input type="number" id="frontGlassRatio" value="50" min="10" max="90" step="5">
               <div class="checkbox-row">
                 <input type="checkbox" id="transomCheck" onchange="onTransomToggle()">
                 <label for="transomCheck">Transom (window above)</label>
@@ -854,6 +860,8 @@ module InteriorPro
             if (s.leaf_style) selectedLeafStyle = s.leaf_style;
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
             if (s.front_config) document.getElementById('frontConfig').value = s.front_config;
+            if (s.front_leaf_style) selectedFrontStyle = s.front_leaf_style;
+            if (s.front_glass_ratio != null) document.getElementById('frontGlassRatio').value = s.front_glass_ratio;
             if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
             document.getElementById('transomCheck').checked = !!s.transom;
             if (s.transom_height != null) document.getElementById('transomHeight').value = s.transom_height;
@@ -950,6 +958,7 @@ module InteriorPro
                              t === 'Folding' || isMultiPanelSliding(t) || isFolding(t));
             var isFront = document.getElementById('doorCategory').value === 'exterior' && t === 'Front Door';
             document.getElementById('frontDoorSection').style.display = isFront ? 'block' : 'none';
+            if (isFront) renderFrontDesignGrid();
             document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
             document.getElementById('hingedFields').style.display = (isSliding || closet) ? 'none' : 'block';
             var isInterior = document.getElementById('doorCategory').value === 'interior';
@@ -960,6 +969,69 @@ module InteriorPro
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
+          }
+
+          // ---- Front Door leaf designs ----
+          var FRONT_DESIGNS = [
+            'Craftsman 3-Lite', '5-Lite Ladder', 'Steel Glass',
+            'Farmhouse 4-Lite', 'Modern Lines', 'Steel Arch'
+          ];
+          var selectedFrontStyle = 'Craftsman 3-Lite';
+
+          function frontThumbSvg(name) {
+            var s = '';
+            switch (name) {
+              case 'Craftsman 3-Lite':
+                s = svgR(1, 1, 94, 238, '#c68a4b') +
+                    svgR(16, 14, 18, 34, '#dce8ee') + svgR(39, 14, 18, 34, '#dce8ee') + svgR(62, 14, 18, 34, '#dce8ee') +
+                    svgR(12, 56, 72, 5, '#b57a3e') +
+                    svgR(16, 72, 29, 150, '#b57a3e') + svgR(51, 72, 29, 150, '#b57a3e');
+                break;
+              case '5-Lite Ladder':
+                s = svgR(1, 1, 94, 238, '#f5f2ea');
+                for (var i = 0; i < 5; i++) s += svgR(14, 14 + i * 44, 68, 34, '#e7edf0');
+                break;
+              case 'Steel Glass':
+                s = svgR(1, 1, 94, 238, '#2c2c2a') + svgR(12, 12, 72, 216, '#cfdde5') +
+                    '<line x1="48" y1="12" x2="48" y2="228" stroke="#8aa0ab" stroke-width="2"/>' +
+                    '<line x1="12" y1="120" x2="84" y2="120" stroke="#8aa0ab" stroke-width="2"/>';
+                break;
+              case 'Farmhouse 4-Lite':
+                s = svgR(1, 1, 94, 238, '#e8b45a') + svgR(14, 14, 68, 106, '#dce8ee') +
+                    '<line x1="48" y1="14" x2="48" y2="120" stroke="#e8b45a" stroke-width="5"/>' +
+                    '<line x1="14" y1="67" x2="82" y2="67" stroke="#e8b45a" stroke-width="5"/>' +
+                    svgR(16, 136, 64, 88, '#dfab4f');
+                break;
+              case 'Modern Lines':
+                s = svgR(1, 1, 94, 238, '#9a6b3f');
+                for (var j = 0; j < 4; j++) s += '<line x1="10" y1="' + (52 + j * 46) + '" x2="86" y2="' + (52 + j * 46) + '" stroke="#6e4a28" stroke-width="3"/>';
+                break;
+              case 'Steel Arch':
+                s = svgR(1, 1, 94, 238, '#efece5') +
+                    '<path d="M 8 232 L 8 60 A 40 40 0 0 1 88 60 L 88 232 Z" fill="#1e1e1c" stroke="#777"/>' +
+                    '<path d="M 15 225 L 15 62 A 33 33 0 0 1 81 62 L 81 225 Z" fill="#dfe9ee" stroke="#777"/>' +
+                    '<line x1="48" y1="30" x2="48" y2="225" stroke="#1e1e1c" stroke-width="4"/>' +
+                    '<line x1="15" y1="95" x2="81" y2="95" stroke="#1e1e1c" stroke-width="4"/>' +
+                    '<line x1="15" y1="160" x2="81" y2="160" stroke="#1e1e1c" stroke-width="4"/>';
+                break;
+              default:
+                s = svgR(1, 1, 94, 238, '#fbfaf7');
+            }
+            return '<svg viewBox="0 0 96 240">' + s + '</svg>';
+          }
+          function renderFrontDesignGrid() {
+            var grid = document.getElementById('frontDesignGrid');
+            if (!grid) return;
+            grid.innerHTML = FRONT_DESIGNS.map(function(name) {
+              var sel = name === selectedFrontStyle ? ' selected' : '';
+              return '<div class="design-card' + sel + '" data-style="' + name +
+                     '" title="' + name + '" onclick="selectFrontDesign(this)">' +
+                     frontThumbSvg(name) + '</div>';
+            }).join('');
+          }
+          function selectFrontDesign(el) {
+            selectedFrontStyle = el.getAttribute('data-style');
+            renderFrontDesignGrid();
           }
 
           function onTransomToggle() {
@@ -1012,6 +1084,8 @@ module InteriorPro
               closet_leaf_count: selectedClosetPanels,
               handle_style: (document.getElementById('handleStyle').value || 'none'),
               front_config: document.getElementById('frontConfig').value,
+              front_leaf_style: selectedFrontStyle,
+              front_glass_ratio: parseFloat(document.getElementById('frontGlassRatio').value) || 50,
               sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
               transom: document.getElementById('transomCheck').checked,
               transom_height: parseFloat(document.getElementById('transomHeight').value) || 14,

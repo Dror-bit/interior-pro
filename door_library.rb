@@ -59,6 +59,8 @@ module InteriorPro
         'interior_casing_style'  => 'none',
         'exterior_threshold'     => true,
         'front_config'           => 'single',
+        'front_leaf_style'       => 'Craftsman 3-Lite',
+        'front_glass_ratio'      => 50.0,
         'sidelite_width'         => 14.0,
         'transom'                => false,
         'transom_height'         => 14.0

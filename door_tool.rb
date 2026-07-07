@@ -20,7 +20,7 @@ module InteriorPro
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
                   :leaf_style, :closet_leaf_count, :handle_style,
-                  :front_config, :sidelite_width, :transom, :transom_height
+                  :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height
 
     def initialize
       @placement_ready = false
@@ -60,6 +60,8 @@ module InteriorPro
       @closet_leaf_count   = (d['closet_leaf_count'] || 2).to_i
       @handle_style        = d['handle_style'] || 'none'
       @front_config        = d['front_config'] || 'single'
+      @front_leaf_style    = d['front_leaf_style'] || 'Craftsman 3-Lite'
+      @front_glass_ratio   = (d['front_glass_ratio'] || 50.0).to_f
       @sidelite_width      = (d['sidelite_width'] || 14.0).to_f
       @transom             = d['transom'] ? true : false
       @transom_height      = (d['transom_height'] || 14.0).to_f
@@ -3503,6 +3505,267 @@ module InteriorPro
       g
     end
 
+    def front_door_mats
+      model = Sketchup.active_model
+      {
+        frame: get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                      Sketchup::Color.new(245, 245, 240), 1.0),
+        glass: get_or_create_material(model, 'InteriorPro_Glass',
+                                      Sketchup::Color.new(180, 180, 180), 0.4),
+        steel: get_or_create_material(model, 'InteriorPro_Front_Steel',
+                                      Sketchup::Color.new(40, 40, 40), 1.0),
+        groove: get_or_create_material(model, 'InteriorPro_Front_Groove',
+                                       Sketchup::Color.new(70, 55, 40), 1.0)
+      }
+    end
+
+    # Slab with rectangular glass holes (each hole [hu0, hu1, hw0, hw1]) +
+    # glass face at mid-depth in every hole.
+    def build_front_panel_with_holes!(parent_ents, u0, u1, w0, w1, vf, vb, unit, n,
+                                      mat, glass_mat, holes, name)
+      g = parent_ents.add_group
+      g.name = name
+      ge = g.entities
+      outer = [
+        local_uvw(u0, vf, w0, unit, n), local_uvw(u1, vf, w0, unit, n),
+        local_uvw(u1, vf, w1, unit, n), local_uvw(u0, vf, w1, unit, n)
+      ]
+      face = ge.add_face(outer)
+      unless face&.valid?
+        g.material = mat
+        return g
+      end
+      holes.each do |h|
+        hf = ge.add_face([
+          local_uvw(h[0], vf, h[2], unit, n), local_uvw(h[1], vf, h[2], unit, n),
+          local_uvw(h[1], vf, h[3], unit, n), local_uvw(h[0], vf, h[3], unit, n)
+        ])
+        hf.erase! if hf
+      end
+      depth = vb - vf
+      depth = -depth if face.normal.dot(n) < 0
+      face.pushpull(depth)
+      vmid = (vf + vb) / 2.0
+      holes.each do |h|
+        gf = ge.add_face([
+          local_uvw(h[0], vmid, h[2], unit, n), local_uvw(h[1], vmid, h[2], unit, n),
+          local_uvw(h[1], vmid, h[3], unit, n), local_uvw(h[0], vmid, h[3], unit, n)
+        ])
+        next unless gf
+        gf.material = glass_mat
+        gf.back_material = glass_mat
+      end
+      g.material = mat
+      g
+    end
+
+    # Grid bars over a glass area, driven by the Glass Grid dialog setting.
+    def add_front_grid_bars!(ge, gu0, gu1, gw0, gw1, vmid, unit, n)
+      style = (@glass_grid_style || 'none').to_s.downcase
+      return if style == 'none'
+      cols, rows = parse_grid_style(style)
+      return if cols < 1 || rows < 1
+      (1...cols).each do |c|
+        x = gu0 + (gu1 - gu0) * c / cols.to_f
+        add_front_bar!(ge, x - 0.5, x + 0.5, gw0, gw1, vmid - 0.4, vmid + 0.4, unit, n)
+      end
+      (1...rows).each do |r|
+        z = gw0 + (gw1 - gw0) * r / rows.to_f
+        add_front_bar!(ge, gu0, gu1, z - 0.5, z + 0.5, vmid - 0.4, vmid + 0.4, unit, n)
+      end
+    end
+
+    # Thin bar (muntin/divider) box inside an existing group's entities.
+    def add_front_bar!(ge, u0, u1, w0, w1, v0, v1, unit, n)
+      return if u1 <= u0 + 0.01 || w1 <= w0 + 0.01
+      f = ge.add_face([
+        local_uvw(u0, v0, w0, unit, n), local_uvw(u1, v0, w0, unit, n),
+        local_uvw(u1, v0, w1, unit, n), local_uvw(u0, v0, w1, unit, n)
+      ])
+      return unless f&.valid?
+      d = v1 - v0
+      d = -d if f.normal.dot(n) < 0
+      f.pushpull(d)
+    end
+
+    # One styled Front Door leaf (designs 1-6; Steel Arch has its own builder).
+    def build_front_leaf_styled!(pe, u0, u1, w0, w1, vf, vb, unit, n, name)
+      mats = front_door_mats
+      style = @front_leaf_style.to_s
+      w = u1 - u0
+      h = w1 - w0
+      vmid = (vf + vb) / 2.0
+
+      case style
+      when '5-Lite Ladder'
+        st = 4.0
+        rail = 4.0
+        gh = (h - 2 * st - 4 * rail) / 5.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name) if gh < 3.0
+        holes = (0..4).map { |i|
+          y0 = w0 + st + i * (gh + rail)
+          [u0 + st, u1 - st, y0, y0 + gh]
+        }
+        build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                      mats[:frame], mats[:glass], holes, name)
+
+      when 'Craftsman 3-Lite'
+        st = 5.0
+        lite_h = h * 0.22
+        lz0 = w1 - 4.0 - lite_h
+        gap = 2.0
+        lw = (w - 2 * st - 2 * gap) / 3.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name) if lw < 3.0
+        holes = (0..2).map { |i|
+          x0 = u0 + st + i * (lw + gap)
+          [x0, x0 + lw, lz0, lz0 + lite_h]
+        }
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:frame], mats[:glass], holes, name)
+        # Two recessed vertical panels below the lites (CCA230 look, no shelf).
+        ge = g.entities
+        p_top = lz0 - 5.0
+        p_bot = w0 + 8.0
+        mid_st = 4.0
+        pw = (w - 2 * st - mid_st) / 2.0
+        if pw > 3.0 && p_top > p_bot + 6.0
+          [[u0 + st, u0 + st + pw], [u1 - st - pw, u1 - st]].each do |pu0, pu1|
+            [[vf, 1], [vb, -1]].each do |vface, dir|
+              f = ge.add_face([
+                local_uvw(pu0, vface, p_bot, unit, n), local_uvw(pu1, vface, p_bot, unit, n),
+                local_uvw(pu1, vface, p_top, unit, n), local_uvw(pu0, vface, p_top, unit, n)
+              ])
+              next unless f&.valid?
+              d = 0.25 * dir
+              d = -d if f.normal.dot(n) < 0
+              f.pushpull(d)
+            end
+          end
+        end
+        g
+
+      when 'Steel Glass', 'Full Glass Modern', 'Steel Grid'
+        st = 2.0
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:steel], mats[:glass],
+                                          [[u0 + st, u1 - st, w0 + st, w1 - st]], name)
+        add_front_grid_bars!(g.entities, u0 + st, u1 - st, w0 + st, w1 - st, vmid, unit, n)
+        g
+
+      when 'Farmhouse 4-Lite', 'Farmhouse'
+        st = 4.0
+        ratio = @front_glass_ratio.to_f
+        ratio = 50.0 if ratio < 5.0
+        ratio = 90.0 if ratio > 90.0
+        gz1 = w1 - st
+        gz0 = gz1 - h * ratio / 100.0
+        gz0 = w0 + 8.0 if gz0 < w0 + 8.0
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:frame], mats[:glass],
+                                          [[u0 + st, u1 - st, gz0, gz1]], name)
+        add_front_grid_bars!(g.entities, u0 + st, u1 - st, gz0, gz1, vmid, unit, n)
+        g
+
+      when 'Modern Lines'
+        g = build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name)
+        gg = pe.add_group
+        gg.name = name + '_Lines'
+        (1..4).each do |i|
+          z = w0 + h * i / 5.0
+          add_front_bar!(gg.entities, u0 + 1.0, u1 - 1.0, z - 0.2, z + 0.2,
+                         vf - 0.1, vf + 0.05, unit, n)
+        end
+        gg.material = mats[:groove]
+        g
+
+      else
+        build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name)
+      end
+    end
+
+    # Steel Arch: arched steel ring + glass + grid inside a rectangular leaf;
+    # the two corners above the arc are filled solid (painted like the frame).
+    def build_front_arch_leaf!(pe, u0, u1, w0, w1, vf, vb, unit, n, double: false)
+      mats = front_door_mats
+      w = u1 - u0
+      r = w / 2.0
+      cu = (u0 + u1) / 2.0
+      cz = w1 - r
+      if cz < w0 + 12.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], 'Leaf_Front')
+      end
+      ring = 2.0
+      segs = 16
+      vmid = (vf + vb) / 2.0
+
+      arch_pts = lambda do |i, v|
+        pts = []
+        pts << local_uvw(u0 + i, v, w0, unit, n)
+        pts << local_uvw(u1 - i, v, w0, unit, n)
+        pts << local_uvw(u1 - i, v, cz, unit, n)
+        (1...segs).each do |k|
+          ang = Math::PI * k / segs
+          pts << local_uvw(cu + (r - i) * Math.cos(ang), v, cz + (r - i) * Math.sin(ang), unit, n)
+        end
+        pts << local_uvw(u0 + i, v, cz, unit, n)
+        pts
+      end
+
+      # Solid corner fills above the arc spring line.
+      gf = pe.add_group
+      gf.name = 'Leaf_Front_ArchFill'
+      [[Math::PI, u0], [0.0, u1]].each do |end_ang, ux|
+        pts = [local_uvw(ux, vf, cz, unit, n), local_uvw(ux, vf, w1, unit, n),
+               local_uvw(cu, vf, w1, unit, n)]
+        steps = 8
+        (1...steps).each do |k|
+          ang = Math::PI / 2.0 + (end_ang - Math::PI / 2.0) * k / steps.to_f
+          pts << local_uvw(cu + r * Math.cos(ang), vf, cz + r * Math.sin(ang), unit, n)
+        end
+        f = gf.entities.add_face(pts)
+        next unless f&.valid?
+        d = vb - vf
+        d = -d if f.normal.dot(n) < 0
+        f.pushpull(d)
+      end
+      gf.material = mats[:frame]
+
+      # Steel arch ring.
+      gr = pe.add_group
+      gr.name = 'Leaf_Front_ArchRing'
+      f = gr.entities.add_face(arch_pts.call(0.0, vf))
+      if f&.valid?
+        hole = gr.entities.add_face(arch_pts.call(ring, vf))
+        hole.erase! if hole
+        ring_face = gr.entities.grep(Sketchup::Face).first
+        if ring_face&.valid?
+          d = vb - vf
+          d = -d if ring_face.normal.dot(n) < 0
+          ring_face.pushpull(d)
+        end
+        # Grid bars: center vertical + 2 horizontals below the spring line.
+        bar_w = double ? 1.0 : 0.5
+        add_front_bar!(gr.entities, cu - bar_w, cu + bar_w, w0, cz + r - ring,
+                       vmid - 0.4, vmid + 0.4, unit, n)
+        [0.4, 0.75].each do |fr|
+          z = w0 + (cz - w0) * fr
+          add_front_bar!(gr.entities, u0 + ring, u1 - ring, z - 0.5, z + 0.5,
+                         vmid - 0.4, vmid + 0.4, unit, n)
+        end
+      end
+      gr.material = mats[:steel]
+
+      # Glass pane at mid-depth inside the ring.
+      gl = pe.add_group
+      gl.name = 'Leaf_Front_ArchGlass'
+      gface = gl.entities.add_face(arch_pts.call(ring, vmid))
+      if gface&.valid?
+        gface.material = mats[:glass]
+        gface.back_material = mats[:glass]
+      end
+      gl
+    end
+
     def build_front_door_geometry!(parent_ents, data, unit, n, thickness)
       door_log "[DoorTool] front geom: half_w=#{data[:half_w].to_f.round(2)} cfg=#{@front_config.inspect} transom=#{@transom.inspect}"
       mats = door_body_materials
@@ -3525,16 +3788,19 @@ module InteriorPro
       vf = layout[:leaf_front_v]
       vb = layout[:leaf_back_v]
 
-      if @front_config.to_s == 'double'
+      if @front_leaf_style.to_s == 'Steel Arch'
+        build_front_arch_leaf!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb, unit, n,
+                               double: @front_config.to_s == 'double')
+      elsif @front_config.to_s == 'double'
         gap = layout[:meeting_gap]
         mid = (u_dl + u_dr) / 2.0
-        build_front_slab!(parent_ents, u_dl, mid - gap, leaf_bot, leaf_top, vf, vb,
-                          unit, n, frame_mat, 'Leaf_Front_L')
-        build_front_slab!(parent_ents, mid + gap, u_dr, leaf_bot, leaf_top, vf, vb,
-                          unit, n, frame_mat, 'Leaf_Front_R')
+        build_front_leaf_styled!(parent_ents, u_dl, mid - gap, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front_L')
+        build_front_leaf_styled!(parent_ents, mid + gap, u_dr, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front_R')
       else
-        build_front_slab!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb,
-                          unit, n, frame_mat, 'Leaf_Front')
+        build_front_leaf_styled!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front')
       end
 
       # Stage 2: glazed sidelites + transom with mullions between them.
