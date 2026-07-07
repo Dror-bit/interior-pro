@@ -430,7 +430,7 @@ module InteriorPro
               <label>Sidelite Width (in)</label>
               <input type="number" id="sideliteWidth" value="14" min="6" step="0.5">
               <div class="checkbox-row">
-                <input type="checkbox" id="transomCheck">
+                <input type="checkbox" id="transomCheck" onchange="onTransomToggle()">
                 <label for="transomCheck">Transom (window above)</label>
               </div>
               <label>Transom Height (in)</label>
@@ -960,6 +960,20 @@ module InteriorPro
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
+          }
+
+          function onTransomToggle() {
+            var hEl = document.getElementById('doorHeight');
+            var h = parseFloat(hEl.value) || 80;
+            var th = parseFloat(document.getElementById('transomHeight').value) || 14;
+            var add = th + 1.5;
+            if (document.getElementById('transomCheck').checked) {
+              window._transomAdded = add;
+              hEl.value = h + add;
+            } else {
+              hEl.value = h - (window._transomAdded || add);
+              window._transomAdded = 0;
+            }
           }
 
           function onFrontConfigChange() {
