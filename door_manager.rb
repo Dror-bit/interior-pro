@@ -27,6 +27,39 @@ module InteriorPro
       end
     end
 
+    # Translate door/window bodies hosted on a wall after the wall itself moved.
+    # (Restored from git c4fe86e~1 — was deleted on 2026-07-02 while the call in
+    # ui_dialogs.rb wall_move remained.)
+    def self.move_hosted_doors!(wall, ox, oy)
+      return 0 unless wall && wall.valid?
+      return 0 if ox.abs < 1e-6 && oy.abs < 1e-6
+      wall_id = wall.get_attribute('InteriorPro', 'id')
+      return 0 if wall_id.to_s.empty?
+
+      model = Sketchup.active_model
+      tr = Geom::Transformation.translation(Geom::Vector3d.new(ox, oy, 0))
+      moved = 0
+      model.entities.to_a.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        type = e.get_attribute('InteriorPro', 'type')
+        # Doors AND windows are separate body entities hosted on the wall.
+        next unless type == 'door' || type == 'window'
+        next unless e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
+
+        e.transform!(tr)
+        fx = e.get_attribute('InteriorPro', 'face_x')
+        fy = e.get_attribute('InteriorPro', 'face_y')
+        e.set_attribute('InteriorPro', 'face_x', fx.to_f + ox) unless fx.nil?
+        e.set_attribute('InteriorPro', 'face_y', fy.to_f + oy) unless fy.nil?
+        moved += 1
+      end
+      puts "[DoorManager] move_hosted_doors!: moved #{moved} opening(s) by (#{ox.round(3)}, #{oy.round(3)})"
+      moved
+    rescue StandardError => e
+      puts "[DoorManager] move_hosted_doors!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
     def self.search_entities(entities, &block)
       entities.each do |e|
         return e if block.call(e)
