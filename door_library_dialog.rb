@@ -74,6 +74,10 @@ module InteriorPro
       tool.leaf_style          = settings['leaf_style'] || 'Flush' if tool.respond_to?(:leaf_style=)
       tool.closet_leaf_count   = (settings['closet_leaf_count'] || 2).to_i if tool.respond_to?(:closet_leaf_count=)
       tool.handle_style        = settings['handle_style'] || 'none' if tool.respond_to?(:handle_style=)
+      tool.front_config        = settings['front_config'] || 'single' if tool.respond_to?(:front_config=)
+      tool.sidelite_width      = (settings['sidelite_width'] || 14.0).to_f if tool.respond_to?(:sidelite_width=)
+      tool.transom             = !!settings['transom'] if tool.respond_to?(:transom=)
+      tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -413,6 +417,25 @@ module InteriorPro
             <label>Glass Frame Width (in)</label>
             <input type="number" id="glassFrameWidth" value="#{initial_glass_frame}" min="0.5" step="0.25"
                    title="Width of the frame around each glass pane (reduces glass area)">
+
+            <div id="frontDoorSection" style="display:none;">
+              <div class="section-title">Front Door</div>
+              <label>Configuration</label>
+              <select id="frontConfig" onchange="onFrontConfigChange()">
+                <option value="single">Single</option>
+                <option value="single_1sl">Single + 1 Sidelite</option>
+                <option value="single_2sl">Single + 2 Sidelites</option>
+                <option value="double">Double</option>
+              </select>
+              <label>Sidelite Width (in)</label>
+              <input type="number" id="sideliteWidth" value="14" min="6" step="0.5">
+              <div class="checkbox-row">
+                <input type="checkbox" id="transomCheck">
+                <label for="transomCheck">Transom (window above)</label>
+              </div>
+              <label>Transom Height (in)</label>
+              <input type="number" id="transomHeight" value="14" min="6" step="0.5">
+            </div>
 
             <div id="handleSection" style="display:none;">
               <div class="section-title">Handle</div>
@@ -830,6 +853,10 @@ module InteriorPro
               s.exterior_threshold !== undefined ? !!s.exterior_threshold : true;
             if (s.leaf_style) selectedLeafStyle = s.leaf_style;
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
+            if (s.front_config) document.getElementById('frontConfig').value = s.front_config;
+            if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
+            document.getElementById('transomCheck').checked = !!s.transom;
+            if (s.transom_height != null) document.getElementById('transomHeight').value = s.transom_height;
             renderHandleOptions();
             if (s.handle_style) document.getElementById('handleStyle').value = s.handle_style;
             syncHandleLabel();
@@ -921,6 +948,8 @@ module InteriorPro
             var closet = isCloset();
             var isSliding = !closet && (t === 'Sliding' || t === 'French Sliding' || t === 'Pocket' ||
                              t === 'Folding' || isMultiPanelSliding(t) || isFolding(t));
+            var isFront = document.getElementById('doorCategory').value === 'exterior' && t === 'Front Door';
+            document.getElementById('frontDoorSection').style.display = isFront ? 'block' : 'none';
             document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
             document.getElementById('hingedFields').style.display = (isSliding || closet) ? 'none' : 'block';
             var isInterior = document.getElementById('doorCategory').value === 'interior';
@@ -931,6 +960,17 @@ module InteriorPro
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
+          }
+
+          function onFrontConfigChange() {
+            if (!doorPlaceMode) return;
+            var cfg = document.getElementById('frontConfig').value;
+            var sl = parseFloat(document.getElementById('sideliteWidth').value) || 14;
+            var w = 36 + 3;
+            if (cfg === 'single_1sl') w += sl + 1.5;
+            if (cfg === 'single_2sl') w += 2 * (sl + 1.5);
+            if (cfg === 'double') w = 72 + 3;
+            document.getElementById('doorWidth').value = w;
           }
 
           function addCustomType() {
@@ -957,6 +997,10 @@ module InteriorPro
               leaf_style: selectedLeafStyle,
               closet_leaf_count: selectedClosetPanels,
               handle_style: (document.getElementById('handleStyle').value || 'none'),
+              front_config: document.getElementById('frontConfig').value,
+              sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
+              transom: document.getElementById('transomCheck').checked,
+              transom_height: parseFloat(document.getElementById('transomHeight').value) || 14,
               width: parseFloat(document.getElementById('doorWidth').value),
               height: parseFloat(document.getElementById('doorHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),

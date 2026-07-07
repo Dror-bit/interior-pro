@@ -93,7 +93,11 @@ module InteriorPro
         'glass_grid_style'      => door.get_attribute('InteriorPro', 'glass_grid_style', '2x2'),
         'exterior_casing_style' => door.get_attribute('InteriorPro', 'exterior_casing_style', 'none'),
         'interior_casing_style' => door.get_attribute('InteriorPro', 'interior_casing_style', 'none'),
-        'exterior_threshold'    => door.get_attribute('InteriorPro', 'exterior_threshold', true)
+        'exterior_threshold'    => door.get_attribute('InteriorPro', 'exterior_threshold', true),
+        'front_config'          => door.get_attribute('InteriorPro', 'front_config', 'single'),
+        'sidelite_width'        => door.get_attribute('InteriorPro', 'sidelite_width_in', 14).to_f,
+        'transom'               => door.get_attribute('InteriorPro', 'transom', false),
+        'transom_height'        => door.get_attribute('InteriorPro', 'transom_height_in', 14).to_f
       }
     end
 
@@ -104,6 +108,7 @@ module InteriorPro
       door_category door_type leaf_style closet_leaf_count handle_style width height frame_width glass_frame_width
       interior_depth floor_offset swing_direction swing_side slide_direction
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
+      front_config sidelite_width transom transom_height
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
 
     DOOR_PLACEMENT_KEYS = %w[
@@ -150,6 +155,10 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'leaf_style',             params['leaf_style'].to_s) if params.key?('leaf_style')
       door.set_attribute('InteriorPro', 'closet_leaf_count',      params['closet_leaf_count'].to_i) if params.key?('closet_leaf_count')
       door.set_attribute('InteriorPro', 'handle_style',           params['handle_style'].to_s) if params.key?('handle_style')
+      door.set_attribute('InteriorPro', 'front_config',           params['front_config'].to_s) if params.key?('front_config')
+      door.set_attribute('InteriorPro', 'sidelite_width_in',      params['sidelite_width'].to_f) if params.key?('sidelite_width')
+      door.set_attribute('InteriorPro', 'transom',                !!params['transom']) if params.key?('transom')
+      door.set_attribute('InteriorPro', 'transom_height_in',      params['transom_height'].to_f) if params.key?('transom_height')
       door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
       door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
       door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)

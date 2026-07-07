@@ -19,7 +19,8 @@ module InteriorPro
                   :interior_depth, :floor_offset, :swing_direction, :swing_side,
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
-                  :leaf_style, :closet_leaf_count, :handle_style
+                  :leaf_style, :closet_leaf_count, :handle_style,
+                  :front_config, :sidelite_width, :transom, :transom_height
 
     def initialize
       @placement_ready = false
@@ -58,6 +59,10 @@ module InteriorPro
       @leaf_style          = d['leaf_style'] || 'Flush'
       @closet_leaf_count   = (d['closet_leaf_count'] || 2).to_i
       @handle_style        = d['handle_style'] || 'none'
+      @front_config        = d['front_config'] || 'single'
+      @sidelite_width      = (d['sidelite_width'] || 14.0).to_f
+      @transom             = d['transom'] ? true : false
+      @transom_height      = (d['transom_height'] || 14.0).to_f
       @preset_name         = ''
     end
 
@@ -2881,6 +2886,8 @@ module InteriorPro
         build_four_panel_center_hinged_geometry!(parent_ents, data, unit, n, thickness)
       elsif t == 'French Hinged'
         build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Front Door'
+        build_front_door_geometry!(parent_ents, data, unit, n, thickness)
       else
         false
       end
@@ -3463,6 +3470,76 @@ module InteriorPro
       true
     end
 
+    # Front Door: jamb + threshold + solid slab leaf per configuration.
+    # Stage 1: slab only; sidelite/transom areas are reserved (left open) and
+    # get glass panels + mullions in the next stages.
+    FRONT_MULLION_W = 1.5 unless const_defined?(:FRONT_MULLION_W, false)
+
+    def front_door_spans(layout)
+      iw = layout[:iw]
+      cfg = @front_config.to_s
+      sl_w = (@sidelite_width && @sidelite_width.to_f > 0) ? @sidelite_width.to_f : 14.0
+      hinge_right = @swing_direction.to_s.downcase == 'right'
+      sl_left  = (cfg == 'single_2sl') || (cfg == 'single_1sl' && hinge_right)
+      sl_right = (cfg == 'single_2sl') || (cfg == 'single_1sl' && !hinge_right)
+
+      u_dl = -iw + (sl_left ? sl_w + FRONT_MULLION_W : 0.0)
+      u_dr =  iw - (sl_right ? sl_w + FRONT_MULLION_W : 0.0)
+
+      leaf_top = layout[:leaf_top]
+      if @transom && @transom_height.to_f > 0.5
+        leaf_top -= (@transom_height.to_f + FRONT_MULLION_W)
+      end
+
+      { u_dl: u_dl, u_dr: u_dr, leaf_top: leaf_top,
+        sl_left: sl_left, sl_right: sl_right, sl_w: sl_w }
+    end
+
+    def build_front_slab!(parent_ents, u0, u1, w0, w1, vf, vb, unit, n, mat, name)
+      g = parent_ents.add_group
+      g.name = name
+      extrude_rect(g.entities, u0, u1, w0, w1, vf, vb, unit, n)
+      g.material = mat
+      g
+    end
+
+    def build_front_door_geometry!(parent_ents, data, unit, n, thickness)
+      door_log "[DoorTool] front geom: half_w=#{data[:half_w].to_f.round(2)} cfg=#{@front_config.inspect} transom=#{@transom.inspect}"
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness, frame_mat,
+                                               default_stile_w: 5.0)
+      return false unless layout
+
+      spans = front_door_spans(layout)
+      u_dl = spans[:u_dl]
+      u_dr = spans[:u_dr]
+      leaf_top = spans[:leaf_top]
+      leaf_bot = layout[:leaf_bot]
+      if u_dr - u_dl < 12.0 || leaf_top - leaf_bot < 24.0
+        door_log "[DoorTool] front door too small: dw=#{(u_dr - u_dl).round(1)} dh=#{(leaf_top - leaf_bot).round(1)}"
+        return false
+      end
+
+      vf = layout[:leaf_front_v]
+      vb = layout[:leaf_back_v]
+
+      if @front_config.to_s == 'double'
+        gap = layout[:meeting_gap]
+        mid = (u_dl + u_dr) / 2.0
+        build_front_slab!(parent_ents, u_dl, mid - gap, leaf_bot, leaf_top, vf, vb,
+                          unit, n, frame_mat, 'Leaf_Front_L')
+        build_front_slab!(parent_ents, mid + gap, u_dr, leaf_bot, leaf_top, vf, vb,
+                          unit, n, frame_mat, 'Leaf_Front_R')
+      else
+        build_front_slab!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb,
+                          unit, n, frame_mat, 'Leaf_Front')
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
+    end
+
     def door_body_materials
       model = Sketchup.active_model
       {
@@ -3829,8 +3906,12 @@ module InteriorPro
         (@door_type.to_s.strip == 'Sliding' || multi_panel_sliding_type?)
     end
 
+    def front_door_type?
+      @door_category.to_s != 'interior' && @door_type.to_s.strip == 'Front Door'
+    end
+
     def door_body_type?
-      interior_leaf_type? ||
+      interior_leaf_type? || front_door_type? ||
         french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
     end
 

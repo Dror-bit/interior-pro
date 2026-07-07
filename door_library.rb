@@ -16,6 +16,7 @@ module InteriorPro
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'door_types.json')
 
     EXTERIOR_TYPES = [
+      'Front Door',
       'French Hinged', 'Sliding',
       '4-Panel Center Hinged', '4-Panel Sliding', '6-Panel Sliding',
       '3-Panel Folding', '4-Panel Folding', '6-Panel Folding'
@@ -56,7 +57,11 @@ module InteriorPro
         'glass_grid_style'       => '2x2',
         'exterior_casing_style'  => 'none',
         'interior_casing_style'  => 'none',
-        'exterior_threshold'     => true
+        'exterior_threshold'     => true,
+        'front_config'           => 'single',
+        'sidelite_width'         => 14.0,
+        'transom'                => false,
+        'transom_height'         => 14.0
       },
       'interior' => {
         'door_category'          => 'interior',
@@ -103,6 +108,7 @@ module InteriorPro
         'Closet'  => { 'width' => 72.0, 'closet_leaf_count' => 2 }
       },
       'exterior' => {
+        'Front Door'              => { 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
         'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
         'French Hinged'           => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },
         '4-Panel Center Hinged'   => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
