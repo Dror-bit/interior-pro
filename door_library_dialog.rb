@@ -339,12 +339,18 @@ module InteriorPro
           .type-row > select { flex: 1; }
           .btn-add-type { padding: 6px 10px; background: #43A047; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; }
           .btn-add-type:hover { background: #388E3C; }
-          .design-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 6px; }
+          .design-grid { display: grid; grid-template-columns: repeat(5, 34px); gap: 6px; margin-top: 6px; justify-content: center; }
           .design-card { border: 2px solid #ddd; border-radius: 4px; padding: 3px 2px 2px; cursor: pointer; text-align: center; background: #fafafa; }
           .design-card:hover { border-color: #a1887f; }
           .design-card.selected { border-color: #5D4037; background: #f0e8e4; }
           .design-card svg { width: 100%; height: auto; display: block; }
           .design-card .dn { font-size: 8.5px; color: #555; margin-top: 2px; line-height: 1.1; min-height: 18px; }
+          .handle-head { display: flex; align-items: center; justify-content: space-between; border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; cursor: pointer; background: #fafafa; margin-top: 2px; }
+          .handle-head:hover { border-color: #a1887f; }
+          .handle-head .hn { font-size: 13px; color: #333; }
+          .handle-head .arrow { font-size: 11px; color: #777; }
+          .handle-grid { display: none; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 6px; }
+          .handle-grid.open { display: grid; }
           .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
           .checkbox-row input { width: auto; }
           .checkbox-row label { margin: 0; }
@@ -411,7 +417,12 @@ module InteriorPro
             <div id="handleSection" style="display:none;">
               <div class="section-title">Handle</div>
               <label>Door Handle</label>
-              <select id="handleStyle"></select>
+              <select id="handleStyle" style="display:none;"></select>
+              <div class="handle-head" onclick="toggleHandleGallery()">
+                <span class="hn" id="handleCurrentLabel">None</span>
+                <span class="arrow" id="handleArrow">&#9656;</span>
+              </div>
+              <div class="handle-grid" id="handleGrid"></div>
             </div>
 
             <div class="section-title">Position</div>
@@ -515,6 +526,103 @@ module InteriorPro
             sel.innerHTML = opts;
           }
 
+          // ---- Handle gallery (collapsed by default, minimalist 2D thumbs) ----
+          function handleThumbSvg(name) {
+            var s;
+            switch (name) {
+              case '1':
+                s = '<circle cx="30" cy="48" r="15" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="27" y="41" width="56" height="14" rx="5" fill="#f2f0ec" stroke="#777" stroke-width="2"/>';
+                break;
+              case '2':
+                s = '<rect x="16" y="28" width="28" height="28" rx="3" fill="#c9c7c2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="12" y="35" width="72" height="12" fill="#dbd9d4" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="22" y="64" width="17" height="17" rx="2" fill="#c9c7c2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="28" y="68" width="5" height="9" rx="2.5" fill="#555"/>';
+                break;
+              case '3':
+                s = '<rect x="22" y="8" width="26" height="80" rx="12" fill="#4a4a4a" stroke="#2c2c2a" stroke-width="2"/>' +
+                    '<circle cx="35" cy="31" r="12" fill="#3d3d3d" stroke="#222" stroke-width="2"/>' +
+                    '<circle cx="35" cy="31" r="6" fill="none" stroke="#666" stroke-width="1.5"/>' +
+                    '<rect x="30" y="58" width="10" height="16" rx="5" fill="#2c2c2a"/>' +
+                    '<line x1="35" y1="62" x2="35" y2="70" stroke="#888" stroke-width="1.5"/>';
+                break;
+              case '4':
+                s = '<rect x="24" y="6" width="22" height="84" rx="10" fill="#3a3a3a" stroke="#222" stroke-width="2"/>' +
+                    '<circle cx="35" cy="16" r="1.6" fill="#777"/><circle cx="35" cy="80" r="1.6" fill="#777"/>' +
+                    '<circle cx="35" cy="32" r="8" fill="#2f2f2f" stroke="#222" stroke-width="2"/>' +
+                    '<path d="M 40 30 C 54 24, 64 28, 72 36" fill="none" stroke="#3a3a3a" stroke-width="9" stroke-linecap="round"/>' +
+                    '<circle cx="74" cy="38" r="6" fill="#3a3a3a" stroke="#222" stroke-width="1.5"/>' +
+                    '<circle cx="35" cy="64" r="5" fill="none" stroke="#888" stroke-width="1.5"/>' +
+                    '<line x1="35" y1="62" x2="35" y2="67" stroke="#888" stroke-width="1.5"/>';
+                break;
+              case '5':
+                s = '<circle cx="30" cy="34" r="14" fill="#d9d7d2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="28" y="30" width="54" height="9" rx="4.5" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
+                    '<circle cx="30" cy="70" r="11" fill="#d9d7d2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="27" y="63" width="6" height="14" rx="3" fill="none" stroke="#777" stroke-width="1.5"/>';
+                break;
+              case '6':
+                s = '<circle cx="30" cy="48" r="14" fill="#d9d7d2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="27" y="42" width="55" height="13" rx="6.5" fill="#e8e6e1" stroke="#777" stroke-width="2"/>';
+                break;
+              case 'Door knob':
+                s = '<circle cx="48" cy="48" r="17" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
+                    '<circle cx="48" cy="48" r="10" fill="#d0cec9" stroke="#777" stroke-width="2"/>';
+                break;
+              case 'M - 7':
+                s = '<circle cx="30" cy="48" r="15" fill="#d9d7d2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="22" y="42" width="12" height="13" fill="#b5b3ae" stroke="#555" stroke-width="1.5"/>' +
+                    '<rect x="70" y="42" width="12" height="13" fill="#b5b3ae" stroke="#555" stroke-width="1.5"/>' +
+                    '<rect x="34" y="41" width="36" height="15" fill="#2c2c2a"/>' +
+                    '<rect x="24" y="45" width="7" height="7" fill="none" stroke="#555" stroke-width="1.5" transform="rotate(45 27.5 48.5)"/>';
+                break;
+              case 'M-8':
+                s = '<circle cx="28" cy="44" r="14" fill="#d9d7d2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="24" y="34" width="58" height="20" rx="10" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
+                    '<circle cx="32" cy="44" r="8" fill="#d0cec9" stroke="#777" stroke-width="1.5"/>' +
+                    '<rect x="56" y="40" width="18" height="9" rx="4.5" fill="none" stroke="#777" stroke-width="1.5"/>';
+                break;
+              default:
+                s = '<circle cx="30" cy="48" r="15" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="27" y="41" width="56" height="14" rx="5" fill="#f2f0ec" stroke="#777" stroke-width="2"/>';
+            }
+            return '<svg viewBox="0 0 96 96">' + s + '</svg>';
+          }
+          function renderHandleGallery() {
+            var grid = document.getElementById('handleGrid');
+            if (!grid) return;
+            var cur = document.getElementById('handleStyle').value || 'none';
+            var names = ['none'].concat(HANDLE_NAMES);
+            grid.innerHTML = names.map(function(n) {
+              var sel = n === cur ? ' selected' : '';
+              var svg = n === 'none'
+                ? '<svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="20" fill="none" stroke="#bbb" stroke-width="2"/><line x1="34" y1="62" x2="62" y2="34" stroke="#bbb" stroke-width="2"/></svg>'
+                : handleThumbSvg(n);
+              return '<div class="design-card' + sel + '" data-handle="' + n +
+                     '" onclick="selectHandleCard(this)">' + svg +
+                     '<div class="dn">' + (n === 'none' ? 'None' : n) + '</div></div>';
+            }).join('');
+          }
+          function selectHandleCard(el) {
+            var n = el.getAttribute('data-handle');
+            document.getElementById('handleStyle').value = n;
+            syncHandleLabel();
+            toggleHandleGallery(false);
+          }
+          function toggleHandleGallery(force) {
+            var g = document.getElementById('handleGrid');
+            var open = (typeof force === 'boolean') ? force : g.className.indexOf('open') === -1;
+            g.className = open ? 'handle-grid open' : 'handle-grid';
+            document.getElementById('handleArrow').innerHTML = open ? '&#9662;' : '&#9656;';
+            if (open) renderHandleGallery();
+            resizeDialogToContent();
+          }
+          function syncHandleLabel() {
+            var v = document.getElementById('handleStyle').value || 'none';
+            document.getElementById('handleCurrentLabel').textContent = (v === 'none') ? 'None' : v;
+          }
+
           // ---- Leaf designs (must match InteriorPro::DoorLeafStyles::STYLES) ----
           var FR = {
             shaker:   { st: 13.3, tr: 12.9, br: 27.6, ir: 12.9, lock: 22.3 },
@@ -601,8 +709,8 @@ module InteriorPro
             grid.innerHTML = LEAF_DESIGNS.map(function(d) {
               var sel = d.name === selectedLeafStyle ? ' selected' : '';
               return '<div class="design-card' + sel + '" data-style="' + d.name +
-                     '" onclick="selectLeafDesign(this)">' + leafThumbSvg(d.spec) +
-                     '<div class="dn">' + d.name + '</div></div>';
+                     '" title="' + d.name + '" onclick="selectLeafDesign(this)">' +
+                     leafThumbSvg(d.spec) + '</div>';
             }).join('');
           }
           function selectLeafDesign(el) {
@@ -724,6 +832,7 @@ module InteriorPro
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
             renderHandleOptions();
             if (s.handle_style) document.getElementById('handleStyle').value = s.handle_style;
+            syncHandleLabel();
             renderDesignGrid();
             syncTypeFields();
             syncCategoryFields();
@@ -820,7 +929,7 @@ module InteriorPro
             if (closet) renderClosetGrid();
             var showHandle = isInterior && !closet && t !== 'Pocket';
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
-            if (showHandle) renderHandleOptions();
+            if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
           }
 
