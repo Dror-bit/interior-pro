@@ -1,40 +1,65 @@
-# סטטוס והעברה — Interior Pro
+# STATUS_handoff — Interior Pro (עודכן 2026-07-07)
 
-## הקשר
-תוסף SketchUp (Ruby, מודול InteriorPro), SketchUp 2024, Windows. ענף git: door-stabilize.
-מתודת עבודה: עברית קצרה; צעד אחד בכל פעם; בדיקה על **סצנה נקייה** + commit אחרי כל ירוק; לא לשבור קיים.
+קרא את זה ראשון בכל צ'אט חדש. משלים את CLAUDE.md (מוגבל לדלתות) ואת ה-RETRO.
 
-## עיקרון-ליבה (חוק)
-**הגיאומטריה תמיד נבנית מחדש מהנתונים — לא מתוקנת/מטולאת.** attributes = מקור-אמת; כל עריכה = שינוי נתונים → rebuild מלא. אסור boolean/fill/heal בזרימות החיות.
+## שיטת העבודה הנוכחית (חשוב!)
+- **אין Cursor.** העוזר עורך ישירות בתיקיית המקור `C:\InteriorPro_Agent\source_readonly` (באישור המשתמש לכל צעד).
+- הפלאגין החי רץ מ: `C:\Users\rordt\AppData\Roaming\SketchUp\SketchUp 2024\SketchUp\Plugins\interior_pro` (`InteriorPro::PLUGIN_DIR`).
+- סנכרון: `FileUtils.cp` ב-Ruby Console (מקור ← Plugins) ואז `InteriorPro.reload!`. שינויי דיאלוג: לסגור ולפתוח את הדיאלוג. שינוי ב-DOOR_SETTING_KEYS (door_manager.rb, מוגן ב-const_defined?) — **חובה הפעלה מחדש מלאה של SketchUp**.
+- **git: רק בתיקיית ה-Plugins** (branch: door-stabilize). **בתיקיית המקור אין git!** commit דרך טרמינל cmd עם `git -C "<נתיב Plugins>" ...`.
+- **אזהרה קריטית (תקרית 2026-07-07): לפני עריכת קובץ משותף — לוודא שהמקור מסונכרן עם ה-Plugins!** תיקיית המקור הייתה מיושנת (door_manager/door_tool), העתקה דרסה קוד חי ושברה הכל. שוחזר מ-git. הדרך: `copy /Y` מ-Plugins למקור לפני עבודה על קובץ שלא נגענו בו בסשן.
+- הדבקות ארוכות בקונסול נקטעות — סקריפטים לקובץ ואז `load`. בשורש: `debug_door.rb`, `debug_handles.rb`, `debug_front_doors.rb`, `debug_front_door.rb`.
+- בדיקות תמיד על סצנה נקייה; **רכיבי ידיות/דלתות נשמרים במודל (cache) — בדיקות בקובץ חדש לגמרי (File → New)!**
+- המשתמש מדביק פקודות בלבד — לתת פקודות מוכנות עם puts ופלט ברור, ולציין איפה מדביקים (Ruby Console / cmd).
 
-## הערות סביבה / כלים
-- Python לא מותקן. עריכות רק דרך Edit tool / PowerShell.
-- ה-bash mount מפגר לפעמים אחרי עריכות — **מקור-האמת לתחביר הוא `InteriorPro.reload!` ב-SketchUp**, לא `ruby -c`.
-- שינוי toolbar/menu או קובץ חדש ב-main.rb → **הפעלה-מחדש מלאה** של SketchUp. שינוי דיאלוג HTML → לסגור ולפתוח את הדיאלוג. שאר → `InteriorPro.reload!`.
+## מה הושלם בסבב 2026-07-07
+### ידיות — סגור
+- ידית 5: `yflip: true` (שיקוף קדימה-אחורה סביב מרכז הרכיב, לא מזיז כיול) + dy מכויל -3.6875.
+- ידית M-8: `yflip: true` + dy מכויל -3.25.
+- נושא ה-leader lines ירד — המשתמש אישר שאין קו נראה. לא לגעת.
+- דיאלוג: בחירת ידית = גלריה נפתחת בלחיצה (סגורה כברירת מחדל), ציורי SVG 2D פר-ידית, 5 עמודות. ה-select המקורי מוסתר ונשאר לתאימות.
+- גריד עיצובי כנף (פנים): 2 שורות של 5, חצי גודל, בלי שמות (tooltip בריחוף).
 
-## מה עובד (נבדק)
-### קירות
-ציור, ספרייה, חומרים, מיטר-פינות — כולל קירות עם פתחים (`apply_native_miter_corners!` ב-wall_tool.rb).
+### תיקונים קריטיים
+- **שוחזר `move_hosted_doors!`** ב-door_manager.rb (נמחק בטעות ב-2026-07-02 בעוד הקריאה ב-ui_dialogs.rb נשארה — הזזת קיר עם דלת הייתה שבורה). מזיז דלתות+חלונות של הקיר.
+- **`exterior_effective_n`** ב-door_tool.rb: דלתות חוץ נבנו החוצה מהקיר כשגוף הקיר בצד ה-שלילי של פאת הקליק. עכשיו בודקים מהפאות (wall_v_span_from_faces) והופכים את n בצורך. קירות תקינים לא מושפעים.
+- אזהרת Yes/No בהצבת דלת חוץ על קיר פנים (wall_category).
+- הסף (threshold): מדרגות ה-nose החיצוני הוסרו לגמרי — נשאר בסיס בלבד (append_exterior_threshold_nose! ריק).
 
-### דלתות — native מלא
-הצבה / עריכה / הזזה / מחיקה, כולן regenerate-from-data (door_manager.rb: `delete_door`, `move_door`, `update_door`, עוזרים `remove/update_native_opening_t!/dims!`). דלת עוקבת אחרי הזזת-קיר (`move_hosted_doors!`). סף (threshold) כבוי.
+### Front Door — פיצ'ר חדש (עובד)
+- סוג 'Front Door' ראשון ב-EXTERIOR_TYPES. ברירת מחדל 36×80.
+- **תצורות (front_config):** single / single_1sl / single_2sl / double. sidelite = פאנל מזוגג + mullion ‏1.5″. רוחב מתעדכן אוטומטית בדיאלוג לפי תצורה.
+- **Transom:** צ'קבוקס + גובה; סימון מגדיל את גובה הפתח אוטומטית (הכנף שומרת גובה). בר אופקי + זכוכית מעל.
+- **6 עיצובי כנף (front_leaf_style, גלריה בדיאלוג):**
+  1. Craftsman 3-Lite — 3 חלונות למעלה + 2 פאנלים שקועים בשני הצדדים (בלי מדף).
+  2. 5-Lite Ladder — 5 זכוכיות אופקיות.
+  3. Steel Glass — מסגרת פלדה שחורה + זכוכית מלאה; גריד מ-Glass Grid (none=חלק).
+  4. Farmhouse 4-Lite — זכוכית למעלה, גובה ב-% (front_glass_ratio, ברירת מחדל 50) + גריד מ-Glass Grid.
+  5. Modern Lines — כנף חלקה + 4 פסים אופקיים כהים.
+  6. Steel Arch — קשת פלדה + זכוכית + גריד קבוע (קו אמצע עד הרצפה), מילוי אטום בפינות מעל הקשת (הפתח בקיר נשאר מלבני!).
+- **מפתחות חדשים ב-DOOR_SETTING_KEYS:** front_config, front_leaf_style, front_glass_ratio, sidelite_width, transom, transom_height (+ attributes תואמים). שינוי בהם = restart.
+- **בנאים ב-door_tool.rb:** build_front_door_geometry!, front_door_spans, build_front_leaf_styled!, build_front_arch_leaf!, build_front_panel_with_holes!, add_front_grid_bars!, add_front_bar!, front_door_mats (חומרים: InteriorPro_Front_Steel, InteriorPro_Front_Groove).
+- **תצוגת כל העיצובים:** File → New ואז `load 'C:/InteriorPro_Agent/source_readonly/debug_front_doors.rb'` — בונה את כולן ממוספרות בשורה.
 
-### חלונות — native מלא, מאוחד עם דלתות
-- **אותה רשימת פתחים** כמו דלתות (חלון = פתח מורם, floor_offset=סף), שורד rebuild ועוקב אחרי הזזת-קיר.
-- **סוגים:** Casement, Casement XX, Single Hung, Slider XO, Slider XOX, Garden Window, XOX Single Hung (ב-window_library.rb + PRESETS).
-- גוף פר-פאנל (`build_pane`), slider/hung עם עומק-מסילות + interlock, XOX (hung+picture+hung), Garden (קופסה בולטת + מדף לבן + רַיל צדדים + עומק מתכוונן `garden_depth`).
-- **גרידים** (muntins ⅜″) בתוך זכוכית ¼″ (`build_pane_grid`), נבחר ב-dialog (None/2x2/3x3/2x3/3x2).
-- **כלים:** WindowTool (הצבה + ריבוע-רפאים), WindowEditTool/MoveTool/DeleteTool (window_manager.rb), אייקונים ייעודיים (window_edit/move/delete.svg).
-- דיאלוג זוכר בחירה אחרונה בין החלפות-כלי (@last), מתאפס רק בסגירת SketchUp.
+## לקחים מהסבב (קריטי!)
+- **לא להעתיק קובץ מהמקור ל-Plugins בלי לוודא שהמקור עדכני** — זו הייתה התקלה הגדולה של הסשן.
+- אחרי כל צעד ירוק — commit מיד. ה-git הציל את הסשן.
+- כשגוף/פאה נמחקים אחרי erase של פאה פנימית — לאתר מחדש את הפאה (grep(Sketchup::Face).first) לפני pushpull.
+- פוליגון קשת: בלי נקודות כפולות בקצוות, ולשמור על סדר נקודות רציף (self-intersection שובר add_face).
+- דלתות חוץ ופנים משתמשות בקונבנציות עומק שונות — פנים לפי פאות הקיר, חוץ 0..thickness + היפוך n בצורך.
 
-## קבצים מרכזיים
-wall_tool.rb (native rebuild + miter + build_pane וכו'), door_manager.rb (native door ops + עוזרי-פתחים גנריים), window_tool.rb (WindowTool + build_casement/garden/pane/grid), window_manager.rb (edit/move/delete + tools), window_library.rb / window_library_dialog.rb, toolbar.rb, main.rb.
+## נושאים פתוחים / הצעדים הבאים (לפי סדר שסוכם)
+1. **בדיקת עריכת Front Door** (דאבל-קליק): שכל השדות והעיצוב חוזרים ושה-rebuild תקין. טרם נבדק לעומק.
+2. **ידיות לדלת כניסה** — תיקייה מוכנה: `assets/FRONT DOOR HANDLES` (המשתמש יוסיף קבצים). handle_style כרגע לדלתות פנים בלבד (handle_enabled? מגביל ל-interior).
+3. **ידיות לדלתות ארון** — תיקייה: `assets/CLOSET DOOR HANDLES`.
+4. **סוגי Casing** — הרחבת הקטלוג (המשתמש רצה, טרם פורט).
+5. **מולדינג בייסבורד + תקרה (crown)** — חורג מ"דלתות בלבד"; דורש אישור מפורש + קבצים חדשים נפרדים.
+6. **פתחים מעוגלים בקיר** (קשת אמיתית + Radius window) — הפיצ'ר הכבד; דורש שינוי במודל הפתחים ובבנאי הקיר (wall_tool.rb אסור כרגע).
+7. UI פתוח: גריד עיצובי כנף פנים שייפתח רק בלחיצה (כמו הידיות).
+8. חוב ישן: באג מיטר Merge Wall; 4 סוגי חלונות placeholder.
 
-## הצעד הבא / פתוח
-1. **casing** לחלונות (טרים חיצוני/פנימי סביב הפתח) — עוד לא נעשה.
-2. **Radius window** (חלון קשת) — דורש פתח מעוגל (שינוי במודל-הפתחים + בנאי-הקיר). הפיצ'ר הכבד.
-3. גרידים ל-Garden (כרגע רק לחלונות מבוססי-פאנל).
-4. מהחזון: מצב שרטוט 2D נעול, אוטומציה ל-LayOut, מטבחים פרמטריים.
-
-## מסמכים
-`RETRO_and_plan.md` (רטרו + ארכיטקטורה), `CORNER_MITER_plan.md` (עיצוב המיטר).
+## קבצים זמניים בשורש
+- `debug_front_doors.rb` — תצוגת עיצובי Front Door (להשאיר).
+- `debug_front_door.rb` — דיבוג מיקום דלת מול קיר (להשאיר).
+- `debug_handles.rb` — סצנת כיול ידיות (להשאיר).
+- `report_handle_lines.rb`, `door_manager_before_delete.rb`, `dh_c319962.rb` — אפשר למחוק.
