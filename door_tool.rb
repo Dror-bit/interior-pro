@@ -4093,20 +4093,9 @@ module InteriorPro
       extrude_rect(ge, -iw, iw, wf, wf + SILL_PLATE_HEIGHT, 0.0, thickness, unit, n)
     end
 
-    # Stepped nose outside the wall, rising from the sill plate (not below floor line).
+    # Exterior nose REMOVED entirely (user request 2026-07-06) - sill block only.
     def append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
-      base = wf + SILL_PLATE_HEIGHT
-      exterior_tiers = [
-        { vf0: 0.00, vf1: 0.35, wb: 0.000, wt: 0.125 },
-        { vf0: 0.35, vf1: 0.65, wb: 0.125, wt: 0.250 },
-        { vf0: 0.65, vf1: 0.88, wb: 0.250, wt: 0.375 },
-        { vf0: 0.88, vf1: 1.00, wb: 0.375, wt: 0.500 }
-      ]
-      exterior_tiers.each do |tier|
-        va = -THRESHOLD_OVERHANG * tier[:vf0]
-        vb = -THRESHOLD_OVERHANG * tier[:vf1]
-        extrude_rect(ge, -half_w, half_w, base + tier[:wb], base + tier[:wt], va, vb, unit, n)
-      end
+      nil
     end
 
     # Solid rectangular strip extruded through the wall (v_start -> v_end).
