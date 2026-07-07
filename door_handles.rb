@@ -59,28 +59,43 @@ module InteriorPro
       'M-8'       => { dx: 2.25,    dz: 0.0, dy: -3.25, yflip: true }
     }.freeze
 
-    def self.fit_offset(name)
-      HANDLE_FIT[name.to_s] || { dx: 0.0, dz: 0.0 }
+    # Front door handles (files named 1..4) — separate table so numeric
+    # names never collide with the interior calibrations above.
+    FRONT_HANDLE_FIT = {
+      '1' => { dx: -0.5, dz: 1.3409, rz: 90 },
+      '2' => { dx: 1.5625, dz: 0.0 },
+      '3' => { dx: 1.125, dz: 0.0, rx: 90 },
+      '4' => { dx: -0.5, dz: 0.0, rz: 90 }
+    }.freeze
+
+    def self.fit_offset(name, kind = 'interior')
+      table = kind.to_s == 'front' ? FRONT_HANDLE_FIT : HANDLE_FIT
+      table[name.to_s] || { dx: 0.0, dz: 0.0 }
     end
 
     # true when the .skp already contains both sides of the handle.
-    def self.both_sides?(name)
-      !!fit_offset(name)[:both]
+    def self.both_sides?(name, kind = 'interior')
+      !!fit_offset(name, kind)[:both]
     end
 
     # Complete "fit" transform for a handle definition: optional lay-flat
     # rotation, front-back mirror, anchor on the pivot, base pressed to the
     # door plane. Shared by DoorTool and the calibration scene.
-    def self.fit_transform(hdef, name)
-      off = fit_offset(name)
+    def self.fit_transform(hdef, name, kind = 'interior')
+      off = fit_offset(name, kind)
       rx = (off[:rx] || 0).to_f
-      r = if rx.zero?
-            Geom::Transformation.new
-          else
-            Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0),
+      rz = (off[:rz] || 0).to_f
+      r = Geom::Transformation.new
+      unless rx.zero?
+        r = Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0),
                                           Geom::Vector3d.new(1, 0, 0),
-                                          rx.degrees)
-          end
+                                          rx.degrees) * r
+      end
+      unless rz.zero?
+        r = Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0),
+                                          Geom::Vector3d.new(0, 0, 1),
+                                          rz.degrees) * r
+      end
       rb = Geom::BoundingBox.new
       8.times { |i| rb.add(hdef.bounds.corner(i).transform(r)) }
       if off[:yflip]
