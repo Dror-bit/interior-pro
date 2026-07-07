@@ -324,6 +324,8 @@ module InteriorPro
       types_json = types.to_json
       handles_json = defined?(InteriorPro::DoorHandles) ?
         InteriorPro::DoorHandles.handle_names('interior').to_json : '[]'
+      front_handles_json = defined?(InteriorPro::DoorHandles) ?
+        InteriorPro::DoorHandles.handle_names('front').to_json : '[]'
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -544,15 +546,27 @@ module InteriorPro
           var initialSettings = #{settings_json};
           var initialTypes = #{types_json};
           var HANDLE_NAMES = #{handles_json};
+          var FRONT_HANDLE_NAMES = #{front_handles_json};
+
+          function isFrontDoorType() {
+            return document.getElementById('doorCategory').value === 'exterior' &&
+                   document.getElementById('doorType').value === 'Front Door';
+          }
+          function currentHandleNames() {
+            return isFrontDoorType() ? FRONT_HANDLE_NAMES : HANDLE_NAMES;
+          }
 
           function renderHandleOptions() {
             var sel = document.getElementById('handleStyle');
-            if (!sel || sel.options.length > 0) return;
+            if (!sel) return;
+            var names = currentHandleNames();
+            var cur = sel.value;
             var opts = '<option value="none">None</option>';
-            for (var i = 0; i < HANDLE_NAMES.length; i++) {
-              opts += '<option value="' + HANDLE_NAMES[i] + '">' + HANDLE_NAMES[i] + '</option>';
+            for (var i = 0; i < names.length; i++) {
+              opts += '<option value="' + names[i] + '">' + names[i] + '</option>';
             }
             sel.innerHTML = opts;
+            sel.value = (names.indexOf(cur) >= 0) ? cur : 'none';
           }
 
           // ---- Handle gallery (collapsed by default, minimalist 2D thumbs) ----
@@ -618,16 +632,41 @@ module InteriorPro
             }
             return '<svg viewBox="0 0 96 96">' + s + '</svg>';
           }
+          // Front handle thumbs (numeric names collide with interior — separate set).
+          function frontHandleThumbSvg(name) {
+            var s;
+            switch (name) {
+              case '1': // 24in pull
+                s = '<rect x="40" y="16" width="6" height="6" fill="#2c2c2a"/><rect x="40" y="74" width="6" height="6" fill="#2c2c2a"/>' +
+                    '<rect x="44" y="10" width="8" height="76" rx="4" fill="#2c2c2a"/>';
+                break;
+              case '2': // pull on backplate
+                s = '<rect x="38" y="14" width="20" height="68" rx="3" fill="#c9c7c2" stroke="#777" stroke-width="2"/>' +
+                    '<rect x="44" y="24" width="8" height="48" rx="4" fill="#2c2c2a"/>';
+                break;
+              case '3': // grip handle
+                s = '<rect x="42" y="20" width="12" height="56" rx="6" fill="#4a4a4a" stroke="#2c2c2a" stroke-width="2"/>';
+                break;
+              case '4': // 12in pull
+                s = '<rect x="40" y="32" width="6" height="6" fill="#2c2c2a"/><rect x="40" y="58" width="6" height="6" fill="#2c2c2a"/>' +
+                    '<rect x="44" y="26" width="8" height="44" rx="4" fill="#2c2c2a"/>';
+                break;
+              default:
+                s = '<rect x="44" y="20" width="8" height="56" rx="4" fill="#2c2c2a"/>';
+            }
+            return '<svg viewBox="0 0 96 96">' + s + '</svg>';
+          }
           function renderHandleGallery() {
             var grid = document.getElementById('handleGrid');
             if (!grid) return;
             var cur = document.getElementById('handleStyle').value || 'none';
-            var names = ['none'].concat(HANDLE_NAMES);
+            var front = isFrontDoorType();
+            var names = ['none'].concat(currentHandleNames());
             grid.innerHTML = names.map(function(n) {
               var sel = n === cur ? ' selected' : '';
               var svg = n === 'none'
                 ? '<svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="20" fill="none" stroke="#bbb" stroke-width="2"/><line x1="34" y1="62" x2="62" y2="34" stroke="#bbb" stroke-width="2"/></svg>'
-                : handleThumbSvg(n);
+                : (front ? frontHandleThumbSvg(n) : handleThumbSvg(n));
               return '<div class="design-card' + sel + '" data-handle="' + n +
                      '" onclick="selectHandleCard(this)">' + svg +
                      '<div class="dn">' + (n === 'none' ? 'None' : n) + '</div></div>';
@@ -965,7 +1004,7 @@ module InteriorPro
             document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
             document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
             if (closet) renderClosetGrid();
-            var showHandle = isInterior && !closet && t !== 'Pocket';
+            var showHandle = (isInterior && !closet && t !== 'Pocket') || isFront;
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();

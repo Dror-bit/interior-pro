@@ -3803,6 +3803,21 @@ module InteriorPro
                                  unit, n, 'Leaf_Front')
       end
 
+      if handle_enabled?
+        if @front_config.to_s == 'double'
+          gap = layout[:meeting_gap]
+          mid = (u_dl + u_dr) / 2.0
+          place_leaf_handles!(parent_ents, mid - gap - 3.0, -1, leaf_bot, vf, vb, unit, n)
+          place_leaf_handles!(parent_ents, mid + gap + 3.0, 1, leaf_bot, vf, vb, unit, n)
+        else
+          # Lock side = opposite the hinge side; anchor 3" from the lock edge
+          # (matches the calibration scene).
+          hu = @swing_direction.to_s == 'right' ? (u_dl + 3.0) : (u_dr - 3.0)
+          place_leaf_handles!(parent_ents, hu, hu > (u_dl + u_dr) / 2.0 ? -1 : 1,
+                              leaf_bot, vf, vb, unit, n)
+        end
+      end
+
       # Stage 2: glazed sidelites + transom with mullions between them.
       glass_mat = mats[:glass_mat]
       iw = layout[:iw]
@@ -4224,9 +4239,15 @@ module InteriorPro
     end
 
     def handle_enabled?
-      @handle_style.to_s != '' && @handle_style.to_s != 'none' &&
-        @door_category.to_s == 'interior' && !pocket_door? && !closet_door? &&
-        defined?(InteriorPro::DoorHandles)
+      return false if @handle_style.to_s == '' || @handle_style.to_s == 'none'
+      return false unless defined?(InteriorPro::DoorHandles)
+      return true if front_door_type?
+      @door_category.to_s == 'interior' && !pocket_door? && !closet_door?
+    end
+
+    # Which handle asset folder/calibration table to use for this door.
+    def handle_kind
+      front_door_type? ? 'front' : 'interior'
     end
 
     # Place a handle component on the leaf face at (u_pos, w_pos).
@@ -4234,7 +4255,7 @@ module InteriorPro
     # Component convention: X along door width, Y away from the door face, Z up.
     def place_handle!(parent_ents, u_pos, w_pos, v_face, out_sign, x_sign, unit, n)
       model = Sketchup.active_model
-      hdef = InteriorPro::DoorHandles.definition_for(model, @handle_style, 'interior')
+      hdef = InteriorPro::DoorHandles.definition_for(model, @handle_style, handle_kind)
       unless hdef
         door_log "[DoorTool] handle definition failed: #{@handle_style}"
         return nil
@@ -4249,7 +4270,7 @@ module InteriorPro
       # and press the base onto the leaf face. Anchor (u,w) on the component
       # ORIGIN (= the pivot/rose, per our modeling convention) when it lies
       # inside the bounds footprint; otherwise fall back to the bounds center.
-      fit = InteriorPro::DoorHandles.fit_transform(hdef, @handle_style)
+      fit = InteriorPro::DoorHandles.fit_transform(hdef, @handle_style, handle_kind)
       parent_ents.add_instance(hdef, t * fit)
     rescue StandardError => e
       door_log "[DoorTool] place_handle! error: #{e.message}"
@@ -4260,7 +4281,7 @@ module InteriorPro
     # x_sign: +1 = lever points toward +u, -1 = toward -u (away from lock edge).
     def place_leaf_handles!(parent_ents, u_pos, x_sign, leaf_w0, lv0, lv1, unit, n)
       w_pos = leaf_w0 + 36.0
-      if InteriorPro::DoorHandles.both_sides?(@handle_style)
+      if InteriorPro::DoorHandles.both_sides?(@handle_style, handle_kind)
         # File already contains both sides: place ONCE, centered on the leaf.
         place_handle!(parent_ents, u_pos, w_pos, (lv0 + lv1) / 2.0, 1, x_sign, unit, n)
       else
