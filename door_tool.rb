@@ -161,6 +161,11 @@ module InteriorPro
         Sketchup.set_status_text("No wall under cursor. Hover over a wall to place a door.", SB_PROMPT)
         return
       end
+      if @door_category.to_s != 'interior' &&
+         wall.get_attribute('InteriorPro', 'wall_category', 'exterior').to_s == 'interior'
+        choice = UI.messagebox('This is an EXTERIOR door on an INTERIOR wall. Place anyway?', MB_YESNO)
+        return unless choice == IDYES
+      end
       cut_door_opening(wall, picked_point, picked_face)
     end
 
@@ -2843,11 +2848,28 @@ module InteriorPro
       end
     end
 
+    # Exterior builders assume the wall slab lies at v=0..thickness along +n
+    # from the component origin. On walls whose body sits on the -n side of the
+    # clicked face, flip n so the body is built INTO the wall (measured from the
+    # wall's own faces, like the interior path). No flip when already correct.
+    def exterior_effective_n(data, n)
+      wall = data[:wall_group]
+      return n unless wall && wall.valid?
+      origin_pt = Geom::Point3d.new(data[:cx].to_f, data[:cy].to_f, 0)
+      span = wall_v_span_from_faces(wall, origin_pt, n)
+      return n unless span
+      mid = (span[0] + span[1]) / 2.0
+      mid < 0 ? n.reverse : n
+    rescue StandardError
+      n
+    end
+
     def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
       t = @door_type.to_s.strip
       if @door_category.to_s == 'interior' && t != 'French Hinged'
         return build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
       end
+      n = exterior_effective_n(data, n)
       if t.match?(/\A\d+-Panel Sliding\z/)
         build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
       elsif t.match?(/\A\d+-Panel Folding\z/)
