@@ -3537,6 +3537,34 @@ module InteriorPro
                           unit, n, frame_mat, 'Leaf_Front')
       end
 
+      # Stage 2: glazed sidelites + transom with mullions between them.
+      glass_mat = mats[:glass_mat]
+      iw = layout[:iw]
+      sl_w = spans[:sl_w]
+      sl_stile = sl_w >= 8.0 ? 2.0 : 1.0
+
+      if spans[:sl_left]
+        sl = build_leaf(parent_ents, -iw, -iw + sl_w, leaf_bot, leaf_top, vf, vb,
+                        sl_stile, unit, n, frame_mat, glass_mat)
+        sl.name = 'Leaf_Sidelite_L' if sl
+        build_front_slab!(parent_ents, u_dl - FRONT_MULLION_W, u_dl, leaf_bot, leaf_top,
+                          0.0, thickness, unit, n, frame_mat, 'Mullion_L')
+      end
+      if spans[:sl_right]
+        sl = build_leaf(parent_ents, iw - sl_w, iw, leaf_bot, leaf_top, vf, vb,
+                        sl_stile, unit, n, frame_mat, glass_mat)
+        sl.name = 'Leaf_Sidelite_R' if sl
+        build_front_slab!(parent_ents, u_dr, u_dr + FRONT_MULLION_W, leaf_bot, leaf_top,
+                          0.0, thickness, unit, n, frame_mat, 'Mullion_R')
+      end
+      if @transom && @transom_height.to_f > 0.5
+        build_front_slab!(parent_ents, -iw, iw, leaf_top, leaf_top + FRONT_MULLION_W,
+                          0.0, thickness, unit, n, frame_mat, 'Transom_Bar')
+        tr = build_leaf(parent_ents, -iw, iw, leaf_top + FRONT_MULLION_W, layout[:leaf_top],
+                        vf, vb, sl_stile, unit, n, frame_mat, glass_mat)
+        tr.name = 'Leaf_Transom' if tr
+      end
+
       finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
     end
 
