@@ -80,6 +80,8 @@ module InteriorPro
       tool.sidelite_width      = (settings['sidelite_width'] || 14.0).to_f if tool.respond_to?(:sidelite_width=)
       tool.transom             = !!settings['transom'] if tool.respond_to?(:transom=)
       tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
+      tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
+      tool.frame_color         = settings['frame_color'] || '' if tool.respond_to?(:frame_color=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -389,7 +391,11 @@ module InteriorPro
 
             <div id="leafDesignSection">
               <div class="section-title">Leaf Design</div>
-              <div class="design-grid" id="designGrid"></div>
+              <div class="handle-head" onclick="toggleDesignGrid()">
+                <span class="hn" id="designCurrentLabel">Flush</span>
+                <span class="arrow" id="designArrow">&#9656;</span>
+              </div>
+              <div class="design-grid" id="designGrid" style="display:none;"></div>
             </div>
 
             <div id="closetSection" style="display:none;">
@@ -421,11 +427,32 @@ module InteriorPro
             <label>Glass Frame Width (in)</label>
             <input type="number" id="glassFrameWidth" value="#{initial_glass_frame}" min="0.5" step="0.25"
                    title="Width of the frame around each glass pane (reduces glass area)">
+            <div class="row" style="align-items:center;">
+              <div>
+                <label style="display:inline;">Door Color</label>
+                <input type="color" id="doorColor" value="#faf8f3" title="Leaf color"
+                       onchange="onDoorColorChange()"
+                       style="width:22px;height:22px;padding:0;border:1px solid #ccc;vertical-align:middle;margin-left:6px;">
+              </div>
+              <div>
+                <label style="display:inline;">Frame Color</label>
+                <input type="color" id="frameColor" value="#f5f5f0" title="Jamb / casing color"
+                       style="width:22px;height:22px;padding:0;border:1px solid #ccc;vertical-align:middle;margin-left:6px;">
+              </div>
+            </div>
+            <label style="display:block;margin-top:4px;">
+              <input type="checkbox" id="sameColorCheck" onchange="onSameColorToggle()">
+              Frame same color as door
+            </label>
 
             <div id="frontDoorSection" style="display:none;">
               <div class="section-title">Front Door</div>
               <label>Design</label>
-              <div class="design-grid" id="frontDesignGrid"></div>
+              <div class="handle-head" onclick="toggleFrontDesignGrid()">
+                <span class="hn" id="frontDesignCurrentLabel">Craftsman 3-Lite</span>
+                <span class="arrow" id="frontDesignArrow">&#9656;</span>
+              </div>
+              <div class="design-grid" id="frontDesignGrid" style="display:none;"></div>
               <label>Configuration</label>
               <select id="frontConfig" onchange="onFrontConfigChange()">
                 <option value="single">Single</option>
@@ -547,6 +574,18 @@ module InteriorPro
           var initialTypes = #{types_json};
           var HANDLE_NAMES = #{handles_json};
           var FRONT_HANDLE_NAMES = #{front_handles_json};
+
+          function onSameColorToggle() {
+            var same = document.getElementById('sameColorCheck').checked;
+            var fc = document.getElementById('frameColor');
+            fc.disabled = same;
+            if (same) fc.value = document.getElementById('doorColor').value;
+          }
+          function onDoorColorChange() {
+            if (document.getElementById('sameColorCheck').checked) {
+              document.getElementById('frameColor').value = document.getElementById('doorColor').value;
+            }
+          }
 
           function isFrontDoorType() {
             return document.getElementById('doorCategory').value === 'exterior' &&
@@ -774,6 +813,8 @@ module InteriorPro
           function renderDesignGrid() {
             var grid = document.getElementById('designGrid');
             if (!grid) return;
+            var lbl = document.getElementById('designCurrentLabel');
+            if (lbl) lbl.textContent = selectedLeafStyle || 'Flush';
             grid.innerHTML = LEAF_DESIGNS.map(function(d) {
               var sel = d.name === selectedLeafStyle ? ' selected' : '';
               return '<div class="design-card' + sel + '" data-style="' + d.name +
@@ -786,6 +827,15 @@ module InteriorPro
             var cards = document.querySelectorAll('#designGrid .design-card');
             for (var i = 0; i < cards.length; i++) cards[i].className = 'design-card';
             el.className = 'design-card selected';
+            toggleDesignGrid(false);
+          }
+          function toggleDesignGrid(force) {
+            var g = document.getElementById('designGrid');
+            var open = (typeof force === 'boolean') ? force : g.style.display === 'none';
+            g.style.display = open ? 'grid' : 'none';
+            document.getElementById('designArrow').innerHTML = open ? '&#9662;' : '&#9656;';
+            renderDesignGrid();
+            resizeDialogToContent();
           }
 
           // ---- Closet (mirror bypass sliding) ----
@@ -904,6 +954,12 @@ module InteriorPro
             if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
             document.getElementById('transomCheck').checked = !!s.transom;
             if (s.transom_height != null) document.getElementById('transomHeight').value = s.transom_height;
+            if (s.door_color) document.getElementById('doorColor').value = s.door_color;
+            if (s.frame_color) document.getElementById('frameColor').value = s.frame_color;
+            if (s.door_color && s.door_color === s.frame_color) {
+              document.getElementById('sameColorCheck').checked = true;
+              document.getElementById('frameColor').disabled = true;
+            }
             renderHandleOptions();
             if (s.handle_style) document.getElementById('handleStyle').value = s.handle_style;
             syncHandleLabel();
@@ -1061,6 +1117,8 @@ module InteriorPro
           function renderFrontDesignGrid() {
             var grid = document.getElementById('frontDesignGrid');
             if (!grid) return;
+            var lbl = document.getElementById('frontDesignCurrentLabel');
+            if (lbl) lbl.textContent = selectedFrontStyle;
             grid.innerHTML = FRONT_DESIGNS.map(function(name) {
               var sel = name === selectedFrontStyle ? ' selected' : '';
               return '<div class="design-card' + sel + '" data-style="' + name +
@@ -1070,7 +1128,15 @@ module InteriorPro
           }
           function selectFrontDesign(el) {
             selectedFrontStyle = el.getAttribute('data-style');
+            toggleFrontDesignGrid(false);
+          }
+          function toggleFrontDesignGrid(force) {
+            var g = document.getElementById('frontDesignGrid');
+            var open = (typeof force === 'boolean') ? force : g.style.display === 'none';
+            g.style.display = open ? 'grid' : 'none';
+            document.getElementById('frontDesignArrow').innerHTML = open ? '&#9662;' : '&#9656;';
             renderFrontDesignGrid();
+            resizeDialogToContent();
           }
 
           function onTransomToggle() {
@@ -1128,6 +1194,10 @@ module InteriorPro
               sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
               transom: document.getElementById('transomCheck').checked,
               transom_height: parseFloat(document.getElementById('transomHeight').value) || 14,
+              door_color: (document.getElementById('doorColor').value || ''),
+              frame_color: (document.getElementById('sameColorCheck').checked
+                ? (document.getElementById('doorColor').value || '')
+                : (document.getElementById('frameColor').value || '')),
               width: parseFloat(document.getElementById('doorWidth').value),
               height: parseFloat(document.getElementById('doorHeight').value),
               frame_width: parseFloat(document.getElementById('frameWidth').value),

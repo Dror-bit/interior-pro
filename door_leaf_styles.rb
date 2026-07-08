@@ -68,14 +68,14 @@ module InteriorPro
     # unit = width unit vector, n = wall normal unit vector.
     # Returns the leaf Group (or nil on failure).
     # ------------------------------------------------------------------
-    def self.build_leaf_body!(parent_ents, style_name, u0, u1, w0, w1, vf, vb, unit, n, name: 'Leaf')
+    def self.build_leaf_body!(parent_ents, style_name, u0, u1, w0, w1, vf, vb, unit, n, name: 'Leaf', leaf_mat: nil)
       spec = STYLES[style_name.to_s] || STYLES[default_style]
       leaf = parent_ents.add_group
       leaf.name = name
       le = leaf.entities
 
       model = Sketchup.active_model
-      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Leaf', [250, 248, 243], 1.0)
+      frame_mat = leaf_mat || get_or_create_material(model, 'InteriorPro_Door_Leaf', [250, 248, 243], 1.0)
       glass_mat = get_or_create_material(model, 'InteriorPro_Glass', [180, 180, 180], 0.4)
 
       if spec[:kind] == :lite

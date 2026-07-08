@@ -20,7 +20,8 @@ module InteriorPro
                   :slide_direction, :glass_grid_style, :exterior_casing_style,
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
                   :leaf_style, :closet_leaf_count, :handle_style,
-                  :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height
+                  :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
+                  :door_color, :frame_color
 
     def initialize
       @placement_ready = false
@@ -2909,8 +2910,7 @@ module InteriorPro
       end
 
       model = Sketchup.active_model
-      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
-                                         Sketchup::Color.new(245, 245, 240), 1.0)
+      frame_mat = door_frame_material(model)
 
       half_w = data[:half_w].to_f
       half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
@@ -2984,11 +2984,11 @@ module InteriorPro
         meet = 0.0625
         l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
           parent_ents, style, -iw + gap, -meet, -half_h, w_top, lv0, lv1, unit, n,
-          name: 'Leaf_Left'
+          name: 'Leaf_Left', leaf_mat: door_leaf_material(model)
         )
         l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
           parent_ents, style, meet, iw - gap, -half_h, w_top, lv0, lv1, unit, n,
-          name: 'Leaf_Right'
+          name: 'Leaf_Right', leaf_mat: door_leaf_material(model)
         )
         unless l1 && l2
           door_log "[DoorTool] double leaf build failed for style=#{style}"
@@ -3009,11 +3009,11 @@ module InteriorPro
         meet = 0.0625
         l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
           parent_ents, style, -iw + gap, -meet, -half_h, w_top - 1.0, fl0, fl1, unit, n,
-          name: 'Leaf_Left'
+          name: 'Leaf_Left', leaf_mat: door_leaf_material(model)
         )
         l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
           parent_ents, style, meet, iw - gap, -half_h, w_top - 1.0, fl0, fl1, unit, n,
-          name: 'Leaf_Right'
+          name: 'Leaf_Right', leaf_mat: door_leaf_material(model)
         )
         unless l1 && l2
           door_log "[DoorTool] folding leaf build failed for style=#{style}"
@@ -3033,7 +3033,7 @@ module InteriorPro
       else # Single
         leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
           parent_ents, style, -iw + gap, iw - gap, -half_h, w_top,
-          lv0, lv1, unit, n, name: 'Leaf'
+          lv0, lv1, unit, n, name: 'Leaf', leaf_mat: door_leaf_material(model)
         )
         unless leaf
           door_log "[DoorTool] leaf build failed for style=#{style}"
@@ -3124,7 +3124,7 @@ module InteriorPro
       style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
       leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
         parent_ents, style, [lu0, lu1].min, [lu0, lu1].max, -half_h, head_inner - gap,
-        lv0, lv0 + leaf_t, unit, n, name: 'Leaf'
+        lv0, lv0 + leaf_t, unit, n, name: 'Leaf', leaf_mat: door_leaf_material(Sketchup.active_model)
       )
       unless leaf
         door_log "[DoorTool] pocket leaf build failed for style=#{style}"
@@ -3336,8 +3336,7 @@ module InteriorPro
     def build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
       door_log "[DoorTool] french geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} type=#{@door_type.inspect}"
       model = Sketchup.active_model
-      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
-                                         Sketchup::Color.new(245, 245, 240), 1.0)
+      frame_mat = door_frame_material(model)
       glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
                                          Sketchup::Color.new(180, 180, 180), 0.4)
 
@@ -3401,8 +3400,7 @@ module InteriorPro
     def build_sliding_geometry!(parent_ents, data, unit, n, thickness)
       door_log "[DoorTool] sliding geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} slide=#{@slide_direction.inspect}"
       model = Sketchup.active_model
-      frame_mat = get_or_create_material(model, 'InteriorPro_Door_Frame',
-                                         Sketchup::Color.new(245, 245, 240), 1.0)
+      frame_mat = door_frame_material(model)
       glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
                                          Sketchup::Color.new(180, 180, 180), 0.4)
 
@@ -3508,7 +3506,8 @@ module InteriorPro
     def front_door_mats
       model = Sketchup.active_model
       {
-        frame: get_or_create_material(model, 'InteriorPro_Door_Frame',
+        frame: door_leaf_material(model) ||
+               get_or_create_material(model, 'InteriorPro_Door_Frame',
                                       Sketchup::Color.new(245, 245, 240), 1.0),
         glass: get_or_create_material(model, 'InteriorPro_Glass',
                                       Sketchup::Color.new(180, 180, 180), 0.4),
@@ -3852,8 +3851,7 @@ module InteriorPro
     def door_body_materials
       model = Sketchup.active_model
       {
-        frame_mat: get_or_create_material(model, 'InteriorPro_Door_Frame',
-                                          Sketchup::Color.new(245, 245, 240), 1.0),
+        frame_mat: door_frame_material(model),
         glass_mat: get_or_create_material(model, 'InteriorPro_Glass',
                                           Sketchup::Color.new(180, 180, 180), 0.4)
       }
@@ -4549,6 +4547,30 @@ module InteriorPro
 
     def local_uvw(u, v, w, unit, n)
       Geom::Point3d.new(u * unit.x + v * n.x, u * unit.y + v * n.y, w)
+    end
+
+    # '#rrggbb' -> Sketchup::Color, nil when blank/invalid (= use default).
+    def parse_hex_color(hex)
+      s = hex.to_s.strip.delete('#')
+      return nil unless s =~ /\A\h{6}\z/i
+      Sketchup::Color.new(s[0, 2].to_i(16), s[2, 2].to_i(16), s[4, 2].to_i(16))
+    end
+
+    # Frame/jamb/casing material honoring @frame_color (per-color material).
+    def door_frame_material(model)
+      c = parse_hex_color(@frame_color)
+      return get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                    Sketchup::Color.new(245, 245, 240), 1.0) unless c
+      get_or_create_material(model, "InteriorPro_Door_Frame_#{@frame_color.to_s.delete('#').downcase}",
+                             c, 1.0)
+    end
+
+    # Leaf material honoring @door_color; nil = keep style default.
+    def door_leaf_material(model)
+      c = parse_hex_color(@door_color)
+      return nil unless c
+      get_or_create_material(model, "InteriorPro_Door_Leaf_#{@door_color.to_s.delete('#').downcase}",
+                             c, 1.0)
     end
 
     def get_or_create_material(model, name, color, alpha = 1.0)

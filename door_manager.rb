@@ -99,7 +99,9 @@ module InteriorPro
         'front_glass_ratio'     => door.get_attribute('InteriorPro', 'front_glass_ratio', 50).to_f,
         'sidelite_width'        => door.get_attribute('InteriorPro', 'sidelite_width_in', 14).to_f,
         'transom'               => door.get_attribute('InteriorPro', 'transom', false),
-        'transom_height'        => door.get_attribute('InteriorPro', 'transom_height_in', 14).to_f
+        'transom_height'        => door.get_attribute('InteriorPro', 'transom_height_in', 14).to_f,
+        'door_color'            => door.get_attribute('InteriorPro', 'door_color', ''),
+        'frame_color'           => door.get_attribute('InteriorPro', 'frame_color', '')
       }
     end
 
@@ -111,6 +113,7 @@ module InteriorPro
       interior_depth floor_offset swing_direction swing_side slide_direction
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
       front_config front_leaf_style front_glass_ratio sidelite_width transom transom_height
+      door_color frame_color
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
 
     DOOR_PLACEMENT_KEYS = %w[
@@ -163,6 +166,8 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'sidelite_width_in',      params['sidelite_width'].to_f) if params.key?('sidelite_width')
       door.set_attribute('InteriorPro', 'transom',                !!params['transom']) if params.key?('transom')
       door.set_attribute('InteriorPro', 'transom_height_in',      params['transom_height'].to_f) if params.key?('transom_height')
+      door.set_attribute('InteriorPro', 'door_color',             params['door_color'].to_s) if params.key?('door_color')
+      door.set_attribute('InteriorPro', 'frame_color',            params['frame_color'].to_s) if params.key?('frame_color')
       door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
       door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
       door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)
