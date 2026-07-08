@@ -28,6 +28,8 @@ module InteriorPro
       door_move_tool.rb
       door_delete_tool.rb
       window_manager.rb
+      molding_library.rb
+      molding_tool.rb
       toolbar.rb
     ]
   end
