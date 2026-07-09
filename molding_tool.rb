@@ -248,8 +248,14 @@ module InteriorPro
       Geom::Point3d.new(xs / n, ys / n, 0)
     end
 
+    def last_profiles
+      @last_profiles ||= { base: nil, crown: nil }
+    end
+
     def apply_all!(base_name: nil, crown_name: nil)
       model = Sketchup.active_model
+      last_profiles[:base] = base_name
+      last_profiles[:crown] = crown_name
       ws = walls(model)
       if ws.empty?
         puts '[Molding] no walls found'
@@ -441,16 +447,12 @@ module InteriorPro
       return UI.messagebox('Click a wall or its molding') unless wall
 
       model = Sketchup.active_model
+      lp = MoldingManager.last_profiles
+      base = lp[:base] || MoldingLibrary::BASEBOARDS.keys.first
+      crown = lp[:crown] || MoldingLibrary::CROWNS.keys.first
       if wall.get_attribute('InteriorPro', 'no_molding')
         wall.set_attribute('InteriorPro', 'no_molding', false)
-        ws = MoldingManager.walls(model)
-        c = MoldingManager.house_centroid(ws)
-        model.start_operation('Molding: Restore Wall', true)
-        MoldingBuilder.build_for_wall!(wall,
-                                       sides: MoldingManager.sides_for(wall, c),
-                                       base_name: MoldingLibrary::BASEBOARDS.keys.first,
-                                       crown_name: MoldingLibrary::CROWNS.keys.first)
-        model.commit_operation
+        MoldingManager.apply_all!(base_name: base, crown_name: crown)
         puts '[Molding] wall restored'
       else
         wall.set_attribute('InteriorPro', 'no_molding', true)
