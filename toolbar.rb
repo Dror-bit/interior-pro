@@ -166,6 +166,32 @@ module InteriorPro
       door_delete_cmd.large_icon = File.join(__dir__, 'icons', 'delete_door.svg')
       toolbar.add_item(door_delete_cmd)
 
+      # Molding (baseboard + crown) — whole-house apply/remove
+      molding_cmd = UI::Command.new('Molding') {
+        has_molding = Sketchup.active_model.entities.grep(Sketchup::Group).any? { |g|
+          %w[baseboard crown].include?(g.get_attribute('InteriorPro', 'type'))
+        }
+        if has_molding
+          InteriorPro::MoldingManager.remove_all!
+        else
+          InteriorPro::MoldingManager.apply_with_prompt!
+        end
+      }
+      molding_cmd.tooltip = 'Molding On/Off - baseboard + crown for the whole house'
+      molding_cmd.status_bar_text = 'Apply or remove baseboard and crown molding on all walls'
+      molding_cmd.small_icon = File.join(__dir__, 'icons', 'molding_tool.svg')
+      molding_cmd.large_icon = File.join(__dir__, 'icons', 'molding_tool.svg')
+      toolbar.add_item(molding_cmd)
+
+      molding_toggle_cmd = UI::Command.new('Molding Toggle') {
+        Sketchup.active_model.select_tool(InteriorPro::MoldingToggleTool.new)
+      }
+      molding_toggle_cmd.tooltip = 'Molding Toggle - click a wall to exclude/restore its molding'
+      molding_toggle_cmd.status_bar_text = 'Click a wall to remove or restore its molding'
+      molding_toggle_cmd.small_icon = File.join(__dir__, 'icons', 'molding_toggle.svg')
+      molding_toggle_cmd.large_icon = File.join(__dir__, 'icons', 'molding_toggle.svg')
+      toolbar.add_item(molding_toggle_cmd)
+
       toolbar.restore
     end
   end
@@ -226,6 +252,16 @@ module InteriorPro
 
       menu.add_item('Delete Door') {
         Sketchup.active_model.select_tool(InteriorPro::DoorDeleteTool.new)
+      }
+
+      menu.add_item('Molding: Apply to House') {
+        InteriorPro::MoldingManager.apply_with_prompt!
+      }
+      menu.add_item('Molding: Remove All') {
+        InteriorPro::MoldingManager.remove_all!
+      }
+      menu.add_item('Molding: Toggle Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::MoldingToggleTool.new)
       }
     end
   end
