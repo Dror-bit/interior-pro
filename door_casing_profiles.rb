@@ -156,6 +156,33 @@ module InteriorPro
           [:q, 0.10, 0.28, 0, 0]
         ]
       },
+      # --- Metrie catalog casings (2026-07) ---
+      # 5/8" x 2-1/4" Natural Pine Casing (1567338) — classic colonial
+      'metrie_225' => {
+        width: 2.25, depth: 0.625, steps: 20,
+        segments: [
+          [:m, 0, 0], [:l, 1, 0],
+          [:q, 1.00, 0.20, 0.92, 0.50],
+          [:q, 0.74, 0.95, 0.54, 0.82],
+          [:q, 0.32, 0.55, 0.14, 0.26],
+          [:q, 0.03, 0.05, 0, 0]
+        ]
+      },
+      # 11/16" x 3-1/4" Primed MDF Casing (1566860, M0331I) — stepped ogee
+      'metrie_325' => {
+        width: 3.25, depth: 0.6875, steps: 20,
+        segments: [
+          [:m, 0, 0], [:l, 1, 0],
+          [:l, 0.96, 0.10],
+          [:q, 0.90, 0.30, 0.80, 0.42],
+          [:l, 0.66, 0.42],
+          [:q, 0.48, 0.66, 0.34, 0.84],
+          [:l, 0.20, 0.84],
+          [:q, 0.06, 0.95, 0, 1],
+          [:l, 0, 0]
+        ]
+      },
+
       'bm525_cove' => {
         width: 5.25, depth: 0.6875, category: :base, steps: 20,
         segments: [

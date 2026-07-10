@@ -30,10 +30,11 @@ module InteriorPro
       'interior' => INTERIOR_TYPES
     }.freeze
 
-    EXTERIOR_CASING_STYLES = %w[none kb103 kb106 kb117].freeze
+    EXTERIOR_CASING_STYLES = %w[none kb103 kb106 kb117 metrie_325].freeze
     INTERIOR_CASING_STYLES = %w[
       none flat ranch colonial stafford windsor belly
       bm325 bm400 bm325_bevel bm425 bm388_ogee bm525_cove
+      metrie_225 metrie_325
     ].freeze
 
     CASING_LEGACY_MAP = {

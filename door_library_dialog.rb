@@ -522,6 +522,7 @@ module InteriorPro
               <option value="kb103">KB103 — 3" wide</option>
               <option value="kb106">KB106 — 3-1/2" wide</option>
               <option value="kb117">KB117 — 4" wide</option>
+              <option value="metrie_325">Metrie — 11/16&quot; × 3-1/4&quot;</option>
             </select>
             <label>Interior Casing</label>
             <select id="interiorCasingStyle">
@@ -541,6 +542,10 @@ module InteriorPro
                 <option value="bm425">9/16&quot; × 4-1/4&quot; — step</option>
                 <option value="bm388_ogee">9/16&quot; × 3-7/8&quot; — ogee</option>
                 <option value="bm525_cove">11/16&quot; × 5-1/4&quot; — cove</option>
+              </optgroup>
+              <optgroup label="Metrie catalog">
+                <option value="metrie_225">5/8&quot; × 2-1/4&quot; — colonial pine</option>
+                <option value="metrie_325">11/16&quot; × 3-1/4&quot; — stepped ogee</option>
               </optgroup>
             </select>
 
