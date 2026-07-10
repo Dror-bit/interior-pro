@@ -76,8 +76,9 @@ module InteriorPro
       geo = edge_geometry(wall, edge)
       return unless geo
       openings = InteriorPro::WallTool.read_door_openings(wall)
-      shifted = openings.map { |o| { t: o[:t] + geo[:offset0], width: o[:width] } }
-      segs = segments(geo[:len], shifted)
+      gaps = openings.map { |o| { t: o[:t] + geo[:offset0], width: o[:width] } }
+      gaps += door_bbox_gaps(wall, geo)
+      segs = segments(geo[:len], gaps)
       make_molding_group(wall, 'baseboard', profile_name, side) do |ge|
         segs.each do |a, b|
           sa = a.abs < 0.01 ? shifts[:start] : 0
@@ -185,6 +186,28 @@ module InteriorPro
         grp.material = molding_material(model)
       end
       grp
+    end
+
+    # Exact along-wall span of each hosted door (including its casing),
+    # from the door group's bounding box projected onto the face edge.
+    def door_bbox_gaps(wall, geo)
+      wid = wall.get_attribute('InteriorPro', 'id')
+      p0 = geo[:p0]
+      u = geo[:u]
+      out = []
+      Sketchup.active_model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.get_attribute('InteriorPro', 'host_wall_id') == wid
+        next unless g.get_attribute('InteriorPro', 'door_id')
+        bb = g.bounds
+        ts = (0..7).map do |i|
+          c = bb.corner(i)
+          (c.x - p0.x) * u.x + (c.y - p0.y) * u.y
+        end
+        t0 = ts.min
+        t1 = ts.max
+        out << { t: (t0 + t1) / 2.0, width: t1 - t0 } if t1 - t0 > 1.0
+      end
+      out
     end
 
     def segments(len, openings)
@@ -338,6 +361,23 @@ module InteriorPro
       return -1 if k > 0.5   # inside corner
       return 1 if k < -0.5   # outside corner
       0                      # straight continuation
+    end
+
+    # Rebuild all molding with the profiles currently in the model.
+    # Called after door place/move/delete so molding stays cut correctly.
+    def refresh!
+      model = Sketchup.active_model
+      base = nil
+      crown = nil
+      model.entities.grep(Sketchup::Group).each do |g|
+        case g.get_attribute('InteriorPro', 'type')
+        when 'baseboard' then base ||= g.get_attribute('InteriorPro', 'profile')
+        when 'crown'     then crown ||= g.get_attribute('InteriorPro', 'profile')
+        end
+        break if base && crown
+      end
+      return unless base || crown
+      apply_all!(base_name: base, crown_name: crown)
     end
 
     def remove_all!

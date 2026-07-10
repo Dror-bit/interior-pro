@@ -392,6 +392,14 @@ module InteriorPro
           raise 'Door build failed'
         end
         model.commit_operation if use_operations
+        # Re-cut molding around the new door (no-op when no molding in model).
+        if defined?(InteriorPro::MoldingManager)
+          begin
+            InteriorPro::MoldingManager.refresh!
+          rescue StandardError => e
+            puts "[DoorTool] molding refresh failed: #{e.message}"
+          end
+        end
         true
       rescue => e
         model.abort_operation rescue nil if use_operations

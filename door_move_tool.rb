@@ -141,6 +141,13 @@ module InteriorPro
         return
       end
       InteriorPro::DoorManager.move_door(@door, delta)
+      if defined?(InteriorPro::MoldingManager)
+        begin
+          InteriorPro::MoldingManager.refresh!
+        rescue StandardError => e
+          puts "[DoorMoveTool] molding refresh failed: #{e.message}"
+        end
+      end
       reset_state
       update_status_bar
       view.invalidate

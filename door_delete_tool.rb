@@ -20,6 +20,13 @@ module InteriorPro
 
       if UI.messagebox('Delete this door and patch the wall opening?', MB_YESNO) == IDYES
         InteriorPro::DoorManager.delete_door(door)
+        if defined?(InteriorPro::MoldingManager)
+          begin
+            InteriorPro::MoldingManager.refresh!
+          rescue StandardError => e
+            puts "[DoorDeleteTool] molding refresh failed: #{e.message}"
+          end
+        end
       end
     end
 
