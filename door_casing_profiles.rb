@@ -236,7 +236,27 @@ module InteriorPro
       out
     end
 
+    # User-modeled casing from assets/MOLDING PROFILES/CASING-*.skp.
+    # File convention: X = depth off wall, Z = along width (0 = jamb edge).
+    def self.skp_spec(style)
+      return nil unless defined?(InteriorPro::MoldingLibrary)
+      pts = InteriorPro::MoldingLibrary.skp_profile_points(style.to_s)
+      return nil unless pts
+      w = pts.map { |_, z| z }.max
+      d = pts.map { |x, _| x }.max
+      return nil if w <= 0.01 || d <= 0.01
+      {
+        width: w, depth: d, category: :casing,
+        profile: pts.map { |x, z| [z / w, x / d] }
+      }
+    rescue StandardError => e
+      puts "[DoorCasingProfiles] skp_spec failed for #{style}: #{e.message}"
+      nil
+    end
+
     def self.spec(style)
+      s = skp_spec(style)
+      return s if s
       raw = SPECS[style.to_s] || SPECS['flat']
       steps = raw[:steps] || CURVE_STEPS
       {

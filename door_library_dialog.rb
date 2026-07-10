@@ -328,6 +328,9 @@ module InteriorPro
         InteriorPro::DoorHandles.handle_names('interior').to_json : '[]'
       front_handles_json = defined?(InteriorPro::DoorHandles) ?
         InteriorPro::DoorHandles.handle_names('front').to_json : '[]'
+      casing_skp_options = (defined?(InteriorPro::MoldingLibrary) ?
+        InteriorPro::MoldingLibrary.skp_names('CASING') : [])
+        .map { |c| "<option value=\"#{c}\">#{c}</option>" }.join
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -519,34 +522,14 @@ module InteriorPro
             <label id="exteriorCasingLabel">Exterior Casing</label>
             <select id="exteriorCasingStyle">
               <option value="none">None</option>
-              <option value="kb103">KB103 — 3" wide</option>
-              <option value="kb106">KB106 — 3-1/2" wide</option>
-              <option value="kb117">KB117 — 4" wide</option>
-              <option value="metrie_325">Metrie — 11/16&quot; × 3-1/4&quot;</option>
+              <option value="flat">Flat (square)</option>
+              #{casing_skp_options}
             </select>
             <label>Interior Casing</label>
             <select id="interiorCasingStyle">
               <option value="none">None</option>
-              <optgroup label="Door casing — 2&quot;">
-                <option value="flat">Flat</option>
-                <option value="ranch">Ranch — tapered</option>
-                <option value="colonial">Colonial — cove</option>
-                <option value="stafford">Stafford — double bead</option>
-                <option value="windsor">Windsor — slope</option>
-                <option value="belly">Belly — curve</option>
-              </optgroup>
-              <optgroup label="Baseboard catalog (smooth)">
-                <option value="bm325">7/16&quot; × 3-1/4&quot; — simple eased</option>
-                <option value="bm400">7/16&quot; × 4&quot; — rounded top</option>
-                <option value="bm325_bevel">9/16&quot; × 3-1/4&quot; — bevel</option>
-                <option value="bm425">9/16&quot; × 4-1/4&quot; — step</option>
-                <option value="bm388_ogee">9/16&quot; × 3-7/8&quot; — ogee</option>
-                <option value="bm525_cove">11/16&quot; × 5-1/4&quot; — cove</option>
-              </optgroup>
-              <optgroup label="Metrie catalog">
-                <option value="metrie_225">5/8&quot; × 2-1/4&quot; — colonial pine</option>
-                <option value="metrie_325">11/16&quot; × 3-1/4&quot; — stepped ogee</option>
-              </optgroup>
+              <option value="flat">Flat (square)</option>
+              #{casing_skp_options}
             </select>
 
             <div class="section-title">Glass</div>

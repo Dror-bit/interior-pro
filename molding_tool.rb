@@ -70,9 +70,8 @@ module InteriorPro
     # shifts: { start: -1/0/1, end: -1/0/1 } — 45deg miter shear per end
     # (+1 extends with depth, -1 cuts back with depth, 0 square).
     def build_baseboard_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 })
-      spec = MoldingLibrary::BASEBOARDS[profile_name]
-      return unless spec
-      prof = MoldingLibrary.baseboard_profile(spec)
+      prof = MoldingLibrary.baseboard_profile_by_name(profile_name)
+      return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
       openings = InteriorPro::WallTool.read_door_openings(wall)
@@ -89,11 +88,10 @@ module InteriorPro
     end
 
     def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 })
-      spec = MoldingLibrary::CROWNS[profile_name]
-      return unless spec
       wall_h = wall.get_attribute('InteriorPro', 'height').to_f
       return if wall_h < 12.0
-      prof = MoldingLibrary.crown_profile(spec, wall_h)
+      prof = MoldingLibrary.crown_profile_by_name(profile_name, wall_h)
+      return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
       make_molding_group(wall, 'crown', profile_name, side) do |ge|
@@ -397,11 +395,11 @@ module InteriorPro
 
     # Prompt with dropdowns, then apply to the whole house.
     def apply_with_prompt!
-      base_opts = ['(none)'] + MoldingLibrary::BASEBOARDS.keys
-      crown_opts = ['(none)'] + MoldingLibrary::CROWNS.keys
+      base_opts = ['(none)'] + MoldingLibrary.baseboard_names
+      crown_opts = ['(none)'] + MoldingLibrary.crown_names
       res = UI.inputbox(
         ['Baseboard', 'Crown'],
-        [MoldingLibrary::BASEBOARDS.keys.first, MoldingLibrary::CROWNS.keys.first],
+        [MoldingLibrary.baseboard_names.first, MoldingLibrary.crown_names.first],
         [base_opts.join('|'), crown_opts.join('|')],
         'Interior Pro - Molding'
       )
@@ -415,7 +413,7 @@ module InteriorPro
   # Click one wall face -> baseboard on that face (testing/calibration).
   class MoldingTool
     def initialize(profile_name = nil)
-      @profile_name = profile_name || MoldingLibrary::BASEBOARDS.keys.first
+      @profile_name = profile_name || MoldingLibrary.baseboard_names.first
     end
 
     def activate
@@ -489,8 +487,8 @@ module InteriorPro
 
       model = Sketchup.active_model
       lp = MoldingManager.last_profiles
-      base = lp[:base] || MoldingLibrary::BASEBOARDS.keys.first
-      crown = lp[:crown] || MoldingLibrary::CROWNS.keys.first
+      base = lp[:base] || MoldingLibrary.baseboard_names.first
+      crown = lp[:crown] || MoldingLibrary.crown_names.first
       if wall.get_attribute('InteriorPro', 'no_molding')
         wall.set_attribute('InteriorPro', 'no_molding', false)
         MoldingManager.apply_all!(base_name: base, crown_name: crown)

@@ -30,6 +30,7 @@ module InteriorPro
       window_manager.rb
       molding_library.rb
       molding_tool.rb
+      molding_dialog.rb
       toolbar.rb
     ]
   end

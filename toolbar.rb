@@ -168,14 +168,7 @@ module InteriorPro
 
       # Molding (baseboard + crown) — whole-house apply/remove
       molding_cmd = UI::Command.new('Molding') {
-        has_molding = Sketchup.active_model.entities.grep(Sketchup::Group).any? { |g|
-          %w[baseboard crown].include?(g.get_attribute('InteriorPro', 'type'))
-        }
-        if has_molding
-          InteriorPro::MoldingManager.remove_all!
-        else
-          InteriorPro::MoldingManager.apply_with_prompt!
-        end
+        InteriorPro::MoldingDialog.show
       }
       molding_cmd.tooltip = 'Molding On/Off - baseboard + crown for the whole house'
       molding_cmd.status_bar_text = 'Apply or remove baseboard and crown molding on all walls'
@@ -255,7 +248,7 @@ module InteriorPro
       }
 
       menu.add_item('Molding: Apply to House') {
-        InteriorPro::MoldingManager.apply_with_prompt!
+        InteriorPro::MoldingDialog.show
       }
       menu.add_item('Molding: Remove All') {
         InteriorPro::MoldingManager.remove_all!

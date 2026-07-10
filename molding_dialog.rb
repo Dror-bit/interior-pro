@@ -1,0 +1,106 @@
+# Interior Pro - Molding Dialog
+# Visual profile pickers (thumbnails generated from the actual profile
+# geometry) + Apply to House / Remove All.
+
+module InteriorPro
+  module MoldingDialog
+
+    def self.show
+      MoldingLibrary.clear_profile_cache!
+      base = MoldingLibrary.baseboard_names.map do |n|
+        { 'name' => n, 'pts' => norm_pts(MoldingLibrary.baseboard_profile_by_name(n)) }
+      end
+      crown = MoldingLibrary.crown_names.map do |n|
+        { 'name' => n, 'pts' => norm_pts(MoldingLibrary.crown_profile_by_name(n, 12.0)) }
+      end
+
+      if @dialog
+        begin; @dialog.close; rescue StandardError; end
+        @dialog = nil
+      end
+      dlg = UI::HtmlDialog.new(
+        dialog_title: 'Interior Pro - Molding',
+        preferences_key: 'InteriorPro_Molding',
+        width: 400, height: 620, resizable: true
+      )
+      dlg.add_action_callback('apply') do |_, b, c|
+        MoldingManager.apply_all!(base_name: (b.to_s.empty? ? nil : b),
+                                  crown_name: (c.to_s.empty? ? nil : c))
+      end
+      dlg.add_action_callback('remove') { |_| MoldingManager.remove_all! }
+      dlg.set_html(build_html(base, crown))
+      dlg.show
+      @dialog = dlg
+    end
+
+    # Scale profile points into a 96x96 viewBox (SVG y grows downward).
+    def self.norm_pts(prof)
+      return [] unless prof && prof.length > 2
+      xs = prof.map { |p| p[0] }
+      zs = prof.map { |p| p[1] }
+      w = [xs.max - xs.min, 0.01].max
+      h = [zs.max - zs.min, 0.01].max
+      s = 80.0 / [w, h].max
+      prof.map do |x, z|
+        [((x - xs.min) * s + 8).round(1), (88 - (z - zs.min) * s).round(1)]
+      end
+    end
+
+    def self.build_html(base, crown)
+      <<~HTML
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"><style>
+          body { font-family: Arial, sans-serif; font-size: 13px; margin: 12px; background: #fff; }
+          .section-title { font-weight: bold; margin: 12px 0 6px; color: #5d4037; }
+          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+          .card { border: 2px solid #ddd; border-radius: 6px; padding: 4px; text-align: center;
+                  cursor: pointer; background: #fafafa; }
+          .card:hover { border-color: #a1887f; }
+          .card.selected { border-color: #5d4037; background: #efebe9; }
+          .card svg { width: 100%; height: 64px; }
+          .card .nm { font-size: 11px; color: #444; margin-top: 2px; }
+          button { width: 100%; padding: 10px; margin-top: 12px; border: none; border-radius: 6px;
+                   background: #5d4037; color: #fff; font-size: 14px; cursor: pointer; }
+          button.secondary { background: #9e9e9e; }
+        </style></head><body>
+          <div class="section-title">Baseboard</div>
+          <div class="grid" id="baseGrid"></div>
+          <div class="section-title">Crown (Ceiling)</div>
+          <div class="grid" id="crownGrid"></div>
+          <button onclick="applyAll()">Apply to House</button>
+          <button class="secondary" onclick="sketchup.remove()">Remove All</button>
+          <script>
+            var BASE = #{base.to_json};
+            var CROWN = #{crown.to_json};
+            var selBase = BASE.length ? BASE[0].name : '';
+            var selCrown = CROWN.length ? CROWN[0].name : '';
+
+            function thumb(item) {
+              if (!item) return '<svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="20" fill="none" stroke="#bbb" stroke-width="2"/><line x1="34" y1="62" x2="62" y2="34" stroke="#bbb" stroke-width="2"/></svg>';
+              var pts = item.pts.map(function(p) { return p[0] + ',' + p[1]; }).join(' ');
+              return '<svg viewBox="0 0 96 96"><polygon points="' + pts + '" fill="#e8e6e1" stroke="#555" stroke-width="1.5"/></svg>';
+            }
+            function render(gridId, items, sel, kind) {
+              var cards = ['<div class="card' + (sel === '' ? ' selected' : '') + '" onclick="pick(\\'' + kind + '\\', \\'\\')">' + thumb(null) + '<div class="nm">None</div></div>'];
+              items.forEach(function(it) {
+                cards.push('<div class="card' + (it.name === sel ? ' selected' : '') + '" onclick="pick(\\'' + kind + '\\', \\'' + it.name + '\\')">' + thumb(it) + '<div class="nm">' + it.name + '</div></div>');
+              });
+              document.getElementById(gridId).innerHTML = cards.join('');
+            }
+            function pick(kind, name) {
+              if (kind === 'base') selBase = name; else selCrown = name;
+              renderAll();
+            }
+            function renderAll() {
+              render('baseGrid', BASE, selBase, 'base');
+              render('crownGrid', CROWN, selCrown, 'crown');
+            }
+            function applyAll() { sketchup.apply(selBase, selCrown); }
+            renderAll();
+          </script>
+        </body></html>
+      HTML
+    end
+
+  end
+end

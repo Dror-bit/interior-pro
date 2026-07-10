@@ -30,17 +30,22 @@ module InteriorPro
       'interior' => INTERIOR_TYPES
     }.freeze
 
-    EXTERIOR_CASING_STYLES = %w[none kb103 kb106 kb117 metrie_325].freeze
-    INTERIOR_CASING_STYLES = %w[
-      none flat ranch colonial stafford windsor belly
-      bm325 bm400 bm325_bevel bm425 bm388_ogee bm525_cove
-      metrie_225 metrie_325
-    ].freeze
+    # Only the flat (square) built-in remains; user .skp profiles
+    # (assets/MOLDING PROFILES/CASING-*.skp) are added dynamically.
+    EXTERIOR_CASING_STYLES = %w[none flat].freeze
+    INTERIOR_CASING_STYLES = %w[none flat].freeze
 
     CASING_LEGACY_MAP = {
-      'brick_mold' => 'kb106',
+      'brick_mold' => 'flat',
       'flat'       => 'flat'
     }.freeze
+
+    def self.casing_styles(side)
+      base = side.to_s == 'exterior' ? EXTERIOR_CASING_STYLES : INTERIOR_CASING_STYLES
+      skp = defined?(InteriorPro::MoldingLibrary) ?
+              InteriorPro::MoldingLibrary.skp_names('CASING') : []
+      base + skp
+    end
 
     CATEGORY_DEFAULTS = {
       'exterior' => {
@@ -144,7 +149,7 @@ module InteriorPro
     def self.normalize_casing_style(settings, side)
       key = "#{side}_casing_style"
       legacy = "#{side}_casing"
-      styles = side == 'exterior' ? EXTERIOR_CASING_STYLES : INTERIOR_CASING_STYLES
+      styles = casing_styles(side)
 
       if settings[key] && !settings[key].to_s.empty?
         style = settings[key].to_s

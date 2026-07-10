@@ -1,4 +1,39 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-07)
+# STATUS_handoff — Interior Pro (עודכן 2026-07-10)
+
+## מה הושלם בסבב 2026-07-10 (קרא ראשון!)
+- **יש אישור מפורש מהמשתמש לעבוד גם על קירות וחלונות** (מולדינג/קשתות). CLAUDE.md עדיין אומר דלתות בלבד — האישור גובר.
+- **ידיות Front Door** — הושלם ונבדק (ראה סעיף 07-07 למטה).
+- **צבעים לדלת ולפריים:** door_color/frame_color ב-DOOR_SETTING_KEYS (restart!), בוררי צבע קטנים בדיאלוג + צ'קבוקס "Frame same color as door". door_frame_material/door_leaf_material ב-door_tool; DoorLeafStyles.build_leaf_body! מקבל leaf_mat:.
+- **גלריות מתקפלות:** עיצובי כנף פנים + Front Door נפתחים בלחיצה (כמו ידיות).
+- **מולדינג — פיצ'ר חדש שלם:** קבצים חדשים molding_library.rb / molding_tool.rb / molding_dialog.rb (רשומים ב-main.rb):
+  - MoldingManager.apply_all!/remove_all!/refresh! — לכל הבית; קירות פנים = שני צדדים, חוץ = צד פנימי (היוריסטיקת מרכז).
+  - מיטרים 45° בפינות (resolve_miters! + extrude_profile! עם caps מוזחים).
+  - חורים לדלתות לפי bbox של גוף הדלת (כולל קייסינג!) — door_bbox_gaps (דלתות = Group/ComponentInstance עם type='door').
+  - רענון אוטומטי אחרי הצבה/הזזה/מחיקה של דלת (hooks ב-door_tool/door_move_tool/door_delete_tool).
+  - MoldingToggleTool — קליק על קיר מחריג/מחזיר (no_molding attr).
+  - כפתורי toolbar + תפריט + אייקונים (molding_tool.svg, molding_toggle.svg).
+  - MoldingDialog — גלריה עם SVG שנוצר מהפרופילים עצמם.
+- **ספריית פרופילים של המשתמש:** `assets/MOLDING PROFILES` — BASE-1..3, CROWN-1..3, CASING-1 (.skp). skp_profile_points קורא פאה מהקובץ (זיהוי מישור אוטומטי). קטלוגי הקייסינג צומצמו ל-none/flat + CASING-*.skp (דינמי, DoorLibrary.casing_styles + DoorCasingProfiles.skp_spec).
+- **קייסינג:** יושב על הפריים (CASING_REVEAL=0.25, היסט פנימה ב-build_u_casing_followme); הבייסבורד נעצר בקצה הקייסינג.
+
+## הבעיה הפתוחה שבה עצרנו (להתחיל כאן!)
+קריאת הפרופילים מה-skp מחזירה **מלבנים** — כנראה המשתמש מידל גופים תלת-ממדיים ולא פאה שטוחה אחת, ו-max_by(&:area) תופס פאה לא נכונה. שתי דרכים: (א) המשתמש ישמור כל קובץ כפאת חתך אחת בלבד; (ב) להרחיב את הקורא לחלץ חתך מגוף (למשל הפאה עם השטח הקטן ביותר בין שתי המקבילות, או section). לבדוק עם המשתמש איך הקבצים בנויים.
+
+## לקחים חדשים
+- reload! משתמש ב-plugin_files שבזיכרון — קובץ חדש שנוסף ל-main.rb לא ייטען עד restart (או load ידני מפורש).
+- שינויי דיאלוג = cp + InteriorPro.reload! + סגירה/פתיחה של הדיאלוג בלבד. restart מלא רק ל-DOOR_SETTING_KEYS.
+- ב-Plugins היה קובץ-זבל בשם "MOLDING PROFILES" שחסם יצירת התיקייה (EEXIST) — נמחק. אם mkdir נכשל על EEXIST כשהתיקייה "לא קיימת" — לבדוק File.file?.
+- ה-shell של קלוד מציג לפעמים קבצים קטומים — לוודא מול Read לפני בהלה.
+
+## הצעדים הבאים (סדר מוצע)
+1. לתקן קריאת פרופילים מ-skp (הבעיה הפתוחה למעלה) + לוודא שכל 7 הפרופילים נראים נכון בגלריה ובבית.
+2. כיול מיקום/צורה: קראון בפועל על קיר, מפגשי קייסינג-בייסבורד בכל הפרופילים.
+3. צבע למולדינג (כמו דלתות).
+4. חלונות/דלתות עגולים וקשתות (יש אישור קירות/חלונות).
+
+---
+
+# היסטוריה: סבב 2026-07-07
 
 קרא את זה ראשון בכל צ'אט חדש. משלים את CLAUDE.md (מוגבל לדלתות) ואת ה-RETRO.
 
@@ -48,9 +83,12 @@
 - פוליגון קשת: בלי נקודות כפולות בקצוות, ולשמור על סדר נקודות רציף (self-intersection שובר add_face).
 - דלתות חוץ ופנים משתמשות בקונבנציות עומק שונות — פנים לפי פאות הקיר, חוץ 0..thickness + היפוך n בצורך.
 
+## הושלם 2026-07-07 (סבב ב')
+- **עריכת Front Door נבדקה** — כל השדות חוזרים, rebuild תקין.
+- **ידיות Front Door עובדות end-to-end:** קבצים 1-4.skp ב-`assets/FRONT DOOR HANDLES`; טבלת כיול נפרדת `FRONT_HANDLE_FIT` ב-door_handles.rb (שמות מספריים לא מתנגשים עם interior); תמיכה ב-rz (סיבוב אנכי) ב-fit_transform; `fit_offset/fit_transform/both_sides?` מקבלים kind; door_tool: `handle_kind`, `handle_enabled?` כולל front, הצבה ב-build_front_door_geometry! (single לפי swing, double במרכז, עוגן 3" מהקצה); דיאלוג: גלריה + thumbs נפרדים ל-front (`FRONT_HANDLE_NAMES`, `frontHandleThumbSvg`), רשימת ידיות מוחלפת לפי סוג דלת. נבדק: single, double, עריכה.
+- סצנת כיול: `debug_front_handles.rb` (שני צדדים). **לקח: מוסך ה-shell של קלוד הציג קבצים קטומים — אם ruby -c נכשל על EOF, לבדוק את הקובץ האמיתי לפני בהלה.**
+
 ## נושאים פתוחים / הצעדים הבאים (לפי סדר שסוכם)
-1. **בדיקת עריכת Front Door** (דאבל-קליק): שכל השדות והעיצוב חוזרים ושה-rebuild תקין. טרם נבדק לעומק.
-2. **ידיות לדלת כניסה** — תיקייה מוכנה: `assets/FRONT DOOR HANDLES` (המשתמש יוסיף קבצים). handle_style כרגע לדלתות פנים בלבד (handle_enabled? מגביל ל-interior).
 3. **ידיות לדלתות ארון** — תיקייה: `assets/CLOSET DOOR HANDLES`.
 4. **סוגי Casing** — הרחבת הקטלוג (המשתמש רצה, טרם פורט).
 5. **מולדינג בייסבורד + תקרה (crown)** — חורג מ"דלתות בלבד"; דורש אישור מפורש + קבצים חדשים נפרדים.
