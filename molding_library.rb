@@ -132,24 +132,42 @@ module InteriorPro
       names.any? ? names : CROWNS.keys
     end
 
+    # Scale a profile proportionally so its height becomes `height` (in).
+    # nil / <=0 height = keep the original size.
+    def self.scale_profile(pts, height)
+      return pts unless height && height.to_f > 0.01
+      zmax = pts.map { |_, z| z }.max
+      return pts if zmax <= 0.01
+      s = height.to_f / zmax
+      pts.map { |d, z| [d * s, z * s] }
+    end
+
+    def self.scaled_spec(spec, height)
+      return spec unless height && height.to_f > 0.01
+      s = height.to_f / spec[:h].to_f
+      spec.merge(t: spec[:t].to_f * s, h: height.to_f)
+    end
+
     # Profile polygon for a baseboard by name (.skp or built-in).
-    def self.baseboard_profile_by_name(name)
+    # height (in, optional): proportional scale of the whole profile.
+    def self.baseboard_profile_by_name(name, height = nil)
       pts = skp_profile_points(name)
-      return pts if pts
+      return scale_profile(pts, height) if pts
       spec = BASEBOARDS[name]
-      spec ? baseboard_profile(spec) : nil
+      spec ? baseboard_profile(scaled_spec(spec, height)) : nil
     end
 
     # Crown polygon hung from the ceiling (wall_h) by name.
-    def self.crown_profile_by_name(name, wall_h)
+    def self.crown_profile_by_name(name, wall_h, height = nil)
       pts = skp_profile_points(name)
       if pts
+        pts = scale_profile(pts, height)
         zmax = pts.map { |_, z| z }.max
         return nil if zmax <= 0.01
         return pts.map { |d, z| [d, wall_h - zmax + z] }
       end
       spec = CROWNS[name]
-      spec ? crown_profile(spec, wall_h) : nil
+      spec ? crown_profile(scaled_spec(spec, height), wall_h) : nil
     end
 
     # t = thickness (in), h = height (in)

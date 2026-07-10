@@ -23,9 +23,11 @@ module InteriorPro
         preferences_key: 'InteriorPro_Molding',
         width: 400, height: 620, resizable: true
       )
-      dlg.add_action_callback('apply') do |_, b, c|
+      dlg.add_action_callback('apply') do |_, b, c, bh, ch|
         MoldingManager.apply_all!(base_name: (b.to_s.empty? ? nil : b),
-                                  crown_name: (c.to_s.empty? ? nil : c))
+                                  crown_name: (c.to_s.empty? ? nil : c),
+                                  base_h: (bh.to_f > 0.01 ? bh.to_f : nil),
+                                  crown_h: (ch.to_f > 0.01 ? ch.to_f : nil))
       end
       dlg.add_action_callback('remove') { |_| MoldingManager.remove_all! }
       dlg.set_html(build_html(base, crown))
@@ -62,11 +64,15 @@ module InteriorPro
           button { width: 100%; padding: 10px; margin-top: 12px; border: none; border-radius: 6px;
                    background: #5d4037; color: #fff; font-size: 14px; cursor: pointer; }
           button.secondary { background: #9e9e9e; }
+          .hrow { margin: 6px 0 2px; color: #444; }
+          .hrow input { width: 70px; padding: 3px; }
         </style></head><body>
           <div class="section-title">Baseboard</div>
           <div class="grid" id="baseGrid"></div>
+          <div class="hrow">Height (in): <input id="baseH" type="number" step="0.25" min="0" placeholder="auto"></div>
           <div class="section-title">Crown (Ceiling)</div>
           <div class="grid" id="crownGrid"></div>
+          <div class="hrow">Height (in): <input id="crownH" type="number" step="0.25" min="0" placeholder="auto"></div>
           <button onclick="applyAll()">Apply to House</button>
           <button class="secondary" onclick="sketchup.remove()">Remove All</button>
           <script>
@@ -95,7 +101,11 @@ module InteriorPro
               render('baseGrid', BASE, selBase, 'base');
               render('crownGrid', CROWN, selCrown, 'crown');
             }
-            function applyAll() { sketchup.apply(selBase, selCrown); }
+            function applyAll() {
+              sketchup.apply(selBase, selCrown,
+                             document.getElementById('baseH').value,
+                             document.getElementById('crownH').value);
+            }
             renderAll();
           </script>
         </body></html>

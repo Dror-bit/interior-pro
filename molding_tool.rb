@@ -69,8 +69,8 @@ module InteriorPro
 
     # shifts: { start: -1/0/1, end: -1/0/1 } — 45deg miter shear per end
     # (+1 extends with depth, -1 cuts back with depth, 0 square).
-    def build_baseboard_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 })
-      prof = MoldingLibrary.baseboard_profile_by_name(profile_name)
+    def build_baseboard_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil)
+      prof = MoldingLibrary.baseboard_profile_by_name(profile_name, height)
       return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
@@ -78,7 +78,7 @@ module InteriorPro
       gaps = openings.map { |o| { t: o[:t] + geo[:offset0], width: o[:width] } }
       gaps += door_bbox_gaps(wall, geo)
       segs = segments(geo[:len], gaps)
-      make_molding_group(wall, 'baseboard', profile_name, side) do |ge|
+      make_molding_group(wall, 'baseboard', profile_name, side, height) do |ge|
         segs.each do |a, b|
           sa = a.abs < 0.01 ? shifts[:start] : 0
           sb = (b - geo[:len]).abs < 0.01 ? shifts[:end] : 0
@@ -87,14 +87,14 @@ module InteriorPro
       end
     end
 
-    def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 })
+    def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil)
       wall_h = wall.get_attribute('InteriorPro', 'height').to_f
       return if wall_h < 12.0
-      prof = MoldingLibrary.crown_profile_by_name(profile_name, wall_h)
+      prof = MoldingLibrary.crown_profile_by_name(profile_name, wall_h, height)
       return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
-      make_molding_group(wall, 'crown', profile_name, side) do |ge|
+      make_molding_group(wall, 'crown', profile_name, side, height) do |ge|
         extrude_profile!(ge, geo, prof, 0.0, geo[:len], shifts[:start], shifts[:end])
       end
     end
@@ -169,7 +169,7 @@ module InteriorPro
       begin; ge.add_face(cap_b); rescue StandardError; end
     end
 
-    def make_molding_group(wall, type, profile_name, side)
+    def make_molding_group(wall, type, profile_name, side, height = nil)
       model = Sketchup.active_model
       grp = model.active_entities.add_group
       grp.name = type.capitalize
@@ -177,13 +177,31 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'host_wall_id', wall.get_attribute('InteriorPro', 'id'))
       grp.set_attribute('InteriorPro', 'profile', profile_name)
       grp.set_attribute('InteriorPro', 'side', side.to_s)
+      grp.set_attribute('InteriorPro', 'profile_h', height.to_f) if height && height.to_f > 0.01
       yield grp.entities
       if grp.valid? && grp.entities.length.zero?
         grp.erase!
       elsif grp.valid?
+        soften_facets!(grp.entities)
         grp.material = molding_material(model)
       end
       grp
+    end
+
+    # Facet angle threshold for hiding curve-facet lines (radians).
+    FACET_ANGLE = 25.0 * Math::PI / 180.0 unless const_defined?(:FACET_ANGLE, false)
+
+    # Hide the longitudinal facet lines of curved profiles: soften edges
+    # between two nearly-parallel faces. Corners and sharp profile breaks
+    # (angle > threshold) stay visible.
+    def soften_facets!(ents)
+      ents.grep(Sketchup::Edge).each do |e|
+        fs = e.faces
+        next unless fs.length == 2
+        next if fs[0].normal.angle_between(fs[1].normal) > FACET_ANGLE
+        e.soft = true
+        e.smooth = true
+      end
     end
 
     # Exact along-wall span of each hosted door (including its casing),
@@ -274,10 +292,12 @@ module InteriorPro
       @last_profiles ||= { base: nil, crown: nil }
     end
 
-    def apply_all!(base_name: nil, crown_name: nil)
+    def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil)
       model = Sketchup.active_model
       last_profiles[:base] = base_name
       last_profiles[:crown] = crown_name
+      last_profiles[:base_h] = base_h
+      last_profiles[:crown_h] = crown_h
       ws = walls(model)
       if ws.empty?
         puts '[Molding] no walls found'
@@ -308,11 +328,11 @@ module InteriorPro
         runs.each do |r|
           if base_name
             MoldingBuilder.build_baseboard_on_edge!(w, r[:edge], base_name,
-                                                    r[:side], r[:shifts])
+                                                    r[:side], r[:shifts], base_h)
           end
           if crown_name
             MoldingBuilder.build_crown_on_edge!(w, r[:edge], crown_name,
-                                                r[:side], r[:shifts])
+                                                r[:side], r[:shifts], crown_h)
           end
         end
         count += 1
@@ -368,15 +388,21 @@ module InteriorPro
       model = Sketchup.active_model
       base = nil
       crown = nil
+      base_h = nil
+      crown_h = nil
       model.entities.grep(Sketchup::Group).each do |g|
         case g.get_attribute('InteriorPro', 'type')
-        when 'baseboard' then base ||= g.get_attribute('InteriorPro', 'profile')
-        when 'crown'     then crown ||= g.get_attribute('InteriorPro', 'profile')
+        when 'baseboard'
+          base ||= g.get_attribute('InteriorPro', 'profile')
+          base_h ||= g.get_attribute('InteriorPro', 'profile_h')
+        when 'crown'
+          crown ||= g.get_attribute('InteriorPro', 'profile')
+          crown_h ||= g.get_attribute('InteriorPro', 'profile_h')
         end
         break if base && crown
       end
       return unless base || crown
-      apply_all!(base_name: base, crown_name: crown)
+      apply_all!(base_name: base, crown_name: crown, base_h: base_h, crown_h: crown_h)
     end
 
     def remove_all!
@@ -486,12 +512,17 @@ module InteriorPro
       return UI.messagebox('Click a wall or its molding') unless wall
 
       model = Sketchup.active_model
-      lp = MoldingManager.last_profiles
-      base = lp[:base] || MoldingLibrary.baseboard_names.first
-      crown = lp[:crown] || MoldingLibrary.crown_names.first
       if wall.get_attribute('InteriorPro', 'no_molding')
         wall.set_attribute('InteriorPro', 'no_molding', false)
-        MoldingManager.apply_all!(base_name: base, crown_name: crown)
+        lp = MoldingManager.last_profiles
+        if lp[:base] || lp[:crown]
+          # Last user choice from the dialog (None respected).
+          MoldingManager.apply_all!(base_name: lp[:base], crown_name: lp[:crown],
+                                    base_h: lp[:base_h], crown_h: lp[:crown_h])
+        else
+          # After restart: detect the profiles from the model itself.
+          MoldingManager.refresh!
+        end
         puts '[Molding] wall restored'
       else
         wall.set_attribute('InteriorPro', 'no_molding', true)
