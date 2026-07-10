@@ -4135,19 +4135,28 @@ module InteriorPro
     end
 
     # Sweep profile along inner jamb path: up left leg → head → down right leg.
+    # The casing overlaps the jamb face (sits on the door frame), leaving a
+    # small reveal at the opening.
+    CASING_REVEAL = 0.25 unless const_defined?(:CASING_REVEAL, false)
+
     def build_u_casing_followme(ge, half_w, half_h, spec, v_wall, dir, unit, n)
       profile = spec[:profile]
       cw = spec[:width]
       max_d = spec[:depth]
 
-      p_bl = local_uvw(-half_w, v_wall, -half_h, unit, n)
-      p_tl = local_uvw(-half_w, v_wall,  half_h, unit, n)
-      p_tr = local_uvw( half_w, v_wall,  half_h, unit, n)
-      p_br = local_uvw( half_w, v_wall, -half_h, unit, n)
+      jw = (@frame_width && @frame_width > 0) ? @frame_width.to_f : 1.5
+      ov = [jw - CASING_REVEAL, 0.0].max
+      u_in = half_w - ov
+      w_top = half_h - ov
 
-      u_outer = -(half_w + cw)
+      p_bl = local_uvw(-u_in, v_wall, -half_h, unit, n)
+      p_tl = local_uvw(-u_in, v_wall,  w_top, unit, n)
+      p_tr = local_uvw( u_in, v_wall,  w_top, unit, n)
+      p_br = local_uvw( u_in, v_wall, -half_h, unit, n)
+
+      u_outer = -(u_in + cw)
       prof_pts = profile.map do |u_frac, v_frac|
-        u = -half_w + u_frac * (u_outer - (-half_w))
+        u = -u_in + u_frac * (u_outer - (-u_in))
         v = v_wall + dir * v_frac * max_d
         local_uvw(u, v, -half_h, unit, n)
       end

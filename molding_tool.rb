@@ -195,9 +195,10 @@ module InteriorPro
       p0 = geo[:p0]
       u = geo[:u]
       out = []
-      Sketchup.active_model.entities.grep(Sketchup::Group).each do |g|
+      Sketchup.active_model.entities.each do |g|
+        next unless g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)
         next unless g.get_attribute('InteriorPro', 'host_wall_id') == wid
-        next unless g.get_attribute('InteriorPro', 'door_id')
+        next unless g.get_attribute('InteriorPro', 'type') == 'door'
         bb = g.bounds
         ts = (0..7).map do |i|
           c = bb.corner(i)
