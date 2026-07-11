@@ -253,6 +253,14 @@ module InteriorPro
         InteriorPro::DoorManager.move_hosted_doors!(group, ox, oy)
 
         model.commit_operation
+
+        # Molding follows the moved walls (rebuilds in its own operation).
+        begin
+          InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+        rescue StandardError => e
+          puts "[Molding] refresh after wall move: #{e.message}"
+        end
+
         dialog.close
         Sketchup.active_model.active_view.invalidate
       }

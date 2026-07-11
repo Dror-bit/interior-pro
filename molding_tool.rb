@@ -322,9 +322,14 @@ module InteriorPro
       resolve_miters!(plan)
 
       model.start_operation('Molding: Apply All', true)
+      # Clear ALL existing molding first (incl. walls excluded since the
+      # last apply), then rebuild only the planned runs.
+      model.entities.grep(Sketchup::Group).each do |g|
+        t = g.get_attribute('InteriorPro', 'type')
+        g.erase! if %w[baseboard crown].include?(t) && g.valid?
+      end
       count = 0
       plan.group_by { |r| r[:wall] }.each do |w, runs|
-        MoldingBuilder.remove_for_wall!(w)
         runs.each do |r|
           if base_name
             MoldingBuilder.build_baseboard_on_edge!(w, r[:edge], base_name,
@@ -403,6 +408,36 @@ module InteriorPro
       end
       return unless base || crown
       apply_all!(base_name: base, crown_name: crown, base_h: base_h, crown_h: crown_h)
+    end
+
+    # Apply molding ONLY to the currently selected walls; all other walls
+    # are marked no_molding (the toggle tool keeps working afterwards).
+    def apply_to_selection!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil)
+      model = Sketchup.active_model
+      sel = model.selection.to_a.select do |g|
+        (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) &&
+          g.get_attribute('InteriorPro', 'type') == 'wall'
+      end
+      if sel.empty?
+        UI.messagebox('Select one or more walls first, then Apply to Selected')
+        return
+      end
+      # Union: walls that already have molding keep it; the selected walls
+      # join; only walls with no molding and not selected are excluded.
+      has_molding = {}
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless %w[baseboard crown].include?(g.get_attribute('InteriorPro', 'type'))
+        has_molding[g.get_attribute('InteriorPro', 'host_wall_id')] = true
+      end
+      walls(model).each do |w|
+        if sel.include?(w)
+          w.set_attribute('InteriorPro', 'no_molding', false)
+        elsif !has_molding[w.get_attribute('InteriorPro', 'id')]
+          w.set_attribute('InteriorPro', 'no_molding', true)
+        end
+      end
+      apply_all!(base_name: base_name, crown_name: crown_name,
+                 base_h: base_h, crown_h: crown_h)
     end
 
     def remove_all!
@@ -514,27 +549,35 @@ module InteriorPro
       model = Sketchup.active_model
       if wall.get_attribute('InteriorPro', 'no_molding')
         wall.set_attribute('InteriorPro', 'no_molding', false)
-        lp = MoldingManager.last_profiles
-        if lp[:base] || lp[:crown]
-          # Last user choice from the dialog (None respected).
-          MoldingManager.apply_all!(base_name: lp[:base], crown_name: lp[:crown],
-                                    base_h: lp[:base_h], crown_h: lp[:crown_h])
-        else
-          # After restart: detect the profiles from the model itself.
-          MoldingManager.refresh!
-        end
+        rebuild_molding!
         puts '[Molding] wall restored'
       else
         wall.set_attribute('InteriorPro', 'no_molding', true)
         model.start_operation('Molding: Exclude Wall', true)
         MoldingBuilder.remove_for_wall!(wall)
         model.commit_operation
+        # Rebuild the rest so neighbor runs close square (no open miter).
+        rebuild_molding!
         puts '[Molding] wall excluded'
       end
       view.invalidate
     rescue StandardError => e
       puts "[MoldingToggle] error: #{e.message}"
       puts e.backtrace.first(5).join("\n")
+    end
+
+    private
+
+    # Rebuild with the last dialog choice (None respected); after restart
+    # fall back to detecting the profiles from the model.
+    def rebuild_molding!
+      lp = MoldingManager.last_profiles
+      if lp[:base] || lp[:crown]
+        MoldingManager.apply_all!(base_name: lp[:base], crown_name: lp[:crown],
+                                  base_h: lp[:base_h], crown_h: lp[:crown_h])
+      else
+        MoldingManager.refresh!
+      end
     end
   end
 end

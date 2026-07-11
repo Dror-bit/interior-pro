@@ -29,6 +29,12 @@ module InteriorPro
                                   base_h: (bh.to_f > 0.01 ? bh.to_f : nil),
                                   crown_h: (ch.to_f > 0.01 ? ch.to_f : nil))
       end
+      dlg.add_action_callback('apply_sel') do |_, b, c, bh, ch|
+        MoldingManager.apply_to_selection!(base_name: (b.to_s.empty? ? nil : b),
+                                           crown_name: (c.to_s.empty? ? nil : c),
+                                           base_h: (bh.to_f > 0.01 ? bh.to_f : nil),
+                                           crown_h: (ch.to_f > 0.01 ? ch.to_f : nil))
+      end
       dlg.add_action_callback('remove') { |_| MoldingManager.remove_all! }
       dlg.set_html(build_html(base, crown))
       dlg.show
@@ -74,6 +80,7 @@ module InteriorPro
           <div class="grid" id="crownGrid"></div>
           <div class="hrow">Height (in): <input id="crownH" type="number" step="0.25" min="0" placeholder="auto"></div>
           <button onclick="applyAll()">Apply to House</button>
+          <button onclick="applySel()">Apply to Selected Walls</button>
           <button class="secondary" onclick="sketchup.remove()">Remove All</button>
           <script>
             var BASE = #{base.to_json};
@@ -105,6 +112,11 @@ module InteriorPro
               sketchup.apply(selBase, selCrown,
                              document.getElementById('baseH').value,
                              document.getElementById('crownH').value);
+            }
+            function applySel() {
+              sketchup.apply_sel(selBase, selCrown,
+                                 document.getElementById('baseH').value,
+                                 document.getElementById('crownH').value);
             }
             renderAll();
           </script>
