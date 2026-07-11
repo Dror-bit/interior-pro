@@ -292,6 +292,41 @@ module InteriorPro
       @last_profiles ||= { base: nil, crown: nil }
     end
 
+    # Group walls into connected structures (endpoints touching, tol 1"),
+    # so each building gets its own centroid (two separate structures in
+    # one model used to flip the interior side).
+    def wall_components(ws)
+      pts = {}
+      ws.each do |w|
+        sx = w.get_attribute('InteriorPro', 'start_x').to_f
+        sy = w.get_attribute('InteriorPro', 'start_y').to_f
+        ex = w.get_attribute('InteriorPro', 'end_x').to_f
+        ey = w.get_attribute('InteriorPro', 'end_y').to_f
+        pts[w] = [[sx, sy], [ex, ey]]
+      end
+      remaining = ws.dup
+      comps = []
+      until remaining.empty?
+        comp = [remaining.shift]
+        queue = comp.dup
+        until queue.empty?
+          cur = queue.shift
+          remaining.reject! do |o|
+            touch = pts[cur].any? do |a|
+              pts[o].any? { |b| (a[0] - b[0])**2 + (a[1] - b[1])**2 < 1.0 }
+            end
+            if touch
+              comp << o
+              queue << o
+            end
+            touch
+          end
+        end
+        comps << comp
+      end
+      comps
+    end
+
     def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil)
       model = Sketchup.active_model
       last_profiles[:base] = base_name
@@ -303,7 +338,12 @@ module InteriorPro
         puts '[Molding] no walls found'
         return
       end
-      c = house_centroid(ws)
+      # Per-structure centroid (separate buildings get separate centers).
+      cent = {}
+      wall_components(ws).each do |comp|
+        cc = house_centroid(comp)
+        comp.each { |w| cent[w] = cc }
+      end
 
       # Collect all molding runs first, then resolve 45deg miters at shared
       # corners between runs.
@@ -312,7 +352,7 @@ module InteriorPro
         next if w.get_attribute('InteriorPro', 'no_molding')
         edges = MoldingBuilder.wall_edges(w)
         next unless edges
-        sides_for(w, c).each do |s|
+        sides_for(w, cent[w]).each do |s|
           geo = MoldingBuilder.edge_geometry(w, edges[s])
           next unless geo
           plan << { wall: w, side: s, edge: edges[s], geo: geo,
