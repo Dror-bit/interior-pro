@@ -51,6 +51,11 @@ module InteriorPro
       category = group.get_attribute('InteriorPro', 'wall_category') || 'exterior'
       side_a = group.get_attribute('InteriorPro', 'side_a_color') || '#ffffff'
       side_b = group.get_attribute('InteriorPro', 'side_b_color') || '#ffffff'
+      w_sx = group.get_attribute('InteriorPro', 'start_x').to_f
+      w_sy = group.get_attribute('InteriorPro', 'start_y').to_f
+      w_ex = group.get_attribute('InteriorPro', 'end_x').to_f
+      w_ey = group.get_attribute('InteriorPro', 'end_y').to_f
+      cur_length = Math.sqrt((w_ex - w_sx)**2 + (w_ey - w_sy)**2)
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Edit Wall',
         preferences_key: 'InteriorPro_WallEdit',
@@ -58,7 +63,7 @@ module InteriorPro
         height: 480,
         resizable: false
       )
-      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b)
+      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length)
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         model = Sketchup.active_model
@@ -70,6 +75,24 @@ module InteriorPro
         group.set_attribute('InteriorPro', 'wall_category', params['wall_category']) if params['wall_category']
         group.set_attribute('InteriorPro', 'side_a_color', params['side_a']) if params['side_a']
         group.set_attribute('InteriorPro', 'side_b_color', params['side_b']) if params['side_b']
+        # Length change: keep the start point, move the end along the wall axis.
+        new_len_raw = params['length'].to_s.strip
+        unless new_len_raw.empty?
+          begin
+            new_len = new_len_raw.to_l.to_f
+            sx0 = group.get_attribute('InteriorPro', 'start_x').to_f
+            sy0 = group.get_attribute('InteriorPro', 'start_y').to_f
+            ex0 = group.get_attribute('InteriorPro', 'end_x').to_f
+            ey0 = group.get_attribute('InteriorPro', 'end_y').to_f
+            cur = Math.sqrt((ex0 - sx0)**2 + (ey0 - sy0)**2)
+            if cur > 0.001 && new_len >= 1.0 && (new_len - cur).abs > 0.01
+              group.set_attribute('InteriorPro', 'end_x', sx0 + (ex0 - sx0) / cur * new_len)
+              group.set_attribute('InteriorPro', 'end_y', sy0 + (ey0 - sy0) / cur * new_len)
+            end
+          rescue StandardError
+            puts '[WallEdit] invalid length input — ignored'
+          end
+        end
         # Rebuild geometry with updated attributes. Uses stored corners (preserves
         # miters); thickness-driven corner recompute is deferred — see TODO.
         wt = InteriorPro::WallTool.new
@@ -85,6 +108,12 @@ module InteriorPro
           wt.join_corners(group, model, allow_centerline_fallback: true)
         end
         model.commit_operation
+        # Molding follows the edited wall (rebuilds in its own operation).
+        begin
+          InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+        rescue StandardError => e
+          puts "[Molding] refresh after wall edit: #{e.message}"
+        end
         dialog.close
       }
       dialog.show
@@ -457,7 +486,8 @@ module InteriorPro
     end
 
     def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false,
-                             category = 'exterior', side_a = '#ffffff', side_b = '#ffffff')
+                             category = 'exterior', side_a = '#ffffff', side_b = '#ffffff',
+                             length = nil)
       title = edit_mode ? 'Edit Wall' : 'Wall Settings'
       mat_options = MATERIALS.map { |m| "<option value='#{m}' #{m == ext_mat ? 'selected' : ''}>#{m}</option>" }.join
       int_color = (int_mat.is_a?(String) && int_mat.start_with?('#')) ? int_mat : '#ffffff'
@@ -488,6 +518,15 @@ module InteriorPro
       html += "</div>"
       html += "<label>Height (inches)</label><input type='number' id='height' value='#{height}' min='1' step='0.5'>"
       html += "<label>Thickness (inches)</label><input type='number' id='thickness' value='#{thickness}' min='1' step='0.5'>"
+      if edit_mode && length
+        len_str = begin
+          length.to_f.to_l.to_s
+        rescue StandardError
+          length.to_f.round(2).to_s
+        end
+        len_esc = len_str.gsub('"', '&quot;').gsub("'", '&#39;')
+        html += "<label>Length (e.g. 12' 6&quot; or 150)</label><input type='text' id='wallLength' value='#{len_esc}'>"
+      end
       html += "</div>"
       html += "<div class='section' id='extSection'><div class='section-title'>Materials (Exterior Wall)</div>"
       html += "<label>Exterior Material</label><select id='exterior'>#{mat_options}</select>"
@@ -507,7 +546,8 @@ module InteriorPro
       html += "function applySettings(){var wallType = document.querySelector('input[name=\"wall_type\"]:checked').value;"
       html += "var sa=document.getElementById('sideAColor').value;"
       html += "var sb=document.getElementById('sameColors').checked?sa:document.getElementById('sideBColor').value;"
-      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb});}"
+      html += "var lenEl=document.getElementById('wallLength');"
+      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:'')});}"
       html += "syncSections();syncSame();"
       html += "</script>"
       html += "</body></html>"

@@ -11,6 +11,7 @@ module InteriorPro
       ui_dialogs.rb
       wall_edit_tool.rb
       wall_move_tool.rb
+      wall_stretch_tool.rb
       wall_merge_tool.rb
       window_library.rb
       window_library_dialog.rb

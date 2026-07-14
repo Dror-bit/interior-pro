@@ -4,6 +4,7 @@ require_relative 'ui_dialogs.rb'
 require_relative 'wall_tool.rb'
 require_relative 'wall_edit_tool.rb'
 require_relative 'wall_move_tool.rb'
+require_relative 'wall_stretch_tool.rb'
 require_relative 'wall_merge_tool.rb'
 require_relative 'wall_library_dialog.rb'
 require_relative 'window_tool.rb'
@@ -73,6 +74,16 @@ module InteriorPro
       move_cmd.small_icon = File.join(__dir__, 'icons', 'move_wall.svg')
       move_cmd.large_icon = File.join(__dir__, 'icons', 'move_wall.svg')
       toolbar.add_item(move_cmd)
+
+      # Stretch Wall Button
+      stretch_cmd = UI::Command.new('Stretch Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallStretchTool.new)
+      }
+      stretch_cmd.tooltip = 'Stretch Wall - click near a wall end'
+      stretch_cmd.status_bar_text = 'Click a wall near the end to stretch; move mouse, then click or type a length'
+      stretch_cmd.small_icon = File.join(__dir__, 'icons', 'stretch_wall.svg')
+      stretch_cmd.large_icon = File.join(__dir__, 'icons', 'stretch_wall.svg')
+      toolbar.add_item(stretch_cmd)
 
       # Merge Wall Button
       merge_cmd = UI::Command.new('Merge Wall') {
@@ -207,6 +218,9 @@ module InteriorPro
 
       menu.add_item('Move Wall') {
         Sketchup.active_model.select_tool(InteriorPro::WallMoveTool.new)
+      }
+      menu.add_item('Stretch Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallStretchTool.new)
       }
 
       menu.add_item('Merge Wall') {
