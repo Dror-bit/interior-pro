@@ -300,6 +300,14 @@ module InteriorPro
       dialog.add_action_callback('apply_edit') { |_, data|
         door_settings = JSON.parse(data)
         if InteriorPro::DoorManager.update_door(door, door_settings)
+          # Re-cut molding around the edited door (no-op when no molding in model).
+          if defined?(InteriorPro::MoldingManager)
+            begin
+              InteriorPro::MoldingManager.refresh!
+            rescue StandardError => e
+              puts "[DoorLibraryDialog] molding refresh failed: #{e.message}"
+            end
+          end
           remember_session!(door_settings)
           dialog.close
         end
