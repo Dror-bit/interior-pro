@@ -122,9 +122,10 @@ module InteriorPro
     end
 
     # Names for the UI: user .skp files first, built-ins as fallback.
+    # The flat (square) built-in is always offered, after the .skp profiles.
     def self.baseboard_names
       names = skp_names('BASE')
-      names.any? ? names : BASEBOARDS.keys
+      names.any? ? names + [FLAT_BASE_NAME] : BASEBOARDS.keys
     end
 
     def self.crown_names
@@ -173,7 +174,14 @@ module InteriorPro
     # t = thickness (in), h = height (in)
     # points (optional): profile as [depth_frac, height_frac] pairs (0..1),
     # flat back at d=0. Overrides the default shape.
+    FLAT_BASE_NAME = 'Flat' unless const_defined?(:FLAT_BASE_NAME, false)
+
     BASEBOARDS = {
+      # Square flat baseboard - 3.5" x 0.5" rectangle.
+      'Flat' => {
+        t: 0.5, h: 3.5,
+        points: [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+      },
       # Metrie 1556324 — flat lower body, ogee step, upper band, beveled top.
       'Base 5-3/16"' => {
         t: 0.5625, h: 5.1875,
