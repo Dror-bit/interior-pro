@@ -41,6 +41,8 @@ module InteriorPro
         tool.install_window = window['install_window']
         tool.exterior_trim = window['exterior_trim']
         tool.interior_casing = window['interior_casing']
+        tool.exterior_casing_style = window['exterior_casing_style'] || 'none'
+        tool.interior_casing_style = window['interior_casing_style'] || 'none'
         tool.preset_name = window['window_type']
         dialog.close
         Sketchup.active_model.select_tool(tool)
@@ -59,7 +61,9 @@ module InteriorPro
         'frame_width'    => window.get_attribute('InteriorPro', 'frame_width_in'),
         'interior_depth' => window.get_attribute('InteriorPro', 'interior_depth_in'),
         'garden_depth'   => window.get_attribute('InteriorPro', 'garden_depth_in'),
-        'glass_grid_style' => window.get_attribute('InteriorPro', 'glass_grid_style')
+        'glass_grid_style' => window.get_attribute('InteriorPro', 'glass_grid_style'),
+        'exterior_casing_style' => window.get_attribute('InteriorPro', 'exterior_casing_style'),
+        'interior_casing_style' => window.get_attribute('InteriorPro', 'interior_casing_style')
       }
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Edit Window',
@@ -99,6 +103,11 @@ module InteriorPro
       did = s['interior_depth'] || 1
       dgd = s['garden_depth']   || 16
       dgs = s['glass_grid_style'] || 'none'
+      dec = s['exterior_casing_style'] || 'none'
+      dic = s['interior_casing_style'] || 'none'
+      casing_opts = (defined?(InteriorPro::MoldingLibrary) ?
+        InteriorPro::MoldingLibrary.skp_names('CASING') : [])
+        .map { |c| "<option value=\"#{c}\">#{c}</option>" }.join
       <<~HTML
         <!DOCTYPE html>
         <html>
@@ -188,14 +197,19 @@ module InteriorPro
               <input type="checkbox" id="installWindow" checked>
               <label for="installWindow">Install Window (frame + glass)</label>
             </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="exteriorTrim">
-              <label for="exteriorTrim">Exterior Trim</label>
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="interiorCasing">
-              <label for="interiorCasing">Interior Casing</label>
-            </div>
+            <div class="section-title">Casing &amp; Trim</div>
+            <label>Exterior Casing</label>
+            <select id="exteriorCasingStyle">
+              <option value="none">None</option>
+              <option value="flat">Flat (square)</option>
+              #{casing_opts}
+            </select>
+            <label>Interior Casing</label>
+            <select id="interiorCasingStyle">
+              <option value="none">None</option>
+              <option value="flat">Flat (square)</option>
+              #{casing_opts}
+            </select>
 
             <div class="place-row">
               <button class="btn-place" onclick="placeWindow()">Place Window on Wall</button>
@@ -206,6 +220,8 @@ module InteriorPro
           window.onload = function() {
             sketchup.get_types();
             document.getElementById('glassGridStyle').value = '#{dgs}';
+            document.getElementById('exteriorCasingStyle').value = '#{dec}';
+            document.getElementById('interiorCasingStyle').value = '#{dic}';
           };
 
           function loadTypes(types, selectName) {
@@ -236,8 +252,10 @@ module InteriorPro
               garden_depth: parseFloat(document.getElementById('gardenDepth').value),
               glass_grid_style: document.getElementById('glassGridStyle').value,
               install_window: document.getElementById('installWindow').checked,
-              exterior_trim: document.getElementById('exteriorTrim').checked,
-              interior_casing: document.getElementById('interiorCasing').checked
+              exterior_casing_style: document.getElementById('exteriorCasingStyle').value,
+              interior_casing_style: document.getElementById('interiorCasingStyle').value,
+              exterior_trim: document.getElementById('exteriorCasingStyle').value !== 'none',
+              interior_casing: document.getElementById('interiorCasingStyle').value !== 'none'
             };
             sketchup.place_window(JSON.stringify(win));
           }

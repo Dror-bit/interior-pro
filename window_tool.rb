@@ -6,7 +6,7 @@ module InteriorPro
     attr_accessor :window_type, :width, :height, :header_height,
                   :frame_width, :install_window, :exterior_trim,
                   :interior_casing, :preset_name, :interior_depth, :garden_depth,
-                  :glass_grid_style
+                  :glass_grid_style, :exterior_casing_style, :interior_casing_style
 
     def initialize
       @window_type = 'Single Hung'
@@ -19,6 +19,8 @@ module InteriorPro
       @install_window = true
       @exterior_trim = false
       @interior_casing = false
+      @exterior_casing_style = 'none'
+      @interior_casing_style = 'none'
       @preset_name = ''
       @garden_depth = 16.0
     end
@@ -306,6 +308,8 @@ module InteriorPro
         window_group.set_attribute('InteriorPro', 'interior_depth_in',      @interior_depth.to_f)
         window_group.set_attribute('InteriorPro', 'garden_depth_in',        @garden_depth.to_f)
         window_group.set_attribute('InteriorPro', 'glass_grid_style',        @glass_grid_style.to_s)
+        window_group.set_attribute('InteriorPro', 'exterior_casing_style',  @exterior_casing_style.to_s)
+        window_group.set_attribute('InteriorPro', 'interior_casing_style',  @interior_casing_style.to_s)
         window_group.set_attribute('InteriorPro', 'header_height_in',       @header_height.to_f)
         window_group.set_attribute('InteriorPro', 'sill_height_in',         sill_height_in.to_f)
         window_group.set_attribute('InteriorPro', 'area_sqft',              area_sqft)
@@ -337,6 +341,33 @@ module InteriorPro
           build_garden_body(window_group, unit, n, thickness, clicked_side)
         else
           build_casement_body(window_group, unit, n, thickness, clicked_side)
+        end
+      end
+
+      # Picture-frame casing (4 sides) on each wall face, same catalog as
+      # doors. Own operation so a failure cannot roll back the cut/body.
+      if window_group && window_group.valid? &&
+         (casing_enabled?(@exterior_casing_style) || casing_enabled?(@interior_casing_style))
+        model.start_operation('Window Casing', true)
+        begin
+          frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
+                                             Sketchup::Color.new(255, 255, 255), 1.0)
+          half_w = @width / 2.0
+          half_h = @height / 2.0
+          if casing_enabled?(@exterior_casing_style)
+            build_window_casing!(window_group.entities, half_w, half_h,
+                                 @exterior_casing_style, 0.0, clicked_side,
+                                 unit, n, frame_mat, 'Casing_Exterior')
+          end
+          if casing_enabled?(@interior_casing_style)
+            build_window_casing!(window_group.entities, half_w, half_h,
+                                 @interior_casing_style, -clicked_side * thickness,
+                                 -clicked_side, unit, n, frame_mat, 'Casing_Interior')
+          end
+          model.commit_operation
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[WindowTool] casing error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
         end
       end
 
@@ -871,6 +902,80 @@ module InteriorPro
       face.pushpull(w2 - w1)
       grp.material = material
       grp
+    end
+
+    def casing_enabled?(style)
+      style.to_s != '' && style.to_s != 'none'
+    end
+
+    def ensure_casing_profiles!
+      return if defined?(InteriorPro::DoorCasingProfiles)
+      load File.join(File.dirname(__FILE__), 'door_casing_profiles.rb')
+    end
+
+    WINDOW_CASING_REVEAL = 0.25 unless const_defined?(:WINDOW_CASING_REVEAL, false)
+    WINDOW_JAMB_WIDTH = 1.0 unless const_defined?(:WINDOW_JAMB_WIDTH, false)
+
+    # Picture-frame casing around the opening: single closed Follow Me sweep
+    # (mitered corners on all 4 sides). Sits on the jamb with a 1/4" reveal.
+    # v_wall = wall face plane (v along n); dir_v = protrusion sign along n.
+    def build_window_casing!(parent_ents, half_w, half_h, style, v_wall, dir_v, unit, n, mat, name)
+      ensure_casing_profiles!
+      spec = InteriorPro::DoorCasingProfiles.spec(style.to_s)
+      return unless spec
+      cw = spec[:width]
+      max_d = spec[:depth]
+      ov = [WINDOW_JAMB_WIDTH - WINDOW_CASING_REVEAL, 0.0].max
+      u_in = half_w - ov
+      w_in = half_h - ov
+      return if u_in < 1.0 || w_in < 1.0
+
+      grp = parent_ents.add_group
+      grp.name = name
+      ge = grp.entities
+
+      # Profile on the LEFT leg at mid-height (away from the corners),
+      # perpendicular to the leg.
+      prof_pts = spec[:profile].map do |u_frac, v_frac|
+        local_uvw(-u_in - u_frac * cw, v_wall + dir_v * v_frac * max_d, 0.0, unit, n)
+      end
+      prof_face = ge.add_face(prof_pts)
+      unless prof_face && prof_face.valid?
+        grp.erase! if grp.valid?
+        return nil
+      end
+
+      p_ml = local_uvw(-u_in, v_wall, 0.0,   unit, n)
+      p_tl = local_uvw(-u_in, v_wall, w_in,  unit, n)
+      p_tr = local_uvw( u_in, v_wall, w_in,  unit, n)
+      p_br = local_uvw( u_in, v_wall, -w_in, unit, n)
+      p_bl = local_uvw(-u_in, v_wall, -w_in, unit, n)
+      path_edges = []
+      [[p_ml, p_tl], [p_tl, p_tr], [p_tr, p_br], [p_br, p_bl], [p_bl, p_ml]].each do |a, b|
+        e = ge.add_line(a, b)
+        path_edges << e if e
+      end
+      begin
+        prof_face.followme(path_edges)
+        soften_casing_edges(ge)
+      rescue => e
+        puts "[WindowTool] casing followme error: #{e.message}"
+      ensure
+        path_edges.each { |edge| edge.erase! if edge && edge.valid? }
+      end
+      grp.material = mat
+      grp
+    end
+
+    def soften_casing_edges(ents, angle_limit = 50.degrees)
+      ents.grep(Sketchup::Edge).each do |edge|
+        next unless edge.valid?
+        faces = edge.faces
+        next unless faces.length == 2
+        next if faces[0].normal.angle_between(faces[1].normal) > angle_limit
+        edge.soft = true
+        edge.smooth = true
+      end
     end
 
     def local_uvw(u, v, w, unit, n)
