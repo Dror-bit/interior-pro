@@ -23,20 +23,24 @@ module InteriorPro
         preferences_key: 'InteriorPro_Molding',
         width: 400, height: 620, resizable: true
       )
-      dlg.add_action_callback('apply') do |_, b, c, bh, ch|
+      dlg.add_action_callback('apply') do |_, b, c, bh, ch, cm|
+        # Apply to House = the whole house: clear previous exclusions.
+        MoldingManager.include_all_walls!
         MoldingManager.apply_all!(base_name: (b.to_s.empty? ? nil : b),
                                   crown_name: (c.to_s.empty? ? nil : c),
                                   base_h: (bh.to_f > 0.01 ? bh.to_f : nil),
-                                  crown_h: (ch.to_f > 0.01 ? ch.to_f : nil))
+                                  crown_h: (ch.to_f > 0.01 ? ch.to_f : nil),
+                                  color_mode: (cm.to_s.empty? ? nil : cm))
       end
-      dlg.add_action_callback('apply_sel') do |_, b, c, bh, ch|
+      dlg.add_action_callback('apply_sel') do |_, b, c, bh, ch, cm|
         MoldingManager.apply_to_selection!(base_name: (b.to_s.empty? ? nil : b),
                                            crown_name: (c.to_s.empty? ? nil : c),
                                            base_h: (bh.to_f > 0.01 ? bh.to_f : nil),
-                                           crown_h: (ch.to_f > 0.01 ? ch.to_f : nil))
+                                           crown_h: (ch.to_f > 0.01 ? ch.to_f : nil),
+                                           color_mode: (cm.to_s.empty? ? nil : cm))
       end
       dlg.add_action_callback('remove') { |_| MoldingManager.remove_all! }
-      dlg.set_html(build_html(base, crown))
+      dlg.set_html(build_html(base, crown, MoldingBuilder.color_mode(Sketchup.active_model)))
       dlg.show
       @dialog = dlg
     end
@@ -54,7 +58,7 @@ module InteriorPro
       end
     end
 
-    def self.build_html(base, crown)
+    def self.build_html(base, crown, color_mode = 'white')
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -108,15 +112,21 @@ module InteriorPro
               render('baseGrid', BASE, selBase, 'base');
               render('crownGrid', CROWN, selCrown, 'crown');
             }
+            function colorMode() {
+              // Color picker removed from the UI for now — always white.
+              return 'white';
+            }
             function applyAll() {
               sketchup.apply(selBase, selCrown,
                              document.getElementById('baseH').value,
-                             document.getElementById('crownH').value);
+                             document.getElementById('crownH').value,
+                             colorMode());
             }
             function applySel() {
               sketchup.apply_sel(selBase, selCrown,
                                  document.getElementById('baseH').value,
-                                 document.getElementById('crownH').value);
+                                 document.getElementById('crownH').value,
+                                 colorMode());
             }
             renderAll();
           </script>

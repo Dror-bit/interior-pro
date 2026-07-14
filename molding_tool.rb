@@ -171,7 +171,10 @@ module InteriorPro
 
     def make_molding_group(wall, type, profile_name, side, height = nil)
       model = Sketchup.active_model
-      grp = model.active_entities.add_group
+      # Always build at the model top level (world coords) — building inside
+      # an open group/component context misplaces the molding and hides it
+      # from the clear/remove scans.
+      grp = model.entities.add_group
       grp.name = type.capitalize
       grp.set_attribute('InteriorPro', 'type', type)
       grp.set_attribute('InteriorPro', 'host_wall_id', wall.get_attribute('InteriorPro', 'id'))
@@ -183,7 +186,7 @@ module InteriorPro
         grp.erase!
       elsif grp.valid?
         soften_facets!(grp.entities)
-        grp.material = molding_material(model)
+        grp.material = molding_material(model, wall)
       end
       grp
     end
@@ -242,7 +245,24 @@ module InteriorPro
       segs
     end
 
-    def molding_material(model)
+    # Molding color mode: 'white' (default) or 'wall' (each wall's interior
+    # color). Stored on the model so refresh! and reopening keep the choice.
+    def color_mode(model)
+      model.get_attribute('InteriorPro', 'molding_color_mode') == 'wall' ? 'wall' : 'white'
+    end
+
+    def molding_material(model, wall = nil)
+      if wall && color_mode(model) == 'wall'
+        hex = wall.get_attribute('InteriorPro', 'interior_material').to_s
+        if hex.start_with?('#') && hex.length == 7
+          name = "InteriorPro_Molding_#{hex.delete('#')}"
+          m = model.materials[name]
+          return m if m
+          m = model.materials.add(name)
+          m.color = Sketchup::Color.new(hex)
+          return m
+        end
+      end
       m = model.materials['InteriorPro_Molding']
       return m if m
       m = model.materials.add('InteriorPro_Molding')
@@ -327,8 +347,9 @@ module InteriorPro
       comps
     end
 
-    def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil)
+    def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil, color_mode: nil)
       model = Sketchup.active_model
+      model.set_attribute('InteriorPro', 'molding_color_mode', color_mode) if color_mode
       last_profiles[:base] = base_name
       last_profiles[:crown] = crown_name
       last_profiles[:base_h] = base_h
@@ -452,7 +473,7 @@ module InteriorPro
 
     # Apply molding ONLY to the currently selected walls; all other walls
     # are marked no_molding (the toggle tool keeps working afterwards).
-    def apply_to_selection!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil)
+    def apply_to_selection!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil, color_mode: nil)
       model = Sketchup.active_model
       sel = model.selection.to_a.select do |g|
         (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) &&
@@ -477,7 +498,14 @@ module InteriorPro
         end
       end
       apply_all!(base_name: base_name, crown_name: crown_name,
-                 base_h: base_h, crown_h: crown_h)
+                 base_h: base_h, crown_h: crown_h, color_mode: color_mode)
+    end
+
+    # Clear no_molding on all walls (used by the dialog's Apply to House).
+    def include_all_walls!
+      walls(Sketchup.active_model).each do |w|
+        w.set_attribute('InteriorPro', 'no_molding', false)
+      end
     end
 
     def remove_all!
