@@ -374,7 +374,9 @@ module InteriorPro
       if wall_category == 'interior'
         html += "<div class='row'><input type='checkbox' id='apply_side_a'>"
         html += "<div class='field'><label>Side A Color (Right)</label><input type='color' id='sideAColor' value='#{side_a_color}'></div></div>"
-        html += "<div class='row'><input type='checkbox' id='apply_side_b'>"
+        html += "<div class='row'><input type='checkbox' id='sameColors' onchange='syncSame()'>"
+        html += "<div class='field'><label>Same color on both sides (use Side A for both)</label></div></div>"
+        html += "<div class='row' id='sideBRow'><input type='checkbox' id='apply_side_b'>"
         html += "<div class='field'><label>Side B Color (Left)</label><input type='color' id='sideBColor' value='#{side_b_color}'></div></div>"
       else
         html += "<div class='row'><input type='checkbox' id='apply_exterior'>"
@@ -392,8 +394,8 @@ module InteriorPro
       if wall_category == 'interior'
         html += "apply_side_a:document.getElementById('apply_side_a').checked,"
         html += "side_a:document.getElementById('sideAColor').value,"
-        html += "apply_side_b:document.getElementById('apply_side_b').checked,"
-        html += "side_b:document.getElementById('sideBColor').value"
+        html += "apply_side_b:(document.getElementById('sameColors').checked?document.getElementById('apply_side_a').checked:document.getElementById('apply_side_b').checked),"
+        html += "side_b:(document.getElementById('sameColors').checked?document.getElementById('sideAColor').value:document.getElementById('sideBColor').value)"
       else
         html += "apply_exterior:document.getElementById('apply_exterior').checked,"
         html += "exterior:document.getElementById('exterior').value,"
@@ -401,6 +403,7 @@ module InteriorPro
         html += "interior:document.getElementById('intColor').value"
       end
       html += "});}"
+      html += "function syncSame(){var r=document.getElementById('sideBRow');if(r){r.style.display=document.getElementById('sameColors').checked?'none':'flex';}}"
       html += "function selectAllCategory(){sketchup.select_all_category();}</script>"
       html += "</body></html>"
 

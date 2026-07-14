@@ -139,10 +139,13 @@ module InteriorPro
                 <label>Side A Color (Right)</label>
                 <input type="color" id="sideAColor" value="#ffffff" style="width:100%; height:36px; padding:2px; border:1px solid #ccc; border-radius:4px;">
               </div>
-              <div>
+              <div id="sideBWrap">
                 <label>Side B Color (Left)</label>
                 <input type="color" id="sideBColor" value="#ffffff" style="width:100%; height:36px; padding:2px; border:1px solid #ccc; border-radius:4px;">
               </div>
+            </div>
+            <div id="sameColorRow" style="display:none;">
+              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="sameColors" style="width:auto;margin:0;" onchange="syncSameColors()"> Same color on both sides</label>
             </div>
             <label>Draw from (anchor point)</label>
             <div class="anchor-grid">
@@ -175,6 +178,13 @@ module InteriorPro
             var isInterior = (cat === 'interior');
             document.getElementById('exteriorFields').style.display = isInterior ? 'none' : 'flex';
             document.getElementById('interiorFields').style.display = isInterior ? 'flex' : 'none';
+            document.getElementById('sameColorRow').style.display = isInterior ? 'block' : 'none';
+            syncSameColors();
+          }
+
+          function syncSameColors() {
+            document.getElementById('sideBWrap').style.display =
+              document.getElementById('sameColors').checked ? 'none' : 'block';
           }
 
           function loadLibrary(data) {
@@ -214,6 +224,8 @@ module InteriorPro
             document.getElementById('intColor').value = w.interior_color || '#ffffff';
             document.getElementById('sideAColor').value = w.side_a_color || '#ffffff';
             document.getElementById('sideBColor').value = w.side_b_color || '#ffffff';
+            document.getElementById('sameColors').checked =
+              ((w.side_a_color || '#ffffff').toLowerCase() === (w.side_b_color || '#ffffff').toLowerCase());
             setAnchor(w.anchor || 'bottom-center');
             document.getElementById('wallCategory').value = w.wall_category || 'exterior';
             toggleCategoryFields();
@@ -232,6 +244,7 @@ module InteriorPro
             document.getElementById('wallThickness').value = 6;
             document.getElementById('sideAColor').value = '#ffffff';
             document.getElementById('sideBColor').value = '#ffffff';
+            document.getElementById('sameColors').checked = true;
             setAnchor('bottom-center');
             toggleCategoryFields();
             document.getElementById('formPanel').className = 'form-panel visible';
@@ -259,7 +272,9 @@ module InteriorPro
               exterior_material: document.getElementById('extMat').value,
               interior_color: document.getElementById('intColor').value,
               side_a_color: document.getElementById('sideAColor').value,
-              side_b_color: document.getElementById('sideBColor').value,
+              side_b_color: document.getElementById('sameColors').checked
+                ? document.getElementById('sideAColor').value
+                : document.getElementById('sideBColor').value,
               anchor: currentAnchor,
               wall_category: document.getElementById('wallCategory').value
             };
