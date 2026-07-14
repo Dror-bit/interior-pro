@@ -69,33 +69,45 @@ module InteriorPro
 
     # shifts: { start: -1/0/1, end: -1/0/1 } — 45deg miter shear per end
     # (+1 extends with depth, -1 cuts back with depth, 0 square).
-    def build_baseboard_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil)
+    def build_baseboard_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil, tee_gaps = [])
       prof = MoldingLibrary.baseboard_profile_by_name(profile_name, height)
       return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
       openings = InteriorPro::WallTool.read_door_openings(wall)
-      gaps = openings.map { |o| { t: o[:t] + geo[:offset0], width: o[:width] } }
-      gaps += door_bbox_gaps(wall, geo)
-      segs = segments(geo[:len], gaps)
+      gaps = openings.map do |o|
+        c = o[:t] + geo[:offset0]
+        { a: c - o[:width] / 2.0, b: c + o[:width] / 2.0, kind: :door }
+      end
+      gaps += door_bbox_gaps(wall, geo).map do |g|
+        { a: g[:t] - g[:width] / 2.0, b: g[:t] + g[:width] / 2.0, kind: :door }
+      end
+      gaps += tee_gaps.map { |g| { a: g[:a], b: g[:b], kind: :tee } }
+      segs = segments_ex(geo[:len], gaps)
       make_molding_group(wall, 'baseboard', profile_name, side, height) do |ge|
-        segs.each do |a, b|
-          sa = a.abs < 0.01 ? shifts[:start] : 0
-          sb = (b - geo[:len]).abs < 0.01 ? shifts[:end] : 0
-          extrude_profile!(ge, geo, prof, a, b, sa, sb)
+        segs.each do |s|
+          sa = s[:start_kind] == :run ? shifts[:start] : (s[:start_kind] == :tee ? 1 : 0)
+          sb = s[:end_kind] == :run ? shifts[:end] : (s[:end_kind] == :tee ? -1 : 0)
+          extrude_profile!(ge, geo, prof, s[:a], s[:b], sa, sb)
         end
       end
     end
 
-    def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil)
+    def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil, tee_gaps = [])
       wall_h = wall.get_attribute('InteriorPro', 'height').to_f
       return if wall_h < 12.0
       prof = MoldingLibrary.crown_profile_by_name(profile_name, wall_h, height)
       return unless prof
       geo = edge_geometry(wall, edge)
       return unless geo
+      gaps = tee_gaps.map { |g| { a: g[:a], b: g[:b], kind: :tee } }
+      segs = segments_ex(geo[:len], gaps)
       make_molding_group(wall, 'crown', profile_name, side, height) do |ge|
-        extrude_profile!(ge, geo, prof, 0.0, geo[:len], shifts[:start], shifts[:end])
+        segs.each do |s|
+          sa = s[:start_kind] == :run ? shifts[:start] : 1
+          sb = s[:end_kind] == :run ? shifts[:end] : -1
+          extrude_profile!(ge, geo, prof, s[:a], s[:b], sa, sb)
+        end
       end
     end
 
@@ -228,6 +240,27 @@ module InteriorPro
         out << { t: (t0 + t1) / 2.0, width: t1 - t0 } if t1 - t0 > 1.0
       end
       out
+    end
+
+    # Like segments, but each gap is {a:, b:, kind: :door/:tee} and each
+    # returned segment records what bounds it at each end
+    # (:run = wall end, :door = door opening, :tee = T-junction wall).
+    def segments_ex(len, gaps)
+      list = gaps.map { |g| { a: [g[:a], 0.0].max, b: [g[:b], len].min, kind: g[:kind] } }
+                 .select { |g| g[:b] > g[:a] }
+                 .sort_by { |g| g[:a] }
+      segs = []
+      cur = 0.0
+      cur_kind = :run
+      list.each do |g|
+        segs << { a: cur, b: g[:a], start_kind: cur_kind, end_kind: g[:kind] } if g[:a] > cur
+        if g[:b] > cur
+          cur = g[:b]
+          cur_kind = g[:kind]
+        end
+      end
+      segs << { a: cur, b: len, start_kind: cur_kind, end_kind: :run } if len > cur
+      segs
     end
 
     def segments(len, openings)
@@ -377,10 +410,11 @@ module InteriorPro
           geo = MoldingBuilder.edge_geometry(w, edges[s])
           next unless geo
           plan << { wall: w, side: s, edge: edges[s], geo: geo,
-                    shifts: { start: 0, end: 0 } }
+                    shifts: { start: 0, end: 0 }, tee_gaps: [] }
         end
       end
       resolve_miters!(plan)
+      resolve_tees!(plan)
 
       model.start_operation('Molding: Apply All', true)
       # Clear ALL existing molding first (incl. walls excluded since the
@@ -394,11 +428,13 @@ module InteriorPro
         runs.each do |r|
           if base_name
             MoldingBuilder.build_baseboard_on_edge!(w, r[:edge], base_name,
-                                                    r[:side], r[:shifts], base_h)
+                                                    r[:side], r[:shifts], base_h,
+                                                    r[:tee_gaps] || [])
           end
           if crown_name
             MoldingBuilder.build_crown_on_edge!(w, r[:edge], crown_name,
-                                                r[:side], r[:shifts], crown_h)
+                                                r[:side], r[:shifts], crown_h,
+                                                r[:tee_gaps] || [])
           end
         end
         count += 1
@@ -437,6 +473,37 @@ module InteriorPro
           elsif r0.distance(o0) < MITER_TOL
             r[:shifts][:start] = -end_shift(og[:u], r[:geo][:nd])
           end
+        end
+      end
+    end
+
+    # T-junctions: a run whose end touches the MIDDLE of another run's edge.
+    # The stub run gets an inside-corner shear at that end; the crossing run
+    # gets a gap between the stub wall's two side runs (mitered on both edges).
+    def resolve_tees!(plan)
+      bounds = Hash.new { |h, k| h[k] = [] }
+      plan.each do |stub|
+        g = stub[:geo]
+        [[g[:p0], :start], [g[:p0].offset(g[:u], g[:len]), :end]].each do |pt, which|
+          plan.each do |r|
+            next if r.equal?(stub) || r[:wall] == stub[:wall]
+            rg = r[:geo]
+            v = Geom::Vector3d.new(pt.x - rg[:p0].x, pt.y - rg[:p0].y, 0)
+            t = v.dot(rg[:u])
+            next if t < MITER_TOL || t > rg[:len] - MITER_TOL
+            off = Math.sqrt([(v.length**2) - t**2, 0.0].max)
+            next if off > MITER_TOL
+            stub[:shifts][which] = which == :end ? -1 : 1
+            bounds[r] << { t: t, wall: stub[:wall] }
+          end
+        end
+      end
+      bounds.each do |r, list|
+        list.group_by { |b| b[:wall] }.each_value do |bs|
+          next unless bs.length == 2
+          a, b = bs.map { |x| x[:t] }.minmax
+          next if b - a < 0.5 || b - a > 24.0
+          r[:tee_gaps] << { a: a, b: b }
         end
       end
     end
