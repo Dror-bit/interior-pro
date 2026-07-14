@@ -175,6 +175,29 @@ module InteriorPro
           connections << { wall: g, which: :end,   linked: :start } if Math.sqrt((oex - sx)**2 + (oey - sy)**2) < tol
           connections << { wall: g, which: :start, linked: :end   } if Math.sqrt((osx - ex)**2 + (osy - ey)**2) < tol
           connections << { wall: g, which: :end,   linked: :end   } if Math.sqrt((oex - ex)**2 + (oey - ey)**2) < tol
+
+          # T-junction: an endpoint touching the MIDDLE of the moving wall
+          # (within its thickness). That endpoint follows the move vector so
+          # the touching wall stretches/shrinks and stays glued to the face.
+          g_dx = oex - osx
+          g_dy = oey - osy
+          g_len = Math.sqrt(g_dx**2 + g_dy**2)
+          if g_len > 0.001 && ((g_dx * nx + g_dy * ny).abs / g_len) < 0.9
+            thick = group.get_attribute('InteriorPro', 'thickness').to_f
+            perp_tol = thick + 0.5
+            tee_check = lambda do |px, py|
+              t = (px - sx) * nx + (py - sy) * ny
+              off = Math.sqrt((px - (sx + nx * t))**2 + (py - (sy + ny * t))**2)
+              t >= 1.0 && t <= len - 1.0 && off <= perp_tol
+            end
+            already = connections.select { |c| c[:wall] == g }.map { |c| c[:which] }
+            if !already.include?(:start) && tee_check.call(osx, osy)
+              connections << { wall: g, which: :start, linked: :tee }
+            end
+            if !already.include?(:end) && tee_check.call(oex, oey)
+              connections << { wall: g, which: :end, linked: :tee }
+            end
+          end
         end
         by_wall = connections.group_by { |c| c[:wall] }
 
@@ -185,12 +208,20 @@ module InteriorPro
           wex = w.get_attribute('InteriorPro', 'end_x').to_f
           wey = w.get_attribute('InteriorPro', 'end_y').to_f
           conns.each do |c|
-            tx = c[:linked] == :start ? new_sx : new_ex
-            ty = c[:linked] == :start ? new_sy : new_ey
-            if c[:which] == :start
-              wsx = tx; wsy = ty
+            if c[:linked] == :tee
+              if c[:which] == :start
+                wsx += ox; wsy += oy
+              else
+                wex += ox; wey += oy
+              end
             else
-              wex = tx; wey = ty
+              tx = c[:linked] == :start ? new_sx : new_ex
+              ty = c[:linked] == :start ? new_sy : new_ey
+              if c[:which] == :start
+                wsx = tx; wsy = ty
+              else
+                wex = tx; wey = ty
+              end
             end
           end
           Math.sqrt((wex - wsx)**2 + (wey - wsy)**2) < 1.0
@@ -224,14 +255,21 @@ module InteriorPro
 
         by_wall.each do |w, conns|
           conns.each do |c|
-            tx = c[:linked] == :start ? new_sx : new_ex
-            ty = c[:linked] == :start ? new_sy : new_ey
-            if c[:which] == :start
-              w.set_attribute('InteriorPro', 'start_x', tx)
-              w.set_attribute('InteriorPro', 'start_y', ty)
+            if c[:linked] == :tee
+              px = c[:which] == :start ? 'start_x' : 'end_x'
+              py = c[:which] == :start ? 'start_y' : 'end_y'
+              w.set_attribute('InteriorPro', px, w.get_attribute('InteriorPro', px).to_f + ox)
+              w.set_attribute('InteriorPro', py, w.get_attribute('InteriorPro', py).to_f + oy)
             else
-              w.set_attribute('InteriorPro', 'end_x', tx)
-              w.set_attribute('InteriorPro', 'end_y', ty)
+              tx = c[:linked] == :start ? new_sx : new_ex
+              ty = c[:linked] == :start ? new_sy : new_ey
+              if c[:which] == :start
+                w.set_attribute('InteriorPro', 'start_x', tx)
+                w.set_attribute('InteriorPro', 'start_y', ty)
+              else
+                w.set_attribute('InteriorPro', 'end_x', tx)
+                w.set_attribute('InteriorPro', 'end_y', ty)
+              end
             end
           end
           w_data = wt.wall_data(w)
