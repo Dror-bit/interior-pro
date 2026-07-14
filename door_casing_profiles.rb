@@ -247,7 +247,7 @@ module InteriorPro
       return nil if w <= 0.01 || d <= 0.01
       {
         width: w, depth: d, category: :casing,
-        profile: pts.map { |x, z| [z / w, x / d] }
+        profile: pts.map { |x, z| [1.0 - z / w, x / d] }
       }
     rescue StandardError => e
       puts "[DoorCasingProfiles] skp_spec failed for #{style}: #{e.message}"

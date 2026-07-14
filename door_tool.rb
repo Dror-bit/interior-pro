@@ -3391,12 +3391,12 @@ module InteriorPro
                  frame_mat, glass_mat)
 
       if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
-        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
-                          unit, n, frame_mat, 'Exterior_Casing', exterior: true)
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
       end
       if casing_enabled?(@interior_casing_style)
-        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, thickness,
-                          unit, n, frame_mat, 'Interior_Casing', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
       end
 
       smooth_door_body(parent_ents)
@@ -3466,12 +3466,12 @@ module InteriorPro
       end
 
       if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
-        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
-                          unit, n, frame_mat, 'Exterior_Casing', exterior: true)
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
       end
       if casing_enabled?(@interior_casing_style)
-        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, thickness,
-                          unit, n, frame_mat, 'Interior_Casing', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
       end
 
       smooth_door_body(parent_ents)
@@ -3918,12 +3918,12 @@ module InteriorPro
       half_w = layout[:half_w]
       half_h = layout[:half_h]
       if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
-        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, 0.0,
-                          unit, n, frame_mat, 'Exterior_Casing', exterior: true)
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
       end
       if casing_enabled?(@interior_casing_style)
-        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, thickness,
-                          unit, n, frame_mat, 'Interior_Casing', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
       end
       smooth_door_body(parent_ents)
       true
