@@ -13,7 +13,9 @@ module InteriorPro
         height: 420,
         resizable: false
       )
-      html = build_wall_html(tool.height, tool.thickness, tool.exterior_material, tool.interior_material)
+      html = build_wall_html(tool.height, tool.thickness, tool.exterior_material, tool.interior_material,
+                             false, tool.wall_category || 'exterior',
+                             tool.side_a_color || '#ffffff', tool.side_b_color || '#ffffff')
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         tool.height = params['height'].to_f
@@ -21,6 +23,8 @@ module InteriorPro
         tool.exterior_material = params['exterior']
         tool.interior_material = params['interior']
         tool.wall_category = params['wall_category']
+        tool.side_a_color = params['side_a'] if params['side_a'] && tool.respond_to?(:side_a_color=)
+        tool.side_b_color = params['side_b'] if params['side_b'] && tool.respond_to?(:side_b_color=)
         dialog.close
       }
       dialog.show
@@ -44,6 +48,9 @@ module InteriorPro
       thickness = group.get_attribute('InteriorPro', 'thickness', 6.0)
       ext_mat = group.get_attribute('InteriorPro', 'exterior_material', 'Stucco')
       int_mat = group.get_attribute('InteriorPro', 'interior_material', 'Gypsum')
+      category = group.get_attribute('InteriorPro', 'wall_category') || 'exterior'
+      side_a = group.get_attribute('InteriorPro', 'side_a_color') || '#ffffff'
+      side_b = group.get_attribute('InteriorPro', 'side_b_color') || '#ffffff'
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Edit Wall',
         preferences_key: 'InteriorPro_WallEdit',
@@ -51,7 +58,7 @@ module InteriorPro
         height: 480,
         resizable: false
       )
-      html = build_wall_html(height, thickness, ext_mat, int_mat, true)
+      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b)
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         model = Sketchup.active_model
@@ -60,6 +67,9 @@ module InteriorPro
         group.set_attribute('InteriorPro', 'thickness', params['thickness'].to_f)
         group.set_attribute('InteriorPro', 'exterior_material', params['exterior'])
         group.set_attribute('InteriorPro', 'interior_material', params['interior'])
+        group.set_attribute('InteriorPro', 'wall_category', params['wall_category']) if params['wall_category']
+        group.set_attribute('InteriorPro', 'side_a_color', params['side_a']) if params['side_a']
+        group.set_attribute('InteriorPro', 'side_b_color', params['side_b']) if params['side_b']
         # Rebuild geometry with updated attributes. Uses stored corners (preserves
         # miters); thickness-driven corner recompute is deferred — see TODO.
         wt = InteriorPro::WallTool.new
@@ -443,10 +453,16 @@ module InteriorPro
       dialog.show
     end
 
-    def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false)
+    def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false,
+                             category = 'exterior', side_a = '#ffffff', side_b = '#ffffff')
       title = edit_mode ? 'Edit Wall' : 'Wall Settings'
       mat_options = MATERIALS.map { |m| "<option value='#{m}' #{m == ext_mat ? 'selected' : ''}>#{m}</option>" }.join
       int_color = (int_mat.is_a?(String) && int_mat.start_with?('#')) ? int_mat : '#ffffff'
+      cat = category.to_s == 'interior' ? 'interior' : 'exterior'
+      sa_color = (side_a.is_a?(String) && side_a.start_with?('#')) ? side_a : '#ffffff'
+      sb_color = (side_b.is_a?(String) && side_b.start_with?('#')) ? side_b : '#ffffff'
+      same_checked = sa_color.downcase == sb_color.downcase ? 'checked' : ''
+      color_style = "style='width:100%; height:36px; padding:2px; border:1px solid #ccc; border-radius:4px;'"
       html = "<!DOCTYPE html><html><head><style>"
       html += "body{font-family:Arial,sans-serif;padding:16px;background:#f5f5f5;}"
       html += "h2{color:#333;margin-bottom:16px;font-size:16px;}"
@@ -454,6 +470,9 @@ module InteriorPro
       html += "input,select{width:100%;padding:6px;margin-top:4px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;}"
       html += ".section{background:white;padding:12px;border-radius:6px;margin-bottom:12px;}"
       html += ".section-title{font-weight:bold;color:#444;margin-bottom:8px;font-size:13px;}"
+      html += ".checkline{display:flex;align-items:center;gap:6px;margin-top:10px;}"
+      html += ".checkline input{width:auto;margin:0;}"
+      html += ".checkline label{margin:0;}"
       html += "button{width:100%;padding:10px;margin-top:16px;background:#2196F3;color:white;border:none;border-radius:4px;font-size:14px;cursor:pointer;}"
       html += "button:hover{background:#1976D2;}"
       html += "</style></head><body>"
@@ -461,18 +480,33 @@ module InteriorPro
       html += "<div class='section'><div class='section-title'>Dimensions</div>"
       html += "<div class='row'>"
       html += "<label>Wall Type</label>"
-      html += "<input type='radio' name='wall_type' value='exterior' checked> Exterior"
-      html += "<input type='radio' name='wall_type' value='interior'> Interior"
+      html += "<input type='radio' name='wall_type' value='exterior' onchange='syncSections()' #{cat == 'exterior' ? 'checked' : ''}> Exterior"
+      html += "<input type='radio' name='wall_type' value='interior' onchange='syncSections()' #{cat == 'interior' ? 'checked' : ''}> Interior"
       html += "</div>"
       html += "<label>Height (inches)</label><input type='number' id='height' value='#{height}' min='1' step='0.5'>"
       html += "<label>Thickness (inches)</label><input type='number' id='thickness' value='#{thickness}' min='1' step='0.5'>"
       html += "</div>"
-      html += "<div class='section'><div class='section-title'>Materials</div>"
+      html += "<div class='section' id='extSection'><div class='section-title'>Materials (Exterior Wall)</div>"
       html += "<label>Exterior Material</label><select id='exterior'>#{mat_options}</select>"
-      html += "<label>Interior Color</label><input type='color' id='intColor' value='#{int_color}' style='width:100%; height:36px; padding:2px; border:1px solid #ccc; border-radius:4px;'>"
+      html += "<label>Interior Color</label><input type='color' id='intColor' value='#{int_color}' #{color_style}>"
+      html += "</div>"
+      html += "<div class='section' id='intSection'><div class='section-title'>Colors (Interior Wall)</div>"
+      html += "<label>Side A Color</label><input type='color' id='sideAColor' value='#{sa_color}' #{color_style}>"
+      html += "<div class='checkline'><input type='checkbox' id='sameColors' #{same_checked} onchange='syncSame()'><label for='sameColors'>Same color on both sides</label></div>"
+      html += "<div id='sideBRow'><label>Side B Color</label><input type='color' id='sideBColor' value='#{sb_color}' #{color_style}></div>"
       html += "</div>"
       html += "<button onclick='applySettings()'>Apply</button>"
-      html += "<script>function applySettings(){var wallType = document.querySelector('input[name=\"wall_type\"]:checked').value; sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value});}</script>"
+      html += "<script>"
+      html += "function syncSections(){var t=document.querySelector('input[name=\"wall_type\"]:checked').value;"
+      html += "document.getElementById('extSection').style.display=(t==='exterior')?'block':'none';"
+      html += "document.getElementById('intSection').style.display=(t==='interior')?'block':'none';}"
+      html += "function syncSame(){document.getElementById('sideBRow').style.display=document.getElementById('sameColors').checked?'none':'block';}"
+      html += "function applySettings(){var wallType = document.querySelector('input[name=\"wall_type\"]:checked').value;"
+      html += "var sa=document.getElementById('sideAColor').value;"
+      html += "var sb=document.getElementById('sameColors').checked?sa:document.getElementById('sideBColor').value;"
+      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb});}"
+      html += "syncSections();syncSame();"
+      html += "</script>"
       html += "</body></html>"
       html
     end
