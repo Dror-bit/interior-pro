@@ -396,6 +396,7 @@ module InteriorPro
           win_id = saved_attrs['id'] || comp.get_attribute('InteriorPro', 'id')
           definition.name = "InteriorPro_Window_#{win_id}"
           comp.name = 'InteriorPro_Window'
+          InteriorPro.assign_tag(comp, 'IP/Windows')
 
           model.commit_operation
         rescue => e

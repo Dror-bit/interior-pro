@@ -188,6 +188,7 @@ module InteriorPro
       # from the clear/remove scans.
       grp = model.entities.add_group
       grp.name = type.capitalize
+      InteriorPro.assign_tag(grp, 'IP/Moldings')
       grp.set_attribute('InteriorPro', 'type', type)
       grp.set_attribute('InteriorPro', 'host_wall_id', wall.get_attribute('InteriorPro', 'id'))
       grp.set_attribute('InteriorPro', 'profile', profile_name)

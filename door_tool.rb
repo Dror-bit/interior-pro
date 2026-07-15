@@ -2838,6 +2838,7 @@ module InteriorPro
       d_id = saved_attrs['id'] || comp.get_attribute('InteriorPro', 'id')
       definition.name = "InteriorPro_Door_#{d_id}"
       comp.name = 'InteriorPro_Door'
+      InteriorPro.assign_tag(comp, 'IP/Doors')
       InteriorPro::DoorManager.sync_door_params_from_entity!(comp)
       comp
     end

@@ -235,6 +235,24 @@ module InteriorPro
         return
       end
 
+      # Walls that met the moving end (old corner partners) keep a stale
+      # miter cut — collect them now, re-square and re-join after the stretch.
+      old_pt = Geom::Point3d.new(@fixed.x + @u.x * len_old, @fixed.y + @u.y * len_old, 0)
+      partners = []
+      model.entities.grep(Sketchup::Group).each do |g|
+        next if g == wall
+        next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+        [%w[start_x start_y], %w[end_x end_y]].each do |kx, ky|
+          px = g.get_attribute('InteriorPro', kx)
+          py = g.get_attribute('InteriorPro', ky)
+          next unless px && py
+          if old_pt.distance(Geom::Point3d.new(px.to_f, py.to_f, 0)) < 1.0
+            partners << g
+            break
+          end
+        end
+      end
+
       model.start_operation('Stretch Wall', true)
       begin
         if which == :end
@@ -259,6 +277,17 @@ module InteriorPro
             wt.rebuild_wall_geometry(wall, corners, data)
           end
           wt.join_corners(wall, model, allow_centerline_fallback: true)
+          # Rebuild old corner partners so stale miters are squared/re-joined.
+          partners.each do |p|
+            pd = wt.wall_data(p)
+            next unless pd
+            pc = wt.compute_perpendicular_corners_from_data(pd)
+            if pc
+              wt.save_corners_attr(p, pc)
+              wt.rebuild_wall_geometry(p, pc, pd)
+            end
+            wt.join_corners(p, model, allow_centerline_fallback: true)
+          end
         end
         model.commit_operation
       rescue StandardError => e
