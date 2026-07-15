@@ -443,6 +443,7 @@ module InteriorPro
 
       group = model.active_entities.add_group
       group.name = 'InteriorPro_Wall'
+      InteriorPro.assign_tag(group, 'IP/Walls')
       group.set_attribute('InteriorPro', 'type', 'wall')
       group.set_attribute('InteriorPro', 'wall_type', attrs[:wall_type])
       group.set_attribute('InteriorPro', 'height', height)

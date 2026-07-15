@@ -160,6 +160,16 @@ module InteriorPro
     nil
   end
 
+  # 2D contract: assign an IP/* tag (layer) to an entity, creating the tag if needed.
+  def self.assign_tag(entity, tag_name)
+    return unless entity && entity.valid?
+    layers = Sketchup.active_model.layers
+    layer = layers[tag_name] || layers.add(tag_name)
+    entity.layer = layer
+  rescue StandardError => e
+    puts "[InteriorPro] assign_tag failed: #{e.message}"
+  end
+
   def self.reload!
     load_files
     puts 'InteriorPro: classes reloaded (toolbar/menu preserved).'
