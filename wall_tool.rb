@@ -335,17 +335,48 @@ module InteriorPro
         sp = Geom::Point3d.new(sx, sy, 0)
         ep = Geom::Point3d.new(ex, ey, 0)
         line_vec = ep - sp
-        next if line_vec.length < 0.001
+        seg_len = line_vec.length
+        next if seg_len < 0.001
         line_vec.normalize!
-        thickness = g.get_attribute('InteriorPro', 'thickness')
-        tol = (thickness.to_f / 2.0) + 0.5
-        # project pt onto infinite line through sp,ep
+        thickness = g.get_attribute('InteriorPro', 'thickness').to_f
+        tol = (thickness / 2.0) + 0.5
+
+        # Cross-category (butt model, 2026-07-16): an interior wall starting
+        # on an exterior wall (or vice versa) snaps to the NEAREST FACE of
+        # that wall at the cursor position — not to its endpoints — so the
+        # new wall begins exactly at the face and never inside the body.
+        my_cat = (@wall_category || 'exterior').to_s
+        g_cat  = (g.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+        if g_cat != my_cat
+          n_hat = Geom::Vector3d.new(-line_vec.y, line_vec.x, 0)
+          ha = (g.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+          ha = ha == 'center' ? 'center' : (ha.split('-')[1] || 'center')
+          face_offs = case ha
+                      when 'left'  then [0.0, thickness]
+                      when 'right' then [0.0, -thickness]
+                      else [-thickness / 2.0, thickness / 2.0]
+                      end
+          face_offs.each do |o|
+            base = sp.offset(n_hat, o)
+            tt = (flat - base).dot(line_vec)
+            tt = 0.0 if tt < 0.0
+            tt = seg_len if tt > seg_len
+            fp = base.offset(line_vec, tt)
+            d = flat.distance(fp)
+            if d < tol && d < best_d
+              best_d = d
+              best = fp
+            end
+          end
+          next
+        end
+
+        # Same category: legacy endpoint snap (feeds the corner miter).
         to_pt = flat - sp
         t = to_pt.dot(line_vec)
         proj = sp.offset(line_vec, t)
         perp_d = flat.distance(proj)
         next if perp_d > perp_tol
-        # check distance from projection to each endpoint
         d_start = proj.distance(sp)
         d_end = proj.distance(ep)
         if d_start < tol && d_start < best_d
@@ -783,6 +814,19 @@ module InteriorPro
       cl_intersect = Geom.intersect_line_line(line_a, line_b)
       corner = cl_intersect || ((side_a == :end) ? cl_a_end : cl_a_start)
 
+      # Interior wall meeting an exterior wall: butt joint, never a miter
+      # (real-world framing; also keeps interior walls independent from the
+      # exterior shell for move/delete). Same-category corners keep the miter.
+      cat_a = (group_a.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+      cat_b = (group_b.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+      if cat_a != cat_b
+        apply_butt_joint(group_a, side_a, group_b, side_b, data_a, data_b,
+                         u_a_nat, u_b_nat, n_a, n_b, ha_a, ha_b,
+                         t_a_full, t_b_full,
+                         cl_a_start, cl_a_end, cl_b_start, cl_b_end, corner)
+        return true
+      end
+
       a_pos_line = [Geom::Point3d.new(corner.x + n_a.x * a_pos_off, corner.y + n_a.y * a_pos_off, 0), u_a_nat]
       a_neg_line = [Geom::Point3d.new(corner.x + n_a.x * a_neg_off, corner.y + n_a.y * a_neg_off, 0), u_a_nat]
       b_pos_line = [Geom::Point3d.new(corner.x + n_b.x * b_pos_off, corner.y + n_b.y * b_pos_off, 0), u_b_nat]
@@ -825,20 +869,24 @@ module InteriorPro
     end
 
       def apply_butt_joint(group_a, side_a, group_b, side_b, data_a, data_b, u_a_nat, u_b_nat, n_a, n_b, ha_a, ha_b, t_a_full, t_b_full, cl_a_start, cl_a_end, cl_b_start, cl_b_end, corner)
-        if t_a_full >= t_b_full
+        # The EXTERIOR wall is always the one kept intact ("thick"); the
+        # INTERIOR wall is the one trimmed to its face ("thin") — decided by
+        # category, NOT by thickness (walls are often equally thick).
+        cat_a = (group_a.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+        if cat_a == 'exterior'
           thick_group = group_a; thick_side = side_a; thick_data = data_a; thick_u = u_a_nat; thick_n = n_a; thick_ha = ha_a; thick_t = t_a_full; thick_cl_s = cl_a_start; thick_cl_e = cl_a_end
           thin_group = group_b; thin_side = side_b; thin_data = data_b; thin_u = u_b_nat; thin_n = n_b; thin_ha = ha_b; thin_t = t_b_full; thin_cl_s = cl_b_start; thin_cl_e = cl_b_end
         else
           thick_group = group_b; thick_side = side_b; thick_data = data_b; thick_u = u_b_nat; thick_n = n_b; thick_ha = ha_b; thick_t = t_b_full; thick_cl_s = cl_b_start; thick_cl_e = cl_b_end
           thin_group = group_a; thin_side = side_a; thin_data = data_a; thin_u = u_a_nat; thin_n = n_a; thin_ha = ha_a; thin_t = t_a_full; thin_cl_s = cl_a_start; thin_cl_e = cl_a_end
         end
-        thick_pos_off = (thick_ha == 'left') ? thick_t : ((thick_ha == 'right') ? 0.0 : thick_t / 2.0)
-        thick_neg_off = (thick_ha == 'left') ? 0.0 : ((thick_ha == 'right') ? -thick_t : -thick_t / 2.0)
-        thick_end_cl = (thick_side == :end) ? thick_cl_e : thick_cl_s
-        thick_pos_world = Geom::Point3d.new(thick_end_cl.x + thick_n.x * thick_pos_off, thick_end_cl.y + thick_n.y * thick_pos_off, 0)
-        thick_neg_world = Geom::Point3d.new(thick_end_cl.x + thick_n.x * thick_neg_off, thick_end_cl.y + thick_n.y * thick_neg_off, 0)
-        to_corner = Geom::Vector3d.new(corner.x - thick_cl_s.x, corner.y - thick_cl_s.y, 0)
-        side_sign = (to_corner.dot(thick_n) >= 0) ? 1.0 : -1.0
+        # The thin wall must stop at the face of the thick wall that FACES the
+        # thin wall's body. The corner (centerline intersection) sits ON the
+        # thick centerline, so the side is decided by where the thin wall's
+        # far end lies relative to the thick centerline.
+        thin_far = (thin_side == :start) ? thin_cl_e : thin_cl_s
+        side_ref = Geom::Vector3d.new(thin_far.x - corner.x, thin_far.y - corner.y, 0)
+        side_sign = (side_ref.dot(thick_n) >= 0) ? 1.0 : -1.0
         face_offset = side_sign * (thick_t / 2.0)
         face_pt = Geom::Point3d.new(thick_cl_s.x + thick_n.x * face_offset, thick_cl_s.y + thick_n.y * face_offset, 0)
         thick_face_line = [face_pt, thick_u]
@@ -851,10 +899,9 @@ module InteriorPro
         unless thin_pos_world && thin_neg_world
           return
         end
-        thick_xform_inv = thick_group.transformation.inverse
         thin_xform_inv = thin_group.transformation.inverse
-        # Update both walls with butt joint geometry.
-        apply_miter_to_wall(thick_group, thick_side, thick_pos_world.transform(thick_xform_inv), thick_neg_world.transform(thick_xform_inv), wall_data(thick_group))
+        # Butt joint: ONLY the thin wall is trimmed to the thick wall's face.
+        # The thick (exterior) wall keeps its own geometry and miters.
         apply_miter_to_wall(thin_group, thin_side, thin_pos_world.transform(thin_xform_inv), thin_neg_world.transform(thin_xform_inv), wall_data(thin_group))
       end
 

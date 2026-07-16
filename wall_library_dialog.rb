@@ -28,7 +28,9 @@ module InteriorPro
         tool.exterior_material = wall['exterior_material']
         tool.interior_material = wall['interior_color'] || wall['interior_material']
         tool.wall_type_name = wall['name']
-        tool.anchor = wall['anchor'] || 'bottom-center'
+        # Only two anchors are supported (2026-07-16): legacy saved types
+        # (center/top-*) are coerced to bottom-left.
+        tool.anchor = (wall['anchor'] == 'bottom-right') ? 'bottom-right' : 'bottom-left'
         tool.wall_category = wall['wall_category'] || 'exterior'
         tool.side_a_color = wall['side_a_color'] || '#ffffff'
         tool.side_b_color = wall['side_b_color'] || '#ffffff'
@@ -148,15 +150,11 @@ module InteriorPro
               <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="sameColors" style="width:auto;margin:0;" onchange="syncSameColors()"> Same color on both sides</label>
             </div>
             <label>Draw from (anchor point)</label>
-            <div class="anchor-grid">
-              <button class="anchor-btn" onclick="setAnchor('top-left')" id="anchor-top-left">Top Left</button>
-              <button class="anchor-btn" onclick="setAnchor('top-center')" id="anchor-top-center">Top Center</button>
-              <button class="anchor-btn" onclick="setAnchor('top-right')" id="anchor-top-right">Top Right</button>
-              <button class="anchor-btn" onclick="setAnchor('bottom-left')" id="anchor-bottom-left">Bottom Left</button>
-              <button class="anchor-btn active" onclick="setAnchor('bottom-center')" id="anchor-bottom-center">Bottom Center</button>
+            <div class="anchor-grid" style="grid-template-columns: repeat(2, 1fr);">
+              <button class="anchor-btn active" onclick="setAnchor('bottom-left')" id="anchor-bottom-left">Bottom Left</button>
               <button class="anchor-btn" onclick="setAnchor('bottom-right')" id="anchor-bottom-right">Bottom Right</button>
             </div>
-            <input type="hidden" id="anchorVal" value="bottom-center">
+            <input type="hidden" id="anchorVal" value="bottom-left">
             <div class="form-actions">
               <button class="btn-save" onclick="saveWall()">Save</button>
               <button class="btn-cancel" onclick="hideForm()">Cancel</button>
@@ -164,7 +162,7 @@ module InteriorPro
           </div>
         </div>
         <script>
-          var currentAnchor = 'bottom-center';
+          var currentAnchor = 'bottom-left';
           var library = [];
 
           window.onload = function() {
@@ -226,7 +224,7 @@ module InteriorPro
             document.getElementById('sideBColor').value = w.side_b_color || '#ffffff';
             document.getElementById('sameColors').checked =
               ((w.side_a_color || '#ffffff').toLowerCase() === (w.side_b_color || '#ffffff').toLowerCase());
-            setAnchor(w.anchor || 'bottom-center');
+            setAnchor(w.anchor === 'bottom-right' ? 'bottom-right' : 'bottom-left');
             document.getElementById('wallCategory').value = w.wall_category || 'exterior';
             toggleCategoryFields();
             document.getElementById('formPanel').className = 'form-panel visible';
@@ -245,7 +243,7 @@ module InteriorPro
             document.getElementById('sideAColor').value = '#ffffff';
             document.getElementById('sideBColor').value = '#ffffff';
             document.getElementById('sameColors').checked = true;
-            setAnchor('bottom-center');
+            setAnchor('bottom-left');
             toggleCategoryFields();
             document.getElementById('formPanel').className = 'form-panel visible';
           }
@@ -257,7 +255,7 @@ module InteriorPro
           function setAnchor(val) {
             currentAnchor = val;
             document.getElementById('anchorVal').value = val;
-            ['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].forEach(function(a) {
+            ['bottom-left','bottom-right'].forEach(function(a) {
               document.getElementById('anchor-' + a).className = 'anchor-btn' + (a === val ? ' active' : '');
             });
           }

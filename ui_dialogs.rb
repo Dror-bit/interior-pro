@@ -205,6 +205,7 @@ module InteriorPro
         # STEP 1: detect connected walls (endpoint within tol of OLD endpoints)
         tol = 0.1
         connections = []
+        moving_cat = (group.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
         model.entities.grep(Sketchup::Group).each do |g|
           next if g == group
           next unless g.get_attribute('InteriorPro', 'type') == 'wall'
@@ -215,10 +216,16 @@ module InteriorPro
           next unless osx && osy && oex && oey
           osx = osx.to_f; osy = osy.to_f; oex = oex.to_f; oey = oey.to_f
 
-          connections << { wall: g, which: :start, linked: :start } if Math.sqrt((osx - sx)**2 + (osy - sy)**2) < tol
-          connections << { wall: g, which: :end,   linked: :start } if Math.sqrt((oex - sx)**2 + (oey - sy)**2) < tol
-          connections << { wall: g, which: :start, linked: :end   } if Math.sqrt((osx - ex)**2 + (osy - ey)**2) < tol
-          connections << { wall: g, which: :end,   linked: :end   } if Math.sqrt((oex - ex)**2 + (oey - ey)**2) < tol
+          # Corner partners follow ONLY within the same category — moving an
+          # interior wall must not drag the exterior shell (2026-07-16).
+          # T-junction glue below still applies across categories.
+          g_cat = (g.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+          if g_cat == moving_cat
+            connections << { wall: g, which: :start, linked: :start } if Math.sqrt((osx - sx)**2 + (osy - sy)**2) < tol
+            connections << { wall: g, which: :end,   linked: :start } if Math.sqrt((oex - sx)**2 + (oey - sy)**2) < tol
+            connections << { wall: g, which: :start, linked: :end   } if Math.sqrt((osx - ex)**2 + (osy - ey)**2) < tol
+            connections << { wall: g, which: :end,   linked: :end   } if Math.sqrt((oex - ex)**2 + (oey - ey)**2) < tol
+          end
 
           # T-junction: an endpoint touching the MIDDLE of the moving wall
           # (within its thickness). That endpoint follows the move vector so
