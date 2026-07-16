@@ -199,5 +199,135 @@ module InteriorPro
       end
       rooms
     end
+
+    # ---------- Stage B: room entities in the model ----------
+
+    MATCH_TOL = 36.0 unless const_defined?(:MATCH_TOL, false) # inches, centroid matching
+
+    def self.rooms_in_model
+      Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
+      end
+    end
+
+    def self.centroid(pts)
+      a = 0.0
+      cx = 0.0
+      cy = 0.0
+      pts.each_with_index do |p, i|
+        q = pts[(i + 1) % pts.length]
+        cross = p.x.to_f * q.y.to_f - q.x.to_f * p.y.to_f
+        a += cross
+        cx += (p.x.to_f + q.x.to_f) * cross
+        cy += (p.y.to_f + q.y.to_f) * cross
+      end
+      a /= 2.0
+      return Geom::Point3d.new(pts.first.x, pts.first.y, 0) if a.abs < 1e-6
+      Geom::Point3d.new(cx / (6.0 * a), cy / (6.0 * a), 0)
+    end
+
+    def self.next_default_number
+      nums = rooms_in_model.map do |g|
+        n = g.get_attribute('InteriorPro', 'number')
+        n ? n.to_i : 0
+      end
+      (nums.max || 0) + 1
+    end
+
+    def self.build_label!(grp, name, area_sqft)
+      grp.entities.clear!
+      txt = "#{name}\n#{area_sqft.round(1)} sq ft"
+      grp.entities.add_3d_text(txt, TextAlignCenter, 'Arial', false, false, 8.0, 0.0, 0.0, true, 0.0)
+      b = grp.definition.bounds
+      shift = Geom::Vector3d.new(-b.center.x, -b.center.y, 0)
+      grp.entities.transform_entities(Geom::Transformation.translation(shift), grp.entities.to_a)
+    rescue StandardError => e
+      puts "[Rooms] build_label failed: #{e.message}"
+    end
+
+    def self.write_room_attrs!(grp, r, id:, name:, number:)
+      flat = r[:boundary].flat_map { |p| [p.x.to_f, p.y.to_f] }
+      grp.set_attribute('InteriorPro', 'type', 'room')
+      grp.set_attribute('InteriorPro', 'id', id)
+      grp.set_attribute('InteriorPro', 'name', name)
+      grp.set_attribute('InteriorPro', 'number', number)
+      grp.set_attribute('InteriorPro', 'boundary_xy', flat)
+      grp.set_attribute('InteriorPro', 'bounding_wall_ids', r[:wall_ids].compact)
+      grp.set_attribute('InteriorPro', 'area_sqft', r[:net_area_sqft].to_f)
+      grp.set_attribute('InteriorPro', 'level', 1)
+      grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
+    end
+
+    def self.create_room!(r)
+      model = Sketchup.active_model
+      grp = model.entities.add_group
+      grp.name = 'InteriorPro_Room'
+      InteriorPro.assign_tag(grp, 'IP/Rooms')
+      number = next_default_number
+      name = "Room #{number}"
+      id = format('room-%s-%04d', Time.now.to_i.to_s(36), rand(10_000))
+      write_room_attrs!(grp, r, id: id, name: name, number: number)
+      grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      build_label!(grp, name, r[:net_area_sqft])
+      c = centroid(r[:boundary])
+      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, 0.25))
+      grp
+    end
+
+    def self.update_room!(grp, r)
+      id     = grp.get_attribute('InteriorPro', 'id')
+      name   = grp.get_attribute('InteriorPro', 'name') || 'Room'
+      number = grp.get_attribute('InteriorPro', 'number') || 0
+      write_room_attrs!(grp, r, id: id, name: name, number: number)
+      build_label!(grp, name, r[:net_area_sqft])
+      c = centroid(r[:boundary])
+      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, 0.25))
+      grp
+    end
+
+    # Re-detect and reconcile: existing rooms keep id/name (matched by
+    # centroid), new loops get new rooms, stale rooms are erased.
+    def self.sync_rooms!
+      model = Sketchup.active_model
+      detected = detect_rooms!(verbose: false)
+      existing = rooms_in_model
+      model.start_operation('InteriorPro Sync Rooms', true)
+      used = []
+      detected.each do |r|
+        c = centroid(r[:boundary])
+        match = existing.find do |g|
+          next false if used.include?(g)
+          g.transformation.origin.distance(Geom::Point3d.new(c.x, c.y, g.transformation.origin.z)) < MATCH_TOL
+        end
+        if match
+          used << match
+          update_room!(match, r)
+        else
+          create_room!(r)
+        end
+      end
+      (existing - used).each { |g| g.erase! if g.valid? }
+      model.commit_operation
+      puts "[Rooms] sync: #{detected.length} room(s) in model"
+      detected.length
+    rescue StandardError => e
+      model.abort_operation rescue nil
+      puts "[Rooms] sync_rooms! failed: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+      nil
+    end
+
+    # Console rename helper (stage C will add a dialog):
+    #   InteriorPro::RoomManager.rename_room!('Room 1', 'Kitchen')
+    def self.rename_room!(current_name, new_name)
+      grp = rooms_in_model.find { |g| g.get_attribute('InteriorPro', 'name') == current_name }
+      unless grp
+        puts "[Rooms] room '#{current_name}' not found"
+        return false
+      end
+      grp.set_attribute('InteriorPro', 'name', new_name.to_s)
+      build_label!(grp, new_name.to_s, grp.get_attribute('InteriorPro', 'area_sqft').to_f)
+      puts "[Rooms] renamed '#{current_name}' -> '#{new_name}'"
+      true
+    end
   end
 end
