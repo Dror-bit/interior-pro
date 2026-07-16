@@ -41,6 +41,8 @@ module InteriorPro
       return if @setup_done
       @setup_done = true
 
+      setup_floors_toolbar
+
       toolbar = resolve_toolbar
       return if toolbar.length >= TOOLBAR_ITEM_COUNT
 
@@ -197,6 +199,22 @@ module InteriorPro
       toolbar.add_item(molding_toggle_cmd)
 
       toolbar.restore
+    end
+
+    # Separate toolbar for rooms/floors (per user request 2026-07-15).
+    def self.setup_floors_toolbar
+      tb = UI::Toolbar.new('Interior Pro Floors')
+      return if tb.length >= 1
+
+      rooms_cmd = UI::Command.new('Sync Rooms') {
+        InteriorPro::RoomManager.sync_rooms!
+      }
+      rooms_cmd.tooltip = 'Detect Rooms - update room labels'
+      rooms_cmd.status_bar_text = 'Detect closed wall loops and create/update room entities'
+      rooms_cmd.small_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
+      rooms_cmd.large_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
+      tb.add_item(rooms_cmd)
+      tb.restore
     end
   end
 

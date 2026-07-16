@@ -304,6 +304,11 @@ module InteriorPro
       rescue StandardError => e
         puts "[Molding] refresh after wall stretch: #{e.message}"
       end
+      begin
+        InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+      rescue StandardError => e
+        puts "[Rooms] sync after wall stretch: #{e.message}"
+      end
 
       reset_state
       update_status

@@ -376,6 +376,12 @@ module InteriorPro
       join_corners(group, model) if group
 
       model.commit_operation
+
+      begin
+        InteriorPro::RoomManager.sync_rooms! if group && defined?(InteriorPro::RoomManager)
+      rescue StandardError => e
+        puts "[Rooms] sync after wall create: #{e.message}"
+      end
     end
 
     def current_attrs

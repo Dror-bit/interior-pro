@@ -114,6 +114,11 @@ module InteriorPro
         rescue StandardError => e
           puts "[Molding] refresh after wall edit: #{e.message}"
         end
+        begin
+          InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+        rescue StandardError => e
+          puts "[Rooms] sync after wall edit: #{e.message}"
+        end
         dialog.close
       }
       dialog.show
@@ -336,6 +341,11 @@ module InteriorPro
           InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
         rescue StandardError => e
           puts "[Molding] refresh after wall move: #{e.message}"
+        end
+        begin
+          InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+        rescue StandardError => e
+          puts "[Rooms] sync after wall move: #{e.message}"
         end
 
         dialog.close

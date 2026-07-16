@@ -29,6 +29,7 @@ module InteriorPro
       door_move_tool.rb
       door_delete_tool.rb
       window_manager.rb
+      room_manager.rb
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb
