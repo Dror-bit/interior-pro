@@ -216,10 +216,10 @@ module InteriorPro
       tb.add_item(rooms_cmd)
 
       floors_cmd = UI::Command.new('Build Floors') {
-        InteriorPro::FloorManager.build_floors!
+        InteriorPro::FloorDialog.show
       }
-      floors_cmd.tooltip = 'Build Floors - one floor per room'
-      floors_cmd.status_bar_text = 'Build/rebuild a floor for every room (top at z=0)'
+      floors_cmd.tooltip = 'Floors - choose floor type per room'
+      floors_cmd.status_bar_text = 'Open the floors dialog: floor type and thickness per room'
       floors_cmd.small_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
       floors_cmd.large_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
       tb.add_item(floors_cmd)

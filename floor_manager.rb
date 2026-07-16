@@ -29,7 +29,7 @@ module InteriorPro
 
     # Build (or rebuild) the floor of one room group. Reads the room's
     # boundary_xy (world coords, interior wall faces). Returns the new group.
-    def self.build_floor_for_room!(room_grp, type_name = nil)
+    def self.build_floor_for_room!(room_grp, type_name = nil, thickness: nil)
       model = Sketchup.active_model
       room_id = room_grp.get_attribute('InteriorPro', 'id')
       flat = room_grp.get_attribute('InteriorPro', 'boundary_xy')
@@ -39,6 +39,8 @@ module InteriorPro
       type_name ||= old && old.get_attribute('InteriorPro', 'floor_type')
       type_name = DEFAULT_TYPE unless FLOOR_TYPES.key?(type_name)
       spec = FLOOR_TYPES[type_name]
+      thickness ||= old && old.get_attribute('InteriorPro', 'thickness_in')
+      th = thickness.to_f > 0.05 ? thickness.to_f : spec[:thickness]
       old.erase! if old && old.valid?
 
       pts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
@@ -56,7 +58,7 @@ module InteriorPro
         return nil
       end
       # Extrude downward so the top surface stays at z=0.
-      face.pushpull(face.normal.z > 0 ? -spec[:thickness] : spec[:thickness])
+      face.pushpull(face.normal.z > 0 ? -th : th)
       mat = floor_material(model, type_name)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
 
@@ -64,7 +66,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'id', format('floor-%s-%04d', Time.now.to_i.to_s(36), rand(10_000)))
       grp.set_attribute('InteriorPro', 'room_id', room_id)
       grp.set_attribute('InteriorPro', 'floor_type', type_name)
-      grp.set_attribute('InteriorPro', 'thickness_in', spec[:thickness].to_f)
+      grp.set_attribute('InteriorPro', 'thickness_in', th)
       grp.set_attribute('InteriorPro', 'area_sqft', room_grp.get_attribute('InteriorPro', 'area_sqft').to_f)
       grp.set_attribute('InteriorPro', 'level', 1)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
@@ -124,6 +126,23 @@ module InteriorPro
       model.abort_operation rescue nil
       puts "[Floors] refresh! failed: #{e.message}"
       0
+    end
+
+    def self.remove_floor_for_room!(room_id)
+      f = floors_in_model.find { |g| g.get_attribute('InteriorPro', 'room_id') == room_id }
+      f.erase! if f && f.valid?
+      !f.nil?
+    end
+
+    def self.remove_all!
+      model = Sketchup.active_model
+      floors = floors_in_model
+      return 0 if floors.empty?
+      model.start_operation('InteriorPro Remove Floors', true)
+      floors.each { |f| f.erase! if f.valid? }
+      model.commit_operation
+      puts "[Floors] removed #{floors.length} floor(s)"
+      floors.length
     end
 
     # Console helper until the floor dialog exists:

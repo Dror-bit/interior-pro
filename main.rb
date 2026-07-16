@@ -31,6 +31,7 @@ module InteriorPro
       window_manager.rb
       room_manager.rb
       floor_manager.rb
+      floor_dialog.rb
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb
