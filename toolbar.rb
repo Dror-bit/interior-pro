@@ -204,7 +204,7 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 1
+      return if tb.length >= 2
 
       rooms_cmd = UI::Command.new('Sync Rooms') {
         InteriorPro::RoomManager.sync_rooms!
@@ -214,6 +214,15 @@ module InteriorPro
       rooms_cmd.small_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
       rooms_cmd.large_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
       tb.add_item(rooms_cmd)
+
+      floors_cmd = UI::Command.new('Build Floors') {
+        InteriorPro::FloorManager.build_floors!
+      }
+      floors_cmd.tooltip = 'Build Floors - one floor per room'
+      floors_cmd.status_bar_text = 'Build/rebuild a floor for every room (top at z=0)'
+      floors_cmd.small_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
+      floors_cmd.large_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
+      tb.add_item(floors_cmd)
       tb.restore
     end
   end

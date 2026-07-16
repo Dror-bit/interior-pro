@@ -132,6 +132,8 @@ module InteriorPro
 
     # Offset every loop edge toward the interior by half its wall thickness
     # and intersect consecutive offset lines -> boundary at interior faces.
+    # Uses the TRUE wall centerlines (not the clustered node positions, which
+    # can be off by up to the corner tolerance and skew the polygon).
     # Loop must be counterclockwise (interior on the left of each edge).
     def self.inner_boundary(poly, loop_edges)
       n = poly.length
@@ -139,13 +141,25 @@ module InteriorPro
       n.times do |i|
         p = poly[i]
         q = poly[(i + 1) % n]
-        th = loop_edges[i] ? loop_edges[i][:th] : 0.0
-        dx = q.x - p.x
-        dy = q.y - p.y
-        len = Math.sqrt(dx * dx + dy * dy)
-        return nil if len < 0.01
-        off = Geom::Vector3d.new(-dy / len * th / 2.0, dx / len * th / 2.0, 0) # left = interior
-        lines << [p + off, Geom::Vector3d.new(dx, dy, 0)]
+        ref = Geom::Vector3d.new(q.x - p.x, q.y - p.y, 0)
+        return nil if ref.length < 0.01
+
+        edge = loop_edges[i]
+        th = edge ? edge[:th] : 0.0
+        seg = edge ? centerline(edge[:wall]) : nil
+        if seg
+          s = seg[:s]
+          e = seg[:e]
+          d = Geom::Vector3d.new(e.x - s.x, e.y - s.y, 0)
+          d.reverse! if d % ref < 0 # align with traversal direction
+          base = s
+        else
+          d = ref
+          base = p
+        end
+        len = d.length
+        off = Geom::Vector3d.new(-d.y / len * th / 2.0, d.x / len * th / 2.0, 0) # left = interior
+        lines << [base + off, d]
       end
       inner = []
       n.times do |i|
@@ -308,6 +322,11 @@ module InteriorPro
       end
       (existing - used).each { |g| g.erase! if g.valid? }
       model.commit_operation
+      begin
+        InteriorPro::FloorManager.refresh! if defined?(InteriorPro::FloorManager)
+      rescue StandardError => e
+        puts "[Floors] refresh after room sync: #{e.message}"
+      end
       puts "[Rooms] sync: #{detected.length} room(s) in model"
       detected.length
     rescue StandardError => e
