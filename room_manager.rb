@@ -74,7 +74,51 @@ module InteriorPro
         next if a == b
         edges << { a: a, b: b, th: sg[:th], wall: sg[:w] }
       end
+      merge_dangling_nodes!(raw, edges)
       [raw.map { |n| n[:pt] }, edges]
+    end
+
+    # Butt-at-corner fix (2026-07-17): an interior wall butting an exterior
+    # wall's FACE near a corner leaves its centerline endpoint up to about
+    # th_exterior away from the corner node — beyond node_id's tolerance —
+    # so the node dangles (degree 1), the loop never closes and the room is
+    # not detected. Merge each dangling node into its nearest node when the
+    # distance fits a larger, butt-aware tolerance. Only degree-1 nodes are
+    # touched; healthy corners are never re-clustered.
+    def self.merge_dangling_nodes!(raw, edges)
+      loop do
+        deg = Hash.new(0)
+        edges.each do |e|
+          deg[e[:a]] += 1
+          deg[e[:b]] += 1
+        end
+        merged = false
+        raw.each_index do |i|
+          next unless deg[i] == 1
+          best = nil
+          best_d = 1_000_000.0
+          raw.each_index do |j|
+            next if j == i
+            next if deg[j].zero? # already merged away
+            d = raw[i][:pt].distance(raw[j][:pt])
+            if d < best_d
+              best_d = d
+              best = j
+            end
+          end
+          next unless best
+          tol = (raw[i][:th] + raw[best][:th]) * 0.75 + 0.5
+          next if best_d > tol
+          edges.each do |e|
+            e[:a] = best if e[:a] == i
+            e[:b] = best if e[:b] == i
+          end
+          edges.reject! { |e| e[:a] == e[:b] }
+          merged = true
+          break
+        end
+        break unless merged
+      end
     end
 
     # Butt/T model (2026-07-16): a wall whose endpoint touches the MIDDLE of
