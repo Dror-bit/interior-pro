@@ -76,7 +76,9 @@ module InteriorPro
           .wall-item.selected { background: #bbdefb; }
           .wall-name { font-weight: bold; font-size: 13px; color: #222; }
           .wall-info { font-size: 11px; color: #777; margin-top: 2px; }
-          .wall-actions { display: flex; gap: 6px; }
+          .wall-actions { display: flex; gap: 6px; align-items: center; }
+          .side-btn { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; color: #555; font-size: 11px; cursor: pointer; }
+          .side-btn.active { background: #1565C0; color: white; border-color: #1565C0; }
           .btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
           .btn-draw { background: #1565C0; color: white; }
           .btn-edit { background: #f5f5f5; color: #333; border: 1px solid #ccc; }
@@ -164,6 +166,7 @@ module InteriorPro
         <script>
           var currentAnchor = 'bottom-left';
           var library = [];
+          var rowAnchor = {}; // per-row draw side: 0 = bottom-left, 1 = bottom-right
 
           window.onload = function() {
             sketchup.get_library();
@@ -193,12 +196,19 @@ module InteriorPro
               return;
             }
             list.innerHTML = data.map(function(w, i) {
+              if (rowAnchor[i] === undefined) {
+                // Visual mapping (fixed 2026-07-17): the L button = the side the
+                // user SEES as left = anchor 'bottom-right', and vice versa.
+                rowAnchor[i] = (w.anchor === 'bottom-right') ? 0 : 1;
+              }
               return '<div class="wall-item">' +
                 '<div>' +
                   '<div class="wall-name">' + w.name + ' <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:#e3f2fd;color:#1565C0;font-weight:normal;">' + (w.wall_category || 'exterior') + '</span></div>' +
                   '<div class="wall-info">H: ' + w.height + '" | T: ' + w.thickness + '" | Ext: ' + w.exterior_material + ' | Int: ' + (w.interior_color || w.interior_material || '') + '</div>' +
                 '</div>' +
                 '<div class="wall-actions">' +
+                  '<button class="side-btn' + (rowAnchor[i] ? '' : ' active') + '" id="sideL' + i + '" onclick="setRowAnchor(' + i + ', 0)" title="Draw from bottom-left">L</button>' +
+                  '<button class="side-btn' + (rowAnchor[i] ? ' active' : '') + '" id="sideR' + i + '" onclick="setRowAnchor(' + i + ', 1)" title="Draw from bottom-right">R</button>' +
                   '<button class="btn btn-draw" onclick="drawWall(' + i + ')">Draw</button>' +
                   '<button class="btn btn-edit" onclick="editWall(' + i + ')">Edit</button>' +
                   '<button class="btn btn-delete" onclick="deleteWall(' + i + ')">X</button>' +
@@ -207,8 +217,16 @@ module InteriorPro
             }).join('');
           }
 
+          function setRowAnchor(i, right) {
+            rowAnchor[i] = right;
+            document.getElementById('sideL' + i).className = 'side-btn' + (right ? '' : ' active');
+            document.getElementById('sideR' + i).className = 'side-btn' + (right ? ' active' : '');
+          }
+
           function drawWall(i) {
-            sketchup.draw_wall(JSON.stringify(library[i]));
+            var w = JSON.parse(JSON.stringify(library[i]));
+            w.anchor = rowAnchor[i] ? 'bottom-left' : 'bottom-right';
+            sketchup.draw_wall(JSON.stringify(w));
           }
 
           function editWall(i) {
