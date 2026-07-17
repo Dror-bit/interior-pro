@@ -65,6 +65,7 @@ module InteriorPro
     end
 
     def self.build_graph(segs)
+      segs = split_at_tees(segs)
       raw = []
       edges = []
       segs.each do |sg|
@@ -74,6 +75,58 @@ module InteriorPro
         edges << { a: a, b: b, th: sg[:th], wall: sg[:w] }
       end
       [raw.map { |n| n[:pt] }, edges]
+    end
+
+    # Butt/T model (2026-07-16): a wall whose endpoint touches the MIDDLE of
+    # another wall (end-on-face) shares no graph node with it, so loops
+    # through the touched wall never close (additions/closets were not
+    # detected as rooms). Split the touched wall's segment at each such
+    # contact point so the T-junction becomes a real node.
+    def self.split_at_tees(segs)
+      cuts = {}
+      segs.each do |sg|
+        [sg[:s], sg[:e]].each do |p|
+          segs.each_with_index do |o, j|
+            next if o.equal?(sg)
+            dx = o[:e].x - o[:s].x
+            dy = o[:e].y - o[:s].y
+            len = Math.sqrt(dx * dx + dy * dy)
+            next if len < 1.0
+            ux = dx / len
+            uy = dy / len
+            t = (p.x - o[:s].x) * ux + (p.y - o[:s].y) * uy
+            end_tol = 0.75 * (sg[:th] + o[:th]) / 2.0 + 0.5
+            next if t < end_tol || t > len - end_tol # near an end = corner
+            offx = p.x - (o[:s].x + ux * t)
+            offy = p.y - (o[:s].y + uy * t)
+            off = Math.sqrt(offx * offx + offy * offy)
+            next if off > (o[:th] + sg[:th]) / 2.0 + 1.0
+            (cuts[j] ||= []) << t
+          end
+        end
+      end
+      out = []
+      segs.each_with_index do |sg, j|
+        ts = (cuts[j] || []).sort
+        if ts.empty?
+          out << sg
+          next
+        end
+        dx = sg[:e].x - sg[:s].x
+        dy = sg[:e].y - sg[:s].y
+        len = Math.sqrt(dx * dx + dy * dy)
+        ux = dx / len
+        uy = dy / len
+        dts = []
+        ts.each { |t| dts << t if dts.empty? || t - dts.last > 1.0 }
+        stops = [0.0] + dts + [len]
+        stops.each_cons(2) do |t0, t1|
+          a = Geom::Point3d.new(sg[:s].x + ux * t0, sg[:s].y + uy * t0, 0)
+          b = Geom::Point3d.new(sg[:s].x + ux * t1, sg[:s].y + uy * t1, 0)
+          out << { s: a, e: b, th: sg[:th], w: sg[:w] }
+        end
+      end
+      out
     end
 
     # Planar face traversal: at each node continue with the neighbor that is
