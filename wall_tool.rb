@@ -413,14 +413,10 @@ module InteriorPro
       rescue StandardError => e
         puts "[Rooms] sync after wall create: #{e.message}"
       end
-      # Molding follows new walls automatically (no-op when the model has no
-      # molding). Runs AFTER the rooms sync so side selection uses fresh
-      # room polygons.
-      begin
-        InteriorPro::MoldingManager.refresh! if group && defined?(InteriorPro::MoldingManager)
-      rescue StandardError => e
-        puts "[Molding] refresh after wall create: #{e.message}"
-      end
+      # NO automatic molding refresh after drawing a wall (removed 2026-07-17,
+      # user request): a new wall/room must not receive molding by itself.
+      # Molding updates only via the manual Refresh Molding button (or the
+      # existing hooks on doors / wall move / edit).
     end
 
     def current_attrs

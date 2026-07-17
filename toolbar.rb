@@ -198,6 +198,24 @@ module InteriorPro
       molding_toggle_cmd.large_icon = File.join(__dir__, 'icons', 'molding_toggle.svg')
       toolbar.add_item(molding_toggle_cmd)
 
+      # Manual molding refresh (2026-07-17): molding no longer follows new
+      # walls automatically — the user refreshes with this button instead.
+      molding_refresh_cmd = UI::Command.new('Refresh Molding') {
+        has_molding = Sketchup.active_model.entities.grep(Sketchup::Group).any? do |g|
+          %w[baseboard crown].include?(g.get_attribute('InteriorPro', 'type'))
+        end
+        if has_molding
+          InteriorPro::MoldingManager.refresh!
+        else
+          UI.messagebox('No molding in the model yet - use the Molding button first')
+        end
+      }
+      molding_refresh_cmd.tooltip = 'Refresh Molding - rebuild molding to match current walls'
+      molding_refresh_cmd.status_bar_text = 'Rebuild all molding to match current walls, rooms and doors'
+      molding_refresh_cmd.small_icon = File.join(__dir__, 'icons', 'molding_refresh.svg')
+      molding_refresh_cmd.large_icon = File.join(__dir__, 'icons', 'molding_refresh.svg')
+      toolbar.add_item(molding_refresh_cmd)
+
       toolbar.restore
     end
 
@@ -296,6 +314,9 @@ module InteriorPro
       }
       menu.add_item('Molding: Toggle Wall') {
         Sketchup.active_model.select_tool(InteriorPro::MoldingToggleTool.new)
+      }
+      menu.add_item('Molding: Refresh') {
+        InteriorPro::MoldingManager.refresh!
       }
     end
   end
