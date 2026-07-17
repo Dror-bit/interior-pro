@@ -314,17 +314,42 @@ module InteriorPro
       end
     end
 
-    # Interior walls: both sides. Exterior walls: only the side facing
-    # the centroid of the house.
+    # Interior walls: both sides. Exterior walls: molding only on faces that
+    # bound a detected room — probe point 2" in front of the face midpoint
+    # tested against the room boundary polygons (boundary_xy, world coords).
+    # Keeps exterior-space faces (entry alcove etc.) molding-free and picks
+    # the correct room-facing side. Fallback when the model has no rooms:
+    # the old house-centroid heuristic.
     def sides_for(wall, centroid)
       return %i[pos neg] if wall.get_attribute('InteriorPro', 'wall_category') == 'interior'
       edges = MoldingBuilder.wall_edges(wall)
       return [] unless edges
+      rooms = room_polys
+      if rooms.any?
+        sides = []
+        %i[pos neg].each do |s|
+          geo = MoldingBuilder.edge_geometry(wall, edges[s])
+          next unless geo
+          probe = geo[:p0].offset(geo[:u], geo[:len] / 2.0).offset(geo[:nd], 2.0)
+          sides << s if rooms.any? { |poly| Geom.point_in_polygon_2D(probe, poly, true) }
+        end
+        return sides
+      end
       p0, p1, = edges[:pos]
       mid = Geom::Point3d.new((p0.x + p1.x) / 2.0, (p0.y + p1.y) / 2.0, 0)
       nd = MoldingBuilder.edge_geometry(wall, edges[:pos])[:nd]
       to_c = Geom::Vector3d.new(centroid.x - mid.x, centroid.y - mid.y, 0)
       to_c.dot(nd) >= 0 ? [:pos] : [:neg]
+    end
+
+    # Boundary polygons (world coords, interior faces) of all room entities.
+    def room_polys
+      Sketchup.active_model.entities.grep(Sketchup::Group).map do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
+        flat = g.get_attribute('InteriorPro', 'boundary_xy')
+        next unless flat && flat.length >= 6
+        flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
+      end.compact
     end
 
     def house_centroid(ws)
@@ -416,6 +441,7 @@ module InteriorPro
       end
       resolve_miters!(plan)
       resolve_tees!(plan)
+      resolve_flush_butts!(plan)
 
       model.start_operation('Molding: Apply All', true)
       # Clear ALL existing molding first (incl. walls excluded since the
@@ -452,6 +478,10 @@ module InteriorPro
     # shear: inside corner cuts back with depth, outside corner extends.
     MITER_TOL = 1.0 unless const_defined?(:MITER_TOL, false)
 
+    def wall_cat(w)
+      (w.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+    end
+
     def resolve_miters!(plan)
       ends = lambda do |r|
         g = r[:geo]
@@ -461,6 +491,10 @@ module InteriorPro
         r0, r1 = ends.call(r)
         plan.each do |o|
           next if o.equal?(r)
+          # Cross-category contact is a butt joint (interior wall trimmed to
+          # the exterior wall's face, 2026-07-16) — handled by resolve_tees!,
+          # never a miter corner.
+          next if wall_cat(r[:wall]) != wall_cat(o[:wall])
           o0, o1 = ends.call(o)
           og = o[:geo]
           # direction pointing AWAY from the shared corner along the neighbor
@@ -491,7 +525,22 @@ module InteriorPro
             rg = r[:geo]
             v = Geom::Vector3d.new(pt.x - rg[:p0].x, pt.y - rg[:p0].y, 0)
             t = v.dot(rg[:u])
-            next if t < MITER_TOL || t > rg[:len] - MITER_TOL
+            # Same category: only a true mid-run touch is a T (ends stay
+            # miter corners). Cross category (butt joint): a butt landing
+            # near the crossing run's end is still a T — allow the full
+            # span; the gap is clamped to [0, len] by segments_ex and a
+            # leftover sliver < 0.5" is dropped by extrude_profile!.
+            if wall_cat(stub[:wall]) == wall_cat(r[:wall])
+              next if t < MITER_TOL || t > rg[:len] - MITER_TOL
+            else
+              # Butt model: only an INTERIOR wall can be a stub against an
+              # exterior run. The reverse touch (an exterior run's endpoint
+              # on an interior run) is just the other side of the same butt
+              # contact — registering it would overwrite the corner miter
+              # shears with bogus stub shears.
+              next unless wall_cat(stub[:wall]) == 'interior'
+              next if t < -MITER_TOL || t > rg[:len] + MITER_TOL
+            end
             off = Math.sqrt([(v.length**2) - t**2, 0.0].max)
             next if off > MITER_TOL
             stub[:shifts][which] = which == :end ? -1 : 1
@@ -505,6 +554,34 @@ module InteriorPro
           a, b = bs.map { |x| x[:t] }.minmax
           next if b - a < 0.5 || b - a > 24.0
           r[:tee_gaps] << { a: a, b: b }
+        end
+      end
+    end
+
+    # Flush butt at an exterior corner: an interior wall butting exactly at
+    # the END of an exterior wall leaves two COLLINEAR runs (the interior
+    # wall's face run continuing the exterior wall's face run) meeting
+    # end-to-end. Join them with a straight square seam instead of the
+    # crossing 45deg shears the miter/tee passes produce.
+    def resolve_flush_butts!(plan)
+      ipts = lambda do |r|
+        g = r[:geo]
+        { start: g[:p0], end: g[:p0].offset(g[:u], g[:len]) }
+      end
+      plan.each do |ri|
+        next unless wall_cat(ri[:wall]) == 'interior'
+        plan.each do |ro|
+          next unless wall_cat(ro[:wall]) == 'exterior'
+          ui = ri[:geo][:u]
+          uo = ro[:geo][:u]
+          next if (ui.x * uo.y - ui.y * uo.x).abs > 0.02 # not parallel
+          ipts.call(ri).each do |wi, pi|
+            ipts.call(ro).each do |wo, po|
+              next if pi.distance(po) > MITER_TOL
+              ri[:shifts][wi] = 0
+              ro[:shifts][wo] = 0
+            end
+          end
         end
       end
     end
