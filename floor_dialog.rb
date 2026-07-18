@@ -20,7 +20,14 @@ module InteriorPro
           'area'      => r.get_attribute('InteriorPro', 'area_sqft').to_f.round(1),
           'type'      => fl ? fl.get_attribute('InteriorPro', 'floor_type') : (rooms.length == floors_by_room.length ? 'None' : 'Hardwood'),
           'has_floor' => !fl.nil?,
-          'thickness' => fl ? fl.get_attribute('InteriorPro', 'thickness_in').to_f : nil
+          'thickness' => fl ? fl.get_attribute('InteriorPro', 'thickness_in').to_f : nil,
+          'pattern'   => fl ? (fl.get_attribute('InteriorPro', 'pattern') || 'None') : 'None',
+          'unit_w'    => fl ? fl.get_attribute('InteriorPro', 'unit_w').to_f : 0,
+          'unit_l'    => fl ? fl.get_attribute('InteriorPro', 'unit_l').to_f : 0,
+          'ox'        => fl ? fl.get_attribute('InteriorPro', 'pattern_ox').to_f : 0,
+          'oy'        => fl ? fl.get_attribute('InteriorPro', 'pattern_oy').to_f : 0,
+          'angle'     => fl ? fl.get_attribute('InteriorPro', 'pattern_angle').to_f : 0,
+          'center'    => fl ? (fl.get_attribute('InteriorPro', 'pattern_center') ? true : false) : true
         }
       end
 
@@ -34,7 +41,7 @@ module InteriorPro
       dlg = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Floors',
         preferences_key: 'InteriorPro_Floors',
-        width: 430, height: 420, resizable: true
+        width: 470, height: 520, resizable: true
       )
       dlg.add_action_callback('apply') do |_, json|
         apply_selections(JSON.parse(json))
@@ -68,13 +75,23 @@ module InteriorPro
           InteriorPro::FloorManager.remove_floor_for_room!(rid)
         else
           th = cfg['thickness'].to_f
-          InteriorPro::FloorManager.build_floor_for_room!(
+          fl_grp = InteriorPro::FloorManager.build_floor_for_room!(
             room, cfg['type'], thickness: (th > 0.05 ? th : nil)
           )
+          if fl_grp
+            fl_grp.set_attribute('InteriorPro', 'pattern', cfg['pattern'] || 'None')
+            fl_grp.set_attribute('InteriorPro', 'unit_w', cfg['unit_w'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'unit_l', cfg['unit_l'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_ox', cfg['ox'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_oy', cfg['oy'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_angle', cfg['angle'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_center', cfg['center'] ? true : false)
+          end
           count += 1
         end
       end
       InteriorPro::FloorManager.build_door_patches!
+      InteriorPro::FloorPattern.refresh_all! if defined?(InteriorPro::FloorPattern)
       model.commit_operation
       puts "[Floors] dialog apply: #{count} floor(s)"
     rescue StandardError => e
@@ -95,6 +112,10 @@ module InteriorPro
           td.ar { color: #777; font-size: 12px; white-space: nowrap; }
           select, input[type=number] { padding: 3px; width: 100%; box-sizing: border-box; }
           td.th-col { width: 70px; }
+          tr.pat td { border-top: none; background: #fafafa; font-size: 11px; color: #555; }
+          tr.pat input[type=number] { width: 44px; padding: 2px; }
+          tr.pat select { width: 84px; padding: 2px; }
+          tr.pat label { white-space: nowrap; }
           .empty { color: #999; margin: 16px 0; text-align: center; }
           button { width: 100%; padding: 10px; margin-top: 10px; border: none; border-radius: 6px;
                    background: #5d4037; color: #fff; font-size: 14px; cursor: pointer; }
@@ -115,6 +136,11 @@ module InteriorPro
                 return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
               }).join('');
             }
+            function patternOptions(sel) {
+              return ['None', 'Tile', 'Straight'].map(function(t) {
+                return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
+              }).join('');
+            }
             function render() {
               if (!ROOMS.length) {
                 document.getElementById('content').innerHTML =
@@ -129,6 +155,15 @@ module InteriorPro
                   '<td class="ar">' + r.area + ' sqft</td>' +
                   '<td><select id="type_' + i + '" onchange="typeChanged(' + i + ')">' + typeOptions(r.type) + '</select></td>' +
                   '<td class="th-col"><input type="number" id="th_' + i + '" step="0.25" min="0" value="' + th + '"></td></tr>');
+                rows.push('<tr class="pat"><td colspan="4">' +
+                  'Pattern <select id="pat_' + i + '">' + patternOptions(r.pattern) + '</select> ' +
+                  'W <input type="number" id="pw_' + i + '" step="0.5" min="0" value="' + (r.unit_w || '') + '"> ' +
+                  'L <input type="number" id="pl_' + i + '" step="0.5" min="0" value="' + (r.unit_l || '') + '"> ' +
+                  'X <input type="number" id="px_' + i + '" step="0.5" value="' + (r.ox || 0) + '"> ' +
+                  'Y <input type="number" id="py_' + i + '" step="0.5" value="' + (r.oy || 0) + '"> ' +
+                  'Ang <input type="number" id="pa_' + i + '" step="5" value="' + (r.angle || 0) + '"> ' +
+                  '<label><input type="checkbox" id="pc_' + i + '"' + (r.center ? ' checked' : '') + '> Center</label>' +
+                  '</td></tr>');
               });
               rows.push('</table>');
               document.getElementById('content').innerHTML = rows.join('');
@@ -142,7 +177,14 @@ module InteriorPro
               ROOMS.forEach(function(r, i) {
                 sel[r.id] = {
                   type: document.getElementById('type_' + i).value,
-                  thickness: parseFloat(document.getElementById('th_' + i).value) || 0
+                  thickness: parseFloat(document.getElementById('th_' + i).value) || 0,
+                  pattern: document.getElementById('pat_' + i).value,
+                  unit_w: parseFloat(document.getElementById('pw_' + i).value) || 0,
+                  unit_l: parseFloat(document.getElementById('pl_' + i).value) || 0,
+                  ox: parseFloat(document.getElementById('px_' + i).value) || 0,
+                  oy: parseFloat(document.getElementById('py_' + i).value) || 0,
+                  angle: parseFloat(document.getElementById('pa_' + i).value) || 0,
+                  center: document.getElementById('pc_' + i).checked
                 };
               });
               sketchup.apply(JSON.stringify(sel));

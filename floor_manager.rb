@@ -41,6 +41,14 @@ module InteriorPro
       spec = FLOOR_TYPES[type_name]
       thickness ||= old && old.get_attribute('InteriorPro', 'thickness_in')
       th = thickness.to_f > 0.05 ? thickness.to_f : spec[:thickness]
+      # Pattern settings survive the rebuild (floor group is recreated).
+      pat_attrs = {}
+      if old
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center].each do |k|
+          v = old.get_attribute('InteriorPro', k)
+          pat_attrs[k] = v unless v.nil?
+        end
+      end
       old.erase! if old && old.valid?
 
       pts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
@@ -71,6 +79,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'level', 1)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
+      pat_attrs.each { |k, v| grp.set_attribute('InteriorPro', k, v) }
       grp
     rescue StandardError => e
       puts "[Floors] build_floor_for_room! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
@@ -92,6 +101,7 @@ module InteriorPro
         f.erase! if f.valid? && !room_ids.include?(f.get_attribute('InteriorPro', 'room_id'))
       end
       build_door_patches!
+      InteriorPro::FloorPattern.refresh_all! if defined?(InteriorPro::FloorPattern)
       model.commit_operation
       puts "[Floors] built #{n} floor(s)"
       n
@@ -122,6 +132,7 @@ module InteriorPro
         end
       end
       build_door_patches!
+      InteriorPro::FloorPattern.refresh_all! if defined?(InteriorPro::FloorPattern)
       model.commit_operation
       floors.length
     rescue StandardError => e
@@ -259,6 +270,9 @@ module InteriorPro
       model.start_operation('InteriorPro Remove Floors', true)
       floors.each { |f| f.erase! if f.valid? }
       remove_patches!
+      if defined?(InteriorPro::FloorPattern)
+        InteriorPro::FloorPattern.patterns_in_model.each { |p| p.erase! if p.valid? }
+      end
       model.commit_operation
       puts "[Floors] removed #{floors.length} floor(s)"
       floors.length
