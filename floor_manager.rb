@@ -91,6 +91,7 @@ module InteriorPro
       floors_in_model.each do |f|
         f.erase! if f.valid? && !room_ids.include?(f.get_attribute('InteriorPro', 'room_id'))
       end
+      build_door_patches!
       model.commit_operation
       puts "[Floors] built #{n} floor(s)"
       n
@@ -120,12 +121,129 @@ module InteriorPro
           f.erase!
         end
       end
+      build_door_patches!
       model.commit_operation
       floors.length
     rescue StandardError => e
       model.abort_operation rescue nil
       puts "[Floors] refresh! failed: #{e.message}"
       0
+    end
+
+    # ---------- Door threshold patches (2026-07-18) ----------
+    # Floors stop at the interior wall faces, so a floor-level door opening
+    # shows a hole the width of the wall. One patch group per opening fills
+    # the wall thickness across the door width, using the adjacent floor's
+    # type/thickness. Windows are excluded (floor_offset > 0).
+
+    def self.patches_in_model
+      Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'floor_patch'
+      end
+    end
+
+    def self.remove_patches!
+      patches_in_model.each { |p| p.erase! if p.valid? }
+    end
+
+    def self.build_door_patches!
+      model = Sketchup.active_model
+      remove_patches!
+      floors = floors_in_model
+      return 0 if floors.empty?
+      rooms_by_id = {}
+      InteriorPro::RoomManager.rooms_in_model.each do |r|
+        rooms_by_id[r.get_attribute('InteriorPro', 'id')] = r
+      end
+      floor_by_wall = {}
+      floors.each do |f|
+        room = rooms_by_id[f.get_attribute('InteriorPro', 'room_id')]
+        next unless room
+        (room.get_attribute('InteriorPro', 'bounding_wall_ids') || []).each do |wid|
+          floor_by_wall[wid] ||= f
+        end
+      end
+      n = 0
+      model.entities.grep(Sketchup::Group).each do |w|
+        next unless w.valid? && w.get_attribute('InteriorPro', 'type') == 'wall'
+        fl = floor_by_wall[w.get_attribute('InteriorPro', 'id')]
+        next unless fl
+        openings = InteriorPro::WallTool.read_door_openings(w)
+                                        .select { |o| o[:floor_offset].to_f <= 0.001 }
+        next if openings.empty?
+        geo = wall_patch_geometry(w)
+        next unless geo
+        openings.each { |o| n += 1 if build_patch!(w, geo, o, fl) }
+      end
+      puts "[Floors] #{n} door patch(es)" if n > 0
+      n
+    rescue StandardError => e
+      puts "[Floors] build_door_patches! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
+    # World-space frame of a wall footprint: drawn start, along-unit u,
+    # left perpendicular n, and the footprint's extent along n (from the
+    # mitered corners) — enough to place an opening strip across the wall.
+    def self.wall_patch_geometry(w)
+      flat = w.get_attribute('InteriorPro', 'corners_xy')
+      sx = w.get_attribute('InteriorPro', 'start_x')
+      sy = w.get_attribute('InteriorPro', 'start_y')
+      ex = w.get_attribute('InteriorPro', 'end_x')
+      ey = w.get_attribute('InteriorPro', 'end_y')
+      return nil unless flat && flat.length == 8 && sx && sy && ex && ey
+      t = w.transformation
+      s = Geom::Point3d.new(sx.to_f, sy.to_f, 0).transform(t)
+      e = Geom::Point3d.new(ex.to_f, ey.to_f, 0).transform(t)
+      s = Geom::Point3d.new(s.x, s.y, 0)
+      e = Geom::Point3d.new(e.x, e.y, 0)
+      u = e - s
+      return nil if u.length < 1.0
+      u.normalize!
+      nvec = Geom::Vector3d.new(-u.y, u.x, 0)
+      offs = flat.each_slice(2).map do |x, y|
+        p = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(t)
+        (Geom::Point3d.new(p.x, p.y, 0) - s).dot(nvec)
+      end
+      { s: s, u: u, n: nvec, n_min: offs.min, n_max: offs.max }
+    end
+
+    def self.build_patch!(w, geo, o, floor)
+      model = Sketchup.active_model
+      type_name = floor.get_attribute('InteriorPro', 'floor_type') || DEFAULT_TYPE
+      type_name = DEFAULT_TYPE unless FLOOR_TYPES.key?(type_name)
+      th = floor.get_attribute('InteriorPro', 'thickness_in').to_f
+      th = FLOOR_TYPES[type_name][:thickness] if th <= 0.05
+      u1 = o[:t] - o[:width] / 2.0
+      u2 = o[:t] + o[:width] / 2.0
+      pts = [[u1, geo[:n_min]], [u2, geo[:n_min]], [u2, geo[:n_max]], [u1, geo[:n_max]]].map do |uu, nn|
+        Geom::Point3d.new(geo[:s].x + geo[:u].x * uu + geo[:n].x * nn,
+                          geo[:s].y + geo[:u].y * uu + geo[:n].y * nn, 0)
+      end
+      grp = model.entities.add_group
+      grp.name = 'InteriorPro_FloorPatch'
+      InteriorPro.assign_tag(grp, 'IP/Floors')
+      face = begin
+        grp.entities.add_face(pts)
+      rescue StandardError
+        nil
+      end
+      unless face
+        grp.erase! if grp.valid?
+        return false
+      end
+      face.pushpull(face.normal.z > 0 ? -th : th)
+      mat = floor_material(model, type_name)
+      grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
+      grp.set_attribute('InteriorPro', 'type', 'floor_patch')
+      grp.set_attribute('InteriorPro', 'host_wall_id', w.get_attribute('InteriorPro', 'id'))
+      grp.set_attribute('InteriorPro', 'floor_type', type_name)
+      grp.set_attribute('InteriorPro', 'thickness_in', th)
+      grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
+      true
+    rescue StandardError => e
+      puts "[Floors] build_patch!: #{e.message}"
+      false
     end
 
     def self.remove_floor_for_room!(room_id)
@@ -140,6 +258,7 @@ module InteriorPro
       return 0 if floors.empty?
       model.start_operation('InteriorPro Remove Floors', true)
       floors.each { |f| f.erase! if f.valid? }
+      remove_patches!
       model.commit_operation
       puts "[Floors] removed #{floors.length} floor(s)"
       floors.length

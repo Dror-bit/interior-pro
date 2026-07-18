@@ -74,6 +74,7 @@ module InteriorPro
           count += 1
         end
       end
+      InteriorPro::FloorManager.build_door_patches!
       model.commit_operation
       puts "[Floors] dialog apply: #{count} floor(s)"
     rescue StandardError => e
