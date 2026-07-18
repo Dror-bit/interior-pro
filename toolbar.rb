@@ -222,7 +222,7 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 2
+      return if tb.length >= 3
 
       rooms_cmd = UI::Command.new('Sync Rooms') {
         InteriorPro::RoomManager.sync_rooms!
@@ -241,6 +241,17 @@ module InteriorPro
       floors_cmd.small_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
       floors_cmd.large_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
       tb.add_item(floors_cmd)
+
+      # Foundation belt under exterior walls (2026-07-18).
+      foundation_cmd = UI::Command.new('Foundation') {
+        InteriorPro::FoundationManager.build_with_prompt!
+      }
+      foundation_cmd.tooltip = 'Foundation - stem wall belt under the exterior walls'
+      foundation_cmd.status_bar_text = 'Build/update the foundation belt (asks for height); Remove via Extensions menu'
+      foundation_cmd.small_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
+      foundation_cmd.large_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
+      tb.add_item(foundation_cmd)
+
       tb.restore
     end
   end
@@ -317,6 +328,12 @@ module InteriorPro
       }
       menu.add_item('Molding: Refresh') {
         InteriorPro::MoldingManager.refresh!
+      }
+      menu.add_item('Foundation: Build / Update') {
+        InteriorPro::FoundationManager.build_with_prompt!
+      }
+      menu.add_item('Foundation: Remove') {
+        InteriorPro::FoundationManager.remove_all!
       }
     end
   end

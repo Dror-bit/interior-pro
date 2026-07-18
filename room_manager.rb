@@ -418,6 +418,7 @@ module InteriorPro
         end
       end
       (existing - used).each { |g| g.erase! if g.valid? }
+      renumber_rooms!
       model.commit_operation
       begin
         InteriorPro::FloorManager.refresh! if defined?(InteriorPro::FloorManager)
@@ -430,6 +431,26 @@ module InteriorPro
       model.abort_operation rescue nil
       puts "[Rooms] sync_rooms! failed: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
       nil
+    end
+
+    # Keep numbering compact (1..N) after every sync (2026-07-18, user
+    # request): numbers used to keep climbing because next_default_number
+    # only ever increments. Custom names (e.g. 'Kitchen') are preserved —
+    # only default 'Room <n>' names are renamed to the new number.
+    def self.renumber_rooms!
+      n = 0
+      rooms_in_model.sort_by { |g| g.get_attribute('InteriorPro', 'number').to_i }.each do |g|
+        n += 1
+        old_num = g.get_attribute('InteriorPro', 'number').to_i
+        name = g.get_attribute('InteriorPro', 'name').to_s
+        g.set_attribute('InteriorPro', 'number', n)
+        next unless name =~ /\ARoom \d+\z/
+        next if old_num == n && name == "Room #{n}"
+        g.set_attribute('InteriorPro', 'name', "Room #{n}")
+        build_label!(g, "Room #{n}", g.get_attribute('InteriorPro', 'area_sqft').to_f)
+      end
+    rescue StandardError => e
+      puts "[Rooms] renumber_rooms! failed: #{e.message}"
     end
 
     # Console rename helper (stage C will add a dialog):
