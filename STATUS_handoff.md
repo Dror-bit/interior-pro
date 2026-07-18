@@ -1,6 +1,22 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-17)
+# STATUS_handoff — Interior Pro (עודכן 2026-07-18)
 
-## סבב 2026-07-17 — מולדינג בחיבורי butt + זיהוי חדרים (קרא ראשון!)
+## סבב 2026-07-17/18 ב' — מולדינג ידני, L/R בספרייה, תיקון גרף חדרים (קרא ראשון!)
+כל הסעיפים נבדקו ע"י המשתמש ועובדים. קבצים שהשתנו: wall_tool.rb, toolbar.rb, wall_library_dialog.rb, room_manager.rb + icons/molding_refresh.svg.
+
+- **מולדינג לא מתרענן אוטומטית אחרי ציור קיר** (לבקשת המשתמש — קיר/חדר חדש קיבל מולדינג לבד): ה-hook של MoldingManager.refresh! ב-create_wall (wall_tool.rb) הוסר. sync חדרים אחרי ציור נשאר. hooks של דלתות/הזזת קיר/עריכה לא נגעו.
+- **כפתור Refresh Molding חדש** בסוף סרגל Interior Pro Tools + תפריט Molding: Refresh (toolbar.rb, icons/molding_refresh.svg). אם אין מולדינג במודל — הודעה. זה "כפתור הריענון" שסוכם.
+- **Wall Library — כפתורי L/R פר-שורה** ליד Draw (wall_library_dialog.rb): בחירת צד ציור בלי לפתוח Edit. **מיפוי ויזואלי הפוך מהשם:** L = הצד שהמשתמש רואה שמאל = anchor 'bottom-right', ולהפך (rowAnchor ב-JS; drawWall דורס את anchor לפני draw_wall).
+- **תיקון זיהוי חדרים — merge_dangling_nodes! ב-room_manager.rb (build_graph):** קיר פנים שנצמד butt לפאת קיר חוץ ליד פינה משאיר קצה קו-מרכז עד ~th מהצומת (מעבר לטול' של node_id 0.75*avg+0.5) → צומת בדרגה 1, הלולאה לא נסגרת, האגף לא זוהה כחדר. התיקון: צומת בדרגה 1 מתאחה לצומת הקרוב אם המרחק < (thA+thB)*0.75+0.5. רק צמתים תלויים — פינות תקינות לא נגועות. אומת בסימולציה על נתוני המודל (d=5.01, tol=7.63) ואצל המשתמש: 4 חדרים + רצפות לכולם בלי add_face failed.
+- **תקרית שאריות מולדינג:** המשתמש "הסיר" מולדינג אבל נשארו 44 קבוצות baseboard/crown + 2 קווים חופשיים ברצפה — נוקה ידנית (remove_all! + מחיקת קווים ללא פאות בקונסול). לא ברור איך ההסרה המקורית נעשתה — אם חוזר, לבדוק את מסלול ההסרה בדיאלוג.
+- קבצי אבחון חדשים בשורש (קריאה בלבד, להשאיר): debug_molding_side.rb, debug_molding_side2.rb, debug_rooms.rb, debug_molding_leftovers.rb.
+
+### נשאר פתוח (לפי סדר)
+1. **כלי Delete Wall** — המשתמש דחה ("לא קריטי כרגע"). תוכנית מוכנה: קובץ wall_delete_tool.rb חדש — קליק+אישור, מחיקת קיר+דלתות/חלונות/מולדינג שלו, יישור פינות שכנים (reset ל-perpendicular_corners + join_corners), sync חדרים/רצפות; מולדינג ידני. רישום ב-main.rb+toolbar.rb (restart).
+2. חוב ישן: באג מיטר Merge Wall; אייקונים 24px; עריכת עובי קיר.
+
+---
+
+## סבב 2026-07-17 א' — מולדינג בחיבורי butt + זיהוי חדרים
 כל הסעיפים הושלמו ונבדקו ע"י המשתמש. הקבצים שהשתנו: molding_tool.rb, room_manager.rb, wall_tool.rb.
 
 - **מולדינג בחיבורי butt (molding_tool.rb, הושלם):**
