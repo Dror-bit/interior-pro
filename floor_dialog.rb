@@ -137,7 +137,7 @@ module InteriorPro
               }).join('');
             }
             function patternOptions(sel) {
-              return ['None', 'Tile', 'Straight'].map(function(t) {
+              return ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron'].map(function(t) {
                 return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
               }).join('');
             }
