@@ -266,7 +266,16 @@ module InteriorPro
         pt ||= cur[0] # collinear neighbors: fall back to the offset point
         inner << Geom::Point3d.new(pt.x, pt.y, 0)
       end
-      inner
+      # Collinear T-split neighbors (two segments of the same wall) produce
+      # the SAME corner twice — a duplicate consecutive point that makes
+      # add_face fail downstream (floors). Drop consecutive duplicates.
+      dedup = []
+      inner.each do |p|
+        dedup << p if dedup.empty? || dedup.last.distance(p) > 0.01
+      end
+      dedup.pop if dedup.length > 1 && dedup.first.distance(dedup.last) < 0.01
+      return nil if dedup.length < 3
+      dedup
     end
 
     def self.detect_rooms!(verbose: true)

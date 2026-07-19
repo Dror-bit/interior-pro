@@ -52,6 +52,13 @@ module InteriorPro
       old.erase! if old && old.valid?
 
       pts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
+      # Defensive: drop consecutive duplicate points (rooms stored before the
+      # inner_boundary dedup fix, 2026-07-18) — add_face fails on them.
+      clean = []
+      pts.each { |p| clean << p if clean.empty? || clean.last.distance(p) > 0.01 }
+      clean.pop if clean.length > 1 && clean.first.distance(clean.last) < 0.01
+      return nil if clean.length < 3
+      pts = clean
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Floor'
       InteriorPro.assign_tag(grp, 'IP/Floors')
