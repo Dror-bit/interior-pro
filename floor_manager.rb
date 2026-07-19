@@ -4,12 +4,62 @@
 module InteriorPro
   module FloorManager
     FLOOR_TYPES = {
-      'Hardwood' => { thickness: 0.75, color: [176, 132, 90] },
-      'Tile'     => { thickness: 0.5,  color: [214, 212, 205] },
-      'Carpet'   => { thickness: 0.5,  color: [196, 184, 166] },
-      'Concrete' => { thickness: 1.5,  color: [165, 165, 165] }
+      'Hardwood' => { thickness: 0.75, color: [176, 132, 90],  texture: 'floor_hardwood.jpg', tex_size: 48 },
+      'Tile'     => { thickness: 0.5,  color: [214, 212, 205], texture: 'floor_tile.jpg',     tex_size: 48 },
+      'Carpet'   => { thickness: 0.5,  color: [196, 184, 166], texture: 'floor_carpet.jpg',   tex_size: 36 },
+      'Concrete' => { thickness: 1.5,  color: [165, 165, 165], texture: 'floor_concrete.jpg', tex_size: 48 }
     }.freeze unless const_defined?(:FLOOR_TYPES, false)
     DEFAULT_TYPE = 'Hardwood' unless const_defined?(:DEFAULT_TYPE, false)
+
+    # ---------- Dynamic floor library (2026-07-18) ----------
+    # Every JPG/PNG dropped into textures/floors becomes a floor type
+    # automatically — no code changes to add a material. Type name comes
+    # from the file name (underscores -> spaces, capitalized). Defaults:
+    # thickness 0.75", texture repeat 48".
+
+    def self.floors_dir
+      File.join(File.dirname(__FILE__), 'textures', 'floors')
+    end
+
+    def self.custom_types
+      out = {}
+      Dir.glob(File.join(floors_dir, '*.{jpg,jpeg,png,JPG,JPEG,PNG}')).sort.each do |f|
+        name = File.basename(f, '.*').gsub(/[_-]+/, ' ').split.map(&:capitalize).join(' ')
+        next if name.empty? || FLOOR_TYPES.key?(name)
+        out[name] = { thickness: 0.75, color: [200, 200, 200], texture_path: f, tex_size: 48 }
+      end
+      out
+    rescue StandardError => e
+      puts "[Floors] custom_types: #{e.message}"
+      {}
+    end
+
+    # Built-in types first, then everything found in textures/floors.
+    def self.all_types
+      FLOOR_TYPES.merge(custom_types)
+    end
+
+    # ---------- Texture picker (2026-07-18) ----------
+    # The dialog separates WHAT the floor is (type -> thickness) from WHICH
+    # material covers it (a texture file from textures/floors, stored per
+    # floor as 'floor_texture' = file base name). Thumbnails live in
+    # textures/floors/thumbs/<same name>.
+
+    def self.texture_files
+      Dir.glob(File.join(floors_dir, '*.{jpg,jpeg,png,JPG,JPEG,PNG}')).sort
+    end
+
+    def self.texture_material(model, base)
+      f = texture_files.find { |p| File.basename(p, '.*') == base }
+      return floor_material(model, DEFAULT_TYPE) unless f
+      name = "InteriorPro_FloorTex_#{base.gsub(/\s+/, '_')}"
+      m = model.materials[name]
+      return m if m && m.texture
+      m = model.materials.add(name) unless m
+      m.texture = f
+      m.texture.size = 48 if m.texture
+      m
+    end
 
     def self.floors_in_model
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
@@ -17,19 +67,33 @@ module InteriorPro
       end
     end
 
+    # Real textures (2026-07-18): each floor type maps to a seamless JPG in
+    # textures/ (V-Ray reads the SketchUp material directly). Existing
+    # texture-less materials in old models are upgraded in place — the known
+    # "existing material won't update" trap.
     def self.floor_material(model, type_name)
-      spec = FLOOR_TYPES[type_name] || FLOOR_TYPES[DEFAULT_TYPE]
+      types = all_types
+      spec = types[type_name] || types[DEFAULT_TYPE]
       name = "InteriorPro_Floor_#{type_name.to_s.gsub(/\s+/, '_')}"
       m = model.materials[name]
-      return m if m
-      m = model.materials.add(name)
-      m.color = Sketchup::Color.new(*spec[:color])
+      unless m
+        m = model.materials.add(name)
+        m.color = Sketchup::Color.new(*spec[:color])
+      end
+      if m.texture.nil?
+        path = spec[:texture_path] ||
+               (spec[:texture] && File.join(File.dirname(__FILE__), 'textures', spec[:texture]))
+        if path && File.exist?(path)
+          m.texture = path
+          m.texture.size = spec[:tex_size] || 48 if m.texture
+        end
+      end
       m
     end
 
     # Build (or rebuild) the floor of one room group. Reads the room's
     # boundary_xy (world coords, interior wall faces). Returns the new group.
-    def self.build_floor_for_room!(room_grp, type_name = nil, thickness: nil)
+    def self.build_floor_for_room!(room_grp, type_name = nil, thickness: nil, texture: nil)
       model = Sketchup.active_model
       room_id = room_grp.get_attribute('InteriorPro', 'id')
       flat = room_grp.get_attribute('InteriorPro', 'boundary_xy')
@@ -37,16 +101,25 @@ module InteriorPro
 
       old = floors_in_model.find { |f| f.get_attribute('InteriorPro', 'room_id') == room_id }
       type_name ||= old && old.get_attribute('InteriorPro', 'floor_type')
-      type_name = DEFAULT_TYPE unless FLOOR_TYPES.key?(type_name)
-      spec = FLOOR_TYPES[type_name]
+      types = all_types
+      type_name = DEFAULT_TYPE unless types.key?(type_name)
+      spec = types[type_name]
       thickness ||= old && old.get_attribute('InteriorPro', 'thickness_in')
       th = thickness.to_f > 0.05 ? thickness.to_f : spec[:thickness]
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center floor_texture].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
+        end
+      end
+      # texture: nil = keep the old choice; '' = explicitly none; name = set.
+      unless texture.nil?
+        if texture.to_s.empty?
+          pat_attrs.delete('floor_texture')
+        else
+          pat_attrs['floor_texture'] = texture.to_s
         end
       end
       old.erase! if old && old.valid?
@@ -74,7 +147,8 @@ module InteriorPro
       end
       # Extrude downward so the top surface stays at z=0.
       face.pushpull(face.normal.z > 0 ? -th : th)
-      mat = floor_material(model, type_name)
+      tex = pat_attrs['floor_texture']
+      mat = tex ? texture_material(model, tex) : floor_material(model, type_name)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
 
       grp.set_attribute('InteriorPro', 'type', 'floor')
@@ -228,10 +302,11 @@ module InteriorPro
 
     def self.build_patch!(w, geo, o, floor)
       model = Sketchup.active_model
+      types = all_types
       type_name = floor.get_attribute('InteriorPro', 'floor_type') || DEFAULT_TYPE
-      type_name = DEFAULT_TYPE unless FLOOR_TYPES.key?(type_name)
+      type_name = DEFAULT_TYPE unless types.key?(type_name)
       th = floor.get_attribute('InteriorPro', 'thickness_in').to_f
-      th = FLOOR_TYPES[type_name][:thickness] if th <= 0.05
+      th = types[type_name][:thickness] if th <= 0.05
       u1 = o[:t] - o[:width] / 2.0
       u2 = o[:t] + o[:width] / 2.0
       pts = [[u1, geo[:n_min]], [u2, geo[:n_min]], [u2, geo[:n_max]], [u1, geo[:n_max]]].map do |uu, nn|
@@ -251,7 +326,8 @@ module InteriorPro
         return false
       end
       face.pushpull(face.normal.z > 0 ? -th : th)
-      mat = floor_material(model, type_name)
+      tex = floor.get_attribute('InteriorPro', 'floor_texture')
+      mat = tex ? texture_material(model, tex) : floor_material(model, type_name)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
       grp.set_attribute('InteriorPro', 'type', 'floor_patch')
       grp.set_attribute('InteriorPro', 'host_wall_id', w.get_attribute('InteriorPro', 'id'))
@@ -288,8 +364,8 @@ module InteriorPro
     # Console helper until the floor dialog exists:
     #   InteriorPro::FloorManager.set_floor_type!('Kitchen', 'Tile')
     def self.set_floor_type!(room_name, type_name)
-      unless FLOOR_TYPES.key?(type_name)
-        puts "[Floors] unknown type '#{type_name}'. Types: #{FLOOR_TYPES.keys.join(', ')}"
+      unless all_types.key?(type_name)
+        puts "[Floors] unknown type '#{type_name}'. Types: #{all_types.keys.join(', ')}"
         return false
       end
       room = InteriorPro::RoomManager.rooms_in_model.find do |g|

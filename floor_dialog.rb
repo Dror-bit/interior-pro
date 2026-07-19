@@ -27,12 +27,23 @@ module InteriorPro
           'ox'        => fl ? fl.get_attribute('InteriorPro', 'pattern_ox').to_f : 0,
           'oy'        => fl ? fl.get_attribute('InteriorPro', 'pattern_oy').to_f : 0,
           'angle'     => fl ? fl.get_attribute('InteriorPro', 'pattern_angle').to_f : 0,
-          'center'    => fl ? (fl.get_attribute('InteriorPro', 'pattern_center') ? true : false) : true
+          'center'    => fl ? (fl.get_attribute('InteriorPro', 'pattern_center') ? true : false) : true,
+          'texture'   => fl ? (fl.get_attribute('InteriorPro', 'floor_texture') || '') : ''
         }
       end
 
       types = {}
       InteriorPro::FloorManager::FLOOR_TYPES.each { |k, v| types[k] = v[:thickness] }
+
+      # Texture library: base name -> thumbnail file URL (thumbs/<name>, falls
+      # back to the full image if no thumb exists).
+      textures = {}
+      InteriorPro::FloorManager.texture_files.each do |f|
+        base = File.basename(f, '.*')
+        thumb = File.join(File.dirname(f), 'thumbs', File.basename(f))
+        src = File.exist?(thumb) ? thumb : f
+        textures[base] = 'file:///' + src.tr('\\', '/').gsub(' ', '%20')
+      end
 
       if @dialog
         begin; @dialog.close; rescue StandardError; end
@@ -55,7 +66,7 @@ module InteriorPro
         InteriorPro::RoomManager.sync_rooms!
         show
       end
-      dlg.set_html(build_html(data, types))
+      dlg.set_html(build_html(data, types, textures))
       dlg.show
       @dialog = dlg
     end
@@ -71,12 +82,13 @@ module InteriorPro
       sel.each do |rid, cfg|
         room = rooms_by_id[rid]
         next unless room
-        if cfg['type'] == 'None'
+        if cfg['texture'].to_s.empty?
           InteriorPro::FloorManager.remove_floor_for_room!(rid)
         else
           th = cfg['thickness'].to_f
           fl_grp = InteriorPro::FloorManager.build_floor_for_room!(
-            room, cfg['type'], thickness: (th > 0.05 ? th : nil)
+            room, cfg['type'], thickness: (th > 0.05 ? th : nil),
+            texture: cfg['texture'].to_s
           )
           if fl_grp
             fl_grp.set_attribute('InteriorPro', 'pattern', cfg['pattern'] || 'None')
@@ -99,7 +111,7 @@ module InteriorPro
       puts "[Floors] dialog apply failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
     end
 
-    def self.build_html(rooms, types)
+    def self.build_html(rooms, types, textures = {})
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -129,17 +141,29 @@ module InteriorPro
           <script>
             var ROOMS = #{rooms.to_json};
             var TYPES = #{types.to_json};
+            var TEXTURES = #{textures.to_json};
 
-            function typeOptions(sel) {
-              var opts = ['None'].concat(Object.keys(TYPES));
-              return opts.map(function(t) {
-                return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
-              }).join('');
-            }
             function patternOptions(sel) {
               return ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron'].map(function(t) {
                 return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
               }).join('');
+            }
+            function textureOptions(sel) {
+              var opts = ['<option value=""' + (sel ? '' : ' selected') + '>None</option>'];
+              Object.keys(TEXTURES).forEach(function(b) {
+                opts.push('<option value="' + b + '"' + (b === sel ? ' selected' : '') + '>' + b.replace(/[_-]+/g, ' ') + '</option>');
+              });
+              return opts.join('');
+            }
+            function textureChanged(i) {
+              var b = document.getElementById('tx_' + i).value;
+              var img = document.getElementById('tximg_' + i);
+              if (b && TEXTURES[b]) {
+                img.src = TEXTURES[b];
+                img.style.display = 'inline-block';
+              } else {
+                img.style.display = 'none';
+              }
             }
             function render() {
               if (!ROOMS.length) {
@@ -150,10 +174,11 @@ module InteriorPro
               }
               var rows = ['<table><tr><th>Room</th><th>Area</th><th>Floor</th><th>Thick (in)</th></tr>'];
               ROOMS.forEach(function(r, i) {
-                var th = r.thickness || TYPES[r.type] || '';
+                var th = r.thickness || 0.75;
                 rows.push('<tr><td class="nm">' + r.name + '</td>' +
                   '<td class="ar">' + r.area + ' sqft</td>' +
-                  '<td><select id="type_' + i + '" onchange="typeChanged(' + i + ')">' + typeOptions(r.type) + '</select></td>' +
+                  '<td><select id="tx_' + i + '" onchange="textureChanged(' + i + ')" style="width:120px;">' + textureOptions(r.texture) + '</select> ' +
+                  '<img id="tximg_' + i + '" src="' + (r.texture && TEXTURES[r.texture] ? TEXTURES[r.texture] : '') + '" style="height:26px;width:26px;object-fit:cover;vertical-align:middle;border:1px solid #ccc;border-radius:3px;' + (r.texture && TEXTURES[r.texture] ? '' : 'display:none;') + '"></td>' +
                   '<td class="th-col"><input type="number" id="th_' + i + '" step="0.25" min="0" value="' + th + '"></td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
                   'Pattern <select id="pat_' + i + '">' + patternOptions(r.pattern) + '</select> ' +
@@ -168,15 +193,11 @@ module InteriorPro
               rows.push('</table>');
               document.getElementById('content').innerHTML = rows.join('');
             }
-            function typeChanged(i) {
-              var t = document.getElementById('type_' + i).value;
-              document.getElementById('th_' + i).value = TYPES[t] || '';
-            }
             function applyAll() {
               var sel = {};
               ROOMS.forEach(function(r, i) {
                 sel[r.id] = {
-                  type: document.getElementById('type_' + i).value,
+                  type: 'Hardwood',
                   thickness: parseFloat(document.getElementById('th_' + i).value) || 0,
                   pattern: document.getElementById('pat_' + i).value,
                   unit_w: parseFloat(document.getElementById('pw_' + i).value) || 0,
@@ -184,7 +205,8 @@ module InteriorPro
                   ox: parseFloat(document.getElementById('px_' + i).value) || 0,
                   oy: parseFloat(document.getElementById('py_' + i).value) || 0,
                   angle: parseFloat(document.getElementById('pa_' + i).value) || 0,
-                  center: document.getElementById('pc_' + i).checked
+                  center: document.getElementById('pc_' + i).checked,
+                  texture: document.getElementById('tx_' + i).value
                 };
               });
               sketchup.apply(JSON.stringify(sel));
