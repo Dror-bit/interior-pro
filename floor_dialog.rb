@@ -28,7 +28,11 @@ module InteriorPro
           'oy'        => fl ? fl.get_attribute('InteriorPro', 'pattern_oy').to_f : 0,
           'angle'     => fl ? fl.get_attribute('InteriorPro', 'pattern_angle').to_f : 0,
           'center'    => fl ? (fl.get_attribute('InteriorPro', 'pattern_center') ? true : false) : true,
-          'texture'   => fl ? (fl.get_attribute('InteriorPro', 'floor_texture') || '') : ''
+          'texture'   => fl ? (fl.get_attribute('InteriorPro', 'floor_texture') || '') : '',
+          'grout'     => fl ? fl.get_attribute('InteriorPro', 'pattern_grout').to_f : 0,
+          'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
+          'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
+          'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : ''
         }
       end
 
@@ -38,6 +42,7 @@ module InteriorPro
       # Texture library: base name -> thumbnail file URL (thumbs/<name>, falls
       # back to the full image if no thumb exists).
       textures = {}
+      InteriorPro::FloorManager::SOLID_COLORS.each_key { |c| textures[c] = '' }
       InteriorPro::FloorManager.texture_files.each do |f|
         base = File.basename(f, '.*')
         thumb = File.join(File.dirname(f), 'thumbs', File.basename(f))
@@ -98,6 +103,10 @@ module InteriorPro
             fl_grp.set_attribute('InteriorPro', 'pattern_oy', cfg['oy'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_angle', cfg['angle'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_center', cfg['center'] ? true : false)
+            fl_grp.set_attribute('InteriorPro', 'pattern_grout', cfg['grout'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_grout_color', cfg['grout_color'].to_s)
+            fl_grp.set_attribute('InteriorPro', 'floor_spec', cfg['spec'].to_s)
+            fl_grp.set_attribute('InteriorPro', 'grout_spec', cfg['grout_spec'].to_s)
           end
           count += 1
         end
@@ -155,6 +164,19 @@ module InteriorPro
               });
               return opts.join('');
             }
+            function groutOptions(sel) {
+              var opts = [[0, 'None'], [0.0625, '1/16"'], [0.125, '1/8"'], [0.1875, '3/16"'],
+                          [0.25, '1/4"'], [0.375, '3/8"'], [0.5, '1/2"']];
+              return opts.map(function(o) {
+                var s = Math.abs((sel || 0) - o[0]) < 0.01 ? ' selected' : '';
+                return '<option value="' + o[0] + '"' + s + '>' + o[1] + '</option>';
+              }).join('');
+            }
+            function groutColorOptions(sel) {
+              return [['white', 'White'], ['light', 'Light'], ['gray', 'Gray'], ['dark', 'Dark']].map(function(o) {
+                return '<option value="' + o[0] + '"' + (o[0] === (sel || 'light') ? ' selected' : '') + '>' + o[1] + '</option>';
+              }).join('');
+            }
             function textureChanged(i) {
               var b = document.getElementById('tx_' + i).value;
               var img = document.getElementById('tximg_' + i);
@@ -187,7 +209,13 @@ module InteriorPro
                   'X <input type="number" id="px_' + i + '" step="0.5" value="' + (r.ox || 0) + '"> ' +
                   'Y <input type="number" id="py_' + i + '" step="0.5" value="' + (r.oy || 0) + '"> ' +
                   'Ang <input type="number" id="pa_' + i + '" step="5" value="' + (r.angle || 0) + '"> ' +
+                  'Grout <select id="pg_' + i + '" title="Grout width, Tile pattern only">' + groutOptions(r.grout) + '</select> ' +
+                  '<select id="pgc_' + i + '" title="Grout color">' + groutColorOptions(r.grout_color) + '</select> ' +
                   '<label><input type="checkbox" id="pc_' + i + '"' + (r.center ? ' checked' : '') + '> Center</label>' +
+                  '</td></tr>');
+                rows.push('<tr class="pat"><td colspan="4">' +
+                  'Spec <input type="text" id="sp_' + i + '" style="width:150px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
+                  'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +
                   '</td></tr>');
               });
               rows.push('</table>');
@@ -206,7 +234,11 @@ module InteriorPro
                   oy: parseFloat(document.getElementById('py_' + i).value) || 0,
                   angle: parseFloat(document.getElementById('pa_' + i).value) || 0,
                   center: document.getElementById('pc_' + i).checked,
-                  texture: document.getElementById('tx_' + i).value
+                  texture: document.getElementById('tx_' + i).value,
+                  grout: parseFloat(document.getElementById('pg_' + i).value) || 0,
+                  grout_color: document.getElementById('pgc_' + i).value,
+                  spec: document.getElementById('sp_' + i).value,
+                  grout_spec: document.getElementById('gs_' + i).value
                 };
               });
               sketchup.apply(JSON.stringify(sel));

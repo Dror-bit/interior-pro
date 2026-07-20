@@ -1,4 +1,29 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-18)
+# STATUS_handoff — Interior Pro (עודכן 2026-07-18 ערב)
+
+## סבב 2026-07-18 ג' — מערכת חומרי רצפה + פריסות עם כיוון (קרא ראשון!)
+הכל נבדק ע"י המשתמש ועובד. קבצים: floor_pattern.rb (שוכתב), floor_manager.rb, floor_dialog.rb + textures/floors/.
+
+- **מבנה הבחירה בדיאלוג הרצפות (סופי, לבקשת המשתמש):** לכל חדר — Floor = בורר טקסטורות ישירות (None + כל קובץ ב-textures/floors, עם תמונה ממוזערת מ-thumbs/) + Thick + שורת Pattern. אין "סוגי רצפה" — floor_type נשאר 'Hardwood' פנימי בלבד. הבחירה נשמרת כ-floor_texture (base name) על קבוצת הרצפה ושורדת rebuild (ברשימת pat_attrs).
+- **ספריית חומרים אוטומטית:** כל JPG/PNG שנזרק ל-textures/floors מופיע בדיאלוג. FloorManager.texture_files / texture_material (חומר InteriorPro_FloorTex_<base>, repeat 48"). thumbs/ נוצרים ע"י העוזר (אין Python אצל המשתמש).
+- **צינור seamless מתמונה (עובד end-to-end):** המשתמש שם תמונה בתיקייה → העוזר מושך, מריץ יישור-תאורה (החסרת low-pass) + wrap-blend קצוות ב-Python בענן → מחזיר seamless. 5 חומרים עובדו: white_oak_planks, oak_light, oak_veneer, bamboo, walnut. מקוריים ב-_to_delete/raw_floor_photos.
+- **קרשים עם כיוון (הפיצ'ר המרכזי):** כשנבחר חומר + Straight/Herringbone/Chevron — כל קרש הוא פאה אמיתית עם position_material בעיגון אפיני מלא (3 זוגות): הטקסטורה רצה לאורך הקרש + היסט אקראי פר-קרש. Tile נשאר קווים + חומר אחיד על הרצפה.
+- **חיתוך לגבול החדר (אחרי 3 גרסאות!):** triangulation של פוליגון החדר (ear clipping) + Sutherland-Hodgman של כל קרש מול כל משולש (קמור-מול-קמור = מדויק). גרסאות שנכשלו: SH ישיר על פוליגון קעור (קווי "גשר"), intersect_with (פספוסים על edges קו-פלנריים). לא לחזור אליהן.
+- **עובי קווים אחיד:** כל קצוות הפאות hidden+soft; קווי המפרקים = שכבת edges נפרדת ב-z=0.07 (LINE_Z+0.02) מעל החומר. בלי זה נשארים profile edges עבים ליד סליברים.
+- הערה: הגריין מונח לפי ציר ה-X של התמונה. חומר עם עורקים אנכיים בתמונה ייצא מסובב 90° — לסובב את קובץ התמונה.
+
+### המשך הסבב (2026-07-18 לילה) — Tile מלא + מפרטים
+- **Tile עם תמונה פר-אריח:** בחירת חומר + Pattern=Tile — כל אריח מקבל את התמונה המלאה בגודל האריח בדיוק (tex_w/tex_h פר-קרש ב-emit, בלי היסט אקראי / no_rand). למקלחות וטייל מודפס.
+- **גראוט אמיתי:** בורר Grout במידות סטנדרטיות (None, 1/16"…1/2") + בורר צבע (White/Light/Gray/Dark, GROUT_COLORS ב-floor_pattern). האריחים מתכווצים grout/2 מכל צד ופאת רקע בצבע הפוגה (build_grout_backing!, z=0.03) נחשפת ביניהם. Grout=0 → אריח-צמוד + קווים.
+- **White:** חומר לבן חלק בבורר (SOLID_COLORS ב-floor_manager; בלי טקסטורה → פריסה במצב קווים).
+- **Concrete אמיתי:** צילום של המשתמש (AVIF) הומר ועובד בצינור seamless → textures/floors/concrete.jpg.
+- **שדות Spec פר-חדר:** מפרט אריח (floor_spec) + מפרט פוגה (grout_spec) — טקסט חופשי, נשמר על הרצפה ושורד rebuild. הבסיס לטבלת גימורים לקבלן (עתידי, עם טבלת החדרים).
+
+### נשאר פתוח מהסבב
+1. אותה מערכת לטייל על קירות (בקשת משתמש — "זה הולך להיות ככה גם בטייל לקירות"; במקלחות בעיקר).
+2. טבלת גימורים לקבלן מ-floor_spec/grout_spec + טבלת חדרים.
+3. תוכניות לקבלן: פריסת החומר בצבע כבר קיימת בשכבות IP/FloorPatterns; לחבר לסצנות/LayOut בשלב הדו-ממד.
+
+---
 
 ## סבב 2026-07-17/18 ב' — מולדינג ידני, L/R בספרייה, תיקון גרף חדרים (קרא ראשון!)
 כל הסעיפים נבדקו ע"י המשתמש ועובדים. קבצים שהשתנו: wall_tool.rb, toolbar.rb, wall_library_dialog.rb, room_manager.rb + icons/molding_refresh.svg.

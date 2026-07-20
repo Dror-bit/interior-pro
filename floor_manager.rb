@@ -49,7 +49,18 @@ module InteriorPro
       Dir.glob(File.join(floors_dir, '*.{jpg,jpeg,png,JPG,JPEG,PNG}')).sort
     end
 
+    # Special solid-color "materials" selectable like textures (no image).
+    SOLID_COLORS = { 'White' => [255, 255, 255] }.freeze unless const_defined?(:SOLID_COLORS, false)
+
     def self.texture_material(model, base)
+      if SOLID_COLORS.key?(base)
+        name = "InteriorPro_FloorTex_#{base}"
+        m = model.materials[name]
+        return m if m
+        m = model.materials.add(name)
+        m.color = Sketchup::Color.new(*SOLID_COLORS[base])
+        return m
+      end
       f = texture_files.find { |p| File.basename(p, '.*') == base }
       return floor_material(model, DEFAULT_TYPE) unless f
       name = "InteriorPro_FloorTex_#{base.gsub(/\s+/, '_')}"
@@ -109,7 +120,7 @@ module InteriorPro
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center floor_texture].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
         end

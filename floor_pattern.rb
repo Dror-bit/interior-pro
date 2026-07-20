@@ -79,10 +79,14 @@ module InteriorPro
       ang = floor.get_attribute('InteriorPro', 'pattern_angle').to_f * Math::PI / 180.0
       centered = floor.get_attribute('InteriorPro', 'pattern_center') ? true : false
 
-      # Plank material: only when the floor has a chosen texture.
+      grout = floor.get_attribute('InteriorPro', 'pattern_grout').to_f
+      grout = 0.0 if grout.negative?
+      grout = [grout, [w, l].min * 0.4].min
+
+      # Plank/tile material: only when the floor has a chosen texture.
       mat = nil
       tex = floor.get_attribute('InteriorPro', 'floor_texture')
-      if tex && %w[Straight Herringbone Chevron].include?(pattern)
+      if tex && %w[Straight Herringbone Chevron Tile].include?(pattern)
         m = InteriorPro::FloorManager.texture_material(Sketchup.active_model, tex)
         mat = m if m && m.texture
       end
@@ -97,15 +101,23 @@ module InteriorPro
                when 'Herringbone' then herringbone_planks(poly, ang, w, l, ox, oy, centered)
                when 'Chevron'     then chevron_planks(poly, ang, w, l, ox, oy, centered)
                when 'Straight'    then straight_planks(poly, ang, w, l, ox, oy, centered)
+               when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout) : nil
                end
-      if pattern == 'Tile'
+      if pattern == 'Tile' && mat.nil?
         draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered)
       elsif planks
         if mat
-          # Material layer (all face edges hidden) + a clean uniform line
-          # layer slightly above it — line weight is identical everywhere.
-          emit_plank_faces!(ge, planks, poly, mat)
-          emit_plank_edges!(ge, planks, poly, LINE_Z + 0.02)
+          # Tiles with grout: a grout-colored backing face under the tiles
+          # (the joints ARE the grout) — no line layer needed.
+          if pattern == 'Tile' && grout > 0.02
+            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'))
+            emit_plank_faces!(ge, planks, poly, mat)
+          else
+            # Material layer (all face edges hidden) + a clean uniform line
+            # layer slightly above it — line weight is identical everywhere.
+            emit_plank_faces!(ge, planks, poly, mat)
+            emit_plank_edges!(ge, planks, poly, LINE_Z + 0.02)
+          end
         else
           emit_plank_edges!(ge, planks, poly)
         end
@@ -214,6 +226,76 @@ module InteriorPro
       planks
     end
 
+    # Tile grid (2026-07-18): one image per tile ("photo tile", showers etc).
+    # Cells are l (u) x w (v); each tile is inset by grout/2 on every side and
+    # its texture is anchored so the IMAGE maps exactly onto the tile —
+    # no random offset (every tile shows the full image).
+    def self.tile_planks(poly, ang, w, l, ox, oy, centered, grout = 0.0)
+      fr = frame(poly, ang)
+      o_u = (centered ? fr[:cu] - l / 2.0 : fr[:u_min]) + ox
+      o_v = (centered ? fr[:cv] - w / 2.0 : fr[:v_min]) + oy
+      u_start = o_u - ((o_u - fr[:u_min]) / l).ceil * l
+      v_start = o_v - ((o_v - fr[:v_min]) / w).ceil * w
+      g2 = grout / 2.0
+      tiles = []
+      vv = v_start
+      while vv <= fr[:v_max] + 0.001
+        uu = u_start
+        while uu <= fr[:u_max] + 0.001
+          ua = uu + g2
+          ub = uu + l - g2
+          va = vv + g2
+          vb = vv + w - g2
+          if ub - ua > 0.1 && vb - va > 0.1
+            tiles << {
+              c: [world_pt(fr, ua, va), world_pt(fr, ub, va),
+                  world_pt(fr, ub, vb), world_pt(fr, ua, vb)],
+              origin: world_pt(fr, ua, va),
+              dir: [fr[:u].x, fr[:u].y],
+              tex_w: ub - ua, tex_h: vb - va, no_rand: true
+            }
+          end
+          uu += l
+        end
+        vv += w
+      end
+      return nil if tiles.length > 60_000
+      tiles
+    end
+
+    GROUT_COLORS = {
+      'light' => [210, 208, 204],
+      'gray'  => [165, 163, 160],
+      'dark'  => [92, 90, 88],
+      'white' => [245, 245, 243]
+    }.freeze unless const_defined?(:GROUT_COLORS, false)
+
+    # Grout-colored backing face covering the whole room, under the tiles.
+    def self.build_grout_backing!(ge, poly, color_key = nil)
+      model = Sketchup.active_model
+      key = GROUT_COLORS.key?(color_key.to_s) ? color_key.to_s : 'light'
+      name = "InteriorPro_Grout_#{key.capitalize}"
+      m = model.materials[name]
+      unless m
+        m = model.materials.add(name)
+        m.color = Sketchup::Color.new(*GROUT_COLORS[key])
+      end
+      pts = poly.map { |p| Geom::Point3d.new(p.x, p.y, LINE_Z - 0.02) }
+      f = begin
+        ge.add_face(pts)
+      rescue StandardError
+        nil
+      end
+      return unless f
+      f.reverse! if f.normal.z < 0
+      f.material = m
+      f.back_material = nil
+      f.edges.each do |e|
+        e.hidden = true
+        e.soft = true
+      end
+    end
+
     def self.chevron_planks(poly, ang, w, l, ox, oy, centered)
       fr = frame(poly, ang)
       c = l / Math.sqrt(2.0)
@@ -272,13 +354,17 @@ module InteriorPro
       face_fails = 0
       uv_fails = 0
       planks.each do |pl|
-        # texture anchor computed ONCE per plank — shared by all its pieces
+        # texture anchor computed ONCE per plank — shared by all its pieces.
+        # Tiles override the mapping scale (image spans exactly one tile)
+        # and disable the random offset (every tile shows the full image).
+        tw_pl = pl[:tex_w] || tw
+        th_pl = pl[:tex_h] || th
         d = pl[:dir]
         o = Geom::Point3d.new(pl[:origin][0], pl[:origin][1], LINE_Z)
-        pu = Geom::Point3d.new(o.x + d[0] * tw, o.y + d[1] * tw, LINE_Z)
-        pv = Geom::Point3d.new(o.x - d[1] * th, o.y + d[0] * th, LINE_Z)
-        off_u = rand
-        off_v = rand
+        pu = Geom::Point3d.new(o.x + d[0] * tw_pl, o.y + d[1] * tw_pl, LINE_Z)
+        pv = Geom::Point3d.new(o.x - d[1] * th_pl, o.y + d[0] * th_pl, LINE_Z)
+        off_u = pl[:no_rand] ? 0.0 : rand
+        off_v = pl[:no_rand] ? 0.0 : rand
         faces = []
         tris.each do |tri|
           piece = clip_poly_convex(tri, pl[:c])
