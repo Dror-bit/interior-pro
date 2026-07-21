@@ -120,7 +120,7 @@ module InteriorPro
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec floor_level].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec floor_level drop_walls].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
         end
@@ -353,6 +353,269 @@ module InteriorPro
       true
     rescue StandardError => e
       puts "[Floors] build_patch!: #{e.message}"
+      false
+    end
+
+    # ---------- Drop walls with floor (2026-07-21) ----------
+    # Garage automation: walls crossing the room boundary are split at the
+    # boundary point (WallSplitTool.split_wall!, which re-syncs rooms), then
+    # every wall bounding ONLY this room is dropped to the floor level via
+    # WallTool.set_wall_base!. Walls shared with another room (the house)
+    # keep their current base. Called from the floor dialog AFTER its own
+    # operation commits (split_wall! opens operations of its own).
+    CROSS_MIN = 12.0 unless const_defined?(:CROSS_MIN, false) # inches beyond room = crossing
+
+    def self.find_room(room_id)
+      InteriorPro::RoomManager.rooms_in_model.find do |r|
+        r.get_attribute('InteriorPro', 'id') == room_id
+      end
+    end
+
+    def self.drop_walls_with_floor!(room_id, level)
+      model = Sketchup.active_model
+      # Phase 1: split crossing walls, one at a time (each split re-syncs
+      # rooms, so the room entity and wall ids are re-fetched every pass).
+      20.times do
+        room = find_room(room_id)
+        break unless room
+        break unless split_one_crossing_wall!(room)
+      end
+      room = find_room(room_id)
+      unless room
+        puts "[Floors] drop_walls: room #{room_id} not found after splits"
+        return 0
+      end
+      my_ids = (room.get_attribute('InteriorPro', 'bounding_wall_ids') || []).compact.uniq
+      shared = {}
+      InteriorPro::RoomManager.rooms_in_model.each do |r|
+        next if r == room
+        (r.get_attribute('InteriorPro', 'bounding_wall_ids') || []).each { |wid| shared[wid] = true }
+      end
+      walls_by_id = {}
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        walls_by_id[g.get_attribute('InteriorPro', 'id')] = g
+      end
+      dropped = 0
+      kept = 0
+      dropped_groups = []
+      model.start_operation('InteriorPro Drop Walls', true)
+      my_ids.each do |wid|
+        if shared[wid]
+          kept += 1
+          next
+        end
+        w = walls_by_id[wid]
+        next unless w
+        if InteriorPro::WallTool.set_wall_base!(w, level.to_f)
+          dropped += 1
+          dropped_groups << w
+        end
+      end
+      square_mixed_base_corners!(dropped_groups)
+      model.commit_operation
+      puts "[Floors] drop_walls: room #{room_id} level=#{level.to_f} -> #{dropped} dropped, #{kept} shared kept"
+      dropped
+    rescue StandardError => e
+      model.abort_operation rescue nil
+      puts "[Floors] drop_walls_with_floor! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
+    # Find ONE wall of the room whose drawn line extends beyond the room's
+    # boundary overlap by more than CROSS_MIN and split it at the boundary.
+    # Returns true only when a split actually happened.
+    def self.split_one_crossing_wall!(room)
+      return false unless defined?(InteriorPro::WallSplitTool)
+      flat = room.get_attribute('InteriorPro', 'boundary_xy')
+      return false unless flat && flat.length >= 6
+      verts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
+      ids = (room.get_attribute('InteriorPro', 'bounding_wall_ids') || []).compact.uniq
+      walls = Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
+          ids.include?(g.get_attribute('InteriorPro', 'id'))
+      end
+      walls.each do |w|
+        drawn = InteriorPro::WallSplitTool.drawn_line_world(w)
+        next unless drawn
+        s = Geom::Point3d.new(drawn[0].x, drawn[0].y, 0)
+        u = Geom::Point3d.new(drawn[1].x, drawn[1].y, 0) - s
+        len = u.length
+        next if len < 2.0 * CROSS_MIN
+        u.normalize!
+        th = w.get_attribute('InteriorPro', 'thickness').to_f
+        tol = th + 2.0
+        ts = []
+        verts.each do |p|
+          t = (p - s).dot(u)
+          t = t.clamp(0.0, len)
+          foot = s.offset(u, t)
+          ts << t if p.distance(foot) <= tol
+        end
+        next if ts.length < 2
+        tmin = ts.min
+        tmax = ts.max
+        next if tmax - tmin < 4.0 # touches at a point only, not an overlap
+        cut = nil
+        cut = tmin if tmin > CROSS_MIN
+        cut = tmax if cut.nil? && tmax < len - CROSS_MIN
+        next unless cut
+        # The cut lands on the room boundary itself — the ROOM-facing face
+        # of the touching separating wall — so the standing (house) wall
+        # keeps the full corner and the dropped segment starts past it.
+        # (An earlier snap_to_touching here moved the cut to the separating
+        # wall's drawn line instead, leaving a base-height hole behind it —
+        # removed 2026-07-21.)
+        return true if InteriorPro::WallSplitTool.split_wall!(w, cut)
+      end
+      false
+    rescue StandardError => e
+      puts "[Floors] split_one_crossing_wall! failed: #{e.message}"
+      false
+    end
+
+    # ---------- Mixed-base corner squaring (2026-07-21) ----------
+    # An L-corner between a DROPPED wall and a STANDING wall keeps its 45deg
+    # plan miter, so once one wall drops the exposed miter faces read as an
+    # ugly diagonal. Convert such corners to a straight butt: the standing
+    # wall gets a square end EXTENDED through the corner (to the dropped
+    # wall's far face), the dropped wall gets a square end trimmed to the
+    # standing wall's near face -> one straight vertical seam.
+    # Corners between two walls dropped together keep their normal miter.
+    # NOTE: assumes wall transformations are Z-translation only (true for
+    # top-level walls + set_wall_base!), so local XY == world XY.
+    MIXED_END_TOL = 1.0 unless const_defined?(:MIXED_END_TOL, false)
+
+    def self.square_mixed_base_corners!(dropped_walls)
+      return 0 if dropped_walls.nil? || dropped_walls.empty?
+      wt = InteriorPro::WallTool.new
+      all_walls = Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+      end
+      fixed = 0
+      dropped_walls.each do |w|
+        next unless w.valid?
+        [:start, :end].each do |side|
+          dw = wt.wall_data_world(w)
+          next unless dw
+          w_base = w.get_attribute('InteriorPro', 'base_z').to_f
+          cp = wt.endpoint_pt(dw, side)
+          partner = nil
+          p_side = nil
+          p_data = nil
+          all_walls.each do |g|
+            next if g == w || !g.valid?
+            next if (g.get_attribute('InteriorPro', 'base_z').to_f - w_base).abs < 0.01
+            gd = wt.wall_data_world(g)
+            next unless gd
+            if cp.distance(wt.endpoint_pt(gd, :start)) < MIXED_END_TOL
+              partner = g; p_side = :start; p_data = gd
+            elsif cp.distance(wt.endpoint_pt(gd, :end)) < MIXED_END_TOL
+              partner = g; p_side = :end; p_data = gd
+            end
+            break if partner
+          end
+          next unless partner
+          u_w = axis_dir(dw)
+          u_p = axis_dir(p_data)
+          next unless u_w && u_p
+          next if (u_w.x * u_p.y - u_w.y * u_p.x).abs < 0.05 # collinear seam is already straight
+          fixed += 1 if square_corner!(wt, w, side, dw, u_w, partner, p_side, p_data, u_p)
+        end
+      end
+      puts "[Floors] squared #{fixed} mixed-base corner(s)" if fixed > 0
+      fixed
+    rescue StandardError => e
+      puts "[Floors] square_mixed_base_corners!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
+    # Unit vector along the drawn line (world, flattened), start -> end.
+    def self.axis_dir(data)
+      v = Geom::Vector3d.new(data[:drawn_end][0] - data[:drawn_start][0],
+                             data[:drawn_end][1] - data[:drawn_start][1], 0)
+      return nil if v.length < 0.001
+      v.normalize!
+      v
+    end
+
+    def self.anchor_offsets(h_anchor, t)
+      case h_anchor
+      when 'left' then [t, 0.0]
+      when 'right' then [0.0, -t]
+      else [t / 2.0, -t / 2.0]
+      end
+    end
+
+    def self.square_corner!(wt, w, w_side, dw, u_w, p, p_side, pd, u_p)
+      corner = wt.endpoint_pt(pd, p_side)
+      u_out = p_side == :end ? u_p : Geom::Vector3d.new(-u_p.x, -u_p.y, 0)
+      n_p = Geom::Vector3d.new(-u_p.y, u_p.x, 0)
+      n_w = Geom::Vector3d.new(-u_w.y, u_w.x, 0)
+      th_p = pd[:thickness].to_f
+      th_w = dw[:thickness].to_f
+      cl_w_s = Geom::Point3d.new(dw[:cl_start][0], dw[:cl_start][1], 0)
+      cl_p_s = Geom::Point3d.new(pd[:cl_start][0], pd[:cl_start][1], 0)
+
+      # 1) STANDING wall: square end extended to the dropped wall's far face.
+      ext = 0.0
+      [th_w / 2.0, -th_w / 2.0].each do |off|
+        face_line = [cl_w_s.offset(n_w, off), u_w]
+        hit = Geom.intersect_line_line([corner, u_out], face_line)
+        next unless hit
+        d = Geom::Vector3d.new(hit.x - corner.x, hit.y - corner.y, 0).dot(u_out)
+        ext = d if d > ext
+      end
+      new_end_world = corner.offset(u_out, ext)
+      p_inv = p.transformation.inverse
+      pl = new_end_world.transform(p_inv)
+      pl = Geom::Point3d.new(pl.x, pl.y, 0)
+      pdl = wt.wall_data(p) # LOCAL frame
+      return false unless pdl
+      s_pt = Geom::Point3d.new(pdl[:drawn_start][0], pdl[:drawn_start][1], 0)
+      e_pt = Geom::Point3d.new(pdl[:drawn_end][0], pdl[:drawn_end][1], 0)
+      p_side == :start ? s_pt = pl : e_pt = pl
+      perp = wt.perpendicular_corners_xy(s_pt, e_pt, th_p, pd[:h_anchor])
+      return false unless perp
+      pc = wt.read_corners_attr(p) || perp
+      if p_side == :start
+        pc[0] = perp[0]
+        pc[3] = perp[3]
+      else
+        pc[1] = perp[1]
+        pc[2] = perp[2]
+      end
+      wt.save_corners_attr(p, pc)
+      wt.rebuild_wall_geometry(p, pc, pdl)
+
+      # 2) DROPPED wall: square end trimmed to the standing wall's near face.
+      w_far = wt.endpoint_pt(dw, w_side == :start ? :end : :start)
+      ref = Geom::Vector3d.new(w_far.x - corner.x, w_far.y - corner.y, 0).dot(n_p)
+      face_off = (ref >= 0 ? 1.0 : -1.0) * th_p / 2.0
+      face_line = [cl_p_s.offset(n_p, face_off), u_p]
+      pos_off, neg_off = anchor_offsets(dw[:h_anchor], th_w)
+      ds = Geom::Point3d.new(dw[:drawn_start][0], dw[:drawn_start][1], 0)
+      new_pos = Geom.intersect_line_line([ds.offset(n_w, pos_off), u_w], face_line)
+      new_neg = Geom.intersect_line_line([ds.offset(n_w, neg_off), u_w], face_line)
+      return false unless new_pos && new_neg
+      w_inv = w.transformation.inverse
+      lp = new_pos.transform(w_inv)
+      ln = new_neg.transform(w_inv)
+      wc = wt.read_corners_attr(w)
+      wdl = wt.wall_data(w)
+      return false unless wc && wdl
+      if w_side == :start
+        wc[0] = [lp.x, lp.y]
+        wc[3] = [ln.x, ln.y]
+      else
+        wc[1] = [lp.x, lp.y]
+        wc[2] = [ln.x, ln.y]
+      end
+      wt.save_corners_attr(w, wc)
+      wt.rebuild_wall_geometry(w, wc, wdl)
+      true
+    rescue StandardError => e
+      puts "[Floors] square_corner!: #{e.message}"
       false
     end
 

@@ -33,7 +33,8 @@ module InteriorPro
           'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
           'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
           'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : '',
-          'level'       => fl ? fl.get_attribute('InteriorPro', 'floor_level').to_f : 0
+          'level'       => fl ? fl.get_attribute('InteriorPro', 'floor_level').to_f : 0,
+          'drop'        => fl ? (fl.get_attribute('InteriorPro', 'drop_walls') ? true : false) : false
         }
       end
 
@@ -61,7 +62,14 @@ module InteriorPro
         width: 470, height: 520, resizable: true
       )
       dlg.add_action_callback('apply') do |_, json|
-        apply_selections(JSON.parse(json))
+        sel = JSON.parse(json)
+        apply_selections(sel)
+        # Drop walls with floor (2026-07-21): AFTER the floors operation
+        # commits — split_wall! opens operations of its own.
+        sel.each do |rid, cfg|
+          next unless cfg['drop_walls'] && !cfg['texture'].to_s.empty?
+          InteriorPro::FloorManager.drop_walls_with_floor!(rid, cfg['level'].to_f)
+        end
         show # reopen with fresh state
       end
       dlg.add_action_callback('remove_all') do |_|
@@ -108,6 +116,7 @@ module InteriorPro
             fl_grp.set_attribute('InteriorPro', 'pattern_grout_color', cfg['grout_color'].to_s)
             fl_grp.set_attribute('InteriorPro', 'floor_spec', cfg['spec'].to_s)
             fl_grp.set_attribute('InteriorPro', 'grout_spec', cfg['grout_spec'].to_s)
+            fl_grp.set_attribute('InteriorPro', 'drop_walls', cfg['drop_walls'] ? true : false)
           end
           count += 1
         end
@@ -216,6 +225,7 @@ module InteriorPro
                   '</td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
                   'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height (in); 0 = default, garage e.g. -18" value="' + (r.level || 0) + '"> ' +
+                  '<label title="Split boundary-crossing walls and drop the room-exclusive segments to the floor level; walls shared with another room stay"><input type="checkbox" id="dw_' + i + '"' + (r.drop ? ' checked' : '') + '> Drop walls</label> ' +
                   'Spec <input type="text" id="sp_' + i + '" style="width:130px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
                   'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +
                   '</td></tr>');
@@ -241,7 +251,8 @@ module InteriorPro
                   grout_color: document.getElementById('pgc_' + i).value,
                   spec: document.getElementById('sp_' + i).value,
                   grout_spec: document.getElementById('gs_' + i).value,
-                  level: parseFloat(document.getElementById('lv_' + i).value) || 0
+                  level: parseFloat(document.getElementById('lv_' + i).value) || 0,
+                  drop_walls: document.getElementById('dw_' + i).checked
                 };
               });
               sketchup.apply(JSON.stringify(sel));
