@@ -413,10 +413,14 @@ module InteriorPro
       rescue StandardError => e
         puts "[Rooms] sync after wall create: #{e.message}"
       end
-      # NO automatic molding refresh after drawing a wall (removed 2026-07-17,
-      # user request): a new wall/room must not receive molding by itself.
-      # Molding updates only via the manual Refresh Molding button (or the
-      # existing hooks on doors / wall move / edit).
+      # Molding follows new walls automatically (no-op when the model has no
+      # molding). Runs AFTER the rooms sync so side selection uses fresh
+      # room polygons.
+      begin
+        InteriorPro::MoldingManager.refresh! if group && defined?(InteriorPro::MoldingManager)
+      rescue StandardError => e
+        puts "[Molding] refresh after wall create: #{e.message}"
+      end
     end
 
     def current_attrs
@@ -523,10 +527,14 @@ module InteriorPro
         return nil
       end
       face.pushpull(-height)
+      # Paint with the SAME painter every rebuild uses (fixed 2026-07-18):
+      # the old apply_materials painted the base face, so a wall only looked
+      # right after a corner rebuild — a standalone wall (or a collinear
+      # split piece, which never miters) stayed white.
       if attrs[:wall_category] == 'interior'
-        apply_materials(face, attrs[:side_a_color], attrs[:side_b_color])
+        paint_wall_long_faces!(group, attrs[:side_a_color], attrs[:side_b_color])
       else
-        apply_materials(face, attrs[:exterior_material], attrs[:interior_material])
+        paint_wall_long_faces!(group, attrs[:exterior_material], attrs[:interior_material])
       end
 
       perp_corners = perpendicular_corners_xy(start_pt, end_pt, thickness, h_anchor)
@@ -1236,6 +1244,42 @@ module InteriorPro
 
     def self.join_corners(wall, model, allow_centerline_fallback: false)
       InteriorPro::WallTool.new.join_corners(wall, model, allow_centerline_fallback: allow_centerline_fallback)
+    end
+
+    # Per-wall base height (2026-07-18, garage unit): the wall group is
+    # TRANSLATED vertically via its transformation, so every internal build
+    # path stays untouched — geometry, openings (local frame) and the
+    # world-aware miter pipeline (XY unaffected by a Z translation) all
+    # follow automatically. Hosted door/window BODIES are separate top-level
+    # entities, so they are translated by the same delta.
+    def self.set_wall_base!(wall, base_z)
+      return false unless wall&.valid?
+      return false unless wall.get_attribute('InteriorPro', 'type') == 'wall'
+      cur = wall.get_attribute('InteriorPro', 'base_z').to_f
+      dz = base_z.to_f - cur
+      return true if dz.abs < 0.001
+      tr = Geom::Transformation.translation(Geom::Vector3d.new(0, 0, dz))
+      wall.transformation = tr * wall.transformation
+      wall.set_attribute('InteriorPro', 'base_z', base_z.to_f)
+      wall_id = wall.get_attribute('InteriorPro', 'id')
+      moved = 0
+      Sketchup.active_model.entities.to_a.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        t = e.get_attribute('InteriorPro', 'type')
+        next unless t == 'door' || t == 'window'
+        next unless e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
+        e.transform!(tr)
+        %w[bottom_z top_z].each do |k|
+          v = e.get_attribute('InteriorPro', k)
+          e.set_attribute('InteriorPro', k, v.to_f + dz) unless v.nil?
+        end
+        moved += 1
+      end
+      puts "[WallTool] base_z=#{base_z.to_f} (#{moved} opening body(ies) moved)"
+      true
+    rescue StandardError => e
+      puts "[WallTool] set_wall_base!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
     end
 
     def self.native_floor_z(v_anchor, height)

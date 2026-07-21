@@ -97,6 +97,26 @@ module InteriorPro
       merge_cmd.large_icon = File.join(__dir__, 'icons', 'merge_wall.svg')
       toolbar.add_item(merge_cmd)
 
+      # Split Wall (2026-07-18): click a wall at a point to split it in two.
+      split_cmd = UI::Command.new('Split Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallSplitTool.new)
+      }
+      split_cmd.tooltip = 'Split Wall - click a wall at the split point'
+      split_cmd.status_bar_text = 'Click a wall where you want to split it (snaps to touching walls)'
+      split_cmd.small_icon = File.join(__dir__, 'icons', 'split_wall.svg')
+      split_cmd.large_icon = File.join(__dir__, 'icons', 'split_wall.svg')
+      toolbar.add_item(split_cmd)
+
+      # Join Walls (2026-07-18): inverse of Split — two collinear walls -> one.
+      join_cmd = UI::Command.new('Join Walls') {
+        Sketchup.active_model.select_tool(InteriorPro::WallJoinTool.new)
+      }
+      join_cmd.tooltip = 'Join Walls - click two collinear touching walls'
+      join_cmd.status_bar_text = 'Click two collinear touching walls to merge them into one'
+      join_cmd.small_icon = File.join(__dir__, 'icons', 'join_wall.svg')
+      join_cmd.large_icon = File.join(__dir__, 'icons', 'join_wall.svg')
+      toolbar.add_item(join_cmd)
+
       # Window Tool Button
       window_cmd = UI::Command.new('Window Tool') {
         tool = InteriorPro::WindowTool.new
@@ -281,6 +301,14 @@ module InteriorPro
 
       menu.add_item('Merge Wall') {
         Sketchup.active_model.select_tool(InteriorPro::WallMergeTool.new)
+      }
+
+      menu.add_item('Split Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallSplitTool.new)
+      }
+
+      menu.add_item('Join Walls') {
+        Sketchup.active_model.select_tool(InteriorPro::WallJoinTool.new)
       }
 
       menu.add_item('Window Tool') {

@@ -63,7 +63,8 @@ module InteriorPro
         height: 480,
         resizable: false
       )
-      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length)
+      base_z = group.get_attribute('InteriorPro', 'base_z').to_f
+      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length, base_z)
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         model = Sketchup.active_model
@@ -106,6 +107,14 @@ module InteriorPro
           end
           # Re-join corners to handle thickness changes with neighboring walls.
           wt.join_corners(group, model, allow_centerline_fallback: true)
+        end
+        # Base height (garage unit): translate the wall + its openings.
+        unless params['base'].to_s.strip.empty?
+          begin
+            InteriorPro::WallTool.set_wall_base!(group, params['base'].to_f)
+          rescue StandardError => e
+            puts "[WallEdit] base change failed: #{e.message}"
+          end
         end
         model.commit_operation
         # Molding follows the edited wall (rebuilds in its own operation).
@@ -504,7 +513,7 @@ module InteriorPro
 
     def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false,
                              category = 'exterior', side_a = '#ffffff', side_b = '#ffffff',
-                             length = nil)
+                             length = nil, base_z = nil)
       title = edit_mode ? 'Edit Wall' : 'Wall Settings'
       mat_options = MATERIALS.map { |m| "<option value='#{m}' #{m == ext_mat ? 'selected' : ''}>#{m}</option>" }.join
       int_color = (int_mat.is_a?(String) && int_mat.start_with?('#')) ? int_mat : '#ffffff'
@@ -544,6 +553,10 @@ module InteriorPro
         len_esc = len_str.gsub('"', '&quot;').gsub("'", '&#39;')
         html += "<label>Length (e.g. 12' 6&quot; or 150)</label><input type='text' id='wallLength' value='#{len_esc}'>"
       end
+      if edit_mode
+        html += "<label>Base height (in) — 0 = default, garage e.g. -16</label>"
+        html += "<input type='number' id='wallBase' step='1' value='#{base_z.to_f}'>"
+      end
       html += "</div>"
       html += "<div class='section' id='extSection'><div class='section-title'>Materials (Exterior Wall)</div>"
       html += "<label>Exterior Material</label><select id='exterior'>#{mat_options}</select>"
@@ -564,7 +577,8 @@ module InteriorPro
       html += "var sa=document.getElementById('sideAColor').value;"
       html += "var sb=document.getElementById('sameColors').checked?sa:document.getElementById('sideBColor').value;"
       html += "var lenEl=document.getElementById('wallLength');"
-      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:'')});}"
+      html += "var baseEl=document.getElementById('wallBase');"
+      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:''),base:(baseEl?baseEl.value:'')});}"
       html += "syncSections();syncSame();"
       html += "</script>"
       html += "</body></html>"

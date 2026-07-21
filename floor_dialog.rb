@@ -32,7 +32,8 @@ module InteriorPro
           'grout'     => fl ? fl.get_attribute('InteriorPro', 'pattern_grout').to_f : 0,
           'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
           'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
-          'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : ''
+          'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : '',
+          'level'       => fl ? fl.get_attribute('InteriorPro', 'floor_level').to_f : 0
         }
       end
 
@@ -93,7 +94,7 @@ module InteriorPro
           th = cfg['thickness'].to_f
           fl_grp = InteriorPro::FloorManager.build_floor_for_room!(
             room, cfg['type'], thickness: (th > 0.05 ? th : nil),
-            texture: cfg['texture'].to_s
+            texture: cfg['texture'].to_s, level: cfg['level'].to_f
           )
           if fl_grp
             fl_grp.set_attribute('InteriorPro', 'pattern', cfg['pattern'] || 'None')
@@ -214,7 +215,8 @@ module InteriorPro
                   '<label><input type="checkbox" id="pc_' + i + '"' + (r.center ? ' checked' : '') + '> Center</label>' +
                   '</td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
-                  'Spec <input type="text" id="sp_' + i + '" style="width:150px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
+                  'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height (in); 0 = default, garage e.g. -18" value="' + (r.level || 0) + '"> ' +
+                  'Spec <input type="text" id="sp_' + i + '" style="width:130px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
                   'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +
                   '</td></tr>');
               });
@@ -238,7 +240,8 @@ module InteriorPro
                   grout: parseFloat(document.getElementById('pg_' + i).value) || 0,
                   grout_color: document.getElementById('pgc_' + i).value,
                   spec: document.getElementById('sp_' + i).value,
-                  grout_spec: document.getElementById('gs_' + i).value
+                  grout_spec: document.getElementById('gs_' + i).value,
+                  level: parseFloat(document.getElementById('lv_' + i).value) || 0
                 };
               });
               sketchup.apply(JSON.stringify(sel));

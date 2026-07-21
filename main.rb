@@ -13,6 +13,7 @@ module InteriorPro
       wall_move_tool.rb
       wall_stretch_tool.rb
       wall_merge_tool.rb
+      wall_split_tool.rb
       window_library.rb
       window_library_dialog.rb
       window_tool.rb

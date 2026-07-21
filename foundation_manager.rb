@@ -37,9 +37,11 @@ module InteriorPro
       return nil unless flat && flat.length == 8
       model = Sketchup.active_model
       xform = wall.transformation
+      # Keep the transformed z: a wall lowered via base_z (garage unit,
+      # 2026-07-18) carries its translation in the group transformation, so
+      # the belt top starts at the wall's actual bottom.
       pts = flat.each_slice(2).map do |x, y|
-        p = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(xform)
-        Geom::Point3d.new(p.x, p.y, 0)
+        Geom::Point3d.new(x.to_f, y.to_f, 0).transform(xform)
       end
       uniq = pts.uniq { |p| [p.x.round(4), p.y.round(4)] }
       return nil if uniq.length < 3

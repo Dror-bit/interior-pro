@@ -104,7 +104,7 @@ module InteriorPro
 
     # Build (or rebuild) the floor of one room group. Reads the room's
     # boundary_xy (world coords, interior wall faces). Returns the new group.
-    def self.build_floor_for_room!(room_grp, type_name = nil, thickness: nil, texture: nil)
+    def self.build_floor_for_room!(room_grp, type_name = nil, thickness: nil, texture: nil, level: nil)
       model = Sketchup.active_model
       room_id = room_grp.get_attribute('InteriorPro', 'id')
       flat = room_grp.get_attribute('InteriorPro', 'boundary_xy')
@@ -120,7 +120,7 @@ module InteriorPro
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec floor_level].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
         end
@@ -133,9 +133,13 @@ module InteriorPro
           pat_attrs['floor_texture'] = texture.to_s
         end
       end
+      # Per-room floor level (2026-07-18, garage at driveway height):
+      # floor TOP surface sits at z = floor_level (inches; 0 = default).
+      pat_attrs['floor_level'] = level.to_f unless level.nil?
+      lvl = pat_attrs['floor_level'].to_f
       old.erase! if old && old.valid?
 
-      pts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
+      pts = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, lvl) }
       # Defensive: drop consecutive duplicate points (rooms stored before the
       # inner_boundary dedup fix, 2026-07-18) — add_face fails on them.
       clean = []
@@ -156,7 +160,7 @@ module InteriorPro
         puts "[Floors] add_face failed for room #{room_id}"
         return nil
       end
-      # Extrude downward so the top surface stays at z=0.
+      # Extrude downward so the top surface stays at z = floor_level.
       face.pushpull(face.normal.z > 0 ? -th : th)
       tex = pat_attrs['floor_texture']
       mat = tex ? texture_material(model, tex) : floor_material(model, type_name)
@@ -318,11 +322,12 @@ module InteriorPro
       type_name = DEFAULT_TYPE unless types.key?(type_name)
       th = floor.get_attribute('InteriorPro', 'thickness_in').to_f
       th = types[type_name][:thickness] if th <= 0.05
+      lvl = floor.get_attribute('InteriorPro', 'floor_level').to_f
       u1 = o[:t] - o[:width] / 2.0
       u2 = o[:t] + o[:width] / 2.0
       pts = [[u1, geo[:n_min]], [u2, geo[:n_min]], [u2, geo[:n_max]], [u1, geo[:n_max]]].map do |uu, nn|
         Geom::Point3d.new(geo[:s].x + geo[:u].x * uu + geo[:n].x * nn,
-                          geo[:s].y + geo[:u].y * uu + geo[:n].y * nn, 0)
+                          geo[:s].y + geo[:u].y * uu + geo[:n].y * nn, lvl)
       end
       grp = model.entities.add_group
       grp.name = 'InteriorPro_FloorPatch'

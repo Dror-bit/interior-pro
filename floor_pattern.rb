@@ -97,6 +97,9 @@ module InteriorPro
       InteriorPro.assign_tag(grp, 'IP/FloorPatterns')
       ge = grp.entities
 
+      # Per-room floor level (2026-07-18): the pattern rides on the floor top.
+      zb = floor.get_attribute('InteriorPro', 'floor_level').to_f + LINE_Z
+
       planks = case pattern
                when 'Herringbone' then herringbone_planks(poly, ang, w, l, ox, oy, centered)
                when 'Chevron'     then chevron_planks(poly, ang, w, l, ox, oy, centered)
@@ -104,22 +107,22 @@ module InteriorPro
                when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout) : nil
                end
       if pattern == 'Tile' && mat.nil?
-        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered)
+        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb)
       elsif planks
         if mat
           # Tiles with grout: a grout-colored backing face under the tiles
           # (the joints ARE the grout) — no line layer needed.
           if pattern == 'Tile' && grout > 0.02
-            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'))
-            emit_plank_faces!(ge, planks, poly, mat)
+            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02)
+            emit_plank_faces!(ge, planks, poly, mat, zb)
           else
             # Material layer (all face edges hidden) + a clean uniform line
             # layer slightly above it — line weight is identical everywhere.
-            emit_plank_faces!(ge, planks, poly, mat)
-            emit_plank_edges!(ge, planks, poly, LINE_Z + 0.02)
+            emit_plank_faces!(ge, planks, poly, mat, zb)
+            emit_plank_edges!(ge, planks, poly, zb + 0.02)
           end
         else
-          emit_plank_edges!(ge, planks, poly)
+          emit_plank_edges!(ge, planks, poly, zb)
         end
       end
 
@@ -271,7 +274,7 @@ module InteriorPro
     }.freeze unless const_defined?(:GROUT_COLORS, false)
 
     # Grout-colored backing face covering the whole room, under the tiles.
-    def self.build_grout_backing!(ge, poly, color_key = nil)
+    def self.build_grout_backing!(ge, poly, color_key = nil, z = LINE_Z - 0.02)
       model = Sketchup.active_model
       key = GROUT_COLORS.key?(color_key.to_s) ? color_key.to_s : 'light'
       name = "InteriorPro_Grout_#{key.capitalize}"
@@ -280,7 +283,7 @@ module InteriorPro
         m = model.materials.add(name)
         m.color = Sketchup::Color.new(*GROUT_COLORS[key])
       end
-      pts = poly.map { |p| Geom::Point3d.new(p.x, p.y, LINE_Z - 0.02) }
+      pts = poly.map { |p| Geom::Point3d.new(p.x, p.y, z) }
       f = begin
         ge.add_face(pts)
       rescue StandardError
@@ -340,7 +343,7 @@ module InteriorPro
     # All pieces of one plank share the same texture anchor, and the seams
     # between them (triangulation lines) are hidden — so a plank reads as one
     # continuous board, clipped perfectly at the room boundary.
-    def self.emit_plank_faces!(ge, planks, poly, mat)
+    def self.emit_plank_faces!(ge, planks, poly, mat, z = LINE_Z)
       t = mat.texture
       tw = t ? t.width.to_f : 48.0
       tw = 48.0 if tw < 1.0
@@ -360,9 +363,9 @@ module InteriorPro
         tw_pl = pl[:tex_w] || tw
         th_pl = pl[:tex_h] || th
         d = pl[:dir]
-        o = Geom::Point3d.new(pl[:origin][0], pl[:origin][1], LINE_Z)
-        pu = Geom::Point3d.new(o.x + d[0] * tw_pl, o.y + d[1] * tw_pl, LINE_Z)
-        pv = Geom::Point3d.new(o.x - d[1] * th_pl, o.y + d[0] * th_pl, LINE_Z)
+        o = Geom::Point3d.new(pl[:origin][0], pl[:origin][1], z)
+        pu = Geom::Point3d.new(o.x + d[0] * tw_pl, o.y + d[1] * tw_pl, z)
+        pv = Geom::Point3d.new(o.x - d[1] * th_pl, o.y + d[0] * th_pl, z)
         off_u = pl[:no_rand] ? 0.0 : rand
         off_v = pl[:no_rand] ? 0.0 : rand
         faces = []
@@ -379,7 +382,7 @@ module InteriorPro
           end
           next if clean.length < 3
           next if poly_area_abs(clean) < 0.05
-          pts = clean.map { |x, y| Geom::Point3d.new(x, y, LINE_Z) }
+          pts = clean.map { |x, y| Geom::Point3d.new(x, y, z) }
           f = begin
             ge.add_face(pts)
           rescue StandardError
@@ -526,7 +529,7 @@ module InteriorPro
 
     # ---------- tile lines (unchanged behavior) ----------
 
-    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered)
+    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z)
       fr = frame(poly, ang)
       o_u = (centered ? fr[:cu] - l / 2.0 : fr[:u_min]) + ox
       o_v = (centered ? fr[:cv] - w / 2.0 : fr[:v_min]) + oy
@@ -534,12 +537,12 @@ module InteriorPro
       v_start = o_v - ((o_v - fr[:v_min]) / w).ceil * w
       vv = v_start
       while vv <= fr[:v_max] + 0.001
-        draw_clipped_line!(ge, fr[:v], vv, fr[:u], poly) if vv > fr[:v_min] + 0.001 && vv < fr[:v_max] - 0.001
+        draw_clipped_line!(ge, fr[:v], vv, fr[:u], poly, z) if vv > fr[:v_min] + 0.001 && vv < fr[:v_max] - 0.001
         vv += w
       end
       uu = u_start
       while uu <= fr[:u_max] + 0.001
-        draw_clipped_line!(ge, fr[:u], uu, fr[:v], poly) if uu > fr[:u_min] + 0.001 && uu < fr[:u_max] - 0.001
+        draw_clipped_line!(ge, fr[:u], uu, fr[:v], poly, z) if uu > fr[:u_min] + 0.001 && uu < fr[:u_max] - 0.001
         uu += l
       end
     end
@@ -567,13 +570,13 @@ module InteriorPro
       ts.sort.each_slice(2).select { |pair| pair.length == 2 && pair[1] - pair[0] > 0.1 }
     end
 
-    def self.draw_clipped_line!(ge, off_axis, off, dir, poly)
+    def self.draw_clipped_line!(ge, off_axis, off, dir, poly, z = LINE_Z)
       base_x = off_axis.x * off
       base_y = off_axis.y * off
       line_poly_intervals(base_x, base_y, dir, poly).each do |t0, t1|
         ge.add_edges(
-          Geom::Point3d.new(base_x + dir.x * t0, base_y + dir.y * t0, LINE_Z),
-          Geom::Point3d.new(base_x + dir.x * t1, base_y + dir.y * t1, LINE_Z)
+          Geom::Point3d.new(base_x + dir.x * t0, base_y + dir.y * t0, z),
+          Geom::Point3d.new(base_x + dir.x * t1, base_y + dir.y * t1, z)
         )
       end
     end
