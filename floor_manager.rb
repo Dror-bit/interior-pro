@@ -414,6 +414,12 @@ module InteriorPro
       end
       square_mixed_base_corners!(dropped_groups)
       model.commit_operation
+      # Foundation follows the walls' new bottoms (no-op when none exists).
+      begin
+        InteriorPro::FoundationManager.refresh! if defined?(InteriorPro::FoundationManager)
+      rescue StandardError => fe
+        puts "[Foundation] refresh after drop: #{fe.message}"
+      end
       puts "[Floors] drop_walls: room #{room_id} level=#{level.to_f} -> #{dropped} dropped, #{kept} shared kept"
       dropped
     rescue StandardError => e

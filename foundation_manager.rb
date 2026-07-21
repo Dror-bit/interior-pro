@@ -98,6 +98,7 @@ module InteriorPro
         h = (h && h.to_f > 0.05) ? h.to_f : h_global
         n += 1 if build_for_wall!(w, h)
       end
+      n += build_interior_step_pieces!
       model.set_attribute('InteriorPro', 'foundation_height', h_global)
       model.commit_operation
       puts "[Foundation] built #{n}/#{ws.length} (height=#{h_global}\")"
@@ -105,6 +106,52 @@ module InteriorPro
     rescue StandardError => e
       model.abort_operation rescue nil
       puts "[Foundation] build_all! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
+    # ---------- Interior step pieces (2026-07-21) ----------
+    # An INTERIOR wall bordering a room whose floor sits LOWER than the
+    # wall's bottom (the garage separating wall) leaves an open gap between
+    # the wall bottom and the low floor. Give such walls a concrete piece
+    # from the wall bottom DOWN to the lowest adjacent floor level.
+    # Regular interior walls (no lower neighbor) still get nothing.
+    # Runs inside build_all!'s operation; pieces are type='foundation' so
+    # remove_all!/rebuild handle them like the belt.
+    def self.interior_walls
+      Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
+          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'interior'
+      end
+    end
+
+    def self.build_interior_step_pieces!
+      return 0 unless defined?(InteriorPro::RoomManager) && defined?(InteriorPro::FloorManager)
+      floors_by_room = {}
+      InteriorPro::FloorManager.floors_in_model.each do |f|
+        floors_by_room[f.get_attribute('InteriorPro', 'room_id')] =
+          f.get_attribute('InteriorPro', 'floor_level').to_f
+      end
+      levels_by_wall = {}
+      InteriorPro::RoomManager.rooms_in_model.each do |r|
+        rid = r.get_attribute('InteriorPro', 'id')
+        lvl = floors_by_room.key?(rid) ? floors_by_room[rid] : 0.0
+        (r.get_attribute('InteriorPro', 'bounding_wall_ids') || []).each do |wid|
+          (levels_by_wall[wid] ||= []) << lvl
+        end
+      end
+      n = 0
+      interior_walls.each do |w|
+        lvls = levels_by_wall[w.get_attribute('InteriorPro', 'id')]
+        next unless lvls && !lvls.empty?
+        bottom = w.get_attribute('InteriorPro', 'base_z').to_f
+        depth = bottom - lvls.min
+        next if depth < 0.1
+        n += 1 if build_for_wall!(w, depth)
+      end
+      puts "[Foundation] #{n} interior step piece(s)" if n > 0
+      n
+    rescue StandardError => e
+      puts "[Foundation] build_interior_step_pieces!: #{e.message}"
       0
     end
 
