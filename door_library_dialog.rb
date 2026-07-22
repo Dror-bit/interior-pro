@@ -82,6 +82,7 @@ module InteriorPro
       tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
       tool.garage_style        = settings['garage_style'] || 'Raised Short' if tool.respond_to?(:garage_style=)
       tool.garage_top_windows  = !!settings['garage_top_windows'] if tool.respond_to?(:garage_top_windows=)
+      tool.garage_window_style = settings['garage_window_style'] || 'Plain' if tool.respond_to?(:garage_window_style=)
       tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
       tool.frame_color         = settings['frame_color'] || '' if tool.respond_to?(:frame_color=)
       tool.width              = settings['width'].to_f
@@ -500,8 +501,20 @@ module InteriorPro
               </div>
               <div class="design-grid" id="garageDesignGrid" style="display:none; grid-template-columns: repeat(2, 104px);"></div>
               <div class="checkbox-row">
-                <input type="checkbox" id="garageTopWindows">
+                <input type="checkbox" id="garageTopWindows" onchange="onGarageTopWindowsToggle()">
                 <label for="garageTopWindows">Top section windows</label>
+              </div>
+              <div id="garageWindowStyleRow" style="display:none;">
+                <label>Window Design</label>
+                <select id="garageWindowStyle">
+                  <option value="Plain">Rectangles (plain)</option>
+                  <option value="Arch Pairs Grid">Arch per 2 windows + bars</option>
+                  <option value="Arch Pairs">Arch per 2 windows (clean)</option>
+                  <option value="Arch Full Grid">One arch, full width + bars</option>
+                  <option value="Arch Full">One arch, full width (clean)</option>
+                  <option value="L-699">Colonial grid</option>
+                  <option value="Squares">Small squares (max windows)</option>
+                </select>
               </div>
             </div>
 
@@ -974,6 +987,7 @@ module InteriorPro
             if (s.front_leaf_style) selectedFrontStyle = s.front_leaf_style;
             if (s.garage_style) document.getElementById('garageStyle').value = s.garage_style;
             document.getElementById('garageTopWindows').checked = !!s.garage_top_windows;
+            if (s.garage_window_style) document.getElementById('garageWindowStyle').value = s.garage_window_style;
             onGarageStyleChange();
             if (s.front_glass_ratio != null) document.getElementById('frontGlassRatio').value = s.front_glass_ratio;
             if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
@@ -1162,6 +1176,13 @@ module InteriorPro
             if (lbl) lbl.textContent = garageLabelFor(selectedGarageStyle);
             var fv = selectedGarageStyle === 'Full View Glass';
             document.getElementById('garageTopWindows').disabled = fv;
+            onGarageTopWindowsToggle();
+          }
+          function onGarageTopWindowsToggle() {
+            var cb = document.getElementById('garageTopWindows');
+            var show = cb.checked && !cb.disabled;
+            document.getElementById('garageWindowStyleRow').style.display = show ? 'block' : 'none';
+            resizeDialogToContent();
           }
 
           // ---- Front Door leaf designs ----
@@ -1290,6 +1311,7 @@ module InteriorPro
               front_leaf_style: selectedFrontStyle,
               garage_style: document.getElementById('garageStyle').value,
               garage_top_windows: document.getElementById('garageTopWindows').checked,
+              garage_window_style: document.getElementById('garageWindowStyle').value,
               front_glass_ratio: parseFloat(document.getElementById('frontGlassRatio').value) || 50,
               sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
               transom: document.getElementById('transomCheck').checked,

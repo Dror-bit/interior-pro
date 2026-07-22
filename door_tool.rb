@@ -21,7 +21,7 @@ module InteriorPro
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
                   :leaf_style, :closet_leaf_count, :handle_style,
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
-                  :garage_style, :garage_top_windows,
+                  :garage_style, :garage_top_windows, :garage_window_style,
                   :door_color, :frame_color
 
     def initialize
@@ -69,6 +69,7 @@ module InteriorPro
       @transom_height      = (d['transom_height'] || 14.0).to_f
       @garage_style        = d['garage_style'] || 'Raised Short'
       @garage_top_windows  = d['garage_top_windows'] ? true : false
+      @garage_window_style = d['garage_window_style'] || 'Plain'
       @preset_name         = ''
     end
 
@@ -3886,6 +3887,13 @@ module InteriorPro
       mats = door_body_materials
       frame_mat = mats[:frame_mat]
       glass_mat = mats[:glass_mat]
+      # The shared glass material can get corrupted by a manual paint-bucket
+      # (turns black/opaque). Re-normalize it on every garage build so glass
+      # is ALWAYS glass (2026-07-22).
+      if glass_mat
+        glass_mat.color = Sketchup::Color.new(180, 180, 180)
+        glass_mat.alpha = 0.4
+      end
       leaf_mat = door_leaf_material(model) || frame_mat
       half_w = data[:half_w].to_f
       half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
@@ -3959,7 +3967,7 @@ module InteriorPro
           build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
         elsif s == sections - 1 && @garage_top_windows
           # Top-section windows (not for the full glass door).
-          build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1,
+          build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, sign,
                                        unit, n, leaf_mat, glass_mat, s)
         elsif style == 'Flush'
           build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1,
@@ -3968,6 +3976,54 @@ module InteriorPro
           build_garage_raised_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, v_ext, sign,
                                        style, unit, n, leaf_mat, s)
         end
+      end
+      build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      true
+    end
+
+    # Overhead tracks (user reference photo 2026-07-22): ROUND 1.5" tube per
+    # side — vertical run beside the door, smooth bend, long horizontal run
+    # into the garage. Follow-Me over a path (vertical + arc + horizontal).
+    # Built with the door so they move/delete with it.
+    def build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Track',
+                                   Sketchup::Color.new(150, 150, 150), 1.0)
+      r_tube = 0.75   # 1.5" diameter
+      r_bend = 12.0
+      v_c = v_back - sign * 1.0          # tube centerline, just behind the door
+      w_h = head_inner + 1.0             # horizontal run height (centerline)
+      v_arc_c = v_c - sign * r_bend
+      v_end = v_c - sign * (h + 24.0)
+      un = Geom::Vector3d.new(unit.x, unit.y, unit.z)
+      un.normalize!
+      [iw + 1.25, -iw - 1.25].each_with_index do |u_c, i|
+        g = parent_ents.add_group
+        g.name = "Track_#{i.zero? ? 'R' : 'L'}"
+        ents = g.entities
+        begin
+          p_bot = local_uvw(u_c, v_c, bot, unit, n)
+          p_va  = local_uvw(u_c, v_c, w_h - r_bend, unit, n)
+          p_ha  = local_uvw(u_c, v_arc_c, w_h, unit, n)
+          p_end = local_uvw(u_c, v_end, w_h, unit, n)
+          arc_center = local_uvw(u_c, v_arc_c, w_h - r_bend, unit, n)
+          path = []
+          path.concat(ents.add_edges(p_bot, p_va))
+          va = p_va - arc_center
+          ha = p_ha - arc_center
+          norm = (un * va).dot(ha) > 0 ? un : un.reverse
+          path.concat(ents.add_arc(arc_center, va, norm, r_bend, 0.0, Math::PI / 2.0, 8))
+          path.concat(ents.add_edges(p_ha, p_end))
+          circ = ents.add_circle(p_bot, Geom::Vector3d.new(0, 0, 1), r_tube, 12)
+          face = ents.add_face(circ)
+          raise 'profile face failed' unless face&.valid?
+          face.followme(path)
+          ents.erase_entities(path.select(&:valid?))
+        rescue StandardError => e
+          door_log "[DoorTool] track tube failed: #{e.message}"
+        end
+        g.material = mat
+        ents.grep(Sketchup::Face).each { |f2| f2.material = mat }
+        ents.grep(Sketchup::Edge).each { |ed| ed.soft = true; ed.smooth = true }
       end
       true
     end
@@ -4057,8 +4113,14 @@ module InteriorPro
     # One full-view section: black aluminum frame (full depth) + 4 glass
     # panes at mid-depth.
     def build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
-      steel_mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Front_Steel',
+      model = Sketchup.active_model
+      steel_mat = get_or_create_material(model, 'InteriorPro_Front_Steel',
                                          Sketchup::Color.new(40, 40, 40), 1.0)
+      # Frame takes the chosen door color (dialog); default aluminum black.
+      if @door_color && !@door_color.to_s.empty?
+        cm = door_leaf_material(model)
+        steel_mat = cm if cm
+      end
       rail = 1.5
       stile = 1.5
       cols = [(2.0 * giw / 40.0).round, 1].max # ~equal panes on any width
@@ -4082,15 +4144,21 @@ module InteriorPro
       vm = (v0 + v1) / 2.0
       g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
                             unit, n, glass_mat, "S#{s}_Glass")
-      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
       true
     end
 
-    # Top-section window row: door-color frame, 4 clear panes at mid-depth.
-    def build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, leaf_mat, glass_mat, s)
+    # Top-section window row: door-color frame, clear panes at mid-depth.
+    # garage_window_style (catalog, 2026-07-22): 'Plain' rectangles,
+    # 'L-305' / 'L-405' arc muntin (mirrored), 'L-699' colonial grid,
+    # 'Squares' = window per Raised-Short square (max windows).
+    def build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, sign, unit, n, leaf_mat, glass_mat, s)
+      wstyle = (@garage_window_style && !@garage_window_style.to_s.empty?) ? @garage_window_style.to_s : 'Plain'
       rail = 2.5
       stile = 2.5
-      cols = [(2.0 * giw / 40.0).round, 1].max # ~equal windows on any width
+      target = wstyle == 'Squares' ? 19.0 : 40.0
+      cols = [(2.0 * giw / target).round, 1].max
+      cols = [(cols / 2) * 2, 2].max if wstyle.include?('Pairs') # arch pairs need even count
       cell = (2.0 * giw - stile * (cols + 1)) / cols
       pw0 = w0 + rail
       pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
@@ -4109,9 +4177,122 @@ module InteriorPro
                           unit, n, leaf_mat, "S#{s}_Stile_#{c}")
       end
       vm = (v0 + v1) / 2.0
+      mv0 = sign > 0 ? vm + 0.13 : vm - 0.38
+      mv1 = sign > 0 ? vm + 0.38 : vm - 0.13
+      bar = 0.75
+      if wstyle.include?('Arch')
+        # Approved render 2026-07-22: the WINDOW ITSELF is an arch slice.
+        gsize = wstyle.include?('Pairs') ? 2 : cols
+        with_grid = wstyle.include?('Grid')
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          c0 = (c / gsize) * gsize
+          gcount = [gsize, cols - c0].min
+          gx0 = -giw + stile + c0 * (cell + stile)
+          gx1 = gx0 + gcount * cell + (gcount - 1) * stile
+          build_arched_window_cell!(parent_ents, u0, u0 + cell, gx0, gx1, pw0, pw1,
+                                    v0, v1, vm, mv0, mv1, with_grid,
+                                    unit, n, leaf_mat, glass_mat, "S#{s}_W#{c}")
+        end
+        return true
+      end
       g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
                             unit, n, glass_mat, "S#{s}_Glass")
-      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      if wstyle == 'L-699'
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          (1..3).each do |k|
+            bu = u0 + cell * k / 4.0 - bar / 2.0
+            build_front_slab!(parent_ents, bu, bu + bar, pw0, pw1, mv0, mv1,
+                              unit, n, leaf_mat, "S#{s}_Muntin_V#{c}_#{k}")
+          end
+          bw = (pw0 + pw1) / 2.0 - bar / 2.0
+          build_front_slab!(parent_ents, u0, u0 + cell, bw, bw + bar, mv0, mv1,
+                            unit, n, leaf_mat, "S#{s}_Muntin_H#{c}")
+        end
+      end
+      true
+    end
+
+    # One ARCHED window cell (approved render 2026-07-22): the window is a
+    # slice of an arch spanning its GROUP (gx0..gx1) — shoulders at 45% of
+    # the window height, peak near the top. Door material fills above the
+    # curve, a 0.75" frame band follows it, glass below, optional vertical
+    # bars (8 panes per window) stopping at the curve.
+    def build_arched_window_cell!(parent_ents, x0, x1, gx0, gx1, pw0, pw1, v0, v1, vm, mv0, mv1, with_grid, unit, n, leaf_mat, glass_mat, name)
+      h = pw1 - pw0
+      return false if h < 6.0 || x1 - x0 < 6.0
+      y_sh = pw0 + h * 0.45
+      y_pk = pw1 - 0.5
+      band = 0.75
+      arch = lambda do |x|
+        t = (x - gx0) / (gx1 - gx0)
+        y_sh + (y_pk - y_sh) * (4.0 * t * (1.0 - t))
+      end
+      segs = 12
+      xs = (0..segs).map { |k| x0 + (x1 - x0) * k / segs }
+      nv = Geom::Vector3d.new(n.x, n.y, 0)
+      dfull = v1 - v0
+      push = lambda do |ents, pts, depth|
+        f = ents.add_face(pts)
+        next unless f&.valid?
+        dd = depth
+        dd = -dd if f.normal.dot(nv) < 0
+        f.pushpull(dd)
+      end
+      paint = lambda do |grp, mat, both|
+        grp.material = mat
+        grp.entities.grep(Sketchup::Face).each do |f|
+          f.material = mat
+          f.back_material = mat if both
+        end
+      end
+      # 1) Door-color filler above the curve (full depth).
+      g1 = parent_ents.add_group
+      g1.name = "#{name}_Fill"
+      begin
+        pts = xs.map { |x| local_uvw(x, v0, arch.call(x), unit, n) }
+        pts << local_uvw(x1, v0, pw1, unit, n)
+        pts << local_uvw(x0, v0, pw1, unit, n)
+        push.call(g1.entities, pts, dfull)
+      rescue StandardError => e
+        door_log "[DoorTool] arch fill: #{e.message}"
+      end
+      paint.call(g1, leaf_mat, false)
+      # 2) Frame band following the curve (full depth).
+      g2 = parent_ents.add_group
+      g2.name = "#{name}_Band"
+      begin
+        pts = xs.map { |x| local_uvw(x, v0, arch.call(x), unit, n) }
+        pts += xs.reverse.map { |x| local_uvw(x, v0, arch.call(x) - band, unit, n) }
+        push.call(g2.entities, pts, dfull)
+      rescue StandardError => e
+        door_log "[DoorTool] arch band: #{e.message}"
+      end
+      paint.call(g2, leaf_mat, false)
+      # 3) Glass below the band (thin, mid-depth).
+      g3 = parent_ents.add_group
+      g3.name = "#{name}_Glass"
+      begin
+        pts = [local_uvw(x0, vm - 0.12, pw0, unit, n), local_uvw(x1, vm - 0.12, pw0, unit, n)]
+        pts += xs.reverse.map { |x| local_uvw(x, vm - 0.12, arch.call(x) - band, unit, n) }
+        push.call(g3.entities, pts, 0.24)
+      rescue StandardError => e
+        door_log "[DoorTool] arch glass: #{e.message}"
+      end
+      paint.call(g3, glass_mat, true)
+      # 4) Vertical bars (8 panes) stopping at the curve.
+      if with_grid
+        panes = 8
+        (1..(panes - 1)).each do |k|
+          bx = x0 + (x1 - x0) * k / panes
+          top_w = arch.call(bx) - band
+          next if top_w - pw0 < 2.0
+          build_front_slab!(parent_ents, bx - 0.25, bx + 0.25, pw0, top_w, mv0, mv1,
+                            unit, n, leaf_mat, "#{name}_Bar#{k}")
+        end
+      end
       true
     end
 
@@ -4141,7 +4322,7 @@ module InteriorPro
       vm = (v0 + v1) / 2.0
       g = build_front_slab!(parent_ents, -iw, iw, bot, top, vm - 0.12, vm + 0.12,
                             unit, n, glass_mat, 'FV_Glass')
-      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
       true
     end
 
