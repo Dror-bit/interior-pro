@@ -16,7 +16,7 @@ module InteriorPro
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'door_types.json')
 
     EXTERIOR_TYPES = [
-      'Front Door',
+      'Front Door', 'Garage Door',
       'French Hinged', 'Sliding',
       '4-Panel Center Hinged', '4-Panel Sliding', '6-Panel Sliding',
       '3-Panel Folding', '4-Panel Folding', '6-Panel Folding'
@@ -69,7 +69,9 @@ module InteriorPro
         'front_glass_ratio'      => 50.0,
         'sidelite_width'         => 14.0,
         'transom'                => false,
-        'transom_height'         => 14.0
+        'transom_height'         => 14.0,
+        'garage_style'           => 'Raised Short',
+        'garage_top_windows'     => false
       },
       'interior' => {
         'door_category'          => 'interior',
@@ -117,6 +119,10 @@ module InteriorPro
       },
       'exterior' => {
         'Front Door'              => { 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
+        # Garage: standard 16ft x 7ft default; 18ft / 8ft picked via width/height.
+        'Garage Door'             => { 'width' => 192.0, 'height' => 84.0,
+                                       'exterior_threshold' => false,
+                                       'exterior_casing_style' => 'none' },
         'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
         'French Hinged'           => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },
         '4-Panel Center Hinged'   => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),

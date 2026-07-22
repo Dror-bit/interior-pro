@@ -21,6 +21,7 @@ module InteriorPro
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
                   :leaf_style, :closet_leaf_count, :handle_style,
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
+                  :garage_style, :garage_top_windows,
                   :door_color, :frame_color
 
     def initialize
@@ -66,6 +67,8 @@ module InteriorPro
       @sidelite_width      = (d['sidelite_width'] || 14.0).to_f
       @transom             = d['transom'] ? true : false
       @transom_height      = (d['transom_height'] || 14.0).to_f
+      @garage_style        = d['garage_style'] || 'Raised Short'
+      @garage_top_windows  = d['garage_top_windows'] ? true : false
       @preset_name         = ''
     end
 
@@ -237,13 +240,18 @@ module InteriorPro
     end
 
     # 8 corners of the opening volume: front face (clicked side) + back face.
+    # door_bot_z/door_top_z are LOCAL (wall floor = 0); a wall lowered via
+    # base_z carries a Z translation in its transformation, so shift the
+    # ghost by it (2026-07-21, garage door on a dropped wall).
     def opening_ghost_corners(data)
       fx = data[:fx]
       fy = data[:fy]
       ux = data[:ux]
       uy = data[:uy]
-      bot = data[:door_bot_z]
-      top = data[:door_top_z]
+      wg = data[:wall_group]
+      dz = wg && wg.valid? ? wg.transformation.origin.z : 0.0
+      bot = data[:door_bot_z] + dz
+      top = data[:door_top_z] + dz
       ow = data[:outward]
       th = data[:thickness]
       front = [
@@ -2021,8 +2029,13 @@ module InteriorPro
       world_point_to_local(wall_group, fx, fy, z_world)
     end
 
-    def opening_world_point(wall_group, fx, fy, z_world)
-      Geom::Point3d.new(fx, fy, z_world)
+    # z here is LOCAL (wall floor = 0). A wall lowered via base_z carries a
+    # Z translation in its group transformation — add it so the world point
+    # is correct on dropped walls too (2026-07-21, garage door). Identity
+    # walls are unaffected (dz = 0).
+    def opening_world_point(wall_group, fx, fy, z_local)
+      dz = wall_group&.valid? ? wall_group.transformation.origin.z : 0.0
+      Geom::Point3d.new(fx, fy, z_local + dz)
     end
 
     def opening_bot_z_world(wall_group, data)
@@ -2900,6 +2913,8 @@ module InteriorPro
         build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
       elsif t == 'Front Door'
         build_front_door_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Garage Door'
+        build_garage_door_geometry!(parent_ents, data, unit, n, thickness)
       else
         false
       end
@@ -3857,6 +3872,279 @@ module InteriorPro
       finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
     end
 
+    # Garage Door (2026-07-21): overhead/sectional look. U-jamb around the
+    # opening, sectional curtain near the EXTERIOR face. Styles (garage_style,
+    # per the Instock catalog): 'Raised Short' (grid of small raised panels),
+    # 'Raised Long' (wide raised panels), 'Flush' (plain slab, section joints
+    # only), 'Full View Glass' (black aluminum grid + frosted glass).
+    # garage_top_windows replaces the top section's panels with a framed
+    # window band (not on Full View). No handles/tracks (v1).
+    def build_garage_door_geometry!(parent_ents, data, unit, n, thickness)
+      style = (@garage_style && !@garage_style.to_s.empty?) ? @garage_style.to_s : 'Raised Short'
+      door_log "[DoorTool] garage geom: style=#{style} topwin=#{@garage_top_windows.inspect}"
+      model = Sketchup.active_model
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+      glass_mat = mats[:glass_mat]
+      leaf_mat = door_leaf_material(model) || frame_mat
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      return false if half_w < 12.0 || half_h < 12.0
+
+      # Standard sectional install (spec check 2026-07-21): the finished
+      # opening is lined with 1.5" JAMB boards (the visible framing), and
+      # the curtain rides on rails BEHIND the wall, flush against the
+      # interior face, overlapping the opening 3" on sides and top
+      # (bottom stays on the floor).
+      jamb_w = 1.5
+      build_u_jamb(parent_ents, half_w, half_h, half_h - jamb_w, half_w - jamb_w,
+                   0.0, thickness, unit, n, frame_mat, 'Jamb')
+      # Measured from the user's hand-fixed door (2026-07-22): sides end
+      # 1.5" past the frame opening (behind the wall); the curtain TOP ends
+      # exactly at the jamb's INNER frame line (half_h - jamb 1.5") — all 4
+      # rows equal and fully visible.
+      # Sides: 1.5" past the INNER frame line = exactly at the opening edge
+      # (the dashed line) — never beyond it.
+      iw = half_w
+      head_inner = half_h - 1.5
+      return false if iw < 6.0
+
+      # The EXTERIOR surface = the wall's own exterior side (the side it
+      # paints the exterior texture on = the RIGHT perpendicular of the
+      # drawn start->end direction, clockwise convention in wall_tool).
+      # Deterministic — does NOT depend on which side was clicked
+      # (click-based outward put the relief on the wrong side, 2026-07-21).
+      sign = 1.0
+      begin
+        wall = data[:wall_group]
+        sxa = wall.get_attribute('InteriorPro', 'start_x').to_f
+        sya = wall.get_attribute('InteriorPro', 'start_y').to_f
+        exa = wall.get_attribute('InteriorPro', 'end_x').to_f
+        eya = wall.get_attribute('InteriorPro', 'end_y').to_f
+        dirv = Geom::Vector3d.new(exa - sxa, eya - sya, 0)
+        if dirv.length > 0.001
+          dirv.normalize!
+          right = Geom::Vector3d.new(dirv.y, -dirv.x, 0) # exterior side
+          sign = right.dot(n) >= 0 ? 1.0 : -1.0
+        end
+      rescue StandardError
+        sign = 1.0
+      end
+      # Curtain front (the decorated face, seen through the opening) is
+      # flush with the wall's INTERIOR face; body extends 2" inward.
+      v_ext = sign > 0 ? 0.0 : thickness
+      v_back = v_ext - sign * 2.0
+      v0 = [v_ext, v_back].min
+      v1 = [v_ext, v_back].max
+
+      bot = -half_h
+      h = head_inner - bot
+
+      # Base (user calibration 2026-07-21): EVERY garage door is 4 stacked
+      # horizontal FULL-BODY sections (2" deep, seams visible from BOTH
+      # sides) with a 1/16" joint between them. Style decoration is relief
+      # on the EXTERIOR face only; section backs stay flat.
+      sections = 4
+      sec_h = h / sections
+      joint = 0.0625
+      # Flat border around the whole door: the decorative grid stays inside
+      # the visible opening minus a 2" margin on the sides and the SAME 2"
+      # at the top (user calibration 2026-07-22, blue-line markup).
+      giw = half_w - 2.0
+      w_cap = half_h - 2.0
+      sections.times do |s|
+        w0 = bot + s * sec_h + (s.zero? ? 0.0 : joint / 2.0)
+        w1 = bot + (s + 1) * sec_h - (s == sections - 1 ? 0.0 : joint / 2.0)
+        if style == 'Full View Glass'
+          build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
+        elsif s == sections - 1 && @garage_top_windows
+          # Top-section windows (not for the full glass door).
+          build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1,
+                                       unit, n, leaf_mat, glass_mat, s)
+        elsif style == 'Flush'
+          build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1,
+                            unit, n, leaf_mat, "Section_#{s + 1}")
+        else
+          build_garage_raised_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, v_ext, sign,
+                                       style, unit, n, leaf_mat, s)
+        end
+      end
+      true
+    end
+
+    # One sectional panel, classic raised-panel look (user example
+    # 2026-07-21): 4 panels per section. Each panel = recessed groove around
+    # a BEVELED frame that rises back to a flat center field flush with the
+    # section front. Backs stay flat (full-depth rails/stiles + plate).
+    def build_garage_raised_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, v_ext, sign, style, unit, n, leaf_mat, s)
+      rail = 2.5
+      stile = 2.5
+      recess = 0.375
+      groove = 0.75
+      bevel = 1.75
+      # Panel count from a TARGET width so panels look the same size on any
+      # door width. All rows IDENTICAL height — the top row is not clamped;
+      # it ends ~0.5" past the frame line, hidden behind the wall (user
+      # calibration 2026-07-22).
+      target = style == 'Raised Short' ? 19.0 : 40.0
+      cols = [(2.0 * giw / target).round, 1].max
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 2.0 * (groove + bevel) + 4.0 || pw1 - pw0 < 2.0 * (groove + bevel) + 3.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
+        return true
+      end
+      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_B")
+      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_T")
+      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_L")
+      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_R")
+      (cols + 1).times do |c|
+        u0 = -giw + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
+                          unit, n, leaf_mat, "S#{s}_Stile_#{c}")
+      end
+      v_low = v_ext - sign * recess # groove plane
+      plate0 = sign > 0 ? v0 : v_low
+      plate1 = sign > 0 ? v_low : v1
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + cell, pw0, pw1, plate0, plate1,
+                          unit, n, leaf_mat, "S#{s}_Plate_#{c}")
+        build_beveled_field!(parent_ents, u0 + groove, u0 + cell - groove,
+                             pw0 + groove, pw1 - groove,
+                             v_low, v_ext, bevel, unit, n, leaf_mat, "S#{s}_Field_#{c}")
+      end
+      true
+    end
+
+    # Raised-panel center field: frustum from a base rect at v_low up to an
+    # inset flat rect at v_high (4 sloped quads + flat top).
+    def build_beveled_field!(parent_ents, u0, u1, w0, w1, v_low, v_high, bevel, unit, n, mat, name)
+      return false if u1 - u0 < 2.0 * bevel + 1.0 || w1 - w0 < 2.0 * bevel + 1.0
+      g = parent_ents.add_group
+      g.name = name
+      ents = g.entities
+      a = [
+        local_uvw(u0, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w1, unit, n),
+        local_uvw(u0, v_low, w1, unit, n)
+      ]
+      t = [
+        local_uvw(u0 + bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w1 - bevel, unit, n),
+        local_uvw(u0 + bevel, v_high, w1 - bevel, unit, n)
+      ]
+      begin
+        4.times do |i|
+          j = (i + 1) % 4
+          ents.add_face(a[i], a[j], t[j], t[i])
+        end
+        ents.add_face(t[0], t[1], t[2], t[3])
+      rescue StandardError => e
+        door_log "[DoorTool] beveled field failed: #{e.message}"
+        g.erase! if g.valid?
+        return false
+      end
+      g.material = mat
+      ents.grep(Sketchup::Face).each { |f| f.material = mat }
+      true
+    end
+
+    # One full-view section: black aluminum frame (full depth) + 4 glass
+    # panes at mid-depth.
+    def build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
+      steel_mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Front_Steel',
+                                         Sketchup::Color.new(40, 40, 40), 1.0)
+      rail = 1.5
+      stile = 1.5
+      cols = [(2.0 * giw / 40.0).round, 1].max # ~equal panes on any width
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 5.0 || pw1 - pw0 < 4.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, steel_mat, "Section_#{s + 1}")
+        return true
+      end
+      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, steel_mat, "S#{s}_Rail_B")
+      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, steel_mat, "S#{s}_Rail_T")
+      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, steel_mat, "S#{s}_Border_L")
+      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, steel_mat, "S#{s}_Border_R")
+      (cols + 1).times do |c|
+        u0 = -giw + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
+                          unit, n, steel_mat, "S#{s}_Stile_#{c}")
+      end
+      vm = (v0 + v1) / 2.0
+      g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "S#{s}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      true
+    end
+
+    # Top-section window row: door-color frame, 4 clear panes at mid-depth.
+    def build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, leaf_mat, glass_mat, s)
+      rail = 2.5
+      stile = 2.5
+      cols = [(2.0 * giw / 40.0).round, 1].max # ~equal windows on any width
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 5.0 || pw1 - pw0 < 4.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
+        return true
+      end
+      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_B")
+      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_T")
+      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_L")
+      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_R")
+      (cols + 1).times do |c|
+        u0 = -giw + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
+                          unit, n, leaf_mat, "S#{s}_Stile_#{c}")
+      end
+      vm = (v0 + v1) / 2.0
+      g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "S#{s}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      true
+    end
+
+    # Full-view aluminum + glass door: black grid (outer border, section
+    # rails, 4 columns) with one frosted glass sheet at mid-depth.
+    def build_garage_full_view!(parent_ents, iw, bot, top, sections, sec_h, v0, v1, unit, n, glass_mat)
+      model = Sketchup.active_model
+      steel_mat = get_or_create_material(model, 'InteriorPro_Front_Steel',
+                                         Sketchup::Color.new(40, 40, 40), 1.0)
+      rail = 3.5
+      stile = 3.5
+      cols = 4
+      cell = (2.0 * iw - stile * (cols + 1)) / cols
+      return false if cell < 6.0
+      build_front_slab!(parent_ents, -iw, iw, bot, bot + rail, v0, v1, unit, n, steel_mat, 'FV_Rail_Bottom')
+      build_front_slab!(parent_ents, -iw, iw, top - rail, top, v0, v1, unit, n, steel_mat, 'FV_Rail_Top')
+      (1..(sections - 1)).each do |s|
+        wm = bot + s * sec_h
+        build_front_slab!(parent_ents, -iw, iw, wm - rail / 2.0, wm + rail / 2.0, v0, v1,
+                          unit, n, steel_mat, "FV_Rail_#{s}")
+      end
+      (cols + 1).times do |c|
+        u0 = -iw + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + stile, bot, top, v0, v1,
+                          unit, n, steel_mat, "FV_Stile_#{c}")
+      end
+      vm = (v0 + v1) / 2.0
+      g = build_front_slab!(parent_ents, -iw, iw, bot, top, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, 'FV_Glass')
+      g.entities.grep(Sketchup::Face).each { |f| f.back_material = glass_mat } if g
+      true
+    end
+
     def door_body_materials
       model = Sketchup.active_model
       {
@@ -4235,8 +4523,12 @@ module InteriorPro
       @door_category.to_s != 'interior' && @door_type.to_s.strip == 'Front Door'
     end
 
+    def garage_door_type?
+      @door_category.to_s != 'interior' && @door_type.to_s.strip == 'Garage Door'
+    end
+
     def door_body_type?
-      interior_leaf_type? || front_door_type? ||
+      interior_leaf_type? || front_door_type? || garage_door_type? ||
         french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
     end
 

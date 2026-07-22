@@ -80,6 +80,8 @@ module InteriorPro
       tool.sidelite_width      = (settings['sidelite_width'] || 14.0).to_f if tool.respond_to?(:sidelite_width=)
       tool.transom             = !!settings['transom'] if tool.respond_to?(:transom=)
       tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
+      tool.garage_style        = settings['garage_style'] || 'Raised Short' if tool.respond_to?(:garage_style=)
+      tool.garage_top_windows  = !!settings['garage_top_windows'] if tool.respond_to?(:garage_top_windows=)
       tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
       tool.frame_color         = settings['frame_color'] || '' if tool.respond_to?(:frame_color=)
       tool.width              = settings['width'].to_f
@@ -483,6 +485,26 @@ module InteriorPro
               <input type="number" id="transomHeight" value="14" min="6" step="0.5">
             </div>
 
+            <div id="garageDoorSection" style="display:none;">
+              <div class="section-title">Garage Door</div>
+              <label>Style</label>
+              <select id="garageStyle" style="display:none;" onchange="onGarageStyleChange()">
+                <option value="Raised Short">Raised Panel Short</option>
+                <option value="Raised Long">Raised Panel Long</option>
+                <option value="Flush">Flush</option>
+                <option value="Full View Glass">Full View Glass (aluminum)</option>
+              </select>
+              <div class="handle-head" onclick="toggleGarageDesignGrid()">
+                <span class="hn" id="garageDesignCurrentLabel">Raised Panel Short</span>
+                <span class="arrow" id="garageDesignArrow">&#9656;</span>
+              </div>
+              <div class="design-grid" id="garageDesignGrid" style="display:none; grid-template-columns: repeat(2, 104px);"></div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="garageTopWindows">
+                <label for="garageTopWindows">Top section windows</label>
+              </div>
+            </div>
+
             <div id="handleSection" style="display:none;">
               <div class="section-title">Handle</div>
               <label>Door Handle</label>
@@ -526,31 +548,35 @@ module InteriorPro
               </select>
             </div>
 
-            <div class="section-title">Casing &amp; Trim</div>
-            <label id="exteriorCasingLabel">Exterior Casing</label>
-            <select id="exteriorCasingStyle">
-              <option value="none">None</option>
-              <option value="flat">Flat (square)</option>
-              #{casing_skp_options}
-            </select>
-            <label>Interior Casing</label>
-            <select id="interiorCasingStyle">
-              <option value="none">None</option>
-              <option value="flat">Flat (square)</option>
-              #{casing_skp_options}
-            </select>
+            <div id="casingSection">
+              <div class="section-title">Casing &amp; Trim</div>
+              <label id="exteriorCasingLabel">Exterior Casing</label>
+              <select id="exteriorCasingStyle">
+                <option value="none">None</option>
+                <option value="flat">Flat (square)</option>
+                #{casing_skp_options}
+              </select>
+              <label>Interior Casing</label>
+              <select id="interiorCasingStyle">
+                <option value="none">None</option>
+                <option value="flat">Flat (square)</option>
+                #{casing_skp_options}
+              </select>
+            </div>
 
-            <div class="section-title">Glass</div>
-            <label>Glass Grid</label>
-            <select id="glassGridStyle">
-              <option value="none">None — clear glass</option>
-              <option value="1x2">1 × 2 (2 lites)</option>
-              <option value="2x2">2 × 2 (4 lites)</option>
-              <option value="2x3">2 × 3 (6 lites)</option>
-              <option value="2x5">2 × 5 (10 lites — French)</option>
-              <option value="3x3">3 × 3 (9 lites)</option>
-              <option value="3x4">3 × 4 (12 lites)</option>
-            </select>
+            <div id="glassGridSection">
+              <div class="section-title">Glass</div>
+              <label>Glass Grid</label>
+              <select id="glassGridStyle">
+                <option value="none">None — clear glass</option>
+                <option value="1x2">1 × 2 (2 lites)</option>
+                <option value="2x2">2 × 2 (4 lites)</option>
+                <option value="2x3">2 × 3 (6 lites)</option>
+                <option value="2x5">2 × 5 (10 lites — French)</option>
+                <option value="3x3">3 × 3 (9 lites)</option>
+                <option value="3x4">3 × 4 (12 lites)</option>
+              </select>
+            </div>
             <div class="checkbox-row" id="exteriorThresholdRow">
               <input type="checkbox" id="exteriorThreshold" checked>
               <label for="exteriorThreshold">Exterior Threshold (floor sill)</label>
@@ -946,6 +972,9 @@ module InteriorPro
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
             if (s.front_config) document.getElementById('frontConfig').value = s.front_config;
             if (s.front_leaf_style) selectedFrontStyle = s.front_leaf_style;
+            if (s.garage_style) document.getElementById('garageStyle').value = s.garage_style;
+            document.getElementById('garageTopWindows').checked = !!s.garage_top_windows;
+            onGarageStyleChange();
             if (s.front_glass_ratio != null) document.getElementById('frontGlassRatio').value = s.front_glass_ratio;
             if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
             document.getElementById('transomCheck').checked = !!s.transom;
@@ -1050,8 +1079,16 @@ module InteriorPro
             var isFront = document.getElementById('doorCategory').value === 'exterior' && t === 'Front Door';
             document.getElementById('frontDoorSection').style.display = isFront ? 'block' : 'none';
             if (isFront) renderFrontDesignGrid();
-            document.getElementById('slidingFields').style.display = isSliding ? 'block' : 'none';
-            document.getElementById('hingedFields').style.display = (isSliding || closet) ? 'none' : 'block';
+            var isGarage = document.getElementById('doorCategory').value === 'exterior' && t === 'Garage Door';
+            document.getElementById('garageDoorSection').style.display = isGarage ? 'block' : 'none';
+            if (isGarage) renderGarageDesignGrid();
+            // Garage doors: no casing, no glass grid, no threshold, no
+            // opening-direction fields (it opens on rails).
+            document.getElementById('casingSection').style.display = isGarage ? 'none' : 'block';
+            document.getElementById('glassGridSection').style.display = isGarage ? 'none' : 'block';
+            if (isGarage) document.getElementById('exteriorThresholdRow').style.display = 'none';
+            document.getElementById('slidingFields').style.display = (isSliding && !isGarage) ? 'block' : 'none';
+            document.getElementById('hingedFields').style.display = (isSliding || closet || isGarage) ? 'none' : 'block';
             var isInterior = document.getElementById('doorCategory').value === 'interior';
             document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
             document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
@@ -1060,6 +1097,71 @@ module InteriorPro
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
+          }
+
+          // ---- Garage Door style gallery ----
+          var GARAGE_DESIGNS = [
+            ['Raised Short', 'Raised Panel Short'],
+            ['Raised Long', 'Raised Panel Long'],
+            ['Flush', 'Flush'],
+            ['Full View Glass', 'Full View Glass']
+          ];
+          var selectedGarageStyle = 'Raised Short';
+          function garageLabelFor(v) {
+            for (var i = 0; i < GARAGE_DESIGNS.length; i++) {
+              if (GARAGE_DESIGNS[i][0] === v) return GARAGE_DESIGNS[i][1];
+            }
+            return v;
+          }
+          function garageThumbSvg(name) {
+            var s = '', r, c;
+            if (name === 'Raised Short') {
+              s = svgR(1, 1, 238, 108, '#efe8dc');
+              for (r = 0; r < 4; r++) for (c = 0; c < 8; c++) s += svgR(6 + c * 29, 5 + r * 26, 25, 20, '#e3d9c8');
+            } else if (name === 'Raised Long') {
+              s = svgR(1, 1, 238, 108, '#f4f2ec');
+              for (r = 0; r < 4; r++) for (c = 0; c < 3; c++) s += svgR(7 + c * 78, 5 + r * 26, 70, 20, '#e9e5da');
+            } else if (name === 'Flush') {
+              s = svgR(1, 1, 238, 108, '#e8e4da');
+              for (r = 1; r < 4; r++) s += '<line x1="2" y1="' + (r * 27) + '" x2="238" y2="' + (r * 27) + '" stroke="#b9b2a4" stroke-width="1.5"/>';
+            } else if (name === 'Full View Glass') {
+              s = svgR(1, 1, 238, 108, '#1d1d1b');
+              for (r = 0; r < 4; r++) for (c = 0; c < 4; c++) s += svgR(8 + c * 58, 7 + r * 25, 52, 20, '#cfdde5');
+            }
+            return '<svg viewBox="0 0 240 110">' + s + '</svg>';
+          }
+          function renderGarageDesignGrid() {
+            var grid = document.getElementById('garageDesignGrid');
+            if (!grid) return;
+            var lbl = document.getElementById('garageDesignCurrentLabel');
+            if (lbl) lbl.textContent = garageLabelFor(selectedGarageStyle);
+            grid.innerHTML = GARAGE_DESIGNS.map(function(d) {
+              var sel = d[0] === selectedGarageStyle ? ' selected' : '';
+              return '<div class="design-card' + sel + '" data-style="' + d[0] + '" title="' + d[1] +
+                     '" onclick="selectGarageDesign(this)">' + garageThumbSvg(d[0]) +
+                     '<div class="dn">' + d[1] + '</div></div>';
+            }).join('');
+          }
+          function selectGarageDesign(el) {
+            selectedGarageStyle = el.getAttribute('data-style');
+            document.getElementById('garageStyle').value = selectedGarageStyle;
+            onGarageStyleChange();
+            toggleGarageDesignGrid(false);
+          }
+          function toggleGarageDesignGrid(force) {
+            var g = document.getElementById('garageDesignGrid');
+            var open = (typeof force === 'boolean') ? force : g.style.display === 'none';
+            g.style.display = open ? 'grid' : 'none';
+            document.getElementById('garageDesignArrow').innerHTML = open ? '&#9662;' : '&#9656;';
+            renderGarageDesignGrid();
+            resizeDialogToContent();
+          }
+          function onGarageStyleChange() {
+            selectedGarageStyle = document.getElementById('garageStyle').value;
+            var lbl = document.getElementById('garageDesignCurrentLabel');
+            if (lbl) lbl.textContent = garageLabelFor(selectedGarageStyle);
+            var fv = selectedGarageStyle === 'Full View Glass';
+            document.getElementById('garageTopWindows').disabled = fv;
           }
 
           // ---- Front Door leaf designs ----
@@ -1186,6 +1288,8 @@ module InteriorPro
               handle_style: (document.getElementById('handleStyle').value || 'none'),
               front_config: document.getElementById('frontConfig').value,
               front_leaf_style: selectedFrontStyle,
+              garage_style: document.getElementById('garageStyle').value,
+              garage_top_windows: document.getElementById('garageTopWindows').checked,
               front_glass_ratio: parseFloat(document.getElementById('frontGlassRatio').value) || 50,
               sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
               transom: document.getElementById('transomCheck').checked,
