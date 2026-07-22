@@ -72,7 +72,8 @@ module InteriorPro
         'transom_height'         => 14.0,
         'garage_style'           => 'Raised Short',
         'garage_top_windows'     => false,
-        'garage_window_style'    => 'Plain'
+        'garage_window_style'    => 'Plain',
+        'garage_window_count'    => 0
       },
       'interior' => {
         'door_category'          => 'interior',

@@ -21,7 +21,7 @@ module InteriorPro
                   :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
                   :leaf_style, :closet_leaf_count, :handle_style,
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
-                  :garage_style, :garage_top_windows, :garage_window_style,
+                  :garage_style, :garage_top_windows, :garage_window_style, :garage_window_count,
                   :door_color, :frame_color
 
     def initialize
@@ -70,6 +70,7 @@ module InteriorPro
       @garage_style        = d['garage_style'] || 'Raised Short'
       @garage_top_windows  = d['garage_top_windows'] ? true : false
       @garage_window_style = d['garage_window_style'] || 'Plain'
+      @garage_window_count = (d['garage_window_count'] || 0).to_i
       @preset_name         = ''
     end
 
@@ -3978,7 +3979,26 @@ module InteriorPro
         end
       end
       build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      soften_garage_edges!(parent_ents)
       true
+    end
+
+    # Fewer visible lines (user request 2026-07-22): hide edges between
+    # near-coplanar faces inside every garage sub-group — arc facets and
+    # gentle seams disappear, real design lines stay.
+    def soften_garage_edges!(parent_ents)
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        g.entities.grep(Sketchup::Edge).each do |ed|
+          fs = ed.faces
+          next unless fs.length == 2
+          next unless fs[0].normal.angle_between(fs[1].normal) < 0.09 # ~coplanar only
+          ed.soft = true
+          ed.smooth = true
+        end
+      end
+    rescue StandardError => e
+      door_log "[DoorTool] soften edges: #{e.message}"
     end
 
     # Overhead tracks (user reference photo 2026-07-22): ROUND 1.5" tube per
@@ -4052,36 +4072,54 @@ module InteriorPro
         build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
         return true
       end
-      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_B")
-      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_T")
-      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_L")
-      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_R")
-      (cols + 1).times do |c|
-        u0 = -giw + c * (cell + stile)
-        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
-                          unit, n, leaf_mat, "S#{s}_Stile_#{c}")
-      end
-      v_low = v_ext - sign * recess # groove plane
-      plate0 = sign > 0 ? v0 : v_low
-      plate1 = sign > 0 ? v_low : v1
+      # Like the interior door leaves (user 2026-07-22): ONE solid slab per
+      # section, panel pockets CARVED into its front face — no seams, only
+      # the shape lines.
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      v_low = v_ext - sign * recess
       cols.times do |c|
         u0 = -giw + stile + c * (cell + stile)
-        build_front_slab!(parent_ents, u0, u0 + cell, pw0, pw1, plate0, plate1,
-                          unit, n, leaf_mat, "S#{s}_Plate_#{c}")
+        next unless carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                                 v_ext, sign, recess, unit, n)
+        # Chamfered pocket edge (user demo photo 2026-07-22): the frame
+        # slopes down into the groove instead of a 90-degree step.
+        build_beveled_ring!(parent_ents, u0, u0 + cell, pw0, pw1,
+                            v_ext, v_low, 0.5, unit, n, leaf_mat, "S#{s}_Cham_#{c}")
         build_beveled_field!(parent_ents, u0 + groove, u0 + cell - groove,
                              pw0 + groove, pw1 - groove,
                              v_low, v_ext, bevel, unit, n, leaf_mat, "S#{s}_Field_#{c}")
       end
+      sec.material = leaf_mat
       true
     end
 
+    # Carve a shape into the section's FRONT face: add the polygon on the
+    # front plane (it splits the face) and pushpull it inward by `depth`
+    # (= full thickness -> a through opening). Points are [u, w] pairs.
+    def carve_front!(se, uw_pts, v_ext, sign, depth, unit, n)
+      pts = uw_pts.map { |u, w| local_uvw(u, v_ext, w, unit, n) }
+      f = se.add_face(pts)
+      return false unless f&.valid?
+      nv = Geom::Vector3d.new(n.x, n.y, 0)
+      ext_dir = sign > 0 ? nv : nv.reverse
+      d = f.normal.dot(ext_dir) > 0 ? -depth : depth
+      f.pushpull(d)
+      true
+    rescue StandardError => e
+      door_log "[DoorTool] carve_front!: #{e.message}"
+      false
+    end
+
     # Raised-panel center field: frustum from a base rect at v_low up to an
-    # inset flat rect at v_high (4 sloped quads + flat top).
+    # inset flat rect at v_high (4 sloped quads + flat top). Own group.
     def build_beveled_field!(parent_ents, u0, u1, w0, w1, v_low, v_high, bevel, unit, n, mat, name)
       return false if u1 - u0 < 2.0 * bevel + 1.0 || w1 - w0 < 2.0 * bevel + 1.0
-      g = parent_ents.add_group
-      g.name = name
-      ents = g.entities
+      grp = parent_ents.add_group
+      grp.name = name
+      ents = grp.entities
       a = [
         local_uvw(u0, v_low, w0, unit, n),
         local_uvw(u1, v_low, w0, unit, n),
@@ -4102,10 +4140,10 @@ module InteriorPro
         ents.add_face(t[0], t[1], t[2], t[3])
       rescue StandardError => e
         door_log "[DoorTool] beveled field failed: #{e.message}"
-        g.erase! if g.valid?
+        grp.erase! if grp.valid?
         return false
       end
-      g.material = mat
+      grp.material = mat
       ents.grep(Sketchup::Face).each { |f| f.material = mat }
       true
     end
@@ -4132,14 +4170,18 @@ module InteriorPro
         build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, steel_mat, "Section_#{s + 1}")
         return true
       end
-      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, steel_mat, "S#{s}_Rail_B")
-      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, steel_mat, "S#{s}_Rail_T")
-      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, steel_mat, "S#{s}_Border_L")
-      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, steel_mat, "S#{s}_Border_R")
-      (cols + 1).times do |c|
-        u0 = -giw + c * (cell + stile)
-        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
-                          unit, n, steel_mat, "S#{s}_Stile_#{c}")
+      # ONE solid slab per section, pane openings CARVED through (flat back).
+      # For a through hole the carve direction is irrelevant.
+      sign_fv = 1.0
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      sec.material = steel_mat
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                     v1, sign_fv, v1 - v0, unit, n)
       end
       vm = (v0 + v1) / 2.0
       g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
@@ -4158,6 +4200,11 @@ module InteriorPro
       stile = 2.5
       target = wstyle == 'Squares' ? 19.0 : 40.0
       cols = [(2.0 * giw / target).round, 1].max
+      # User-chosen window count (0 = auto). For Squares the grid stays
+      # aligned with the door panels and the count picks how many cells get
+      # glass (centered); for the rest it sets the number of windows.
+      cnt = @garage_window_count.to_i
+      cols = cnt if cnt > 0 && wstyle != 'Squares'
       cols = [(cols / 2) * 2, 2].max if wstyle.include?('Pairs') # arch pairs need even count
       cell = (2.0 * giw - stile * (cols + 1)) / cols
       pw0 = w0 + rail
@@ -4167,15 +4214,15 @@ module InteriorPro
         build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
         return true
       end
-      build_front_slab!(parent_ents, -iw, iw, w0, pw0, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_B")
-      build_front_slab!(parent_ents, -iw, iw, pw1, w1, v0, v1, unit, n, leaf_mat, "S#{s}_Rail_T")
-      build_front_slab!(parent_ents, -iw, -giw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_L")
-      build_front_slab!(parent_ents, giw, iw, pw0, pw1, v0, v1, unit, n, leaf_mat, "S#{s}_Border_R")
-      (cols + 1).times do |c|
-        u0 = -giw + c * (cell + stile)
-        build_front_slab!(parent_ents, u0, u0 + stile, pw0, pw1, v0, v1,
-                          unit, n, leaf_mat, "S#{s}_Stile_#{c}")
-      end
+      # ONE solid slab per section; the window shapes are CARVED through it
+      # (like the interior door leaves — no seams).
+      v_ext_c = sign > 0 ? v1 : v0
+      dfull = v1 - v0
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      sec.material = leaf_mat
       vm = (v0 + v1) / 2.0
       mv0 = sign > 0 ? vm + 0.13 : vm - 0.38
       mv1 = sign > 0 ? vm + 0.38 : vm - 0.13
@@ -4190,11 +4237,43 @@ module InteriorPro
           gcount = [gsize, cols - c0].min
           gx0 = -giw + stile + c0 * (cell + stile)
           gx1 = gx0 + gcount * cell + (gcount - 1) * stile
-          build_arched_window_cell!(parent_ents, u0, u0 + cell, gx0, gx1, pw0, pw1,
-                                    v0, v1, vm, mv0, mv1, with_grid,
+          build_arched_window_cell!(se, parent_ents, u0, u0 + cell, gx0, gx1, pw0, pw1,
+                                    v0, v1, v_ext_c, sign, vm, mv0, mv1, with_grid,
                                     unit, n, leaf_mat, glass_mat, "S#{s}_W#{c}")
         end
         return true
+      end
+      if wstyle == 'Squares'
+        # Approved render 2026-07-22: window INSIDE the panel frame (groove +
+        # bevel ring + glass with a small cross). Cells align with the door
+        # panels; a chosen count picks the centered glass cells, the rest
+        # stay regular raised panels.
+        wcnt = cnt.positive? && cnt < cols ? cnt : cols
+        first = (cols - wcnt) / 2
+        v_low = v_ext_c - sign * 0.375
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          if c >= first && c < first + wcnt
+            build_square_window_cell!(se, parent_ents, u0, u0 + cell, pw0, pw1, dfull,
+                                      v_ext_c, sign, vm, mv0, mv1,
+                                      unit, n, leaf_mat, glass_mat, "S#{s}_SQ#{c}")
+          else
+            next unless carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                                     v_ext_c, sign, 0.375, unit, n)
+            build_beveled_ring!(parent_ents, u0, u0 + cell, pw0, pw1,
+                                v_ext_c, v_low, 0.5, unit, n, leaf_mat, "S#{s}_Cham_#{c}")
+            build_beveled_field!(parent_ents, u0 + 0.75, u0 + cell - 0.75,
+                                 pw0 + 0.75, pw1 - 0.75, v_low, v_ext_c, 1.75,
+                                 unit, n, leaf_mat, "S#{s}_Field_#{c}")
+          end
+        end
+        return true
+      end
+      # Plain / Colonial: carve a through opening per window, glass behind.
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                     v_ext_c, sign, dfull, unit, n)
       end
       g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
                             unit, n, glass_mat, "S#{s}_Glass")
@@ -4215,12 +4294,82 @@ module InteriorPro
       true
     end
 
+    # Square window inside the panel frame (approved render 2026-07-22):
+    # groove border (recessed), beveled ring rising to the front, glass with
+    # a thin 3x2 cross in the center. Open behind the glass (real window).
+    def build_square_window_cell!(se, parent_ents, x0, x1, w0, w1, dfull, v_ext, sign, vm, mv0, mv1, unit, n, leaf_mat, glass_mat, name)
+      groove = 0.75
+      bevel = 1.75
+      v_low = v_ext - sign * 0.375
+      min_dim = 2.0 * (groove + bevel) + 3.0
+      return false if x1 - x0 < min_dim || w1 - w0 < min_dim
+      ix0 = x0 + groove + bevel
+      ix1 = x1 - groove - bevel
+      iw0 = w0 + groove + bevel
+      iw1 = w1 - groove - bevel
+      # Carve the panel pocket into the front, then a through hole for the
+      # glass; the beveled ring sits inside the pocket. Back stays FLAT.
+      return false unless carve_front!(se, [[x0, w0], [x1, w0], [x1, w1], [x0, w1]],
+                                       v_ext, sign, 0.375, unit, n)
+      carve_front!(se, [[ix0, iw0], [ix1, iw0], [ix1, iw1], [ix0, iw1]],
+                   v_low, sign, dfull - 0.375, unit, n)
+      build_beveled_ring!(parent_ents, x0, x1, w0, w1,
+                          v_ext, v_low, 0.5, unit, n, leaf_mat, "#{name}_Cham")
+      build_beveled_ring!(parent_ents, x0 + groove, x1 - groove, w0 + groove, w1 - groove,
+                          v_low, v_ext, bevel, unit, n, leaf_mat, "#{name}_Ring")
+      g = build_front_slab!(parent_ents, ix0, ix1, iw0, iw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "#{name}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      bar = 0.4
+      (1..2).each do |k|
+        bx = ix0 + (ix1 - ix0) * k / 3.0 - bar / 2.0
+        build_front_slab!(parent_ents, bx, bx + bar, iw0, iw1, mv0, mv1, unit, n, leaf_mat, "#{name}_V#{k}")
+      end
+      hy = (iw0 + iw1) / 2.0 - bar / 2.0
+      build_front_slab!(parent_ents, ix0, ix1, hy, hy + bar, mv0, mv1, unit, n, leaf_mat, "#{name}_H")
+      true
+    end
+
+    # Beveled RING (frustum without the flat top): 4 sloped quads from the
+    # outer rect at v_low up to an inset rect at v_high. Own group.
+    def build_beveled_ring!(parent_ents, u0, u1, w0, w1, v_low, v_high, bevel, unit, n, mat, name)
+      return false if u1 - u0 < 2.0 * bevel + 1.0 || w1 - w0 < 2.0 * bevel + 1.0
+      grp = parent_ents.add_group
+      grp.name = name
+      ents = grp.entities
+      a = [
+        local_uvw(u0, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w1, unit, n),
+        local_uvw(u0, v_low, w1, unit, n)
+      ]
+      t = [
+        local_uvw(u0 + bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w1 - bevel, unit, n),
+        local_uvw(u0 + bevel, v_high, w1 - bevel, unit, n)
+      ]
+      begin
+        4.times do |i|
+          j = (i + 1) % 4
+          ents.add_face(a[i], a[j], t[j], t[i])
+        end
+      rescue StandardError => e
+        door_log "[DoorTool] beveled ring: #{e.message}"
+        grp.erase! if grp.valid?
+        return false
+      end
+      grp.material = mat
+      ents.grep(Sketchup::Face).each { |f| f.material = mat }
+      true
+    end
+
     # One ARCHED window cell (approved render 2026-07-22): the window is a
     # slice of an arch spanning its GROUP (gx0..gx1) — shoulders at 45% of
     # the window height, peak near the top. Door material fills above the
     # curve, a 0.75" frame band follows it, glass below, optional vertical
     # bars (8 panes per window) stopping at the curve.
-    def build_arched_window_cell!(parent_ents, x0, x1, gx0, gx1, pw0, pw1, v0, v1, vm, mv0, mv1, with_grid, unit, n, leaf_mat, glass_mat, name)
+    def build_arched_window_cell!(se, parent_ents, x0, x1, gx0, gx1, pw0, pw1, v0, v1, v_ext, sign, vm, mv0, mv1, with_grid, unit, n, leaf_mat, glass_mat, name)
       h = pw1 - pw0
       return false if h < 6.0 || x1 - x0 < 6.0
       y_sh = pw0 + h * 0.45
@@ -4248,19 +4397,12 @@ module InteriorPro
           f.back_material = mat if both
         end
       end
-      # 1) Door-color filler above the curve (full depth).
-      g1 = parent_ents.add_group
-      g1.name = "#{name}_Fill"
-      begin
-        pts = xs.map { |x| local_uvw(x, v0, arch.call(x), unit, n) }
-        pts << local_uvw(x1, v0, pw1, unit, n)
-        pts << local_uvw(x0, v0, pw1, unit, n)
-        push.call(g1.entities, pts, dfull)
-      rescue StandardError => e
-        door_log "[DoorTool] arch fill: #{e.message}"
-      end
-      paint.call(g1, leaf_mat, false)
-      # 2) Frame band following the curve (full depth).
+      # 1) CARVE the arched window shape straight through the section slab
+      # (everything above the curve stays solid — no filler piece needed).
+      uw = [[x0, pw0], [x1, pw0]]
+      xs.reverse.each { |x| uw << [x, arch.call(x)] }
+      carve_front!(se, uw, v_ext, sign, dfull, unit, n)
+      # 2) Frame band following the curve (full depth, inside the opening).
       g2 = parent_ents.add_group
       g2.name = "#{name}_Band"
       begin

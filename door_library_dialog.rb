@@ -83,6 +83,7 @@ module InteriorPro
       tool.garage_style        = settings['garage_style'] || 'Raised Short' if tool.respond_to?(:garage_style=)
       tool.garage_top_windows  = !!settings['garage_top_windows'] if tool.respond_to?(:garage_top_windows=)
       tool.garage_window_style = settings['garage_window_style'] || 'Plain' if tool.respond_to?(:garage_window_style=)
+      tool.garage_window_count = (settings['garage_window_count'] || 0).to_i if tool.respond_to?(:garage_window_count=)
       tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
       tool.frame_color         = settings['frame_color'] || '' if tool.respond_to?(:frame_color=)
       tool.width              = settings['width'].to_f
@@ -506,6 +507,9 @@ module InteriorPro
               </div>
               <div id="garageWindowStyleRow" style="display:none;">
                 <label>Window Design</label>
+                <label style="float:right;">Windows (0 = auto)
+                  <input type="number" id="garageWindowCount" value="0" min="0" step="1" style="width:52px;">
+                </label>
                 <select id="garageWindowStyle">
                   <option value="Plain">Rectangles (plain)</option>
                   <option value="Arch Pairs Grid">Arch per 2 windows + bars</option>
@@ -988,6 +992,7 @@ module InteriorPro
             if (s.garage_style) document.getElementById('garageStyle').value = s.garage_style;
             document.getElementById('garageTopWindows').checked = !!s.garage_top_windows;
             if (s.garage_window_style) document.getElementById('garageWindowStyle').value = s.garage_window_style;
+            document.getElementById('garageWindowCount').value = s.garage_window_count || 0;
             onGarageStyleChange();
             if (s.front_glass_ratio != null) document.getElementById('frontGlassRatio').value = s.front_glass_ratio;
             if (s.sidelite_width != null) document.getElementById('sideliteWidth').value = s.sidelite_width;
@@ -1312,6 +1317,7 @@ module InteriorPro
               garage_style: document.getElementById('garageStyle').value,
               garage_top_windows: document.getElementById('garageTopWindows').checked,
               garage_window_style: document.getElementById('garageWindowStyle').value,
+              garage_window_count: parseInt(document.getElementById('garageWindowCount').value, 10) || 0,
               front_glass_ratio: parseFloat(document.getElementById('frontGlassRatio').value) || 50,
               sidelite_width: parseFloat(document.getElementById('sideliteWidth').value) || 14,
               transom: document.getElementById('transomCheck').checked,

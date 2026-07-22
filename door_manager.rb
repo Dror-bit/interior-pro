@@ -103,6 +103,7 @@ module InteriorPro
         'garage_style'          => door.get_attribute('InteriorPro', 'garage_style', 'Raised Short'),
         'garage_top_windows'    => door.get_attribute('InteriorPro', 'garage_top_windows', false),
         'garage_window_style'   => door.get_attribute('InteriorPro', 'garage_window_style', 'Plain'),
+        'garage_window_count'   => door.get_attribute('InteriorPro', 'garage_window_count', 0).to_i,
         'door_color'            => door.get_attribute('InteriorPro', 'door_color', ''),
         'frame_color'           => door.get_attribute('InteriorPro', 'frame_color', '')
       }
@@ -116,7 +117,7 @@ module InteriorPro
       interior_depth floor_offset swing_direction swing_side slide_direction
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
       front_config front_leaf_style front_glass_ratio sidelite_width transom transom_height
-      garage_style garage_top_windows garage_window_style
+      garage_style garage_top_windows garage_window_style garage_window_count
       door_color frame_color
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
 
@@ -167,6 +168,7 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'garage_style',           params['garage_style'].to_s) if params.key?('garage_style')
       door.set_attribute('InteriorPro', 'garage_top_windows',     params['garage_top_windows'] ? true : false) if params.key?('garage_top_windows')
       door.set_attribute('InteriorPro', 'garage_window_style',    params['garage_window_style'].to_s) if params.key?('garage_window_style')
+      door.set_attribute('InteriorPro', 'garage_window_count',    params['garage_window_count'].to_i) if params.key?('garage_window_count')
       door.set_attribute('InteriorPro', 'front_config',           params['front_config'].to_s) if params.key?('front_config')
       door.set_attribute('InteriorPro', 'front_leaf_style',       params['front_leaf_style'].to_s) if params.key?('front_leaf_style')
       door.set_attribute('InteriorPro', 'front_glass_ratio',      params['front_glass_ratio'].to_f) if params.key?('front_glass_ratio')
