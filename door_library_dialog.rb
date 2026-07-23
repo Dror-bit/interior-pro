@@ -82,6 +82,7 @@ module InteriorPro
       tool.transom_height      = (settings['transom_height'] || 14.0).to_f if tool.respond_to?(:transom_height=)
       tool.garage_style        = settings['garage_style'] || 'Raised Short' if tool.respond_to?(:garage_style=)
       tool.garage_top_windows  = !!settings['garage_top_windows'] if tool.respond_to?(:garage_top_windows=)
+      tool.garage_ext_frame    = !!settings['garage_ext_frame'] if tool.respond_to?(:garage_ext_frame=)
       tool.garage_window_style = settings['garage_window_style'] || 'Plain' if tool.respond_to?(:garage_window_style=)
       tool.garage_window_count = (settings['garage_window_count'] || 0).to_i if tool.respond_to?(:garage_window_count=)
       tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
@@ -519,6 +520,10 @@ module InteriorPro
                   <option value="L-699">Colonial grid</option>
                   <option value="Squares">Small squares (max windows)</option>
                 </select>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="garageExtFrame">
+                <label for="garageExtFrame">Exterior frame (decorative casing)</label>
               </div>
             </div>
 
@@ -991,6 +996,7 @@ module InteriorPro
             if (s.front_leaf_style) selectedFrontStyle = s.front_leaf_style;
             if (s.garage_style) document.getElementById('garageStyle').value = s.garage_style;
             document.getElementById('garageTopWindows').checked = !!s.garage_top_windows;
+            document.getElementById('garageExtFrame').checked = !!s.garage_ext_frame;
             if (s.garage_window_style) document.getElementById('garageWindowStyle').value = s.garage_window_style;
             document.getElementById('garageWindowCount').value = s.garage_window_count || 0;
             onGarageStyleChange();
@@ -1316,6 +1322,7 @@ module InteriorPro
               front_leaf_style: selectedFrontStyle,
               garage_style: document.getElementById('garageStyle').value,
               garage_top_windows: document.getElementById('garageTopWindows').checked,
+              garage_ext_frame: document.getElementById('garageExtFrame').checked,
               garage_window_style: document.getElementById('garageWindowStyle').value,
               garage_window_count: parseInt(document.getElementById('garageWindowCount').value, 10) || 0,
               front_glass_ratio: parseFloat(document.getElementById('frontGlassRatio').value) || 50,

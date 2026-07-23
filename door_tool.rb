@@ -22,6 +22,7 @@ module InteriorPro
                   :leaf_style, :closet_leaf_count, :handle_style,
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
                   :garage_style, :garage_top_windows, :garage_window_style, :garage_window_count,
+                  :garage_ext_frame,
                   :door_color, :frame_color
 
     def initialize
@@ -71,6 +72,7 @@ module InteriorPro
       @garage_top_windows  = d['garage_top_windows'] ? true : false
       @garage_window_style = d['garage_window_style'] || 'Plain'
       @garage_window_count = (d['garage_window_count'] || 0).to_i
+      @garage_ext_frame    = d['garage_ext_frame'] ? true : false
       @preset_name         = ''
     end
 
@@ -3979,6 +3981,9 @@ module InteriorPro
         end
       end
       build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      if @garage_ext_frame
+        build_garage_ext_frame!(parent_ents, half_w, half_h, thickness, sign, frame_mat, unit, n)
+      end
       soften_garage_edges!(parent_ents)
       true
     end
@@ -4046,6 +4051,45 @@ module InteriorPro
         ents.grep(Sketchup::Edge).each { |ed| ed.soft = true; ed.smooth = true }
       end
       true
+    end
+
+    # Exterior decorative frame (user render approved 2026-07-22): side
+    # casings + a wider header fascia with a projecting crown cap, sitting on
+    # the wall's EXTERIOR face and protruding outward. Painted with the
+    # door's Frame Color. No corner blocks (per the user).
+    def build_garage_ext_frame!(parent_ents, half_w, half_h, thickness, sign, frame_mat, unit, n)
+      side_w = 4.5     # side casing width
+      head_h = 6.0     # header fascia height
+      head_ext = 1.5   # header runs past the side casings
+      cap_h = 2.5      # crown cap height above the fascia
+      cap_ext = 1.5    # crown wider than the fascia on each side
+      proj = 1.0       # casing protrusion off the wall
+      cap_proj = 2.0   # crown protrudes a bit more
+      # Exterior wall face plane + outward direction (= sign).
+      v_wall = sign > 0 ? thickness : 0.0
+      vf0 = v_wall
+      vf1 = v_wall + sign * proj
+      vc1 = v_wall + sign * cap_proj
+      g = parent_ents.add_group
+      g.name = 'Garage_Ext_Frame'
+      e = g.entities
+      # Two side casings: floor up to the BOTTOM of the header (the header
+      # sits ON them — post & lintel, no interpenetration).
+      extrude_rect(e, -half_w - side_w, -half_w, -half_h, half_h, vf0, vf1, unit, n)
+      extrude_rect(e, half_w, half_w + side_w, -half_h, half_h, vf0, vf1, unit, n)
+      # Header fascia spanning past both side casings.
+      hx0 = -half_w - side_w - head_ext
+      hx1 = half_w + side_w + head_ext
+      extrude_rect(e, hx0, hx1, half_h, half_h + head_h, vf0, vf1, unit, n)
+      # Projecting crown cap on top of the fascia.
+      extrude_rect(e, hx0 - cap_ext, hx1 + cap_ext, half_h + head_h, half_h + head_h + cap_h,
+                   vf0, vc1, unit, n)
+      g.material = frame_mat
+      e.grep(Sketchup::Face).each { |f| f.material = frame_mat }
+      true
+    rescue StandardError => ex
+      door_log "[DoorTool] ext frame: #{ex.message}"
+      false
     end
 
     # One sectional panel, classic raised-panel look (user example
@@ -4709,8 +4753,10 @@ module InteriorPro
       grp = parent_ents.add_group
       grp.name = name
       ge = grp.entities
-      extrude_rect(ge, -half_w, -iw, -half_h, half_h, v_start, v_end, unit, n)
-      extrude_rect(ge, iw, half_w, -half_h, half_h, v_start, v_end, unit, n)
+      # Side legs stop at the bottom of the head jamb; the head sits ON them
+      # (post & lintel — no corner interpenetration, 2026-07-23).
+      extrude_rect(ge, -half_w, -iw, -half_h, head_inner, v_start, v_end, unit, n)
+      extrude_rect(ge, iw, half_w, -half_h, head_inner, v_start, v_end, unit, n)
       extrude_rect(ge, -half_w, half_w, head_inner, half_h, v_start, v_end, unit, n)
       grp.material = mat
       grp

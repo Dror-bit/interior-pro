@@ -73,7 +73,8 @@ module InteriorPro
         'garage_style'           => 'Raised Short',
         'garage_top_windows'     => false,
         'garage_window_style'    => 'Plain',
-        'garage_window_count'    => 0
+        'garage_window_count'    => 0,
+        'garage_ext_frame'       => false
       },
       'interior' => {
         'door_category'          => 'interior',
