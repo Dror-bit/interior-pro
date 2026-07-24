@@ -6,6 +6,7 @@
 - התיקון (ב-make_molding_group): אחרי בניית הרצועה, אם `wall_base_z(wall)` ≠ 0 — `grp.transform!` הזזה ב-Z לפי base_z. helper חדש `wall_base_z` (קורא attribute 'base_z', fallback לטרנספורמציה).
 - אומת: קיר בית → base 0..4.2 / crown 89.6..96; קיר גראז' (base_z=-16) → base -16..-11.8 / crown 73.6..80. ✓
 - **תפעול:** אחרי Drop walls יש להריץ Refresh Molding כדי שהמולדינג ייבנה מחדש בגובה החדש (ה-drop לא מרענן מולדינג אוטומטית — אפשר לשקול hook בעתיד).
+- **Molding Toggle מודע-צד (2026-07-23, אושר):** הכלי מחריג/מחזיר עכשיו רק את הצד שנלחץ (attribute ‏no_molding_pos/no_molding_neg), לא קיר שלם. זיהוי הצד: מרצועת המולדינג (attr 'side') או מהפאה הקרובה לנקודת הקליק (project_to_line על wall_edges, flat z=0 → עובד גם על קירות שירדו). שחזור צד מנקה גם no_molding הישן. שני קליקים = שני צדדים. apply_all מסנן צדדים מוחרגים. שימוש עיקרי: להעלים בייסבורד של קיר פנים שפונה לגראז' (יושב על בטון).
 
 ## סבב 2026-07-21/22 — דלת גראז' (הושלם ואושר ע"י המשתמש: "סוף סוף")
 קבצים: door_tool.rb, door_library.rb, door_manager.rb, door_library_dialog.rb.

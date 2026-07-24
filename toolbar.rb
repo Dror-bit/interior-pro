@@ -6,6 +6,8 @@ require_relative 'wall_edit_tool.rb'
 require_relative 'wall_move_tool.rb'
 require_relative 'wall_stretch_tool.rb'
 require_relative 'wall_merge_tool.rb'
+require_relative 'wall_split_tool.rb'
+require_relative 'wall_delete_tool.rb'
 require_relative 'wall_library_dialog.rb'
 require_relative 'window_tool.rb'
 require_relative 'window_library_dialog.rb'
@@ -116,6 +118,17 @@ module InteriorPro
       join_cmd.small_icon = File.join(__dir__, 'icons', 'join_wall.svg')
       join_cmd.large_icon = File.join(__dir__, 'icons', 'join_wall.svg')
       toolbar.add_item(join_cmd)
+
+      # Delete Wall (2026-07-23): click a wall -> confirm -> delete it with
+      # its doors/windows/molding and re-join the neighbour corners.
+      wall_delete_cmd = UI::Command.new('Delete Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallDeleteTool.new)
+      }
+      wall_delete_cmd.tooltip = 'Delete Wall - click a wall to delete it'
+      wall_delete_cmd.status_bar_text = 'Click a wall to delete it with its doors, windows and molding'
+      wall_delete_cmd.small_icon = File.join(__dir__, 'icons', 'wall_delete.svg')
+      wall_delete_cmd.large_icon = File.join(__dir__, 'icons', 'wall_delete.svg')
+      toolbar.add_item(wall_delete_cmd)
 
       # Window Tool Button
       window_cmd = UI::Command.new('Window Tool') {
@@ -309,6 +322,10 @@ module InteriorPro
 
       menu.add_item('Join Walls') {
         Sketchup.active_model.select_tool(InteriorPro::WallJoinTool.new)
+      }
+
+      menu.add_item('Delete Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallDeleteTool.new)
       }
 
       menu.add_item('Window Tool') {

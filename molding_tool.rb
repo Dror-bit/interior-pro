@@ -452,16 +452,16 @@ module InteriorPro
         edges = MoldingBuilder.wall_edges(w)
         next unless edges
         # Per-side exclusion (2026-07-23): the garage-facing side of an
-        # interior wall sits on concrete and wants no baseboard. The toggle
-        # tool sets no_molding_pos / no_molding_neg per side.
-        sides = sides_for(w, cent[w]).reject do |s|
-          w.get_attribute("InteriorPro", "no_molding_#{s}")
-        end
-        sides.each do |s|
+        # interior wall sits on concrete and wants no baseboard. An excluded
+        # side STAYS in the plan (build: false) so it still cuts crossing
+        # walls' molding at T-junctions — e.g. the garage separating wall
+        # must still interrupt the house back-wall crown — but is not built.
+        sides_for(w, cent[w]).each do |s|
           geo = MoldingBuilder.edge_geometry(w, edges[s])
           next unless geo
+          excluded = w.get_attribute("InteriorPro", "no_molding_#{s}") ? true : false
           plan << { wall: w, side: s, edge: edges[s], geo: geo,
-                    shifts: { start: 0, end: 0 }, tee_gaps: [] }
+                    shifts: { start: 0, end: 0 }, tee_gaps: [], build: !excluded }
         end
       end
       resolve_miters!(plan)
@@ -476,8 +476,12 @@ module InteriorPro
         g.erase! if %w[baseboard crown].include?(t) && g.valid?
       end
       count = 0
+      built = 0
       plan.group_by { |r| r[:wall] }.each do |w, runs|
+        wall_built = false
         runs.each do |r|
+          next if r[:build] == false # excluded side: shapes the plan, not built
+          wall_built = true
           if base_name
             MoldingBuilder.build_baseboard_on_edge!(w, r[:edge], base_name,
                                                     r[:side], r[:shifts], base_h,
@@ -488,11 +492,12 @@ module InteriorPro
                                                 r[:side], r[:shifts], crown_h,
                                                 r[:tee_gaps] || [])
           end
+          built += 1
         end
-        count += 1
+        count += 1 if wall_built
       end
       model.commit_operation
-      puts "[Molding] applied to #{count}/#{ws.length} walls, #{plan.length} runs (base=#{base_name.inspect} crown=#{crown_name.inspect})"
+      puts "[Molding] applied to #{count}/#{ws.length} walls, #{built} runs (base=#{base_name.inspect} crown=#{crown_name.inspect})"
     rescue StandardError => e
       begin; model.abort_operation; rescue StandardError; end
       puts "[Molding] apply error: #{e.message}"
