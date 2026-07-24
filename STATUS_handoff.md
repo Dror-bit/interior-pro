@@ -1,4 +1,11 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-21 ב')
+# STATUS_handoff — Interior Pro (עודכן 2026-07-23)
+
+## סבב 2026-07-23 — מולדינג מודע ל-base_z (הושלם ואושר)
+קובץ: molding_tool.rb. **המולדינג עוקב עכשיו אחרי קירות שירדו (גראז') — אין יותר צורך להחריג אותם ידנית.**
+- הבאג: המולדינג נבנה ב-world top-level מ-corners_xy (מקומי, z=0), אז בייסבורד ב-z~0 וקראון ב-z~wall_h — בגובה רצפת הבית. קיר שירד נושא את ההזזה בטרנספורמציה של הקבוצה (XY נכון, Z לא).
+- התיקון (ב-make_molding_group): אחרי בניית הרצועה, אם `wall_base_z(wall)` ≠ 0 — `grp.transform!` הזזה ב-Z לפי base_z. helper חדש `wall_base_z` (קורא attribute 'base_z', fallback לטרנספורמציה).
+- אומת: קיר בית → base 0..4.2 / crown 89.6..96; קיר גראז' (base_z=-16) → base -16..-11.8 / crown 73.6..80. ✓
+- **תפעול:** אחרי Drop walls יש להריץ Refresh Molding כדי שהמולדינג ייבנה מחדש בגובה החדש (ה-drop לא מרענן מולדינג אוטומטית — אפשר לשקול hook בעתיד).
 
 ## סבב 2026-07-21/22 — דלת גראז' (הושלם ואושר ע"י המשתמש: "סוף סוף")
 קבצים: door_tool.rb, door_library.rb, door_manager.rb, door_library_dialog.rb.

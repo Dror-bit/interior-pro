@@ -200,8 +200,27 @@ module InteriorPro
       elsif grp.valid?
         soften_facets!(grp.entities)
         grp.material = molding_material(model, wall)
+        # base_z awareness (2026-07-23): a dropped wall (garage) carries a Z
+        # translation in its group transformation. corners_xy is local (flat
+        # z=0), so the molding is built at the HOUSE floor (baseboard z~=0,
+        # crown z~=wall_h). Shift the whole run down to the wall's real base
+        # so it sits on the garage floor / at the dropped wall top.
+        bz = wall_base_z(wall)
+        if bz.abs > 0.001 && grp.valid?
+          grp.transform!(Geom::Transformation.translation(Geom::Vector3d.new(0, 0, bz)))
+        end
       end
       grp
+    end
+
+    # Vertical base of a wall: the 'base_z' attribute (set by set_wall_base!),
+    # falling back to the group transformation's Z origin. 0 for normal walls.
+    def wall_base_z(wall)
+      bz = wall.get_attribute('InteriorPro', 'base_z')
+      return bz.to_f unless bz.nil?
+      wall.transformation.origin.z
+    rescue StandardError
+      0.0
     end
 
     # Facet angle threshold for hiding curve-facet lines (radians).
@@ -432,7 +451,13 @@ module InteriorPro
         next if w.get_attribute('InteriorPro', 'no_molding')
         edges = MoldingBuilder.wall_edges(w)
         next unless edges
-        sides_for(w, cent[w]).each do |s|
+        # Per-side exclusion (2026-07-23): the garage-facing side of an
+        # interior wall sits on concrete and wants no baseboard. The toggle
+        # tool sets no_molding_pos / no_molding_neg per side.
+        sides = sides_for(w, cent[w]).reject do |s|
+          w.get_attribute("InteriorPro", "no_molding_#{s}")
+        end
+        sides.each do |s|
           geo = MoldingBuilder.edge_geometry(w, edges[s])
           next unless geo
           plan << { wall: w, side: s, edge: edges[s], geo: geo,
@@ -731,16 +756,20 @@ module InteriorPro
     end
   end
 
-  # Click a wall (or its molding) -> toggle molding off/on for that wall.
+  # Click a wall FACE (or its molding) -> toggle molding off/on for THAT
+  # SIDE only (2026-07-23). Removing the garage-facing baseboard on an
+  # interior wall: click that face; click again to restore. Two clicks (one
+  # per side) exclude the whole wall.
   class MoldingToggleTool
     def activate
-      Sketchup.status_text = 'Molding toggle: click a wall to remove/restore its molding'
+      Sketchup.status_text = 'Molding toggle: click a wall face (or its molding) to remove/restore that side'
     end
 
     def onLButtonDown(_flags, x, y, view)
       ph = view.pick_helper
       ph.do_pick(x, y)
       wall = nil
+      clicked_side = nil
       ph.count.times do |i|
         path = ph.path_at(i)
         next unless path
@@ -752,27 +781,39 @@ module InteriorPro
           elsif %w[baseboard crown].include?(t)
             wid = ent.get_attribute('InteriorPro', 'host_wall_id')
             wall = MoldingManager.walls.find { |w| w.get_attribute('InteriorPro', 'id') == wid }
+            s = ent.get_attribute('InteriorPro', 'side')
+            clicked_side = s.to_sym if s
           end
           break if wall
         end
         break if wall
       end
-      return UI.messagebox('Click a wall or its molding') unless wall
+      return UI.messagebox('Click a wall face or its molding') unless wall
 
-      model = Sketchup.active_model
-      if wall.get_attribute('InteriorPro', 'no_molding')
-        wall.set_attribute('InteriorPro', 'no_molding', false)
-        rebuild_molding!
-        puts '[Molding] wall restored'
-      else
-        wall.set_attribute('InteriorPro', 'no_molding', true)
-        model.start_operation('Molding: Exclude Wall', true)
-        MoldingBuilder.remove_for_wall!(wall)
-        model.commit_operation
-        # Rebuild the rest so neighbor runs close square (no open miter).
-        rebuild_molding!
-        puts '[Molding] wall excluded'
+      # Clicked the bare wall body: pick the side whose face edge is nearest
+      # the click point (XY only — flat, so dropped garage walls work too).
+      if clicked_side.nil?
+        edges = MoldingBuilder.wall_edges(wall)
+        if edges
+          cp = view.inputpoint(x, y).position
+          cp = Geom::Point3d.new(cp.x, cp.y, 0)
+          d_pos = cp.distance(cp.project_to_line([edges[:pos][0], edges[:pos][1]]))
+          d_neg = cp.distance(cp.project_to_line([edges[:neg][0], edges[:neg][1]]))
+          clicked_side = d_pos <= d_neg ? :pos : :neg
+        else
+          clicked_side = :pos
+        end
       end
+
+      key = "no_molding_#{clicked_side}"
+      now_excluded = !wall.get_attribute('InteriorPro', key)
+      wall.set_attribute('InteriorPro', key, now_excluded)
+      # Restoring a side also clears any whole-wall exclusion, so a wall
+      # hidden by the old whole-wall toggle can be brought back per side.
+      wall.set_attribute('InteriorPro', 'no_molding', false) unless now_excluded
+      rebuild_molding!
+      puts "[Molding] side #{clicked_side} #{now_excluded ? 'excluded' : 'restored'} " \
+           "on wall #{wall.get_attribute('InteriorPro', 'id')}"
       view.invalidate
     rescue StandardError => e
       puts "[MoldingToggle] error: #{e.message}"
