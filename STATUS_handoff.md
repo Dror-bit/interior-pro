@@ -6,7 +6,14 @@
 - התיקון (ב-make_molding_group): אחרי בניית הרצועה, אם `wall_base_z(wall)` ≠ 0 — `grp.transform!` הזזה ב-Z לפי base_z. helper חדש `wall_base_z` (קורא attribute 'base_z', fallback לטרנספורמציה).
 - אומת: קיר בית → base 0..4.2 / crown 89.6..96; קיר גראז' (base_z=-16) → base -16..-11.8 / crown 73.6..80. ✓
 - **תפעול:** אחרי Drop walls יש להריץ Refresh Molding כדי שהמולדינג ייבנה מחדש בגובה החדש (ה-drop לא מרענן מולדינג אוטומטית — אפשר לשקול hook בעתיד).
-- **Molding Toggle מודע-צד (2026-07-23, אושר):** הכלי מחריג/מחזיר עכשיו רק את הצד שנלחץ (attribute ‏no_molding_pos/no_molding_neg), לא קיר שלם. זיהוי הצד: מרצועת המולדינג (attr 'side') או מהפאה הקרובה לנקודת הקליק (project_to_line על wall_edges, flat z=0 → עובד גם על קירות שירדו). שחזור צד מנקה גם no_molding הישן. שני קליקים = שני צדדים. apply_all מסנן צדדים מוחרגים. שימוש עיקרי: להעלים בייסבורד של קיר פנים שפונה לגראז' (יושב על בטון).
+- **Molding Toggle מודע-צד (2026-07-23, אושר):** הכלי מחריג/מחזיר עכשיו רק את הצד שנלחץ (attribute ‏no_molding_pos/no_molding_neg), לא קיר שלם. זיהוי הצד: מרצועת המולדינג (attr 'side') או מהפאה הקרובה לנקודת הקליק (project_to_line על wall_edges, flat z=0 → עובד גם על קירות שירדו). שחזור צד מנקה גם no_molding הישן. שני קליקים = שני צדדים. שימוש עיקרי: להעלים בייסבורד של קיר פנים שפונה לגראז' (יושב על בטון).
+- **תיקון: צד מוחרג נשאר ב-plan עם build:false (2026-07-23, אושר):** קודם הרצועה המוחרגת הוסרה מה-plan לגמרי, אז resolve_tees! לא יכל ליצור פער בקיר החוצה (הקראון של קיר החוץ האחורי בלט ~9" לגראז' כי הקיר המפריד לא קטע אותו — צריך את שני צדדיו). עכשיו הרצועה המוחרגת נשארת ב-plan ומשתתפת ב-resolve_miters/tees (עדיין קוטעת קירות חוצים ב-T), רק לא נבנית (`next if r[:build]==false` בלולאת הבנייה). הודעת הפלט סופרת runs שנבנו בפועל.
+
+## סבב 2026-07-23 ב' — כלי Delete Wall (חדש, לבדיקה)
+קובץ חדש: wall_delete_tool.rb + רישום ב-main.rb, toolbar.rb (require+כפתור+תפריט), icons/wall_delete.svg. **קובץ חדש = restart מלא.**
+- `WallDeleteTool`: ריחוף מסמן את הקיר (מסגרת אדומה), קליק → אישור Yes/No → `delete_wall!`.
+- `self.delete_wall!(wall)`: (א) איתור שכנים (קירות שחולקים drawn-endpoint) לפני מחיקה. (ב) מחיקת גופי דלת/חלון + רצועות מולדינג של הקיר (host_wall_id). (ג) erase לקיר. (ד) איפוס פינות השכנים ל-perpendicular (compute_perpendicular_corners_from_data + save + rebuild) ואז join_corners מחדש נגד הקירות שנשארו (מסיר מיטר תקוע). (ה) sync חדרים (רצפות עוקבות) + refresh מולדינג אם קיים.
+- **פתוח: המשתמש טרם בדק את הכלי (הבעיה קדמה לבדיקה).** גישה: תפריט Extensions → Interior Pro → Delete Wall, או כפתור ✕ אדום בסרגל (אם לא מופיע — repair_ui!).
 
 ## סבב 2026-07-21/22 — דלת גראז' (הושלם ואושר ע"י המשתמש: "סוף סוף")
 קבצים: door_tool.rb, door_library.rb, door_manager.rb, door_library_dialog.rb.
