@@ -380,6 +380,15 @@ module InteriorPro
       menu.add_item('Foundation: Remove') {
         InteriorPro::FoundationManager.remove_all!
       }
+      menu.add_item('2D Editor') {
+        InteriorPro::PlanEditor.show
+      }
+      menu.add_item('2D Plan: Build / Refresh') {
+        InteriorPro::PlanGenerator.build!
+      }
+      menu.add_item('2D Plan: Remove') {
+        InteriorPro::PlanGenerator.remove_all!
+      }
     end
   end
 end

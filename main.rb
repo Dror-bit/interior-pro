@@ -39,6 +39,8 @@ module InteriorPro
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb
+      plan_generator.rb
+      plan_editor.rb
       toolbar.rb
     ]
   end
