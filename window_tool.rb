@@ -6,7 +6,8 @@ module InteriorPro
     attr_accessor :window_type, :width, :height, :header_height,
                   :frame_width, :install_window, :exterior_trim,
                   :interior_casing, :preset_name, :interior_depth, :garden_depth,
-                  :glass_grid_style, :exterior_casing_style, :interior_casing_style
+                  :glass_grid_style, :exterior_casing_style, :interior_casing_style,
+                  :arch_rise
 
     def initialize
       @window_type = 'Single Hung'
@@ -23,6 +24,22 @@ module InteriorPro
       @interior_casing_style = 'none'
       @preset_name = ''
       @garden_depth = 16.0
+      @arch_rise = 0.0
+    end
+
+    # Effective arch rise for THIS window. Arched only for the 'Arched' type;
+    # every other type stays perfectly rectangular. Rise defaults to a clean
+    # semicircle (half the width) when the user leaves it blank, and is clamped
+    # to [0, half-width] and to leave at least 6" of straight glass below.
+    def effective_arch_rise
+      return 0.0 unless @window_type.to_s == 'Arched'
+      hw = @width / 2.0
+      rise = @arch_rise.to_f
+      rise = hw if rise <= 0.0
+      rise = hw if rise > hw
+      max_by_height = [@height.to_f - 6.0, 0.0].max
+      rise = max_by_height if rise > max_by_height
+      rise
     end
 
     def activate
@@ -261,11 +278,12 @@ module InteriorPro
       # every wall rebuild, and a wall can hold both doors and windows.
       model = Sketchup.active_model
       sill_offset = @header_height - @height
+      arch_rise = effective_arch_rise
       model.start_operation('Cut Window Opening', true)
       begin
         InteriorPro::WallTool.append_door_opening!(
           wall_group,
-          { t: t, width: @width, height: @height, floor_offset: sill_offset }
+          { t: t, width: @width, height: @height, floor_offset: sill_offset, arch_rise: arch_rise }
         ) || (raise 'Failed to append window opening')
         InteriorPro::WallTool.rebuild_wall_native!(wall_group) ||
           (raise 'Native wall rebuild failed')
@@ -311,6 +329,7 @@ module InteriorPro
         window_group.set_attribute('InteriorPro', 'exterior_casing_style',  @exterior_casing_style.to_s)
         window_group.set_attribute('InteriorPro', 'interior_casing_style',  @interior_casing_style.to_s)
         window_group.set_attribute('InteriorPro', 'header_height_in',       @header_height.to_f)
+        window_group.set_attribute('InteriorPro', 'arch_rise_in',           arch_rise.to_f)
         window_group.set_attribute('InteriorPro', 'sill_height_in',         sill_height_in.to_f)
         window_group.set_attribute('InteriorPro', 'area_sqft',              area_sqft)
         window_group.set_attribute('InteriorPro', 'host_wall_id',           host_wall_id)
@@ -337,7 +356,9 @@ module InteriorPro
       # Wrapped in its own operation so a failure here cannot roll back the wall
       # cut or the window_group data above.
       if window_group && window_group.valid?
-        if @window_type == 'Garden Window'
+        if arch_rise > 0.01
+          build_arched_body(window_group, unit, n, thickness, clicked_side, arch_rise)
+        elsif @window_type == 'Garden Window'
           build_garden_body(window_group, unit, n, thickness, clicked_side)
         else
           build_casement_body(window_group, unit, n, thickness, clicked_side)
@@ -499,6 +520,128 @@ module InteriorPro
         model.abort_operation rescue nil
         puts "[WindowTool] casement body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
+    end
+
+    # Arched window: frame ring + glass + colonial grid, all following a circular
+    # arch across the top. Rectangular below the springline; the top is a smooth
+    # arc (semicircle when rise == half the width). Built to match the arched
+    # wall hole (same circle) so the frame sits flush in the opening.
+    def build_arched_body(window_group, unit, n, thickness, clicked_side, rise)
+      model = Sketchup.active_model
+      model.start_operation('Build Arched Window', true)
+      begin
+        frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
+                                           Sketchup::Color.new(255, 255, 255), 1.0)
+        glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
+                                           Sketchup::Color.new(180, 180, 180), 0.4)
+
+        half_w = @width / 2.0
+        half_h = @height / 2.0
+        fw = (@frame_width && @frame_width > 1.0) ? @frame_width : 1.5   # frame face width in-plane
+        rise = [[rise, 0.01].max, half_w].min
+
+        # Outer arch circle (matches the wall hole): apex at +half_h, center on u=0.
+        r_out = (half_w * half_w + rise * rise) / (2.0 * rise)
+        cw = half_h - r_out
+        r_in = r_out - fw                                # inner (glass) arch, concentric
+
+        ents = window_group.entities
+
+        # Depths along n (same convention as build_casement_body).
+        jamb_front_out = 0.5
+        jamb_back_in   = (@interior_depth && @interior_depth > 0) ? @interior_depth : 1.0
+        jamb_back  = clicked_side * jamb_front_out
+        jamb_front = -clicked_side * (2.0 + jamb_back_in)
+        glass_v    = -clicked_side * 1.0
+
+        # --- Frame ring (jamb): outer arch minus inner arch, extruded through wall.
+        outer = arch_outline_uvw(half_w,      -half_h,      cw, r_out, jamb_back, unit, n)
+        inner = arch_outline_uvw(half_w - fw, -half_h + fw, cw, r_in,  jamb_back, unit, n)
+        jamb_grp = ents.add_group
+        jamb_grp.name = 'Jamb'
+        of = jamb_grp.entities.add_face(outer)
+        if of
+          ih = jamb_grp.entities.add_face(inner)
+          ih.erase! if ih
+          depth = jamb_front - jamb_back
+          depth = -depth if of.normal.dot(n) < 0
+          of.pushpull(depth)
+          jamb_grp.material = frame_mat
+        end
+
+        # --- Glass: single arched pane at mid-depth (inner outline), 1/4" thick.
+        glass_pts = arch_outline_uvw(half_w - fw, -half_h + fw, cw, r_in, glass_v - 0.125, unit, n)
+        gg = ents.add_group
+        gg.name = 'Glass'
+        gf = gg.entities.add_face(glass_pts)
+        if gf
+          dd = 0.25
+          dd = -dd if gf.normal.dot(n) < 0
+          gf.pushpull(dd)
+          gg.material = glass_mat
+        end
+
+        # --- Colonial grid: vertical mullions (up to the arch) + horizontal rails
+        # (straight part only), driven by @glass_grid_style. Always at least a
+        # central vertical mullion so the arched top reads like the reference.
+        build_arched_grid(ents, half_w - fw, -half_h + fw, cw, r_in, glass_v, unit, n, frame_mat)
+
+        # Smooth the faceted arch surfaces (the reveal) so the segment lines
+        # disappear and it reads as one clean curve. soften_casing_edges only
+        # softens edges whose two faces meet at a shallow angle (< 50°), so the
+        # crisp 90° frame outline and corners stay sharp. Safe here — these are
+        # decorative body groups, not the wall solid.
+        soften_casing_edges(jamb_grp.entities) if jamb_grp&.valid?
+        soften_casing_edges(gg.entities) if gg&.valid?
+
+        model.commit_operation
+      rescue => e
+        model.abort_operation rescue nil
+        puts "[WindowTool] arched body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      end
+    end
+
+    # Closed arched outline as world points at depth v: rectangle sides + a
+    # circular top on the circle (center u=0, height cw, radius rr). 48 segments
+    # so the arc reads smooth.
+    def arch_outline_uvw(u_edge, w_bottom, cw, rr, v, unit, n, segs = 48)
+      ws = cw + Math.sqrt([rr * rr - u_edge * u_edge, 0.0].max)   # springline w
+      th_r = Math.atan2(ws - cw, u_edge)
+      th_l = Math::PI - th_r
+      pts = [local_uvw(-u_edge, v, w_bottom, unit, n), local_uvw(u_edge, v, w_bottom, unit, n)]
+      (0..segs).each do |i|
+        th = th_r + (th_l - th_r) * i / segs.to_f
+        u = rr * Math.cos(th)
+        w = cw + rr * Math.sin(th)
+        pts << local_uvw(u, v, w, unit, n)
+      end
+      pts
+    end
+
+    # Grid over the arched glass: vertical bars stop where they meet the inner
+    # arch; horizontal rails run across the straight (below-springline) part only.
+    def build_arched_grid(ents, u_edge, w_bottom, cw, r_in, glass_v, unit, n, mat)
+      cols, rows = parse_window_grid(@glass_grid_style)
+      cols = 2 if cols < 2                       # always a central mullion
+      mw = 0.375
+      hd = 0.1
+      grp = ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+
+      (1...cols).each do |i|
+        u = -u_edge + (2.0 * u_edge) * i / cols.to_f
+        top_w = cw + Math.sqrt([r_in * r_in - u * u, 0.0].max)   # meets inner arch
+        add_muntin_bar(ge, u - mw / 2.0, u + mw / 2.0, w_bottom, top_w, glass_v, hd, unit, n)
+      end
+
+      ws_in = cw + Math.sqrt([r_in * r_in - u_edge * u_edge, 0.0].max)   # inner springline
+      straight_h = ws_in - w_bottom
+      (1...rows).each do |j|
+        w = w_bottom + straight_h * j / rows.to_f
+        add_muntin_bar(ge, -u_edge, u_edge, w - mw / 2.0, w + mw / 2.0, glass_v, hd, unit, n)
+      end
+      grp.material = mat
     end
 
     # Garden window: a small glass box that projects OUTWARD from the wall

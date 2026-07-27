@@ -139,6 +139,7 @@ module InteriorPro
       tool.frame_width    = settings['frame_width'].to_f    if tool.respond_to?(:frame_width=)
       tool.interior_depth = settings['interior_depth'].to_f if tool.respond_to?(:interior_depth=)
       tool.garden_depth   = settings['garden_depth'].to_f   if settings['garden_depth'] && tool.respond_to?(:garden_depth=)
+      tool.arch_rise      = settings['arch_rise'].to_f      if tool.respond_to?(:arch_rise=)
       tool.glass_grid_style = settings['glass_grid_style']  if settings['glass_grid_style'] && tool.respond_to?(:glass_grid_style=)
       tool.exterior_casing_style = settings['exterior_casing_style'] || 'none' if tool.respond_to?(:exterior_casing_style=)
       tool.interior_casing_style = settings['interior_casing_style'] || 'none' if tool.respond_to?(:interior_casing_style=)

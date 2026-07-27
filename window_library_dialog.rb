@@ -37,6 +37,7 @@ module InteriorPro
         tool.frame_width = window['frame_width'].to_f
         tool.interior_depth = window['interior_depth'].to_f
         tool.garden_depth   = window['garden_depth'].to_f if window['garden_depth']
+        tool.arch_rise      = window['arch_rise'].to_f
         tool.glass_grid_style = window['glass_grid_style'] if window['glass_grid_style']
         tool.install_window = window['install_window']
         tool.exterior_trim = window['exterior_trim']
@@ -61,6 +62,7 @@ module InteriorPro
         'frame_width'    => window.get_attribute('InteriorPro', 'frame_width_in'),
         'interior_depth' => window.get_attribute('InteriorPro', 'interior_depth_in'),
         'garden_depth'   => window.get_attribute('InteriorPro', 'garden_depth_in'),
+        'arch_rise'      => window.get_attribute('InteriorPro', 'arch_rise_in'),
         'glass_grid_style' => window.get_attribute('InteriorPro', 'glass_grid_style'),
         'exterior_casing_style' => window.get_attribute('InteriorPro', 'exterior_casing_style'),
         'interior_casing_style' => window.get_attribute('InteriorPro', 'interior_casing_style')
@@ -105,6 +107,7 @@ module InteriorPro
       dgs = s['glass_grid_style'] || 'none'
       dec = s['exterior_casing_style'] || 'none'
       dic = s['interior_casing_style'] || 'none'
+      dar = s['arch_rise'] || ''
       casing_opts = (defined?(InteriorPro::MoldingLibrary) ?
         InteriorPro::MoldingLibrary.skp_names('CASING') : [])
         .map { |c| "<option value=\"#{c}\">#{c}</option>" }.join
@@ -175,6 +178,14 @@ module InteriorPro
               <div>
                 <label>Garden Depth (in)</label>
                 <input type="number" id="gardenDepth" value="#{dgd}" min="1" step="1">
+              </div>
+            </div>
+
+            <div class="section-title">Arch (for "Arched" type)</div>
+            <div class="row">
+              <div>
+                <label>Arch Height (in) — blank = semicircle</label>
+                <input type="number" id="archHeight" value="#{dar}" min="0" step="0.5" placeholder="auto">
               </div>
             </div>
 
@@ -250,6 +261,7 @@ module InteriorPro
               frame_width: parseFloat(document.getElementById('frameWidth').value),
               interior_depth: parseFloat(document.getElementById('interiorDepth').value),
               garden_depth: parseFloat(document.getElementById('gardenDepth').value),
+              arch_rise: (document.getElementById('archHeight').value === '' ? 0 : parseFloat(document.getElementById('archHeight').value)),
               glass_grid_style: document.getElementById('glassGridStyle').value,
               install_window: document.getElementById('installWindow').checked,
               exterior_casing_style: document.getElementById('exteriorCasingStyle').value,

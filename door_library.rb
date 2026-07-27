@@ -16,7 +16,7 @@ module InteriorPro
     LIBRARY_FILE = File.join(ENV['APPDATA'] || ENV['HOME'], 'InteriorPro', 'door_types.json')
 
     EXTERIOR_TYPES = [
-      'Front Door', 'Garage Door',
+      'Front Door', 'Garage Door', 'Arched',
       'French Hinged', 'Sliding',
       '4-Panel Center Hinged', '4-Panel Sliding', '6-Panel Sliding',
       '3-Panel Folding', '4-Panel Folding', '6-Panel Folding'
@@ -122,6 +122,11 @@ module InteriorPro
       },
       'exterior' => {
         'Front Door'              => { 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
+        # Arched: full-glass door with a smooth arched top. Rise auto = semicircle
+        # (blank arch_rise) unless set. Tall + narrow reads best.
+        'Arched'                  => { 'width' => 36.0, 'height' => 96.0, 'frame_width' => 2.0,
+                                       'glass_grid_style' => '2x3', 'arch_rise' => 0.0,
+                                       'exterior_threshold' => false, 'exterior_casing_style' => 'none' },
         # Garage: standard 16ft x 7ft default; 18ft / 8ft picked via width/height.
         'Garage Door'             => { 'width' => 192.0, 'height' => 84.0,
                                        'exterior_threshold' => false,

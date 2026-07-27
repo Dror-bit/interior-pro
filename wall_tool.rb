@@ -1179,7 +1179,9 @@ module InteriorPro
           t: o[0].to_f,
           width: o[1].to_f,
           height: o[2].to_f,
-          floor_offset: o[3].to_f
+          floor_offset: o[3].to_f,
+          # 5th element (optional) = arch rise in inches. 0 / missing => rectangular.
+          arch_rise: (o.length >= 5 ? o[4].to_f : 0.0)
         }
       end
 
@@ -1189,13 +1191,15 @@ module InteriorPro
       width = o[:width] || o['width']
       height = o[:height] || o['height']
       floor_offset = o[:floor_offset] || o['floor_offset']
+      arch_rise = o[:arch_rise] || o['arch_rise']
       return nil if width.nil? || height.nil?
 
       {
         t: t.to_f,
         width: width.to_f,
         height: height.to_f,
-        floor_offset: floor_offset.to_f
+        floor_offset: floor_offset.to_f,
+        arch_rise: arch_rise.to_f
       }
     rescue StandardError
       nil
@@ -1203,7 +1207,7 @@ module InteriorPro
 
     def self.persist_door_openings!(wall, openings)
       rows = openings.compact.map { |o| normalize_door_opening(o) }.compact.map do |o|
-        [o[:t], o[:width], o[:height], o[:floor_offset]]
+        [o[:t], o[:width], o[:height], o[:floor_offset], o[:arch_rise].to_f]
       end
       wall.set_attribute('InteriorPro', 'door_openings', rows)
     end
@@ -1419,7 +1423,16 @@ module InteriorPro
         x1 = o[:t] - o[:width] / 2.0
         x2 = o[:t] + o[:width] / 2.0
         h  = o[:height].to_f
-        outline << pt.call(x1, 0.0) << pt.call(x1, h) << pt.call(x2, h) << pt.call(x2, 0.0)
+        rise = o[:arch_rise].to_f
+        if rise > 0.01
+          # Arched door: up the left jamb, smooth arc across the top, down the
+          # right jamb. Arc points sampled left-spring -> apex -> right-spring.
+          outline << pt.call(x1, 0.0)
+          outline.concat(arched_floor_top_points(pt, x1, x2, h, rise))
+          outline << pt.call(x2, 0.0)
+        else
+          outline << pt.call(x1, 0.0) << pt.call(x1, h) << pt.call(x2, h) << pt.call(x2, 0.0)
+        end
       end
       outline << pt.call(length, 0.0) << pt.call(length, height) << pt.call(0.0, height)
 
@@ -1431,14 +1444,79 @@ module InteriorPro
         x2 = o[:t] + o[:width] / 2.0
         z1 = o[:floor_offset].to_f
         z2 = z1 + o[:height].to_f
-        rect = [pt.call(x1, z1), pt.call(x2, z1), pt.call(x2, z2), pt.call(x1, z2)]
-        hole = ents.add_face(rect)
-        hole.erase! if hole
+        rise = o[:arch_rise].to_f
+        if rise > 0.01
+          cut_arched_opening_hole!(ents, pt, u, n, x1, x2, z1, z2, rise)
+        else
+          rect = [pt.call(x1, z1), pt.call(x2, z1), pt.call(x2, z2), pt.call(x1, z2)]
+          hole = ents.add_face(rect)
+          hole.erase! if hole
+        end
       end
 
       wall_face = ents.grep(Sketchup::Face).max_by(&:area)
       wall_face.pushpull(thickness) if wall_face
       wall_face
+    end
+
+    # Cut a smooth arched hole (rectangular sides + circular arc top) into the
+    # wall face at plane(pt). z2 = top of the arch apex; the arch springs from
+    # z_spring = z2 - rise on both sides. rise is clamped to [0, half-width] so
+    # the widest arch is a clean semicircle.
+    #
+    # IMPORTANT: built EXACTLY like the rectangular hole — one array of points to
+    # a single add_face, then erase — just with arc points sampled across the top
+    # instead of two corners. No add_arc / edge-by-edge building (that splits the
+    # wall face into pieces and breaks the solid), and NO soft/smooth (that merges
+    # the flat wall face with the reveal and breaks push/pull). Hard chords at 48
+    # segments read as a smooth curve while keeping the wall a clean solid.
+    ARCH_SEGMENTS = 48 unless const_defined?(:ARCH_SEGMENTS, false)
+    def self.cut_arched_opening_hole!(ents, pt, u, n, x1, x2, z1, z2, rise)
+      xc = (x1 + x2) / 2.0
+      a  = (x2 - x1) / 2.0
+      return if a <= 0.01
+      rise = a if rise > a                       # clamp to semicircle
+      z_spring = z2 - rise
+      z_spring = z1 if z_spring < z1             # arch springs no lower than sill
+      r  = (a * a + rise * rise) / (2.0 * rise)  # circle radius through springs+apex
+      zc = z_spring + rise - r                   # circle center height (in s,z)
+      th_r = Math.atan2(r - rise, a)             # right spring angle
+      th_l = Math::PI - th_r                     # left spring angle
+
+      # Same polygon the rectangle builds, but the top edge is the sampled arc.
+      pts = [pt.call(x1, z1), pt.call(x2, z1)]   # sill: bottom-left, bottom-right
+      (0..ARCH_SEGMENTS).each do |i|             # right spring -> apex -> left spring
+        th = th_r + (th_l - th_r) * i / ARCH_SEGMENTS.to_f
+        s  = xc + r * Math.cos(th)
+        z  = zc + r * Math.sin(th)
+        pts << pt.call(s, z)
+      end
+
+      hole = ents.add_face(pts)
+      hole.erase! if hole
+    rescue StandardError => e
+      puts "[WallTool] cut_arched_opening_hole!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # Arc points for an arched FLOOR opening (door): the curved top edge only,
+    # sampled left-spring -> apex -> right-spring (inclusive). h = top of the
+    # opening (apex height); the arch springs from h - rise. Returned as world
+    # Point3d via the pt(s, z) lambda so they drop straight into the outline.
+    def self.arched_floor_top_points(pt, x1, x2, h, rise, segs = ARCH_SEGMENTS)
+      xc = (x1 + x2) / 2.0
+      a  = (x2 - x1) / 2.0
+      return [pt.call(x1, h), pt.call(x2, h)] if a <= 0.01
+      rise = a if rise > a
+      spring = h - rise
+      spring = 0.0 if spring < 0.0
+      r  = (a * a + rise * rise) / (2.0 * rise)
+      zc = spring + rise - r
+      th_r = Math.atan2(r - rise, a)          # right spring angle
+      th_l = Math::PI - th_r                  # left spring angle
+      (0..segs).map do |i|
+        th = th_l + (th_r - th_l) * i / segs.to_f   # sweep left -> right
+        pt.call(xc + r * Math.cos(th), zc + r * Math.sin(th))
+      end
     end
 
     # Move the 4 end columns (8 vertices) of a freshly-built native (opening)

@@ -87,6 +87,7 @@ module InteriorPro
       tool.garage_window_count = (settings['garage_window_count'] || 0).to_i if tool.respond_to?(:garage_window_count=)
       tool.door_color          = settings['door_color'] || '' if tool.respond_to?(:door_color=)
       tool.frame_color         = settings['frame_color'] || '' if tool.respond_to?(:frame_color=)
+      tool.arch_rise           = (settings['arch_rise'] || 0.0).to_f if tool.respond_to?(:arch_rise=)
       tool.width              = settings['width'].to_f
       tool.height             = settings['height'].to_f
       tool.frame_width        = settings['frame_width'].to_f
@@ -486,6 +487,15 @@ module InteriorPro
               </div>
               <label>Transom Height (in)</label>
               <input type="number" id="transomHeight" value="14" min="6" step="0.5">
+            </div>
+
+            <div id="archedDoorSection" style="display:none;">
+              <div class="section-title">Arched Door</div>
+              <label>Configuration</label>
+              <select id="archConfig">
+                <option value="single">Single</option>
+                <option value="double">Double</option>
+              </select>
             </div>
 
             <div id="garageDoorSection" style="display:none;">
@@ -1107,6 +1117,9 @@ module InteriorPro
             var isGarage = document.getElementById('doorCategory').value === 'exterior' && t === 'Garage Door';
             document.getElementById('garageDoorSection').style.display = isGarage ? 'block' : 'none';
             if (isGarage) renderGarageDesignGrid();
+            var isArched = document.getElementById('doorCategory').value === 'exterior' && t === 'Arched';
+            var archSec = document.getElementById('archedDoorSection');
+            if (archSec) archSec.style.display = isArched ? 'block' : 'none';
             // Garage doors: no casing, no glass grid, no threshold, no
             // opening-direction fields (it opens on rails).
             document.getElementById('casingSection').style.display = isGarage ? 'none' : 'block';
@@ -1199,7 +1212,7 @@ module InteriorPro
           // ---- Front Door leaf designs ----
           var FRONT_DESIGNS = [
             'Craftsman 3-Lite', '5-Lite Ladder', 'Steel Glass',
-            'Farmhouse 4-Lite', 'Modern Lines', 'Steel Arch'
+            'Farmhouse 4-Lite', 'Modern Lines'
           ];
           var selectedFrontStyle = 'Craftsman 3-Lite';
 
@@ -1318,7 +1331,9 @@ module InteriorPro
               leaf_style: selectedLeafStyle,
               closet_leaf_count: selectedClosetPanels,
               handle_style: (document.getElementById('handleStyle').value || 'none'),
-              front_config: document.getElementById('frontConfig').value,
+              front_config: (document.getElementById('doorType').value === 'Arched'
+                ? document.getElementById('archConfig').value
+                : document.getElementById('frontConfig').value),
               front_leaf_style: selectedFrontStyle,
               garage_style: document.getElementById('garageStyle').value,
               garage_top_windows: document.getElementById('garageTopWindows').checked,

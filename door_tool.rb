@@ -23,7 +23,7 @@ module InteriorPro
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
                   :garage_style, :garage_top_windows, :garage_window_style, :garage_window_count,
                   :garage_ext_frame,
-                  :door_color, :frame_color
+                  :door_color, :frame_color, :arch_rise
 
     def initialize
       @placement_ready = false
@@ -73,6 +73,7 @@ module InteriorPro
       @garage_window_style = d['garage_window_style'] || 'Plain'
       @garage_window_count = (d['garage_window_count'] || 0).to_i
       @garage_ext_frame    = d['garage_ext_frame'] ? true : false
+      @arch_rise           = (d['arch_rise'] || 0.0).to_f
       @preset_name         = ''
     end
 
@@ -429,7 +430,8 @@ module InteriorPro
         't' => t.to_f,
         'width' => width.to_f,
         'height' => height.to_f,
-        'floor_offset' => floor_offset.to_f
+        'floor_offset' => floor_offset.to_f,
+        'arch_rise' => effective_door_arch_rise(width.to_f / 2.0)
       }
     end
 
@@ -2809,6 +2811,7 @@ module InteriorPro
       door_group.set_attribute('InteriorPro', 'preset_name',            @preset_name)
       door_group.set_attribute('InteriorPro', 'width_in',               @width.to_f)
       door_group.set_attribute('InteriorPro', 'height_in',              @height.to_f)
+      door_group.set_attribute('InteriorPro', 'arch_rise_in',           @arch_rise.to_f)
       door_group.set_attribute('InteriorPro', 'frame_width_in',         @frame_width.to_f)
       door_group.set_attribute('InteriorPro', 'glass_frame_width_in',   @glass_frame_width.to_f)
       door_group.set_attribute('InteriorPro', 'interior_depth_in',      @interior_depth.to_f)
@@ -2900,6 +2903,9 @@ module InteriorPro
 
     def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
       t = @door_type.to_s.strip
+      if arched_door_type?
+        return build_arched_door_geometry!(parent_ents, data, unit, exterior_effective_n(data, n), thickness)
+      end
       if @door_category.to_s == 'interior' && t != 'French Hinged'
         return build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
       end
@@ -2921,6 +2927,300 @@ module InteriorPro
         build_garage_door_geometry!(parent_ents, data, unit, n, thickness)
       else
         false
+      end
+    end
+
+    # --- Arched door -------------------------------------------------------
+    # A door whose whole top is a smooth circular arch (semicircle when the rise
+    # == half the width). Frame ring + glass + colonial grid, all following the
+    # arch, spanning the wall thickness (v=0..thickness, same as build_u_jamb).
+    # Matches the arched floor opening cut by WallTool (same circle).
+    ARCH_DOOR_SEGS = 48 unless const_defined?(:ARCH_DOOR_SEGS, false)
+
+    def effective_door_arch_rise(half_w)
+      return 0.0 unless arched_door_type?
+      rise = @arch_rise.to_f
+      rise = half_w if rise <= 0.0          # blank => clean semicircle
+      rise = half_w if rise > half_w        # clamp to semicircle
+      max_by_h = [@height.to_f - 6.0, 0.0].max
+      rise = max_by_h if rise > max_by_h    # keep >= 6" straight glass
+      rise
+    end
+
+    def build_arched_door_geometry!(parent_ents, data, unit, n, thickness)
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+      glass_mat = mats[:glass_mat]
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      rise = effective_door_arch_rise(half_w)
+      return false if rise <= 0.01
+
+      fw = [@frame_width.to_f, 0.25].max          # honor the Frame Width field
+      r_out = (half_w * half_w + rise * rise) / (2.0 * rise)
+      cw = half_h - r_out                       # arch circle center (u=0)
+      r_in = r_out - fw
+
+      # Frame: side jambs + arched head, OPEN at the bottom (no bottom rail) —
+      # same as every other door. Built as one U+arch band (outer path + inner
+      # path reversed), extruded through the wall.
+      jamb = parent_ents.add_group
+      jamb.name = 'Jamb'
+      band = arch_u_path(half_w,      -half_h, cw, r_out, 0.0, unit, n) +
+             arch_u_path(half_w - fw, -half_h, cw, r_in,  0.0, unit, n).reverse
+      of = jamb.entities.add_face(band)
+      if of
+        d = thickness
+        d = -d if of.normal.dot(n) < 0
+        of.pushpull(d)
+        jamb.material = frame_mat
+      end
+
+      # --- Operable leaf(s) inside the arched opening -----------------------
+      reveal   = 0.1875                                   # gap leaf<->jamb
+      iw       = half_w - fw                              # inner opening half-width
+      # Leaf stile width = the Glass Frame Width field, honored down to 0.25";
+      # capped so it can't swallow the glass on a narrow leaf.
+      stile_w  = [[@glass_frame_width.to_f, 0.25].max, (iw - reveal) * 0.45].min
+      leaf_dep = [1.75, thickness * 0.5].min
+      v_back   = (thickness - leaf_dep) / 2.0
+      v_front  = v_back + leaf_dep
+      double   = (@front_config.to_s == 'double')
+      hinge_left = (@swing_direction.to_s != 'right')     # default hinges on left
+
+      lu     = iw - reveal                                # leaf half extent
+      r_leaf = r_in - reveal                              # leaf arch radius
+      w_bot  = -half_h + reveal                           # leaf bottom (small floor gap)
+
+      if double
+        gap = 0.25
+        build_arched_leaf!(parent_ents, -lu, -gap, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf_L')
+        build_arched_leaf!(parent_ents,  gap,  lu, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf_R')
+        add_arch_hinges!(parent_ents, -lu, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+        add_arch_hinges!(parent_ents,  lu, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      else
+        build_arched_leaf!(parent_ents, -lu, lu, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf')
+        hinge_u = hinge_left ? -lu : lu
+        add_arch_hinges!(parent_ents, hinge_u, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      end
+
+      soften_arch_facets(jamb.entities) if jamb&.valid?
+      true
+    rescue StandardError => e
+      puts "[DoorTool] arched door body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      false
+    end
+
+    # One arched leaf spanning u0..u1: stile/rail ring + glass + grid, extruded
+    # v_back..v_front. Works for a full-width single leaf or a half of a double.
+    def build_arched_leaf!(parent_ents, u0, u1, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, name)
+      leaf = parent_ents.add_group
+      leaf.name = name
+      le = leaf.entities
+
+      of = le.add_face(arched_leaf_ring_pts(u0, u1, w_bot, cw, r_leaf, v_back, unit, n))
+      if of
+        ih = le.add_face(arched_leaf_ring_pts(u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                                              cw, r_leaf - stile_w, v_back, unit, n))
+        ih.erase! if ih
+        d = v_front - v_back
+        d = -d if of.normal.dot(n) < 0
+        of.pushpull(d)
+        leaf.material = frame_mat
+      end
+
+      gv = (v_back + v_front) / 2.0
+      gg = le.add_group
+      gg.name = 'Glass'
+      gf = gg.entities.add_face(arched_leaf_ring_pts(u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                                                     cw, r_leaf - stile_w, gv - 0.125, unit, n))
+      if gf
+        dd = 0.25
+        dd = -dd if gf.normal.dot(n) < 0
+        gf.pushpull(dd)
+        gg.material = glass_mat
+      end
+
+      build_arched_region_grid(le, u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                               cw, r_leaf - stile_w, gv, unit, n, frame_mat)
+
+      soften_arch_facets(le)
+      soften_arch_facets(gg.entities) if gg&.valid?
+      leaf
+    end
+
+    # Closed outline for a leaf spanning u0..u1: two vertical stiles + bottom rail
+    # + a circular arc top on the (cw, r) circle over that u-range.
+    def arched_leaf_ring_pts(u0, u1, w_bot, cw, r, v, unit, n, segs = ARCH_DOOR_SEGS)
+      w0 = cw + Math.sqrt([r * r - u0 * u0, 0.0].max)
+      w1 = cw + Math.sqrt([r * r - u1 * u1, 0.0].max)
+      th0 = Math.atan2(w0 - cw, u0)
+      th1 = Math.atan2(w1 - cw, u1)
+      pts = [local_uvw(u0, v, w_bot, unit, n), local_uvw(u1, v, w_bot, unit, n)]
+      (0..segs).each do |i|
+        th = th1 + (th0 - th1) * i / segs.to_f
+        pts << local_uvw(r * Math.cos(th), v, cw + r * Math.sin(th), unit, n)
+      end
+      pts
+    end
+
+    # Grid for a leaf's glass region (u0..u1): vertical bars up to the arch +
+    # horizontal rails within the straight (below-springline) part only.
+    def build_arched_region_grid(parent_ents, u0, u1, w_bot, cw, r, gv, unit, n, mat)
+      cols, rows = arch_grid_dims(@glass_grid_style)
+      mw = 0.375
+      hd = 0.1
+      grp = parent_ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+      (1...cols).each do |i|
+        u = u0 + (u1 - u0) * i / cols.to_f
+        top_w = cw + Math.sqrt([r * r - u * u, 0.0].max)
+        add_arch_grid_bar(ge, u - mw / 2.0, u + mw / 2.0, w_bot, top_w, gv, hd, unit, n)
+      end
+      # Horizontal rails: EVENLY spaced across the FULL height (bottom to apex),
+      # so the arch area gets rails too — not one giant top pane. Each rail is
+      # clipped to the arch width at its height.
+      apex = cw + r
+      (1...rows).each do |j|
+        w = w_bot + (apex - w_bot) * j / rows.to_f
+        disc = r * r - (w - cw) * (w - cw)
+        if disc <= 0.0
+          a, b = u0, u1                       # below the arch -> full leaf width
+        else
+          chord = Math.sqrt(disc)             # inside the arch -> clip to circle
+          a = [u0, -chord].max
+          b = [u1,  chord].min
+        end
+        next if (b - a) <= 0.5
+        add_arch_grid_bar(ge, a, b, w - mw / 2.0, w + mw / 2.0, gv, hd, unit, n)
+      end
+      grp.material = mat
+    end
+
+    def hardware_material
+      get_or_create_material(Sketchup.active_model, 'InteriorPro_Hardware',
+                             Sketchup::Color.new(45, 45, 45), 1.0)
+    end
+
+    # 3 hinge barrels along a leaf's vertical edge at u_edge.
+    def add_arch_hinges!(parent_ents, u_edge, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      top_at_edge = cw + Math.sqrt([r_leaf * r_leaf - u_edge * u_edge, 0.0].max)
+      lo = w_bot + 6.0
+      hi = [top_at_edge - 6.0, lo + 1.0].max
+      grp = parent_ents.add_group
+      grp.name = 'Hinges'
+      vmid = (v_back + v_front) / 2.0
+      [lo, (lo + hi) / 2.0, hi].each do |wc|
+        c = local_uvw(u_edge, vmid, wc - 2.0, unit, n)
+        arch_barrel!(grp.entities, c, Geom::Vector3d.new(0, 0, 1), 0.45, 4.0)
+      end
+      grp.material = hardware_material
+    end
+
+    # A simple lever handle: knobs on both faces + a short bar, at ~36" up.
+    def add_arch_handle!(parent_ents, u_latch, w_bot, v_back, v_front, unit, n)
+      wc = w_bot + 36.0
+      grp = parent_ents.add_group
+      grp.name = 'Handle'
+      # knob out the front face
+      arch_barrel!(grp.entities, local_uvw(u_latch, v_front, wc, unit, n), n, 0.55, 2.0)
+      # knob out the back face
+      arch_barrel!(grp.entities, local_uvw(u_latch, v_back, wc, unit, n), n.reverse, 0.55, 2.0)
+      grp.material = hardware_material
+    end
+
+    # Cylinder: circle around `axis` at `center`, extruded `length` along axis.
+    def arch_barrel!(ents, center, axis, radius, length)
+      circle = ents.add_circle(center, axis, radius, 16)
+      return if circle.nil? || circle.empty?
+      face = ents.add_face(circle)
+      return unless face
+      d = length
+      d = -d if face.normal.dot(axis) < 0
+      face.pushpull(d)
+    end
+
+    # Open U+arch PATH (no bottom edge): bottom-left, up the left side, arc over
+    # the top, down the right side, bottom-right. Used to build a bottomless
+    # jamb band (outer path + inner path reversed).
+    def arch_u_path(u_edge, w_bottom, cw, rr, v, unit, n, segs = ARCH_DOOR_SEGS)
+      ws = cw + Math.sqrt([rr * rr - u_edge * u_edge, 0.0].max)
+      th_l = Math.atan2(ws - cw, -u_edge)     # left spring (obtuse)
+      th_r = Math.atan2(ws - cw,  u_edge)     # right spring (acute)
+      pts = [local_uvw(-u_edge, v, w_bottom, unit, n)]          # bottom-left
+      (0..segs).each do |i|                                     # left spring -> apex -> right spring
+        th = th_l + (th_r - th_l) * i / segs.to_f
+        pts << local_uvw(rr * Math.cos(th), v, cw + rr * Math.sin(th), unit, n)
+      end
+      pts << local_uvw(u_edge, v, w_bottom, unit, n)            # bottom-right
+      pts
+    end
+
+    # Closed arched outline as world points at depth v (rect sides + arc top).
+    def arch_ring_pts(u_edge, w_bottom, cw, rr, v, unit, n, segs = ARCH_DOOR_SEGS)
+      ws = cw + Math.sqrt([rr * rr - u_edge * u_edge, 0.0].max)
+      th_r = Math.atan2(ws - cw, u_edge)
+      th_l = Math::PI - th_r
+      pts = [local_uvw(-u_edge, v, w_bottom, unit, n), local_uvw(u_edge, v, w_bottom, unit, n)]
+      (0..segs).each do |i|
+        th = th_r + (th_l - th_r) * i / segs.to_f
+        pts << local_uvw(rr * Math.cos(th), v, cw + rr * Math.sin(th), unit, n)
+      end
+      pts
+    end
+
+    def build_arched_door_grid(parent_ents, u_edge, w_bottom, cw, r_in, gv, unit, n, mat)
+      cols, rows = arch_grid_dims(@glass_grid_style)
+      cols = 2 if cols < 2
+      mw = 0.375
+      hd = 0.1
+      grp = parent_ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+      (1...cols).each do |i|
+        u = -u_edge + (2.0 * u_edge) * i / cols.to_f
+        top_w = cw + Math.sqrt([r_in * r_in - u * u, 0.0].max)
+        add_arch_grid_bar(ge, u - mw / 2.0, u + mw / 2.0, w_bottom, top_w, gv, hd, unit, n)
+      end
+      ws_in = cw + Math.sqrt([r_in * r_in - u_edge * u_edge, 0.0].max)
+      straight_h = ws_in - w_bottom
+      (1...rows).each do |j|
+        w = w_bottom + straight_h * j / rows.to_f
+        add_arch_grid_bar(ge, -u_edge, u_edge, w - mw / 2.0, w + mw / 2.0, gv, hd, unit, n)
+      end
+      grp.material = mat
+    end
+
+    def add_arch_grid_bar(ge, u0, u1, w0, w1, v, hd, unit, n)
+      f = ge.add_face([
+        local_uvw(u0, v - hd, w0, unit, n), local_uvw(u1, v - hd, w0, unit, n),
+        local_uvw(u1, v - hd, w1, unit, n), local_uvw(u0, v - hd, w1, unit, n)
+      ])
+      return unless f
+      d = 2.0 * hd
+      d = -d if f.normal.dot(n) < 0
+      f.pushpull(d)
+    end
+
+    def arch_grid_dims(style)
+      return [1, 1] if style.nil? || style.to_s.strip.empty? || style.to_s.downcase == 'none'
+      style.to_s =~ /^(\d+)x(\d+)$/i ? [$1.to_i, $2.to_i] : [1, 1]
+    end
+
+    def soften_arch_facets(ents, angle_limit = 50.degrees)
+      ents.grep(Sketchup::Edge).each do |edge|
+        next unless edge.valid?
+        fs = edge.faces
+        next unless fs.length == 2
+        next if fs[0].normal.angle_between(fs[1].normal) > angle_limit
+        edge.soft = true
+        edge.smooth = true
       end
     end
 
@@ -4897,8 +5197,12 @@ module InteriorPro
     end
 
     def door_body_type?
-      interior_leaf_type? || front_door_type? || garage_door_type? ||
+      arched_door_type? || interior_leaf_type? || front_door_type? || garage_door_type? ||
         french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
+    end
+
+    def arched_door_type?
+      @door_type.to_s.strip == 'Arched'
     end
 
     # Interior doors build a styled leaf body (build_interior_leaf_geometry!).

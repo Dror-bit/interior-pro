@@ -16,7 +16,8 @@ module InteriorPro
       'Single Hung',
       'XOX Single Hung',
       'Slider XO', 'Slider XOX',
-      'Garden Window'
+      'Garden Window',
+      'Arched'
     ].freeze
 
     # Default unit (frame) size + frame depth per type, in inches (Milgard ref).
@@ -32,7 +33,8 @@ module InteriorPro
       'Slider XOX'     => { 'width' => 72, 'height' => 48, 'frame_depth' => 3.25 },
       'Awning'         => { 'width' => 36, 'height' => 24, 'frame_depth' => 3.25 },
       'Picture'        => { 'width' => 60, 'height' => 48, 'frame_depth' => 3.25 },
-      'Garden Window'  => { 'width' => 60, 'height' => 48, 'frame_depth' => 3.25 }
+      'Garden Window'  => { 'width' => 60, 'height' => 48, 'frame_depth' => 3.25 },
+      'Arched'         => { 'width' => 36, 'height' => 60, 'frame_depth' => 3.25 }
     }.freeze
 
     def self.ensure_dir

@@ -119,7 +119,7 @@ module InteriorPro
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
       front_config front_leaf_style front_glass_ratio sidelite_width transom transom_height
       garage_style garage_top_windows garage_window_style garage_window_count garage_ext_frame
-      door_color frame_color
+      door_color frame_color arch_rise
     ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
 
     DOOR_PLACEMENT_KEYS = %w[
@@ -179,6 +179,7 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'transom_height_in',      params['transom_height'].to_f) if params.key?('transom_height')
       door.set_attribute('InteriorPro', 'door_color',             params['door_color'].to_s) if params.key?('door_color')
       door.set_attribute('InteriorPro', 'frame_color',            params['frame_color'].to_s) if params.key?('frame_color')
+      door.set_attribute('InteriorPro', 'arch_rise_in',           params['arch_rise'].to_f) if params.key?('arch_rise')
       door.set_attribute('InteriorPro', 'width_in',               params['width'].to_f)
       door.set_attribute('InteriorPro', 'height_in',              params['height'].to_f)
       door.set_attribute('InteriorPro', 'frame_width_in',         params['frame_width'].to_f)
