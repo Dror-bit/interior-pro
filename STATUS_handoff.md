@@ -1,4 +1,25 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-25)
+# STATUS_handoff — Interior Pro (עודכן 2026-07-27)
+
+## סבב 2026-07-27 — חלון קשת + דלת קשת (הושלם ואושר ✓)
+קבצים: wall_tool.rb, window_tool.rb, window_library.rb, window_library_dialog.rb, window_manager.rb, door_tool.rb, door_library.rb, door_manager.rb, door_library_dialog.rb. נשמר ב-git (branch door-stabilize, commit 7225de3).
+
+**מנוע הקשת בקיר (גנרי, wall_tool.rb):**
+- מודל נתונים: לכל פתח נוסף שדה אופציונלי חמישי `arch_rise` במערך door_openings ‏[t,width,height,floor_offset,arch_rise]. arch_rise=0 / חסר = מלבן רגיל (אפס סיכון לפתחים קיימים). normalize/persist/append עודכנו לשאת אותו.
+- **פתח מוגבה (חלון)** — `cut_arched_opening_hole!`: החור נבנה כמו מלבן (מערך נקודות אחד ל-`add_face` ואז erase) אבל עם נקודות קשת (48 סגמנטים) במקום שתי פינות עליונות. **קריטי: קצוות הקשת נשארים חדים (בלי soft/smooth) — smoothing מיזג את פָּן הקיר עם הרוויל, יצר כתם הצללה ושבר push/pull. וגם: לא לבנות עם add_arc קצה-אחר-קצה (מפצל את הפָּן) — רק add_face עם מערך נקודות.**
+- **פתח-רצפה (דלת)** — `arched_floor_top_points`: הקשת מוחלת על ה-outline של floor_ops (החלק שיורד לרצפה), קשת עליונה חלקה במקום קצה ישר.
+- `height` = גובה כולל של הפתח כולל הקשת; הקשת נחתכת מהחלק העליון. rise מוקצב ל-[0, half-width] (חצי עיגול מקסימום).
+
+**חלון קשת (window):** טיפוס חדש 'Arched' ב-WindowLibrary + שדה "Arch Height" בדיאלוג (ריק = חצי-עיגול אוטומטי). `build_arched_body`: מסגרת עוקבת-קשת + זכוכית + סבכה. פָּאות הקשת בגוף (קבוצה נפרדת, לא הקיר) מוחלקות עם soften_casing_edges — שם זה בטוח.
+
+**דלת קשת (door):** טיפוס חדש 'Arched' ב-EXTERIOR_TYPES + override (width 36, height 96... בפועל נבחר בטופס). arch_rise ב-DOOR_SETTING_KEYS. `build_arched_door_geometry!`:
+- **מסגרת (jamb) פתוחה למטה** (U+קשת, בלי קורה תחתונה — כמו כל הדלתות) — נבנית כ-band אחד: `arch_u_path` חיצוני + `arch_u_path` פנימי הפוך.
+- **עלה/עלים** (`build_arched_leaf!`): Single או Double (לפי front_config; בורר Configuration נוסף לדיאלוג עבור Arched). עלה = stiles/rails מקושתים + זכוכית + סבכה, עם reveal סביב.
+- **צירים** (barrels) בצד ה-hinge לפי swing_direction. **ידית הוסרה** (המשתמש ביקש).
+- **עובי מסגרת:** fw = Frame Width (מכובד עד 0.25"), stile של העלה = Glass Frame Width (מכובד, עד 45% מחצי-רוחב העלה). **לקח חוזר: הדפוס `x>1 ? x : ברירת_מחדל` התעלם מערכים קטנים — לכבד את הערך ישירות.**
+- **גרידס אופקיים במרווח שווה על כל הגובה** (bottom→apex), נחתכים לפי העיגול בתוך הקשת ורוחב מלא מתחתיה (build_arched_region_grid, disc<=0 → רוחב מלא).
+- Steel Arch הוסר מגלריית ה-Front Door (כפילות מיותרת עכשיו שיש טיפוס Arched).
+
+**הערות תפעול:** reload! מספיק לעריכות; **מפתח DOOR_SETTING_KEYS חדש (arch_rise) → restart מלא** (reload לא טוען מחדש const קיים עם `unless const_defined?`). דיאלוג = סגור/פתח.
 
 ## הבהרה 2026-07-25 — באג מיטר Merge Wall = **סגור** (לא באג פתוח יותר!)
 ההערות הישנות למטה שכתובות "חוב ישן: באג מיטר Merge Wall" **מיושנות — אל תתייחס אליהן.** הקוד נבדק: `wall_merge_tool.rb` קורא ל-`join_corners(..., allow_centerline_fallback: true)`, ו-`find_neighbor_at` ב-wall_tool.rb עובד בשני מעברים — מעבר 1 drawn-to-drawn (שומר ציור/צביעה), מעבר 2 fallback לפי קו-מרכז שרץ רק עם הדגל. המעבר השני פותר בדיוק את מקרה ה-anchor-שונה שגרם לבאג. Merge יוצר מיטר נכון, המשתמש אישר שעובד טוב. **לקח: לבדוק בקוד לפני שמתייחסים ל"חוב ישן" מ-STATUS.**
