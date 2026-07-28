@@ -94,7 +94,9 @@ module InteriorPro
           attrs = {
             thickness: r['th'].to_f > 0.5 ? r['th'].to_f : 4.5,
             height: r['h'].to_f > 1.0 ? r['h'].to_f : 96.0,
-            anchor: %w[bottom-left bottom-right center].include?(r['anchor']) ? r['anchor'] : 'bottom-left',
+            # Always bottom-left: the proven anchor for door placement
+            # (DoorManager.wall_geometry mis-centers doors on bottom-right).
+            anchor: 'bottom-left',
             wall_type: '2D Editor',
             exterior_material: cat == 'exterior' ? 'Stucco' : '#ffffff',
             interior_material: '#ffffff',
@@ -191,8 +193,12 @@ module InteriorPro
             var panning = false, panFrom = null;
             var fitted = false;
 
-            function mAnchor() { return sideOpt === 'L' ? 'bottom-right' : 'bottom-left'; }
-            function mHa() { return sideOpt === 'L' ? 'right' : 'left'; }
+            // Walls are ALWAYS applied as anchor 'bottom-left' (the proven wall
+            // path for door placement). Side R is realized by reversing the
+            // drawn direction instead of using anchor 'bottom-right'
+            // (DoorManager.wall_geometry mis-centers exterior doors on
+            // bottom-right walls - known bug, root fix deferred).
+            function mHa() { return sideOpt === 'L' ? 'left' : 'right'; }   // preview only
 
             function resize() {
               var w = document.getElementById('canvasWrap');
@@ -353,7 +359,12 @@ module InteriorPro
               if (!startPt || Math.hypot(end.x - startPt.x, end.y - startPt.y) < 1) return;
               var w = tempWall(startPt, end);
               w.h = parseLen(document.getElementById('hh').value) || 96;
-              w.anchor = mAnchor();
+              w.anchor = 'bottom-left';
+              if (sideOpt === 'R') {   // flip direction so the band side matches, keep bottom-left
+                var t2 = { x: w.sx, y: w.sy };
+                w.sx = w.ex; w.sy = w.ey; w.ex = t2.x; w.ey = t2.y;
+                w.ha = 'left';
+              }
               pending.push(w);
               startPt = end; typed = ''; updateVcb(); draw();
             }
