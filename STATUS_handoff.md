@@ -1,4 +1,27 @@
-# STATUS_handoff — Interior Pro (עודכן 2026-07-27)
+# STATUS_handoff — Interior Pro (עודכן 2026-07-28)
+
+## סבב 2026-07-28 — שכבת הדו-ממד: מחולל תוכניות + עורך מלמעלה (נבדק ואושר ✓)
+קבצים חדשים: **plan_generator.rb**, **plan_editor.rb** + רישום ב-main.rb + פריטי תפריט ב-toolbar.rb ("2D Editor", "2D Plan: Build / Refresh", "2D Plan: Remove"). branch door-stabilize.
+
+**הוחלט עם המשתמש (זרימת העבודה של המוצר):** מציירים ב-2D מלמעלה (העורך) — זו העבודה העיקרית, כולל מדידות בשטח (הקלדת אורכים תוך כדי ציור); ה-3D נבנה מאותם attributes (כרגע אוטומטית ב-Apply, בעתיד מתג 2D-בלבד); תוכניות מופקות מה-attributes בלבד. אליוויישנים פנימיים — על אותו מנוע בהמשך; חזיתות חוץ — רק אחרי גגות (לפי החוזה).
+
+**plan_generator.rb — `PlanGenerator.build!` / `remove_all!`:**
+- קורא attributes בלבד (חוזה!); בונה קבוצה אחת top-level (type='plan2d') על Tag ‏IP/2D ב-z=0.5; regen מלא בכל build.
+- קירות: פאות poche בין הפתחים — חוץ כהה (InteriorPro_Plan_Exterior), פנים בהיר; קצוות מ-corners_xy (מיטרים); פתח = רווח + קווי סגירה.
+- סימבולים: דלת ציר = כנף+קשת (ציר לפי swing_direction; הצד לפי clicked_side — הנחה "נפתח לצד הקליק", אושר ויזואלית); Double/French = שתי קשתות; Sliding/Closet = שתי כנפיים חופפות; Folding = זיגזג; Pocket = פאנל+מקווקו; Garage = קו עבה בפאה החיצונית + מסילה מקווקוות; חלון = מסגרת + קו זכוכית.
+- מספור אוטומטי D#/W#: עיגול/משושה + ‎3D text, נשמר ל-attribute ‏mark אם היה ריק (מספרים קיימים לא משתנים).
+- סצנה "2D Plan": מבט מלמעלה Parallel; מבין תגי IP/* רק IP/2D דלוק (page.set_visibility).
+
+**plan_editor.rb — `PlanEditor.show` (HtmlDialog):**
+- קנבס: שרשרת קירות בקליקים, VCB (הקלדת אורך + Enter), סנאפ 90°/45° + קצוות, זום/פאן, מידות חיות; Apply → build_wall_group + join_corners + sync חדרים; Sync דו-כיווני מהמודל; Undo לקיר ממתין.
+- מצבי Door/Window: ריחוף על קיר (רק אחרי Apply) → רפאים ירוק/אדום → קליק מציב דרך `DoorTool#cut_door_opening` / `WindowTool#cut_window_opening` (via send) — **אותו צינור של הכלים התלת-ממדיים**. פאנל: קטגוריה/סוג/מידות/צד ציר; ברירות מחדל לפי סוג.
+- הקנבס מצייר גם את סימבולי התוכנית על פתחים קיימים ('syms' ב-payload).
+
+**באג שורש שהתגלה — לא תוקן בכוונה:** `DoorManager.wall_geometry` מחשב center_offset בסימנים של ניצב שמאלי אבל n שלו הוא הניצב הימני → קו-מרכז הפוך. על קירות bottom-left זה מתקזז עם ה-flip של exterior_effective_n (ולכן עובד); על **bottom-right דלת חוץ נבנית בתמונת-ראי מחוץ לקיר**. ‏window_tool.rb מחשב נכון (n שמאלי). עקיפה שיושמה: העורך יוצר תמיד bottom-left (צד R = היפוך כיוון הציור). תיקון שורש = לשנות בזהירות רבה — ישנה את סמנטיקת clicked_side. **לבדוק: כפתור L בספריית הקירות יוצר bottom-right — כנראה אותו באג גם שם.**
+
+**נשאר פתוח בשכבת ה-2D (סדר מוצע):** תוויות חדרים בתוכנית; מידות אוטומטיות; עריכה/מחיקה של קירות ופתחים מתוך העורך; LayOut/PDF; מצב 2D-בלבד; עורך "פתור" מלא.
+
+---
 
 ## סבב 2026-07-27 — חלון קשת + דלת קשת (הושלם ואושר ✓)
 קבצים: wall_tool.rb, window_tool.rb, window_library.rb, window_library_dialog.rb, window_manager.rb, door_tool.rb, door_library.rb, door_manager.rb, door_library_dialog.rb. נשמר ב-git (branch door-stabilize, commit 7225de3).
