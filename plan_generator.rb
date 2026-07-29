@@ -11,8 +11,8 @@ module InteriorPro
     PLAN_TAG   = 'IP/2D' unless const_defined?(:PLAN_TAG, false)
     PLAN_Z     = 0.5 unless const_defined?(:PLAN_Z, false)
     SCENE_NAME = '2D Plan' unless const_defined?(:SCENE_NAME, false)
-    MARK_R     = 5.5 unless const_defined?(:MARK_R, false)
-    MARK_TEXT_H = 5.0 unless const_defined?(:MARK_TEXT_H, false)
+    MARK_R     = 8.0 unless const_defined?(:MARK_R, false)
+    MARK_TEXT_H = 4.2 unless const_defined?(:MARK_TEXT_H, false)
 
     class << self
       # Rebuild the whole 2D plan layer from attributes.
@@ -38,9 +38,16 @@ module InteriorPro
           begin
             draw_door_symbols(grp.entities, d, doors.select { |b| b[:host] == d[:id] })
             draw_window_symbols(grp.entities, d, windows.select { |b| b[:host] == d[:id] })
+            draw_wall_dim(grp.entities, d) if d[:category] != 'interior'
           rescue StandardError => e
             puts "[Plan2D] symbols on wall #{d[:id]}: #{e.message}"
           end
+        end
+
+        begin
+          draw_room_labels(grp.entities, model)
+        rescue StandardError => e
+          puts "[Plan2D] room labels: #{e.message}"
         end
 
         if count.zero?
@@ -114,6 +121,7 @@ module InteriorPro
             info[:leaf_count]   = (e.get_attribute('InteriorPro', 'closet_leaf_count') || 2).to_i
             doors << info
           else
+            info[:wtype] = (e.get_attribute('InteriorPro', 'window_type') || '').to_s
             windows << info
           end
         end
@@ -304,53 +312,88 @@ module InteriorPro
           span = opening_span(d, b)
           next unless span
           x1, x2 = span
-          case door_kind(b)
+          kind = door_kind(b)
+          case kind
           when :garage  then sym_garage(ents, d, x1, x2)
-          when :sliding then sym_sliding(ents, d, x1, x2)
-          when :folding then sym_folding(ents, d, b, x1, x2)
-          when :pocket  then sym_pocket(ents, d, b, x1, x2)
+          when :sliding, :folding, :pocket
+            draw_opening_jambs(ents, d, x1, x2)
+            draw_header_dashes(ents, d, x1, x2)
+            case kind
+            when :sliding then sym_sliding(ents, d, x1, x2)
+            when :folding then sym_folding(ents, d, b, x1, x2)
+            else               sym_pocket(ents, d, b, x1, x2)
+            end
           when :double  then sym_double_swing(ents, d, b, x1, x2)
           else               sym_single_swing(ents, d, b, x1, x2)
           end
-          mark_badge(ents, d, b[:mark], (x1 + x2) / 2.0, d[:off_neg] - 9.0, :circle)
+          mark_badge(ents, d, b[:mark], (x1 + x2) / 2.0, d[:off_neg] - 13.0, :circle)
         end
       end
 
-      def sym_single_swing(ents, d, b, x1, x2)
-        w = x2 - x1
-        ss = swing_sign(b)
-        edge = ss > 0 ? d[:off_pos] : d[:off_neg]
-        hinge_x = b[:swing] == 'right' ? x2 : x1
-        latch_x = hinge_x == x1 ? x2 : x1
+      JAMB_W = 1.5 unless const_defined?(:JAMB_W, false)
+
+      # Jamb blocks flush with the wall faces (no protrusion, per user).
+      def draw_opening_jambs(ents, d, x1, x2)
+        [[x1, x1 + JAMB_W], [x2 - JAMB_W, x2]].each do |a, bx|
+          rect(ents, d, a, bx, d[:off_neg], d[:off_pos])
+        end
+      end
+
+      # Dashed header lines across the opening at both wall faces.
+      def draw_header_dashes(ents, d, x1, x2)
+        add_dashed(ents, d, lpt(d, x1 + JAMB_W, d[:off_pos] - 0.4),
+                   lpt(d, x2 - JAMB_W, d[:off_pos] - 0.4), 4.0, 2.5)
+        add_dashed(ents, d, lpt(d, x1 + JAMB_W, d[:off_neg] + 0.4),
+                   lpt(d, x2 - JAMB_W, d[:off_neg] + 0.4), 4.0, 2.5)
+      end
+
+      # Leaf drawn as a thin double-line rectangle + handle knobs + thin arc.
+      def draw_swing_leaf(ents, d, hinge_x, latch_x, edge, ss)
+        leaf_len = (latch_x - hinge_x).abs
+        return if leaf_len < 4.0
+        dir = latch_x > hinge_x ? 1.0 : -1.0
+        ua = [hinge_x, hinge_x + dir * 1.5].min
+        ub = [hinge_x, hinge_x + dir * 1.5].max
+        rect(ents, d, ua, ub, edge, edge + ss * leaf_len)
+        # handle knobs near the free end, both sides of the leaf
+        ko = edge + ss * (leaf_len - 4.0)
+        [hinge_x - dir * 1.0, hinge_x + dir * 2.5].each do |kx|
+          rect(ents, d, kx - 0.6, kx + 0.6, ko - 0.6, ko + 0.6)
+        end
         hinge = lpt(d, hinge_x, edge)
         latch = lpt(d, latch_x, edge)
-        leaf_end = hinge.offset(d[:n], ss * w)
-        add_poly(ents, d, [hinge, leaf_end])
+        leaf_end = hinge.offset(d[:n], ss * leaf_len)
         add_arc(ents, d, hinge, latch, leaf_end)
       end
 
-      def sym_double_swing(ents, d, b, x1, x2)
-        w = (x2 - x1) / 2.0
+      def sym_single_swing(ents, d, b, x1, x2)
         ss = swing_sign(b)
         edge = ss > 0 ? d[:off_pos] : d[:off_neg]
-        xm = (x1 + x2) / 2.0
-        [[x1, xm], [x2, xm]].each do |hx, lx|
-          hinge = lpt(d, hx, edge)
-          latch = lpt(d, lx, edge)
-          leaf_end = hinge.offset(d[:n], ss * w)
-          add_poly(ents, d, [hinge, leaf_end])
-          add_arc(ents, d, hinge, latch, leaf_end)
+        draw_opening_jambs(ents, d, x1, x2)
+        draw_header_dashes(ents, d, x1, x2)
+        if b[:swing] == 'right'
+          draw_swing_leaf(ents, d, x2 - JAMB_W, x1 + JAMB_W, edge, ss)
+        else
+          draw_swing_leaf(ents, d, x1 + JAMB_W, x2 - JAMB_W, edge, ss)
         end
       end
 
-      # Quarter-circle polyline from latch to leaf_end around hinge.
+      def sym_double_swing(ents, d, b, x1, x2)
+        ss = swing_sign(b)
+        edge = ss > 0 ? d[:off_pos] : d[:off_neg]
+        draw_opening_jambs(ents, d, x1, x2)
+        draw_header_dashes(ents, d, x1, x2)
+        xm = (x1 + x2) / 2.0
+        draw_swing_leaf(ents, d, x1 + JAMB_W, xm, edge, ss)
+        draw_swing_leaf(ents, d, x2 - JAMB_W, xm, edge, ss)
+      end
+
+      # Arc polyline from from_pt to to_pt around hinge (actual angle between them).
       def add_arc(ents, d, hinge, from_pt, to_pt)
         v0 = from_pt - hinge
         v1 = to_pt - hinge
-        r = v0.length
-        return if r < 1.0
-        cross_z = v0.x * v1.y - v0.y * v1.x
-        sweep = cross_z >= 0 ? Math::PI / 2 : -Math::PI / 2
+        return if v0.length < 1.0
+        sweep = Math.atan2(v0.x * v1.y - v0.y * v1.x, v0.x * v1.x + v0.y * v1.y)
         steps = 14
         pts = (0..steps).map do |i|
           a = sweep * i / steps
@@ -429,11 +472,175 @@ module InteriorPro
           span = opening_span(d, b)
           next unless span
           x1, x2 = span
-          rect(ents, d, x1, x2, d[:off_neg], d[:off_pos])
-          cmid = (d[:off_pos] + d[:off_neg]) / 2.0
-          add_poly(ents, d, [lpt(d, x1 + 0.5, cmid), lpt(d, x2 - 0.5, cmid)])
-          mark_badge(ents, d, b[:mark], (x1 + x2) / 2.0, d[:off_pos] + 9.0, :hex)
+          draw_opening_jambs(ents, d, x1, x2)
+          fx1 = x1 + JAMB_W
+          fx2 = x2 - JAMB_W
+          rect(ents, d, fx1, fx2, d[:off_neg], d[:off_pos])
+          draw_window_unit(ents, d, b[:wtype].to_s, fx1, fx2)
+          mark_badge(ents, d, b[:mark], (x1 + x2) / 2.0, d[:off_pos] + 13.0, :hex)
         end
+      end
+
+      # Per-type plan symbol (approved 2026-07-29). Exterior = off_neg side
+      # (right perpendicular). No glass center lines (per user).
+      def draw_window_unit(ents, d, wtype, fx1, fx2)
+        q = d[:off_neg]
+        p = d[:off_pos]
+        th = p - q
+        e1 = q + th * 0.15
+        e2 = q + th * 0.45
+        i1 = p - th * 0.45
+        i2 = p - th * 0.15
+        len = fx2 - fx1
+        blk = lambda { |cx| rect(ents, d, cx - 1.0, cx + 1.0, q + 1.0, p - 1.0) }
+        case wtype
+        when /Casement XX/
+          draw_casement_leaf(ents, d, fx1, fx1 + len / 2.0, q)
+          draw_casement_leaf(ents, d, fx2, fx2 - len / 2.0, q)
+        when /Casement/
+          draw_casement_leaf(ents, d, fx1, fx2, q)
+        when /XOX/
+          # Minimal slider style (user sketch 2026-07-29): inner frame,
+          # dividers at the thirds, each panel = a single line at its depth.
+          # Center fixed (exterior depth), sides sliding (interior depth).
+          cm = (p + q) / 2.0
+          w3 = len / 3.0
+          d1 = fx1 + w3
+          d2 = fx2 - w3
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, q + 0.7, p - 0.7)
+          rect(ents, d, d1 - 1.0, d1 + 1.0, q + 0.7, p - 0.7)
+          rect(ents, d, d2 - 1.0, d2 + 1.0, q + 0.7, p - 0.7)
+          add_poly(ents, d, [lpt(d, d1 + 1.0, cm - th * 0.11), lpt(d, d2 - 1.0, cm - th * 0.11)])
+          add_poly(ents, d, [lpt(d, fx1 + 0.5, cm + th * 0.11), lpt(d, d1 - 1.0, cm + th * 0.11)])
+          add_poly(ents, d, [lpt(d, d2 + 1.0, cm + th * 0.11), lpt(d, fx2 - 0.5, cm + th * 0.11)])
+        when /Slider|XO/
+          cm = (p + q) / 2.0
+          xm = (fx1 + fx2) / 2.0
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, q + 0.7, p - 0.7)
+          rect(ents, d, xm - 1.0, xm + 1.0, q + 0.7, p - 0.7)
+          add_poly(ents, d, [lpt(d, fx1 + 0.5, cm + th * 0.11), lpt(d, xm - 1.0, cm + th * 0.11)])
+          add_poly(ents, d, [lpt(d, xm + 1.0, cm - th * 0.11), lpt(d, fx2 - 0.5, cm - th * 0.11)])
+        when /Hung/
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, e1, e2)
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, i1, i2)
+        when /Garden/
+          gd = 12.0
+          rect(ents, d, fx1 + 1.0, fx2 - 1.0, q - gd, q)
+          rect(ents, d, fx1 + 2.0, fx2 - 2.0, q - gd + 1.0, q - 1.0)
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, i1, i2)
+        when /Arched/
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, q + 0.7, p - 0.7)
+          draw_arch_hint(ents, d, fx1, fx2, q, p)
+        else
+          rect(ents, d, fx1 + 0.5, fx2 - 0.5, q + 0.7, p - 0.7)
+        end
+      end
+
+      # Casement leaf pivoted ~20deg toward the exterior + thin arc.
+      def draw_casement_leaf(ents, d, hx, lx, q)
+        len = (lx - hx).abs
+        return if len < 4.0
+        dir = lx > hx ? 1.0 : -1.0
+        ang = 20.0 * Math::PI / 180.0
+        u = d[:u]
+        n = d[:n]
+        lu = Geom::Vector3d.new(u.x * dir * Math.cos(ang) - n.x * Math.sin(ang),
+                                u.y * dir * Math.cos(ang) - n.y * Math.sin(ang), 0)
+        pd = Geom::Vector3d.new(n.x * Math.cos(ang) + u.x * dir * Math.sin(ang),
+                                n.y * Math.cos(ang) + u.y * dir * Math.sin(ang), 0)
+        h = lpt(d, hx, q)
+        tip = h.offset(lu, len)
+        add_poly(ents, d, [h, tip, tip.offset(pd, 2.0), h.offset(pd, 2.0)], closed: true)
+        add_arc(ents, d, h, lpt(d, lx, q), tip)
+      end
+
+      # Dashed arc hint inside the band for Arched windows.
+      def draw_arch_hint(ents, d, fx1, fx2, q, p)
+        steps = 24
+        pts = (0..steps).map do |i|
+          t = i.to_f / steps
+          lpt(d, fx1 + (fx2 - fx1) * t, p - 1.0 - (p - q - 2.0) * Math.sin(Math::PI * t))
+        end
+        pts.each_cons(2).each_with_index do |(a, b2), i|
+          add_poly(ents, d, [a, b2]) if i.even?
+        end
+      end
+
+      # ---- dimensions ------------------------------------------------------
+
+      DIM_OFF   = 10.0 unless const_defined?(:DIM_OFF, false)
+      DIM_TEXT_H = 5.0 unless const_defined?(:DIM_TEXT_H, false)
+
+      def fmt_feet(len)
+        ft = (len / 12.0).floor
+        inch = (len - ft * 12).round(1)
+        if inch >= 12.0
+          ft += 1
+          inch = 0.0
+        end
+        inch_s = inch % 1 == 0 ? inch.to_i.to_s : inch.to_s
+        ft.positive? ? "#{ft}'-#{inch_s}\"" : "#{inch_s}\""
+      end
+
+      # Dimension line along the exterior face: extension lines + 45deg ticks
+      # + feet-inches text, offset DIM_OFF outside the wall.
+      def draw_wall_dim(ents, d)
+        return if d[:len] < 24.0
+        off_face = d[:off_neg]              # exterior face (right perpendicular)
+        off_dim  = off_face - DIM_OFF
+        p1 = lpt(d, 0, off_dim)
+        p2 = lpt(d, d[:len], off_dim)
+        add_poly(ents, d, [p1, p2])
+        add_poly(ents, d, [lpt(d, 0, off_face - 2.0), lpt(d, 0, off_dim - 2.0)])
+        add_poly(ents, d, [lpt(d, d[:len], off_face - 2.0), lpt(d, d[:len], off_dim - 2.0)])
+        diag = Geom::Vector3d.new(d[:u].x + d[:n].x, d[:u].y + d[:n].y, 0)
+        diag.normalize!
+        [p1, p2].each do |p|
+          add_poly(ents, d, [p.offset(diag, -2.0), p.offset(diag, 2.0)])
+        end
+        uw = d[:u].transform(d[:xform])
+        ang = Math.atan2(uw.y, uw.x)
+        ang += Math::PI if ang > Math::PI / 2 + 0.01 || ang < -Math::PI / 2 - 0.01
+        center = flat_world(lpt(d, d[:len] / 2.0, off_dim - 5.0), d[:xform])
+        add_text(ents, fmt_feet(d[:len]), DIM_TEXT_H, center, ang)
+      end
+
+      # ---- room labels -----------------------------------------------------
+
+      def draw_room_labels(ents, model)
+        rooms = model.entities.grep(Sketchup::Group).select do |g|
+          g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
+        end
+        rooms.each do |r|
+          flat = r.get_attribute('InteriorPro', 'boundary_xy')
+          next unless flat.is_a?(Array) && flat.length >= 6
+          xs = []
+          ys = []
+          flat.each_slice(2) { |x, y| xs << x.to_f; ys << y.to_f }
+          cx = xs.sum / xs.length
+          cy = ys.sum / ys.length
+          name = (r.get_attribute('InteriorPro', 'name') || 'Room').to_s.upcase
+          area = r.get_attribute('InteriorPro', 'area_sqft').to_f
+          add_text(ents, name, 7.0, Geom::Point3d.new(cx, cy + 5.0, PLAN_Z), 0.0)
+          add_text(ents, "#{area.round} SF", 4.5, Geom::Point3d.new(cx, cy - 7.0, PLAN_Z), 0.0)
+        end
+      end
+
+      # Filled 3D-text group centered at a world point, rotated by ang (radians).
+      def add_text(ents, str, h, center, ang = 0.0)
+        label = ents.add_group
+        label.entities.add_3d_text(str.to_s, TextAlignCenter, 'Arial', false, false,
+                                   h, 0.0, 0.0, true, 0.0)
+        b = label.bounds
+        label.transform!(Geom::Transformation.rotation(b.center, Geom::Vector3d.new(0, 0, 1), ang)) if ang.abs > 0.001
+        label.transform!(Geom::Transformation.translation(center - label.bounds.center))
+        m = get_plan_mat('InteriorPro_Plan_Line', [0, 0, 0])
+        label.entities.grep(Sketchup::Face).each { |f| f.material = m; f.back_material = m }
+        label
+      rescue StandardError => e
+        label.erase! if label && label.valid?
+        puts "[Plan2D] text '#{str}': #{e.message}"
+        nil
       end
 
       # ---- marks -----------------------------------------------------------
@@ -446,18 +653,7 @@ module InteriorPro
           ents.add_circle(center, Geom::Vector3d.new(0, 0, 1), MARK_R, segs)
         rescue StandardError
         end
-        label = ents.add_group
-        begin
-          label.entities.add_3d_text(text.to_s, TextAlignCenter, 'Arial', false, false,
-                                     MARK_TEXT_H, 0.0, 0.0, true, 0.0)
-          b = label.bounds
-          label.transform!(Geom::Transformation.translation(center - b.center))
-          m = get_plan_mat('InteriorPro_Plan_Line', [0, 0, 0])
-          label.entities.grep(Sketchup::Face).each { |f| f.material = m; f.back_material = m }
-        rescue StandardError => e
-          label.erase! if label.valid?
-          puts "[Plan2D] mark text '#{text}': #{e.message}"
-        end
+        add_text(ents, text, MARK_TEXT_H, center, 0.0)
       end
 
       # ---- materials / scene ----------------------------------------------
