@@ -57,6 +57,12 @@ module InteriorPro
           puts "[Plan2D] schedules: #{e.message}"
         end
 
+        begin
+          draw_legend_and_title(grp.entities, model)
+        rescue StandardError => e
+          puts "[Plan2D] legend: #{e.message}"
+        end
+
         if count.zero?
           grp.erase! if grp.valid?
           model.commit_operation
@@ -684,6 +690,9 @@ module InteriorPro
 
       # ---- room labels -----------------------------------------------------
 
+      HATCH_SPACING = 18.0 unless const_defined?(:HATCH_SPACING, false)
+      HATCH_ANGLE   = 45.0 unless const_defined?(:HATCH_ANGLE, false)
+
       def draw_room_labels(ents, model)
         rooms = model.entities.grep(Sketchup::Group).select do |g|
           g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
@@ -691,15 +700,52 @@ module InteriorPro
         rooms.each do |r|
           flat = r.get_attribute('InteriorPro', 'boundary_xy')
           next unless flat.is_a?(Array) && flat.length >= 6
-          xs = []
-          ys = []
-          flat.each_slice(2) { |x, y| xs << x.to_f; ys << y.to_f }
+          poly = flat.each_slice(2).map { |x, y| [x.to_f, y.to_f] }
+          xs = poly.map(&:first)
+          ys = poly.map(&:last)
           cx = xs.sum / xs.length
           cy = ys.sum / ys.length
+          # (floor hatch intentionally NOT drawn — user preference 2026-07-30)
           name = (r.get_attribute('InteriorPro', 'name') || 'Room').to_s.upcase
           area = r.get_attribute('InteriorPro', 'area_sqft').to_f
           add_text(ents, name, 7.0, Geom::Point3d.new(cx, cy + 5.0, PLAN_Z), 0.0)
           add_text(ents, "#{area.round} SF", 4.5, Geom::Point3d.new(cx, cy - 7.0, PLAN_Z), 0.0)
+        end
+      end
+
+      # Light 45-degree floor hatch clipped to the room polygon (scan-line:
+      # rotate so the lines are horizontal, intersect each edge, draw pairs).
+      def hatch_polygon(ents, poly, spacing = HATCH_SPACING, angle_deg = HATCH_ANGLE)
+        a = angle_deg * Math::PI / 180.0
+        ca = Math.cos(-a)
+        sa = Math.sin(-a)
+        rot = poly.map { |x, y| [x * ca - y * sa, x * sa + y * ca] }
+        ymin = rot.map(&:last).min
+        ymax = rot.map(&:last).max
+        return if (ymax - ymin) < spacing
+        back_ca = Math.cos(a)
+        back_sa = Math.sin(a)
+        y = ymin + spacing
+        while y < ymax
+          xs = []
+          rot.each_with_index do |(x1, y1), i|
+            x2, y2 = rot[(i + 1) % rot.length]
+            next if (y1 > y) == (y2 > y)
+            t = (y - y1) / (y2 - y1)
+            xs << (x1 + (x2 - x1) * t)
+          end
+          xs.sort!
+          xs.each_slice(2) do |xa, xb|
+            next if xb.nil? || (xb - xa) < 2.0
+            p1 = [xa * back_ca - y * back_sa, xa * back_sa + y * back_ca]
+            p2 = [xb * back_ca - y * back_sa, xb * back_sa + y * back_ca]
+            begin
+              ents.add_edges(Geom::Point3d.new(p1[0], p1[1], PLAN_Z),
+                             Geom::Point3d.new(p2[0], p2[1], PLAN_Z))
+            rescue StandardError
+            end
+          end
+          y += spacing
         end
       end
 
@@ -825,6 +871,57 @@ module InteriorPro
           end
         end
         oy - n * SCHED_ROW_H
+      end
+
+      # ---- legend + sheet title -------------------------------------------
+
+      def plan_bounds(model)
+        minx = miny = 1.0 / 0.0
+        maxx = maxy = -1.0 / 0.0
+        walls(model).each do |w|
+          xf = w.transformation
+          %w[start end].each do |k|
+            x = w.get_attribute('InteriorPro', "#{k}_x")
+            next if x.nil?
+            p = Geom::Point3d.new(x.to_f, w.get_attribute('InteriorPro', "#{k}_y").to_f, 0).transform(xf)
+            minx = p.x if p.x < minx
+            maxx = p.x if p.x > maxx
+            miny = p.y if p.y < miny
+            maxy = p.y if p.y > maxy
+          end
+        end
+        return nil if maxx < minx
+        [minx, miny, maxx, maxy]
+      end
+
+      def draw_legend_and_title(ents, model)
+        b = plan_bounds(model)
+        return unless b
+        minx, miny, maxx, = b
+
+        # Sheet title + scale under the plan
+        add_text(ents, 'FLOOR PLAN', 9.0, Geom::Point3d.new((minx + maxx) / 2.0, miny - 62.0, PLAN_Z), 0.0)
+        add_text(ents, '1/4" = 1\'-0"', 5.0, Geom::Point3d.new((minx + maxx) / 2.0, miny - 74.0, PLAN_Z), 0.0)
+
+        # Wall type legend (bottom-left of the plan)
+        lx = minx
+        ly = miny - 62.0
+        add_text(ents, 'WALL LEGEND', 5.5, Geom::Point3d.new(lx + 30.0, ly + 12.0, PLAN_Z), 0.0)
+        [['EXTERIOR WALL', plan_material('exterior'), 0.0],
+         ['INTERIOR WALL', plan_material('interior'), -14.0]].each do |label, mat, dy|
+          pts = [[lx, ly + dy], [lx + 22.0, ly + dy], [lx + 22.0, ly + dy - 6.0], [lx, ly + dy - 6.0]]
+                .map { |x, y| Geom::Point3d.new(x, y, PLAN_Z) }
+          f = begin
+            ents.add_face(pts)
+          rescue StandardError
+            nil
+          end
+          if f
+            f.material = mat
+            f.back_material = mat
+          end
+          add_text(ents, label, 4.0, Geom::Point3d.new(lx + 62.0, ly + dy - 3.0, PLAN_Z), 0.0)
+        end
       end
 
       # ---- materials / scene ----------------------------------------------
