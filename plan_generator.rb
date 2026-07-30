@@ -26,7 +26,8 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'type', 'plan2d')
 
         doors, windows = hosted_bodies(model)
-        assign_marks!(doors, 'D')
+        assign_marks!(doors.select { |b| b[:category] != 'interior' }, 'D')
+        assign_marks!(doors.select { |b| b[:category] == 'interior' }, 'IN')
         assign_marks!(windows, 'W')
 
         count = 0
@@ -48,6 +49,12 @@ module InteriorPro
           draw_room_labels(grp.entities, model)
         rescue StandardError => e
           puts "[Plan2D] room labels: #{e.message}"
+        end
+
+        begin
+          draw_schedules(grp.entities, model, doors, windows)
+        rescue StandardError => e
+          puts "[Plan2D] schedules: #{e.message}"
         end
 
         if count.zero?
@@ -113,6 +120,7 @@ module InteriorPro
             clicked: (e.get_attribute('InteriorPro', 'clicked_side') || 1).to_i
           }
           info[:t] = info[:t].to_f unless info[:t].nil?
+          info[:height] = e.get_attribute('InteriorPro', 'height_in').to_f
           if tp == 'door'
             info[:door_type] = (e.get_attribute('InteriorPro', 'door_type') || 'Single').to_s
             info[:category]  = (e.get_attribute('InteriorPro', 'door_category') || 'interior').to_s
@@ -122,19 +130,23 @@ module InteriorPro
             doors << info
           else
             info[:wtype] = (e.get_attribute('InteriorPro', 'window_type') || '').to_s
+            info[:header] = e.get_attribute('InteriorPro', 'header_height_in').to_f
             windows << info
           end
         end
         [doors, windows]
       end
 
-      # Keep existing marks; number the rest D1../W1.. after the max in use.
+      # Target-set mark convention (TARGET_PLANS section 2): W<level><nn> /
+      # D<level><nn> / IN<level><nn>. Level is 1 for now. Marks already in the
+      # convention are kept; anything else (empty or legacy D1/W1) is renumbered.
       def assign_marks!(list, prefix)
-        used = list.map { |b| b[:mark][/^#{prefix}(\d+)$/, 1] }.compact.map(&:to_i)
+        pat = /^#{prefix}1(\d{2})$/
+        used = list.map { |b| b[:mark][pat, 1] }.compact.map(&:to_i)
         nxt = (used.max || 0) + 1
         list.sort_by { |b| [b[:host].to_s, b[:t].to_f] }.each do |b|
-          next unless b[:mark].empty?
-          b[:mark] = "#{prefix}#{nxt}"
+          next if b[:mark] =~ pat
+          b[:mark] = format('%s1%02d', prefix, nxt)
           begin
             b[:entity].set_attribute('InteriorPro', 'mark', b[:mark])
           rescue StandardError
@@ -405,37 +417,50 @@ module InteriorPro
       end
 
       def sym_sliding(ents, d, x1, x2)
-        xm = (x1 + x2) / 2.0
+        fx1 = x1 + JAMB_W
+        fx2 = x2 - JAMB_W
+        xm = (fx1 + fx2) / 2.0
         cmid = (d[:off_pos] + d[:off_neg]) / 2.0
         panel = 1.2
-        rect(ents, d, x1 + 0.5, xm + 1.5, cmid + 0.3, cmid + 0.3 + panel)
-        rect(ents, d, xm - 1.5, x2 - 0.5, cmid - 0.3 - panel, cmid - 0.3)
+        rect(ents, d, fx1 + 0.5, xm + 1.5, cmid + 0.3, cmid + 0.3 + panel)
+        rect(ents, d, xm - 1.5, fx2 - 0.5, cmid - 0.3 - panel, cmid - 0.3)
       end
 
+      # Bi-fold: zigzag of THIN PANELS (1.5" thick rectangles), not bare lines.
       def sym_folding(ents, d, b, x1, x2)
-        w = x2 - x1
+        fx1 = x1 + JAMB_W
+        fx2 = x2 - JAMB_W
+        w = fx2 - fx1
+        return if w < 6.0
         panels = b[:door_type][/^(\d)-Panel/, 1]
         panels = panels ? panels.to_i : [b[:leaf_count], 2].max
         panels = 2 if panels < 2
         ss = swing_sign(b)
         edge = ss > 0 ? d[:off_pos] : d[:off_neg]
         amp = w / panels
-        pts = (0..panels).map do |i|
-          off = i.odd? ? ss * amp : 0.0
-          lpt(d, x1 + w * i / panels, edge).offset(d[:n], off)
+        verts = (0..panels).map do |i|
+          lpt(d, fx1 + w * i / panels.to_f, i.odd? ? edge + ss * amp : edge)
         end
-        add_poly(ents, d, pts)
+        verts.each_cons(2) do |a, b2|
+          leg = b2 - a
+          next if leg.length < 1.0
+          leg.normalize!
+          perp = Geom::Vector3d.new(-leg.y, leg.x, 0)
+          add_poly(ents, d, [a, b2, b2.offset(perp, 1.5), a.offset(perp, 1.5)], closed: true)
+        end
       end
 
       def sym_pocket(ents, d, b, x1, x2)
-        xm = (x1 + x2) / 2.0
+        fx1 = x1 + JAMB_W
+        fx2 = x2 - JAMB_W
+        xm = (fx1 + fx2) / 2.0
         cmid = (d[:off_pos] + d[:off_neg]) / 2.0
         if b[:swing] == 'right'
-          rect(ents, d, xm, x2, cmid - 0.6, cmid + 0.6)
-          add_dashed(ents, d, lpt(d, x1, cmid), lpt(d, xm, cmid))
+          rect(ents, d, xm, fx2, cmid - 0.6, cmid + 0.6)
+          add_dashed(ents, d, lpt(d, fx1, cmid), lpt(d, xm, cmid))
         else
-          rect(ents, d, x1, xm, cmid - 0.6, cmid + 0.6)
-          add_dashed(ents, d, lpt(d, xm, cmid), lpt(d, x2, cmid))
+          rect(ents, d, fx1, xm, cmid - 0.6, cmid + 0.6)
+          add_dashed(ents, d, lpt(d, xm, cmid), lpt(d, fx2, cmid))
         end
       end
 
@@ -582,27 +607,51 @@ module InteriorPro
         ft.positive? ? "#{ft}'-#{inch_s}\"" : "#{inch_s}\""
       end
 
-      # Dimension line along the exterior face: extension lines + 45deg ticks
-      # + feet-inches text, offset DIM_OFF outside the wall.
+      # Dimension strings along the exterior face (target-set style):
+      # row 1 (closer): segments between wall ends and rough-opening edges;
+      # row 2 (farther): overall face-to-face length. A wall without openings
+      # gets only the overall row, at row-1 distance.
       def draw_wall_dim(ents, d)
         return if d[:len] < 24.0
         off_face = d[:off_neg]              # exterior face (right perpendicular)
-        off_dim  = off_face - DIM_OFF
-        p1 = lpt(d, 0, off_dim)
-        p2 = lpt(d, d[:len], off_dim)
-        add_poly(ents, d, [p1, p2])
-        add_poly(ents, d, [lpt(d, 0, off_face - 2.0), lpt(d, 0, off_dim - 2.0)])
-        add_poly(ents, d, [lpt(d, d[:len], off_face - 2.0), lpt(d, d[:len], off_dim - 2.0)])
+        cuts = d[:openings]
+               .map { |o| [o[:t] - o[:width] / 2.0, o[:t] + o[:width] / 2.0] }
+               .select { |a, b| a > 1.0 && b < d[:len] - 1.0 }
+               .sort_by(&:first)
+
+        if cuts.empty?
+          dim_row(ents, d, [[0.0, d[:len]]], off_face, DIM_OFF, DIM_TEXT_H)
+          return
+        end
+
+        stops = ([0.0] + cuts.flatten + [d[:len]]).uniq.sort
+        segs = stops.each_cons(2).select { |a, b| (b - a) > 2.0 }
+        dim_row(ents, d, segs, off_face, DIM_OFF, 4.0)
+        dim_row(ents, d, [[0.0, d[:len]]], off_face, DIM_OFF + 12.0, DIM_TEXT_H)
+      end
+
+      # One dimension row: continuous line, extension lines + ticks at every
+      # stop, a length text per segment.
+      def dim_row(ents, d, segs, off_face, dist, text_h)
+        off_dim = off_face - dist
         diag = Geom::Vector3d.new(d[:u].x + d[:n].x, d[:u].y + d[:n].y, 0)
         diag.normalize!
-        [p1, p2].each do |p|
-          add_poly(ents, d, [p.offset(diag, -2.0), p.offset(diag, 2.0)])
-        end
         uw = d[:u].transform(d[:xform])
         ang = Math.atan2(uw.y, uw.x)
         ang += Math::PI if ang > Math::PI / 2 + 0.01 || ang < -Math::PI / 2 - 0.01
-        center = flat_world(lpt(d, d[:len] / 2.0, off_dim - 5.0), d[:xform])
-        add_text(ents, fmt_feet(d[:len]), DIM_TEXT_H, center, ang)
+
+        add_poly(ents, d, [lpt(d, segs.first[0], off_dim), lpt(d, segs.last[1], off_dim)])
+        stops = segs.flatten.uniq.sort
+        stops.each do |x|
+          add_poly(ents, d, [lpt(d, x, off_face - 2.0), lpt(d, x, off_dim - 2.0)])
+          p = lpt(d, x, off_dim)
+          add_poly(ents, d, [p.offset(diag, -2.0), p.offset(diag, 2.0)])
+        end
+        segs.each do |a, b|
+          next if (b - a) < 8.0
+          center = flat_world(lpt(d, (a + b) / 2.0, off_dim - 4.0), d[:xform])
+          add_text(ents, fmt_feet(b - a), text_h, center, ang)
+        end
       end
 
       # ---- room labels -----------------------------------------------------
@@ -653,7 +702,101 @@ module InteriorPro
           ents.add_circle(center, Geom::Vector3d.new(0, 0, 1), MARK_R, segs)
         rescue StandardError
         end
-        add_text(ents, text, MARK_TEXT_H, center, 0.0)
+        h = text.to_s.length > 4 ? 3.2 : MARK_TEXT_H
+        add_text(ents, text, h, center, 0.0)
+      end
+
+      # ---- schedules (A.114 style) ----------------------------------------
+
+      SCHED_ROW_H  = 12.0 unless const_defined?(:SCHED_ROW_H, false)
+      SCHED_TEXT_H = 3.6 unless const_defined?(:SCHED_TEXT_H, false)
+
+      def door_type_label(b)
+        case door_kind(b)
+        when :garage  then 'GARAGE DOOR'
+        when :sliding then 'SLIDING DOOR'
+        when :folding then 'BI-FOLD DOOR'
+        when :pocket  then 'POCKET DOOR'
+        when :double  then 'DOUBLE SWING'
+        else 'SWING DOOR'
+        end
+      end
+
+      # Window + Door schedules drawn to the right of the plan.
+      def draw_schedules(ents, model, doors, windows)
+        return if doors.empty? && windows.empty?
+        minx = miny = 1.0 / 0.0
+        maxx = maxy = -1.0 / 0.0
+        walls(model).each do |w|
+          xf = w.transformation
+          %w[start end].each do |k|
+            x = w.get_attribute('InteriorPro', "#{k}_x")
+            next if x.nil?
+            pt = Geom::Point3d.new(x.to_f, w.get_attribute('InteriorPro', "#{k}_y").to_f, 0).transform(xf)
+            minx = pt.x if pt.x < minx
+            maxx = pt.x if pt.x > maxx
+            miny = pt.y if pt.y < miny
+            maxy = pt.y if pt.y > maxy
+          end
+        end
+        return if maxx < minx
+        ox = maxx + 60.0
+        oy = maxy
+
+        unless windows.empty?
+          rows = windows.sort_by { |b| b[:mark] }.map do |b|
+            [b[:mark], fmt_feet(b[:width]), fmt_feet(b[:height]),
+             (b[:wtype].empty? ? 'WINDOW' : b[:wtype].upcase), fmt_feet(b[:header])]
+          end
+          oy = draw_schedule_table(ents, ox, oy, 'WINDOW SCHEDULE',
+                                   ['MARK', 'R.O. W', 'R.O. H', 'TYPE', 'HEAD'],
+                                   rows, [26.0, 26.0, 26.0, 72.0, 26.0])
+          oy -= 18.0
+        end
+
+        unless doors.empty?
+          rows = doors.sort_by { |b| b[:mark] }.map do |b|
+            [b[:mark], fmt_feet(b[:width]), fmt_feet(b[:height]),
+             door_type_label(b), b[:category] == 'interior' ? 'INTERIOR' : 'EXTERIOR']
+          end
+          draw_schedule_table(ents, ox, oy, 'DOOR SCHEDULE',
+                              ['MARK', 'WIDTH', 'HEIGHT', 'TYPE', 'FUNCTION'],
+                              rows, [26.0, 26.0, 26.0, 72.0, 34.0])
+        end
+      end
+
+      # Grid + texts, world-aligned (X axis). Returns the bottom Y.
+      def draw_schedule_table(ents, ox, oy, title, headers, rows, colws)
+        total_w = colws.sum
+        add_text(ents, title, 5.0, Geom::Point3d.new(ox + total_w / 2.0, oy + 8.0, PLAN_Z), 0.0)
+        all_rows = [headers] + rows
+        n = all_rows.length
+        wline = lambda do |x1, y1, x2, y2|
+          begin
+            ents.add_edges(Geom::Point3d.new(x1, y1, PLAN_Z), Geom::Point3d.new(x2, y2, PLAN_Z))
+          rescue StandardError
+          end
+        end
+        (0..n).each { |i| wline.call(ox, oy - i * SCHED_ROW_H, ox + total_w, oy - i * SCHED_ROW_H) }
+        cx = ox
+        wline.call(cx, oy, cx, oy - n * SCHED_ROW_H)
+        colws.each do |cw|
+          cx += cw
+          wline.call(cx, oy, cx, oy - n * SCHED_ROW_H)
+        end
+        all_rows.each_with_index do |row, ri|
+          cy = oy - ri * SCHED_ROW_H - SCHED_ROW_H / 2.0
+          cx = ox
+          row.each_with_index do |cell, ci|
+            cw = colws[ci]
+            txt = cell.to_s
+            h = SCHED_TEXT_H
+            h = [h * cw / (txt.length * h * 0.62), h].min if txt.length > 0   # shrink long cells
+            add_text(ents, txt, [h, 2.4].max, Geom::Point3d.new(cx + cw / 2.0, cy, PLAN_Z), 0.0) unless txt.empty?
+            cx += cw
+          end
+        end
+        oy - n * SCHED_ROW_H
       end
 
       # ---- materials / scene ----------------------------------------------

@@ -106,6 +106,46 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        dlg.add_action_callback('edit_opening_size') do |_, json|
+          r = JSON.parse(json)
+          body = find_body(r['id'].to_s)
+          if body
+            begin
+              w = r['width'].to_f
+              h = r['height'].to_f
+              if r['body'] == 'window'
+                g = ->(k, dv) { v = body.get_attribute('InteriorPro', k); v.nil? ? dv : v }
+                settings = {
+                  'window_type' => g.call('window_type', 'Casement').to_s,
+                  'width' => w > 6 ? w : body.get_attribute('InteriorPro', 'width_in').to_f,
+                  'height' => h > 6 ? h : body.get_attribute('InteriorPro', 'height_in').to_f,
+                  'header_height' => r['header'].to_f > 12 ? r['header'].to_f : g.call('header_height_in', 80).to_f,
+                  'frame_width' => g.call('frame_width_in', 1.5).to_f,
+                  'interior_depth' => g.call('interior_depth_in', 1.0).to_f,
+                  'arch_rise' => g.call('arch_rise_in', 0).to_f,
+                  'glass_grid_style' => g.call('glass_grid_style', 'none').to_s,
+                  'exterior_casing_style' => g.call('exterior_casing_style', 'none').to_s,
+                  'interior_casing_style' => g.call('interior_casing_style', 'none').to_s
+                }
+                InteriorPro::WindowManager.update_window(body, settings)
+              else
+                params = InteriorPro::DoorManager.params_from_door(body)
+                params['width'] = w if w > 6
+                params['height'] = h if h > 12
+                InteriorPro::DoorManager.update_door(body, params)
+              end
+              begin
+                InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+              rescue StandardError
+              end
+              puts "[PlanEditor] opening resized to #{w}x#{h}"
+            rescue StandardError => e
+              puts "[PlanEditor] edit_opening_size: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+            end
+          end
+          push_walls(dlg)
+        end
+
         dlg.add_action_callback('edit_door_swing') do |_, json|
           r = JSON.parse(json)
           door = find_body(r['id'].to_s)
@@ -171,6 +211,8 @@ module InteriorPro
             't' => t.to_f.round(3),
             'w' => e.get_attribute('InteriorPro', 'width_in').to_f,
             'wtype' => tp == 'window' ? (e.get_attribute('InteriorPro', 'window_type') || '').to_s : '',
+            'h' => e.get_attribute('InteriorPro', 'height_in').to_f,
+            'header' => tp == 'window' ? e.get_attribute('InteriorPro', 'header_height_in').to_f : 0,
             'kind' => kind,
             'swing' => swing,
             'clicked' => (e.get_attribute('InteriorPro', 'clicked_side') || 1).to_i
@@ -431,6 +473,12 @@ module InteriorPro
 
               <div id="secSel">
                 <div id="selInfo" style="margin-top:12px; color:#555; font-size:12px">לא נבחר כלום — לחץ על קיר או פתח</div>
+                <div id="selSizeOpts" style="display:none">
+                  <label>Width (in)</label><input type="text" id="selW">
+                  <label>Height (in)</label><input type="text" id="selH">
+                  <div id="selHeaderRow"><label>Header (in)</label><input type="text" id="selHead"></div>
+                  <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applySelSize()">Apply size</button></div>
+                </div>
                 <div id="selDoorOpts" style="display:none">
                   <label>Hinge side</label>
                   <div class="seg"><button id="selSwL" onclick="editSwing('left', false)">L</button><button id="selSwR" onclick="editSwing('right', false)">R</button></div>
@@ -596,8 +644,10 @@ module InteriorPro
             function updateSelPanel() {
               var info = document.getElementById('selInfo');
               var dopts = document.getElementById('selDoorOpts');
+              var sopts = document.getElementById('selSizeOpts');
               if (!info) return;
               dopts.style.display = 'none';
+              sopts.style.display = 'none';
               if (!sel) {
                 info.textContent = 'לא נבחר כלום — לחץ על קיר או פתח';
                 return;
@@ -609,12 +659,28 @@ module InteriorPro
                 info.textContent = 'Pending wall (not applied)';
               } else {
                 info.textContent = (sel.s.body === 'window' ? 'Window' : 'Door') + ' · ' + fmtLen(sel.s.w);
+                sopts.style.display = '';
+                document.getElementById('selW').value = sel.s.w || '';
+                document.getElementById('selH').value = sel.s.h || '';
+                document.getElementById('selHeaderRow').style.display = sel.s.body === 'window' ? '' : 'none';
+                document.getElementById('selHead').value = sel.s.header || '';
                 if (sel.s.body === 'door') {
                   dopts.style.display = '';
                   document.getElementById('selSwL').className = sel.s.swing === 'left' ? 'on' : '';
                   document.getElementById('selSwR').className = sel.s.swing === 'right' ? 'on' : '';
                 }
               }
+            }
+
+            function applySelSize() {
+              if (!sel || sel.type !== 'sym') return;
+              sketchup.edit_opening_size(JSON.stringify({
+                id: sel.s.id,
+                body: sel.s.body,
+                width: parseLen(document.getElementById('selW').value) || 0,
+                height: parseLen(document.getElementById('selH').value) || 0,
+                header: parseLen(document.getElementById('selHead').value) || 0
+              }));
             }
 
             function editSwing(swing, flip) {
@@ -933,29 +999,42 @@ module InteriorPro
                   symLeaf(w, b, x1 + JAMB, xm, s.clicked);
                   symLeaf(w, b, x2 - JAMB, xm, s.clicked);
                 } else if (s.kind === 'sliding') {
-                  var xm2 = (x1 + x2) / 2;
-                  symRect(w, b, x1+0.5, xm2+1.5, cmid+0.3, cmid+1.5);
-                  symRect(w, b, xm2-1.5, x2-0.5, cmid-1.5, cmid-0.3);
+                  symJambs(w, b, x1, x2);
+                  symHeader(w, b, x1, x2);
+                  var sf1 = x1 + JAMB, sf2 = x2 - JAMB, xm2 = (sf1 + sf2) / 2;
+                  symRect(w, b, sf1+0.5, xm2+1.5, cmid+0.3, cmid+1.5);
+                  symRect(w, b, xm2-1.5, sf2-0.5, cmid-1.5, cmid-0.3);
                 } else if (s.kind === 'garage') {
                   ctx.lineWidth = 2.5;
                   polyline([wpt(w,b,x1,b.q+0.7), wpt(w,b,x2,b.q+0.7)]);
                   ctx.lineWidth = 1;
                   symDashed(w, b, x1, x2, b.p + 3);
                 } else if (s.kind === 'folding') {
+                  symJambs(w, b, x1, x2);
+                  symHeader(w, b, x1, x2);
+                  var ff1 = x1 + JAMB, ff2 = x2 - JAMB;
                   var ss2 = s.clicked >= 0 ? -1 : 1;
                   var edge2 = ss2 > 0 ? b.p : b.q;
-                  var amp = (x2 - x1) / 4;
-                  var pts2 = [];
-                  for (var i = 0; i <= 4; i++) {
-                    var xx = x1 + (x2 - x1) * i / 4;
-                    var oo = (i % 2 === 1) ? edge2 + ss2*amp : edge2;
-                    pts2.push(wpt(w, b, xx, oo));
+                  var nPan = 4;
+                  var amp = (ff2 - ff1) / nPan;
+                  var vs = [];
+                  for (var i = 0; i <= nPan; i++) {
+                    vs.push(wpt(w, b, ff1 + (ff2 - ff1) * i / nPan,
+                                (i % 2 === 1) ? edge2 + ss2*amp : edge2));
                   }
-                  polyline(pts2);
+                  for (var iL = 0; iL < nPan; iL++) {   // each leaf = thin rectangle
+                    var A = vs[iL], B = vs[iL+1];
+                    var lx2 = B.x - A.x, ly2 = B.y - A.y;
+                    var ll = Math.hypot(lx2, ly2); if (ll < 1) continue;
+                    var px2 = -ly2/ll*1.5, py2 = lx2/ll*1.5;
+                    polyline([A, B, {x:B.x+px2, y:B.y+py2}, {x:A.x+px2, y:A.y+py2}, A]);
+                  }
                 } else if (s.kind === 'pocket') {
-                  var xm3 = (x1 + x2) / 2;
-                  symRect(w, b, x1, xm3, cmid-0.6, cmid+0.6);
-                  symDashed(w, b, xm3, x2, cmid);
+                  symJambs(w, b, x1, x2);
+                  symHeader(w, b, x1, x2);
+                  var pf1 = x1 + JAMB, pf2 = x2 - JAMB, xm3 = (pf1 + pf2) / 2;
+                  symRect(w, b, pf1, xm3, cmid-0.6, cmid+0.6);
+                  symDashed(w, b, xm3, pf2, cmid);
                 }
               });
             }
