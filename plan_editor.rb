@@ -1222,7 +1222,7 @@ module InteriorPro
               var v = parseLen(document.getElementById('selLen').value);
               if (!v || v <= 6 || !sel) return;
               if (sel.type === 'pending') { setPendingLength(sel.i, v); return; }
-              if (sel.type !== 'wall') return;
+              if (sel.type !== 'wall' || !sel.w.id) return;
               keepSel = { kind:'wall', id: sel.w.id };
               sketchup.set_wall_length(JSON.stringify({ wall_id: sel.w.id, len: v, fixed: fixedEndName(), keep: keepCorners }));
             }
@@ -1822,7 +1822,7 @@ module InteriorPro
               if (sel.type === 'wall') { outlineBand(sel.w, '#4b89ff'); drawWallDims(sel.w); }
               else if (sel.type === 'pending') {
                 var w = pending[sel.i];
-                if (w) { outlineBand(w, '#4b89ff'); drawWallDims(w); }
+                if (w) { outlineBand(w, '#4b89ff'); drawWallDims(w, sel.i); }
               }
               else { outlineOpening(sel.w, sel.s, sel.s.t, '#4b89ff'); drawOpeningDims(sel.w, sel.s); }
             }
@@ -1880,13 +1880,14 @@ module InteriorPro
                                        { id:s.id, body:s.body, base:next, hw:hw, wall:w });
             }
 
-            function drawWallDims(w) {
+            function drawWallDims(w, pi) {
               var b = bandQuad(w); if (!b) return;
               var off = b.q - 10;
               ctx.strokeStyle = '#1a6ee0'; ctx.lineWidth = 0.9;
               dimLine(w, b, 0, b.len, off);
               var p = wpt(w, b, b.len/2, off - 6);
-              dimTag(sx(p.x), sy(p.y), fmtLen(b.len), 'wallLen', { wall_id:w.id, len:b.len });
+              dimTag(sx(p.x), sy(p.y), fmtLen(b.len), 'wallLen',
+                     { wall_id:w.id, len:b.len, pi:(pi == null ? null : pi) });
               // green = the end that will move, red = pinned corner
               var mv  = movingEnd === 'end' ? {x:w.ex, y:w.ey} : {x:w.sx, y:w.sy};
               var pin = movingEnd === 'end' ? {x:w.sx, y:w.sy} : {x:w.ex, y:w.ey};
@@ -1939,6 +1940,9 @@ module InteriorPro
               var val = parseLen(v);
               if (!val || val <= 0) return;
               if (t.kind === 'wallLen') {
+                if (t.data.pi != null) { setPendingLength(t.data.pi, val); return; }
+                if (!t.data.wall_id) { alert('הקיר עוד לא עבר Apply to Model'); return; }
+                keepSel = { kind:'wall', id: t.data.wall_id };
                 sketchup.set_wall_length(JSON.stringify({ wall_id: t.data.wall_id, len: val, fixed: fixedEndName(), keep: keepCorners }));
               } else if (t.kind === 'size') {
                 sketchup.edit_opening_size(JSON.stringify({
