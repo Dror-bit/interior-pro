@@ -13,6 +13,23 @@ require 'json'
 
 module InteriorPro
   module PlanEditor
+    # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
+    # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
+    # Edit menu. The timer defers the refresh out of the observer callback.
+    class UndoRefreshObserver < Sketchup::ModelObserver
+      def initialize(&blk)
+        @blk = blk
+      end
+
+      def onTransactionUndo(_model)
+        @blk.call
+      end
+
+      def onTransactionRedo(_model)
+        @blk.call
+      end
+    end
+
     class << self
       def show
         if @dialog
@@ -34,6 +51,19 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        # Undo (2026-07-30): ONE undo for the whole editor. A pending wall is
+        # popped in JS; anything already applied goes through SketchUp's own
+        # undo stack. send_action is queued by SketchUp, so the canvas is
+        # re-synced on a short timer instead of immediately.
+        dlg.add_action_callback('undo_model') do |_|
+          begin
+            Sketchup.send_action('editUndo:')
+          rescue StandardError => e
+            puts "[PlanEditor] undo: #{e.message}"
+          end
+          UI.start_timer(0.2, false) { push_walls(dlg) }
+        end
+
         dlg.add_action_callback('apply_walls') do |_, json|
           n = apply_walls(JSON.parse(json))
           dlg.execute_script("applyDone(#{n})")
@@ -50,6 +80,64 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        # Wall thickness (2026-07-30): exactly the path the 3D wall-edit
+        # dialog uses (ui_dialogs.rb ~102-109) - recompute the corners from the
+        # NEW thickness, rebuild, then re-miter against the neighbours. Applied
+        # to every wall in the 2D selection. Door/window BODIES are on purpose
+        # NOT regenerated (user decision 2026-07-30); only the opening in the
+        # wall is re-cut by rebuild_wall_geometry.
+        dlg.add_action_callback('set_thickness') do |_, json|
+          r = JSON.parse(json)
+          th = r['th'].to_f
+          ids = r['ids'] || []
+          if th < 1.0
+            puts '[PlanEditor] thickness: value too small'
+          else
+            model = Sketchup.active_model
+            wt = InteriorPro::WallTool.new
+            done = 0
+            begin
+              model.start_operation('2D Wall Thickness', true)
+              ids.each do |wid|
+                wall = find_wall(wid.to_s)
+                next unless wall
+                wall.set_attribute('InteriorPro', 'thickness', th)
+                data = wt.wall_data(wall)
+                next unless data
+                corners = wt.compute_perpendicular_corners_from_data(data)
+                next unless corners
+                wt.save_corners_attr(wall, corners)
+                wt.rebuild_wall_geometry(wall, corners, data)
+                done += 1
+              end
+              # Re-miter only after every wall carries its new thickness.
+              ids.each do |wid|
+                wall = find_wall(wid.to_s)
+                next unless wall
+                begin
+                  wt.join_corners(wall, model, allow_centerline_fallback: true)
+                rescue StandardError => e
+                  puts "[PlanEditor] thickness join: #{e.message}"
+                end
+              end
+              model.commit_operation
+            rescue StandardError => e
+              begin; model.abort_operation; rescue StandardError; end
+              puts "[PlanEditor] set_thickness: #{e.message}"
+            end
+            begin
+              InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+            rescue StandardError
+            end
+            begin
+              InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+            rescue StandardError
+            end
+            puts "[PlanEditor] thickness #{th} on #{done} wall(s)"
+          end
+          push_walls(dlg)
+        end
+
         dlg.add_action_callback('delete_wall') do |_, json|
           r = JSON.parse(json)
           wall = find_wall(r['wall_id'].to_s)
@@ -61,6 +149,49 @@ module InteriorPro
               puts "[PlanEditor] delete_wall: #{e.message}"
             end
           end
+          push_walls(dlg)
+        end
+
+        # Bulk delete from the 2D editor (2026-07-30): openings FIRST, then
+        # walls (deleting a wall takes its own openings with it), all inside
+        # one outer operation -> a single Undo and a single canvas refresh.
+        dlg.add_action_callback('delete_many') do |_, json|
+          items = JSON.parse(json)['items'] || []
+          model = Sketchup.active_model
+          begin
+            model.start_operation('2D Delete Selection', true)
+            items.select { |it| it['kind'] == 'opening' }.each do |it|
+              body = find_body(it['id'].to_s)
+              next unless body
+              begin
+                if it['body'] == 'window'
+                  InteriorPro::WindowManager.delete_window(body)
+                else
+                  InteriorPro::DoorManager.delete_door(body)
+                end
+              rescue StandardError => e
+                puts "[PlanEditor] delete_many opening: #{e.message}"
+              end
+            end
+            items.select { |it| it['kind'] == 'wall' }.each do |it|
+              wall = find_wall(it['id'].to_s)
+              next unless wall
+              begin
+                InteriorPro::WallDeleteTool.delete_wall!(wall)
+              rescue StandardError => e
+                puts "[PlanEditor] delete_many wall: #{e.message}"
+              end
+            end
+            model.commit_operation
+          rescue StandardError => e
+            begin; model.abort_operation; rescue StandardError; end
+            puts "[PlanEditor] delete_many: #{e.message}"
+          end
+          begin
+            InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+          rescue StandardError
+          end
+          puts "[PlanEditor] bulk deleted #{items.length} item(s)"
           push_walls(dlg)
         end
 
@@ -253,8 +384,34 @@ module InteriorPro
         end
 
         dlg.set_html(build_html)
+        dlg.set_on_closed { detach_undo_observer }
+        attach_undo_observer(dlg)
         dlg.show
         @dialog = dlg
+      end
+
+      def attach_undo_observer(dlg)
+        detach_undo_observer
+        @undo_obs = UndoRefreshObserver.new do
+          UI.start_timer(0.1, false) do
+            begin
+              push_walls(dlg)
+            rescue StandardError
+            end
+          end
+        end
+        Sketchup.active_model.add_observer(@undo_obs)
+      rescue StandardError => e
+        puts "[PlanEditor] undo observer: #{e.message}"
+      end
+
+      def detach_undo_observer
+        return unless @undo_obs
+        begin
+          Sketchup.active_model.remove_observer(@undo_obs)
+        rescue StandardError
+        end
+        @undo_obs = nil
       end
 
       # ---- model -> editor -------------------------------------------------
@@ -898,7 +1055,9 @@ module InteriorPro
                pushing the side panel off-screen at small window sizes. */
             #canvasWrap { flex:1 1 auto; min-width:0; overflow:hidden; position:relative; background:#fbfcfe; }
             canvas { display:block; }
-            #side { flex:0 0 200px; width:200px; box-sizing:border-box; background:#f4f6f9; border-left:1px solid #d6dae0; padding:10px; overflow-y:auto; }
+            #side { flex:0 0 200px; width:200px; box-sizing:border-box; background:#f4f6f9; border-left:1px solid #d6dae0; padding:10px; overflow-y:auto; display:flex; flex-direction:column; }
+            #undoWrap { margin-top:auto; padding-top:14px; text-align:right; }
+            #undoWrap button { display:inline-flex; align-items:center; gap:6px; }
             #side label { display:block; margin:8px 0 3px; color:#333; }
             #side input[type=text] { width:70px; padding:3px; border:1px solid #c3c9d1; border-radius:3px; }
             #side select { width:100%; padding:3px; border:1px solid #c3c9d1; border-radius:3px; }
@@ -950,6 +1109,10 @@ module InteriorPro
                   <div style="color:#777; font-size:11px; margin-top:4px">Detach = הקיר זז/מתארך לבד, בלי לגרור את הקירות בפינות</div>
                   <div style="margin-top:6px"><button class="gray" style="width:100%" onclick="diagWall()">Diag → Ruby Console</button></div>
                 </div>
+                <div id="selThickOpts" style="display:none">
+                  <label>Thickness (in)</label><input type="text" id="selTh">
+                  <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applySelThickness()">Apply thickness</button></div>
+                </div>
                 <div id="selSizeOpts" style="display:none">
                   <label>Width (in)</label><input type="text" id="selW">
                   <label>Height (in)</label><input type="text" id="selH">
@@ -973,7 +1136,6 @@ module InteriorPro
                 <div class="seg"><button id="catE" class="on" onclick="setCat('exterior')">Ext</button><button id="catI" onclick="setCat('interior')">Int</button></div>
                 <label>Draw side</label>
                 <div class="seg"><button id="sideL" class="on" onclick="setSide('L')">L</button><button id="sideR" onclick="setSide('R')">R</button></div>
-                <div style="margin-top:14px"><button class="gray" style="width:100%" onclick="undoPending()">Undo last wall</button></div>
               </div>
 
               <div id="secDoor" style="display:none">
@@ -996,8 +1158,11 @@ module InteriorPro
               </div>
 
               <div id="status"></div>
+
+              <div id="undoWrap"><button class="gray" id="undoBtn" onclick="undoAction()" title="Undo"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M8 6 L4 10 L8 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 10 H14 A5 5 0 0 1 14 20 H9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>Undo</button></div>
             </div>
           </div>
+          <div id="hiddenUndo" contenteditable="true" spellcheck="false" style="position:fixed; left:-9999px; top:0; width:10px; height:10px; opacity:0; overflow:hidden"></div>
           <div id="bottom">
             <span>Length:</span><span id="vcb">&nbsp;</span>
                   <span id="dbg" style="color:#b3261e; font-size:10.5px"></span>
@@ -1009,6 +1174,29 @@ module InteriorPro
             var pending = [];        // walls drawn here, not yet applied
             var mode = 'sel';
             var sel = null;           // {type:'wall', w} | {type:'sym', w, s} | {type:'pending', i}
+            // Multi-select (2026-07-30): selList is the real selection; sel
+            // stays as the LAST picked item so every existing single-item code
+            // path keeps working untouched. New behaviour only kicks in when
+            // selList holds more than one element.
+            var selList = [];
+            var rubber = null;        // rubber-band rectangle while dragging on empty space
+
+            function selKey(o) {
+              if (!o) return '';
+              if (o.type === 'wall') return 'w:' + (o.w.id || '');
+              if (o.type === 'sym') return 's:' + (o.s.id || '');
+              return 'p:' + o.i;
+            }
+            function setSel(o) { selList = o ? [o] : []; sel = o || null; }
+            function toggleSel(o) {
+              if (!o) return;
+              var k = selKey(o), at = -1;
+              for (var i9 = 0; i9 < selList.length; i9++) {
+                if (selKey(selList[i9]) === k) { at = i9; break; }
+              }
+              if (at >= 0) selList.splice(at, 1); else selList.push(o);
+              sel = selList.length ? selList[selList.length - 1] : null;
+            }
             var dragSym = null;       // {w, s, startT, curT, valid, moved}
             var dragWall = null;      // {w, b, from:{x,y}, off, moved} - sideways move
             var shiftDown = false;    // Shift = lock the current drawing direction (SketchUp style)
@@ -1140,7 +1328,7 @@ module InteriorPro
               document.getElementById('dSwR').className = s === 'right' ? 'on' : '';
             }
             function setMode(m) {
-              mode = m; endChain(); hoverHit = null; sel = null; dragSym = null;
+              mode = m; endChain(); hoverHit = null; setSel(null); dragSym = null;
               // Doors/windows need applied walls - apply pending automatically.
               if ((m === 'door' || m === 'win') && pending.length) applyPending();
               document.getElementById('modeSel').className = (m === 'sel' ? 'on ' : '') + 'modebtn';
@@ -1166,12 +1354,29 @@ module InteriorPro
               var dopts = document.getElementById('selDoorOpts');
               var sopts = document.getElementById('selSizeOpts');
               var wopts = document.getElementById('selWallOpts');
+              var topts = document.getElementById('selThickOpts');
               if (!info) return;
               dopts.style.display = 'none';
               sopts.style.display = 'none';
               wopts.style.display = 'none';
+              topts.style.display = 'none';
               if (!sel) {
                 info.textContent = 'לא נבחר כלום — לחץ על קיר או פתח';
+                return;
+              }
+              // Thickness applies to every wall in the selection - one or many.
+              var wsel = selList.filter(function(o) { return o.type === 'wall' || o.type === 'pending'; });
+              if (wsel.length) {
+                topts.style.display = '';
+                var ths = wsel.map(function(o) { return o.type === 'pending' ? (pending[o.i] || {}).th : o.w.th; });
+                var same = ths.every(function(v) { return v === ths[0]; });
+                document.getElementById('selTh').value = (same && ths[0] != null) ? ths[0] : '';
+              }
+              if (selList.length > 1) {
+                var nWall = 0, nOpen = 0;
+                selList.forEach(function(o) { if (o.type === 'sym') nOpen++; else nWall++; });
+                info.innerHTML = 'נבחרו <b>' + selList.length + '</b> אלמנטים' +
+                  '<br><span style="font-size:11px; color:#777">' + nWall + ' קירות · ' + nOpen + ' פתחים</span>';
                 return;
               }
               if (sel.type === 'wall') {
@@ -1218,6 +1423,18 @@ module InteriorPro
               draw();
             }
             function fixedEndName() { return movingEnd === 'end' ? 'start' : 'end'; }
+            function applySelThickness() {
+              var v = parseLen(document.getElementById('selTh').value);
+              if (!v || v < 1) return;
+              var ids = [];
+              selList.forEach(function(o) {
+                if (o.type === 'pending') { var pw3 = pending[o.i]; if (pw3) pw3.th = v; }
+                else if (o.type === 'wall' && o.w.id) ids.push(o.w.id);
+              });
+              draw();
+              if (ids.length) sketchup.set_thickness(JSON.stringify({ ids: ids, th: v }));
+            }
+
             function applyWallLen() {
               var v = parseLen(document.getElementById('selLen').value);
               if (!v || v <= 6 || !sel) return;
@@ -1355,14 +1572,27 @@ module InteriorPro
 
             function deleteSelected() {
               if (!sel) return;
-              if (sel.type === 'pending') { pending.splice(sel.i, 1); sel = null; updateSelPanel(); draw(); return; }
+              if (selList.length > 1) {
+                if (!confirm('למחוק ' + selList.length + ' אלמנטים?')) return;
+                var items = [];
+                for (var d1 = selList.length - 1; d1 >= 0; d1--) {
+                  var o = selList[d1];
+                  if (o.type === 'pending') { pending.splice(o.i, 1); continue; }
+                  if (o.type === 'wall') { if (o.w.id) items.push({ kind:'wall', id:o.w.id }); }
+                  else if (o.s.id) items.push({ kind:'opening', id:o.s.id, body:o.s.body });
+                }
+                setSel(null); updateSelPanel(); draw();
+                if (items.length) sketchup.delete_many(JSON.stringify({ items: items }));
+                return;
+              }
+              if (sel.type === 'pending') { pending.splice(sel.i, 1); setSel(null); updateSelPanel(); draw(); return; }
               if (!confirm('למחוק את מה שנבחר?')) return;
               if (sel.type === 'wall') {
                 sketchup.delete_wall(JSON.stringify({ wall_id: sel.w.id }));
               } else {
                 sketchup.delete_opening(JSON.stringify({ id: sel.s.id, body: sel.s.body }));
               }
-              sel = null; updateSelPanel();
+              setSel(null); updateSelPanel();
             }
 
             function hitOpening(p) {
@@ -1431,6 +1661,34 @@ module InteriorPro
               m = s.match(/^(\\d+(?:\\.\\d+)?)\\"?$/);
               if (m) return parseFloat(m[1]);
               return null;
+            }
+
+            // Everything whose CENTRE falls inside the rubber band: walls by
+            // their drawn midpoint, openings by their point on the wall.
+            function rubberPick() {
+              var xa = Math.min(rubber.x0, rubber.x1), xb = Math.max(rubber.x0, rubber.x1);
+              var ya = Math.min(rubber.y0, rubber.y1), yb = Math.max(rubber.y0, rubber.y1);
+              function inRect(x, y) { return x >= xa && x <= xb && y >= ya && y <= yb; }
+              var out = [];
+              walls.forEach(function(w) {
+                if (inRect((w.sx + w.ex) / 2, (w.sy + w.ey) / 2)) out.push({ type:'wall', w:w });
+                var b = bandQuad(w); if (!b) return;
+                (w.syms || []).forEach(function(sy2) {
+                  if (inRect(w.sx + b.ux * sy2.t, w.sy + b.uy * sy2.t)) out.push({ type:'sym', w:w, s:sy2 });
+                });
+              });
+              pending.forEach(function(pw, pi2) {
+                if (inRect((pw.sx + pw.ex) / 2, (pw.sy + pw.ey) / 2)) out.push({ type:'pending', i:pi2 });
+              });
+              return out;
+            }
+
+            function drawRubber() {
+              var x0 = sx(rubber.x0), y0 = sy(rubber.y0), x1 = sx(rubber.x1), y1 = sy(rubber.y1);
+              ctx.save();
+              ctx.strokeStyle = '#4b89ff'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+              ctx.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+              ctx.restore();
             }
 
             function bandQuad(w) {
@@ -1818,6 +2076,15 @@ module InteriorPro
                 outlineOpening(dragSym.w, dragSym.s, dragSym.curT, dragSym.valid ? '#1a9d55' : '#e0392b');
                 return;
               }
+              if (rubber && rubber.on) drawRubber();
+              if (selList.length > 1) {      // multi-select: outline only, no dims
+                selList.forEach(function(o) {
+                  if (o.type === 'wall') outlineBand(o.w, '#4b89ff');
+                  else if (o.type === 'pending') { var pw2 = pending[o.i]; if (pw2) outlineBand(pw2, '#4b89ff'); }
+                  else outlineOpening(o.w, o.s, o.s.t, '#4b89ff');
+                });
+                return;
+              }
               if (!sel) return;
               if (sel.type === 'wall') { outlineBand(sel.w, '#4b89ff'); drawWallDims(sel.w); }
               else if (sel.type === 'pending') {
@@ -2140,22 +2407,34 @@ module InteriorPro
                 if (dt) { editDimTag(dt); return; }
                 var ho = hitOpening(p);
                 if (ho) {
-                  sel = { type:'sym', w:ho.w, s:ho.s };
+                  var oSel = { type:'sym', w:ho.w, s:ho.s };
+                  if (ev.shiftKey) { toggleSel(oSel); updateSelPanel(); draw(); return; }
+                  setSel(oSel);
                   dragSym = { w:ho.w, s:ho.s, b:ho.b, startT:ho.s.t, curT:ho.s.t,
                               sxy:{x:ev.offsetX, y:ev.offsetY}, valid:true, moved:false };
                 } else {
                   var hw = hitWall(p);
                   if (hw) {
-                    sel = { type:'wall', w:hw.w };
+                    var wSel = { type:'wall', w:hw.w };
+                    if (ev.shiftKey) { toggleSel(wSel); updateSelPanel(); draw(); return; }
+                    setSel(wSel);
                     dragWall = { w:hw.w, b:hw.b, from:{x:p.x, y:p.y},
                                  sxy:{x:ev.offsetX, y:ev.offsetY}, off:0, moved:false };
                   } else {
-                      var pi = hitPending(p);
-                    sel = pi >= 0 ? { type:'pending', i:pi } : null;
+                    var pi = hitPending(p);
+                    var pSel = pi >= 0 ? { type:'pending', i:pi } : null;
+                    if (ev.shiftKey) {
+                      if (pSel) toggleSel(pSel);
+                      updateSelPanel(); draw(); return;
+                    }
+                    setSel(pSel);
                     if (pi >= 0) {   // pending (blue) walls drag too
                       var pw0 = pending[pi];
                       dragWall = { w:pw0, b:bandQuad(pw0), pi:pi, from:{x:p.x, y:p.y},
                                    sxy:{x:ev.offsetX, y:ev.offsetY}, off:0, moved:false };
+                    } else {         // empty space -> rubber-band selection
+                      rubber = { x0:p.x, y0:p.y, x1:p.x, y1:p.y,
+                                 sx:ev.offsetX, sy:ev.offsetY, on:false };
                     }
                   }
                   dragSym = null;
@@ -2205,6 +2484,12 @@ module InteriorPro
 
             function handleMove(px, py) {
               evCount.mm++; updateDbg();
+              if (rubber) {
+                rubber.x1 = mx(px); rubber.y1 = my(py);
+                if (!rubber.on && (Math.abs(px - rubber.sx) > 4 || Math.abs(py - rubber.sy) > 4)) rubber.on = true;
+                draw();
+                return;
+              }
               if (panning) {
                 panX += px - panFrom.x; panY -= py - panFrom.y;
                 panFrom = {x:px, y:py}; draw(); return;
@@ -2246,7 +2531,7 @@ module InteriorPro
               try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
             });
             cv.addEventListener('pointermove', function(ev) {
-              if (!dragWall && !dragSym && !panning) return;
+              if (!dragWall && !dragSym && !panning && !rubber) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -2255,7 +2540,7 @@ module InteriorPro
               finishDrag();
             });
             window.addEventListener('mousemove', function(ev) {
-              if (!dragWall && !dragSym && !panning) return;
+              if (!dragWall && !dragSym && !panning && !rubber) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -2264,6 +2549,13 @@ module InteriorPro
             function finishDrag() {
               evCount.mu++; updateDbg();
               panning = false;
+              if (rubber) {
+                var picked = rubber.on ? rubberPick() : [];
+                rubber = null;
+                if (picked.length) { selList = picked; sel = picked[picked.length - 1]; }
+                updateSelPanel(); draw();
+                return;
+              }
               if (mode === 'sel' && dragWall) {
                 if (dragWall.moved && Math.abs(dragWall.off) >= 0.25) {
                   if (dragWall.pi != null) {          // not applied yet -> local move
@@ -2309,7 +2601,7 @@ module InteriorPro
                 return;
               }
               if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT') return;
-              if (ev.key === 'Escape') { endChain(); if (mode === 'sel') { sel = null; dragSym = null; updateSelPanel(); draw(); } return; }
+              if (ev.key === 'Escape') { endChain(); if (mode === 'sel') { setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw(); } return; }
               // While dragging a wall / opening you can TYPE the exact amount
               // (SketchUp-style): digits go to the VCB, Enter applies.
               if (mode === 'sel' && (dragWall || dragSym)) {
@@ -2352,6 +2644,35 @@ module InteriorPro
               document.getElementById('sideR').className = s === 'R' ? 'on' : '';
             }
             function undoPending() { pending.pop(); draw(); }
+
+            // One Undo for the whole editor: the newest pending wall first,
+            // otherwise SketchUp's own undo stack (canvas re-syncs after).
+            function undoAction() {
+              if (pending.length) { undoPending(); return; }
+              sketchup.undo_model();
+            }
+
+            // Ctrl+Z (2026-07-30). Plain key events for Ctrl combos never reach
+            // this dialog (verified), but the browser's EDIT pipeline does: a
+            // focused contenteditable with one undoable edit turns Ctrl+Z into
+            // a 'beforeinput' of type historyUndo. We cancel the text undo and
+            // run our own. Clicking the canvas parks the focus there.
+            var hu = document.getElementById('hiddenUndo');
+            function armHiddenUndo() {
+              if (!hu) return;
+              try { hu.focus(); } catch (e) {}
+              if (!hu.dataset.armed) {
+                try { document.execCommand('insertText', false, 'x'); hu.dataset.armed = '1'; } catch (e) {}
+              }
+            }
+            if (hu) {
+              hu.addEventListener('beforeinput', function(ev) {
+                if (ev.inputType === 'historyUndo') { ev.preventDefault(); undoAction(); }
+                else if (ev.inputType === 'historyRedo') { ev.preventDefault(); }
+              });
+              cv.addEventListener('mousedown', function() { setTimeout(armHiddenUndo, 0); });
+              setTimeout(armHiddenUndo, 300);
+            }
 
             // ---- Ruby bridge ----
             // Exterior walls always face OUT of the building, regardless of the
@@ -2406,6 +2727,7 @@ module InteriorPro
                   }
                 }
               }
+              selList = sel ? [sel] : [];
               if (typeof updateSelPanel === 'function') updateSelPanel();
               if (!fitted && walls.length) { fitView(); fitted = true; }
               draw();

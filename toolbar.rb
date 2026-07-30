@@ -44,6 +44,7 @@ module InteriorPro
       @setup_done = true
 
       setup_floors_toolbar
+      setup_2d_toolbar
 
       toolbar = resolve_toolbar
       return if toolbar.length >= TOOLBAR_ITEM_COUNT
@@ -284,6 +285,26 @@ module InteriorPro
       foundation_cmd.small_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
       foundation_cmd.large_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
       tb.add_item(foundation_cmd)
+
+      tb.restore
+    end
+
+    # Separate 2D toolbar (2026-07-30): direct access to the 2D editor, so the
+    # 2D-first workflow does not have to go through the Extensions menu.
+    # Its own toolbar on purpose - the main bar's length guard
+    # (TOOLBAR_ITEM_COUNT) would skip any item added there now.
+    def self.setup_2d_toolbar
+      tb = UI::Toolbar.new('Interior Pro 2D')
+      return if tb.length >= 1
+
+      editor_cmd = UI::Command.new('2D Editor') {
+        InteriorPro::PlanEditor.show
+      }
+      editor_cmd.tooltip = '2D Editor - draw the plan from above'
+      editor_cmd.status_bar_text = 'Open the 2D editor: draw walls, doors and windows from above'
+      editor_cmd.small_icon = File.join(__dir__, 'icons', 'plan_2d.svg')
+      editor_cmd.large_icon = File.join(__dir__, 'icons', 'plan_2d.svg')
+      tb.add_item(editor_cmd)
 
       tb.restore
     end
