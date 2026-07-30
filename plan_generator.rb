@@ -613,21 +613,49 @@ module InteriorPro
       # gets only the overall row, at row-1 distance.
       def draw_wall_dim(ents, d)
         return if d[:len] < 24.0
-        off_face = d[:off_neg]              # exterior face (right perpendicular)
         cuts = d[:openings]
                .map { |o| [o[:t] - o[:width] / 2.0, o[:t] + o[:width] / 2.0] }
                .select { |a, b| a > 1.0 && b < d[:len] - 1.0 }
                .sort_by(&:first)
-
-        if cuts.empty?
-          dim_row(ents, d, [[0.0, d[:len]]], off_face, DIM_OFF, DIM_TEXT_H)
-          return
-        end
-
         stops = ([0.0] + cuts.flatten + [d[:len]]).uniq.sort
         segs = stops.each_cons(2).select { |a, b| (b - a) > 2.0 }
-        dim_row(ents, d, segs, off_face, DIM_OFF, 4.0)
-        dim_row(ents, d, [[0.0, d[:len]]], off_face, DIM_OFF + 12.0, DIM_TEXT_H)
+
+        # EXTERIOR side (off_neg): opening segments + overall.
+        if cuts.empty?
+          dim_row(ents, d, [[0.0, d[:len]]], d[:off_neg], DIM_OFF, DIM_TEXT_H)
+        else
+          dim_row(ents, d, segs, d[:off_neg], DIM_OFF, 4.0)
+          dim_row(ents, d, [[0.0, d[:len]]], d[:off_neg], DIM_OFF + 12.0, DIM_TEXT_H)
+        end
+
+        # INTERIOR side (off_pos): clear inside length between the neighbouring
+        # walls' faces (what a contractor measures in the room).
+        ia, ib = interior_clear_span(d)
+        dim_row(ents, d, [[ia, ib]], d[:off_pos], -DIM_OFF, DIM_TEXT_H) if (ib - ia) > 12.0
+      end
+
+      # Inside clear span along the wall: from 0/len inwards by the thickness of
+      # whatever wall meets each end (so the number is face-to-face in the room).
+      def interior_clear_span(d)
+        a = 0.0
+        b = d[:len]
+        s = d[:s]
+        e = d[:e]
+        walls(Sketchup.active_model).each do |w|
+          next if w.get_attribute('InteriorPro', 'id') == d[:id]
+          sx = w.get_attribute('InteriorPro', 'start_x')
+          next if sx.nil?
+          xf = w.transformation
+          th = w.get_attribute('InteriorPro', 'thickness').to_f
+          ws = Geom::Point3d.new(sx.to_f, w.get_attribute('InteriorPro', 'start_y').to_f, 0).transform(xf)
+          we = Geom::Point3d.new(w.get_attribute('InteriorPro', 'end_x').to_f,
+                                 w.get_attribute('InteriorPro', 'end_y').to_f, 0).transform(xf)
+          [ws, we].each do |p|
+            a = th if p.distance(s) < th + 2.0 && th > a
+            b = d[:len] - th if p.distance(e) < th + 2.0 && (d[:len] - th) < b
+          end
+        end
+        [a, b]
       end
 
       # One dimension row: continuous line, extension lines + ticks at every
