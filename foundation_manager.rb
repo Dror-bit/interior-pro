@@ -10,9 +10,13 @@ module InteriorPro
     DEFAULT_HEIGHT = 18.0 unless const_defined?(:DEFAULT_HEIGHT, false)
 
     def self.exterior_walls
+      # Level guard (2026-08-03): a foundation belongs to the GROUND floor.
+      # Level-2 walls are exterior too, but concrete in the air is not a
+      # thing — only level-1 walls get the belt.
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
-          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior'
+          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior' &&
+          (g.get_attribute('InteriorPro', 'level') || 1).to_i == 1
       end
     end
 
@@ -120,7 +124,8 @@ module InteriorPro
     def self.interior_walls
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
-          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'interior'
+          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'interior' &&
+          (g.get_attribute('InteriorPro', 'level') || 1).to_i == 1
       end
     end
 

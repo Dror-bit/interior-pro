@@ -6,8 +6,13 @@ module InteriorPro
     CORNER_TOL = 1.5 unless const_defined?(:CORNER_TOL, false) # inches
 
     def self.wall_list
+      # TEMPORARY level guard (2026-08-03, part 1): room detection flattens
+      # everything to z=0, so level-2 walls would collide with level-1
+      # rooms. Until per-level rooms arrive (part 2), only level-1 walls
+      # take part in room detection.
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
-        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
+          (g.get_attribute('InteriorPro', 'level') || 1).to_i == 1
       end
     end
 
@@ -433,6 +438,11 @@ module InteriorPro
         InteriorPro::FloorManager.refresh! if defined?(InteriorPro::FloorManager)
       rescue StandardError => e
         puts "[Floors] refresh after room sync: #{e.message}"
+      end
+      begin
+        InteriorPro::CeilingManager.refresh! if defined?(InteriorPro::CeilingManager)
+      rescue StandardError => e
+        puts "[Ceilings] refresh after room sync: #{e.message}"
       end
       puts "[Rooms] sync: #{detected.length} room(s) in model"
       detected.length

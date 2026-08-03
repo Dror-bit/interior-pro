@@ -256,7 +256,7 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 3
+      return if tb.length >= 4
 
       rooms_cmd = UI::Command.new('Sync Rooms') {
         InteriorPro::RoomManager.sync_rooms!
@@ -285,6 +285,16 @@ module InteriorPro
       foundation_cmd.small_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
       foundation_cmd.large_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
       tb.add_item(foundation_cmd)
+
+      # Ceilings per room (2026-08-03): built only when asked, like floors.
+      ceilings_cmd = UI::Command.new('Ceilings') {
+        InteriorPro::CeilingManager.build_ceilings!
+      }
+      ceilings_cmd.tooltip = 'Ceilings - build a ceiling for every room'
+      ceilings_cmd.status_bar_text = 'Build/update ceilings from the room boundaries; Remove via Extensions menu'
+      ceilings_cmd.small_icon = File.join(__dir__, 'icons', 'ceiling_tool.svg')
+      ceilings_cmd.large_icon = File.join(__dir__, 'icons', 'ceiling_tool.svg')
+      tb.add_item(ceilings_cmd)
 
       tb.restore
     end
@@ -400,6 +410,24 @@ module InteriorPro
       }
       menu.add_item('Foundation: Remove') {
         InteriorPro::FoundationManager.remove_all!
+      }
+      menu.add_item('Ceilings: Build / Update') {
+        InteriorPro::CeilingManager.build_ceilings!
+      }
+      menu.add_item('Ceilings: Remove') {
+        InteriorPro::CeilingManager.remove_all!
+      }
+      menu.add_item('Level 2 Structure: Build / Update') {
+        InteriorPro::LevelManager.build_level2_structure!
+      }
+      menu.add_item('Level 2 Structure: Remove') {
+        InteriorPro::LevelManager.remove_level2_structure!
+      }
+      menu.add_item('Level: Work on Level 1') {
+        InteriorPro::LevelManager.set_active_level!(1)
+      }
+      menu.add_item('Level: Work on Level 2') {
+        InteriorPro::LevelManager.set_active_level!(2)
       }
       menu.add_item('2D Editor') {
         InteriorPro::PlanEditor.show

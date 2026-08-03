@@ -36,6 +36,8 @@ module InteriorPro
       floor_pattern.rb
       floor_dialog.rb
       foundation_manager.rb
+      ceiling_manager.rb
+      level_manager.rb
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb

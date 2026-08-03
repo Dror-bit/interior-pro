@@ -238,10 +238,14 @@ module InteriorPro
       # Walls that met the moving end (old corner partners) keep a stale
       # miter cut — collect them now, re-square and re-join after the stretch.
       old_pt = Geom::Point3d.new(@fixed.x + @u.x * len_old, @fixed.y + @u.y * len_old, 0)
+      wall_lvl = (wall.get_attribute('InteriorPro', 'level') || 1).to_i
       partners = []
       model.entities.grep(Sketchup::Group).each do |g|
         next if g == wall
         next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+        # Level guard (2026-08-03): stacked walls share x/y — partners only
+        # within the same level.
+        next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == wall_lvl
         [%w[start_x start_y], %w[end_x end_y]].each do |kx, ky|
           px = g.get_attribute('InteriorPro', kx)
           py = g.get_attribute('InteriorPro', ky)

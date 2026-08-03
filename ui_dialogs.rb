@@ -215,9 +215,13 @@ module InteriorPro
         tol = 0.1
         connections = []
         moving_cat = (group.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+        moving_lvl = (group.get_attribute('InteriorPro', 'level') || 1).to_i
         model.entities.grep(Sketchup::Group).each do |g|
           next if g == group
           next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+          # Level guard (2026-08-03): a level-2 wall stacked above shares the
+          # same drawn x/y — moving a level-1 wall must NOT drag it along.
+          next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == moving_lvl
           osx = g.get_attribute('InteriorPro', 'start_x')
           osy = g.get_attribute('InteriorPro', 'start_y')
           oex = g.get_attribute('InteriorPro', 'end_x')
@@ -362,6 +366,12 @@ module InteriorPro
           InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
         rescue StandardError => e
           puts "[Rooms] sync after wall move: #{e.message}"
+        end
+        # Foundation follows the moved wall (no-op when none exists).
+        begin
+          InteriorPro::FoundationManager.refresh! if defined?(InteriorPro::FoundationManager)
+        rescue StandardError => e
+          puts "[Foundation] refresh after wall move: #{e.message}"
         end
 
         dialog.close

@@ -76,16 +76,17 @@ module InteriorPro
         h_anchor = parts[1] || 'center'
       end
 
+      base = active_base
       case v_anchor
       when 'top'
-        z1 = -@height
-        z2 = 0
+        z1 = base - @height
+        z2 = base
       when 'center'
-        z1 = -@height / 2.0
-        z2 = @height / 2.0
+        z1 = base - @height / 2.0
+        z2 = base + @height / 2.0
       else
-        z1 = 0
-        z2 = @height
+        z1 = base
+        z2 = base + @height
       end
 
       case h_anchor
@@ -160,7 +161,7 @@ module InteriorPro
       @preview_group.hidden = false if @preview_group && @preview_group.valid?
       if @drawing
         raw = raw_cursor_position(view, x, y)
-        pt = @ip.position
+        pt = pick_point(view, x, y)
         pt = snap_start_to_wall_centerline(pt)
         if @auto_snap == :manual
           @end_point = snap_to_axis(pt)
@@ -181,13 +182,38 @@ module InteriorPro
       !@ip.vertex.nil? || !@ip.edge.nil?
     end
 
+    # Active-level working plane (2026-08-03): drawing happens AT the
+    # active level's base height — preview, clicks, axis snapping and
+    # typed lengths all live on that plane. Level 1 => base 0, exactly
+    # the old behavior.
+    def active_base
+      return 0.0 unless defined?(InteriorPro::LevelManager)
+      InteriorPro::LevelManager.level_base(InteriorPro::LevelManager.active_level)
+    rescue StandardError
+      0.0
+    end
+
+    # Cursor point for drawing: a snap to real geometry keeps its x/y;
+    # a free point (ground-plane inference) is re-projected onto the
+    # active level's plane, so the wall starts where the cursor VISUALLY
+    # sits on that level — not on the ground far behind it.
+    def pick_point(view, x, y)
+      pt = @ip.position
+      base = active_base
+      return Geom::Point3d.new(pt.x, pt.y, base) if snapped_to_geometry? || (pt.z - base).abs < 0.5
+      ray = view.pickray(x, y)
+      hit = Geom.intersect_line_plane(ray, [Geom::Point3d.new(0, 0, base), Geom::Vector3d.new(0, 0, 1)])
+      hit ? Geom::Point3d.new(hit.x, hit.y, base) : Geom::Point3d.new(pt.x, pt.y, base)
+    end
+
     def onLButtonDown(flags, x, y, view)
       @preview_group.hidden = true if @preview_group && @preview_group.valid?
       @ip.pick(view, x, y)
       @preview_group.hidden = false if @preview_group && @preview_group.valid?
       if !@drawing
-        pt = Geom::Point3d.new(@ip.position.x, @ip.position.y, 0)
-        @start_point = snap_start_to_wall_centerline(pt)
+        pt = pick_point(view, x, y)
+        sp = snap_start_to_wall_centerline(pt)
+        @start_point = Geom::Point3d.new(sp.x, sp.y, active_base)
         @drawing = true
         @length_input = ''
         Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
@@ -198,7 +224,7 @@ module InteriorPro
         # Safety: if somehow nil, fallback once
         if pt.nil?
           raw = raw_cursor_position(view, x, y)
-          pt_input = @ip.position
+          pt_input = pick_point(view, x, y)
           detect_auto_snap(raw) if raw
           pt = snap_to_axis(pt_input)
         end
@@ -267,7 +293,7 @@ module InteriorPro
       return if cur_len < 0.001
       new_x = @start_point.x + dx / cur_len * length
       new_y = @start_point.y + dy / cur_len * length
-      @end_point = Geom::Point3d.new(new_x, new_y, 0)
+      @end_point = Geom::Point3d.new(new_x, new_y, active_base)
       create_wall
       @start_point = @end_point
       Sketchup.set_status_text('Click endpoint. Double-click or Escape to finish.', SB_PROMPT)
@@ -300,13 +326,14 @@ module InteriorPro
     end
 
     def snap_to_axis(pt)
-      return Geom::Point3d.new(pt.x, pt.y, 0) unless @drawing && @start_point
+      base = active_base
+      return Geom::Point3d.new(pt.x, pt.y, base) unless @drawing && @start_point
       if @locked_axis == :x
-        Geom::Point3d.new(pt.x, @start_point.y, 0)
+        Geom::Point3d.new(pt.x, @start_point.y, base)
       elsif @locked_axis == :y
-        Geom::Point3d.new(@start_point.x, pt.y, 0)
+        Geom::Point3d.new(@start_point.x, pt.y, base)
       else
-        Geom::Point3d.new(pt.x, pt.y, 0)
+        Geom::Point3d.new(pt.x, pt.y, base)
       end
     end
 
@@ -316,7 +343,7 @@ module InteriorPro
     # cursor passes over previous wall edges.
     def raw_cursor_position(view, x, y)
       ray = view.pickray(x, y)
-      Geom.intersect_line_plane(ray, [Geom::Point3d.new(0, 0, 0), Geom::Vector3d.new(0, 0, 1)])
+      Geom.intersect_line_plane(ray, [Geom::Point3d.new(0, 0, active_base), Geom::Vector3d.new(0, 0, 1)])
     end
 
     def snap_start_to_wall_centerline(pt)
@@ -404,6 +431,11 @@ module InteriorPro
       Sketchup.set_status_text("anchor=#{@anchor} t=#{@thickness} h=#{@height}", SB_PROMPT)
 
       group = build_wall_group(@start_point, @end_point, attrs, model)
+      # Active level (2026-08-03): the new wall lands on the level the user
+      # is working on — BEFORE join_corners, so miters only see its level.
+      if group && defined?(InteriorPro::LevelManager)
+        InteriorPro::LevelManager.place_wall_on_active_level!(group)
+      end
       join_corners(group, model) if group
 
       model.commit_operation
@@ -700,11 +732,18 @@ module InteriorPro
     #  drawn endpoints separated by up to (t_a + t_b)/2 when their h_anchors
     #  put the drawn lines on opposite sides of the centerlines.
     def find_neighbor_at(point, exclude_group, model, allow_centerline_fallback: false)
+      # Level guard (2026-08-03): miters only between SAME-level walls.
+      # All comparisons here are z-flattened, so a level-2 wall stacked
+      # right above a level-1 wall would otherwise match its endpoints.
+      # Filtering is by the 'level' attribute (NOT base_z), so the garage
+      # (level 1 with a dropped base) keeps its mixed-base corners.
+      excl_level = (exclude_group.get_attribute('InteriorPro', 'level') || 1).to_i
       candidates = []
       model.active_entities.grep(Sketchup::Group).each do |g|
         next if g == exclude_group
         next unless g.valid?
         next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+        next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == excl_level
         data = wall_data_world(g)
         next unless data
         candidates << [g, data]

@@ -75,6 +75,15 @@ module InteriorPro
       geo = edge_geometry(wall, edge)
       return unless geo
       openings = InteriorPro::WallTool.read_door_openings(wall)
+      # Windows do NOT cut the baseboard (2026-08-03): an opening interrupts
+      # it only when it actually reaches it — bottom (floor_offset) below the
+      # baseboard top. Doors sit at 0; windows start high above it.
+      base_top = begin
+        prof.map { |p| p[1].to_f }.max
+      rescue StandardError
+        12.0
+      end
+      openings = openings.select { |o| o[:floor_offset].to_f < base_top }
       gaps = openings.map do |o|
         c = o[:t] + geo[:offset0]
         { a: c - o[:width] / 2.0, b: c + o[:width] / 2.0, kind: :door }
@@ -95,6 +104,10 @@ module InteriorPro
 
     def build_crown_on_edge!(wall, edge, profile_name, side, shifts = { start: 0, end: 0 }, height = nil, tee_gaps = [])
       wall_h = wall.get_attribute('InteriorPro', 'height').to_f
+      # Two-story wall (level-2 structure, 2026-08-03): the crown stops at
+      # the CEILING ('ceiling_h' = original height), not at the raised top.
+      ch = wall.get_attribute('InteriorPro', 'ceiling_h').to_f
+      wall_h = ch if ch > 12.0 && ch < wall_h
       return if wall_h < 12.0
       prof = MoldingLibrary.crown_profile_by_name(profile_name, wall_h, height)
       return unless prof
