@@ -52,17 +52,6 @@ module InteriorPro
           push_walls(dlg)
         end
 
-        # Levels (2026-08-03): the panel's level picker. JS applies pending
-        # walls first, so they land on the level they were drawn on.
-        dlg.add_action_callback('set_level') do |_, n|
-          begin
-            InteriorPro::LevelManager.set_active_level!(n.to_i) if defined?(InteriorPro::LevelManager)
-          rescue StandardError => e
-            puts "[PlanEditor] set_level: #{e.message}"
-          end
-          push_walls(dlg)
-        end
-
         # Undo (2026-07-30): ONE undo for the whole editor. A pending wall is
         # popped in JS; anything already applied goes through SketchUp's own
         # undo stack. send_action is queued by SketchUp, so the canvas is
@@ -642,21 +631,6 @@ module InteriorPro
           end
         end
 
-        # Move tool on walls (2026-08-04): translate whole selections -
-        # walls + their doors/windows - by one x/y delta.
-        dlg.add_action_callback('move_selection') do |_, json|
-          begin
-            r = JSON.parse(json)
-            ids = r['ids'] || []
-            dx = r['dx'].to_f
-            dy = r['dy'].to_f
-            translate_walls!(ids, dx, dy) if ids.any? && (dx.abs > 0.001 || dy.abs > 0.001)
-          rescue StandardError => e
-            puts "[PlanEditor] move_selection: #{e.message}"
-          end
-          UI.start_timer(0.2, false) { push_walls(dlg) }
-        end
-
         dlg.add_action_callback('move_wall') do |_, json|
           r = JSON.parse(json)
           keep = r['keep'].nil? ? true : (r['keep'] ? true : false)
@@ -753,12 +727,6 @@ module InteriorPro
         walls = model.entities.grep(Sketchup::Group).select do |g|
           g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
         end
-        # Levels (2026-08-03): the canvas shows ONLY the active level -
-        # otherwise both floors draw on top of each other.
-        if defined?(InteriorPro::LevelManager)
-          lvl = InteriorPro::LevelManager.active_level
-          walls = walls.select { |w| (w.get_attribute('InteriorPro', 'level') || 1).to_i == lvl }
-        end
         syms = bodies_by_wall(model)
         walls.map do |w|
           sx = w.get_attribute('InteriorPro', 'start_x')
@@ -794,58 +762,11 @@ module InteriorPro
         end.compact
       end
 
-      # The level BELOW the active one, sent to the canvas as a faint gray
-      # "ghost" underlay (2026-08-03): view + snap only, never selectable.
-      def ghost_walls_payload
-        return [] unless defined?(InteriorPro::LevelManager)
-        lvl = InteriorPro::LevelManager.active_level
-        return [] if lvl <= 1
-        below = lvl - 1
-        model = Sketchup.active_model
-        walls = model.entities.grep(Sketchup::Group).select do |g|
-          g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
-            (g.get_attribute('InteriorPro', 'level') || 1).to_i == below
-        end
-        walls.map do |w|
-          sx = w.get_attribute('InteriorPro', 'start_x')
-          next nil if sx.nil?
-          xf = w.transformation
-          s = Geom::Point3d.new(sx.to_f, w.get_attribute('InteriorPro', 'start_y').to_f, 0).transform(xf)
-          e = Geom::Point3d.new(w.get_attribute('InteriorPro', 'end_x').to_f,
-                                w.get_attribute('InteriorPro', 'end_y').to_f, 0).transform(xf)
-          anchor = (w.get_attribute('InteriorPro', 'anchor') || 'bottom-left').to_s
-          corners = w.get_attribute('InteriorPro', 'corners_xy')
-          cx = nil
-          if corners.is_a?(Array) && corners.length == 8
-            cx = corners.each_slice(2).flat_map do |x, y|
-              pt = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(xf)
-              [pt.x.to_f.round(3), pt.y.to_f.round(3)]
-            end
-          end
-          {
-            'id' => w.get_attribute('InteriorPro', 'id').to_s,
-            'sx' => s.x.to_f.round(3), 'sy' => s.y.to_f.round(3),
-            'ex' => e.x.to_f.round(3), 'ey' => e.y.to_f.round(3),
-            'th' => w.get_attribute('InteriorPro', 'thickness').to_f,
-            'ha' => anchor == 'center' ? 'center' : (anchor.split('-')[1] || 'left'),
-            'cat' => (w.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s,
-            'ops' => InteriorPro::WallTool.read_door_openings(w).map { |o| [o[:t].round(3), o[:width].round(3)] },
-            'corners' => cx,
-            'syms' => []
-          }
-        end.compact
-      end
-
       # Rooms are detected by RoomManager from real wall loops; the editor only
       # draws them. Areas are NET - measured face to face - per CONTRACT_2D.
       def rooms_payload
         return [] unless defined?(InteriorPro::RoomManager)
-        # Per-level rooms (2026-08-04): the canvas shows the labels of the
-        # ACTIVE level only.
-        lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
-        InteriorPro::RoomManager.rooms_in_model.select do |g|
-          (g.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
-        end.map do |g|
+        InteriorPro::RoomManager.rooms_in_model.map do |g|
           b = g.get_attribute('InteriorPro', 'boundary_xy')
           next nil unless b.is_a?(Array) && b.length >= 6
           { 'id' => g.get_attribute('InteriorPro', 'id').to_s,
@@ -874,10 +795,7 @@ module InteriorPro
       def preview_rooms(rows)
         return [] unless defined?(InteriorPro::RoomManager)
         rm = InteriorPro::RoomManager
-        # Per-level rooms (2026-08-04): live areas run on the ACTIVE level's
-        # walls, so a level-2 sketch measures against level-2 walls only.
-        lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
-        segs = rm.wall_list(lvl).map { |w| rm.centerline(w) }.compact
+        segs = rm.wall_list.map { |w| rm.centerline(w) }.compact
         (rows || []).each do |r|
           stub = PendingWallStub.new(
             'start_x' => r['sx'].to_f, 'start_y' => r['sy'].to_f,
@@ -908,12 +826,6 @@ module InteriorPro
 
       def push_walls(dlg)
         begin
-          lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
-          dlg.execute_script("loadLevel(#{lvl})")
-        rescue StandardError => e
-          puts "[PlanEditor] push level: #{e.message}"
-        end
-        begin
           dlg.execute_script("loadSketches(#{JSON.generate(sketches_payload)})")
         rescue StandardError => e
           puts "[PlanEditor] push sketches: #{e.message}"
@@ -922,11 +834,6 @@ module InteriorPro
           dlg.execute_script("loadRooms(#{JSON.generate(rooms_payload)})")
         rescue StandardError => e
           puts "[PlanEditor] push rooms: #{e.message}"
-        end
-        begin
-          dlg.execute_script("loadGhosts(#{JSON.generate(ghost_walls_payload)})")
-        rescue StandardError => e
-          puts "[PlanEditor] push ghosts: #{e.message}"
         end
         dlg.execute_script("loadWalls(#{JSON.generate(walls_payload)})")
       rescue StandardError => e
@@ -1305,11 +1212,6 @@ module InteriorPro
           wt.side_a_color = attrs[:side_a_color]
           wt.side_b_color = attrs[:side_b_color]
           g = wt.build_wall_group(s, e, attrs, model)
-          # Active level (2026-08-03): the new wall lands on the level the
-          # user works on - BEFORE join_corners, exactly like create_wall.
-          if g && defined?(InteriorPro::LevelManager)
-            InteriorPro::LevelManager.place_wall_on_active_level!(g)
-          end
           created << g if g
         end
         created.each do |g|
@@ -1324,15 +1226,6 @@ module InteriorPro
           InteriorPro::RoomManager.sync_rooms! if created.any? && defined?(InteriorPro::RoomManager)
         rescue StandardError => e
           puts "[PlanEditor] rooms sync: #{e.message}"
-        end
-        # Levels (2026-08-04): applying level-2 walls builds/refreshes the
-        # structure between the levels automatically - no gap.
-        begin
-          if created.any? && defined?(InteriorPro::LevelManager) && InteriorPro::LevelManager.active_level > 1
-            InteriorPro::LevelManager.ensure_structure_below!
-          end
-        rescue StandardError => e
-          puts "[PlanEditor] level structure: #{e.message}"
         end
         puts "[PlanEditor] applied #{created.length} wall(s)"
         created.length
@@ -1474,77 +1367,6 @@ module InteriorPro
       # the same category, endpoints touching the middle (T) get glued, then
       # rebuild + re-miter + hosted doors + molding/rooms refresh.
       # distance: positive = outward (right perpendicular of start->end).
-      # Move tool (2026-08-04): translate whole wall selections by dx/dy.
-      # Walls moved TOGETHER keep their shared corners (the miters travel
-      # as-is); their door/window bodies ride along. Rooms, molding and
-      # foundation refresh at the end.
-      def translate_walls!(ids, dx, dy)
-        model = Sketchup.active_model
-        walls = ids.map { |id| find_wall(id) }.compact
-        return 0 if walls.empty?
-        wt = InteriorPro::WallTool.new
-        vec = Geom::Vector3d.new(dx, dy, 0)
-        model.start_operation('2D Editor Move Selection', true)
-        walls.each do |w|
-          w.set_attribute('InteriorPro', 'start_x', w.get_attribute('InteriorPro', 'start_x').to_f + dx)
-          w.set_attribute('InteriorPro', 'start_y', w.get_attribute('InteriorPro', 'start_y').to_f + dy)
-          w.set_attribute('InteriorPro', 'end_x', w.get_attribute('InteriorPro', 'end_x').to_f + dx)
-          w.set_attribute('InteriorPro', 'end_y', w.get_attribute('InteriorPro', 'end_y').to_f + dy)
-          # corners_xy is stored FLAT [x1,y1,...,x4,y4] - shift it as-is.
-          # (read_corners_attr returns point PAIRS - not what set_attribute
-          # stores. Reading the raw attribute avoids that mismatch.)
-          flat = w.get_attribute('InteriorPro', 'corners_xy')
-          if flat.is_a?(Array) && flat.length == 8
-            w.set_attribute('InteriorPro', 'corners_xy',
-                            flat.each_slice(2).flat_map { |x, y| [x.to_f + dx, y.to_f + dy] })
-          end
-          data = wt.wall_data(w)
-          next unless data
-          c2 = wt.read_corners_attr(w) || wt.compute_perpendicular_corners_from_data(data)
-          wt.rebuild_wall_geometry(w, c2, data) if c2
-          wid = w.get_attribute('InteriorPro', 'id')
-          model.entities.to_a.each do |e|
-            next unless (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid?
-            tp = e.get_attribute('InteriorPro', 'type')
-            next unless tp == 'door' || tp == 'window'
-            next unless e.get_attribute('InteriorPro', 'host_wall_id') == wid
-            e.transform!(Geom::Transformation.translation(vec))
-            fx = e.get_attribute('InteriorPro', 'face_x')
-            e.set_attribute('InteriorPro', 'face_x', fx.to_f + dx) unless fx.nil?
-            fy = e.get_attribute('InteriorPro', 'face_y')
-            e.set_attribute('InteriorPro', 'face_y', fy.to_f + dy) unless fy.nil?
-          end
-        end
-        walls.each do |w|
-          begin
-            InteriorPro::WallTool.join_corners(w, model)
-          rescue StandardError => e
-            puts "[PlanEditor] move join_corners: #{e.message}"
-          end
-        end
-        model.commit_operation
-        begin
-          InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
-        rescue StandardError => e
-          puts "[PlanEditor] move rooms sync: #{e.message}"
-        end
-        begin
-          InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
-        rescue StandardError => e
-          puts "[PlanEditor] move molding: #{e.message}"
-        end
-        begin
-          InteriorPro::FoundationManager.refresh! if defined?(InteriorPro::FoundationManager)
-        rescue StandardError => e
-          puts "[PlanEditor] move foundation: #{e.message}"
-        end
-        walls.length
-      rescue StandardError => e
-        begin; model.abort_operation; rescue StandardError; end
-        puts "[PlanEditor] translate_walls!: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
-        0
-      end
-
       def move_wall_sideways!(wall, distance, keep_corners = true)
         unless wall
           puts '[PlanEditor] move: wall not found'
@@ -1953,12 +1775,6 @@ module InteriorPro
               <div id="status"></div>
 
               <div id="botWrap">
-              <div id="levelBox" class="foldBox" style="padding:7px 9px">
-                <div class="seg">
-                  <button id="lv1" class="on" onclick="setLevel(1)">קומה 1</button>
-                  <button id="lv2" onclick="setLevel(2)">קומה 2</button>
-                </div>
-              </div>
               <div id="dimBox" class="foldBox">
                 <div class="foldHead" onclick="toggleFold('dim')">
                   <span style="flex:1 1 auto">מידות קיר — <span id="dimWhich">כל המידות</span></span>
@@ -2027,8 +1843,6 @@ module InteriorPro
             var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
             var walls = [];          // existing model walls (read-only)
             var pending = [];        // walls drawn here, not yet applied
-            var ghosts = [];         // the level below: faint gray, snap-only
-            function loadGhosts(list) { ghosts = list || []; draw(); }
             var mode = 'sel';
             var sel = null;           // {type:'wall', w} | {type:'sym', w, s} | {type:'pending', i}
             // Multi-select (2026-07-30): selList is the real selection; sel
@@ -2248,7 +2062,7 @@ module InteriorPro
               var hasWalls = selList.some(function(o) { return o.type === 'wall' || o.type === 'pending'; });
               ebar.style.display = '';
               var eb = function(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; };
-              eb('ebMove', hasShapes || hasWalls);
+              eb('ebMove', hasShapes);
               eb('ebOff', hasShapes);
               eb('ebArea', selList.some(function(o) { return o.type === 'sketch' && o.sk.closed; }));
               eb('ebFlipH', hasShapes || hasWalls); eb('ebFlipV', hasShapes || hasWalls);
@@ -3681,23 +3495,10 @@ module InteriorPro
             var moveOp = null;   // { grab, orig:[{o, pts}], dx, dy, lock }
 
             function startFreeMove() {
-              // Move works on EVERYTHING selected (2026-08-04): shapes,
-              // pending walls and applied walls travel together - the base
-              // for fences, kitchens, pools and the rest.
-              var recs = [];
-              selList.forEach(function(o) {
-                if (o.type === 'sketch') {
-                  recs.push({ kind: 'sk', o: o, pts: o.sk.pts.slice() });
-                } else if (o.type === 'pending' && pending[o.i]) {
-                  var pw0 = pending[o.i];
-                  recs.push({ kind: 'pw', t: pw0, sx: pw0.sx, sy: pw0.sy, ex: pw0.ex, ey: pw0.ey });
-                } else if (o.type === 'wall' && o.w && o.w.id) {
-                  recs.push({ kind: 'w', t: o.w, sx: o.w.sx, sy: o.w.sy, ex: o.w.ex, ey: o.w.ey,
-                              corners: o.w.corners ? o.w.corners.slice() : null });
-                }
-              });
-              if (!recs.length) return;
-              moveOp = { grab: null, dx: 0, dy: 0, lock: null, orig: recs };
+              var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
+              if (!shapes.length) return;
+              moveOp = { grab: null, dx: 0, dy: 0, lock: null,
+                         orig: shapes.map(function(o) { return { o: o, pts: o.sk.pts.slice() }; }) };
               setStatusHint('לחץ על נקודת אחיזה באובייקט — פינה, קצה או אמצע');
               draw();
             }
@@ -3714,20 +3515,9 @@ module InteriorPro
               if (!moveOp) return;
               moveOp.dx = dx; moveOp.dy = dy;
               moveOp.orig.forEach(function(rec) {
-                if (rec.kind === 'sk') {
-                  var f = rec.pts, np = [];
-                  for (var i = 0; i + 1 < f.length; i += 2) np.push(f[i] + dx, f[i + 1] + dy);
-                  rec.o.sk.pts = np;
-                  return;
-                }
-                var t = rec.t;
-                t.sx = rec.sx + dx; t.sy = rec.sy + dy;
-                t.ex = rec.ex + dx; t.ey = rec.ey + dy;
-                if (rec.kind === 'w' && rec.corners) {
-                  var nc = [];
-                  for (var j = 0; j + 1 < rec.corners.length; j += 2) nc.push(rec.corners[j] + dx, rec.corners[j + 1] + dy);
-                  t.corners = nc;
-                }
+                var f = rec.pts, np = [];
+                for (var i = 0; i + 1 < f.length; i += 2) np.push(f[i] + dx, f[i + 1] + dy);
+                rec.o.sk.pts = np;
               });
             }
 
@@ -3751,34 +3541,20 @@ module InteriorPro
             function moveCommit() {
               if (!moveOp) return;
               var payload = [];
-              var wallIds = [];
-              var mdx = moveOp.dx, mdy = moveOp.dy;
               moveOp.orig.forEach(function(rec) {
-                if (rec.kind === 'sk') {
-                  if (rec.o.kind !== 'pending' && rec.o.sk.id) {
-                    payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
-                  }
-                } else if (rec.kind === 'w' && rec.t.id) {
-                  wallIds.push(rec.t.id);
+                if (rec.o.kind !== 'pending' && rec.o.sk.id) {
+                  payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
                 }
               });
               moveOp = null;
               setStatusHint(null);
               draw();
               if (payload.length) sketchup.update_sketches(JSON.stringify({ shapes: payload }));
-              if (wallIds.length && (Math.abs(mdx) > 0.001 || Math.abs(mdy) > 0.001)) {
-                sketchup.move_selection(JSON.stringify({ ids: wallIds, dx: mdx, dy: mdy }));
-              }
             }
 
             function moveCancel() {
               if (!moveOp) return;
-              moveOp.orig.forEach(function(rec) {
-                if (rec.kind === 'sk') { rec.o.sk.pts = rec.pts.slice(); return; }
-                var t = rec.t;
-                t.sx = rec.sx; t.sy = rec.sy; t.ex = rec.ex; t.ey = rec.ey;
-                if (rec.kind === 'w' && rec.corners) t.corners = rec.corners.slice();
-              });
+              moveOp.orig.forEach(function(rec) { rec.o.sk.pts = rec.pts.slice(); });
               moveOp = null;
               setStatusHint(null);
               draw();
@@ -4988,8 +4764,6 @@ module InteriorPro
                   ctx.strokeStyle = mcol; ctx.lineWidth = 2.5; ctx.stroke();
                 }
               }
-              // The level below, as a faint underlay (never selectable).
-              ghosts.forEach(function(w){ drawWallBand(w, '#9aa2ad', '#c8cdd4', 0.35, ghosts); });
               var all = walls.concat(pending);
               walls.forEach(function(w){ drawWallBand(w, '#444', '#cfcfcf', 1, all); drawSyms(w); dimLabel(w, '#1a6ee0', all); });
               pending.forEach(function(w){ drawWallBand(w, '#2f6bd8', '#9db8e8', 1, all); dimLabel(w, '#e0392b', all); });
@@ -5081,12 +4855,6 @@ module InteriorPro
                 outlineBand(g, '#1a9d55');
                 var mp = { x:(g.sx + g.ex)/2, y:(g.sy + g.ey)/2 };
                 dimTag(sx(mp.x), sy(mp.y), typed ? typed : fmtLen(Math.abs(dragWall.off)), 'size', {});
-                if (dragWall.snapPt) {       // the stabbed point - green ring
-                  ctx.beginPath();
-                  ctx.arc(sx(dragWall.snapPt.x), sy(dragWall.snapPt.y), 6, 0, Math.PI * 2);
-                  ctx.fillStyle = '#ffffff'; ctx.fill();
-                  ctx.strokeStyle = '#1a9d55'; ctx.lineWidth = 2.5; ctx.stroke();
-                }
                 return;
               }
               if (dragSym && dragSym.moved) {
@@ -5361,27 +5129,6 @@ module InteriorPro
                   if (dm < bestMidD) { bestMid = m; bestMidD = dm; }
                 });
               });
-              // The level below snaps too - corners and midpoints, mitered
-              // among THEMSELVES only (levels never miter with each other).
-              ghosts.forEach(function(w){
-                var cand = [{x:w.sx, y:w.sy}, {x:w.ex, y:w.ey}];
-                var bq = bandQuad(w);
-                var C4 = bq ? endCorners(w, ghosts, bq) : null;
-                if (C4) cand.push(C4.sp, C4.ep, C4.eq, C4.sq);
-                cand.forEach(function(c){
-                  var d = Math.hypot(c.x - p.x, c.y - p.y);
-                  if (d < bestEndD) { bestEnd = c; bestEndD = d; }
-                });
-                var mids = [{ x:(w.sx + w.ex) / 2, y:(w.sy + w.ey) / 2 }];
-                if (C4) {
-                  mids.push({ x:(C4.sp.x + C4.ep.x) / 2, y:(C4.sp.y + C4.ep.y) / 2 });
-                  mids.push({ x:(C4.sq.x + C4.eq.x) / 2, y:(C4.sq.y + C4.eq.y) / 2 });
-                }
-                mids.forEach(function(m) {
-                  var dm = Math.hypot(m.x - p.x, m.y - p.y);
-                  if (dm < bestMidD) { bestMid = m; bestMidD = dm; }
-                });
-              });
               if (bestEnd) {
                 snapInd = { x:bestEnd.x, y:bestEnd.y, kind:'end' };
                 return { x:bestEnd.x, y:bestEnd.y, snapped:true };
@@ -5417,7 +5164,7 @@ module InteriorPro
 
             function segDirs() {
               var out = [];
-              walls.concat(pending, ghosts).forEach(function(w) {
+              walls.concat(pending).forEach(function(w) {
                 var dx = w.ex - w.sx, dy = w.ey - w.sy;
                 var d = Math.hypot(dx, dy);
                 if (d > 1) out.push({ x: dx / d, y: dy / d });
@@ -5824,26 +5571,6 @@ module InteriorPro
                 dragWall.moved = true;
                 var b3 = dragWall.b;
                 var o = (cursor.x - dragWall.from.x)*b3.nx + (cursor.y - dragWall.from.y)*b3.ny;
-                // Shift + point (2026-08-03): stab any corner/midpoint (the
-                // level below included) and the nearest FACE of the dragged
-                // wall lands exactly on it - so a level-2 wall can sit
-                // precisely over the wall underneath.
-                dragWall.snapPt = null;
-                if (shiftDown) {
-                  var sp5 = snapPoint(cursor, null);
-                  if (sp5.snapped) {
-                    var w5 = dragWall.w;
-                    var d5 = (sp5.x - w5.sx)*b3.nx + (sp5.y - w5.sy)*b3.ny;
-                    var best5 = null;
-                    [d5, d5 - b3.p, d5 - b3.q].forEach(function(c5){
-                      if (best5 === null || Math.abs(c5 - o) < Math.abs(best5 - o)) best5 = c5;
-                    });
-                    dragWall.off = Math.round(best5 * 1000) / 1000;
-                    dragWall.snapPt = { x: sp5.x, y: sp5.y };
-                    draw();
-                    return;
-                  }
-                }
                 dragWall.off = Math.round(o * 4) / 4;   // 1/4" steps
                 draw();
                 return;
@@ -5914,7 +5641,7 @@ module InteriorPro
                 return;
               }
               if (mode === 'sel' && dragWall) {
-                if (dragWall.moved && (dragWall.snapPt || Math.abs(dragWall.off) >= 0.25)) {
+                if (dragWall.moved && Math.abs(dragWall.off) >= 0.25) {
                   if (dragWall.pi != null) {          // not applied yet -> local move
                     movePendingWall(dragWall.pi, dragWall.off);
                   } else {
@@ -6245,21 +5972,6 @@ module InteriorPro
             }
             function applyDone(n) { pending = []; draw(); }
             function planDone(ok) {}
-
-            // Levels (2026-08-03): the editor works on ONE level at a time.
-            // Ruby filters the walls; here we only track and show the choice.
-            var activeLevel = 1;
-            function setLevel(n) {
-              if (n === activeLevel) return;
-              applyPending();            // blue walls land on their own level
-              sketchup.set_level(String(n));
-            }
-            function loadLevel(n) {
-              activeLevel = (n === 2) ? 2 : 1;
-              var b1 = document.getElementById('lv1'), b2 = document.getElementById('lv2');
-              if (b1) b1.className = (activeLevel === 1) ? 'on' : '';
-              if (b2) b2.className = (activeLevel === 2) ? 'on' : '';
-            }
             // Selection to restore after a model round-trip (edit/move/resize),
             // so the panel stays open on the same wall/opening.
             var keepSel = null;

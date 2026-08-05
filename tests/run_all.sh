@@ -23,13 +23,13 @@ ruby extract.rb || fail=1
 node --check out.js && echo "  OK   out.js parses" || fail=1
 
 echo "== javascript suites (the 2D editor canvas) =="
-for t in t1 t2 t3 t4 t5 t6 t7 t8 t9 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 t23 t24 t25 t26 t27 t28; do
+for t in t1 t2 t3 t4 t5 t6 t7 t8 t9 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 t23 t24 t25 t26 t27 t28 t29 t30 t31; do
   [ -f "$t.js" ] || continue
   if node "$t.js" >/dev/null 2>&1; then echo "  PASS $t"; else echo "  FAIL $t"; node "$t.js" 2>&1 | grep FAIL | head -3; fail=1; fi
 done
 
 echo "== ruby suites (callbacks, rooms, plans, doors) =="
-for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10; do
+for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14; do
   [ -f "$r.rb" ] || continue
   if ruby "$r.rb" >/dev/null 2>&1; then echo "  PASS $r"; else echo "  FAIL $r"; ruby "$r.rb" 2>&1 | grep FAIL | head -3; fail=1; fi
 done

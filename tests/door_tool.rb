@@ -1,0 +1,5608 @@
+# Interior Pro - Door Tool
+# Cuts a door opening through a wall and builds a real body for French Hinged / exterior Sliding.
+# Modeled on WindowTool, but the opening sits on the wall floor + an optional
+# threshold offset instead of being measured down from a header height.
+
+module InteriorPro
+  class DoorTool
+
+    DOOR_DEBUG_LOG = false unless const_defined?(:DOOR_DEBUG_LOG, false)
+
+    def door_log(msg)
+      puts msg if DOOR_DEBUG_LOG
+    end
+
+    GREEN = Sketchup::Color.new(40, 150, 60) unless const_defined?(:GREEN, false)
+    RED   = Sketchup::Color.new(200, 40, 40) unless const_defined?(:RED, false)
+
+    attr_accessor :door_category, :door_type, :width, :height, :frame_width, :glass_frame_width,
+                  :interior_depth, :floor_offset, :swing_direction, :swing_side,
+                  :slide_direction, :glass_grid_style, :exterior_casing_style,
+                  :interior_casing_style, :exterior_threshold, :preset_name, :placement_ready,
+                  :leaf_style, :closet_leaf_count, :handle_style,
+                  :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
+                  :garage_style, :garage_top_windows, :garage_window_style, :garage_window_count,
+                  :garage_ext_frame,
+                  :door_color, :frame_color, :arch_rise
+
+    def initialize
+      @placement_ready = false
+      @ip = nil
+      @last_mouse_x = nil
+      @last_mouse_y = nil
+      @preview_pump_id = nil
+      apply_category_defaults('exterior')
+    end
+
+    def mark_placement_ready!
+      @placement_ready = true
+      Sketchup.set_status_text(
+        'Hover a wall in the model to preview (green/red box), then click to place. Dialog can stay open.',
+        SB_PROMPT
+      )
+    end
+
+    def apply_category_defaults(category)
+      d = InteriorPro::DoorLibrary.defaults_for(category)
+      @door_category       = d['door_category']
+      @door_type           = d['door_type']
+      @width               = d['width'].to_f
+      @height              = d['height'].to_f
+      @frame_width         = d['frame_width'].to_f
+      @glass_frame_width   = d['glass_frame_width'].to_f
+      @interior_depth      = d['interior_depth'].to_f
+      @floor_offset        = d['floor_offset'].to_f
+      @swing_direction     = d['swing_direction']
+      @swing_side          = d['swing_side']
+      @slide_direction     = d['slide_direction']
+      @glass_grid_style         = d['glass_grid_style']
+      @exterior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'exterior')
+      @interior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'interior')
+      @exterior_threshold       = d['exterior_threshold'] ? true : false
+      @leaf_style          = d['leaf_style'] || 'Flush'
+      @closet_leaf_count   = (d['closet_leaf_count'] || 2).to_i
+      @handle_style        = d['handle_style'] || 'none'
+      @front_config        = d['front_config'] || 'single'
+      @front_leaf_style    = d['front_leaf_style'] || 'Craftsman 3-Lite'
+      @front_glass_ratio   = (d['front_glass_ratio'] || 50.0).to_f
+      @sidelite_width      = (d['sidelite_width'] || 14.0).to_f
+      @transom             = d['transom'] ? true : false
+      @transom_height      = (d['transom_height'] || 14.0).to_f
+      @garage_style        = d['garage_style'] || 'Raised Short'
+      @garage_top_windows  = d['garage_top_windows'] ? true : false
+      @garage_window_style = d['garage_window_style'] || 'Plain'
+      @garage_window_count = (d['garage_window_count'] || 0).to_i
+      @garage_ext_frame    = d['garage_ext_frame'] ? true : false
+      @arch_rise           = (d['arch_rise'] || 0.0).to_f
+      @preset_name         = ''
+    end
+
+    def activate
+      @ip = Sketchup::InputPoint.new
+      reset_preview!
+      if @placement_ready
+        focus_model_view
+        start_preview_pump!
+        Sketchup.set_status_text(
+          'Hover a wall in the model to preview (green/red box), then click to place.',
+          SB_PROMPT
+        )
+        view = Sketchup.active_model.active_view
+        view.invalidate
+        UI.start_timer(0, false) {
+          focus_model_view
+          view.invalidate
+        }
+      end
+    end
+
+    def deactivate(view)
+      stop_preview_pump!
+      reset_preview!
+      view.invalidate
+    end
+
+    def resume(view)
+      view.invalidate
+    end
+
+    def onMouseEnter(view)
+      return unless @placement_ready
+      focus_model_view
+      view.invalidate
+    end
+
+    def onMouseMove(flags, x, y, view)
+      @last_mouse_x = x
+      @last_mouse_y = y
+      return unless @placement_ready
+
+      refresh_preview_at(x, y, view)
+    end
+
+    def refresh_preview_at(x, y, view)
+      @ip&.pick(view, x, y)
+      reset_preview!
+      wall, picked_point, picked_face = find_wall_under_cursor(view, x, y)
+      if wall && picked_point
+        data, valid, = compute_placement_data(wall, picked_point, picked_face)
+        if data
+          @preview_wall = wall
+          @preview_corners = opening_ghost_corners(data)
+          @preview_valid = valid
+        end
+        view.tooltip = if valid
+                         "Click to place #{@width}\" x #{@height}\" door"
+                       else
+                         "Door does not fit here"
+                       end
+      else
+        view.tooltip = ''
+      end
+      view.invalidate
+    end
+
+    def start_preview_pump!
+      stop_preview_pump!
+      @preview_pump_id = UI.start_timer(0.05, true) {
+        next unless @placement_ready
+        view = Sketchup.active_model.active_view
+        if @last_mouse_x && @last_mouse_y
+          refresh_preview_at(@last_mouse_x, @last_mouse_y, view)
+        else
+          view.invalidate
+        end
+      }
+    end
+
+    def stop_preview_pump!
+      return unless @preview_pump_id
+      if UI.respond_to?(:stop_timer)
+        UI.stop_timer(@preview_pump_id)
+      end
+      @preview_pump_id = nil
+    end
+
+    def onLButtonDown(flags, x, y, view)
+      unless @placement_ready
+        focus_model_view
+        Sketchup.set_status_text(
+          'Click Place Door on Wall in the dialog before clicking the model.',
+          SB_PROMPT
+        )
+        return
+      end
+      wall, picked_point, picked_face = find_wall_under_cursor(view, x, y)
+      unless wall
+        Sketchup.set_status_text("No wall under cursor. Hover over a wall to place a door.", SB_PROMPT)
+        return
+      end
+      if @door_category.to_s != 'interior' &&
+         wall.get_attribute('InteriorPro', 'wall_category', 'exterior').to_s == 'interior'
+        choice = UI.messagebox('This is an EXTERIOR door on an INTERIOR wall. Place anyway?', MB_YESNO)
+        return unless choice == IDYES
+      end
+      cut_door_opening(wall, picked_point, picked_face)
+    end
+
+    def onCancel(reason, view)
+      stop_preview_pump!
+      reset_preview!
+      Sketchup.active_model.select_tool(nil)
+    end
+
+    def draw(view)
+      return unless @placement_ready
+
+      @ip.draw(view) if @ip&.display?
+
+      return unless @preview_corners && @preview_corners.length == 8
+
+      front = @preview_corners[0, 4]
+      back  = @preview_corners[4, 4]
+      color = @preview_valid ? GREEN : RED
+      view.line_width = 3
+      view.line_stipple = ''
+      view.drawing_color = color
+      view.draw(GL_LINE_LOOP, front)
+      view.draw(GL_LINE_LOOP, back)
+      4.times { |i| view.draw(GL_LINES, [front[i], back[i]]) }
+
+      draw_screen_loop(view, front, color)
+      draw_screen_loop(view, back, color)
+      4.times { |i|
+        p1 = view.screen_coords(front[i])
+        p2 = view.screen_coords(back[i])
+        view.line_width = 3
+        view.drawing_color = color
+        view.draw2d(GL_LINES, p1, p2)
+      }
+    end
+
+    def draw_screen_loop(view, points, color)
+      screen = points.map { |p| view.screen_coords(p) }
+      return if screen.empty?
+      view.line_width = 3
+      view.drawing_color = color
+      view.draw2d(GL_LINE_LOOP, screen)
+    end
+
+    def getExtents
+      bb = Geom::BoundingBox.new
+      bb.add(@preview_wall.bounds) if @preview_wall&.valid?
+      @preview_corners&.each { |p| bb.add(p) }
+      bb
+    end
+
+    def reset_preview!
+      @preview_wall = nil
+      @preview_corners = nil
+      @preview_valid = false
+    end
+
+    def focus_model_view
+      Sketchup.focus if Sketchup.respond_to?(:focus)
+    end
+
+    # 8 corners of the opening volume: front face (clicked side) + back face.
+    # door_bot_z/door_top_z are LOCAL (wall floor = 0); a wall lowered via
+    # base_z carries a Z translation in its transformation, so shift the
+    # ghost by it (2026-07-21, garage door on a dropped wall).
+    def opening_ghost_corners(data)
+      fx = data[:fx]
+      fy = data[:fy]
+      ux = data[:ux]
+      uy = data[:uy]
+      wg = data[:wall_group]
+      dz = wg && wg.valid? ? wg.transformation.origin.z : 0.0
+      bot = data[:door_bot_z] + dz
+      top = data[:door_top_z] + dz
+      ow = data[:outward]
+      th = data[:thickness]
+      front = [
+        Geom::Point3d.new(fx - ux, fy - uy, bot),
+        Geom::Point3d.new(fx + ux, fy + uy, bot),
+        Geom::Point3d.new(fx + ux, fy + uy, top),
+        Geom::Point3d.new(fx - ux, fy - uy, top)
+      ]
+      back = front.map { |p| p.offset(ow, -th) }
+      front + back
+    end
+
+    def onKeyDown(key, repeat, flags, view)
+      onCancel(0, view) if key == 27
+    end
+
+    # Used by edit/replace — cut opening and build a new door component.
+    def place_door_on_wall(wall_group, picked_point, picked_face = nil)
+      data = prepare_door_placement(wall_group, picked_point, picked_face)
+      return false unless data
+      return false unless apply_wall_cut(wall_group, data)
+      build_door_at(wall_group, data)
+      true
+    end
+
+    # Cut wall opening only (move tool — existing door instance is kept).
+    def cut_opening_only(wall_group, picked_point, picked_face = nil)
+      data = prepare_door_placement(wall_group, picked_point, picked_face)
+      return false unless data
+      apply_wall_cut(wall_group, data)
+    end
+
+    # Cut opening from known door position (move/edit — no pick ambiguity).
+    def cut_opening_from_data(wall_group, data, geo = nil)
+      cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: true)
+    end
+
+    # Stage 2 boolean — always reload door_boolean so cut/fill share latest build_opening_box.
+    def ensure_boolean_cut_loaded!
+      plugin_dir = defined?(InteriorPro::PLUGIN_DIR) ? InteriorPro::PLUGIN_DIR : File.dirname(__FILE__)
+      unless InteriorPro.const_defined?(:SolidBoolean, false)
+        load File.join(plugin_dir, 'solid_boolean', 'load.rb')
+      end
+      door_boolean_path = File.join(plugin_dir, 'door_boolean.rb')
+      load door_boolean_path if File.exist?(door_boolean_path)
+    rescue StandardError => e
+      door_log "[DoorTool] boolean load failed: #{e.message}"
+    end
+
+    # Boolean subtract first; legacy tunnel/pushpull if wall is not solid or op fails.
+    def cut_opening_with_fallback!(wall_group, data, geo = nil, prefer_clean: false)
+      ensure_boolean_cut_loaded!
+      cut_ok = false
+      if InteriorPro.const_defined?(:DoorBoolean, false) &&
+         InteriorPro::DoorBoolean.cut_opening!(wall_group, data, geo, self)
+        if opening_void_through_wall?(wall_group, data, geo)
+          cut_ok = true
+        else
+          puts '[DoorBoolean] boolean cut: no void through wall — fallback'
+        end
+      elsif prefer_clean
+        cut_ok = cut_opening_clean!(wall_group, data, geo) ||
+                 apply_wall_cut(wall_group, data, geo) ||
+                 apply_wall_cut_snapped!(wall_group, data, geo)
+      else
+        cut_ok = apply_wall_cut(wall_group, data, geo) ||
+                 apply_wall_cut_snapped!(wall_group, data, geo)
+      end
+
+      if cut_ok
+        seal_opening_bottom!(wall_group, data, geo, after_fill: false)
+        return true
+      end
+
+      false
+    end
+
+    # Cut path: remove shelf faces. Fill path: also rebuild bottom slab + heal all floor notches.
+    def seal_opening_bottom!(wall_group, data, geo = nil, after_fill: false)
+      if after_fill
+        heal_entire_wall_bottom!(wall_group, geo)
+        heal_bottom_inner_loops_near_t!(wall_group, data, geo)
+        erase_opening_floor_band_faces!(wall_group, data, geo)
+      end
+      erase_opening_bottom_seam_faces!(wall_group, data, geo)
+      cap_bottom_slab_inner_loops!(wall_group, data, geo)
+      if after_fill
+        reconstruct_opening_axis_slab!(wall_group, data)
+        cap_opening_at_floor_plane!(wall_group, data, geo)
+        repair_exterior_bottom_sheet!(wall_group, data, geo)
+        heal_opening_after_fill!(wall_group, data, geo)
+      end
+    end
+
+    # Cut opening then build door body — same sequence as interactive placement.
+    def cut_and_build_door_at(wall_group, data, geo = nil, mark: nil, use_operations: true, clean_cut: false,
+                              native_openings: false)
+      if native_openings && InteriorPro::WallTool::USE_NATIVE_OPENINGS
+        return place_door_via_native_openings!(wall_group, data, geo, mark: mark, use_operations: use_operations)
+      end
+
+      model = Sketchup.active_model
+      cut_ok = lambda {
+        cut_opening_with_fallback!(wall_group, data, geo, prefer_clean: clean_cut)
+      }
+      if use_operations
+        model.start_operation('Cut Door Opening', true)
+        begin
+          unless cut_ok.call
+            raise 'Wall cut failed'
+          end
+          model.commit_operation
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorTool] cut error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          return false
+        end
+      elsif !cut_ok.call
+        door_log '[DoorTool] cut failed (no operation wrap)'
+        return false
+      end
+
+      build_ok = build_door_at(wall_group, data, mark: mark, use_operations: use_operations)
+      unless build_ok
+        rollback_failed_door_placement!(wall_group, data, geo, use_operations: use_operations)
+        return false
+      end
+      true
+    end
+
+    def place_door_via_native_openings!(wall_group, data, geo = nil, mark: nil, use_operations: true)
+      geo ||= InteriorPro::DoorManager.wall_geometry(wall_group)
+      model = Sketchup.active_model
+      if use_operations
+        model.start_operation('Place Door (Native Openings)', true)
+      end
+      begin
+        opening = native_opening_hash_from_placement(data)
+        unless InteriorPro::WallTool.append_door_opening!(wall_group, opening)
+          raise 'Failed to append door opening'
+        end
+        unless InteriorPro::WallTool.rebuild_wall_native!(wall_group)
+          raise 'Native wall rebuild failed'
+        end
+        unless build_door_at(wall_group, data, mark: mark, use_operations: false)
+          raise 'Door build failed'
+        end
+        model.commit_operation if use_operations
+        # Re-cut molding around the new door (no-op when no molding in model).
+        if defined?(InteriorPro::MoldingManager)
+          begin
+            InteriorPro::MoldingManager.refresh!
+          rescue StandardError => e
+            puts "[DoorTool] molding refresh failed: #{e.message}"
+          end
+        end
+        true
+      rescue => e
+        model.abort_operation rescue nil if use_operations
+        puts "[DoorTool] native openings error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+        false
+      end
+    end
+
+    def native_opening_hash_from_placement(data)
+      t = data[:t]
+      width = @width
+      height = @height
+      floor_offset = @floor_offset
+      {
+        't' => t.to_f,
+        'width' => width.to_f,
+        'height' => height.to_f,
+        'floor_offset' => floor_offset.to_f,
+        'arch_rise' => effective_door_arch_rise(width.to_f / 2.0)
+      }
+    end
+
+    # Cut succeeded but door body failed — remove partial door + patch the hole.
+    def rollback_failed_door_placement!(wall_group, data, geo, use_operations: true)
+      geo ||= InteriorPro::DoorManager.wall_geometry(wall_group)
+      return unless geo
+
+      model = Sketchup.active_model
+      if use_operations
+        model.start_operation('Undo Failed Door', true)
+      end
+      begin
+        InteriorPro::DoorManager.erase_door_at_placement(wall_group, data[:t])
+        fill_wall_opening(wall_group, data, geo)
+        model.commit_operation if use_operations
+      rescue => e
+        model.abort_operation rescue nil if use_operations
+        puts "[DoorTool] rollback failed door: #{e.message}"
+      end
+    end
+
+    # Build door body in an EXISTING opening (edit when opening is unchanged).
+    # Does NOT cut the wall — just creates the door component.
+    def build_door_in_existing_opening(wall_group, data, mark: nil)
+      build_door_at(wall_group, data, mark: mark, use_operations: false)
+    end
+
+    # Parametric regen — public API for DoorManager (edit / move).
+    def apply_door_transform!(door, wall_group, data)
+      door.transformation = Geom::Transformation.new(
+        door_opening_center_world(wall_group, data)
+      )
+    end
+
+    def regen_door_body!(door, data, unit, n, thickness)
+      return true unless door_body_type?
+
+      ok = build_door_body_geometry!(door.definition.entities, data, unit, n, thickness)
+      ok && door_body_present?(door.definition)
+    end
+
+    # Place door using pre-built placement data (edit/replace).
+    def place_door_from_data(wall_group, data, mark: nil)
+      cut_and_build_door_at(wall_group, data, mark: mark)
+    end
+
+    # Build cut/fill data from stored door position (no click required).
+    def build_opening_data(wall_group, geo, width:, height:, floor_offset:, t:, clicked_side:, fx: nil, fy: nil)
+      thickness = geo[:thickness]
+      half_w = width / 2.0
+      door_bot_z = geo[:floor_z] + floor_offset.to_f
+      door_top_z = door_bot_z + height.to_f
+      n_side = geo[:n_side]
+      unit = geo[:unit]
+      n = geo[:n]
+
+      cx = geo[:cline_start].x + unit.x * t + n.x * n_side
+      cy = geo[:cline_start].y + unit.y * t + n.y * n_side
+
+      if fx.nil? || fy.nil?
+        offset = clicked_side * thickness / 2.0 - n_side
+        fx = cx + n.x * offset
+        fy = cy + n.y * offset
+      end
+
+      ux = unit.x * half_w
+      uy = unit.y * half_w
+      picked_point = Geom::Point3d.new(fx, fy, door_bot_z)
+      outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
+
+      {
+        wall_group: wall_group,
+        picked_point: picked_point,
+        picked_face: nil,
+        unit: unit,
+        n: n,
+        thickness: thickness,
+        t: t.to_f,
+        clicked_side: clicked_side,
+        half_w: half_w,
+        door_bot_z: door_bot_z,
+        door_top_z: door_top_z,
+        cx: cx,
+        cy: cy,
+        ux: ux,
+        uy: uy,
+        fx: fx,
+        fy: fy,
+        outward: outward
+      }
+    end
+
+    # Close a door opening in the wall (inverse of apply_wall_cut).
+    def fill_wall_opening(wall_group, data, geo = nil)
+      door_log "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{collect_inner_loops_near(wall_group, data, geo).length}"
+
+      cap_all_inner_loops_in_volume!(wall_group, data, geo)
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+      cap_inner_loops_at_door_position!(wall_group, data, geo)
+      close_large_sheet_holes!(wall_group, data, geo)
+      cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      unless opening_still_open_after_fill?(wall_group, data, geo)
+        soften_opening_sheet_edges!(wall_group, data, geo)
+        log_fill_v5_result(wall_group, data, geo)
+        return true
+      end
+
+      erase_opening_tunnel!(wall_group, data, geo)
+      erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
+      erase_cap_faces_in_opening_hole!(wall_group, data, geo)
+      cap_all_inner_loops_in_volume!(wall_group, data, geo)
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+      close_large_sheet_holes!(wall_group, data, geo)
+      cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      unless opening_still_open_after_fill?(wall_group, data, geo)
+        soften_opening_sheet_edges!(wall_group, data, geo)
+        log_fill_v5_result(wall_group, data, geo)
+        return true
+      end
+
+      if opening_void_through_wall?(wall_group, data, geo) || tunnel_faces_in_volume?(wall_group, data, geo)
+        fill_tunnel_through_opening!(wall_group, data, geo) ||
+          reconstruct_solid_patch!(wall_group, data) ||
+          reconstruct_opening_axis_slab!(wall_group, data)
+        cap_all_inner_loops_in_volume!(wall_group, data, geo)
+        cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+        close_large_sheet_holes!(wall_group, data, geo)
+        cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
+        heal_opening_after_fill!(wall_group, data, geo)
+      end
+
+      soften_opening_sheet_edges!(wall_group, data, geo)
+      log_fill_v5_result(wall_group, data, geo)
+
+      if opening_still_open_after_fill?(wall_group, data, geo)
+        door_log '[DoorTool] fill v5: opening still open after fill'
+        return false
+      end
+
+      true
+    rescue => e
+      puts "[DoorTool] fill_wall_opening error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    def opening_still_open?(wall_group, data, geo = nil)
+      collect_inner_loops_near(wall_group, data, geo).any? ||
+        tunnel_faces_in_volume?(wall_group, data, geo)
+    end
+
+    # Fill still needed when hole on sheets or tunnel/jamb faces remain.
+    # Do NOT use opening_void_through_wall? here — it false-fails on patched
+    # walls and causes delete to abort_operation (door comes back).
+    def opening_still_open_after_fill?(wall_group, data, geo = nil)
+      opening_hole_at_center?(wall_group, data, geo) ||
+        tunnel_faces_in_volume?(wall_group, data, geo) ||
+        (geo && opening_geometry_near_wall_t?(
+          wall_group, geo, data[:t], data[:half_w], data[:door_bot_z], data[:door_top_z],
+          data[:clicked_side]
+        ))
+    end
+
+    def log_fill_v5_result(wall_group, data, geo = nil)
+      loops = collect_inner_loops_near(wall_group, data, geo).length
+      hole = opening_hole_at_center?(wall_group, data, geo)
+      void = opening_void_through_wall?(wall_group, data, geo)
+      tunnel = tunnel_faces_in_volume?(wall_group, data, geo)
+      door_log "[DoorTool] fill v5: half_w=#{data[:half_w].round(2)} z=#{data[:door_bot_z].round(2)}-#{data[:door_top_z].round(2)} loops=#{loops} hole=#{hole} void=#{void} tunnel=#{tunnel}"
+    end
+
+    def cap_all_inner_loops_in_volume!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      found = 0
+      capped = 0
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+          found += 1
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      door_log "[DoorTool] cap_inner_loops: found=#{found} capped=#{capped}"
+      capped > 0
+    end
+
+    def cap_inner_loops_at_door_position!(wall_group, data, geo = nil)
+      if geo
+        mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+        lp = find_inner_loop_near_position(wall_group, geo, data[:t], mid_z, data[:half_w])
+        cap_loop_flat!(wall_group, lp) if lp
+      end
+      close_all_sheet_inner_loops!(wall_group, data, geo)
+    end
+
+    def close_large_sheet_holes!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      center_local = opening_center_local(data, local_xform)
+      xform = wall_group.transformation
+      ok = false
+
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+
+        # Only cap inner loops for THIS opening — never every hole on the sheet.
+        sheet.loops.reject(&:outer?).each do |lp|
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+
+          ok = true if cap_loop_flat!(wall_group, lp)
+        end
+
+        # Check coverage by ANY coplanar face on this side — including a cap we
+        # added on a previous pass. Checking only `sheet` (which still has the
+        # hole) makes us add a SECOND overlapping cap → z-fighting ("warp").
+        next if opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward)
+
+        ok = true if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+      end
+      ok
+    end
+
+    def large_parallel_sheets_at_opening(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      test_local = Geom::Point3d.new(data[:fx], data[:fy], mid_z).transform(local_xform)
+      max_plane_dist = data[:thickness] * 0.55
+
+      wall_group.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid? && face_matches_outward_local?(f, local_outward)
+        next false unless test_local.distance_to_plane(f.plane) < max_plane_dist
+
+        proj = test_local.project_to_plane(f.plane)
+        f.classify_point(proj) == Sketchup::Face::PointOutside
+      end
+    end
+
+    def close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+      erase_floating_caps_on_sheet!(wall_group, sheet, data, geo)
+
+      lp = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+      if lp && cap_loop_flat!(wall_group, lp)
+        return true
+      end
+
+      center_local = opening_center_local(data, local_xform)
+      if opening_center_covered_on_side?(wall_group, center_local, sheet, local_outward) &&
+         sheet_inner_loop_in_volume(wall_group, sheet, data, geo).nil?
+        return true
+      end
+
+      plane = sheet.plane
+      # Try EXACT door-data corners first (no vertex snapping). For a fresh
+      # delete these are precise; snapping can grab a wrong vertex up to 8" away
+      # and place the cap off-position, leaving the real hole open.
+      exact = opening_corners_local(data, local_xform, plane)
+      snapped = find_snapped_opening_corners_local(wall_group, data, geo, plane)
+      orders = [
+        ordered_opening_loop(exact, data[:clicked_side]),
+        ordered_opening_loop(exact, -data[:clicked_side]),
+        ordered_opening_loop(snapped, data[:clicked_side]),
+        ordered_opening_loop(snapped, -data[:clicked_side])
+      ]
+
+      orders.each do |ordered|
+        begin
+          cap = wall_group.entities.add_face(ordered)
+          cap ||= wall_group.entities.add_face(ordered.reverse)
+          if cap&.valid?
+            lp_after = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+            return true if lp_after.nil? || cap_loop_flat!(wall_group, lp_after)
+            return true
+          end
+        rescue ArgumentError
+          # try next ordering / the add_line fallback below
+        end
+
+        begin
+          new_edges = []
+          4.times do |i|
+            new_edges << wall_group.entities.add_line(ordered[i], ordered[(i + 1) % 4])
+          end
+          new_edges.compact!
+          new_edges.each(&:find_faces)
+
+          cap_face = new_edges.flat_map { |e| e.faces }.uniq.find do |f|
+            f.valid? && f.normal.parallel?(local_outward)
+          end
+          if cap_face
+            lp_after = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+            return true if lp_after.nil? || cap_loop_flat!(wall_group, lp_after)
+            return true
+          end
+        rescue ArgumentError
+          # try next ordering
+        end
+      end
+      false
+    end
+
+    def sheet_inner_loop_in_volume(wall_group, sheet, data, geo = nil)
+      return nil unless sheet&.valid?
+
+      xform = wall_group.transformation
+      sheet.loops.reject(&:outer?).find do |lp|
+        c = loop_centroid(lp).transform(xform)
+        opening_point_in_heal_volume?(c, data, geo)
+      end
+    end
+
+    def cap_parallel_sheet_inner_loops!(wall_group, data, geo = nil)
+      capped = 0
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+        erase_floating_caps_on_sheet!(wall_group, sheet, data, geo)
+        lp = sheet_inner_loop_in_volume(wall_group, sheet, data, geo)
+        capped += 1 if lp && cap_loop_flat!(wall_group, lp)
+      end
+      door_log "[DoorTool] cap_sheet_loops: capped=#{capped}" if capped > 0
+      capped
+    end
+
+    # Remove orphan caps sitting inside a sheet hole (not merged with the hole boundary).
+    def erase_floating_caps_on_sheet!(wall_group, sheet, data, geo = nil)
+      return unless sheet&.valid?
+
+      plane = sheet.plane
+      normal = sheet.normal
+      xform = wall_group.transformation
+      max_area = sheet.area * 0.85
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next if f == sheet
+        next unless f.valid?
+        next unless f.normal.parallel?(normal)
+        next if f.vertices.first.position.distance_to_plane(plane) > 0.05
+        next unless f.area < max_area
+
+        ctr = face_centroid_world(f, xform)
+        next unless opening_point_in_heal_volume?(ctr, data, geo)
+
+        f.erase!
+      end
+    end
+
+    def fill_tunnel_through_opening!(wall_group, data, geo = nil)
+      return true unless tunnel_faces_in_volume?(wall_group, data, geo) ||
+                         opening_void_through_wall?(wall_group, data, geo)
+
+      depth = effective_wall_depth(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      test_local = Geom::Point3d.new(data[:fx], data[:fy], mid_z).transform(local_xform)
+
+      target = wall_group.entities.grep(Sketchup::Face).find do |f|
+        next false unless f.valid? && face_matches_outward_local?(f, local_outward)
+        proj = test_local.project_to_plane(f.plane)
+        f.classify_point(proj) == Sketchup::Face::PointInside
+      end
+      target ||= parallel_wall_faces(wall_group, data).first
+
+      return fill_by_snapped_corners!(wall_group, data, geo) unless target
+
+      corners = find_snapped_opening_corners_local(wall_group, data, geo, target.plane)
+      ordered = ordered_opening_loop(corners, data[:clicked_side])
+      cap = wall_group.entities.add_face(ordered)
+      cap ||= wall_group.entities.add_face(ordered.reverse)
+      if cap&.valid?
+        pushfill_cap!(cap, target.normal, depth)
+        return true
+      end
+
+      fill_by_draw_and_pull!(wall_group, data) || fill_by_snapped_corners!(wall_group, data, geo)
+    end
+
+    def opening_hole_at_center?(wall_group, data, geo = nil)
+      return true if collect_inner_loops_near(wall_group, data, geo).any?
+
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      center_local = opening_center_local(data, local_xform)
+      ext, int = parallel_wall_faces(wall_group, data)
+      return true unless ext&.valid? && int&.valid?
+
+      # Use any-coplanar-face coverage (not just the big sheet) so a cap that
+      # already fills the hole counts as covered — otherwise fill loops and
+      # stacks duplicate caps.
+      !opening_center_covered_on_side?(wall_group, center_local, ext, local_outward) ||
+        !opening_center_covered_on_side?(wall_group, center_local, int, local_outward)
+    end
+
+    def point_covered_on_wall_sheet?(wall_group, point_local, sheet_face, local_outward)
+      return false unless sheet_face&.valid?
+
+      proj = point_local.project_to_plane(sheet_face.plane)
+      cls = sheet_face.classify_point(proj)
+      cls == Sketchup::Face::PointInside ||
+        cls == Sketchup::Face::PointOnEdge ||
+        cls == Sketchup::Face::PointOnVertex
+    end
+
+    # True if the opening center is already covered by ANY face coplanar with
+    # this sheet on the same side (the big sheet OR a cap added on a prior pass).
+    # Prevents stacking duplicate overlapping caps that cause z-fighting.
+    def opening_center_covered_on_side?(wall_group, point_local, sheet, local_outward)
+      return false unless sheet&.valid?
+      sheet_plane = sheet.plane
+      sheet_normal = sheet.normal
+      proj = point_local.project_to_plane(sheet_plane)
+
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        next false unless f.normal.parallel?(sheet_normal)
+        # Only faces coplanar with THIS sheet (e.g. a cap filling its hole).
+        next false if f.vertices.first.position.distance_to_plane(sheet_plane) > 0.05
+
+        cls = f.classify_point(proj)
+        cls == Sketchup::Face::PointInside ||
+          cls == Sketchup::Face::PointOnEdge ||
+          cls == Sketchup::Face::PointOnVertex
+      end
+    end
+
+    def opening_void_through_wall?(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      base = opening_center_local(data, local_xform)
+      outward = local_outward.clone
+      outward.normalize! if outward.length > 0.001
+
+      [0.15, 0.5, 0.85].any? do |frac|
+        pt = base.offset(outward, frac * data[:thickness])
+        !point_inside_any_parallel_face?(wall_group, pt, local_outward)
+      end
+    end
+
+    def point_inside_any_parallel_face?(wall_group, local_pt, local_outward)
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid? && face_matches_outward_local?(f, local_outward)
+        proj = local_pt.project_to_plane(f.plane)
+        f.classify_point(proj) == Sketchup::Face::PointInside
+      end
+    end
+
+    def count_inner_loops(wall_group)
+      n = 0
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.loops.each { |lp| n += 1 unless lp.outer? }
+      end
+      n
+    end
+
+    def prepare_opening_for_sheet_cap!(wall_group, data, geo = nil)
+      erase_opening_tunnel!(wall_group, data, geo)
+      erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
+      erase_cap_faces_in_opening_hole!(wall_group, data, geo)
+    end
+
+    # Erase pushpull caps sitting in the hole (face contains opening center).
+    def erase_cap_faces_in_opening_hole!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      center_local = opening_center_local(data, local_xform)
+      min_area = data[:half_w] * (data[:door_top_z] - data[:door_bot_z]) * 0.08
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid? && face_matches_outward_local?(f, local_outward)
+        next unless f.area >= min_area
+
+        proj = center_local.project_to_plane(f.plane)
+        next unless f.classify_point(proj) == Sketchup::Face::PointInside
+
+        f.erase!
+      end
+    end
+
+    def close_all_sheet_inner_loops!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      capped = false
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+
+          if cap_loop_flat!(wall_group, lp)
+            capped = true
+          else
+            puts "[DoorTool] cap_loop_flat failed (#{lp.vertices.length} verts)"
+          end
+        end
+      end
+      capped
+    end
+
+    def loop_capable?(lp)
+      return false unless lp
+      return false if lp.edges.length < 3
+
+      verts = lp.vertices
+      verts.length >= 3 && verts.uniq.length >= 3
+    end
+
+    def cap_loop_flat!(wall_group, lp)
+      return false unless loop_capable?(lp)
+
+      edges = order_edges_chain(lp.edges)
+      if edges.length >= 3
+        cap = wall_group.entities.add_face(edges)
+        return true if cap&.valid?
+      end
+
+      verts = lp.vertices
+      attempts = [
+        verts,
+        verts.reverse,
+        verts.rotate(1),
+        verts.rotate(2),
+        verts.rotate(3),
+        verts.map(&:position),
+        verts.map(&:position).reverse
+      ]
+      attempts.each do |pts|
+        cap = wall_group.entities.add_face(pts)
+        cap ||= wall_group.entities.add_face(pts.reverse)
+        return true if cap&.valid?
+      end
+      false
+    rescue ArgumentError
+      false
+    end
+
+    def order_edges_chain(edges)
+      return edges if edges.length < 2
+
+      chain = [edges.first]
+      pool = edges[1..-1].dup
+      while pool.any?
+        last = chain.last
+        idx = pool.find_index { |e| edges_share_vertex?(last, e) }
+        break unless idx
+        chain << pool.delete_at(idx)
+      end
+      chain
+    end
+
+    def edges_share_vertex?(e1, e2)
+      e1.start == e2.start || e1.start == e2.end || e1.end == e2.start || e1.end == e2.end
+    end
+
+    def cap_hole_from_sheet_boundary_edges!(wall_group, data, geo = nil)
+      local_outward = data[:outward].transform(wall_group.transformation.inverse)
+      xform = wall_group.transformation
+      capped = 0
+
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+
+        sheet.loops.reject(&:outer?).each do |lp|
+          c = loop_centroid(lp).transform(xform)
+          next unless opening_point_in_heal_volume?(c, data, geo)
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+
+        hole_edges = sheet.edges.select do |e|
+          next false unless e.valid?
+          next false unless e.faces.length == 1
+          next unless edge_in_opening_frame?(e, xform, data, geo)
+
+          mid = edge_midpoint_world(e, xform)
+          opening_point_in_heal_volume?(mid, data, geo)
+        end
+        next if hole_edges.length < 3
+
+        cap = wall_group.entities.add_face(hole_edges)
+        if cap&.valid?
+          capped += 1
+          next
+        end
+
+        corners = find_snapped_opening_corners_local(wall_group, data, geo, sheet.plane)
+        orders = [
+          ordered_opening_loop(corners, data[:clicked_side]),
+          ordered_opening_loop(corners, -data[:clicked_side])
+        ]
+        orders.each do |ordered|
+          cap = wall_group.entities.add_face(ordered)
+          cap ||= wall_group.entities.add_face(ordered.reverse)
+          capped += 1 if cap&.valid?
+        end
+      end
+      door_log "[DoorTool] cap_boundary_edges: capped=#{capped}"
+      capped > 0
+    end
+
+    def find_snapped_opening_corners_local(wall_group, data, geo, plane)
+      local_xform = wall_group.transformation.inverse
+      corners_world_from_data(data, geo).map do |wpt|
+        local = wpt.transform(local_xform).project_to_plane(plane)
+        snapped = snap_local_vertex_near(wall_group, local, 8.0)
+        # Re-project after snapping: the nearest vertex may sit on another
+        # sheet/plane, which would make the 4 corners non-planar.
+        snapped.project_to_plane(plane)
+      end
+    end
+
+    def soften_opening_sheet_edges!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      wall_group.entities.grep(Sketchup::Edge).each do |e|
+        next unless e.valid?
+        mid = edge_midpoint_world(e, xform)
+        next unless opening_point_in_heal_volume?(mid, data, geo)
+        # ONLY hide seams between two COPLANAR faces (e.g. where the fill patch
+        # meets the original sheet). NEVER smooth an edge between a sheet and a
+        # perpendicular jamb/tunnel face — smoothing that averages their normals
+        # and shades the whole wall as a gradient ("diagonal warp").
+        next unless e.faces.length == 2 && faces_coplanar?(e.faces[0], e.faces[1])
+        e.soft = true
+        e.smooth = true
+      end
+    end
+
+    def run_pushpull_fill_strategies!(wall_group, data, geo = nil)
+      return true if fill_by_snapped_corners!(wall_group, data, geo)
+      return true if fill_by_draw_and_pull!(wall_group, data)
+      return true if fill_both_parallel_sheets!(wall_group, data, geo)
+      return true if fill_by_corner_cap!(wall_group, data)
+      false
+    end
+
+    # Merge coplanar faces and remove stray edges left after patching.
+    def heal_opening_after_fill!(wall_group, data, geo = nil)
+      8.times do
+        erased = erase_coplanar_edges_in_volume!(wall_group, data, geo)
+        erased += erase_dangling_edges_in_volume!(wall_group, data, geo)
+        break if erased == 0
+      end
+    end
+
+    def erase_coplanar_edges_in_volume!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      erased = 0
+      wall_group.entities.grep(Sketchup::Edge).each do |e|
+        next unless e.valid?
+        next unless e.faces.length == 2
+
+        f1, f2 = e.faces
+        next unless faces_coplanar?(f1, f2)
+
+        mid = edge_midpoint_world(e, xform)
+        next unless opening_point_in_heal_volume?(mid, data, geo)
+
+        e.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def faces_coplanar?(f1, f2)
+      return false unless f1.valid? && f2.valid?
+      return false unless f1.normal.parallel?(f2.normal)
+
+      # Tight tolerance + check ALL vertices: merging faces that are only
+      # *nearly* coplanar makes the merged face non-planar, which SketchUp
+      # triangulates into a visible diagonal/shading warp across the wall.
+      # An exact cap (project_to_plane) deviates ~0 and still merges.
+      plane2 = f2.plane
+      f1.vertices.all? { |vx| vx.position.distance_to_plane(plane2) < 0.02 }
+    end
+
+    def erase_dangling_edges_in_volume!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      erased = 0
+      wall_group.entities.grep(Sketchup::Edge).each do |e|
+        next unless e.valid?
+        next unless e.faces.empty?
+
+        mid = edge_midpoint_world(e, xform)
+        next unless opening_point_in_heal_volume?(mid, data, geo)
+
+        e.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def opening_solid_enough?(wall_group, data, geo = nil)
+      !tunnel_faces_in_volume?(wall_group, data, geo) &&
+        collect_inner_loops_near(wall_group, data, geo).empty?
+    end
+
+    def edge_in_opening_frame?(edge, xform, data, geo)
+      s = edge.start.position.transform(xform)
+      t = edge.end.position.transform(xform)
+      opening_point_in_heal_volume?(s, data, geo) && opening_point_in_heal_volume?(t, data, geo)
+    end
+
+    def edge_midpoint_world(edge, xform)
+      s = edge.start.position.transform(xform)
+      t = edge.end.position.transform(xform)
+      Geom::Point3d.new((s.x + t.x) / 2.0, (s.y + t.y) / 2.0, (s.z + t.z) / 2.0)
+    end
+
+    # Find inner loop nearest stored opening coordinates (public for DoorManager).
+    def find_opening_inner_loop(wall_group, data)
+      find_best_inner_loop(wall_group, data)
+    end
+
+    # Broad search along wall centerline when stored coordinates are off.
+    def find_inner_loop_near_position(wall_group, geo, t, mid_z_local, half_w = 24.0)
+      unit = geo[:unit]
+      n = geo[:n]
+      cx_w = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy_w = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      center_local = opening_local_point(wall_group, cx_w, cy_w, mid_z_local)
+      max_dist = half_w + 12.0
+
+      best_lp = nil
+      best_dist = Float::INFINITY
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.loops.each do |lp|
+          next if lp.outer?
+          dist = loop_centroid(lp).distance(center_local)
+          next unless dist < max_dist && dist < best_dist
+          best_dist = dist
+          best_lp = lp
+        end
+      end
+      best_lp
+    end
+
+    # Inner loops near position t along the wall (ignores stored fx/fy).
+    def inner_loops_near_wall_t(wall_group, geo, t, half_w_pad)
+      xform = wall_group.transformation
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      max_along = half_w_pad + 8.0
+
+      all_inner_loops(wall_group).select do |lp|
+        next false unless loop_capable?(lp)
+        c = loop_centroid(lp).transform(xform)
+        along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+        along.abs <= max_along
+      end
+    end
+
+    def point_near_opening_at_t?(pt, wall_group, geo, t, half_w, door_bot_z, door_top_z)
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
+      perp = (pt.x - cx) * n.x + (pt.y - cy) * n.y
+      bot_w = opening_world_point(wall_group, cx, cy, door_bot_z).z
+      top_w = opening_world_point(wall_group, cx, cy, door_top_z).z
+      along.abs <= half_w + 24.0 &&
+        perp.abs <= geo[:thickness] + 8.0 &&
+        pt.z >= bot_w - 8.0 && pt.z <= top_w + 8.0
+    end
+
+    def tunnel_faces_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side = 1)
+      local_outward = data_outward_local(wall_group, geo, clicked_side)
+      xform = wall_group.transformation
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        next false if face_matches_outward_local?(f, local_outward)
+        ctr = face_centroid_world(f, xform)
+        point_near_opening_at_t?(ctr, wall_group, geo, t, half_w, door_bot_z, door_top_z)
+      end
+    end
+
+    def opening_geometry_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side = 1)
+      tunnel_faces_near_wall_t?(wall_group, geo, t, half_w, door_bot_z, door_top_z, clicked_side) ||
+        inner_loops_near_wall_t(wall_group, geo, t, half_w + 24.0).any?
+    end
+
+    # Floor-band notches (boolean bottom slab) not caught by opening_geometry_near_wall_t?.
+    def bottom_notch_near_t?(wall_group, geo, t, half_w)
+      return false unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.5
+      unit = geo[:unit]
+      n = geo[:n]
+      cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+      max_along = half_w + 12.0
+      max_perp = geo[:thickness] + 8.0
+
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        c = f.bounds.center.transform(xform)
+        next unless (c.z - floor_z).abs < tol_z
+
+        along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+        perp = (c.x - cx) * n.x + (c.y - cy) * n.y
+        next unless along.abs <= max_along && perp.abs <= max_perp
+
+        f.loops.any? { |lp| !lp.outer? } ||
+          f.edges.any? { |e| e.valid? && e.faces.size == 1 }
+      end
+    end
+
+    # After boolean union patch — merge coplanar edges on the wall floor slab.
+    def merge_coplanar_on_floor_band!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.5
+      erased = 0
+
+      8.times do
+        batch = 0
+        wall_group.entities.grep(Sketchup::Edge).each do |e|
+          next unless e.valid? && e.faces.size == 2
+
+          f1, f2 = e.faces
+          next unless faces_coplanar?(f1, f2)
+
+          mid = edge_midpoint_world(e, xform)
+          next unless (mid.z - floor_z).abs < tol_z
+
+          e.erase!
+          batch += 1
+        end
+        erased += batch
+        break if batch == 0
+      end
+      erased
+    end
+
+    # Last-resort delete patch — wide search at stored wall position t.
+    def fill_opening_aggressive_at_t!(wall_group, geo, ctx, data)
+      door_log "[DoorTool] fill aggressive at t=#{ctx[:t].round(2)}"
+      erase_opening_tunnel!(wall_group, data, geo)
+      erase_parallel_batten_faces_in_volume!(wall_group, data, geo)
+      erase_cap_faces_in_opening_hole!(wall_group, data, geo)
+
+      inner_loops_near_wall_t(wall_group, geo, ctx[:t], ctx[:half_w] + 24.0).each do |lp|
+        cap_loop_flat!(wall_group, lp)
+      end
+
+      fill_tunnel_through_opening!(wall_group, data, geo)
+      reconstruct_solid_patch!(wall_group, data)
+      close_large_sheet_holes!(wall_group, data, geo)
+      cap_hole_from_sheet_boundary_edges!(wall_group, data, geo)
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      !opening_still_open_after_fill?(wall_group, data, geo)
+    end
+
+    # Delete path: always cap exterior + interior sheets (ignore "already covered" false positives).
+    def force_seal_wall_sheets!(wall_group, data, geo = nil)
+      door_log '[DoorTool] force_seal_wall_sheets'
+      erase_opening_tunnel!(wall_group, data, geo)
+
+      inner_loops_near_wall_t(wall_group, geo, data[:t], data[:half_w] + 24.0).each do |lp|
+        cap_loop_flat!(wall_group, lp)
+      end
+      cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      capped = 0
+
+      parallel_wall_faces(wall_group, data).each do |sheet|
+        next unless sheet&.valid?
+        if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+          capped += 1
+        end
+      end
+
+      if capped < 2
+        reconstruct_solid_patch!(wall_group, data)
+        reconstruct_opening_axis_slab!(wall_group, data)
+        heal_opening_after_fill!(wall_group, data, geo)
+        cap_parallel_sheet_inner_loops!(wall_group, data, geo)
+        parallel_wall_faces(wall_group, data).each do |sheet|
+          next unless sheet&.valid?
+          if close_sheet_hole_with_lines!(wall_group, data, geo, sheet, local_xform, local_outward)
+            capped += 1
+          end
+        end
+      end
+      door_log "[DoorTool] force_seal: sheet_caps=#{capped}"
+
+      heal_opening_after_fill!(wall_group, data, geo)
+      soften_opening_sheet_edges!(wall_group, data, geo)
+    end
+
+    def data_outward_local(wall_group, geo, clicked_side)
+      n = geo[:n]
+      outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
+      outward.transform(wall_group.transformation.inverse)
+    end
+
+    private
+
+    def find_wall_under_cursor(view, x, y)
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      return [nil, nil, nil] if ph.count == 0
+
+      ip = Sketchup::InputPoint.new
+      ip.pick(view, x, y)
+
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        wall = path.find { |e|
+          e.is_a?(Sketchup::Group) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'wall'
+        }
+        next unless wall
+
+        leaf = ph.leaf_at(i)
+        face = leaf.is_a?(Sketchup::Face) ? leaf : nil
+        point = world_pick_point(view, x, y, ph, i)
+        point ||= ip.valid? ? ip.position : nil
+        return [wall, point, face] if point
+      end
+      [nil, nil, nil]
+    end
+
+    # PickHelper has no picked_point method. Recover the 3D world-space pick
+    # by intersecting the view's pickray with the leaf face's plane (transformed
+    # from the group's local space to world space).
+    def world_pick_point(view, x, y, ph, index)
+      leaf = ph.leaf_at(index)
+      if leaf.is_a?(Sketchup::Face)
+        transform = ph.transformation_at(index)
+        ray = view.pickray(x, y)
+        plane_pt = leaf.vertices.first.position.transform(transform)
+        plane_normal = leaf.normal.transform(transform)
+        pt = Geom.intersect_line_plane(ray, [plane_pt, plane_normal])
+        return pt if pt
+      end
+      # Fallback for non-face leaves (edge picks, etc.)
+      ip = Sketchup::InputPoint.new
+      ip.pick(view, x, y)
+      ip.valid? ? ip.position : nil
+    end
+
+    def cut_door_opening(wall_group, picked_point, picked_face = nil)
+      data = prepare_door_placement(wall_group, picked_point, picked_face)
+      return unless data
+
+      geo = InteriorPro::DoorManager.wall_geometry(wall_group)
+      native = InteriorPro::WallTool::USE_NATIVE_OPENINGS
+      unless cut_and_build_door_at(wall_group, data, geo, clean_cut: true, native_openings: native)
+        UI.messagebox("Error cutting or building door: see Ruby Console for details.")
+        return
+      end
+
+      Sketchup.set_status_text(
+        "Door opening cut. Click another wall or press Escape to exit.",
+        SB_PROMPT
+      )
+    end
+
+    def prepare_door_placement(wall_group, picked_point, picked_face)
+      data, valid, error = compute_placement_data(wall_group, picked_point, picked_face)
+      unless valid
+        UI.messagebox(error) if error
+        return nil
+      end
+      data
+    end
+
+    def compute_placement_data(wall_group, picked_point, picked_face)
+      geo = InteriorPro::DoorManager.wall_geometry(wall_group)
+      unless geo
+        return [nil, false, 'Wall is missing required attributes.']
+      end
+
+      unit = geo[:unit]
+      n = geo[:n]
+      cline_start = geo[:cline_start]
+      wall_length = geo[:wall_length]
+      thickness = geo[:thickness]
+      floor_z = geo[:floor_z]
+      ceiling_z = geo[:ceiling_z]
+
+      to_click = picked_point - cline_start
+      t = to_click.dot(unit)
+      n_offset = to_click.dot(n)
+      clicked_side = n_offset >= 0 ? 1 : -1
+
+      half_w = @width / 2.0
+      valid_length = t - half_w >= 0 && t + half_w <= wall_length
+
+      door_bot_z = floor_z + @floor_offset
+      door_top_z = door_bot_z + @height
+      valid_height = door_top_z <= ceiling_z + 0.001
+      valid = valid_length && valid_height
+
+      error = nil
+      if !valid_length
+        error = "Door does not fit in wall.\n\n" \
+                "Wall length: #{wall_length.round(2)}\"\n" \
+                "Door width: #{@width}\"\n" \
+                "Click position: #{t.round(2)}\" from wall start\n" \
+                "Need at least #{half_w}\" from each end."
+      elsif !valid_height
+        error = "Door does not fit in wall height.\n\n" \
+                "Floor offset (#{@floor_offset}\") + door height (#{@height}\") " \
+                "exceeds wall height (#{geo[:wall_height]}\")."
+      end
+
+      n_side = geo[:n_side]
+      cx = cline_start.x + unit.x * t + n.x * n_side
+      cy = cline_start.y + unit.y * t + n.y * n_side
+      ux = unit.x * half_w
+      uy = unit.y * half_w
+      fx = picked_point.x
+      fy = picked_point.y
+      outward = Geom::Vector3d.new(n.x * clicked_side, n.y * clicked_side, 0)
+
+      data = {
+        wall_group: wall_group,
+        picked_point: picked_point,
+        picked_face: picked_face,
+        unit: unit,
+        n: n,
+        thickness: thickness,
+        t: t,
+        clicked_side: clicked_side,
+        half_w: half_w,
+        door_bot_z: door_bot_z,
+        door_top_z: door_top_z,
+        cx: cx,
+        cy: cy,
+        ux: ux,
+        uy: uy,
+        fx: fx,
+        fy: fy,
+        outward: outward
+      }
+      [data, valid, error]
+    end
+
+    def apply_wall_cut(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_picked = data[:picked_point].transform(local_xform)
+      local_outward = data[:outward].transform(local_xform)
+      depth = wall_cut_depth(wall_group, data)
+      picked_face = data[:picked_face]
+
+      target_face = nil
+      if picked_face && picked_face.valid? &&
+         picked_face.parent == wall_group.entities.parent &&
+         face_matches_outward_local?(picked_face, local_outward)
+        target_face = picked_face
+      end
+      target_face ||= find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
+      unless target_face
+        door_log '[DoorTool] apply_wall_cut: no target face'
+        return false
+      end
+
+      target_plane = target_face.plane
+      local_corners = opening_corners_local(data, local_xform, target_plane)
+      ordered = data[:clicked_side] >= 0 ?
+        [local_corners[0], local_corners[3], local_corners[2], local_corners[1]] :
+        [local_corners[0], local_corners[1], local_corners[2], local_corners[3]]
+
+      unless cut_face_from_ordered_loop!(wall_group, ordered, local_outward, depth)
+        door_log '[DoorTool] apply_wall_cut: could not create opening face'
+        return false
+      end
+
+      door_log "[DoorTool] apply_wall_cut: ok depth=#{depth.round(2)}"
+      true
+    rescue => e
+      puts "[DoorTool] apply_wall_cut error: #{e.message}"
+      false
+    end
+
+    def apply_wall_cut_snapped!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_picked = data[:picked_point].transform(local_xform)
+      local_outward = data[:outward].transform(local_xform)
+      depth = wall_cut_depth(wall_group, data)
+
+      target_face = find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
+      unless target_face
+        door_log '[DoorTool] apply_wall_cut_snapped: no target face'
+        return false
+      end
+
+      corners_local = find_snapped_opening_corners_local(wall_group, data, geo, target_face.plane)
+      orders = [
+        ordered_opening_loop(corners_local, data[:clicked_side]),
+        ordered_opening_loop(corners_local, -data[:clicked_side])
+      ]
+
+      orders.each do |ordered|
+        if cut_face_from_ordered_loop!(wall_group, ordered, local_outward, depth)
+          door_log '[DoorTool] apply_wall_cut_snapped: ok'
+          return true
+        end
+      end
+
+      puts '[DoorTool] apply_wall_cut_snapped: failed'
+      false
+    rescue => e
+      puts "[DoorTool] apply_wall_cut_snapped error: #{e.message}"
+      false
+    end
+
+    def cut_face_from_ordered_loop!(wall_group, ordered, local_outward, depth)
+      min_area = 4.0
+      loop_center = Geom::Point3d.new(
+        (ordered[0].x + ordered[2].x) / 2.0,
+        (ordered[0].y + ordered[2].y) / 2.0,
+        (ordered[0].z + ordered[2].z) / 2.0
+      )
+
+      new_edges = []
+      4.times do |i|
+        new_edges << wall_group.entities.add_line(ordered[i], ordered[(i + 1) % 4])
+      end
+      new_edges.compact!
+      new_edges.each(&:find_faces)
+
+      new_face = wall_group.entities.grep(Sketchup::Face).find do |f|
+        f.valid? &&
+          f.normal.parallel?(local_outward) &&
+          f.classify_point(loop_center) == Sketchup::Face::PointInside &&
+          f.area >= min_area
+      end
+      unless new_face
+        door_log '[DoorTool] cut_face: no inner face found'
+        return false
+      end
+
+      pushpull_through_wall!(new_face, local_outward, depth)
+      true
+    end
+
+    # Robust opening cut that does NOT rely on pushpull. Rebuilds a clean
+    # rectangular tunnel between the two main wall sheets. Used for edit/resize
+    # where the wall is no longer pristine (old patched opening) and raw pushpull
+    # fails to punch a real hole ("door stuck on surface"). Deterministic — no
+    # pushpull direction quirks.
+    def cut_opening_clean!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+
+      # De-fragment the opening region so each sheet is a single clean face
+      # (removes leftover rim edges from a previous patched opening).
+      heal_opening_after_fill!(wall_group, data, geo)
+
+      ext, int = parallel_wall_faces(wall_group, data)
+      unless ext&.valid? && int&.valid?
+        door_log "[DoorTool] clean cut: missing wall face ext=#{!ext.nil?} int=#{!int.nil?}"
+        return false
+      end
+
+      ext_normal = ext.normal
+      int_normal = int.normal
+      ext_corners = opening_corners_local(data, local_xform, ext.plane)
+      int_corners = opening_corners_local(data, local_xform, int.plane)
+
+      ext_face = imprint_opening_face!(wall_group, ext_corners, ext_normal)
+      int_face = imprint_opening_face!(wall_group, int_corners, int_normal)
+      unless ext_face && int_face
+        door_log "[DoorTool] clean cut: imprint failed ext=#{!ext_face.nil?} int=#{!int_face.nil?}"
+        return false
+      end
+
+      # Open the hole on both sheets first, then connect with tunnel walls.
+      ext_face.erase! if ext_face.valid?
+      int_face.erase! if int_face.valid?
+
+      sides = 0
+      4.times do |i|
+        a = ext_corners[i]
+        b = ext_corners[(i + 1) % 4]
+        c = int_corners[(i + 1) % 4]
+        d = int_corners[i]
+        begin
+          f = wall_group.entities.add_face(a, b, c, d)
+          sides += 1 if f&.valid?
+        rescue ArgumentError => e
+          door_log "[DoorTool] clean cut: side#{i} skip #{e.message}"
+        end
+      end
+
+      void = opening_void_through_wall?(wall_group, data, geo)
+      door_log "[DoorTool] clean cut: sides=#{sides} void=#{void}"
+      void
+    rescue => e
+      puts "[DoorTool] cut_opening_clean! error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      false
+    end
+
+    # Draw the opening rectangle on a wall sheet plane and return the inner face.
+    def imprint_opening_face!(wall_group, corners, face_normal)
+      edges = []
+      4.times do |i|
+        edges << wall_group.entities.add_line(corners[i], corners[(i + 1) % 4])
+      end
+      edges.compact!
+      edges.each(&:find_faces)
+
+      center = Geom::Point3d.new(
+        (corners[0].x + corners[2].x) / 2.0,
+        (corners[0].y + corners[2].y) / 2.0,
+        (corners[0].z + corners[2].z) / 2.0
+      )
+      wall_group.entities.grep(Sketchup::Face).find do |f|
+        f.valid? && f.normal.parallel?(face_normal) &&
+          f.classify_point(center) == Sketchup::Face::PointInside
+      end
+    rescue ArgumentError => e
+      door_log "[DoorTool] imprint_opening_face! skip: #{e.message}"
+      nil
+    end
+
+    def prepare_wall_for_cut!(wall_group, data, geo = nil)
+      # Do NOT erase_cap_faces here — on a solid patched wall that would
+      # delete the main exterior sheet (center is PointInside on a filled face).
+      erase_opening_tunnel!(wall_group, data, geo)
+      heal_opening_after_fill!(wall_group, data, geo)
+      erase_dangling_edges_in_volume!(wall_group, data, geo)
+    end
+
+    def erase_opening_tunnel!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      xform = wall_group.transformation
+      to_erase = wall_group.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid?
+        next false if face_matches_outward_local?(f, local_outward)
+        ctr = face_centroid_world(f, xform)
+        opening_point_in_heal_volume?(ctr, data, geo) ||
+          (geo && point_near_opening_at_t?(
+            ctr, wall_group, geo, data[:t], data[:half_w],
+            data[:door_bot_z], data[:door_top_z]
+          ))
+      end
+      erased = to_erase.length
+      to_erase.each { |f| f.erase! if f.valid? }
+      door_log "[DoorTool] erase_opening_tunnel: #{erased}" if erased > 0
+      erased
+    end
+
+    def opening_volume_faces?(wall_group, data, geo = nil)
+      tunnel_faces_in_volume?(wall_group, data, geo)
+    end
+
+    def tunnel_faces_in_volume?(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      xform = wall_group.transformation
+      wall_group.entities.grep(Sketchup::Face).any? do |f|
+        next false unless f.valid?
+        next false if face_matches_outward_local?(f, local_outward)
+        opening_point_in_volume?(face_centroid_world(f, xform), data, geo)
+      end
+    end
+
+    def opening_point_in_volume?(pt, data, geo = nil)
+      opening_point_in_axis_box?(pt, data, geo, along_pad: 2.0, z_pad: 2.0, perp_pad: 3.0)
+    end
+
+    def opening_point_in_heal_volume?(pt, data, geo = nil)
+      opening_point_in_axis_box?(pt, data, geo, along_pad: 4.0, z_pad: 4.0, perp_pad: 5.0)
+    end
+
+    # Remove horizontal wall faces at the opening floor line (z-fight with door sill).
+    def erase_opening_bottom_seam_faces!(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      bot_z = opening_bot_z_world(wall_group, data)
+      tol = 0.25
+      erased = 0
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - bot_z).abs < tol
+        next unless opening_point_in_volume?(center, data, geo) ||
+                    opening_point_in_heal_volume?(center, data, geo)
+
+        f.erase!
+        erased += 1
+      end
+      door_log "[DoorTool] erase bottom seam faces: #{erased}" if erased > 0
+      erased
+    end
+
+    # Cap rectangular notches boolean cut leaves on the wall bottom slab face.
+    def cap_bottom_slab_inner_loops!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.0
+      capped = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < tol_z
+
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless bottom_opening_point?(c, wall_group, geo, data)
+
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      door_log "[DoorTool] cap bottom slab loops: #{capped}" if capped > 0
+      capped
+    end
+
+    # Cap every inner loop sitting on the wall floor slab (cleans old move footprints).
+    def heal_entire_wall_bottom!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      tol_z = 1.0
+      capped = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        world_n = f.normal.transform(xform)
+        next unless world_n.z.abs > 0.92
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < tol_z
+
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless loop_capable?(lp)
+          c = loop_centroid(lp).transform(xform)
+          next unless (c.z - floor_z).abs < tol_z
+
+          capped += 1 if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      door_log "[DoorTool] heal entire wall bottom: #{capped}" if capped > 0
+      capped
+    end
+
+    # Same as heal_entire_wall_bottom but also runs close_sheet on floor horizontal faces.
+    def heal_wall_horizontal_floor_faces!(wall_group, geo = nil)
+      return 0 unless geo
+
+      capped = heal_entire_wall_bottom!(wall_group, geo)
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      local_xform = wall_group.transformation.inverse
+      local_outward = Geom::Vector3d.new(geo[:n].x, geo[:n].y, 0).transform(local_xform)
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.0
+
+        dummy = {
+          wall_group: wall_group,
+          half_w: geo[:wall_length] / 2.0,
+          t: geo[:wall_length] / 2.0,
+          unit: geo[:unit],
+          n: geo[:n],
+          thickness: geo[:thickness],
+          door_bot_z: geo[:floor_z],
+          door_top_z: geo[:floor_z] + geo[:wall_height],
+          clicked_side: 1,
+          outward: Geom::Vector3d.new(geo[:n].x, geo[:n].y, 0),
+          cx: geo[:cline_start].x + geo[:unit].x * geo[:wall_length] / 2.0,
+          cy: geo[:cline_start].y + geo[:unit].y * geo[:wall_length] / 2.0,
+          fx: geo[:cline_start].x,
+          fy: geo[:cline_start].y
+        }
+        if close_sheet_hole_with_lines!(wall_group, dummy, geo, f, local_xform, local_outward)
+          capped += 1
+        end
+      end
+      capped
+    end
+
+    # Remove small horizontal shelf faces along the wall floor (boolean leftovers).
+    def erase_orphan_floor_shelf_faces!(wall_group, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      max_area = geo[:thickness] * 80.0
+      erased = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.5
+        next if f.area > max_area
+
+        f.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def heal_bottom_inner_loops_near_t!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      capped = 0
+      inner_loops_near_wall_t(wall_group, geo, data[:t], data[:half_w] + 28.0).each do |lp|
+        next unless loop_capable?(lp)
+        c = loop_centroid(lp).transform(xform)
+        next unless (c.z - floor_z).abs < 1.5
+
+        capped += 1 if cap_loop_flat!(wall_group, lp)
+      end
+      capped
+    end
+
+    # Solidify floor plane inside opening (boolean cut leaves tunnel open at floor).
+    def cap_opening_at_floor_plane!(wall_group, data, geo = nil)
+      return false unless geo
+
+      local_xform = wall_group.transformation.inverse
+      ax, ay = opening_axis_xy(data)
+      unit = data[:unit]
+      half_w = data[:half_w]
+      n = geo[:n]
+      thickness = geo[:thickness].to_f
+
+      floor_local = world_point_to_local(wall_group, ax, ay, geo[:floor_z])
+      u_local = Geom::Vector3d.new(unit.x * half_w, unit.y * half_w, 0).transform(local_xform)
+      n_local = Geom::Vector3d.new(n.x, n.y, 0).transform(local_xform)
+      return false if u_local.length < 0.001 || n_local.length < 0.001
+
+      n_local.normalize!
+      half_t = thickness / 2.0
+      center = floor_local
+      p0 = center.offset(u_local.reverse).offset(n_local, -half_t)
+      p1 = center.offset(u_local).offset(n_local, -half_t)
+      p2 = center.offset(u_local).offset(n_local, half_t)
+      p3 = center.offset(u_local.reverse).offset(n_local, half_t)
+
+      cap = add_face_try_orders(wall_group, [p0, p1, p2, p3])
+      return false unless cap&.valid?
+
+      bot_local_z = world_point_to_local(wall_group, ax, ay, data[:door_bot_z]).z
+      depth = bot_local_z - floor_local.z
+      if depth > 0.05
+        cap.reverse! if cap.normal.z < 0
+        cap.pushpull(depth)
+      end
+      true
+    rescue ArgumentError, RuntimeError
+      false
+    end
+
+    def repair_exterior_bottom_sheet!(wall_group, data, geo = nil)
+      return false unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      repaired = false
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless (center.z - floor_z).abs < 1.0
+
+        if close_sheet_hole_with_lines!(wall_group, data, geo, f, local_xform, local_outward)
+          repaired = true
+        end
+        f.loops.reject(&:outer?).each do |lp|
+          next unless loop_capable?(lp)
+          repaired = true if cap_loop_flat!(wall_group, lp)
+        end
+      end
+      repaired
+    end
+
+    def erase_opening_floor_band_faces!(wall_group, data, geo = nil)
+      return 0 unless geo
+
+      xform = wall_group.transformation
+      floor_z = geo[:floor_z]
+      top_z = opening_bot_z_world(wall_group, data) + 2.0
+      erased = 0
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        wn = f.normal.transform(xform)
+        next unless wn.z.abs > 0.85
+
+        center = f.bounds.center.transform(xform)
+        next unless center.z >= floor_z - 0.5 && center.z <= top_z
+        next unless opening_point_in_heal_volume?(center, data, geo)
+
+        f.erase!
+        erased += 1
+      end
+      erased
+    end
+
+    def add_face_try_orders(wall_group, pts)
+      attempts = [pts, pts.reverse, pts.rotate(1), pts.rotate(2)]
+      attempts.each do |ordered|
+        begin
+          face = wall_group.entities.add_face(ordered)
+          face ||= wall_group.entities.add_face(ordered.reverse)
+          return face if face&.valid?
+        rescue ArgumentError
+          next
+        end
+      end
+      nil
+    end
+
+    def bottom_opening_point?(pt, wall_group, geo, data)
+      return false unless (pt.z - geo[:floor_z]).abs < 1.5
+
+      unit = geo[:unit]
+      cx = geo[:cline_start].x + unit.x * data[:t] + geo[:n].x * geo[:n_side]
+      cy = geo[:cline_start].y + unit.y * data[:t] + geo[:n].y * geo[:n_side]
+      along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
+      perp = (pt.x - cx) * geo[:n].x + (pt.y - cy) * geo[:n].y
+      along.abs <= data[:half_w] + 12.0 &&
+        perp.abs <= data[:thickness] + 8.0
+    end
+
+    def opening_point_in_axis_box?(pt, data, geo, along_pad:, z_pad:, perp_pad:)
+      unit = data[:unit]
+      n = data[:n]
+      cx, cy = opening_axis_center_xy(data, geo)
+      along = (pt.x - cx) * unit.x + (pt.y - cy) * unit.y
+      perp = (pt.x - cx) * n.x + (pt.y - cy) * n.y
+      wall_group = data[:wall_group]
+      if wall_group&.valid?
+        bot_w = opening_bot_z_world(wall_group, data)
+        top_w = opening_top_z_world(wall_group, data)
+        mid_z = (bot_w + top_w) / 2.0
+        half_h = (top_w - bot_w) / 2.0
+      else
+        half_h = (data[:door_top_z] - data[:door_bot_z]) / 2.0
+        mid_z = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      end
+      along.abs <= data[:half_w] + along_pad &&
+        (pt.z - mid_z).abs <= half_h + z_pad &&
+        perp.abs <= data[:thickness] + perp_pad
+    end
+
+    # fx/fy and z are world coordinates.
+    def world_point_to_local(wall_group, x, y, z_world)
+      Geom::Point3d.new(x, y, z_world).transform(wall_group.transformation.inverse)
+    end
+
+    def opening_local_point(wall_group, fx, fy, z_world)
+      world_point_to_local(wall_group, fx, fy, z_world)
+    end
+
+    # z here is LOCAL (wall floor = 0). A wall lowered via base_z carries a
+    # Z translation in its group transformation — add it so the world point
+    # is correct on dropped walls too (2026-07-21, garage door). Identity
+    # walls are unaffected (dz = 0).
+    def opening_world_point(wall_group, fx, fy, z_local)
+      dz = wall_group&.valid? ? wall_group.transformation.origin.z : 0.0
+      Geom::Point3d.new(fx, fy, z_local + dz)
+    end
+
+    def opening_bot_z_world(wall_group, data)
+      opening_world_point(wall_group, data[:fx], data[:fy], data[:door_bot_z]).z
+    end
+
+    def opening_top_z_world(wall_group, data)
+      opening_world_point(wall_group, data[:fx], data[:fy], data[:door_top_z]).z
+    end
+
+    def opening_mid_z_world(wall_group, data)
+      (opening_bot_z_world(wall_group, data) + opening_top_z_world(wall_group, data)) / 2.0
+    end
+
+    def opening_axis_center_xy(data, geo)
+      if geo
+        t = data[:t]
+        unit = geo[:unit]
+        n = geo[:n]
+        cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
+        cy = geo[:cline_start].y + unit.y * t + n.y * geo[:n_side]
+        [cx, cy]
+      else
+        [data[:fx], data[:fy]]
+      end
+    end
+
+    def all_inner_loops(wall_group)
+      loops = []
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.loops.each do |lp|
+          next if lp.outer?
+          loops << lp
+        end
+      end
+      loops
+    end
+
+    def collect_inner_loops_near(wall_group, data, geo = nil)
+      xform = wall_group.transformation
+      unit = data[:unit]
+      n = data[:n]
+      cx, cy = opening_axis_center_xy(data, geo)
+      half_w = data[:half_w]
+      bot_w = opening_bot_z_world(wall_group, data)
+      top_w = opening_top_z_world(wall_group, data)
+      mid_z_world = (bot_w + top_w) / 2.0
+      half_h_world = (top_w - bot_w) / 2.0
+      max_along = half_w + 8.0
+      max_z = half_h_world + 8.0
+      max_perp = data[:thickness] + 6.0
+
+      all_inner_loops(wall_group).select do |lp|
+        next false unless loop_capable?(lp)
+        c = loop_centroid(lp).transform(xform)
+        along = (c.x - cx) * unit.x + (c.y - cy) * unit.y
+        perp = (c.x - cx) * n.x + (c.y - cy) * n.y
+        along.abs <= max_along &&
+          (c.z - mid_z_world).abs <= max_z &&
+          perp.abs <= max_perp
+      end
+    end
+
+    def erase_parallel_batten_faces_in_volume!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      xform = wall_group.transformation
+      max_area = data[:half_w] * (data[:door_top_z] - data[:door_bot_z]) * 0.6
+      to_erase = wall_group.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid?
+        next false unless face_matches_outward_local?(f, local_outward)
+        next false unless opening_point_in_volume?(face_centroid_world(f, xform), data, geo)
+        f.area < max_area
+      end
+      to_erase.each { |f| f.erase! if f.valid? }
+    end
+
+    def effective_wall_depth(wall_group, data)
+      t = data[:thickness].to_f
+      return t if t <= 0
+
+      ext, int = parallel_wall_faces(wall_group, data)
+      unless ext&.valid? && int&.valid?
+        return t
+      end
+
+      local_xform = wall_group.transformation.inverse
+      center_local = Geom::Point3d.new(
+        data[:cx], data[:cy], (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ).transform(local_xform)
+      span = (center_local.distance_to_plane(ext.plane) - center_local.distance_to_plane(int.plane)).abs
+      span > 0.1 && span <= t * 1.25 ? span : t
+    end
+
+    # Wall cut pushpull depth — match WindowTool (wall thickness attribute).
+    def wall_cut_depth(wall_group, data)
+      data[:thickness].to_f
+    end
+
+    def parallel_wall_faces(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      center_local = opening_center_local(data, local_xform)
+      parallel = wall_group.entities.grep(Sketchup::Face).select do |f|
+        f.valid? && face_matches_outward_local?(f, local_outward)
+      end
+      return [nil, nil] if parallel.empty?
+
+      exterior_candidates = parallel.select { |f| f.normal.dot(local_outward) > 0.25 }
+      interior_candidates = parallel.select { |f| f.normal.dot(local_outward) < -0.25 }
+
+      exterior = pick_best_sheet_near_opening(wall_group, data, exterior_candidates, center_local)
+      interior = pick_best_sheet_near_opening(wall_group, data, interior_candidates, center_local)
+      [exterior, interior].compact.uniq
+    end
+
+    def pick_best_sheet_near_opening(wall_group, data, candidates, center_local)
+      return nil if candidates.empty?
+
+      xform = wall_group.transformation
+      candidates.max_by do |f|
+        proj = center_local.project_to_plane(f.plane)
+        cls = f.classify_point(proj)
+        on_opening = cls == Sketchup::Face::PointInside ||
+                     cls == Sketchup::Face::PointOnEdge ||
+                     cls == Sketchup::Face::PointOnVertex
+        in_vol = opening_point_in_heal_volume?(face_centroid_world(f, xform), data, nil)
+        f.area + (on_opening ? 1e9 : 0) + (in_vol ? 1e6 : 0)
+      end
+    end
+
+    def fill_both_parallel_sheets!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      depth = effective_wall_depth(wall_group, data)
+      ok = false
+      parallel_wall_faces(wall_group, data).each do |target_face|
+        next unless target_face
+        if cap_on_face_sheet!(wall_group, data, geo, target_face, local_xform, depth)
+          ok = true
+        end
+      end
+      ok
+    end
+
+    def cap_on_face_sheet!(wall_group, data, geo, target_face, local_xform, depth)
+      plane = target_face.plane
+      corners_local = corners_world_from_data(data, geo).map do |wpt|
+        local = wpt.transform(local_xform).project_to_plane(plane)
+        snapped = snap_local_vertex_near(wall_group, local, 6.0)
+        snapped.project_to_plane(plane)
+      end
+      orders = [
+        ordered_opening_loop(corners_local, data[:clicked_side]),
+        ordered_opening_loop(corners_local, -data[:clicked_side])
+      ]
+      orders.each do |ordered|
+        cap = wall_group.entities.add_face(ordered)
+        cap ||= wall_group.entities.add_face(ordered.reverse)
+        next unless cap&.valid?
+        pushfill_cap!(cap, target_face.normal, depth)
+        return true
+      end
+      false
+    rescue => e
+      puts "[DoorTool] cap_on_face_sheet: #{e.message}"
+      false
+    end
+
+    def snap_local_vertex_near(wall_group, local_pt, tol)
+      best = local_pt
+      best_d = tol
+      wall_group.entities.grep(Sketchup::Edge).each do |e|
+        next unless e.valid?
+        e.vertices.each do |v|
+          d = v.position.distance(local_pt)
+          if d < best_d
+            best_d = d
+            best = v.position
+          end
+        end
+      end
+      best
+    end
+
+    def corners_world_from_data(data, geo = nil)
+      if data[:mesh_pts] && data[:mesh_pts].length >= 4
+        mesh_corners_world(data, geo)
+      else
+        raw_corners_world(data)
+      end
+    end
+
+    def raw_corners_world(data)
+      wall_group = data[:wall_group]
+      if wall_group&.valid?
+        opening_corners_world(wall_group, data)
+      else
+        [
+          Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_bot_z]),
+          Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_bot_z]),
+          Geom::Point3d.new(data[:fx] + data[:ux], data[:fy] + data[:uy], data[:door_top_z]),
+          Geom::Point3d.new(data[:fx] - data[:ux], data[:fy] - data[:uy], data[:door_top_z])
+        ]
+      end
+    end
+
+    def mesh_corners_world(data, geo)
+      near = data[:mesh_pts]
+      unit = data[:unit]
+      n = data[:n]
+      cx, cy = opening_axis_center_xy(data, geo)
+      along = near.map { |p| (p.x - cx) * unit.x + (p.y - cy) * unit.y }
+      perp = near.map { |p| (p.x - cx) * n.x + (p.y - cy) * n.y }
+      z = near.map(&:z)
+      a0, a1 = along.minmax
+      z0, z1 = z.minmax
+      p_mid = perp.sum / perp.length.to_f
+      [[a0, z0], [a1, z0], [a1, z1], [a0, z1]].map do |a, zz|
+        Geom::Point3d.new(cx + unit.x * a + n.x * p_mid, cy + unit.y * a + n.y * p_mid, zz)
+      end
+    end
+
+    def snap_world_to_local_vertex(wall_group, world_pt, local_xform, tol = 4.0)
+      snap_local_vertex_near(wall_group, world_pt.transform(local_xform), tol)
+    end
+
+    def ordered_opening_loop(corners_local, clicked_side)
+      if clicked_side >= 0
+        [corners_local[0], corners_local[3], corners_local[2], corners_local[1]]
+      else
+        [corners_local[0], corners_local[1], corners_local[2], corners_local[3]]
+      end
+    end
+
+    def find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
+      test_locals = [
+        local_picked,
+        Geom::Point3d.new(data[:cx], data[:cy], data[:door_bot_z]).transform(local_xform),
+        Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z]).transform(local_xform)
+      ]
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid? && face_matches_outward_local?(f, local_outward)
+        test_locals.each do |pt|
+          proj = pt.project_to_plane(f.plane)
+          cls = f.classify_point(proj)
+          if cls == Sketchup::Face::PointInside ||
+             cls == Sketchup::Face::PointOnEdge ||
+             cls == Sketchup::Face::PointOnVertex
+            return f
+          end
+        end
+      end
+
+      parallel = wall_group.entities.grep(Sketchup::Face).select do |f|
+        f.valid? && face_matches_outward_local?(f, local_outward)
+      end
+      return nil if parallel.empty?
+
+      if data[:clicked_side] >= 0
+        parallel.max_by { |f| f.normal.dot(local_outward) }
+      else
+        parallel.min_by { |f| f.normal.dot(local_outward) }
+      end
+    end
+
+    def fill_by_snapped_corners!(wall_group, data, geo = nil)
+      depth = effective_wall_depth(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      target = find_cut_target_face(wall_group, data, local_xform, local_outward,
+                                    data[:picked_point].transform(local_xform))
+      plane = target ? target.plane : nil
+
+      corners_local = corners_world_from_data(data, geo).map do |wpt|
+        local = wpt.transform(local_xform)
+        local = plane ? local.project_to_plane(plane) : local
+        snapped = snap_local_vertex_near(wall_group, local, 6.0)
+        plane ? snapped.project_to_plane(plane) : snapped
+      end
+      orders = [
+        ordered_opening_loop(corners_local, data[:clicked_side]),
+        ordered_opening_loop(corners_local, -data[:clicked_side])
+      ]
+
+      orders.each do |ordered|
+        cap = wall_group.entities.add_face(ordered)
+        cap ||= wall_group.entities.add_face(ordered.reverse)
+        next unless cap&.valid?
+
+        normal = target ? target.normal : local_outward
+        pushfill_cap!(cap, normal, depth)
+        return true
+      end
+
+      puts '[DoorTool] fill_by_snapped_corners: add_face failed'
+      false
+    rescue => e
+      puts "[DoorTool] fill_by_snapped_corners: #{e.message}"
+      false
+    end
+
+    # Same edge loop + pushpull strategy as apply_wall_cut (closes openings without inner loops).
+    def fill_by_draw_and_pull!(wall_group, data, geo = nil)
+      local_xform = wall_group.transformation.inverse
+      local_picked = data[:picked_point].transform(local_xform)
+      local_outward = data[:outward].transform(local_xform)
+      depth = effective_wall_depth(wall_group, data)
+
+      target_face = find_cut_target_face(wall_group, data, local_xform, local_outward, local_picked)
+      unless target_face
+        puts '[DoorTool] fill_by_draw_and_pull: no target face'
+        return false
+      end
+
+      target_plane = target_face.plane
+      corners_local = corners_world_from_data(data, geo).map do |wpt|
+        local = wpt.transform(local_xform).project_to_plane(target_plane)
+        snapped = snap_local_vertex_near(wall_group, local, 6.0)
+        snapped.project_to_plane(target_plane)
+      end
+      orders = [
+        ordered_opening_loop(corners_local, data[:clicked_side]),
+        ordered_opening_loop(corners_local, -data[:clicked_side])
+      ]
+
+      orders.each do |ordered|
+        cap = wall_group.entities.add_face(ordered)
+        cap ||= wall_group.entities.add_face(ordered.reverse)
+        if cap&.valid?
+          pushfill_cap!(cap, target_face.normal, depth)
+          return true
+        end
+
+        new_edges = []
+        4.times do |i|
+          new_edges << wall_group.entities.add_line(ordered[i], ordered[(i + 1) % 4])
+        end
+        new_edges.each(&:find_faces)
+
+        cap_face = new_edges.flat_map { |e| e.faces }.uniq.find do |f|
+          f.valid? && f.normal.parallel?(local_outward)
+        end
+        cap_face ||= wall_group.entities.grep(Sketchup::Face).find do |f|
+          f.valid? &&
+            f.normal.parallel?(local_outward) &&
+            f.classify_point(ordered[0]) != Sketchup::Face::PointOutside
+        end
+        if cap_face
+          pushfill_cap!(cap_face, local_outward, depth)
+          return true
+        end
+      end
+
+      puts '[DoorTool] fill_by_draw_and_pull: no cap face after find_faces'
+      false
+    rescue => e
+      puts "[DoorTool] fill_by_draw_and_pull: #{e.message}"
+      false
+    end
+
+    def pushfill_cap!(cap, outward_normal, thickness)
+      cap.reverse! if cap.normal.dot(outward_normal) < 0
+      sign = cap.normal.dot(outward_normal) > 0 ? -1 : 1
+      cap.pushpull(sign * thickness)
+      true
+    end
+
+    def fill_by_corner_cap!(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      depth = effective_wall_depth(wall_group, data)
+      local_outward = data[:outward].transform(local_xform)
+      corners_raw = opening_corners_local_raw(data, local_xform)
+
+      face_sets = [
+        wall_group.entities.grep(Sketchup::Face).select { |f| f.valid? && face_matches_outward_local?(f, local_outward) },
+        wall_group.entities.grep(Sketchup::Face).select { |f| f.valid? && f.normal.z.abs < 0.01 }
+      ]
+
+      face_sets.each do |faces|
+        next if faces.empty?
+        faces.each do |target_face|
+          plane = target_face.plane
+          corners = corners_raw.map { |p| p.project_to_plane(plane) }
+          orders = if data[:clicked_side] >= 0
+                     [[corners[0], corners[3], corners[2], corners[1]],
+                      [corners[0], corners[1], corners[2], corners[3]]]
+                   else
+                     [[corners[0], corners[1], corners[2], corners[3]],
+                      [corners[0], corners[3], corners[2], corners[1]]]
+                   end
+          orders << corners_raw
+
+          orders.each do |ordered|
+            cap = wall_group.entities.add_face(ordered)
+            cap ||= wall_group.entities.add_face(ordered.reverse)
+            next unless cap&.valid?
+
+            normal = target_face.normal
+            cap.reverse! if cap.normal.dot(normal) < 0
+            sign = cap.normal.dot(normal) > 0 ? -1 : 1
+            cap.pushpull(sign * depth)
+            return true
+          end
+        end
+      end
+
+      puts '[DoorTool] fill_by_corner_cap: add_face failed'
+      false
+    rescue => e
+      puts "[DoorTool] fill_by_corner_cap: #{e.message}"
+      false
+    end
+
+    def opening_corners_local_raw(data, local_xform)
+      wall_group = data[:wall_group]
+      opening_corners_world(wall_group, data).map { |p| p.transform(local_xform) }
+    end
+
+    def cap_inner_loop!(wall_group, lp, thickness)
+      parent = find_parent_face(wall_group, lp)
+      unless parent
+        puts '[DoorTool] cap_inner_loop: no parent face'
+        return false
+      end
+
+      pts = lp.vertices.map(&:position)
+      cap = wall_group.entities.add_face(pts)
+      cap ||= wall_group.entities.add_face(pts.reverse)
+      unless cap&.valid?
+        puts '[DoorTool] cap_inner_loop: add_face failed'
+        return false
+      end
+
+      normal = parent.normal
+      cap.reverse! if cap.normal.dot(normal) < 0
+      sign = cap.normal.dot(normal) > 0 ? -1 : 1
+      cap.pushpull(sign * thickness)
+      true
+    rescue => e
+      puts "[DoorTool] cap_inner_loop: #{e.message}"
+      false
+    end
+
+    def face_matches_outward_local?(face, local_outward)
+      n = face.normal
+      n.parallel?(local_outward) || n.parallel?(local_outward.reverse)
+    end
+
+    def find_best_inner_loop(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      center_local = opening_center_local(data, local_xform)
+      half_h = (data[:door_top_z] - data[:door_bot_z]) / 2.0
+      max_dist = [data[:half_w], half_h].max + 3.0
+
+      best_lp = nil
+      best_dist = Float::INFINITY
+
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.loops.each do |lp|
+          next if lp.outer?
+          dist = loop_centroid(lp).distance(center_local)
+          next unless dist < max_dist && dist < best_dist
+          best_dist = dist
+          best_lp = lp
+        end
+      end
+
+      best_lp
+    end
+
+    def opening_center_local(data, local_xform)
+      wall_group = data[:wall_group]
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      opening_local_point(wall_group, ax, ay, mid_local)
+    end
+
+    def face_matches_outward?(face, local_outward)
+      n = face.normal
+      n.parallel?(local_outward) || n.parallel?(local_outward.reverse)
+    end
+
+    def cap_best_inner_loop!(wall_group, data)
+      lp = find_best_inner_loop(wall_group, data)
+      return false unless lp
+
+      local_xform = wall_group.transformation.inverse
+      thickness = data[:thickness]
+      parent_face = find_parent_face(wall_group, lp)
+      fill_normal = parent_face ? parent_face.normal : data[:outward].transform(local_xform)
+
+      pts = lp.vertices.map(&:position)
+      cap = wall_group.entities.add_face(pts)
+      cap ||= wall_group.entities.add_face(pts.reverse)
+      unless cap && cap.valid?
+        puts '[DoorTool] cap_best_inner_loop: add_face failed'
+        return false
+      end
+
+      pushpull_through_wall!(cap, fill_normal, thickness)
+      true
+    end
+
+    def find_parent_face(wall_group, loop)
+      wall_group.entities.grep(Sketchup::Face).find { |f| f.valid? && f.loops.include?(loop) }
+    end
+
+    def reconstruct_solid_patch!(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      thickness = data[:thickness]
+
+      lp = find_best_inner_loop(wall_group, data)
+      if lp
+        parent_face = find_parent_face(wall_group, lp)
+        fill_normal = parent_face ? parent_face.normal : local_outward
+        pts = lp.vertices.map(&:position)
+        cap = wall_group.entities.add_face(pts)
+        cap ||= wall_group.entities.add_face(pts.reverse)
+        if cap && cap.valid?
+          pushpull_through_wall!(cap, fill_normal, thickness)
+          return true
+        end
+      end
+
+      target_face = find_wall_face_near_opening(wall_group, data, local_xform, local_outward)
+      unless target_face
+        door_log '[DoorTool] reconstruct_solid_patch: no target face, trying axis slab'
+        return reconstruct_opening_axis_slab!(wall_group, data)
+      end
+
+      target_plane = target_face.plane
+      local_corners = opening_corners_local(data, local_xform, target_plane)
+      ordered = data[:clicked_side] >= 0 ?
+        [local_corners[0], local_corners[3], local_corners[2], local_corners[1]] :
+        [local_corners[0], local_corners[1], local_corners[2], local_corners[3]]
+
+      cap = wall_group.entities.add_face(ordered)
+      cap ||= wall_group.entities.add_face(ordered.reverse)
+      unless cap && cap.valid?
+        puts '[DoorTool] reconstruct_solid_patch: add_face on corners failed'
+        return false
+      end
+
+      pushpull_through_wall!(cap, local_outward, thickness)
+      true
+    end
+
+    def find_wall_face_near_opening(wall_group, data, local_xform, local_outward)
+      ext, _int = parallel_wall_faces(wall_group, data)
+      return ext if ext&.valid?
+
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      test_locals = [
+        Geom::Point3d.new(data[:cx], data[:cy], mid_local).transform(local_xform),
+        data[:picked_point].transform(local_xform),
+        Geom::Point3d.new(data[:fx], data[:fy], data[:door_bot_z]).transform(local_xform)
+      ]
+
+      parallel = wall_group.entities.grep(Sketchup::Face).select do |f|
+        f.valid? && face_matches_outward_local?(f, local_outward)
+      end
+
+      parallel.each do |f|
+        test_locals.each do |pt|
+          proj = pt.project_to_plane(f.plane)
+          cls = f.classify_point(proj)
+          if cls == Sketchup::Face::PointInside ||
+             cls == Sketchup::Face::PointOnEdge ||
+             cls == Sketchup::Face::PointOnVertex
+            return f
+          end
+        end
+      end
+
+      axis_pt = test_locals.first
+      parallel.min_by { |f| axis_pt.distance_to_plane(f.plane) }
+    end
+
+    # Rebuild wall solid through opening using axis geometry (no sheet face required).
+    def reconstruct_opening_axis_slab!(wall_group, data)
+      local_xform = wall_group.transformation.inverse
+      local_outward = data[:outward].transform(local_xform)
+      thickness = data[:thickness].to_f
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      origin = opening_local_point(wall_group, ax, ay, mid_local)
+
+      n_local = Geom::Vector3d.new(data[:n].x, data[:n].y, 0).transform(local_xform)
+      if n_local.length < 0.001
+        door_log '[DoorTool] reconstruct axis slab: bad n'
+        return false
+      end
+      n_local.normalize!
+      plane = [origin, n_local]
+
+      corners = opening_corners_world(wall_group, data).map do |p|
+        p.transform(local_xform).project_to_plane(plane)
+      end
+      orders = [
+        [corners[0], corners[3], corners[2], corners[1]],
+        [corners[0], corners[1], corners[2], corners[3]]
+      ]
+
+      orders.each do |ordered|
+        begin
+          cap = wall_group.entities.add_face(ordered)
+          cap ||= wall_group.entities.add_face(ordered.reverse)
+          if cap&.valid?
+            pushpull_through_wall!(cap, local_outward, thickness)
+            door_log '[DoorTool] reconstruct axis slab: ok'
+            return true
+          end
+        rescue ArgumentError
+          # try next ordering
+        end
+      end
+
+      door_log '[DoorTool] reconstruct axis slab: failed'
+      false
+    end
+
+    def opening_corners_local(data, local_xform, plane)
+      wall_group = data[:wall_group]
+      opening_corners_world(wall_group, data).map { |p| p.transform(local_xform).project_to_plane(plane) }
+    end
+
+    public :parallel_wall_faces, :opening_corners_local
+
+    def opening_axis_xy(data)
+      [data[:cx], data[:cy]]
+    end
+
+    def opening_corners_world(wall_group, data)
+      unit = data[:unit]
+      half_w = data[:half_w]
+      uvec = Geom::Vector3d.new(unit.x * half_w, unit.y * half_w, unit.z * half_w)
+      ax, ay = opening_axis_xy(data)
+      bot = opening_world_point(wall_group, ax, ay, data[:door_bot_z])
+      top = opening_world_point(wall_group, ax, ay, data[:door_top_z])
+      [bot - uvec, bot + uvec, top + uvec, top - uvec]
+    end
+
+    def door_opening_center_world(wall_group, data)
+      mid_local = (data[:door_bot_z] + data[:door_top_z]) / 2.0
+      ax, ay = opening_axis_xy(data)
+      opening_world_point(wall_group, ax, ay, mid_local)
+    end
+
+    def pushpull_through_wall!(face, local_outward, thickness)
+      face.reverse! if face.normal.dot(local_outward) < 0
+      sign = face.normal.dot(local_outward) > 0 ? -1 : 1
+      face.pushpull(sign * thickness)
+      true
+    end
+
+    def face_centroid_world(face, xform)
+      verts = face.outer_loop.vertices
+      return Geom::Point3d.new(0, 0, 0) if verts.empty?
+      sx = sy = sz = 0.0
+      verts.each do |v|
+        p = v.position.transform(xform)
+        sx += p.x
+        sy += p.y
+        sz += p.z
+      end
+      n = verts.length.to_f
+      Geom::Point3d.new(sx / n, sy / n, sz / n)
+    end
+
+    def loop_centroid(loop)
+      verts = loop.vertices
+      return Geom::Point3d.new(0, 0, 0) if verts.empty?
+      sx = sy = sz = 0.0
+      verts.each do |v|
+        p = v.position
+        sx += p.x
+        sy += p.y
+        sz += p.z
+      end
+      n = verts.length.to_f
+      Geom::Point3d.new(sx / n, sy / n, sz / n)
+    end
+
+    def build_door_at(wall_group, data, mark: nil, use_operations: true)
+      unit = data[:unit]
+      n = data[:n]
+      thickness = data[:thickness]
+      t = data[:t]
+      clicked_side = data[:clicked_side]
+      door_bot_z = data[:door_bot_z]
+      door_top_z = data[:door_top_z]
+      cx = data[:cx]
+      cy = data[:cy]
+      model = Sketchup.active_model
+      comp = nil
+
+      if use_operations
+        model.start_operation('Door Data', true)
+        begin
+          door_group = create_door_group_with_attrs!(wall_group, data, unit, n, t, clicked_side,
+                                                     door_bot_z, door_top_z, cx, cy, mark: mark)
+          comp = convert_door_group_to_component!(door_group)
+          model.commit_operation
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorTool] door data error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          return false
+        end
+      else
+        begin
+          door_group = create_door_group_with_attrs!(wall_group, data, unit, n, t, clicked_side,
+                                                     door_bot_z, door_top_z, cx, cy, mark: mark)
+          comp = convert_door_group_to_component!(door_group)
+        rescue => e
+          puts "[DoorTool] door data error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          return false
+        end
+      end
+
+      unless comp&.valid?
+        puts '[DoorTool] door component missing after Door Data'
+        return false
+      end
+
+      door_log "[DoorTool] build_door_at: comp=#{comp.entityID} body=#{door_body_type?} type=#{@door_type.inspect} use_op=#{use_operations}"
+
+      if door_body_type?
+        if use_operations
+          return build_door_body_in_component!(comp, data, unit, n, thickness)
+        end
+
+        ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
+        if ok && door_body_present?(comp.definition)
+          true
+        else
+          puts "[DoorTool] door body missing after build (type=#{@door_type.inspect})"
+          false
+        end
+      else
+        door_log "[DoorTool] build_door_at: opening only (type=#{@door_type.inspect})"
+        true
+      end
+    end
+
+    def create_door_group_with_attrs!(wall_group, data, unit, n, t, clicked_side,
+                                      door_bot_z, door_top_z, cx, cy, mark: nil)
+      door_group = wall_group.parent.entities.add_group
+      door_group.name = 'InteriorPro_Door'
+      door_group.entities.add_cpoint(Geom::Point3d.new(0, 0, 0))
+      door_group.transformation = Geom::Transformation.new(
+        door_opening_center_world(wall_group, data)
+      )
+
+      door_id      = generate_door_id
+      host_wall_id = wall_group.get_attribute('InteriorPro', 'id')
+      area_sqft    = (@width * @height) / 144.0
+
+      door_group.set_attribute('InteriorPro', 'type',                   'door')
+      door_group.set_attribute('InteriorPro', 'id',                     door_id)
+      door_group.set_attribute('InteriorPro', 'mark', mark.nil? ? '' : mark.to_s)
+      door_group.set_attribute('InteriorPro', 'door_category',          @door_category.to_s)
+      door_group.set_attribute('InteriorPro', 'door_type',              @door_type)
+      door_group.set_attribute('InteriorPro', 'leaf_style',             @leaf_style.to_s)
+      door_group.set_attribute('InteriorPro', 'preset_name',            @preset_name)
+      door_group.set_attribute('InteriorPro', 'width_in',               @width.to_f)
+      door_group.set_attribute('InteriorPro', 'height_in',              @height.to_f)
+      door_group.set_attribute('InteriorPro', 'arch_rise_in',           @arch_rise.to_f)
+      door_group.set_attribute('InteriorPro', 'frame_width_in',         @frame_width.to_f)
+      door_group.set_attribute('InteriorPro', 'glass_frame_width_in',   @glass_frame_width.to_f)
+      door_group.set_attribute('InteriorPro', 'interior_depth_in',      @interior_depth.to_f)
+      door_group.set_attribute('InteriorPro', 'glass_grid_style',         @glass_grid_style.to_s)
+      door_group.set_attribute('InteriorPro', 'exterior_casing_style',    @exterior_casing_style.to_s)
+      door_group.set_attribute('InteriorPro', 'interior_casing_style',    @interior_casing_style.to_s)
+      door_group.set_attribute('InteriorPro', 'exterior_casing',          casing_enabled?(@exterior_casing_style))
+      door_group.set_attribute('InteriorPro', 'interior_casing',          casing_enabled?(@interior_casing_style))
+      door_group.set_attribute('InteriorPro', 'exterior_threshold',     @exterior_threshold ? true : false)
+      door_group.set_attribute('InteriorPro', 'floor_offset_in',        @floor_offset.to_f)
+      door_group.set_attribute('InteriorPro', 'swing_direction',        @swing_direction)
+      door_group.set_attribute('InteriorPro', 'swing_side',             @swing_side)
+      door_group.set_attribute('InteriorPro', 'slide_direction',        @slide_direction)
+      door_group.set_attribute('InteriorPro', 'area_sqft',              area_sqft)
+      door_group.set_attribute('InteriorPro', 'host_wall_id',           host_wall_id)
+      door_group.set_attribute('InteriorPro', 'position_along_wall_in', t.to_f)
+      door_group.set_attribute('InteriorPro', 'face_x',                 data[:fx].to_f)
+      door_group.set_attribute('InteriorPro', 'face_y',                 data[:fy].to_f)
+      door_group.set_attribute('InteriorPro', 'clicked_side',           clicked_side)
+      door_group.set_attribute('InteriorPro', 'bottom_z',               door_bot_z.to_f)
+      door_group.set_attribute('InteriorPro', 'top_z',                  door_top_z.to_f)
+      door_group.set_attribute('InteriorPro', 'created_at',             Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      door_group.set_attribute('InteriorPro', 'plugin_version',         '0.1')
+
+      connected = (wall_group.get_attribute('InteriorPro', 'connected_doors') || []).dup
+      connected << door_id
+      wall_group.set_attribute('InteriorPro', 'connected_doors', connected)
+      InteriorPro::DoorManager.sync_door_params_from_entity!(door_group)
+      door_group
+    end
+
+    def convert_door_group_to_component!(door_group)
+      saved_attrs = {}
+      dict = door_group.attribute_dictionary('InteriorPro', false)
+      dict.each_pair { |k, v| saved_attrs[k] = v } if dict
+
+      comp = door_group.to_component
+      definition = comp.definition
+
+      saved_attrs.each do |k, v|
+        comp.set_attribute('InteriorPro', k, v)
+      end
+
+      d_id = saved_attrs['id'] || comp.get_attribute('InteriorPro', 'id')
+      definition.name = "InteriorPro_Door_#{d_id}"
+      comp.name = 'InteriorPro_Door'
+      InteriorPro.assign_tag(comp, 'IP/Doors')
+      InteriorPro::DoorManager.sync_door_params_from_entity!(comp)
+      comp
+    end
+
+    def build_door_body_in_component!(comp, data, unit, n, thickness)
+      label = @door_type.to_s.strip
+      model = Sketchup.active_model
+      model.start_operation("Build #{label} Body", true)
+      begin
+        door_log "[DoorTool] door body: comp=#{comp.entityID} type=#{label} def_ents=#{comp.definition.entities.length}"
+        ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
+        door_log "[DoorTool] door body: build_ok=#{ok} ents_after=#{comp.definition.entities.length} body_present=#{door_body_present?(comp.definition)}"
+        model.commit_operation
+        if ok && door_body_present?(comp.definition)
+          true
+        else
+          puts "[DoorTool] #{label} body missing after build"
+          false
+        end
+      rescue => e
+        model.abort_operation rescue nil
+        puts "[DoorTool] door body error: #{e.message}\n#{e.backtrace.first(8).join("\n")}"
+        false
+      end
+    end
+
+    # Exterior builders assume the wall slab lies at v=0..thickness along +n
+    # from the component origin. On walls whose body sits on the -n side of the
+    # clicked face, flip n so the body is built INTO the wall (measured from the
+    # wall's own faces, like the interior path). No flip when already correct.
+    def exterior_effective_n(data, n)
+      wall = data[:wall_group]
+      return n unless wall && wall.valid?
+      origin_pt = Geom::Point3d.new(data[:cx].to_f, data[:cy].to_f, 0)
+      span = wall_v_span_from_faces(wall, origin_pt, n)
+      return n unless span
+      mid = (span[0] + span[1]) / 2.0
+      mid < 0 ? n.reverse : n
+    rescue StandardError
+      n
+    end
+
+    def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
+      t = @door_type.to_s.strip
+      if arched_door_type?
+        return build_arched_door_geometry!(parent_ents, data, unit, exterior_effective_n(data, n), thickness)
+      end
+      if @door_category.to_s == 'interior' && t != 'French Hinged'
+        return build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
+      end
+      n = exterior_effective_n(data, n)
+      if t.match?(/\A\d+-Panel Sliding\z/)
+        build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t.match?(/\A\d+-Panel Folding\z/)
+        build_folding_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Sliding'
+        return false if @door_category.to_s == 'interior'
+        build_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == '4-Panel Center Hinged'
+        build_four_panel_center_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'French Hinged'
+        build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Front Door'
+        build_front_door_geometry!(parent_ents, data, unit, n, thickness)
+      elsif t == 'Garage Door'
+        build_garage_door_geometry!(parent_ents, data, unit, n, thickness)
+      else
+        false
+      end
+    end
+
+    # --- Arched door -------------------------------------------------------
+    # A door whose whole top is a smooth circular arch (semicircle when the rise
+    # == half the width). Frame ring + glass + colonial grid, all following the
+    # arch, spanning the wall thickness (v=0..thickness, same as build_u_jamb).
+    # Matches the arched floor opening cut by WallTool (same circle).
+    ARCH_DOOR_SEGS = 48 unless const_defined?(:ARCH_DOOR_SEGS, false)
+
+    def effective_door_arch_rise(half_w)
+      return 0.0 unless arched_door_type?
+      rise = @arch_rise.to_f
+      rise = half_w if rise <= 0.0          # blank => clean semicircle
+      rise = half_w if rise > half_w        # clamp to semicircle
+      max_by_h = [@height.to_f - 6.0, 0.0].max
+      rise = max_by_h if rise > max_by_h    # keep >= 6" straight glass
+      rise
+    end
+
+    def build_arched_door_geometry!(parent_ents, data, unit, n, thickness)
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+      glass_mat = mats[:glass_mat]
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      rise = effective_door_arch_rise(half_w)
+      return false if rise <= 0.01
+
+      fw = [@frame_width.to_f, 0.25].max          # honor the Frame Width field
+      r_out = (half_w * half_w + rise * rise) / (2.0 * rise)
+      cw = half_h - r_out                       # arch circle center (u=0)
+      r_in = r_out - fw
+
+      # Frame: side jambs + arched head, OPEN at the bottom (no bottom rail) —
+      # same as every other door. Built as one U+arch band (outer path + inner
+      # path reversed), extruded through the wall.
+      jamb = parent_ents.add_group
+      jamb.name = 'Jamb'
+      band = arch_u_path(half_w,      -half_h, cw, r_out, 0.0, unit, n) +
+             arch_u_path(half_w - fw, -half_h, cw, r_in,  0.0, unit, n).reverse
+      of = jamb.entities.add_face(band)
+      if of
+        d = thickness
+        d = -d if of.normal.dot(n) < 0
+        of.pushpull(d)
+        jamb.material = frame_mat
+      end
+
+      # --- Operable leaf(s) inside the arched opening -----------------------
+      reveal   = 0.1875                                   # gap leaf<->jamb
+      iw       = half_w - fw                              # inner opening half-width
+      # Leaf stile width = the Glass Frame Width field, honored down to 0.25";
+      # capped so it can't swallow the glass on a narrow leaf.
+      stile_w  = [[@glass_frame_width.to_f, 0.25].max, (iw - reveal) * 0.45].min
+      leaf_dep = [1.75, thickness * 0.5].min
+      v_back   = (thickness - leaf_dep) / 2.0
+      v_front  = v_back + leaf_dep
+      double   = (@front_config.to_s == 'double')
+      hinge_left = (@swing_direction.to_s != 'right')     # default hinges on left
+
+      lu     = iw - reveal                                # leaf half extent
+      r_leaf = r_in - reveal                              # leaf arch radius
+      w_bot  = -half_h + reveal                           # leaf bottom (small floor gap)
+
+      if double
+        gap = 0.25
+        build_arched_leaf!(parent_ents, -lu, -gap, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf_L')
+        build_arched_leaf!(parent_ents,  gap,  lu, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf_R')
+        add_arch_hinges!(parent_ents, -lu, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+        add_arch_hinges!(parent_ents,  lu, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      else
+        build_arched_leaf!(parent_ents, -lu, lu, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, 'Leaf')
+        hinge_u = hinge_left ? -lu : lu
+        add_arch_hinges!(parent_ents, hinge_u, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      end
+
+      soften_arch_facets(jamb.entities) if jamb&.valid?
+      true
+    rescue StandardError => e
+      puts "[DoorTool] arched door body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      false
+    end
+
+    # One arched leaf spanning u0..u1: stile/rail ring + glass + grid, extruded
+    # v_back..v_front. Works for a full-width single leaf or a half of a double.
+    def build_arched_leaf!(parent_ents, u0, u1, w_bot, cw, r_leaf, v_back, v_front,
+                           unit, n, frame_mat, glass_mat, stile_w, name)
+      leaf = parent_ents.add_group
+      leaf.name = name
+      le = leaf.entities
+
+      of = le.add_face(arched_leaf_ring_pts(u0, u1, w_bot, cw, r_leaf, v_back, unit, n))
+      if of
+        ih = le.add_face(arched_leaf_ring_pts(u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                                              cw, r_leaf - stile_w, v_back, unit, n))
+        ih.erase! if ih
+        d = v_front - v_back
+        d = -d if of.normal.dot(n) < 0
+        of.pushpull(d)
+        leaf.material = frame_mat
+      end
+
+      gv = (v_back + v_front) / 2.0
+      gg = le.add_group
+      gg.name = 'Glass'
+      gf = gg.entities.add_face(arched_leaf_ring_pts(u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                                                     cw, r_leaf - stile_w, gv - 0.125, unit, n))
+      if gf
+        dd = 0.25
+        dd = -dd if gf.normal.dot(n) < 0
+        gf.pushpull(dd)
+        gg.material = glass_mat
+      end
+
+      build_arched_region_grid(le, u0 + stile_w, u1 - stile_w, w_bot + stile_w,
+                               cw, r_leaf - stile_w, gv, unit, n, frame_mat)
+
+      soften_arch_facets(le)
+      soften_arch_facets(gg.entities) if gg&.valid?
+      leaf
+    end
+
+    # Closed outline for a leaf spanning u0..u1: two vertical stiles + bottom rail
+    # + a circular arc top on the (cw, r) circle over that u-range.
+    def arched_leaf_ring_pts(u0, u1, w_bot, cw, r, v, unit, n, segs = ARCH_DOOR_SEGS)
+      w0 = cw + Math.sqrt([r * r - u0 * u0, 0.0].max)
+      w1 = cw + Math.sqrt([r * r - u1 * u1, 0.0].max)
+      th0 = Math.atan2(w0 - cw, u0)
+      th1 = Math.atan2(w1 - cw, u1)
+      pts = [local_uvw(u0, v, w_bot, unit, n), local_uvw(u1, v, w_bot, unit, n)]
+      (0..segs).each do |i|
+        th = th1 + (th0 - th1) * i / segs.to_f
+        pts << local_uvw(r * Math.cos(th), v, cw + r * Math.sin(th), unit, n)
+      end
+      pts
+    end
+
+    # Grid for a leaf's glass region (u0..u1): vertical bars up to the arch +
+    # horizontal rails within the straight (below-springline) part only.
+    def build_arched_region_grid(parent_ents, u0, u1, w_bot, cw, r, gv, unit, n, mat)
+      cols, rows = arch_grid_dims(@glass_grid_style)
+      mw = 0.375
+      hd = 0.1
+      grp = parent_ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+      (1...cols).each do |i|
+        u = u0 + (u1 - u0) * i / cols.to_f
+        top_w = cw + Math.sqrt([r * r - u * u, 0.0].max)
+        add_arch_grid_bar(ge, u - mw / 2.0, u + mw / 2.0, w_bot, top_w, gv, hd, unit, n)
+      end
+      # Horizontal rails: EVENLY spaced across the FULL height (bottom to apex),
+      # so the arch area gets rails too — not one giant top pane. Each rail is
+      # clipped to the arch width at its height.
+      apex = cw + r
+      (1...rows).each do |j|
+        w = w_bot + (apex - w_bot) * j / rows.to_f
+        disc = r * r - (w - cw) * (w - cw)
+        if disc <= 0.0
+          a, b = u0, u1                       # below the arch -> full leaf width
+        else
+          chord = Math.sqrt(disc)             # inside the arch -> clip to circle
+          a = [u0, -chord].max
+          b = [u1,  chord].min
+        end
+        next if (b - a) <= 0.5
+        add_arch_grid_bar(ge, a, b, w - mw / 2.0, w + mw / 2.0, gv, hd, unit, n)
+      end
+      grp.material = mat
+    end
+
+    def hardware_material
+      get_or_create_material(Sketchup.active_model, 'InteriorPro_Hardware',
+                             Sketchup::Color.new(45, 45, 45), 1.0)
+    end
+
+    # 3 hinge barrels along a leaf's vertical edge at u_edge.
+    def add_arch_hinges!(parent_ents, u_edge, w_bot, cw, r_leaf, v_back, v_front, unit, n)
+      top_at_edge = cw + Math.sqrt([r_leaf * r_leaf - u_edge * u_edge, 0.0].max)
+      lo = w_bot + 6.0
+      hi = [top_at_edge - 6.0, lo + 1.0].max
+      grp = parent_ents.add_group
+      grp.name = 'Hinges'
+      vmid = (v_back + v_front) / 2.0
+      [lo, (lo + hi) / 2.0, hi].each do |wc|
+        c = local_uvw(u_edge, vmid, wc - 2.0, unit, n)
+        arch_barrel!(grp.entities, c, Geom::Vector3d.new(0, 0, 1), 0.45, 4.0)
+      end
+      grp.material = hardware_material
+    end
+
+    # A simple lever handle: knobs on both faces + a short bar, at ~36" up.
+    def add_arch_handle!(parent_ents, u_latch, w_bot, v_back, v_front, unit, n)
+      wc = w_bot + 36.0
+      grp = parent_ents.add_group
+      grp.name = 'Handle'
+      # knob out the front face
+      arch_barrel!(grp.entities, local_uvw(u_latch, v_front, wc, unit, n), n, 0.55, 2.0)
+      # knob out the back face
+      arch_barrel!(grp.entities, local_uvw(u_latch, v_back, wc, unit, n), n.reverse, 0.55, 2.0)
+      grp.material = hardware_material
+    end
+
+    # Cylinder: circle around `axis` at `center`, extruded `length` along axis.
+    def arch_barrel!(ents, center, axis, radius, length)
+      circle = ents.add_circle(center, axis, radius, 16)
+      return if circle.nil? || circle.empty?
+      face = ents.add_face(circle)
+      return unless face
+      d = length
+      d = -d if face.normal.dot(axis) < 0
+      face.pushpull(d)
+    end
+
+    # Open U+arch PATH (no bottom edge): bottom-left, up the left side, arc over
+    # the top, down the right side, bottom-right. Used to build a bottomless
+    # jamb band (outer path + inner path reversed).
+    def arch_u_path(u_edge, w_bottom, cw, rr, v, unit, n, segs = ARCH_DOOR_SEGS)
+      ws = cw + Math.sqrt([rr * rr - u_edge * u_edge, 0.0].max)
+      th_l = Math.atan2(ws - cw, -u_edge)     # left spring (obtuse)
+      th_r = Math.atan2(ws - cw,  u_edge)     # right spring (acute)
+      pts = [local_uvw(-u_edge, v, w_bottom, unit, n)]          # bottom-left
+      (0..segs).each do |i|                                     # left spring -> apex -> right spring
+        th = th_l + (th_r - th_l) * i / segs.to_f
+        pts << local_uvw(rr * Math.cos(th), v, cw + rr * Math.sin(th), unit, n)
+      end
+      pts << local_uvw(u_edge, v, w_bottom, unit, n)            # bottom-right
+      pts
+    end
+
+    # Closed arched outline as world points at depth v (rect sides + arc top).
+    def arch_ring_pts(u_edge, w_bottom, cw, rr, v, unit, n, segs = ARCH_DOOR_SEGS)
+      ws = cw + Math.sqrt([rr * rr - u_edge * u_edge, 0.0].max)
+      th_r = Math.atan2(ws - cw, u_edge)
+      th_l = Math::PI - th_r
+      pts = [local_uvw(-u_edge, v, w_bottom, unit, n), local_uvw(u_edge, v, w_bottom, unit, n)]
+      (0..segs).each do |i|
+        th = th_r + (th_l - th_r) * i / segs.to_f
+        pts << local_uvw(rr * Math.cos(th), v, cw + rr * Math.sin(th), unit, n)
+      end
+      pts
+    end
+
+    def build_arched_door_grid(parent_ents, u_edge, w_bottom, cw, r_in, gv, unit, n, mat)
+      cols, rows = arch_grid_dims(@glass_grid_style)
+      cols = 2 if cols < 2
+      mw = 0.375
+      hd = 0.1
+      grp = parent_ents.add_group
+      grp.name = 'Grid'
+      ge = grp.entities
+      (1...cols).each do |i|
+        u = -u_edge + (2.0 * u_edge) * i / cols.to_f
+        top_w = cw + Math.sqrt([r_in * r_in - u * u, 0.0].max)
+        add_arch_grid_bar(ge, u - mw / 2.0, u + mw / 2.0, w_bottom, top_w, gv, hd, unit, n)
+      end
+      ws_in = cw + Math.sqrt([r_in * r_in - u_edge * u_edge, 0.0].max)
+      straight_h = ws_in - w_bottom
+      (1...rows).each do |j|
+        w = w_bottom + straight_h * j / rows.to_f
+        add_arch_grid_bar(ge, -u_edge, u_edge, w - mw / 2.0, w + mw / 2.0, gv, hd, unit, n)
+      end
+      grp.material = mat
+    end
+
+    def add_arch_grid_bar(ge, u0, u1, w0, w1, v, hd, unit, n)
+      f = ge.add_face([
+        local_uvw(u0, v - hd, w0, unit, n), local_uvw(u1, v - hd, w0, unit, n),
+        local_uvw(u1, v - hd, w1, unit, n), local_uvw(u0, v - hd, w1, unit, n)
+      ])
+      return unless f
+      d = 2.0 * hd
+      d = -d if f.normal.dot(n) < 0
+      f.pushpull(d)
+    end
+
+    def arch_grid_dims(style)
+      return [1, 1] if style.nil? || style.to_s.strip.empty? || style.to_s.downcase == 'none'
+      style.to_s =~ /^(\d+)x(\d+)$/i ? [$1.to_i, $2.to_i] : [1, 1]
+    end
+
+    def soften_arch_facets(ents, angle_limit = 50.degrees)
+      ents.grep(Sketchup::Edge).each do |edge|
+        next unless edge.valid?
+        fs = edge.faces
+        next unless fs.length == 2
+        next if fs[0].normal.angle_between(fs[1].normal) > angle_limit
+        edge.soft = true
+        edge.smooth = true
+      end
+    end
+
+    def build_french_hinged_in_component!(comp, data, unit, n, thickness)
+      build_door_body_in_component!(comp, data, unit, n, thickness)
+    end
+
+    # Interior door: U-jamb + one styled leaf (DoorLeafStyles) + casing on both faces.
+    # Swing types (Single/Double/Pocket/Folding) share this for now; leaf count/split
+    # per type comes in a later step.
+    def build_interior_leaf_geometry!(parent_ents, data, unit, n, thickness)
+      unless defined?(InteriorPro::DoorLeafStyles)
+        puts '[DoorTool] DoorLeafStyles missing - check main.rb load order'
+        return false
+      end
+
+      model = Sketchup.active_model
+      frame_mat = door_frame_material(model)
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      if half_w < 3.0 || half_h < 3.0
+        door_log "[DoorTool] invalid door size for interior body: half_w=#{half_w} half_h=#{half_h}"
+        return false
+      end
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      iw = half_w - jamb_width
+      if iw < 1.0
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        return false
+      end
+      head_inner = half_h - jamb_width
+
+      # Locate the wall slab along n from the WALL'S OWN FACES (robust for any
+      # anchor / clicked side - clicked_side is unreliable on edge-anchored
+      # walls). Fallback: clicked-face point +- thickness.
+      ox = data[:cx].to_f
+      oy = data[:cy].to_f
+      origin_pt = Geom::Point3d.new(ox, oy, 0)
+      v_click = (data[:fx].to_f - ox) * n.x + (data[:fy].to_f - oy) * n.y
+      span = wall_v_span_from_faces(data[:wall_group], origin_pt, n)
+      if span && (span[1] - span[0] - thickness).abs < 1.0
+        v0, v1 = span
+      else
+        side = data[:clicked_side].to_i
+        side = 1 if side.zero?
+        v_far = v_click - side * thickness
+        v0 = [v_click, v_far].min
+        v1 = [v_click, v_far].max
+      end
+      clicked_is_v1 = (v_click - v1).abs < (v_click - v0).abs
+
+      if closet_door?
+        return build_closet_interior!(parent_ents, data, unit, n, thickness,
+                                      v0, v1, half_h)
+      end
+
+      if pocket_door?
+        return build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
+                                      v0, v1, half_h, head_inner, jamb_width)
+      end
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, v0, v1,
+                   unit, n, frame_mat, 'Jamb')
+
+      # Cased opening: the jamb IS the whole body. Stop here before any leaf.
+      return true if cased_opening?
+
+      gap = 0.125
+      leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
+
+      # Leaf hangs on the face AWAY from the clicked one, resting against a stop.
+      leaf_setback = 0.25
+      if clicked_is_v1
+        lv0 = v0 + leaf_setback
+        lv1 = lv0 + leaf_t
+        stop_v0 = lv1
+        stop_v1 = [stop_v0 + 0.5, v1].min
+      else
+        lv1 = v1 - leaf_setback
+        lv0 = lv1 - leaf_t
+        stop_v1 = lv0
+        stop_v0 = [stop_v1 - 0.5, v0].max
+      end
+      style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
+      w_top = head_inner - gap
+
+      case @door_type.to_s.strip
+      when 'Double'
+        # Two leaves meeting at the center, both resting on the stop.
+        meet = 0.0625
+        l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, -meet, -half_h, w_top, lv0, lv1, unit, n,
+          name: 'Leaf_Left', leaf_mat: door_leaf_material(model)
+        )
+        l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, meet, iw - gap, -half_h, w_top, lv0, lv1, unit, n,
+          name: 'Leaf_Right', leaf_mat: door_leaf_material(model)
+        )
+        unless l1 && l2
+          door_log "[DoorTool] double leaf build failed for style=#{style}"
+          return false
+        end
+        build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, frame_mat)
+        if handle_enabled?
+          # Lock edge at the center meet: levers point away from it.
+          place_leaf_handles!(parent_ents, -meet - 2.5, -1, -half_h, lv0, lv1, unit, n)
+          place_leaf_handles!(parent_ents, meet + 2.5, 1, -half_h, lv0, lv1, unit, n)
+        end
+
+      when 'Folding'
+        # Bifold closed flat: two panels centered in depth, top track, no stop.
+        fl0 = v0 + [(thickness - leaf_t) / 2.0, 0.0].max
+        fl1 = fl0 + leaf_t
+        meet = 0.0625
+        l1 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, -meet, -half_h, w_top - 1.0, fl0, fl1, unit, n,
+          name: 'Leaf_Left', leaf_mat: door_leaf_material(model)
+        )
+        l2 = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, meet, iw - gap, -half_h, w_top - 1.0, fl0, fl1, unit, n,
+          name: 'Leaf_Right', leaf_mat: door_leaf_material(model)
+        )
+        unless l1 && l2
+          door_log "[DoorTool] folding leaf build failed for style=#{style}"
+          return false
+        end
+        track = parent_ents.add_group
+        track.name = 'Track'
+        extrude_rect(track.entities, -iw, iw, head_inner - 1.0, head_inner,
+                     fl0 - 0.25, fl1 + 0.25, unit, n)
+        track.material = frame_mat
+        if handle_enabled?
+          # Bifold: one knob per leaf near the meeting edge, front face only.
+          place_handle!(parent_ents, -meet - 2.5, -half_h + 36.0, fl1, 1, -1, unit, n)
+          place_handle!(parent_ents, meet + 2.5, -half_h + 36.0, fl1, 1, 1, unit, n)
+        end
+
+      else # Single
+        leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
+          parent_ents, style, -iw + gap, iw - gap, -half_h, w_top,
+          lv0, lv1, unit, n, name: 'Leaf', leaf_mat: door_leaf_material(model)
+        )
+        unless leaf
+          door_log "[DoorTool] leaf build failed for style=#{style}"
+          return false
+        end
+        build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, frame_mat)
+        if handle_enabled?
+          # Lock side = opposite the hinge side (swing_direction).
+          hu = @swing_direction.to_s == 'right' ? (-iw + gap + 2.5) : (iw - gap - 2.5)
+          # Lever points away from the lock edge (toward the hinges).
+          place_leaf_handles!(parent_ents, hu, hu > 0 ? -1 : 1, -half_h, lv0, lv1, unit, n)
+        end
+      end
+
+      if casing_enabled?(@interior_casing_style)
+        # Casing must protrude AWAY from the wall on each face:
+        # at v1 protrude +n (exterior:false), at v0 protrude -n (exterior:true).
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v1,
+                          unit, n, frame_mat, 'Casing_Front', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v0,
+                          unit, n, frame_mat, 'Casing_Back', exterior: true)
+      end
+
+      # Do NOT auto-smooth the Leaf: its raised-panel shoulders are shallow
+      # (~15 deg) and smooth_door_body would melt them. DoorLeafStyles already
+      # smooths exactly the right edges (triangle diagonals + arch seams).
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next if g.name.to_s.start_with?('Leaf')
+        smooth_entity_edges(g.entities, 50.degrees)
+        smooth_door_body(g.entities)
+      end
+      true
+    end
+
+    # Pocket door (closed state): NORMAL-width opening, no cavity. Strike jamb,
+    # split jamb (slot mouth) on the slide side, head, fully exposed leaf and
+    # finger pull. The wall next to the door stays untouched and seamless.
+    # (A real channel for floor plans can be handled later in the 2D layer.)
+    def build_pocket_interior!(parent_ents, data, unit, n, thickness, frame_mat,
+                               v0, v1, half_h, head_inner, jamb_width)
+      half_w = data[:half_w].to_f
+      dir = @slide_direction.to_s == 'right' ? 1 : -1
+      leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
+
+      min_thickness = leaf_t + 0.25 + 0.75   # slot + 3/8" wall on each side
+      if thickness < min_thickness
+        UI.messagebox("Pocket door needs a wall at least #{min_thickness.round(2)}\" thick " \
+                      "(this wall: #{thickness.round(2)}\").")
+        return false
+      end
+
+      u_out = -dir * half_w            # strike side edge of the opening
+      u_in  = u_out + dir * jamb_width
+      u_pin = dir * half_w             # slide side edge (slot mouth)
+
+      # Head across the opening
+      head = parent_ents.add_group
+      head.name = 'Head'
+      extrude_rect(head.entities, -half_w, half_w, head_inner, half_h, v0, v1, unit, n)
+      head.material = frame_mat
+
+      # Strike jamb
+      sj = parent_ents.add_group
+      sj.name = 'Jamb'
+      extrude_rect(sj.entities, [u_out, u_in].min, [u_out, u_in].max,
+                   -half_h, head_inner, v0, v1, unit, n)
+      sj.material = frame_mat
+
+      # Split jamb at the pocket mouth: one board per face, slot between them.
+      lv0 = v0 + [(thickness - leaf_t) / 2.0, 0.0].max
+      mu0 = u_pin - dir * jamb_width
+      mj = parent_ents.add_group
+      mj.name = 'Jamb_Split'
+      me = mj.entities
+      extrude_rect(me, [mu0, u_pin].min, [mu0, u_pin].max,
+                   -half_h, head_inner, v0, lv0 - 0.125, unit, n)
+      extrude_rect(me, [mu0, u_pin].min, [mu0, u_pin].max,
+                   -half_h, head_inner, lv0 + leaf_t + 0.125, v1, unit, n)
+      mj.material = frame_mat
+
+      # Leaf: FULLY exposed when closed - from the strike jamb to the slot
+      # mouth, tucked only into the split-jamb slot so no gap shows.
+      gap = 0.125
+      lu0 = u_in + dir * gap
+      lu1 = mu0 + dir * (jamb_width - 0.75)
+      style = (@leaf_style && !@leaf_style.to_s.empty?) ? @leaf_style.to_s : 'Flush'
+      leaf = InteriorPro::DoorLeafStyles.build_leaf_body!(
+        parent_ents, style, [lu0, lu1].min, [lu0, lu1].max, -half_h, head_inner - gap,
+        lv0, lv0 + leaf_t, unit, n, name: 'Leaf', leaf_mat: door_leaf_material(Sketchup.active_model)
+      )
+      unless leaf
+        door_log "[DoorTool] pocket leaf build failed for style=#{style}"
+        return false
+      end
+
+      add_pocket_finger_pull!(parent_ents, u_in, dir, lv0, leaf_t, half_h, unit, n)
+
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v1,
+                          unit, n, frame_mat, 'Casing_Front', exterior: false)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, v0,
+                          unit, n, frame_mat, 'Casing_Back', exterior: true)
+      end
+
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next if g.name.to_s.start_with?('Leaf')
+        smooth_entity_edges(g.entities, 50.degrees)
+        smooth_door_body(g.entities)
+      end
+      true
+    end
+
+    # Recessed finger pull near the strike edge of a pocket leaf (both faces).
+    def add_pocket_finger_pull!(parent_ents, u_strike_in, dir, lv0, leaf_t, half_h, unit, n)
+      mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Door_Pull',
+                                   Sketchup::Color.new(176, 148, 62), 1.0)
+      pu0 = u_strike_in + dir * 1.5
+      pu1 = pu0 + dir * 1.0
+      w0 = -half_h + 34.5
+      w1 = -half_h + 37.5
+      grp = parent_ents.add_group
+      grp.name = 'Pull'
+      ge = grp.entities
+      plate = 0.06
+      extrude_rect(ge, [pu0, pu1].min, [pu0, pu1].max, w0, w1, lv0 - plate, lv0, unit, n)
+      extrude_rect(ge, [pu0, pu1].min, [pu0, pu1].max, w0, w1,
+                   lv0 + leaf_t, lv0 + leaf_t + plate, unit, n)
+      grp.material = mat
+      grp
+    end
+
+    # The wall's two long faces projected onto n, relative to origin_pt.
+    # Returns [v_min, v_max] or nil. Works for any anchor and wall transform.
+    def wall_v_span_from_faces(wall_group, origin_pt, n)
+      return nil unless wall_group&.valid?
+      xform = wall_group.transformation
+      vs = []
+      wall_group.entities.grep(Sketchup::Face).each do |f|
+        wn = f.normal.transform(xform)
+        next if wn.length.to_f < 0.001
+        wn.normalize!
+        next if wn.dot(n).abs < 0.9
+        p = f.vertices.first.position.transform(xform)
+        vs << (p - origin_pt).dot(n)
+      end
+      return nil if vs.length < 2
+      [vs.min, vs.max]
+    end
+
+    # Pocket skins should read as wall, not as door trim.
+    def pocket_skin_material(data)
+      wall = data[:wall_group]
+      return nil unless wall&.valid?
+      names = begin
+        InteriorPro::WallTool.wall_side_material_names(wall)
+      rescue StandardError
+        nil
+      end
+      return nil unless names
+      mats = Sketchup.active_model.materials
+      mats[names[1]] || mats[names[0]]
+    end
+
+    # Door stop: thin strip on the jamb (both legs + head) that the leaf closes
+    # against. Protrudes into the opening, spans stop_v0..stop_v1 in depth.
+    # Closet: thin mirror bypass sliding panels (2 or 3), each on its own depth
+    # plane, thin dark-bronze frames, top + bottom tracks. No wood jamb/casing.
+    def build_closet_interior!(parent_ents, data, unit, n, thickness, v0, v1, half_h)
+      model = Sketchup.active_model
+      frame_mat  = get_or_create_material(model, 'InteriorPro_Closet_Frame',
+                                          Sketchup::Color.new(74, 60, 48), 1.0)
+      mirror_mat = get_or_create_material(model, 'InteriorPro_Mirror',
+                                          Sketchup::Color.new(205, 218, 224), 1.0)
+
+      half_w = data[:half_w].to_f
+      count = (@closet_leaf_count.to_i == 3) ? 3 : 2
+      leaf_t = 1.0
+      gap = 0.125
+
+      # Wall must fit all depth planes (leaf per plane) + clearance.
+      need = count * leaf_t + (count + 1) * gap
+      if thickness + 0.001 < need
+        gap = 0.0625
+        need = count * leaf_t + (count + 1) * gap
+      end
+      if thickness + 0.001 < need
+        UI.messagebox("Wall too thin for #{count} closet mirror panels " \
+                      "(needs #{need.round(2)}\", wall is #{thickness.round(2)}\").")
+        return false
+      end
+
+      # Depth planes centered in the wall, front (v1) to back (v0).
+      mid = (v0 + v1) / 2.0
+      stack = count * leaf_t + (count - 1) * gap
+      v_front = mid + stack / 2.0
+
+      track_h = 1.0
+      bot_h = 0.25
+      leaf_w0 = -half_h + bot_h
+      leaf_w1 = half_h - track_h
+
+      overlap = 1.0
+      pw = (2.0 * half_w + (count - 1) * overlap) / count
+
+      count.times do |i|
+        u0 = -half_w + i * (pw - overlap)
+        u1 = u0 + pw
+        lv1 = v_front - i * (leaf_t + gap)
+        lv0 = lv1 - leaf_t
+        build_closet_leaf!(parent_ents, i, u0, u1, leaf_w0, leaf_w1, lv0, lv1,
+                           unit, n, frame_mat, mirror_mat)
+      end
+
+      # Tracks span all depth planes, clamped inside the wall.
+      tv1 = [v_front + 0.125, v1].min
+      tv0 = [v_front - stack - 0.125, v0].max
+      track = parent_ents.add_group
+      track.name = 'Closet_Track_Top'
+      extrude_rect(track.entities, -half_w, half_w, half_h - track_h, half_h,
+                   tv0, tv1, unit, n)
+      track.material = frame_mat
+
+      bot = parent_ents.add_group
+      bot.name = 'Closet_Track_Bottom'
+      extrude_rect(bot.entities, -half_w, half_w, -half_h, -half_h + bot_h,
+                   tv0, tv1, unit, n)
+      bot.material = frame_mat
+      true
+    end
+
+    # One thin mirror panel: bronze frame ring (face width 3/4") + mirror pane.
+    def build_closet_leaf!(parent_ents, idx, u0, u1, w0, w1, lv0, lv1, unit, n,
+                           frame_mat, mirror_mat)
+      leaf = parent_ents.add_group
+      leaf.name = "Leaf_Closet_#{idx + 1}"
+      le = leaf.entities
+      f = 0.75
+
+      extrude_rect(le, u0, u0 + f, w0, w1, lv0, lv1, unit, n)         # left stile
+      extrude_rect(le, u1 - f, u1, w0, w1, lv0, lv1, unit, n)         # right stile
+      extrude_rect(le, u0 + f, u1 - f, w1 - f, w1, lv0, lv1, unit, n) # top rail
+      extrude_rect(le, u0 + f, u1 - f, w0, w0 + f, lv0, lv1, unit, n) # bottom rail
+      leaf.material = frame_mat
+
+      vm = (lv0 + lv1) / 2.0
+      pane = le.add_group
+      pane.name = 'Mirror'
+      extrude_rect(pane.entities, u0 + f, u1 - f, w0 + f, w1 - f,
+                   vm - 0.125, vm + 0.125, unit, n)
+      pane.material = mirror_mat
+      leaf
+    end
+
+    def build_door_stop!(parent_ents, iw, half_h, head_inner, stop_v0, stop_v1,
+                         unit, n, mat)
+      return if stop_v1 - stop_v0 < 0.1
+      proud = 0.375
+      grp = parent_ents.add_group
+      grp.name = 'Stop'
+      ge = grp.entities
+      # Side legs
+      extrude_rect(ge, -iw, -iw + proud, -half_h, head_inner, stop_v0, stop_v1, unit, n)
+      extrude_rect(ge, iw - proud, iw, -half_h, head_inner, stop_v0, stop_v1, unit, n)
+      # Head
+      extrude_rect(ge, -iw + proud, iw - proud, head_inner - proud, head_inner,
+                   stop_v0, stop_v1, unit, n)
+      grp.material = mat
+      grp
+    end
+
+    def door_body_present?(definition)
+      definition.entities.any? do |e|
+        next false unless e.valid?
+        if e.is_a?(Sketchup::Face)
+          e.area > 0.5
+        elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+          definition_has_faces?(e.definition.entities)
+        else
+          false
+        end
+      end
+    end
+
+    def definition_has_faces?(entities)
+      entities.any? do |e|
+        next false unless e.valid?
+        if e.is_a?(Sketchup::Face)
+          e.area > 0.5
+        elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+          definition_has_faces?(e.definition.entities)
+        else
+          false
+        end
+      end
+    end
+
+    def build_french_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      door_log "[DoorTool] french geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} type=#{@door_type.inspect}"
+      model = Sketchup.active_model
+      frame_mat = door_frame_material(model)
+      glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
+                                         Sketchup::Color.new(180, 180, 180), 0.4)
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      if half_w < 3.0 || half_h < 3.0
+        door_log "[DoorTool] invalid door size for French body: half_w=#{half_w} half_h=#{half_h}"
+        return false
+      end
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      stile_w = (@glass_frame_width && @glass_frame_width > 0) ? @glass_frame_width : 5.0
+      leaf_depth = [1.5, thickness * 0.4].min
+
+      iw = half_w - jamb_width
+      if iw < 1.0
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        return false
+      end
+
+      head_inner = half_h - jamb_width
+      leaf_top   = head_inner
+      leaf_bot   = -half_h + exterior_sill_plate_height
+
+      jamb_outer_v = 0.0
+      jamb_inner_v = thickness
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, jamb_outer_v, jamb_inner_v,
+                   unit, n, frame_mat, 'Jamb')
+
+      if @exterior_threshold && @door_category.to_s != 'interior'
+        build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+      end
+
+      meeting_gap = 0.125
+      leaf_front_v = LEAF_FRAME_INSET
+      leaf_back_v  = LEAF_FRAME_INSET + leaf_depth
+
+      build_leaf(parent_ents, -iw, -meeting_gap, leaf_bot, leaf_top,
+                 leaf_front_v, leaf_back_v, stile_w, unit, n,
+                 frame_mat, glass_mat)
+      build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
+                 leaf_front_v, leaf_back_v, stile_w, unit, n,
+                 frame_mat, glass_mat)
+
+      if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
+      end
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
+      end
+
+      smooth_door_body(parent_ents)
+      true
+    end
+
+    # Exterior sliding: same jamb/head/threshold/casing as French Hinged; panels on two
+    # depth tracks (exterior + interior) instead of hinged meeting leaves.
+    def build_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      door_log "[DoorTool] sliding geom: half_w=#{data[:half_w].to_f.round(2)} h=#{(data[:door_top_z].to_f - data[:door_bot_z].to_f).round(2)} thickness=#{thickness.round(2)} slide=#{@slide_direction.inspect}"
+      model = Sketchup.active_model
+      frame_mat = door_frame_material(model)
+      glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
+                                         Sketchup::Color.new(180, 180, 180), 0.4)
+
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      if half_w < 3.0 || half_h < 3.0
+        door_log "[DoorTool] invalid door size for Sliding body: half_w=#{half_w} half_h=#{half_h}"
+        return false
+      end
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      stile_w = (@glass_frame_width && @glass_frame_width > 0) ? @glass_frame_width : 2.0
+      leaf_depth = [1.5, thickness * 0.4].min
+
+      iw = half_w - jamb_width
+      if iw < 1.0
+        door_log "[DoorTool] door too narrow for jamb: iw=#{iw}"
+        return false
+      end
+
+      head_inner = half_h - jamb_width
+      leaf_top   = head_inner
+      leaf_bot   = -half_h + exterior_sill_plate_height
+
+      jamb_outer_v = 0.0
+      jamb_inner_v = thickness
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, jamb_outer_v, jamb_inner_v,
+                   unit, n, frame_mat, 'Jamb')
+
+      if @exterior_threshold && @door_category.to_s != 'interior'
+        build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+      end
+
+      meeting_gap = 0.125
+      back_vf  = LEAF_FRAME_INSET
+      back_vb  = LEAF_FRAME_INSET + leaf_depth
+      front_vf = thickness - LEAF_FRAME_INSET - leaf_depth
+      front_vb = thickness - LEAF_FRAME_INSET
+
+      slide_left = @slide_direction.to_s.downcase != 'right'
+
+      if slide_left
+        # Right panel slides left behind the fixed left panel.
+        build_leaf(parent_ents, -iw, -meeting_gap, leaf_bot, leaf_top,
+                   back_vf, back_vb, stile_w, unit, n, frame_mat, glass_mat)
+        build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
+                   front_vf, front_vb, stile_w, unit, n, frame_mat, glass_mat)
+      else
+        # Left panel slides right behind the fixed right panel.
+        build_leaf(parent_ents, -iw, -meeting_gap, leaf_bot, leaf_top,
+                   front_vf, front_vb, stile_w, unit, n, frame_mat, glass_mat)
+        build_leaf(parent_ents, meeting_gap, iw, leaf_bot, leaf_top,
+                   back_vf, back_vb, stile_w, unit, n, frame_mat, glass_mat)
+      end
+
+      if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
+      end
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
+      end
+
+      smooth_door_body(parent_ents)
+      true
+    end
+
+    # Front Door: jamb + threshold + solid slab leaf per configuration.
+    # Stage 1: slab only; sidelite/transom areas are reserved (left open) and
+    # get glass panels + mullions in the next stages.
+    FRONT_MULLION_W = 1.5 unless const_defined?(:FRONT_MULLION_W, false)
+
+    def front_door_spans(layout)
+      iw = layout[:iw]
+      cfg = @front_config.to_s
+      sl_w = (@sidelite_width && @sidelite_width.to_f > 0) ? @sidelite_width.to_f : 14.0
+      hinge_right = @swing_direction.to_s.downcase == 'right'
+      sl_left  = (cfg == 'single_2sl') || (cfg == 'single_1sl' && hinge_right)
+      sl_right = (cfg == 'single_2sl') || (cfg == 'single_1sl' && !hinge_right)
+
+      u_dl = -iw + (sl_left ? sl_w + FRONT_MULLION_W : 0.0)
+      u_dr =  iw - (sl_right ? sl_w + FRONT_MULLION_W : 0.0)
+
+      leaf_top = layout[:leaf_top]
+      if @transom && @transom_height.to_f > 0.5
+        leaf_top -= (@transom_height.to_f + FRONT_MULLION_W)
+      end
+
+      { u_dl: u_dl, u_dr: u_dr, leaf_top: leaf_top,
+        sl_left: sl_left, sl_right: sl_right, sl_w: sl_w }
+    end
+
+    def build_front_slab!(parent_ents, u0, u1, w0, w1, vf, vb, unit, n, mat, name)
+      g = parent_ents.add_group
+      g.name = name
+      extrude_rect(g.entities, u0, u1, w0, w1, vf, vb, unit, n)
+      g.material = mat
+      g
+    end
+
+    def front_door_mats
+      model = Sketchup.active_model
+      {
+        frame: door_leaf_material(model) ||
+               get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                      Sketchup::Color.new(245, 245, 240), 1.0),
+        glass: get_or_create_material(model, 'InteriorPro_Glass',
+                                      Sketchup::Color.new(180, 180, 180), 0.4),
+        steel: get_or_create_material(model, 'InteriorPro_Front_Steel',
+                                      Sketchup::Color.new(40, 40, 40), 1.0),
+        groove: get_or_create_material(model, 'InteriorPro_Front_Groove',
+                                       Sketchup::Color.new(70, 55, 40), 1.0)
+      }
+    end
+
+    # Slab with rectangular glass holes (each hole [hu0, hu1, hw0, hw1]) +
+    # glass face at mid-depth in every hole.
+    def build_front_panel_with_holes!(parent_ents, u0, u1, w0, w1, vf, vb, unit, n,
+                                      mat, glass_mat, holes, name)
+      g = parent_ents.add_group
+      g.name = name
+      ge = g.entities
+      outer = [
+        local_uvw(u0, vf, w0, unit, n), local_uvw(u1, vf, w0, unit, n),
+        local_uvw(u1, vf, w1, unit, n), local_uvw(u0, vf, w1, unit, n)
+      ]
+      face = ge.add_face(outer)
+      unless face&.valid?
+        g.material = mat
+        return g
+      end
+      holes.each do |h|
+        hf = ge.add_face([
+          local_uvw(h[0], vf, h[2], unit, n), local_uvw(h[1], vf, h[2], unit, n),
+          local_uvw(h[1], vf, h[3], unit, n), local_uvw(h[0], vf, h[3], unit, n)
+        ])
+        hf.erase! if hf
+      end
+      depth = vb - vf
+      depth = -depth if face.normal.dot(n) < 0
+      face.pushpull(depth)
+      vmid = (vf + vb) / 2.0
+      holes.each do |h|
+        gf = ge.add_face([
+          local_uvw(h[0], vmid, h[2], unit, n), local_uvw(h[1], vmid, h[2], unit, n),
+          local_uvw(h[1], vmid, h[3], unit, n), local_uvw(h[0], vmid, h[3], unit, n)
+        ])
+        next unless gf
+        gf.material = glass_mat
+        gf.back_material = glass_mat
+      end
+      g.material = mat
+      g
+    end
+
+    # Grid bars over a glass area, driven by the Glass Grid dialog setting.
+    def add_front_grid_bars!(ge, gu0, gu1, gw0, gw1, vmid, unit, n)
+      style = (@glass_grid_style || 'none').to_s.downcase
+      return if style == 'none'
+      cols, rows = parse_grid_style(style)
+      return if cols < 1 || rows < 1
+      (1...cols).each do |c|
+        x = gu0 + (gu1 - gu0) * c / cols.to_f
+        add_front_bar!(ge, x - 0.5, x + 0.5, gw0, gw1, vmid - 0.4, vmid + 0.4, unit, n)
+      end
+      (1...rows).each do |r|
+        z = gw0 + (gw1 - gw0) * r / rows.to_f
+        add_front_bar!(ge, gu0, gu1, z - 0.5, z + 0.5, vmid - 0.4, vmid + 0.4, unit, n)
+      end
+    end
+
+    # Thin bar (muntin/divider) box inside an existing group's entities.
+    def add_front_bar!(ge, u0, u1, w0, w1, v0, v1, unit, n)
+      return if u1 <= u0 + 0.01 || w1 <= w0 + 0.01
+      f = ge.add_face([
+        local_uvw(u0, v0, w0, unit, n), local_uvw(u1, v0, w0, unit, n),
+        local_uvw(u1, v0, w1, unit, n), local_uvw(u0, v0, w1, unit, n)
+      ])
+      return unless f&.valid?
+      d = v1 - v0
+      d = -d if f.normal.dot(n) < 0
+      f.pushpull(d)
+    end
+
+    # One styled Front Door leaf (designs 1-6; Steel Arch has its own builder).
+    def build_front_leaf_styled!(pe, u0, u1, w0, w1, vf, vb, unit, n, name)
+      mats = front_door_mats
+      style = @front_leaf_style.to_s
+      w = u1 - u0
+      h = w1 - w0
+      vmid = (vf + vb) / 2.0
+
+      case style
+      when '5-Lite Ladder'
+        st = 4.0
+        rail = 4.0
+        gh = (h - 2 * st - 4 * rail) / 5.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name) if gh < 3.0
+        holes = (0..4).map { |i|
+          y0 = w0 + st + i * (gh + rail)
+          [u0 + st, u1 - st, y0, y0 + gh]
+        }
+        build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                      mats[:frame], mats[:glass], holes, name)
+
+      when 'Craftsman 3-Lite'
+        st = 5.0
+        lite_h = h * 0.22
+        lz0 = w1 - 4.0 - lite_h
+        gap = 2.0
+        lw = (w - 2 * st - 2 * gap) / 3.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name) if lw < 3.0
+        holes = (0..2).map { |i|
+          x0 = u0 + st + i * (lw + gap)
+          [x0, x0 + lw, lz0, lz0 + lite_h]
+        }
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:frame], mats[:glass], holes, name)
+        # Two recessed vertical panels below the lites (CCA230 look, no shelf).
+        ge = g.entities
+        p_top = lz0 - 5.0
+        p_bot = w0 + 8.0
+        mid_st = 4.0
+        pw = (w - 2 * st - mid_st) / 2.0
+        if pw > 3.0 && p_top > p_bot + 6.0
+          [[u0 + st, u0 + st + pw], [u1 - st - pw, u1 - st]].each do |pu0, pu1|
+            [[vf, 1], [vb, -1]].each do |vface, dir|
+              f = ge.add_face([
+                local_uvw(pu0, vface, p_bot, unit, n), local_uvw(pu1, vface, p_bot, unit, n),
+                local_uvw(pu1, vface, p_top, unit, n), local_uvw(pu0, vface, p_top, unit, n)
+              ])
+              next unless f&.valid?
+              d = 0.25 * dir
+              d = -d if f.normal.dot(n) < 0
+              f.pushpull(d)
+            end
+          end
+        end
+        g
+
+      when 'Steel Glass', 'Full Glass Modern', 'Steel Grid'
+        st = 2.0
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:steel], mats[:glass],
+                                          [[u0 + st, u1 - st, w0 + st, w1 - st]], name)
+        add_front_grid_bars!(g.entities, u0 + st, u1 - st, w0 + st, w1 - st, vmid, unit, n)
+        g
+
+      when 'Farmhouse 4-Lite', 'Farmhouse'
+        st = 4.0
+        ratio = @front_glass_ratio.to_f
+        ratio = 50.0 if ratio < 5.0
+        ratio = 90.0 if ratio > 90.0
+        gz1 = w1 - st
+        gz0 = gz1 - h * ratio / 100.0
+        gz0 = w0 + 8.0 if gz0 < w0 + 8.0
+        g = build_front_panel_with_holes!(pe, u0, u1, w0, w1, vf, vb, unit, n,
+                                          mats[:frame], mats[:glass],
+                                          [[u0 + st, u1 - st, gz0, gz1]], name)
+        add_front_grid_bars!(g.entities, u0 + st, u1 - st, gz0, gz1, vmid, unit, n)
+        g
+
+      when 'Modern Lines'
+        g = build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name)
+        gg = pe.add_group
+        gg.name = name + '_Lines'
+        (1..4).each do |i|
+          z = w0 + h * i / 5.0
+          add_front_bar!(gg.entities, u0 + 1.0, u1 - 1.0, z - 0.2, z + 0.2,
+                         vf - 0.1, vf + 0.05, unit, n)
+        end
+        gg.material = mats[:groove]
+        g
+
+      else
+        build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], name)
+      end
+    end
+
+    # Steel Arch: arched steel ring + glass + grid inside a rectangular leaf;
+    # the two corners above the arc are filled solid (painted like the frame).
+    def build_front_arch_leaf!(pe, u0, u1, w0, w1, vf, vb, unit, n, double: false)
+      mats = front_door_mats
+      w = u1 - u0
+      r = w / 2.0
+      cu = (u0 + u1) / 2.0
+      cz = w1 - r
+      if cz < w0 + 12.0
+        return build_front_slab!(pe, u0, u1, w0, w1, vf, vb, unit, n, mats[:frame], 'Leaf_Front')
+      end
+      ring = 2.0
+      segs = 16
+      vmid = (vf + vb) / 2.0
+
+      arch_pts = lambda do |i, v|
+        pts = []
+        pts << local_uvw(u0 + i, v, w0, unit, n)
+        pts << local_uvw(u1 - i, v, w0, unit, n)
+        pts << local_uvw(u1 - i, v, cz, unit, n)
+        (1...segs).each do |k|
+          ang = Math::PI * k / segs
+          pts << local_uvw(cu + (r - i) * Math.cos(ang), v, cz + (r - i) * Math.sin(ang), unit, n)
+        end
+        pts << local_uvw(u0 + i, v, cz, unit, n)
+        pts
+      end
+
+      # Solid corner fills above the arc spring line.
+      gf = pe.add_group
+      gf.name = 'Leaf_Front_ArchFill'
+      [[Math::PI, u0], [0.0, u1]].each do |end_ang, ux|
+        pts = [local_uvw(ux, vf, cz, unit, n), local_uvw(ux, vf, w1, unit, n),
+               local_uvw(cu, vf, w1, unit, n)]
+        steps = 8
+        (1...steps).each do |k|
+          ang = Math::PI / 2.0 + (end_ang - Math::PI / 2.0) * k / steps.to_f
+          pts << local_uvw(cu + r * Math.cos(ang), vf, cz + r * Math.sin(ang), unit, n)
+        end
+        f = gf.entities.add_face(pts)
+        next unless f&.valid?
+        d = vb - vf
+        d = -d if f.normal.dot(n) < 0
+        f.pushpull(d)
+      end
+      gf.material = mats[:frame]
+
+      # Steel arch ring.
+      gr = pe.add_group
+      gr.name = 'Leaf_Front_ArchRing'
+      f = gr.entities.add_face(arch_pts.call(0.0, vf))
+      if f&.valid?
+        hole = gr.entities.add_face(arch_pts.call(ring, vf))
+        hole.erase! if hole
+        ring_face = gr.entities.grep(Sketchup::Face).first
+        if ring_face&.valid?
+          d = vb - vf
+          d = -d if ring_face.normal.dot(n) < 0
+          ring_face.pushpull(d)
+        end
+        # Grid bars: center vertical + 2 horizontals below the spring line.
+        bar_w = double ? 1.0 : 0.5
+        add_front_bar!(gr.entities, cu - bar_w, cu + bar_w, w0, cz + r - ring,
+                       vmid - 0.4, vmid + 0.4, unit, n)
+        [0.4, 0.75].each do |fr|
+          z = w0 + (cz - w0) * fr
+          add_front_bar!(gr.entities, u0 + ring, u1 - ring, z - 0.5, z + 0.5,
+                         vmid - 0.4, vmid + 0.4, unit, n)
+        end
+      end
+      gr.material = mats[:steel]
+
+      # Glass pane at mid-depth inside the ring.
+      gl = pe.add_group
+      gl.name = 'Leaf_Front_ArchGlass'
+      gface = gl.entities.add_face(arch_pts.call(ring, vmid))
+      if gface&.valid?
+        gface.material = mats[:glass]
+        gface.back_material = mats[:glass]
+      end
+      gl
+    end
+
+    def build_front_door_geometry!(parent_ents, data, unit, n, thickness)
+      door_log "[DoorTool] front geom: half_w=#{data[:half_w].to_f.round(2)} cfg=#{@front_config.inspect} transom=#{@transom.inspect}"
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness, frame_mat,
+                                               default_stile_w: 5.0)
+      return false unless layout
+
+      spans = front_door_spans(layout)
+      u_dl = spans[:u_dl]
+      u_dr = spans[:u_dr]
+      leaf_top = spans[:leaf_top]
+      leaf_bot = layout[:leaf_bot]
+      if u_dr - u_dl < 12.0 || leaf_top - leaf_bot < 24.0
+        door_log "[DoorTool] front door too small: dw=#{(u_dr - u_dl).round(1)} dh=#{(leaf_top - leaf_bot).round(1)}"
+        return false
+      end
+
+      vf = layout[:leaf_front_v]
+      vb = layout[:leaf_back_v]
+
+      if @front_leaf_style.to_s == 'Steel Arch'
+        build_front_arch_leaf!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb, unit, n,
+                               double: @front_config.to_s == 'double')
+      elsif @front_config.to_s == 'double'
+        gap = layout[:meeting_gap]
+        mid = (u_dl + u_dr) / 2.0
+        build_front_leaf_styled!(parent_ents, u_dl, mid - gap, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front_L')
+        build_front_leaf_styled!(parent_ents, mid + gap, u_dr, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front_R')
+      else
+        build_front_leaf_styled!(parent_ents, u_dl, u_dr, leaf_bot, leaf_top, vf, vb,
+                                 unit, n, 'Leaf_Front')
+      end
+
+      if handle_enabled?
+        if @front_config.to_s == 'double'
+          gap = layout[:meeting_gap]
+          mid = (u_dl + u_dr) / 2.0
+          place_leaf_handles!(parent_ents, mid - gap - 3.0, -1, leaf_bot, vf, vb, unit, n)
+          place_leaf_handles!(parent_ents, mid + gap + 3.0, 1, leaf_bot, vf, vb, unit, n)
+        else
+          # Lock side = opposite the hinge side; anchor 3" from the lock edge
+          # (matches the calibration scene).
+          hu = @swing_direction.to_s == 'right' ? (u_dl + 3.0) : (u_dr - 3.0)
+          place_leaf_handles!(parent_ents, hu, hu > (u_dl + u_dr) / 2.0 ? -1 : 1,
+                              leaf_bot, vf, vb, unit, n)
+        end
+      end
+
+      # Stage 2: glazed sidelites + transom with mullions between them.
+      glass_mat = mats[:glass_mat]
+      iw = layout[:iw]
+      sl_w = spans[:sl_w]
+      sl_stile = sl_w >= 8.0 ? 2.0 : 1.0
+
+      if spans[:sl_left]
+        sl = build_leaf(parent_ents, -iw, -iw + sl_w, leaf_bot, leaf_top, vf, vb,
+                        sl_stile, unit, n, frame_mat, glass_mat)
+        sl.name = 'Leaf_Sidelite_L' if sl
+        build_front_slab!(parent_ents, u_dl - FRONT_MULLION_W, u_dl, leaf_bot, leaf_top,
+                          0.0, thickness, unit, n, frame_mat, 'Mullion_L')
+      end
+      if spans[:sl_right]
+        sl = build_leaf(parent_ents, iw - sl_w, iw, leaf_bot, leaf_top, vf, vb,
+                        sl_stile, unit, n, frame_mat, glass_mat)
+        sl.name = 'Leaf_Sidelite_R' if sl
+        build_front_slab!(parent_ents, u_dr, u_dr + FRONT_MULLION_W, leaf_bot, leaf_top,
+                          0.0, thickness, unit, n, frame_mat, 'Mullion_R')
+      end
+      if @transom && @transom_height.to_f > 0.5
+        build_front_slab!(parent_ents, -iw, iw, leaf_top, leaf_top + FRONT_MULLION_W,
+                          0.0, thickness, unit, n, frame_mat, 'Transom_Bar')
+        tr = build_leaf(parent_ents, -iw, iw, leaf_top + FRONT_MULLION_W, layout[:leaf_top],
+                        vf, vb, sl_stile, unit, n, frame_mat, glass_mat)
+        tr.name = 'Leaf_Transom' if tr
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
+    end
+
+    # Garage Door (2026-07-21): overhead/sectional look. U-jamb around the
+    # opening, sectional curtain near the EXTERIOR face. Styles (garage_style,
+    # per the Instock catalog): 'Raised Short' (grid of small raised panels),
+    # 'Raised Long' (wide raised panels), 'Flush' (plain slab, section joints
+    # only), 'Full View Glass' (black aluminum grid + frosted glass).
+    # garage_top_windows replaces the top section's panels with a framed
+    # window band (not on Full View). No handles/tracks (v1).
+    def build_garage_door_geometry!(parent_ents, data, unit, n, thickness)
+      style = (@garage_style && !@garage_style.to_s.empty?) ? @garage_style.to_s : 'Raised Short'
+      door_log "[DoorTool] garage geom: style=#{style} topwin=#{@garage_top_windows.inspect}"
+      model = Sketchup.active_model
+      mats = door_body_materials
+      frame_mat = mats[:frame_mat]
+      glass_mat = mats[:glass_mat]
+      # The shared glass material can get corrupted by a manual paint-bucket
+      # (turns black/opaque). Re-normalize it on every garage build so glass
+      # is ALWAYS glass (2026-07-22).
+      if glass_mat
+        glass_mat.color = Sketchup::Color.new(180, 180, 180)
+        glass_mat.alpha = 0.4
+      end
+      leaf_mat = door_leaf_material(model) || frame_mat
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      return false if half_w < 12.0 || half_h < 12.0
+
+      # Standard sectional install (spec check 2026-07-21): the finished
+      # opening is lined with 1.5" JAMB boards (the visible framing), and
+      # the curtain rides on rails BEHIND the wall, flush against the
+      # interior face, overlapping the opening 3" on sides and top
+      # (bottom stays on the floor).
+      jamb_w = 1.5
+      build_u_jamb(parent_ents, half_w, half_h, half_h - jamb_w, half_w - jamb_w,
+                   0.0, thickness, unit, n, frame_mat, 'Jamb')
+      # Measured from the user's hand-fixed door (2026-07-22): sides end
+      # 1.5" past the frame opening (behind the wall); the curtain TOP ends
+      # exactly at the jamb's INNER frame line (half_h - jamb 1.5") — all 4
+      # rows equal and fully visible.
+      # Sides: 1.5" past the INNER frame line = exactly at the opening edge
+      # (the dashed line) — never beyond it.
+      iw = half_w
+      head_inner = half_h - 1.5
+      return false if iw < 6.0
+
+      # The EXTERIOR surface = the wall's own exterior side (the side it
+      # paints the exterior texture on = the RIGHT perpendicular of the
+      # drawn start->end direction, clockwise convention in wall_tool).
+      # Deterministic — does NOT depend on which side was clicked
+      # (click-based outward put the relief on the wrong side, 2026-07-21).
+      sign = 1.0
+      begin
+        wall = data[:wall_group]
+        sxa = wall.get_attribute('InteriorPro', 'start_x').to_f
+        sya = wall.get_attribute('InteriorPro', 'start_y').to_f
+        exa = wall.get_attribute('InteriorPro', 'end_x').to_f
+        eya = wall.get_attribute('InteriorPro', 'end_y').to_f
+        dirv = Geom::Vector3d.new(exa - sxa, eya - sya, 0)
+        if dirv.length > 0.001
+          dirv.normalize!
+          right = Geom::Vector3d.new(dirv.y, -dirv.x, 0) # exterior side
+          sign = right.dot(n) >= 0 ? 1.0 : -1.0
+        end
+      rescue StandardError
+        sign = 1.0
+      end
+      # Curtain front (the decorated face, seen through the opening) is
+      # flush with the wall's INTERIOR face; body extends 2" inward.
+      v_ext = sign > 0 ? 0.0 : thickness
+      v_back = v_ext - sign * 2.0
+      v0 = [v_ext, v_back].min
+      v1 = [v_ext, v_back].max
+
+      bot = -half_h
+      h = head_inner - bot
+
+      # Base (user calibration 2026-07-21): EVERY garage door is 4 stacked
+      # horizontal FULL-BODY sections (2" deep, seams visible from BOTH
+      # sides) with a 1/16" joint between them. Style decoration is relief
+      # on the EXTERIOR face only; section backs stay flat.
+      sections = 4
+      sec_h = h / sections
+      joint = 0.0625
+      # Flat border around the whole door: the decorative grid stays inside
+      # the visible opening minus a 2" margin on the sides and the SAME 2"
+      # at the top (user calibration 2026-07-22, blue-line markup).
+      giw = half_w - 2.0
+      w_cap = half_h - 2.0
+      sections.times do |s|
+        w0 = bot + s * sec_h + (s.zero? ? 0.0 : joint / 2.0)
+        w1 = bot + (s + 1) * sec_h - (s == sections - 1 ? 0.0 : joint / 2.0)
+        if style == 'Full View Glass'
+          build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
+        elsif s == sections - 1 && @garage_top_windows
+          # Top-section windows (not for the full glass door).
+          build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, sign,
+                                       unit, n, leaf_mat, glass_mat, s)
+        elsif style == 'Flush'
+          build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1,
+                            unit, n, leaf_mat, "Section_#{s + 1}")
+        else
+          build_garage_raised_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, v_ext, sign,
+                                       style, unit, n, leaf_mat, s)
+        end
+      end
+      build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      if @garage_ext_frame
+        build_garage_ext_frame!(parent_ents, half_w, half_h, thickness, sign, frame_mat, unit, n)
+      end
+      soften_garage_edges!(parent_ents)
+      true
+    end
+
+    # Fewer visible lines (user request 2026-07-22): hide edges between
+    # near-coplanar faces inside every garage sub-group — arc facets and
+    # gentle seams disappear, real design lines stay.
+    def soften_garage_edges!(parent_ents)
+      parent_ents.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        g.entities.grep(Sketchup::Edge).each do |ed|
+          fs = ed.faces
+          next unless fs.length == 2
+          next unless fs[0].normal.angle_between(fs[1].normal) < 0.09 # ~coplanar only
+          ed.soft = true
+          ed.smooth = true
+        end
+      end
+    rescue StandardError => e
+      door_log "[DoorTool] soften edges: #{e.message}"
+    end
+
+    # Overhead tracks (user reference photo 2026-07-22): ROUND 1.5" tube per
+    # side — vertical run beside the door, smooth bend, long horizontal run
+    # into the garage. Follow-Me over a path (vertical + arc + horizontal).
+    # Built with the door so they move/delete with it.
+    def build_garage_tracks!(parent_ents, iw, bot, head_inner, v_back, sign, unit, n, h)
+      mat = get_or_create_material(Sketchup.active_model, 'InteriorPro_Track',
+                                   Sketchup::Color.new(150, 150, 150), 1.0)
+      r_tube = 0.75   # 1.5" diameter
+      r_bend = 12.0
+      v_c = v_back - sign * 1.0          # tube centerline, just behind the door
+      w_h = head_inner + 1.0             # horizontal run height (centerline)
+      v_arc_c = v_c - sign * r_bend
+      v_end = v_c - sign * (h + 24.0)
+      un = Geom::Vector3d.new(unit.x, unit.y, unit.z)
+      un.normalize!
+      [iw + 1.25, -iw - 1.25].each_with_index do |u_c, i|
+        g = parent_ents.add_group
+        g.name = "Track_#{i.zero? ? 'R' : 'L'}"
+        ents = g.entities
+        begin
+          p_bot = local_uvw(u_c, v_c, bot, unit, n)
+          p_va  = local_uvw(u_c, v_c, w_h - r_bend, unit, n)
+          p_ha  = local_uvw(u_c, v_arc_c, w_h, unit, n)
+          p_end = local_uvw(u_c, v_end, w_h, unit, n)
+          arc_center = local_uvw(u_c, v_arc_c, w_h - r_bend, unit, n)
+          path = []
+          path.concat(ents.add_edges(p_bot, p_va))
+          va = p_va - arc_center
+          ha = p_ha - arc_center
+          norm = (un * va).dot(ha) > 0 ? un : un.reverse
+          path.concat(ents.add_arc(arc_center, va, norm, r_bend, 0.0, Math::PI / 2.0, 8))
+          path.concat(ents.add_edges(p_ha, p_end))
+          circ = ents.add_circle(p_bot, Geom::Vector3d.new(0, 0, 1), r_tube, 12)
+          face = ents.add_face(circ)
+          raise 'profile face failed' unless face&.valid?
+          face.followme(path)
+          ents.erase_entities(path.select(&:valid?))
+        rescue StandardError => e
+          door_log "[DoorTool] track tube failed: #{e.message}"
+        end
+        g.material = mat
+        ents.grep(Sketchup::Face).each { |f2| f2.material = mat }
+        ents.grep(Sketchup::Edge).each { |ed| ed.soft = true; ed.smooth = true }
+      end
+      true
+    end
+
+    # Exterior decorative frame (user render approved 2026-07-22): side
+    # casings + a wider header fascia with a projecting crown cap, sitting on
+    # the wall's EXTERIOR face and protruding outward. Painted with the
+    # door's Frame Color. No corner blocks (per the user).
+    def build_garage_ext_frame!(parent_ents, half_w, half_h, thickness, sign, frame_mat, unit, n)
+      side_w = 4.5     # side casing width
+      head_h = 6.0     # header fascia height
+      head_ext = 1.5   # header runs past the side casings
+      cap_h = 2.5      # crown cap height above the fascia
+      cap_ext = 1.5    # crown wider than the fascia on each side
+      proj = 1.0       # casing protrusion off the wall
+      cap_proj = 2.0   # crown protrudes a bit more
+      # Exterior wall face plane + outward direction (= sign).
+      v_wall = sign > 0 ? thickness : 0.0
+      vf0 = v_wall
+      vf1 = v_wall + sign * proj
+      vc1 = v_wall + sign * cap_proj
+      g = parent_ents.add_group
+      g.name = 'Garage_Ext_Frame'
+      e = g.entities
+      # Two side casings: floor up to the BOTTOM of the header (the header
+      # sits ON them — post & lintel, no interpenetration).
+      extrude_rect(e, -half_w - side_w, -half_w, -half_h, half_h, vf0, vf1, unit, n)
+      extrude_rect(e, half_w, half_w + side_w, -half_h, half_h, vf0, vf1, unit, n)
+      # Header fascia spanning past both side casings.
+      hx0 = -half_w - side_w - head_ext
+      hx1 = half_w + side_w + head_ext
+      extrude_rect(e, hx0, hx1, half_h, half_h + head_h, vf0, vf1, unit, n)
+      # Projecting crown cap on top of the fascia.
+      extrude_rect(e, hx0 - cap_ext, hx1 + cap_ext, half_h + head_h, half_h + head_h + cap_h,
+                   vf0, vc1, unit, n)
+      g.material = frame_mat
+      e.grep(Sketchup::Face).each { |f| f.material = frame_mat }
+      true
+    rescue StandardError => ex
+      door_log "[DoorTool] ext frame: #{ex.message}"
+      false
+    end
+
+    # One sectional panel, classic raised-panel look (user example
+    # 2026-07-21): 4 panels per section. Each panel = recessed groove around
+    # a BEVELED frame that rises back to a flat center field flush with the
+    # section front. Backs stay flat (full-depth rails/stiles + plate).
+    def build_garage_raised_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, v_ext, sign, style, unit, n, leaf_mat, s)
+      rail = 2.5
+      stile = 2.5
+      recess = 0.375
+      groove = 0.75
+      bevel = 1.75
+      # Panel count from a TARGET width so panels look the same size on any
+      # door width. All rows IDENTICAL height — the top row is not clamped;
+      # it ends ~0.5" past the frame line, hidden behind the wall (user
+      # calibration 2026-07-22).
+      target = style == 'Raised Short' ? 19.0 : 40.0
+      cols = [(2.0 * giw / target).round, 1].max
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 2.0 * (groove + bevel) + 4.0 || pw1 - pw0 < 2.0 * (groove + bevel) + 3.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
+        return true
+      end
+      # Like the interior door leaves (user 2026-07-22): ONE solid slab per
+      # section, panel pockets CARVED into its front face — no seams, only
+      # the shape lines.
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      v_low = v_ext - sign * recess
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        next unless carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                                 v_ext, sign, recess, unit, n)
+        # Chamfered pocket edge (user demo photo 2026-07-22): the frame
+        # slopes down into the groove instead of a 90-degree step.
+        build_beveled_ring!(parent_ents, u0, u0 + cell, pw0, pw1,
+                            v_ext, v_low, 0.5, unit, n, leaf_mat, "S#{s}_Cham_#{c}")
+        build_beveled_field!(parent_ents, u0 + groove, u0 + cell - groove,
+                             pw0 + groove, pw1 - groove,
+                             v_low, v_ext, bevel, unit, n, leaf_mat, "S#{s}_Field_#{c}")
+      end
+      sec.material = leaf_mat
+      true
+    end
+
+    # Carve a shape into the section's FRONT face: add the polygon on the
+    # front plane (it splits the face) and pushpull it inward by `depth`
+    # (= full thickness -> a through opening). Points are [u, w] pairs.
+    def carve_front!(se, uw_pts, v_ext, sign, depth, unit, n)
+      pts = uw_pts.map { |u, w| local_uvw(u, v_ext, w, unit, n) }
+      f = se.add_face(pts)
+      return false unless f&.valid?
+      nv = Geom::Vector3d.new(n.x, n.y, 0)
+      ext_dir = sign > 0 ? nv : nv.reverse
+      d = f.normal.dot(ext_dir) > 0 ? -depth : depth
+      f.pushpull(d)
+      true
+    rescue StandardError => e
+      door_log "[DoorTool] carve_front!: #{e.message}"
+      false
+    end
+
+    # Raised-panel center field: frustum from a base rect at v_low up to an
+    # inset flat rect at v_high (4 sloped quads + flat top). Own group.
+    def build_beveled_field!(parent_ents, u0, u1, w0, w1, v_low, v_high, bevel, unit, n, mat, name)
+      return false if u1 - u0 < 2.0 * bevel + 1.0 || w1 - w0 < 2.0 * bevel + 1.0
+      grp = parent_ents.add_group
+      grp.name = name
+      ents = grp.entities
+      a = [
+        local_uvw(u0, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w1, unit, n),
+        local_uvw(u0, v_low, w1, unit, n)
+      ]
+      t = [
+        local_uvw(u0 + bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w1 - bevel, unit, n),
+        local_uvw(u0 + bevel, v_high, w1 - bevel, unit, n)
+      ]
+      begin
+        4.times do |i|
+          j = (i + 1) % 4
+          ents.add_face(a[i], a[j], t[j], t[i])
+        end
+        ents.add_face(t[0], t[1], t[2], t[3])
+      rescue StandardError => e
+        door_log "[DoorTool] beveled field failed: #{e.message}"
+        grp.erase! if grp.valid?
+        return false
+      end
+      grp.material = mat
+      ents.grep(Sketchup::Face).each { |f| f.material = mat }
+      true
+    end
+
+    # One full-view section: black aluminum frame (full depth) + 4 glass
+    # panes at mid-depth.
+    def build_garage_fv_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, unit, n, glass_mat, s)
+      model = Sketchup.active_model
+      steel_mat = get_or_create_material(model, 'InteriorPro_Front_Steel',
+                                         Sketchup::Color.new(40, 40, 40), 1.0)
+      # Frame takes the chosen door color (dialog); default aluminum black.
+      if @door_color && !@door_color.to_s.empty?
+        cm = door_leaf_material(model)
+        steel_mat = cm if cm
+      end
+      rail = 1.5
+      stile = 1.5
+      cols = [(2.0 * giw / 40.0).round, 1].max # ~equal panes on any width
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 5.0 || pw1 - pw0 < 4.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, steel_mat, "Section_#{s + 1}")
+        return true
+      end
+      # ONE solid slab per section, pane openings CARVED through (flat back).
+      # For a through hole the carve direction is irrelevant.
+      sign_fv = 1.0
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      sec.material = steel_mat
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                     v1, sign_fv, v1 - v0, unit, n)
+      end
+      vm = (v0 + v1) / 2.0
+      g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "S#{s}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      true
+    end
+
+    # Top-section window row: door-color frame, clear panes at mid-depth.
+    # garage_window_style (catalog, 2026-07-22): 'Plain' rectangles,
+    # 'L-305' / 'L-405' arc muntin (mirrored), 'L-699' colonial grid,
+    # 'Squares' = window per Raised-Short square (max windows).
+    def build_garage_window_section!(parent_ents, iw, giw, w_cap, w0, w1, v0, v1, sign, unit, n, leaf_mat, glass_mat, s)
+      wstyle = (@garage_window_style && !@garage_window_style.to_s.empty?) ? @garage_window_style.to_s : 'Plain'
+      rail = 2.5
+      stile = 2.5
+      target = wstyle == 'Squares' ? 19.0 : 40.0
+      cols = [(2.0 * giw / target).round, 1].max
+      # User-chosen window count (0 = auto). For Squares the grid stays
+      # aligned with the door panels and the count picks how many cells get
+      # glass (centered); for the rest it sets the number of windows.
+      cnt = @garage_window_count.to_i
+      cols = cnt if cnt > 0 && wstyle != 'Squares'
+      cols = [(cols / 2) * 2, 2].max if wstyle.include?('Pairs') # arch pairs need even count
+      cell = (2.0 * giw - stile * (cols + 1)) / cols
+      pw0 = w0 + rail
+      pw1 = w1 - rail # all rows equal (curtain top = inner frame line)
+      _ = w_cap
+      if cell < 5.0 || pw1 - pw0 < 4.0
+        build_front_slab!(parent_ents, -iw, iw, w0, w1, v0, v1, unit, n, leaf_mat, "Section_#{s + 1}")
+        return true
+      end
+      # ONE solid slab per section; the window shapes are CARVED through it
+      # (like the interior door leaves — no seams).
+      v_ext_c = sign > 0 ? v1 : v0
+      dfull = v1 - v0
+      sec = parent_ents.add_group
+      sec.name = "Section_#{s + 1}"
+      se = sec.entities
+      extrude_rect(se, -iw, iw, w0, w1, v0, v1, unit, n)
+      sec.material = leaf_mat
+      vm = (v0 + v1) / 2.0
+      mv0 = sign > 0 ? vm + 0.13 : vm - 0.38
+      mv1 = sign > 0 ? vm + 0.38 : vm - 0.13
+      bar = 0.75
+      if wstyle.include?('Arch')
+        # Approved render 2026-07-22: the WINDOW ITSELF is an arch slice.
+        gsize = wstyle.include?('Pairs') ? 2 : cols
+        with_grid = wstyle.include?('Grid')
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          c0 = (c / gsize) * gsize
+          gcount = [gsize, cols - c0].min
+          gx0 = -giw + stile + c0 * (cell + stile)
+          gx1 = gx0 + gcount * cell + (gcount - 1) * stile
+          build_arched_window_cell!(se, parent_ents, u0, u0 + cell, gx0, gx1, pw0, pw1,
+                                    v0, v1, v_ext_c, sign, vm, mv0, mv1, with_grid,
+                                    unit, n, leaf_mat, glass_mat, "S#{s}_W#{c}")
+        end
+        return true
+      end
+      if wstyle == 'Squares'
+        # Approved render 2026-07-22: window INSIDE the panel frame (groove +
+        # bevel ring + glass with a small cross). Cells align with the door
+        # panels; a chosen count picks the centered glass cells, the rest
+        # stay regular raised panels.
+        wcnt = cnt.positive? && cnt < cols ? cnt : cols
+        first = (cols - wcnt) / 2
+        v_low = v_ext_c - sign * 0.375
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          if c >= first && c < first + wcnt
+            build_square_window_cell!(se, parent_ents, u0, u0 + cell, pw0, pw1, dfull,
+                                      v_ext_c, sign, vm, mv0, mv1,
+                                      unit, n, leaf_mat, glass_mat, "S#{s}_SQ#{c}")
+          else
+            next unless carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                                     v_ext_c, sign, 0.375, unit, n)
+            build_beveled_ring!(parent_ents, u0, u0 + cell, pw0, pw1,
+                                v_ext_c, v_low, 0.5, unit, n, leaf_mat, "S#{s}_Cham_#{c}")
+            build_beveled_field!(parent_ents, u0 + 0.75, u0 + cell - 0.75,
+                                 pw0 + 0.75, pw1 - 0.75, v_low, v_ext_c, 1.75,
+                                 unit, n, leaf_mat, "S#{s}_Field_#{c}")
+          end
+        end
+        return true
+      end
+      # Plain / Colonial: carve a through opening per window, glass behind.
+      cols.times do |c|
+        u0 = -giw + stile + c * (cell + stile)
+        carve_front!(se, [[u0, pw0], [u0 + cell, pw0], [u0 + cell, pw1], [u0, pw1]],
+                     v_ext_c, sign, dfull, unit, n)
+      end
+      g = build_front_slab!(parent_ents, -giw, giw, pw0, pw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "S#{s}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      if wstyle == 'L-699'
+        cols.times do |c|
+          u0 = -giw + stile + c * (cell + stile)
+          (1..3).each do |k|
+            bu = u0 + cell * k / 4.0 - bar / 2.0
+            build_front_slab!(parent_ents, bu, bu + bar, pw0, pw1, mv0, mv1,
+                              unit, n, leaf_mat, "S#{s}_Muntin_V#{c}_#{k}")
+          end
+          bw = (pw0 + pw1) / 2.0 - bar / 2.0
+          build_front_slab!(parent_ents, u0, u0 + cell, bw, bw + bar, mv0, mv1,
+                            unit, n, leaf_mat, "S#{s}_Muntin_H#{c}")
+        end
+      end
+      true
+    end
+
+    # Square window inside the panel frame (approved render 2026-07-22):
+    # groove border (recessed), beveled ring rising to the front, glass with
+    # a thin 3x2 cross in the center. Open behind the glass (real window).
+    def build_square_window_cell!(se, parent_ents, x0, x1, w0, w1, dfull, v_ext, sign, vm, mv0, mv1, unit, n, leaf_mat, glass_mat, name)
+      groove = 0.75
+      bevel = 1.75
+      v_low = v_ext - sign * 0.375
+      min_dim = 2.0 * (groove + bevel) + 3.0
+      return false if x1 - x0 < min_dim || w1 - w0 < min_dim
+      ix0 = x0 + groove + bevel
+      ix1 = x1 - groove - bevel
+      iw0 = w0 + groove + bevel
+      iw1 = w1 - groove - bevel
+      # Carve the panel pocket into the front, then a through hole for the
+      # glass; the beveled ring sits inside the pocket. Back stays FLAT.
+      return false unless carve_front!(se, [[x0, w0], [x1, w0], [x1, w1], [x0, w1]],
+                                       v_ext, sign, 0.375, unit, n)
+      carve_front!(se, [[ix0, iw0], [ix1, iw0], [ix1, iw1], [ix0, iw1]],
+                   v_low, sign, dfull - 0.375, unit, n)
+      build_beveled_ring!(parent_ents, x0, x1, w0, w1,
+                          v_ext, v_low, 0.5, unit, n, leaf_mat, "#{name}_Cham")
+      build_beveled_ring!(parent_ents, x0 + groove, x1 - groove, w0 + groove, w1 - groove,
+                          v_low, v_ext, bevel, unit, n, leaf_mat, "#{name}_Ring")
+      g = build_front_slab!(parent_ents, ix0, ix1, iw0, iw1, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, "#{name}_Glass")
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      bar = 0.4
+      (1..2).each do |k|
+        bx = ix0 + (ix1 - ix0) * k / 3.0 - bar / 2.0
+        build_front_slab!(parent_ents, bx, bx + bar, iw0, iw1, mv0, mv1, unit, n, leaf_mat, "#{name}_V#{k}")
+      end
+      hy = (iw0 + iw1) / 2.0 - bar / 2.0
+      build_front_slab!(parent_ents, ix0, ix1, hy, hy + bar, mv0, mv1, unit, n, leaf_mat, "#{name}_H")
+      true
+    end
+
+    # Beveled RING (frustum without the flat top): 4 sloped quads from the
+    # outer rect at v_low up to an inset rect at v_high. Own group.
+    def build_beveled_ring!(parent_ents, u0, u1, w0, w1, v_low, v_high, bevel, unit, n, mat, name)
+      return false if u1 - u0 < 2.0 * bevel + 1.0 || w1 - w0 < 2.0 * bevel + 1.0
+      grp = parent_ents.add_group
+      grp.name = name
+      ents = grp.entities
+      a = [
+        local_uvw(u0, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w0, unit, n),
+        local_uvw(u1, v_low, w1, unit, n),
+        local_uvw(u0, v_low, w1, unit, n)
+      ]
+      t = [
+        local_uvw(u0 + bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w0 + bevel, unit, n),
+        local_uvw(u1 - bevel, v_high, w1 - bevel, unit, n),
+        local_uvw(u0 + bevel, v_high, w1 - bevel, unit, n)
+      ]
+      begin
+        4.times do |i|
+          j = (i + 1) % 4
+          ents.add_face(a[i], a[j], t[j], t[i])
+        end
+      rescue StandardError => e
+        door_log "[DoorTool] beveled ring: #{e.message}"
+        grp.erase! if grp.valid?
+        return false
+      end
+      grp.material = mat
+      ents.grep(Sketchup::Face).each { |f| f.material = mat }
+      true
+    end
+
+    # One ARCHED window cell (approved render 2026-07-22): the window is a
+    # slice of an arch spanning its GROUP (gx0..gx1) — shoulders at 45% of
+    # the window height, peak near the top. Door material fills above the
+    # curve, a 0.75" frame band follows it, glass below, optional vertical
+    # bars (8 panes per window) stopping at the curve.
+    def build_arched_window_cell!(se, parent_ents, x0, x1, gx0, gx1, pw0, pw1, v0, v1, v_ext, sign, vm, mv0, mv1, with_grid, unit, n, leaf_mat, glass_mat, name)
+      h = pw1 - pw0
+      return false if h < 6.0 || x1 - x0 < 6.0
+      y_sh = pw0 + h * 0.45
+      y_pk = pw1 - 0.5
+      band = 0.75
+      arch = lambda do |x|
+        t = (x - gx0) / (gx1 - gx0)
+        y_sh + (y_pk - y_sh) * (4.0 * t * (1.0 - t))
+      end
+      segs = 12
+      xs = (0..segs).map { |k| x0 + (x1 - x0) * k / segs }
+      nv = Geom::Vector3d.new(n.x, n.y, 0)
+      dfull = v1 - v0
+      push = lambda do |ents, pts, depth|
+        f = ents.add_face(pts)
+        next unless f&.valid?
+        dd = depth
+        dd = -dd if f.normal.dot(nv) < 0
+        f.pushpull(dd)
+      end
+      paint = lambda do |grp, mat, both|
+        grp.material = mat
+        grp.entities.grep(Sketchup::Face).each do |f|
+          f.material = mat
+          f.back_material = mat if both
+        end
+      end
+      # 1) CARVE the arched window shape straight through the section slab
+      # (everything above the curve stays solid — no filler piece needed).
+      uw = [[x0, pw0], [x1, pw0]]
+      xs.reverse.each { |x| uw << [x, arch.call(x)] }
+      carve_front!(se, uw, v_ext, sign, dfull, unit, n)
+      # 2) Frame band following the curve (full depth, inside the opening).
+      g2 = parent_ents.add_group
+      g2.name = "#{name}_Band"
+      begin
+        pts = xs.map { |x| local_uvw(x, v0, arch.call(x), unit, n) }
+        pts += xs.reverse.map { |x| local_uvw(x, v0, arch.call(x) - band, unit, n) }
+        push.call(g2.entities, pts, dfull)
+      rescue StandardError => e
+        door_log "[DoorTool] arch band: #{e.message}"
+      end
+      paint.call(g2, leaf_mat, false)
+      # 3) Glass below the band (thin, mid-depth).
+      g3 = parent_ents.add_group
+      g3.name = "#{name}_Glass"
+      begin
+        pts = [local_uvw(x0, vm - 0.12, pw0, unit, n), local_uvw(x1, vm - 0.12, pw0, unit, n)]
+        pts += xs.reverse.map { |x| local_uvw(x, vm - 0.12, arch.call(x) - band, unit, n) }
+        push.call(g3.entities, pts, 0.24)
+      rescue StandardError => e
+        door_log "[DoorTool] arch glass: #{e.message}"
+      end
+      paint.call(g3, glass_mat, true)
+      # 4) Vertical bars (8 panes) stopping at the curve.
+      if with_grid
+        panes = 8
+        (1..(panes - 1)).each do |k|
+          bx = x0 + (x1 - x0) * k / panes
+          top_w = arch.call(bx) - band
+          next if top_w - pw0 < 2.0
+          build_front_slab!(parent_ents, bx - 0.25, bx + 0.25, pw0, top_w, mv0, mv1,
+                            unit, n, leaf_mat, "#{name}_Bar#{k}")
+        end
+      end
+      true
+    end
+
+    # Full-view aluminum + glass door: black grid (outer border, section
+    # rails, 4 columns) with one frosted glass sheet at mid-depth.
+    def build_garage_full_view!(parent_ents, iw, bot, top, sections, sec_h, v0, v1, unit, n, glass_mat)
+      model = Sketchup.active_model
+      steel_mat = get_or_create_material(model, 'InteriorPro_Front_Steel',
+                                         Sketchup::Color.new(40, 40, 40), 1.0)
+      rail = 3.5
+      stile = 3.5
+      cols = 4
+      cell = (2.0 * iw - stile * (cols + 1)) / cols
+      return false if cell < 6.0
+      build_front_slab!(parent_ents, -iw, iw, bot, bot + rail, v0, v1, unit, n, steel_mat, 'FV_Rail_Bottom')
+      build_front_slab!(parent_ents, -iw, iw, top - rail, top, v0, v1, unit, n, steel_mat, 'FV_Rail_Top')
+      (1..(sections - 1)).each do |s|
+        wm = bot + s * sec_h
+        build_front_slab!(parent_ents, -iw, iw, wm - rail / 2.0, wm + rail / 2.0, v0, v1,
+                          unit, n, steel_mat, "FV_Rail_#{s}")
+      end
+      (cols + 1).times do |c|
+        u0 = -iw + c * (cell + stile)
+        build_front_slab!(parent_ents, u0, u0 + stile, bot, top, v0, v1,
+                          unit, n, steel_mat, "FV_Stile_#{c}")
+      end
+      vm = (v0 + v1) / 2.0
+      g = build_front_slab!(parent_ents, -iw, iw, bot, top, vm - 0.12, vm + 0.12,
+                            unit, n, glass_mat, 'FV_Glass')
+      g.entities.grep(Sketchup::Face).each { |f| f.material = glass_mat; f.back_material = glass_mat } if g
+      true
+    end
+
+    def door_body_materials
+      model = Sketchup.active_model
+      {
+        frame_mat: door_frame_material(model),
+        glass_mat: get_or_create_material(model, 'InteriorPro_Glass',
+                                          Sketchup::Color.new(180, 180, 180), 0.4)
+      }
+    end
+
+    # Builds jamb + threshold; returns panel layout hash or nil on failure.
+    def build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness, frame_mat,
+                                        default_stile_w:)
+      half_w = data[:half_w].to_f
+      half_h = (data[:door_top_z].to_f - data[:door_bot_z].to_f) / 2.0
+      return nil if half_w < 3.0 || half_h < 3.0
+
+      jamb_width = (@frame_width && @frame_width > 0) ? @frame_width : 1.5
+      stile_w = (@glass_frame_width && @glass_frame_width > 0) ? @glass_frame_width : default_stile_w
+      iw = half_w - jamb_width
+      return nil if iw < 1.0
+
+      head_inner = half_h - jamb_width
+      leaf_bot = -half_h + exterior_sill_plate_height
+      leaf_top = head_inner
+
+      meeting_gap = 0.125
+      track_gap = 0.125
+      inset = LEAF_FRAME_INSET
+      usable = thickness - 2 * inset - track_gap
+      leaf_depth = [1.75, usable / 2.0].min
+      back_vf = inset
+      back_vb = inset + leaf_depth
+      front_vb = thickness - inset
+      front_vf = front_vb - leaf_depth
+
+      build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, 0.0, thickness, unit, n, frame_mat, 'Jamb')
+      if @exterior_threshold && @door_category.to_s != 'interior'
+        if multi_panel_sliding_type?
+          build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness,
+                                               door_type_panel_count, unit, n, frame_mat)
+        elsif folding_type?
+          build_folding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+        elsif four_panel_center_hinged_type?
+          build_four_panel_threshold(parent_ents, half_w, half_h, iw, thickness,
+                                     back_vb, front_vf, unit, n, frame_mat)
+        else
+          build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, frame_mat)
+        end
+      end
+
+      {
+        half_w: half_w, half_h: half_h, iw: iw, leaf_bot: leaf_bot, leaf_top: leaf_top,
+        stile_w: stile_w, meeting_gap: meeting_gap, thickness: thickness,
+        leaf_front_v: LEAF_FRAME_INSET, leaf_back_v: LEAF_FRAME_INSET + leaf_depth,
+        back_vf: back_vf, back_vb: back_vb, front_vf: front_vf, front_vb: front_vb
+      }
+    end
+
+    def finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, frame_mat)
+      half_w = layout[:half_w]
+      half_h = layout[:half_h]
+      if casing_enabled?(@exterior_casing_style) && @door_category.to_s != 'interior'
+        safe_build_casing(parent_ents, half_w, half_h, @exterior_casing_style, thickness,
+                          unit, n, frame_mat, 'Exterior_Casing', exterior: false)
+      end
+      if casing_enabled?(@interior_casing_style)
+        safe_build_casing(parent_ents, half_w, half_h, @interior_casing_style, 0.0,
+                          unit, n, frame_mat, 'Interior_Casing', exterior: true)
+      end
+      smooth_door_body(parent_ents)
+      true
+    end
+
+    # Four panels (4 ft each). Outer panels fixed; two center panels hinge from middle.
+    def build_four_panel_center_hinged_geometry!(parent_ents, data, unit, n, thickness)
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = four_panel_center_hinged_spans(layout)
+      door_log "[DoorTool] 4-panel center hinged: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      4.times do |i|
+        vf, vb = four_panel_center_track_depth(layout, i)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    # N equal panels on interior tracks (4-Panel / 6-Panel Sliding).
+    def build_multi_panel_sliding_geometry!(parent_ents, data, unit, n, thickness)
+      count = door_type_panel_count
+      return false unless count && count >= 2
+
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = multi_panel_equal_spans(layout, count)
+      door_log "[DoorTool] #{count}-panel sliding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} slide=#{@slide_direction.inspect}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      count.times do |i|
+        vf, vb = multi_panel_sliding_track_depth(layout, i, count)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    # Bi-fold: equal panels, zigzag interior depths (3 / 4 / 6 panels).
+    def build_folding_geometry!(parent_ents, data, unit, n, thickness)
+      count = door_type_panel_count
+      return false unless count && count >= 2
+
+      mats = door_body_materials
+      layout = build_exterior_door_frame_prep!(parent_ents, data, unit, n, thickness,
+                                               mats[:frame_mat], default_stile_w: 2.5)
+      return false unless layout
+
+      spans = multi_panel_equal_spans(layout, count)
+      door_log "[DoorTool] #{count}-panel folding: half_w=#{data[:half_w].to_f.round(2)} iw=#{layout[:iw].round(2)} panel_w=#{(spans.first[1] - spans.first[0]).round(2)} fold=#{@slide_direction.inspect}"
+      bot = layout[:leaf_bot]
+      top = layout[:leaf_top]
+      stile_w = layout[:stile_w]
+      fm = mats[:frame_mat]
+      gm = mats[:glass_mat]
+
+      count.times do |i|
+        vf, vb = folding_panel_track_depth(layout, i)
+        build_leaf(parent_ents, spans[i][0], spans[i][1], bot, top, vf, vb, stile_w, unit, n, fm, gm)
+      end
+
+      finish_exterior_door_trim!(parent_ents, layout, unit, n, thickness, fm)
+    end
+
+    def multi_panel_equal_spans(layout, count)
+      iw = layout[:iw]
+      panel_w = (2 * iw) / count.to_f
+      u_left = -iw
+      count.times.map { |i| [u_left + i * panel_w, u_left + (i + 1) * panel_w] }
+    end
+
+    def four_panel_center_hinged_spans(layout)
+      iw = layout[:iw]
+      gap = layout[:meeting_gap]
+      panel_w = (2 * iw - gap) / 4.0
+      u_left = -iw
+      [
+        [u_left, u_left + panel_w],
+        [u_left + panel_w, u_left + 2 * panel_w],
+        [u_left + 2 * panel_w + gap, u_left + 3 * panel_w + gap],
+        [u_left + 3 * panel_w + gap, iw]
+      ]
+    end
+
+    # Center hinged: outers recessed, center pair forward (exterior-near).
+    def four_panel_center_track_depth(layout, index)
+      outer = index == 0 || index == 3
+      if outer
+        [layout[:front_vf], layout[:front_vb]]
+      else
+        [layout[:back_vf], layout[:back_vb]]
+      end
+    end
+
+    def multi_panel_sliding_track_depth(layout, index, count)
+      slide_left = @slide_direction.to_s.downcase != 'right'
+      level = slide_left ? (count - 1 - index) : index
+      interior_track_at_level(layout, level, count)
+    end
+
+    def interior_track_at_level(layout, level, track_count)
+      thickness = layout[:thickness]
+      inset = LEAF_FRAME_INSET
+      track_gap = 0.0625
+      usable = thickness - 2 * inset - track_gap * (track_count - 1)
+      depth = usable / track_count.to_f
+      vb = thickness - inset - level * (depth + track_gap)
+      [vb - depth, vb]
+    end
+
+    # All folding panels coplanar on interior track — one row, side by side.
+    def folding_panel_track_depth(layout, _index)
+      [layout[:front_vf], layout[:front_vb]]
+    end
+
+    def door_type_panel_count
+      m = @door_type.to_s.strip.match(/\A(\d+)-Panel/)
+      m ? m[1].to_i : nil
+    end
+
+    def multi_panel_sliding_type?
+      @door_type.to_s.strip.match?(/\A\d+-Panel Sliding\z/)
+    end
+
+    def folding_type?
+      @door_type.to_s.strip.match?(/\A\d+-Panel Folding\z/)
+    end
+
+    # Legacy entry — builds inside a group (prefer build_french_hinged_in_component!).
+    def build_french_hinged_body(door_group, unit, n, thickness, data: nil, in_parent_operation: false)
+      data ||= {
+        half_w: @width / 2.0,
+        door_bot_z: -@height / 2.0,
+        door_top_z: @height / 2.0
+      }
+      if in_parent_operation
+        build_french_hinged_geometry!(door_group.entities, data, unit, n, thickness)
+      else
+        model = Sketchup.active_model
+        model.start_operation('Build French Hinged Body', true)
+        begin
+          ok = build_french_hinged_geometry!(door_group.entities, data, unit, n, thickness)
+          model.commit_operation
+          ok
+        rescue => e
+          model.abort_operation rescue nil
+          puts "[DoorTool] french hinged body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          false
+        end
+      end
+    end
+
+    # U-shaped jamb: left leg + right leg + head (no sill at floor).
+    def build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, v_start, v_end, unit, n, mat, name)
+      grp = parent_ents.add_group
+      grp.name = name
+      ge = grp.entities
+      # Side legs stop at the bottom of the head jamb; the head sits ON them
+      # (post & lintel — no corner interpenetration, 2026-07-23).
+      extrude_rect(ge, -half_w, -iw, -half_h, head_inner, v_start, v_end, unit, n)
+      extrude_rect(ge, iw, half_w, -half_h, head_inner, v_start, v_end, unit, n)
+      extrude_rect(ge, -half_w, half_w, head_inner, half_h, v_start, v_end, unit, n)
+      grp.material = mat
+      grp
+    end
+
+    def safe_build_casing(parent_ents, half_w, half_h, style, v_wall, unit, n, mat, name, exterior: true)
+      build_casing(parent_ents, half_w, half_h, style, v_wall, unit, n, mat, name, exterior: exterior)
+    rescue => e
+      puts "[DoorTool] casing error (#{style}): #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      nil
+    end
+
+    def ensure_casing_profiles!
+      return if defined?(InteriorPro::DoorCasingProfiles)
+      load File.join(File.dirname(__FILE__), 'door_casing_profiles.rb')
+    end
+
+    # Build U-shaped casing — single Follow Me sweep for clean mitered corners.
+    def build_casing(parent_ents, half_w, half_h, style, v_wall, unit, n, mat, name, exterior: true)
+      ensure_casing_profiles!
+      spec = InteriorPro::DoorCasingProfiles.spec(style.to_s)
+      dir = exterior ? -1.0 : 1.0
+
+      grp = parent_ents.add_group
+      grp.name = name
+      ge = grp.entities
+
+      unless build_u_casing_followme(ge, half_w, half_h, spec, v_wall, dir, unit, n)
+        puts "[DoorTool] casing followme failed for #{style}, skipping trim"
+      end
+
+      grp.material = mat
+      grp
+    end
+
+    # Sweep profile along inner jamb path: up left leg → head → down right leg.
+    # The casing overlaps the jamb face (sits on the door frame), leaving a
+    # small reveal at the opening.
+    CASING_REVEAL = 0.25 unless const_defined?(:CASING_REVEAL, false)
+
+    def build_u_casing_followme(ge, half_w, half_h, spec, v_wall, dir, unit, n)
+      profile = spec[:profile]
+      cw = spec[:width]
+      max_d = spec[:depth]
+
+      jw = (@frame_width && @frame_width > 0) ? @frame_width.to_f : 1.5
+      ov = [jw - CASING_REVEAL, 0.0].max
+      u_in = half_w - ov
+      w_top = half_h - ov
+
+      p_bl = local_uvw(-u_in, v_wall, -half_h, unit, n)
+      p_tl = local_uvw(-u_in, v_wall,  w_top, unit, n)
+      p_tr = local_uvw( u_in, v_wall,  w_top, unit, n)
+      p_br = local_uvw( u_in, v_wall, -half_h, unit, n)
+
+      u_outer = -(u_in + cw)
+      prof_pts = profile.map do |u_frac, v_frac|
+        u = -u_in + u_frac * (u_outer - (-u_in))
+        v = v_wall + dir * v_frac * max_d
+        local_uvw(u, v, -half_h, unit, n)
+      end
+
+      prof_face = ge.add_face(prof_pts)
+      return false unless prof_face && prof_face.valid?
+
+      path_edges = []
+      [[p_bl, p_tl], [p_tl, p_tr], [p_tr, p_br]].each do |a, b|
+        e = ge.add_line(a, b)
+        path_edges << e if e
+      end
+      return false if path_edges.length < 3
+
+      begin
+        prof_face.followme(path_edges)
+        smooth_profile_edges(ge)
+      rescue => e
+        puts "[DoorTool] followme error: #{e.message}"
+        return false
+      ensure
+        path_edges.each { |edge| edge.erase! if edge && edge.valid? }
+      end
+
+      true
+    end
+
+    def smooth_profile_edges(entities, angle_limit = 50.degrees)
+      smooth_entity_edges(entities, angle_limit)
+    end
+
+    # Soften small-angle edges throughout the door body (casing curves, etc.).
+    # Sharp 90° frame corners stay visible.
+    def smooth_door_body(entities, angle_limit = 50.degrees)
+      entities.each do |ent|
+        next unless ent.valid?
+        if ent.is_a?(Sketchup::Group)
+          smooth_entity_edges(ent.entities, angle_limit)
+          smooth_door_body(ent.entities, angle_limit)
+        end
+      end
+    end
+
+    def smooth_entity_edges(entities, angle_limit)
+      entities.grep(Sketchup::Edge).each do |edge|
+        next unless edge.valid?
+        faces = edge.faces
+        next unless faces.length == 2
+        ang = faces[0].normal.angle_between(faces[1].normal)
+        next if ang >= angle_limit
+        edge.soft = true
+        edge.smooth = true
+      end
+    end
+
+    def french_hinged_type?
+      @door_type.to_s.strip == 'French Hinged'
+    end
+
+    def four_panel_center_hinged_type?
+      @door_type.to_s.strip == '4-Panel Center Hinged'
+    end
+
+    def four_panel_sliding_type?
+      @door_type.to_s.strip == '4-Panel Sliding'
+    end
+
+    # Exterior catalog only — interior Sliding stays opening-only.
+    def exterior_sliding_type?
+      @door_category.to_s != 'interior' &&
+        (@door_type.to_s.strip == 'Sliding' || multi_panel_sliding_type?)
+    end
+
+    def front_door_type?
+      @door_category.to_s != 'interior' && @door_type.to_s.strip == 'Front Door'
+    end
+
+    def garage_door_type?
+      @door_category.to_s != 'interior' && @door_type.to_s.strip == 'Garage Door'
+    end
+
+    def door_body_type?
+      arched_door_type? || interior_leaf_type? || front_door_type? || garage_door_type? ||
+        french_hinged_type? || four_panel_center_hinged_type? || exterior_sliding_type? || folding_type?
+    end
+
+    def arched_door_type?
+      @door_type.to_s.strip == 'Arched'
+    end
+
+    # Interior doors build a styled leaf body (build_interior_leaf_geometry!).
+    # Interior French Hinged keeps the legacy French body path.
+    def interior_leaf_type?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip != 'French Hinged'
+    end
+
+    def pocket_door?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Pocket'
+    end
+
+    def closet_door?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Closet'
+    end
+
+    # A doorway with no door in it (2026-08-03): the jamb is built exactly as
+    # for any interior door, and then nothing else - no leaf, no stop, no
+    # handle. Casing still applies, so it reads as a finished opening.
+    def cased_opening?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Cased Opening'
+    end
+
+    def handle_enabled?
+      return false if @handle_style.to_s == '' || @handle_style.to_s == 'none'
+      return false unless defined?(InteriorPro::DoorHandles)
+      return true if front_door_type?
+      @door_category.to_s == 'interior' && !pocket_door? && !closet_door?
+    end
+
+    # Which handle asset folder/calibration table to use for this door.
+    def handle_kind
+      front_door_type? ? 'front' : 'interior'
+    end
+
+    # Place a handle component on the leaf face at (u_pos, w_pos).
+    # v_face = leaf face plane; out_sign = +1 toward +n, -1 toward -n.
+    # Component convention: X along door width, Y away from the door face, Z up.
+    def place_handle!(parent_ents, u_pos, w_pos, v_face, out_sign, x_sign, unit, n)
+      model = Sketchup.active_model
+      hdef = InteriorPro::DoorHandles.definition_for(model, @handle_style, handle_kind)
+      unless hdef
+        door_log "[DoorTool] handle definition failed: #{@handle_style}"
+        return nil
+      end
+      p = local_uvw(u_pos, v_face, w_pos, unit, n)
+      y = Geom::Vector3d.new(n.x * out_sign, n.y * out_sign, n.z * out_sign)
+      # Same x on both faces (back = mirrored) so the lever points the same
+      # way on both sides. x_sign flips the lever toward the door center.
+      x = x_sign > 0 ? unit : unit.reverse
+      t = Geom::Transformation.axes(p, x, y, Geom::Vector3d.new(0, 0, 1))
+      # Auto-fit: mirror front-to-back (wide base at max Y must touch the door)
+      # and press the base onto the leaf face. Anchor (u,w) on the component
+      # ORIGIN (= the pivot/rose, per our modeling convention) when it lies
+      # inside the bounds footprint; otherwise fall back to the bounds center.
+      fit = InteriorPro::DoorHandles.fit_transform(hdef, @handle_style, handle_kind)
+      parent_ents.add_instance(hdef, t * fit)
+    rescue StandardError => e
+      door_log "[DoorTool] place_handle! error: #{e.message}"
+      nil
+    end
+
+    # Handles on both faces of a swing leaf at standard 36" above the leaf bottom.
+    # x_sign: +1 = lever points toward +u, -1 = toward -u (away from lock edge).
+    def place_leaf_handles!(parent_ents, u_pos, x_sign, leaf_w0, lv0, lv1, unit, n)
+      w_pos = leaf_w0 + 36.0
+      if InteriorPro::DoorHandles.both_sides?(@handle_style, handle_kind)
+        # File already contains both sides: place ONCE, centered on the leaf.
+        place_handle!(parent_ents, u_pos, w_pos, (lv0 + lv1) / 2.0, 1, x_sign, unit, n)
+      else
+        place_handle!(parent_ents, u_pos, w_pos, lv1, 1, x_sign, unit, n)
+        place_handle!(parent_ents, u_pos, w_pos, lv0, -1, x_sign, unit, n)
+      end
+    end
+
+    def casing_enabled?(style)
+      style.to_s != '' && style.to_s != 'none'
+    end
+
+    # Legacy rectangular U-casing (kept for jamb-like strips if needed).
+    def build_u_casing(parent_ents, half_w, half_h, cw, v_start, v_end, unit, n, mat, name)
+      grp = parent_ents.add_group
+      grp.name = name
+      ge = grp.entities
+      ou_lo = -(half_w + cw)
+      ou_hi = half_w + cw
+      extrude_rect(ge, ou_lo, -half_w, -half_h, half_h + cw, v_start, v_end, unit, n)
+      extrude_rect(ge, half_w, ou_hi, -half_h, half_h + cw, v_start, v_end, unit, n)
+      extrude_rect(ge, ou_lo, ou_hi, half_h, half_h + cw, v_start, v_end, unit, n)
+      grp.material = mat
+      grp
+    end
+
+    # Interior-track sills for N-panel sliding doors.
+    def build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness, track_count,
+                                             unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    # Single interior-track sill — folding panels sit in one row.
+    def build_folding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    # Four interior-track sills for all-sliding panels (legacy alias).
+    def build_four_panel_sliding_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
+      build_multi_panel_interior_threshold(parent_ents, half_w, half_h, iw, thickness, 4, unit, n, mat)
+    end
+
+    # Two-track sill: outer panels ride on rear track, center panels on front track.
+    def build_four_panel_threshold(parent_ents, half_w, half_h, iw, thickness, back_vb, front_vf,
+                                   unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    # Threshold (סף): flat sill under the door (through wall) + ~1" stepped exterior nose.
+    def build_threshold(parent_ents, half_w, half_h, iw, thickness, unit, n, mat)
+      grp = parent_ents.add_group
+      grp.name = 'Threshold'
+      ge = grp.entities
+      wf = -half_h
+
+      append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+
+      grp.material = mat
+      grp
+    end
+
+    def exterior_sill_plate_height
+      (@exterior_threshold && @door_category.to_s != 'interior') ? SILL_PLATE_HEIGHT : 0.0
+    end
+
+    # Sill plate at opening floor line (does not extend below floor into wall/floor).
+    def append_wall_sill_block!(ge, iw, wf, thickness, unit, n)
+      extrude_rect(ge, -iw, iw, wf, wf + SILL_PLATE_HEIGHT, 0.0, thickness, unit, n)
+    end
+
+    # Exterior nose REMOVED entirely (user request 2026-07-06) - sill block only.
+    def append_exterior_threshold_nose!(ge, half_w, wf, unit, n)
+      nil
+    end
+
+    # Solid rectangular strip extruded through the wall (v_start -> v_end).
+    def extrude_rect(entities, u0, u1, w0, w1, v_start, v_end, unit, n)
+      return if u1 <= u0 + 0.01 || w1 <= w0 + 0.01
+
+      corners = [
+        local_uvw(u0, v_start, w0, unit, n),
+        local_uvw(u1, v_start, w0, unit, n),
+        local_uvw(u1, v_start, w1, unit, n),
+        local_uvw(u0, v_start, w1, unit, n)
+      ]
+      face = entities.add_face(corners)
+      unless face&.valid?
+        puts "[DoorTool] extrude_rect: add_face failed u=#{u0.round(1)}-#{u1.round(1)} w=#{w0.round(1)}-#{w1.round(1)}"
+        return
+      end
+
+      depth = v_end - v_start
+      depth = -depth if face.normal.dot(n) < 0
+      face.pushpull(depth)
+    end
+
+    # One glazed leaf: frame ring, glass, optional grid muntins, and handle.
+    def build_leaf(parent_ents, u0, u1, w_bot, w_top, vf, vb, stile_w, unit, n,
+                   frame_mat, glass_mat)
+      leaf = parent_ents.add_group
+      leaf.name = u0 < 0 ? 'Leaf_Left' : 'Leaf_Right'
+      le = leaf.entities
+
+      outer = [
+        local_uvw(u0, vf, w_bot, unit, n),
+        local_uvw(u1, vf, w_bot, unit, n),
+        local_uvw(u1, vf, w_top, unit, n),
+        local_uvw(u0, vf, w_top, unit, n)
+      ]
+      hu0 = u0 + stile_w
+      hu1 = u1 - stile_w
+      wg_bot = w_bot + stile_w
+      wg_top = w_top - stile_w
+      inner = [
+        local_uvw(hu0, vf, wg_bot, unit, n),
+        local_uvw(hu1, vf, wg_bot, unit, n),
+        local_uvw(hu1, vf, wg_top, unit, n),
+        local_uvw(hu0, vf, wg_top, unit, n)
+      ]
+      face = le.add_face(outer)
+      if face
+        hole = le.add_face(inner)
+        hole.erase! if hole
+        depth = vb - vf
+        depth = -depth if face.normal.dot(n) < 0
+        face.pushpull(depth)
+        leaf.material = frame_mat
+      end
+
+      vmid = (vf + vb) / 2.0
+      style = (@glass_grid_style || 'none').to_s.downcase
+      cols, rows = parse_grid_style(style)
+      has_grid = style != 'none' && cols >= 1 && rows >= 1 &&
+                 hu1 > hu0 + 1.0 && wg_top > wg_bot + 1.0
+
+      if has_grid
+        build_glass_lites(le, hu0, hu1, wg_bot, wg_top, vmid, unit, n, glass_mat, cols, rows)
+        build_glass_muntins(le, hu0, hu1, wg_bot, wg_top, vmid, unit, n, frame_mat, cols, rows)
+      else
+        glass = [
+          local_uvw(hu0, vmid, wg_bot, unit, n),
+          local_uvw(hu1, vmid, wg_bot, unit, n),
+          local_uvw(hu1, vmid, wg_top, unit, n),
+          local_uvw(hu0, vmid, wg_top, unit, n)
+        ]
+        gface = le.add_face(glass)
+        if gface
+          gface.material = glass_mat
+          gface.back_material = glass_mat
+        end
+      end
+
+      leaf
+    end
+
+    def parse_grid_style(style)
+      return [0, 0] if style.nil? || style.empty? || style == 'none'
+      if style =~ /^(\d+)x(\d+)$/i
+        [$1.to_i, $2.to_i]
+      else
+        [0, 0]
+      end
+    end
+
+    # One glass lite per grid cell, inset so it sits centered between muntins.
+    def build_glass_lites(le, hu0, hu1, w_bot, w_top, vmid, unit, n, glass_mat, cols, rows)
+      half_m = MUNTIN_WIDTH / 2.0
+      u_span = hu1 - hu0
+      w_span = w_top - w_bot
+
+      cols.times do |i|
+        rows.times do |j|
+          u_l = hu0 + u_span * i / cols.to_f
+          u_r = hu0 + u_span * (i + 1) / cols.to_f
+          w_b = w_bot + w_span * j / rows.to_f
+          w_t = w_bot + w_span * (j + 1) / rows.to_f
+
+          gu0 = i > 0 ? u_l + half_m : u_l
+          gu1 = i < cols - 1 ? u_r - half_m : u_r
+          gw0 = j > 0 ? w_b + half_m : w_b
+          gw1 = j < rows - 1 ? w_t - half_m : w_t
+
+          next if gu1 <= gu0 + 0.01 || gw1 <= gw0 + 0.01
+
+          glass = [
+            local_uvw(gu0, vmid, gw0, unit, n),
+            local_uvw(gu1, vmid, gw0, unit, n),
+            local_uvw(gu1, vmid, gw1, unit, n),
+            local_uvw(gu0, vmid, gw1, unit, n)
+          ]
+          gface = le.add_face(glass)
+          next unless gface
+          gface.material = glass_mat
+          gface.back_material = glass_mat
+        end
+      end
+    end
+
+    # Muntin grid on the glass opening (cols × rows lites per leaf).
+    def build_glass_muntins(le, hu0, hu1, w_bot, w_top, vmid, unit, n, mat, cols, rows)
+      mw = MUNTIN_WIDTH
+      half_m = mw / 2.0
+      u_span = hu1 - hu0
+      w_span = w_top - w_bot
+
+      (1...cols).each do |i|
+        u = hu0 + u_span * i / cols.to_f
+        build_muntin_bar(le, u - half_m, u + half_m, w_bot, w_top, vmid, unit, n, mat)
+      end
+
+      (1...rows).each do |j|
+        w = w_bot + w_span * j / rows.to_f
+        build_muntin_bar(le, hu0, hu1, w - half_m, w + half_m, vmid, unit, n, mat, vertical: false)
+      end
+    end
+
+    def build_muntin_bar(le, u0, u1, w0, w1, vmid, unit, n, mat, vertical: true)
+      bar = le.add_group
+      bar.name = vertical ? 'Muntin_V' : 'Muntin_H'
+      be = bar.entities
+      # Extrude symmetrically about vmid so glass at vmid sits in the muntin mid-depth.
+      half_d = MUNTIN_DEPTH / 2.0
+      v_face = vmid - half_d
+      corners = [
+        local_uvw(u0, v_face, w0, unit, n),
+        local_uvw(u1, v_face, w0, unit, n),
+        local_uvw(u1, v_face, w1, unit, n),
+        local_uvw(u0, v_face, w1, unit, n)
+      ]
+      face = be.add_face(corners)
+      return unless face
+      depth = MUNTIN_DEPTH
+      depth = -depth if face.normal.dot(n) < 0
+      face.pushpull(depth)
+      bar.material = mat
+    end
+
+    def local_uvw(u, v, w, unit, n)
+      Geom::Point3d.new(u * unit.x + v * n.x, u * unit.y + v * n.y, w)
+    end
+
+    # '#rrggbb' -> Sketchup::Color, nil when blank/invalid (= use default).
+    def parse_hex_color(hex)
+      s = hex.to_s.strip.delete('#')
+      return nil unless s =~ /\A\h{6}\z/i
+      Sketchup::Color.new(s[0, 2].to_i(16), s[2, 2].to_i(16), s[4, 2].to_i(16))
+    end
+
+    # Frame/jamb/casing material honoring @frame_color (per-color material).
+    def door_frame_material(model)
+      c = parse_hex_color(@frame_color)
+      return get_or_create_material(model, 'InteriorPro_Door_Frame',
+                                    Sketchup::Color.new(245, 245, 240), 1.0) unless c
+      get_or_create_material(model, "InteriorPro_Door_Frame_#{@frame_color.to_s.delete('#').downcase}",
+                             c, 1.0)
+    end
+
+    # Leaf material honoring @door_color; nil = keep style default.
+    def door_leaf_material(model)
+      c = parse_hex_color(@door_color)
+      return nil unless c
+      get_or_create_material(model, "InteriorPro_Door_Leaf_#{@door_color.to_s.delete('#').downcase}",
+                             c, 1.0)
+    end
+
+    def get_or_create_material(model, name, color, alpha = 1.0)
+      mat = model.materials[name]
+      if mat.nil?
+        mat = model.materials.add(name)
+        mat.color = color
+        mat.alpha = alpha
+      end
+      mat
+    end
+
+    def parse_anchor(anchor)
+      if anchor == 'center'
+        ['center', 'center']
+      else
+        parts = anchor.split('-')
+        [parts[0] || 'bottom', parts[1] || 'center']
+      end
+    end
+
+    def generate_door_id
+      require 'securerandom'
+      SecureRandom.uuid
+    rescue StandardError
+      "door-#{Time.now.to_f}-#{rand(1_000_000)}"
+    end
+
+    %i[SWING_ANGLE MUNTIN_WIDTH MUNTIN_DEPTH THRESHOLD_OVERHANG SILL_PLATE_HEIGHT
+       SILL_UNDER_DOOR_DEPTH LEAF_FRAME_INSET].each do |c|
+      remove_const(c) if const_defined?(c, false)
+    end
+    SWING_ANGLE             = 35.degrees
+    MUNTIN_WIDTH            = 0.5
+    MUNTIN_DEPTH            = 0.375
+    THRESHOLD_OVERHANG      = 1.0
+    SILL_PLATE_HEIGHT       = 0.125
+    SILL_UNDER_DOOR_DEPTH   = 0.0
+    LEAF_FRAME_INSET        = 1.0
+
+  end
+end
