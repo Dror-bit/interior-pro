@@ -20,6 +20,16 @@ require_relative 'door_delete_tool.rb'
 
 module InteriorPro
   module Toolbar
+
+    # Toolbar icon format: SketchUp reads SVG on Windows, PDF on macOS.
+    # Falls back to .svg if the platform file is missing.
+    ICON_EXT = (Sketchup.platform == :platform_osx ? '.pdf' : '.svg') unless const_defined?(:ICON_EXT, false)
+
+    def self.icon_path(name)
+      base = File.join(__dir__, 'icons', name)
+      pref = base + ICON_EXT
+      File.exist?(pref) ? pref : base + '.svg'
+    end
     LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
     CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
     TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
@@ -44,6 +54,7 @@ module InteriorPro
       @setup_done = true
 
       setup_floors_toolbar
+      setup_roofs_toolbar
       setup_2d_toolbar
 
       toolbar = resolve_toolbar
@@ -56,8 +67,8 @@ module InteriorPro
       }
       wall_cmd.tooltip = 'Draw Walls - Opens Wall Library'
       wall_cmd.status_bar_text = 'Select wall type and start drawing'
-      wall_cmd.small_icon = File.join(__dir__, 'icons', 'wall_tool.svg')
-      wall_cmd.large_icon = File.join(__dir__, 'icons', 'wall_tool.svg')
+      wall_cmd.small_icon = icon_path('wall_tool')
+      wall_cmd.large_icon = icon_path('wall_tool')
       toolbar.add_item(wall_cmd)
 
       # Edit Wall Button
@@ -66,8 +77,8 @@ module InteriorPro
       }
       edit_cmd.tooltip = 'Edit Wall - Double-click a wall to edit'
       edit_cmd.status_bar_text = 'Double-click a wall to edit it'
-      edit_cmd.small_icon = File.join(__dir__, 'icons', 'edit_wall.svg')
-      edit_cmd.large_icon = File.join(__dir__, 'icons', 'edit_wall.svg')
+      edit_cmd.small_icon = icon_path('edit_wall')
+      edit_cmd.large_icon = icon_path('edit_wall')
       toolbar.add_item(edit_cmd)
 
       # Move Wall Button
@@ -76,8 +87,8 @@ module InteriorPro
       }
       move_cmd.tooltip = 'Move Wall'
       move_cmd.status_bar_text = 'Move a wall - connected walls will stretch'
-      move_cmd.small_icon = File.join(__dir__, 'icons', 'move_wall.svg')
-      move_cmd.large_icon = File.join(__dir__, 'icons', 'move_wall.svg')
+      move_cmd.small_icon = icon_path('move_wall')
+      move_cmd.large_icon = icon_path('move_wall')
       toolbar.add_item(move_cmd)
 
       # Stretch Wall Button
@@ -86,8 +97,8 @@ module InteriorPro
       }
       stretch_cmd.tooltip = 'Stretch Wall - click near a wall end'
       stretch_cmd.status_bar_text = 'Click a wall near the end to stretch; move mouse, then click or type a length'
-      stretch_cmd.small_icon = File.join(__dir__, 'icons', 'stretch_wall.svg')
-      stretch_cmd.large_icon = File.join(__dir__, 'icons', 'stretch_wall.svg')
+      stretch_cmd.small_icon = icon_path('stretch_wall')
+      stretch_cmd.large_icon = icon_path('stretch_wall')
       toolbar.add_item(stretch_cmd)
 
       # Merge Wall Button
@@ -96,8 +107,8 @@ module InteriorPro
       }
       merge_cmd.tooltip = 'Merge Wall'
       merge_cmd.status_bar_text = 'Connect a new wall to an existing wall'
-      merge_cmd.small_icon = File.join(__dir__, 'icons', 'merge_wall.svg')
-      merge_cmd.large_icon = File.join(__dir__, 'icons', 'merge_wall.svg')
+      merge_cmd.small_icon = icon_path('merge_wall')
+      merge_cmd.large_icon = icon_path('merge_wall')
       toolbar.add_item(merge_cmd)
 
       # Split Wall (2026-07-18): click a wall at a point to split it in two.
@@ -106,8 +117,8 @@ module InteriorPro
       }
       split_cmd.tooltip = 'Split Wall - click a wall at the split point'
       split_cmd.status_bar_text = 'Click a wall where you want to split it (snaps to touching walls)'
-      split_cmd.small_icon = File.join(__dir__, 'icons', 'split_wall.svg')
-      split_cmd.large_icon = File.join(__dir__, 'icons', 'split_wall.svg')
+      split_cmd.small_icon = icon_path('split_wall')
+      split_cmd.large_icon = icon_path('split_wall')
       toolbar.add_item(split_cmd)
 
       # Join Walls (2026-07-18): inverse of Split — two collinear walls -> one.
@@ -116,8 +127,8 @@ module InteriorPro
       }
       join_cmd.tooltip = 'Join Walls - click two collinear touching walls'
       join_cmd.status_bar_text = 'Click two collinear touching walls to merge them into one'
-      join_cmd.small_icon = File.join(__dir__, 'icons', 'join_wall.svg')
-      join_cmd.large_icon = File.join(__dir__, 'icons', 'join_wall.svg')
+      join_cmd.small_icon = icon_path('join_wall')
+      join_cmd.large_icon = icon_path('join_wall')
       toolbar.add_item(join_cmd)
 
       # Delete Wall (2026-07-23): click a wall -> confirm -> delete it with
@@ -127,8 +138,8 @@ module InteriorPro
       }
       wall_delete_cmd.tooltip = 'Delete Wall - click a wall to delete it'
       wall_delete_cmd.status_bar_text = 'Click a wall to delete it with its doors, windows and molding'
-      wall_delete_cmd.small_icon = File.join(__dir__, 'icons', 'wall_delete.svg')
-      wall_delete_cmd.large_icon = File.join(__dir__, 'icons', 'wall_delete.svg')
+      wall_delete_cmd.small_icon = icon_path('wall_delete')
+      wall_delete_cmd.large_icon = icon_path('wall_delete')
       toolbar.add_item(wall_delete_cmd)
 
       # Window Tool Button
@@ -138,8 +149,8 @@ module InteriorPro
       }
       window_cmd.tooltip = 'Place Window - Opens Window Library'
       window_cmd.status_bar_text = 'Configure window and click on a wall to place it'
-      window_cmd.small_icon = File.join(__dir__, 'icons', 'window_tool.svg')
-      window_cmd.large_icon = File.join(__dir__, 'icons', 'window_tool.svg')
+      window_cmd.small_icon = icon_path('window_tool')
+      window_cmd.large_icon = icon_path('window_tool')
       toolbar.add_item(window_cmd)
 
       # Edit Window Button
@@ -148,8 +159,8 @@ module InteriorPro
       }
       window_edit_cmd.tooltip = 'Edit Window — click a window to change its settings'
       window_edit_cmd.status_bar_text = 'Click a window to edit its settings'
-      window_edit_cmd.small_icon = File.join(__dir__, 'icons', 'window_edit.svg')
-      window_edit_cmd.large_icon = File.join(__dir__, 'icons', 'window_edit.svg')
+      window_edit_cmd.small_icon = icon_path('window_edit')
+      window_edit_cmd.large_icon = icon_path('window_edit')
       toolbar.add_item(window_edit_cmd)
 
       # Move Window Button
@@ -158,8 +169,8 @@ module InteriorPro
       }
       window_move_cmd.tooltip = 'Move Window — slide along the wall'
       window_move_cmd.status_bar_text = 'Click a window to move it along the wall'
-      window_move_cmd.small_icon = File.join(__dir__, 'icons', 'window_move.svg')
-      window_move_cmd.large_icon = File.join(__dir__, 'icons', 'window_move.svg')
+      window_move_cmd.small_icon = icon_path('window_move')
+      window_move_cmd.large_icon = icon_path('window_move')
       toolbar.add_item(window_move_cmd)
 
       # Delete Window Button
@@ -168,8 +179,8 @@ module InteriorPro
       }
       window_delete_cmd.tooltip = 'Delete Window'
       window_delete_cmd.status_bar_text = 'Click a window to delete it'
-      window_delete_cmd.small_icon = File.join(__dir__, 'icons', 'window_delete.svg')
-      window_delete_cmd.large_icon = File.join(__dir__, 'icons', 'window_delete.svg')
+      window_delete_cmd.small_icon = icon_path('window_delete')
+      window_delete_cmd.large_icon = icon_path('window_delete')
       toolbar.add_item(window_delete_cmd)
 
       # Door Tool Button — activate tool first (viewport focus), then modeless settings panel.
@@ -182,8 +193,8 @@ module InteriorPro
       }
       door_cmd.tooltip = 'Place Door - Opens Door Library'
       door_cmd.status_bar_text = 'Configure door and click on a wall to place it'
-      door_cmd.small_icon = File.join(__dir__, 'icons', 'door_tool.svg')
-      door_cmd.large_icon = File.join(__dir__, 'icons', 'door_tool.svg')
+      door_cmd.small_icon = icon_path('door_tool')
+      door_cmd.large_icon = icon_path('door_tool')
       toolbar.add_item(door_cmd)
 
       door_edit_cmd = UI::Command.new('Edit Door') {
@@ -191,8 +202,8 @@ module InteriorPro
       }
       door_edit_cmd.tooltip = 'Edit Door — click a door to change its settings'
       door_edit_cmd.status_bar_text = 'Click a door to edit'
-      door_edit_cmd.small_icon = File.join(__dir__, 'icons', 'edit_door.svg')
-      door_edit_cmd.large_icon = File.join(__dir__, 'icons', 'edit_door.svg')
+      door_edit_cmd.small_icon = icon_path('edit_door')
+      door_edit_cmd.large_icon = icon_path('edit_door')
       toolbar.add_item(door_edit_cmd)
 
       door_move_cmd = UI::Command.new('Move Door') {
@@ -200,8 +211,8 @@ module InteriorPro
       }
       door_move_cmd.tooltip = 'Move Door — slide along the wall'
       door_move_cmd.status_bar_text = 'Click a door to move it left/right along the wall'
-      door_move_cmd.small_icon = File.join(__dir__, 'icons', 'move_door.svg')
-      door_move_cmd.large_icon = File.join(__dir__, 'icons', 'move_door.svg')
+      door_move_cmd.small_icon = icon_path('move_door')
+      door_move_cmd.large_icon = icon_path('move_door')
       toolbar.add_item(door_move_cmd)
 
       door_delete_cmd = UI::Command.new('Delete Door') {
@@ -209,8 +220,8 @@ module InteriorPro
       }
       door_delete_cmd.tooltip = 'Delete Door'
       door_delete_cmd.status_bar_text = 'Click a door to delete it'
-      door_delete_cmd.small_icon = File.join(__dir__, 'icons', 'delete_door.svg')
-      door_delete_cmd.large_icon = File.join(__dir__, 'icons', 'delete_door.svg')
+      door_delete_cmd.small_icon = icon_path('delete_door')
+      door_delete_cmd.large_icon = icon_path('delete_door')
       toolbar.add_item(door_delete_cmd)
 
       # Molding (baseboard + crown) — whole-house apply/remove
@@ -219,8 +230,8 @@ module InteriorPro
       }
       molding_cmd.tooltip = 'Molding On/Off - baseboard + crown for the whole house'
       molding_cmd.status_bar_text = 'Apply or remove baseboard and crown molding on all walls'
-      molding_cmd.small_icon = File.join(__dir__, 'icons', 'molding_tool.svg')
-      molding_cmd.large_icon = File.join(__dir__, 'icons', 'molding_tool.svg')
+      molding_cmd.small_icon = icon_path('molding_tool')
+      molding_cmd.large_icon = icon_path('molding_tool')
       toolbar.add_item(molding_cmd)
 
       molding_toggle_cmd = UI::Command.new('Molding Toggle') {
@@ -228,8 +239,8 @@ module InteriorPro
       }
       molding_toggle_cmd.tooltip = 'Molding Toggle - click a wall to exclude/restore its molding'
       molding_toggle_cmd.status_bar_text = 'Click a wall to remove or restore its molding'
-      molding_toggle_cmd.small_icon = File.join(__dir__, 'icons', 'molding_toggle.svg')
-      molding_toggle_cmd.large_icon = File.join(__dir__, 'icons', 'molding_toggle.svg')
+      molding_toggle_cmd.small_icon = icon_path('molding_toggle')
+      molding_toggle_cmd.large_icon = icon_path('molding_toggle')
       toolbar.add_item(molding_toggle_cmd)
 
       # Manual molding refresh (2026-07-17): molding no longer follows new
@@ -246,8 +257,8 @@ module InteriorPro
       }
       molding_refresh_cmd.tooltip = 'Refresh Molding - rebuild molding to match current walls'
       molding_refresh_cmd.status_bar_text = 'Rebuild all molding to match current walls, rooms and doors'
-      molding_refresh_cmd.small_icon = File.join(__dir__, 'icons', 'molding_refresh.svg')
-      molding_refresh_cmd.large_icon = File.join(__dir__, 'icons', 'molding_refresh.svg')
+      molding_refresh_cmd.small_icon = icon_path('molding_refresh')
+      molding_refresh_cmd.large_icon = icon_path('molding_refresh')
       toolbar.add_item(molding_refresh_cmd)
 
       toolbar.restore
@@ -263,8 +274,8 @@ module InteriorPro
       }
       rooms_cmd.tooltip = 'Detect Rooms - update room labels'
       rooms_cmd.status_bar_text = 'Detect closed wall loops and create/update room entities'
-      rooms_cmd.small_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
-      rooms_cmd.large_icon = File.join(__dir__, 'icons', 'rooms_sync.svg')
+      rooms_cmd.small_icon = icon_path('rooms_sync')
+      rooms_cmd.large_icon = icon_path('rooms_sync')
       tb.add_item(rooms_cmd)
 
       floors_cmd = UI::Command.new('Build Floors') {
@@ -272,8 +283,8 @@ module InteriorPro
       }
       floors_cmd.tooltip = 'Floors - choose floor type per room'
       floors_cmd.status_bar_text = 'Open the floors dialog: floor type and thickness per room'
-      floors_cmd.small_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
-      floors_cmd.large_icon = File.join(__dir__, 'icons', 'floor_tool.svg')
+      floors_cmd.small_icon = icon_path('floor_tool')
+      floors_cmd.large_icon = icon_path('floor_tool')
       tb.add_item(floors_cmd)
 
       # Foundation belt under exterior walls (2026-07-18).
@@ -282,8 +293,8 @@ module InteriorPro
       }
       foundation_cmd.tooltip = 'Foundation - stem wall belt under the exterior walls'
       foundation_cmd.status_bar_text = 'Build/update the foundation belt (asks for height); Remove via Extensions menu'
-      foundation_cmd.small_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
-      foundation_cmd.large_icon = File.join(__dir__, 'icons', 'foundation_tool.svg')
+      foundation_cmd.small_icon = icon_path('foundation_tool')
+      foundation_cmd.large_icon = icon_path('foundation_tool')
       tb.add_item(foundation_cmd)
 
       # Ceilings per room (2026-08-03): built only when asked, like floors.
@@ -292,9 +303,38 @@ module InteriorPro
       }
       ceilings_cmd.tooltip = 'Ceilings - build a ceiling for every room'
       ceilings_cmd.status_bar_text = 'Build/update ceilings from the room boundaries; Remove via Extensions menu'
-      ceilings_cmd.small_icon = File.join(__dir__, 'icons', 'ceiling_tool.svg')
-      ceilings_cmd.large_icon = File.join(__dir__, 'icons', 'ceiling_tool.svg')
+      ceilings_cmd.small_icon = icon_path('ceiling_tool')
+      ceilings_cmd.large_icon = icon_path('ceiling_tool')
       tb.add_item(ceilings_cmd)
+
+      tb.restore
+    end
+
+    # Separate toolbar for roofs (per user request 2026-08-04) — same
+    # pattern as Floors: roofs live apart from walls/doors/windows.
+    def self.setup_roofs_toolbar
+      tb = UI::Toolbar.new('Interior Pro Roofs')
+      return if tb.length >= 2
+
+      roof_cmd = UI::Command.new('Roof') {
+        InteriorPro::RoofDialog.show
+      }
+      roof_cmd.tooltip = 'Roof - style, pitch, eaves, fascia and colors'
+      roof_cmd.status_bar_text = 'Open the roof settings and build/update the roof'
+      roof_cmd.small_icon = icon_path('roof_tool')
+      roof_cmd.large_icon = icon_path('roof_tool')
+      tb.add_item(roof_cmd)
+
+      # Per-wall gable ends (2026-08-05): click walls to choose WHERE the
+      # gables go, like Revit's Defines Slope.
+      gable_cmd = UI::Command.new('Gable Ends') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
+      }
+      gable_cmd.tooltip = 'Gable Ends - click a wall to toggle hip/gable'
+      gable_cmd.status_bar_text = 'Click walls to toggle their roof end between hip and gable'
+      gable_cmd.small_icon = icon_path('roof_gable')
+      gable_cmd.large_icon = icon_path('roof_gable')
+      tb.add_item(gable_cmd)
 
       tb.restore
     end
@@ -312,8 +352,8 @@ module InteriorPro
       }
       editor_cmd.tooltip = '2D Editor - draw the plan from above'
       editor_cmd.status_bar_text = 'Open the 2D editor: draw walls, doors and windows from above'
-      editor_cmd.small_icon = File.join(__dir__, 'icons', 'plan_2d.svg')
-      editor_cmd.large_icon = File.join(__dir__, 'icons', 'plan_2d.svg')
+      editor_cmd.small_icon = icon_path('plan_2d')
+      editor_cmd.large_icon = icon_path('plan_2d')
       tb.add_item(editor_cmd)
 
       tb.restore
@@ -428,6 +468,15 @@ module InteriorPro
       }
       menu.add_item('Level: Work on Level 2') {
         InteriorPro::LevelManager.set_active_level!(2)
+      }
+      menu.add_item('Roof: Build / Update') {
+        InteriorPro::RoofDialog.show
+      }
+      menu.add_item('Roof: Gable Ends (click walls)') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
+      }
+      menu.add_item('Roof: Remove') {
+        InteriorPro::RoofManager.remove_all!
       }
       menu.add_item('2D Editor') {
         InteriorPro::PlanEditor.show
