@@ -717,8 +717,34 @@ module InteriorPro
       # build_gable_wall_face! is kept unused for a quick revert.
       if s[:fascia]
         build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth], gable_flags)
-        # rake boards: fascia climbing the sloped edges of every gable end
-        if zmap
+        # rake boards: fascia climbing the sloped edges of every gable end.
+        # Framed path (2026-08-05B): ONE full-profile rake per gable-end
+        # LINE (a plane can span several poly edges); fallback keeps the
+        # per-edge clipped rake.
+        if zmap && framed
+          owners = {}
+          framed[:g].each do |sd, on|
+            next unless on
+            vert, c, = framed_end_line(framed[:main], sd)
+            owners[[vert ? :v : :h, c.round(2)]] = :main
+          end
+          framed[:wings].each_with_index do |w2, wi|
+            next unless w2[:gabled]
+            vert, c, = framed_end_line(w2[:rect], OPP_SIDE[w2[:mouth]])
+            owners[[vert ? :v : :h, c.round(2)]] = wi
+          end
+          seen = []
+          gables.each do |i|
+            a2 = poly[i]
+            b2 = poly[(i + 1) % poly.length]
+            d2 = vnorm(vsub(b2, a2))
+            key = d2[0].abs > d2[1].abs ? [:h, a2[1].round(2)] : [:v, a2[0].round(2)]
+            next if seen.include?(key)
+            seen << key
+            cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
+            build_rake_board!(grp, poly, i, zmap, s[:fascia_depth], full: true, cover: cov)
+          end
+        elsif zmap
           gables.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
         end
       end
@@ -970,35 +996,174 @@ module InteriorPro
 
     # Rake board: the fascia climbing the two sloped edges of a gable end.
     # One mitered-ish box per profile segment, FASCIA_THICK outward.
-    def self.build_rake_board!(grp, poly, i, zmap, depth)
+    # z of the framed-roof surface at (x, y) EXCLUDING one piece (:main
+    # or a wing index). Used to clip that piece's rake where its profile
+    # dives under a covering roof (2026-08-05B: the rake must END where
+    # the other roof starts, not cross it).
+    def self.framed_cover_z(plan, z0d, sl, x, y, exclude)
+      best = nil
+      unless exclude == :main
+        x0, y0, x1, y1 = plan[:main]
+        if x >= x0 - 0.01 && x <= x1 + 0.01 && y >= y0 - 0.01 && y <= y1 + 0.01
+          g = plan[:g]
+          axis = if g[:e] || g[:w]
+                   :x
+                 elsif g[:n] || g[:s]
+                   :y
+                 else
+                   (x1 - x0) >= (y1 - y0) ? :x : :y
+                 end
+          if axis == :x
+            d = [y - y0, y1 - y]
+            d << (x - x0) unless g[:w]
+            d << (x1 - x) unless g[:e]
+          else
+            d = [x - x0, x1 - x]
+            d << (y - y0) unless g[:s]
+            d << (y1 - y) unless g[:n]
+          end
+          z = z0d + sl * d.min
+          best = z if best.nil? || z > best
+        end
+      end
+      plan[:wings].each_with_index do |w, wi|
+        next if exclude == wi
+        x0, y0, x1, y1 = w[:rect]
+        half = w[:mouth] == :n || w[:mouth] == :s ? (x1 - x0) / 2.0 : (y1 - y0) / 2.0
+        ex0 = x0; ey0 = y0; ex1 = x1; ey1 = y1
+        case w[:mouth]
+        when :n then ey1 += half
+        when :s then ey0 -= half
+        when :e then ex1 += half
+        when :w then ex0 -= half
+        end
+        next unless x >= ex0 - 0.01 && x <= ex1 + 0.01 && y >= ey0 - 0.01 && y <= ey1 + 0.01
+        if w[:mouth] == :n || w[:mouth] == :s
+          d = [x - x0, x1 - x]
+          d << (w[:mouth] == :n ? y - y0 : y1 - y) unless w[:gabled]
+        else
+          d = [y - y0, y1 - y]
+          d << (w[:mouth] == :e ? x - x0 : x1 - x) unless w[:gabled]
+        end
+        z = z0d + sl * d.min
+        best = z if best.nil? || z > best
+      end
+      best
+    end
+
+    # Visible sub-runs of a rake segment: parts of the profile that sit
+    # ABOVE the covering roofs. Boundaries refined by bisection.
+    def self.rake_visible_runs(t1, t2, z1, z2, p1, p2, cover)
+      seg = t2 - t1
+      return [[t1, t2]] if seg < 1.0e-6
+      vis = lambda do |t|
+        f = (t - t1) / seg
+        x = p1[0] + (p2[0] - p1[0]) * f
+        y = p1[1] + (p2[1] - p1[1]) * f
+        z = z1 + (z2 - z1) * f
+        c = cover.call(x, y)
+        c.nil? || z > c + 0.05
+      end
+      n = [(seg / 6.0).ceil, 1].max
+      ts = (0..n).map { |k| t1 + seg * k / n }
+      runs = []
+      cur = nil
+      ts.each_with_index do |t, k|
+        v = vis.call(t)
+        if v && cur.nil?
+          cur = t
+          if k > 0
+            lo = ts[k - 1]
+            hi = t
+            10.times { |_| mid = (lo + hi) / 2.0; vis.call(mid) ? hi = mid : lo = mid }
+            cur = hi
+          end
+        elsif !v && cur
+          lo = ts[k - 1]
+          hi = t
+          10.times { |_| mid = (lo + hi) / 2.0; vis.call(mid) ? lo = mid : hi = mid }
+          runs << [cur, lo]
+          cur = nil
+        end
+      end
+      runs << [cur, t2] if cur
+      runs.select { |ra, rb| rb - ra > 1.0 }
+    end
+
+    def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
       len = vlen(vsub(b, a))
       out = [d[1] * FASCIA_THICK, -d[0] * FASCIA_THICK] # outward for CCW
+      # profile on the INFINITE line: a gable plane can span several poly
+      # edges (2026-08-05B: a wing covers part of the main end wall, so
+      # the apex sits outside this edge and the old segment-only chain
+      # collapsed to a FLAT board at the eave).
       chain = []
       zmap.each do |(x, y), z|
         p = [x, y]
-        t = vdot(vsub(p, a), d)
-        next if t < -NODE_TOL || t > len + NODE_TOL
         next if vcross(d, vsub(p, a)).abs > NODE_TOL
-        chain << [t, p, z]
+        chain << [vdot(vsub(p, a), d), p, z]
       end
       chain.sort_by!(&:first)
       return if chain.length < 2
-      chain.each_cons(2) do |(_, p1, z1), (_, p2, z2)|
-        inner = [
-          Geom::Point3d.new(p1[0], p1[1], z1),
-          Geom::Point3d.new(p2[0], p2[1], z2),
-          Geom::Point3d.new(p2[0], p2[1], z2 - depth),
-          Geom::Point3d.new(p1[0], p1[1], z1 - depth)
-        ]
-        outer = inner.map { |p| Geom::Point3d.new(p.x + out[0], p.y + out[1], p.z) }
-        grp.entities.add_face(inner)
-        grp.entities.add_face(outer)
-        4.times do |k|
-          j = (k + 1) % 4
-          grp.entities.add_face([inner[k], inner[j], outer[j], outer[k]])
+      # upper envelope: a point sagging below its neighbours' line is not
+      # part of the roof-edge silhouette (e.g. a wing eave corner sitting
+      # ON the gable-end line) - drop it.
+      loop do
+        k = (1...(chain.length - 1)).find do |j|
+          t0, _, z0 = chain[j - 1]
+          t1, _, z1 = chain[j]
+          t2, _, z2 = chain[j + 1]
+          span = t2 - t0
+          span > 1.0e-6 && z1 < z0 + (z2 - z0) * (t1 - t0) / span - 0.01
+        end
+        break unless k
+        chain.delete_at(k)
+      end
+      unless full
+        # clip the profile to THIS poly edge, interpolating z at the ends
+        zat = lambda do |t|
+          return chain.first[2] if t <= chain.first[0]
+          return chain.last[2] if t >= chain.last[0]
+          j = chain.index { |c| c[0] >= t }
+          t0, _, z0 = chain[j - 1]
+          t1, _, z1 = chain[j]
+          t1 - t0 < 1.0e-6 ? z1 : z0 + (z1 - z0) * (t - t0) / (t1 - t0)
+        end
+        inner_pts = chain.select { |t, _, _| t > NODE_TOL && t < len - NODE_TOL }
+        chain = [[0.0, a, zat.call(0.0)]] + inner_pts + [[len, b, zat.call(len)]]
+        return if chain.length < 2
+      end
+      # full profile (framed path, 2026-08-05B): the rake runs the WHOLE
+      # gable-end plane - over covering wings too - eave to apex to eave.
+      # Flat eave-level leftovers on the same line are skipped.
+      zmin = chain.map { |c| c[2] }.min
+      chain.each_cons(2) do |(t1, p1, z1), (t2, p2, z2)|
+        next if full && z1 < zmin + 0.02 && z2 < zmin + 0.02
+        next if t2 - t1 < 1.0e-6
+        runs = cover ? rake_visible_runs(t1, t2, z1, z2, p1, p2, cover) : [[t1, t2]]
+        runs.each do |ra, rb|
+          fa = (ra - t1) / (t2 - t1)
+          fb = (rb - t1) / (t2 - t1)
+          q1 = [p1[0] + (p2[0] - p1[0]) * fa, p1[1] + (p2[1] - p1[1]) * fa]
+          q2 = [p1[0] + (p2[0] - p1[0]) * fb, p1[1] + (p2[1] - p1[1]) * fb]
+          za = z1 + (z2 - z1) * fa
+          zb = z1 + (z2 - z1) * fb
+          inner = [
+            Geom::Point3d.new(q1[0], q1[1], za),
+            Geom::Point3d.new(q2[0], q2[1], zb),
+            Geom::Point3d.new(q2[0], q2[1], zb - depth),
+            Geom::Point3d.new(q1[0], q1[1], za - depth)
+          ]
+          outer = inner.map { |p| Geom::Point3d.new(p.x + out[0], p.y + out[1], p.z) }
+          grp.entities.add_face(inner)
+          grp.entities.add_face(outer)
+          4.times do |k|
+            j = (k + 1) % 4
+            grp.entities.add_face([inner[k], inner[j], outer[j], outer[k]])
+          end
         end
       end
     rescue StandardError => e
@@ -1490,11 +1655,27 @@ module InteriorPro
       end
     end
 
+    # One wing side plane. The penetration wedge (beyond the mouth) forms
+    # a true 45-degree valley when it is VISIBLE above the parent roof;
+    # a wing whose mouth straddles the parent ridge dives fully UNDER the
+    # parent (junk inside + coplanar z-fight, 2026-08-05B) - then the
+    # plane is clipped at the mouth line instead.
+    def self.wing_side_face!(st, quad, mouth_cut, tri, lift, cover)
+      keep = true
+      if cover
+        cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0
+        cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3.0
+        cz = cover.call(cx, cy)
+        keep = cz.nil? || lift.call([cx, cy]) > cz + 0.02
+      end
+      framed_face!(st, keep ? quad : mouth_cut, lift)
+    end
+
     # A wing: ridge perpendicular to its mouth, gable (or hip) at the
     # outer end. The ridge dives PAST the mouth into the parent by half
     # the wing width, so the wing planes meet the parent plane exactly on
     # 45-degree valleys (same pitch everywhere).
-    def self.build_wing_rect!(st, rect, mouth, gabled)
+    def self.build_wing_rect!(st, rect, mouth, gabled, cover = nil)
       x0, y0, x1, y1 = rect
       z0d = st[:z0] + st[:delta]
       sl = st[:slope]
@@ -1505,8 +1686,14 @@ module InteriorPro
         if mouth == :n # wing extends down: mouth y1, outer end y0
           pen = y1 + half
           out_r = gabled ? y0 : y0 + half
-          framed_face!(st, [[x0, y1], [x0, y0], [xr, out_r], [xr, pen]], ->(p) { z0d + sl * (p[0] - x0) })
-          framed_face!(st, [[x1, y0], [x1, y1], [xr, pen], [xr, out_r]], ->(p) { z0d + sl * (x1 - p[0]) })
+          wing_side_face!(st, [[x0, y1], [x0, y0], [xr, out_r], [xr, pen]],
+                          [[x0, y1], [x0, y0], [xr, out_r], [xr, y1]],
+                          [[x0, y1], [xr, y1], [xr, pen]],
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
+          wing_side_face!(st, [[x1, y0], [x1, y1], [xr, pen], [xr, out_r]],
+                          [[x1, y0], [x1, y1], [xr, y1], [xr, out_r]],
+                          [[x1, y1], [xr, pen], [xr, y1]],
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x1, y0, z0d], [xr, y0, zr]])
           else
@@ -1515,8 +1702,14 @@ module InteriorPro
         else # :s -> wing extends up: mouth y0, outer end y1
           pen = y0 - half
           out_r = gabled ? y1 : y1 - half
-          framed_face!(st, [[x0, y1], [x0, y0], [xr, pen], [xr, out_r]], ->(p) { z0d + sl * (p[0] - x0) })
-          framed_face!(st, [[x1, y0], [x1, y1], [xr, out_r], [xr, pen]], ->(p) { z0d + sl * (x1 - p[0]) })
+          wing_side_face!(st, [[x0, y1], [x0, y0], [xr, pen], [xr, out_r]],
+                          [[x0, y1], [x0, y0], [xr, y0], [xr, out_r]],
+                          [[x0, y0], [xr, pen], [xr, y0]],
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
+          wing_side_face!(st, [[x1, y0], [x1, y1], [xr, out_r], [xr, pen]],
+                          [[x1, y0], [x1, y1], [xr, out_r], [xr, y0]],
+                          [[x1, y0], [xr, y0], [xr, pen]],
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x0, y1, z0d], [xr, y1, zr]])
           else
@@ -1530,8 +1723,14 @@ module InteriorPro
         if mouth == :e # wing extends left: mouth x1, outer end x0
           pen = x1 + half
           out_r = gabled ? x0 : x0 + half
-          framed_face!(st, [[x0, y0], [x1, y0], [pen, yr], [out_r, yr]], ->(p) { z0d + sl * (p[1] - y0) })
-          framed_face!(st, [[x1, y1], [x0, y1], [out_r, yr], [pen, yr]], ->(p) { z0d + sl * (y1 - p[1]) })
+          wing_side_face!(st, [[x0, y0], [x1, y0], [pen, yr], [out_r, yr]],
+                          [[x0, y0], [x1, y0], [x1, yr], [out_r, yr]],
+                          [[x1, y0], [pen, yr], [x1, yr]],
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
+          wing_side_face!(st, [[x1, y1], [x0, y1], [out_r, yr], [pen, yr]],
+                          [[x1, y1], [x0, y1], [out_r, yr], [x1, yr]],
+                          [[x1, y1], [x1, yr], [pen, yr]],
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x0, y1, z0d], [x0, yr, zr]])
           else
@@ -1540,8 +1739,14 @@ module InteriorPro
         else # :w -> wing extends right: mouth x0, outer end x1
           pen = x0 - half
           out_r = gabled ? x1 : x1 - half
-          framed_face!(st, [[x0, y0], [x1, y0], [out_r, yr], [pen, yr]], ->(p) { z0d + sl * (p[1] - y0) })
-          framed_face!(st, [[x1, y1], [x0, y1], [pen, yr], [out_r, yr]], ->(p) { z0d + sl * (y1 - p[1]) })
+          wing_side_face!(st, [[x0, y0], [x1, y0], [out_r, yr], [pen, yr]],
+                          [[x0, y0], [x1, y0], [out_r, yr], [x0, yr]],
+                          [[x0, y0], [x0, yr], [pen, yr]],
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
+          wing_side_face!(st, [[x1, y1], [x0, y1], [pen, yr], [out_r, yr]],
+                          [[x1, y1], [x0, y1], [x0, yr], [out_r, yr]],
+                          [[x0, y1], [x0, yr], [pen, yr]],
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x1, y0, z0d], [x1, yr, zr]])
           else
@@ -1557,7 +1762,10 @@ module InteriorPro
       st = { grp: grp, z0: z0, delta: -slope * overhang.to_f, slope: slope,
              roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {} }
       build_main_rect!(st, plan[:main], plan[:g])
-      plan[:wings].each { |w| build_wing_rect!(st, w[:rect], w[:mouth], w[:gabled]) }
+      plan[:wings].each_with_index do |w, wi|
+        cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
+        build_wing_rect!(st, w[:rect], w[:mouth], w[:gabled], cov)
+      end
       [st[:ridge], st[:zmap]]
     rescue StandardError => e
       puts "[Roof] build_framed_geometry!: #{e.message}"

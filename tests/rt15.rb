@@ -204,6 +204,81 @@ tris7 = g_grp7.entities.grep(Sketchup::Face).select { |f| f.pts.length == 3 && f
 ok('third house: gable style = no triangles, sane ridge',
    tris7.length == 0 && (r7 - 252.4).abs < 0.1, [tris7.length, r7])
 
+# regression 2026-08-05B (the user's FOURTH house): the main west gable
+# plane is half-covered by a wing, so its poly edge holds only part of
+# the gable profile - the apex sits OUTSIDE the edge. The rake must
+# climb the clipped slope, not collapse to a flat board at the eave.
+h4 = [[1168.71, -12.0], [1168.71, 1027.89], [-784.68, 1027.89],
+      [-784.68, 457.99], [-12.0, 457.99], [-12.0, -12.0],
+      [336.68, -12.0], [336.68, -302.63], [878.36, -302.63], [878.36, -12.0]]
+plan8 = RF.framed_plan(h4, Array.new(10) { |i| "u#{i}" }, [], 'gable')
+ok('fourth house: main + 2 wings, e+w gabled',
+   plan8 && plan8[:wings].length == 2 && plan8[:g][:e] && plan8[:g][:w],
+   plan8 && plan8[:g])
+ok('fourth house: 4 gable poly edges', plan8[:edges].sort == [0, 2, 4, 7], plan8[:edges])
+g_grp8 = Sketchup.active_model.entities.add_group
+r8, zmap8 = RF.build_framed_geometry!(g_grp8, plan8, 96.0, 1.0 / 3.0, 12.0, nil, nil)
+rk8 = Sketchup.active_model.entities.add_group
+RF.build_rake_board!(rk8, h4, 4, zmap8, 8.0)
+rkz8 = rk8.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
+# eave-tip z is 92; the clipped profile tops out at 92 + 469.99/3 = 248.66
+ok('partial gable end: rake climbs the slope (not flat at the eave)',
+   !rkz8.empty? && (rkz8.max - 248.66).abs < 0.1, rkz8.max)
+# a FULL gable end on the same house keeps its plain 2-segment rake
+rk8b = Sketchup.active_model.entities.add_group
+RF.build_rake_board!(rk8b, h4, 0, zmap8, 8.0)
+zb8 = rk8b.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
+ok('full gable end: rake still reaches its apex',
+   !zb8.empty? && (zb8.max - (92.0 + 519.945 / 3.0)).abs < 0.1, zb8.max)
+# full-profile mode (the live framed path): one rake per end PLANE,
+# eave -> apex -> eave, spanning over the covering wing too
+rk8f = Sketchup.active_model.entities.add_group
+RF.build_rake_board!(rk8f, h4, 4, zmap8, 8.0, full: true)
+zf8 = rk8f.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
+ok('full-profile rake reaches the apex over the wing',
+   !zf8.empty? && (zf8.max - (92.0 + 519.945 / 3.0)).abs < 0.1, zf8.max)
+yf8 = rk8f.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:y)
+ok('and spans the whole end plane (-12..1027.89)',
+   (yf8.min + 12.0).abs < 0.1 && (yf8.max - 1027.89).abs < 0.1,
+   [yf8.min, yf8.max])
+# with cover clipping (the live path): the rake must END where the wing
+# roof starts - at the wing ridge on the end plane (y=742.94) - and
+# still reach its own apex (z=265.31)
+rk8c = Sketchup.active_model.entities.add_group
+cov8 = lambda { |x, y| RF.framed_cover_z(plan8, 92.0, 1.0 / 3.0, x, y, :main) }
+RF.build_rake_board!(rk8c, h4, 4, zmap8, 8.0, full: true, cover: cov8)
+yc8 = rk8c.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:y)
+zc8 = rk8c.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
+ok('clipped rake stops at the covering wing (y=742.94, not 1027.89)',
+   !yc8.empty? && (yc8.max - 742.94).abs < 1.0, yc8.max)
+ok('clipped rake still reaches the apex',
+   (zc8.max - 265.31).abs < 0.1, zc8.max)
+# a fully exposed end is untouched by the cover clip
+rk8d = Sketchup.active_model.entities.add_group
+cov8d = lambda { |x, y| RF.framed_cover_z(plan8, 92.0, 1.0 / 3.0, x, y, :main) }
+RF.build_rake_board!(rk8d, h4, 0, zmap8, 8.0, full: true, cover: cov8d)
+zd8 = rk8d.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
+ok('exposed east end keeps its full rake under cover clipping',
+   !zd8.empty? && (zd8.max - 265.31).abs < 0.1, zd8.max)
+# straddling wing (its mouth spans the main ridge): the dive is fully
+# UNDER the main roof - both planes must be clipped at the mouth, so no
+# roof edge midpoint sits below the main surface (junk inside), while
+# the normal wing (bottom bump) keeps its visible valley wedge.
+g_grp9 = Sketchup.active_model.entities.add_group
+RF.build_framed_geometry!(g_grp9, plan8, 96.0, 1.0 / 3.0, 12.0, nil, nil)
+below9 = g_grp9.entities.grep(Sketchup::Face).flat_map do |f|
+  f.pts.each_cons(2).map { |p, q| [(p.x + q.x) / 2.0, (p.y + q.y) / 2.0, (p.z + q.z) / 2.0] }
+end.select do |(x, y, z)|
+  x > -11.9 && x < 1168.6 && y > -11.9 && y < 1027.8 &&
+    z < 92.0 + [y + 12.0, 1027.89 - y].min / 3.0 - 0.1
+end
+ok('straddling wing clipped: nothing dives under the main surface',
+   below9.empty?, below9.length)
+wedge9 = g_grp9.entities.grep(Sketchup::Face).flat_map(&:pts)
+               .select { |p| (p.x - 607.52).abs < 0.1 && (p.y - 258.84).abs < 0.1 }
+ok('normal wing keeps its valley tip diving onto the main slope',
+   !wedge9.empty?, wedge9.length)
+
 # ---- no walls: quiet skip -------------------------------------------------
 Sketchup.reset_model!
 ok('no walls -> no roof, no crash', RF.build_roof!.nil?)
