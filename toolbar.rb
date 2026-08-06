@@ -367,6 +367,19 @@ module InteriorPro
 
       menu = @interior_pro_submenu ||= UI.menu('Extensions').add_submenu('Interior Pro')
 
+      # Right-click on a selected wall: flip exterior/interior faces
+      # (2026-08-06, fixes a flipped wall from the 2D->3D generator).
+      UI.add_context_menu_handler do |cmenu|
+        sel = Sketchup.active_model.selection
+        if sel.length == 1 && sel.first.respond_to?(:get_attribute) &&
+           sel.first.get_attribute('InteriorPro', 'type') == 'wall'
+          cmenu.add_separator
+          cmenu.add_item('Interior Pro: Flip Wall Faces') do
+            InteriorPro::WallTool.flip_wall_faces!(Sketchup.active_model.selection.first)
+          end
+        end
+      end
+
       menu.add_item('Wall Tool') {
         tool = InteriorPro::WallTool.new
         InteriorPro::WallLibraryDialog.show(tool)

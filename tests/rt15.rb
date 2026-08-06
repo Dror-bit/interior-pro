@@ -269,11 +269,22 @@ RF.build_framed_geometry!(g_grp9, plan8, 96.0, 1.0 / 3.0, 12.0, nil, nil)
 below9 = g_grp9.entities.grep(Sketchup::Face).flat_map do |f|
   f.pts.each_cons(2).map { |p, q| [(p.x + q.x) / 2.0, (p.y + q.y) / 2.0, (p.z + q.z) / 2.0] }
 end.select do |(x, y, z)|
-  x > -11.9 && x < 1168.6 && y > -11.9 && y < 1027.8 &&
+  x > 0.5 && x < 1168.6 && y > -11.9 && y < 1027.8 &&
     z < 92.0 + [y + 12.0, 1027.89 - y].min / 3.0 - 0.1
 end
 ok('straddling wing clipped: nothing dives under the main surface',
    below9.empty?, below9.length)
+# the clipped wing tucks an overhang under the main - its cut line sits
+# on the WALL (x=0), not on the mouth line (x=-12), and no deeper
+pts9 = g_grp9.entities.grep(Sketchup::Face).flat_map(&:pts)
+tuck9 = pts9.any? { |p| p.x.abs < 0.01 && (p.y - 742.94).abs < 0.01 }
+deep9 = pts9.any? { |p| (p.x - 272.95).abs < 0.1 && (p.y - 742.94).abs < 0.1 }
+ok('clipped wing tucks to the wall line (x=0) and no deeper',
+   tuck9 && !deep9, [tuck9, deep9])
+# gable style + a leftover mark on ONE main end: BOTH ends still gable
+plan8b = RF.framed_plan(h4, Array.new(10) { |i| "u#{i}" }, ['u0'], 'gable')
+ok('gable style with one marked end gables both main ends',
+   plan8b && plan8b[:g][:e] && plan8b[:g][:w], plan8b && plan8b[:g])
 wedge9 = g_grp9.entities.grep(Sketchup::Face).flat_map(&:pts)
                .select { |p| (p.x - 607.52).abs < 0.1 && (p.y - 258.84).abs < 0.1 }
 ok('normal wing keeps its valley tip diving onto the main slope',
@@ -483,7 +494,10 @@ InteriorPro::RoofDialog.show
 dlg = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
 ok('roof dialog registers its callbacks',
    dlg && dlg.callbacks.key?('apply_roof') && dlg.callbacks.key?('remove_roof'))
+Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_wall_ids', %w[e1])
 dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
+ok('dialog Apply in Hip mode clears click marks (2026-08-05C)',
+   RF.gable_wall_ids.empty?, RF.gable_wall_ids)
 s = RF.settings
 ok('dialog apply saves pitch/overhang/fascia depth/drip/colors',
    s[:pitch] == 8.0 && s[:overhang] == 18.0 && s[:fascia] == true &&

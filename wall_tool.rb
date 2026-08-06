@@ -1403,6 +1403,50 @@ module InteriorPro
       false
     end
 
+    # Flip which side of a wall is EXTERIOR (2026-08-06: the 2D->3D
+    # generator produced one flipped wall on the user's Mac; right-click
+    # fix). Swaps the drawn direction (start<->end), mirrors h_anchor and
+    # door positions, rebuilds in place. The body stays exactly where it
+    # was - only exterior/interior swap sides.
+    def self.flip_wall_faces!(wall)
+      return false unless wall&.valid? &&
+                          wall.get_attribute('InteriorPro', 'type') == 'wall'
+      sx = wall.get_attribute('InteriorPro', 'start_x').to_f
+      sy = wall.get_attribute('InteriorPro', 'start_y').to_f
+      ex = wall.get_attribute('InteriorPro', 'end_x').to_f
+      ey = wall.get_attribute('InteriorPro', 'end_y').to_f
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Flip Wall', true)
+      wall.set_attribute('InteriorPro', 'start_x', ex)
+      wall.set_attribute('InteriorPro', 'start_y', ey)
+      wall.set_attribute('InteriorPro', 'end_x', sx)
+      wall.set_attribute('InteriorPro', 'end_y', sy)
+      anchor = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      parts = anchor.split('-')
+      if parts.length == 2
+        mirrored = { 'left' => 'right', 'right' => 'left' }[parts[1]]
+        wall.set_attribute('InteriorPro', 'anchor', "#{parts[0]}-#{mirrored}") if mirrored
+      end
+      len = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+      openings = read_door_openings(wall)
+      unless openings.empty?
+        openings.each { |o| o[:t] = len - o[:t] }
+        persist_door_openings!(wall, openings)
+      end
+      ok = rebuild_wall_native!(wall)
+      ok ? model.commit_operation : model.abort_operation
+      puts "[WallTool] flip_wall_faces!: #{ok ? 'flipped' : 'FAILED'}"
+      ok
+    rescue StandardError => e
+      begin
+        model.abort_operation
+      rescue StandardError
+        nil
+      end
+      puts "[WallTool] flip_wall_faces!: #{e.message}"
+      false
+    end
+
     def self.rebuild_wall_native!(wall)
       return false unless rebuild_wall_native_geometry!(wall)
 

@@ -1523,12 +1523,16 @@ module InteriorPro
         # main gets its two short-end triangles — no clicks needed. Marks
         # add on top; Hip style gables marked walls only.
         wings.each { |w| w[:gabled] = true }
-        unless g.values.any?
-          if (main[2] - main[0]) >= (main[3] - main[1])
-            g[:e] = g[:w] = true
-          else
-            g[:n] = g[:s] = true
-          end
+        # BOTH main ends gable, even when a leftover click marked only one
+        # (2026-08-05C: one end stayed hip). Marks only pick the axis.
+        if g[:e] || g[:w]
+          g[:e] = g[:w] = true
+        elsif g[:n] || g[:s]
+          g[:n] = g[:s] = true
+        elsif (main[2] - main[0]) >= (main[3] - main[1])
+          g[:e] = g[:w] = true
+        else
+          g[:n] = g[:s] = true
         end
       end
       return nil unless g.values.any? || wings.any? { |w| w[:gabled] }
@@ -1679,6 +1683,9 @@ module InteriorPro
       x0, y0, x1, y1 = rect
       z0d = st[:z0] + st[:delta]
       sl = st[:slope]
+      # a clipped wing tucks under the parent roof up to the WALL line
+      # (the mouth line sits an overhang outside it, 2026-08-05C)
+      tuck = sl > 1.0e-6 ? -st[:delta] / sl : 0.0
       if mouth == :n || mouth == :s
         xr = (x0 + x1) / 2.0
         half = (x1 - x0) / 2.0
@@ -1686,12 +1693,13 @@ module InteriorPro
         if mouth == :n # wing extends down: mouth y1, outer end y0
           pen = y1 + half
           out_r = gabled ? y0 : y0 + half
+          y1t = y1 + tuck
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, out_r], [xr, pen]],
-                          [[x0, y1], [x0, y0], [xr, out_r], [xr, y1]],
+                          [[x0, y1t], [x0, y0], [xr, out_r], [xr, y1t]],
                           [[x0, y1], [xr, y1], [xr, pen]],
                           ->(p) { z0d + sl * (p[0] - x0) }, cover)
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, pen], [xr, out_r]],
-                          [[x1, y0], [x1, y1], [xr, y1], [xr, out_r]],
+                          [[x1, y0], [x1, y1t], [xr, y1t], [xr, out_r]],
                           [[x1, y1], [xr, pen], [xr, y1]],
                           ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
@@ -1702,12 +1710,13 @@ module InteriorPro
         else # :s -> wing extends up: mouth y0, outer end y1
           pen = y0 - half
           out_r = gabled ? y1 : y1 - half
+          y0t = y0 - tuck
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, pen], [xr, out_r]],
-                          [[x0, y1], [x0, y0], [xr, y0], [xr, out_r]],
+                          [[x0, y1], [x0, y0t], [xr, y0t], [xr, out_r]],
                           [[x0, y0], [xr, pen], [xr, y0]],
                           ->(p) { z0d + sl * (p[0] - x0) }, cover)
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, out_r], [xr, pen]],
-                          [[x1, y0], [x1, y1], [xr, out_r], [xr, y0]],
+                          [[x1, y0t], [x1, y1], [xr, out_r], [xr, y0t]],
                           [[x1, y0], [xr, y0], [xr, pen]],
                           ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
@@ -1723,12 +1732,13 @@ module InteriorPro
         if mouth == :e # wing extends left: mouth x1, outer end x0
           pen = x1 + half
           out_r = gabled ? x0 : x0 + half
+          x1t = x1 + tuck
           wing_side_face!(st, [[x0, y0], [x1, y0], [pen, yr], [out_r, yr]],
-                          [[x0, y0], [x1, y0], [x1, yr], [out_r, yr]],
+                          [[x0, y0], [x1t, y0], [x1t, yr], [out_r, yr]],
                           [[x1, y0], [pen, yr], [x1, yr]],
                           ->(p) { z0d + sl * (p[1] - y0) }, cover)
           wing_side_face!(st, [[x1, y1], [x0, y1], [out_r, yr], [pen, yr]],
-                          [[x1, y1], [x0, y1], [out_r, yr], [x1, yr]],
+                          [[x1t, y1], [x0, y1], [out_r, yr], [x1t, yr]],
                           [[x1, y1], [x1, yr], [pen, yr]],
                           ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
@@ -1739,12 +1749,13 @@ module InteriorPro
         else # :w -> wing extends right: mouth x0, outer end x1
           pen = x0 - half
           out_r = gabled ? x1 : x1 - half
+          x0t = x0 - tuck
           wing_side_face!(st, [[x0, y0], [x1, y0], [out_r, yr], [pen, yr]],
-                          [[x0, y0], [x1, y0], [out_r, yr], [x0, yr]],
+                          [[x0t, y0], [x1, y0], [out_r, yr], [x0t, yr]],
                           [[x0, y0], [x0, yr], [pen, yr]],
                           ->(p) { z0d + sl * (p[1] - y0) }, cover)
           wing_side_face!(st, [[x1, y1], [x0, y1], [pen, yr], [out_r, yr]],
-                          [[x1, y1], [x0, y1], [x0, yr], [out_r, yr]],
+                          [[x1, y1], [x0t, y1], [x0t, yr], [out_r, yr]],
                           [[x0, y1], [x0, yr], [pen, yr]],
                           ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
