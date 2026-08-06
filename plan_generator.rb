@@ -46,9 +46,21 @@ module InteriorPro
         end
 
         begin
+          draw_dim_chains(grp.entities, model)
+        rescue StandardError => e
+          puts "[Plan2D] dimension chains: #{e.message}"
+        end
+
+        begin
           draw_room_labels(grp.entities, model)
         rescue StandardError => e
           puts "[Plan2D] room labels: #{e.message}"
+        end
+
+        begin
+          draw_sketches(grp.entities, model)
+        rescue StandardError => e
+          puts "[Plan2D] sketch shapes: #{e.message}"
         end
 
         begin
@@ -316,6 +328,7 @@ module InteriorPro
 
       def door_kind(body)
         t = body[:door_type]
+        return :opening if t == 'Cased Opening'
         return :garage  if t == 'Garage Door'
         return :folding if t.include?('Folding')
         return :sliding if t.include?('Sliding') || t == 'Closet'
@@ -332,6 +345,7 @@ module InteriorPro
           x1, x2 = span
           kind = door_kind(b)
           case kind
+          when :opening then draw_opening_jambs(ents, d, x1, x2)   # doorway, no door
           when :garage  then sym_garage(ents, d, x1, x2)
           when :sliding, :folding, :pocket
             draw_opening_jambs(ents, d, x1, x2)
@@ -619,25 +633,161 @@ module InteriorPro
       # gets only the overall row, at row-1 distance.
       def draw_wall_dim(ents, d)
         return if d[:len] < 24.0
-        cuts = d[:openings]
-               .map { |o| [o[:t] - o[:width] / 2.0, o[:t] + o[:width] / 2.0] }
-               .select { |a, b| a > 1.0 && b < d[:len] - 1.0 }
-               .sort_by(&:first)
-        stops = ([0.0] + cuts.flatten + [d[:len]]).uniq.sort
-        segs = stops.each_cons(2).select { |a, b| (b - a) > 2.0 }
 
-        # EXTERIOR side (off_neg): opening segments + overall.
-        if cuts.empty?
-          dim_row(ents, d, [[0.0, d[:len]]], d[:off_neg], DIM_OFF, DIM_TEXT_H)
-        else
-          dim_row(ents, d, segs, d[:off_neg], DIM_OFF, 4.0)
-          dim_row(ents, d, [[0.0, d[:len]]], d[:off_neg], DIM_OFF + 12.0, DIM_TEXT_H)
-        end
+        # EXTERIOR side: nothing per wall any more. From 2026-08-01 the outside
+        # is dimensioned by BUILDING-LEVEL chains (draw_dim_chains), the way the
+        # target set does it - keeping both would give every wall five rows.
 
         # INTERIOR side (off_pos): clear inside length between the neighbouring
         # walls' faces (what a contractor measures in the room).
         ia, ib = interior_clear_span(d)
         dim_row(ents, d, [[ia, ib]], d[:off_pos], -DIM_OFF, DIM_TEXT_H) if (ib - ia) > 12.0
+      end
+
+      # ---- building dimension chains (2026-08-01) --------------------------
+      # The target set dimensions the BUILDING, not each wall: three stacked
+      # bands run along every side. Nearest band = opening centres, middle =
+      # wall-to-wall segments, outer = overall face to face. Everything here
+      # works in world coordinates, off the real mitered band corners.
+
+      CHAIN_GAP  = 13.0 unless const_defined?(:CHAIN_GAP, false)
+      CHAIN_TOL  = 1.0  unless const_defined?(:CHAIN_TOL, false)
+
+      def add_world_poly(ents, pts)
+        ents.add_edges(pts)
+      rescue StandardError
+        nil
+      end
+
+      # Every wall as a world-space quad plus its world direction.
+      def chain_wall_info(model)
+        walls(model).map { |w| wall_attrs(w) }.compact.map do |d|
+          q = seg_points(d, 0.0, d[:len], true, true).map { |p| flat_world(p, d[:xform]) }
+          dir = q[1] - q[0]
+          next nil if dir.length < 0.5
+          dir.normalize!
+          { d: d, q: q, dir: dir }
+        end.compact
+      end
+
+      def chain_box(info)
+        xs = info.flat_map { |i| i[:q].map { |p| p.x.to_f } }
+        ys = info.flat_map { |i| i[:q].map { |p| p.y.to_f } }
+        { x0: xs.min, x1: xs.max, y0: ys.min, y1: ys.max }
+      end
+
+      def dedupe_stops(vals, lo, hi)
+        vals.select { |v| v >= lo - CHAIN_TOL && v <= hi + CHAIN_TOL }
+            .sort
+            .each_with_object([]) { |v, acc| acc << v if acc.empty? || (v - acc.last) > CHAIN_TOL }
+      end
+
+      # Segment band: the faces of every wall that runs ACROSS the chain. Those
+      # are the positions a contractor sets out from. Faces sitting right at the
+      # ends are dropped - they are the perimeter walls themselves, and a 6 in
+      # tick in each corner is noise the overall band already covers.
+      def chain_segment_stops(info, axis, lo, hi)
+        vals = []
+        info.each do |i|
+          along = axis == :x ? i[:dir].x.abs : i[:dir].y.abs
+          next if along > 0.35                      # runs along the chain, not across
+          i[:q].each { |p| vals << (axis == :x ? p.x.to_f : p.y.to_f) }
+        end
+        inner = dedupe_stops(vals, lo, hi).reject { |v| (v - lo).abs < 8.0 || (hi - v).abs < 8.0 }
+        dedupe_stops([lo] + inner + [hi], lo, hi)
+      end
+
+      # Opening band: the two EDGES of every opening on the walls facing THIS
+      # side, so the band reads corner - window width - gap - window width -
+      # corner. (User preference 2026-08-03: sizes and gaps, not centres.)
+      def chain_opening_stops(info, axis, side, box)
+        lo, hi = axis == :x ? [box[:x0], box[:x1]] : [box[:y0], box[:y1]]
+        edge = if axis == :x
+                 side == :low ? box[:y0] : box[:y1]
+               else
+                 side == :low ? box[:x0] : box[:x1]
+               end
+        vals = [lo, hi]
+        info.each do |i|
+          along = axis == :x ? i[:dir].x.abs : i[:dir].y.abs
+          next if along < 0.9                        # must run ALONG the chain
+          d = i[:d]
+          near = i[:q].map { |p| ((axis == :x ? p.y.to_f : p.x.to_f) - edge).abs }.min
+          next if near > d[:thickness] + 2.0         # not on this side of the building
+          mid_off = (d[:off_pos] + d[:off_neg]) / 2.0
+          d[:openings].each do |o|
+            hw = o[:width].to_f / 2.0
+            [o[:t] - hw, o[:t] + hw].each do |t|
+              c = flat_world(lpt(d, t, mid_off), d[:xform])
+              vals << (axis == :x ? c.x.to_f : c.y.to_f)
+            end
+          end
+        end
+        dedupe_stops(vals, lo, hi)
+      end
+
+      def draw_dim_chains(ents, model)
+        info = chain_wall_info(model)
+        return if info.empty?
+        box = chain_box(info)
+        return if (box[:x1] - box[:x0]) < 24.0 || (box[:y1] - box[:y0]) < 24.0
+        [[:x, :low], [:x, :high], [:y, :low], [:y, :high]].each do |axis, side|
+          begin
+            draw_one_chain(ents, info, box, axis, side)
+          rescue StandardError => e
+            puts "[Plan2D] dim chain #{axis}/#{side}: #{e.message}"
+          end
+        end
+      end
+
+      # Which bands a side actually gets: the opening band only when it adds
+      # something, the segment band only when the building is not a plain box.
+      def chain_rows(info, box, axis, side)
+        lo, hi = axis == :x ? [box[:x0], box[:x1]] : [box[:y0], box[:y1]]
+        rows = []
+        ops = chain_opening_stops(info, axis, side, box)
+        rows << { stops: ops, text: 3.6 } if ops.length > 2
+        seg = chain_segment_stops(info, axis, lo, hi)
+        rows << { stops: seg, text: 4.0 } if seg.length > 2
+        rows << { stops: [lo, hi], text: 5.0 }
+        rows
+      end
+
+      def draw_one_chain(ents, info, box, axis, side)
+        out = side == :low ? -1.0 : 1.0
+        edge = if axis == :x
+                 side == :low ? box[:y0] : box[:y1]
+               else
+                 side == :low ? box[:x0] : box[:x1]
+               end
+        ang = axis == :x ? 0.0 : Math::PI / 2
+        mk = lambda do |along, off|
+          if axis == :x
+            Geom::Point3d.new(along, edge + out * off, PLAN_Z)
+          else
+            Geom::Point3d.new(edge + out * off, along, PLAN_Z)
+          end
+        end
+        chain_rows(info, box, axis, side).each_with_index do |row, idx|
+          draw_chain_row(ents, row[:stops], mk, CHAIN_GAP * (idx + 1), row[:text], ang)
+        end
+      end
+
+      # One band: the run itself, a witness line and tick at every stop, and the
+      # length between consecutive stops.
+      def draw_chain_row(ents, stops, mk, dist, text_h, ang)
+        return if stops.length < 2
+        add_world_poly(ents, [mk.call(stops.first, dist), mk.call(stops.last, dist)])
+        stops.each do |v|
+          add_world_poly(ents, [mk.call(v, 2.0), mk.call(v, dist + 2.0)])
+          a = mk.call(v, dist - 1.8)
+          b = mk.call(v, dist + 1.8)
+          add_world_poly(ents, [a, b])
+        end
+        stops.each_cons(2) do |a, b|
+          next if (b - a) < 8.0
+          add_text(ents, fmt_feet(b - a), text_h, mk.call((a + b) / 2.0, dist + 4.0), ang)
+        end
       end
 
       # Inside clear span along the wall: from 0/len inwards by the thickness of
@@ -685,6 +835,61 @@ module InteriorPro
           next if (b - a) < 8.0
           center = flat_world(lpt(d, (a + b) / 2.0, off_dim - 4.0), d[:xform])
           add_text(ents, fmt_feet(b - a), text_h, center, ang)
+        end
+      end
+
+      # ---- free 2D lines / shapes ------------------------------------------
+
+      # Shapes drawn with the editor's Line tool (type='sketch2d'). Outline
+      # only - no fill, no hatch (same house rule as the floor hatch).
+      def draw_sketches(ents, model)
+        model.entities.grep(Sketchup::Group).each do |g|
+          next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'sketch2d'
+          pts = g.get_attribute('InteriorPro', 'pts')
+          next unless pts.is_a?(Array) && pts.length >= 4
+          xf = g.transformation
+          world = pts.each_slice(2).map do |x, y|
+            w = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(xf)
+            Geom::Point3d.new(w.x, w.y, PLAN_Z)
+          end
+          world << world.first if g.get_attribute('InteriorPro', 'closed') && world.length > 2
+          style = (g.get_attribute('InteriorPro', 'style') || 'solid').to_s
+          weight = (g.get_attribute('InteriorPro', 'weight') || 1).to_i
+          begin
+            if style == 'dashed'
+              world.each_cons(2) { |a, b| dashed_edge(ents, a, b) }
+            elsif weight == 2
+              # A thick line reads as a close double line on paper.
+              world.each_cons(2) do |a, b|
+                v = b - a
+                next if v.length < 0.5
+                v.normalize!
+                n2 = Geom::Vector3d.new(-v.y, v.x, 0)
+                ents.add_edges(a.offset(n2, 0.4), b.offset(n2, 0.4))
+                ents.add_edges(a.offset(n2, -0.4), b.offset(n2, -0.4))
+              end
+            else
+              ents.add_edges(world)
+            end
+          rescue StandardError => e
+            puts "[Plan2D] sketch #{g.get_attribute('InteriorPro', 'id')}: #{e.message}"
+          end
+        end
+      end
+
+      def dashed_edge(ents, a, b, dash = 6.0, gap = 4.0)
+        v = b - a
+        len = v.length
+        return if len < 0.5
+        v.normalize!
+        pos = 0.0
+        while pos < len
+          e2 = [pos + dash, len].min
+          begin
+            ents.add_edges(a.offset(v, pos), a.offset(v, e2))
+          rescue StandardError
+          end
+          pos += dash + gap
         end
       end
 

@@ -193,6 +193,12 @@
               <div id="status"></div>
 
               <div id="botWrap">
+              <div id="levelBox" class="foldBox" style="padding:7px 9px">
+                <div class="seg">
+                  <button id="lv1" class="on" onclick="setLevel(1)">קומה 1</button>
+                  <button id="lv2" onclick="setLevel(2)">קומה 2</button>
+                </div>
+              </div>
               <div id="dimBox" class="foldBox">
                 <div class="foldHead" onclick="toggleFold('dim')">
                   <span style="flex:1 1 auto">מידות קיר — <span id="dimWhich">כל המידות</span></span>
@@ -261,6 +267,8 @@
             var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
             var walls = [];          // existing model walls (read-only)
             var pending = [];        // walls drawn here, not yet applied
+            var ghosts = [];         // the level below: faint gray, snap-only
+            function loadGhosts(list) { ghosts = list || []; draw(); }
             var mode = 'sel';
             var sel = null;           // {type:'wall', w} | {type:'sym', w, s} | {type:'pending', i}
             // Multi-select (2026-07-30): selList is the real selection; sel
@@ -480,7 +488,7 @@
               var hasWalls = selList.some(function(o) { return o.type === 'wall' || o.type === 'pending'; });
               ebar.style.display = '';
               var eb = function(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; };
-              eb('ebMove', hasShapes);
+              eb('ebMove', hasShapes || hasWalls);
               eb('ebOff', hasShapes);
               eb('ebArea', selList.some(function(o) { return o.type === 'sketch' && o.sk.closed; }));
               eb('ebFlipH', hasShapes || hasWalls); eb('ebFlipV', hasShapes || hasWalls);
@@ -1913,10 +1921,23 @@
             var moveOp = null;   // { grab, orig:[{o, pts}], dx, dy, lock }
 
             function startFreeMove() {
-              var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
-              if (!shapes.length) return;
-              moveOp = { grab: null, dx: 0, dy: 0, lock: null,
-                         orig: shapes.map(function(o) { return { o: o, pts: o.sk.pts.slice() }; }) };
+              // Move works on EVERYTHING selected (2026-08-04): shapes,
+              // pending walls and applied walls travel together - the base
+              // for fences, kitchens, pools and the rest.
+              var recs = [];
+              selList.forEach(function(o) {
+                if (o.type === 'sketch') {
+                  recs.push({ kind: 'sk', o: o, pts: o.sk.pts.slice() });
+                } else if (o.type === 'pending' && pending[o.i]) {
+                  var pw0 = pending[o.i];
+                  recs.push({ kind: 'pw', t: pw0, sx: pw0.sx, sy: pw0.sy, ex: pw0.ex, ey: pw0.ey });
+                } else if (o.type === 'wall' && o.w && o.w.id) {
+                  recs.push({ kind: 'w', t: o.w, sx: o.w.sx, sy: o.w.sy, ex: o.w.ex, ey: o.w.ey,
+                              corners: o.w.corners ? o.w.corners.slice() : null });
+                }
+              });
+              if (!recs.length) return;
+              moveOp = { grab: null, dx: 0, dy: 0, lock: null, orig: recs };
               setStatusHint('לחץ על נקודת אחיזה באובייקט — פינה, קצה או אמצע');
               draw();
             }
@@ -1933,9 +1954,20 @@
               if (!moveOp) return;
               moveOp.dx = dx; moveOp.dy = dy;
               moveOp.orig.forEach(function(rec) {
-                var f = rec.pts, np = [];
-                for (var i = 0; i + 1 < f.length; i += 2) np.push(f[i] + dx, f[i + 1] + dy);
-                rec.o.sk.pts = np;
+                if (rec.kind === 'sk') {
+                  var f = rec.pts, np = [];
+                  for (var i = 0; i + 1 < f.length; i += 2) np.push(f[i] + dx, f[i + 1] + dy);
+                  rec.o.sk.pts = np;
+                  return;
+                }
+                var t = rec.t;
+                t.sx = rec.sx + dx; t.sy = rec.sy + dy;
+                t.ex = rec.ex + dx; t.ey = rec.ey + dy;
+                if (rec.kind === 'w' && rec.corners) {
+                  var nc = [];
+                  for (var j = 0; j + 1 < rec.corners.length; j += 2) nc.push(rec.corners[j] + dx, rec.corners[j + 1] + dy);
+                  t.corners = nc;
+                }
               });
             }
 
@@ -1959,20 +1991,34 @@
             function moveCommit() {
               if (!moveOp) return;
               var payload = [];
+              var wallIds = [];
+              var mdx = moveOp.dx, mdy = moveOp.dy;
               moveOp.orig.forEach(function(rec) {
-                if (rec.o.kind !== 'pending' && rec.o.sk.id) {
-                  payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
+                if (rec.kind === 'sk') {
+                  if (rec.o.kind !== 'pending' && rec.o.sk.id) {
+                    payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
+                  }
+                } else if (rec.kind === 'w' && rec.t.id) {
+                  wallIds.push(rec.t.id);
                 }
               });
               moveOp = null;
               setStatusHint(null);
               draw();
               if (payload.length) sketchup.update_sketches(JSON.stringify({ shapes: payload }));
+              if (wallIds.length && (Math.abs(mdx) > 0.001 || Math.abs(mdy) > 0.001)) {
+                sketchup.move_selection(JSON.stringify({ ids: wallIds, dx: mdx, dy: mdy }));
+              }
             }
 
             function moveCancel() {
               if (!moveOp) return;
-              moveOp.orig.forEach(function(rec) { rec.o.sk.pts = rec.pts.slice(); });
+              moveOp.orig.forEach(function(rec) {
+                if (rec.kind === 'sk') { rec.o.sk.pts = rec.pts.slice(); return; }
+                var t = rec.t;
+                t.sx = rec.sx; t.sy = rec.sy; t.ex = rec.ex; t.ey = rec.ey;
+                if (rec.kind === 'w' && rec.corners) t.corners = rec.corners.slice();
+              });
               moveOp = null;
               setStatusHint(null);
               draw();
@@ -3182,6 +3228,8 @@
                   ctx.strokeStyle = mcol; ctx.lineWidth = 2.5; ctx.stroke();
                 }
               }
+              // The level below, as a faint underlay (never selectable).
+              ghosts.forEach(function(w){ drawWallBand(w, '#9aa2ad', '#c8cdd4', 0.35, ghosts); });
               var all = walls.concat(pending);
               walls.forEach(function(w){ drawWallBand(w, '#444', '#cfcfcf', 1, all); drawSyms(w); dimLabel(w, '#1a6ee0', all); });
               pending.forEach(function(w){ drawWallBand(w, '#2f6bd8', '#9db8e8', 1, all); dimLabel(w, '#e0392b', all); });
@@ -3273,6 +3321,12 @@
                 outlineBand(g, '#1a9d55');
                 var mp = { x:(g.sx + g.ex)/2, y:(g.sy + g.ey)/2 };
                 dimTag(sx(mp.x), sy(mp.y), typed ? typed : fmtLen(Math.abs(dragWall.off)), 'size', {});
+                if (dragWall.snapPt) {       // the stabbed point - green ring
+                  ctx.beginPath();
+                  ctx.arc(sx(dragWall.snapPt.x), sy(dragWall.snapPt.y), 6, 0, Math.PI * 2);
+                  ctx.fillStyle = '#ffffff'; ctx.fill();
+                  ctx.strokeStyle = '#1a9d55'; ctx.lineWidth = 2.5; ctx.stroke();
+                }
                 return;
               }
               if (dragSym && dragSym.moved) {
@@ -3547,6 +3601,27 @@
                   if (dm < bestMidD) { bestMid = m; bestMidD = dm; }
                 });
               });
+              // The level below snaps too - corners and midpoints, mitered
+              // among THEMSELVES only (levels never miter with each other).
+              ghosts.forEach(function(w){
+                var cand = [{x:w.sx, y:w.sy}, {x:w.ex, y:w.ey}];
+                var bq = bandQuad(w);
+                var C4 = bq ? endCorners(w, ghosts, bq) : null;
+                if (C4) cand.push(C4.sp, C4.ep, C4.eq, C4.sq);
+                cand.forEach(function(c){
+                  var d = Math.hypot(c.x - p.x, c.y - p.y);
+                  if (d < bestEndD) { bestEnd = c; bestEndD = d; }
+                });
+                var mids = [{ x:(w.sx + w.ex) / 2, y:(w.sy + w.ey) / 2 }];
+                if (C4) {
+                  mids.push({ x:(C4.sp.x + C4.ep.x) / 2, y:(C4.sp.y + C4.ep.y) / 2 });
+                  mids.push({ x:(C4.sq.x + C4.eq.x) / 2, y:(C4.sq.y + C4.eq.y) / 2 });
+                }
+                mids.forEach(function(m) {
+                  var dm = Math.hypot(m.x - p.x, m.y - p.y);
+                  if (dm < bestMidD) { bestMid = m; bestMidD = dm; }
+                });
+              });
               if (bestEnd) {
                 snapInd = { x:bestEnd.x, y:bestEnd.y, kind:'end' };
                 return { x:bestEnd.x, y:bestEnd.y, snapped:true };
@@ -3582,7 +3657,7 @@
 
             function segDirs() {
               var out = [];
-              walls.concat(pending).forEach(function(w) {
+              walls.concat(pending, ghosts).forEach(function(w) {
                 var dx = w.ex - w.sx, dy = w.ey - w.sy;
                 var d = Math.hypot(dx, dy);
                 if (d > 1) out.push({ x: dx / d, y: dy / d });
@@ -3989,6 +4064,26 @@
                 dragWall.moved = true;
                 var b3 = dragWall.b;
                 var o = (cursor.x - dragWall.from.x)*b3.nx + (cursor.y - dragWall.from.y)*b3.ny;
+                // Shift + point (2026-08-03): stab any corner/midpoint (the
+                // level below included) and the nearest FACE of the dragged
+                // wall lands exactly on it - so a level-2 wall can sit
+                // precisely over the wall underneath.
+                dragWall.snapPt = null;
+                if (shiftDown) {
+                  var sp5 = snapPoint(cursor, null);
+                  if (sp5.snapped) {
+                    var w5 = dragWall.w;
+                    var d5 = (sp5.x - w5.sx)*b3.nx + (sp5.y - w5.sy)*b3.ny;
+                    var best5 = null;
+                    [d5, d5 - b3.p, d5 - b3.q].forEach(function(c5){
+                      if (best5 === null || Math.abs(c5 - o) < Math.abs(best5 - o)) best5 = c5;
+                    });
+                    dragWall.off = Math.round(best5 * 1000) / 1000;
+                    dragWall.snapPt = { x: sp5.x, y: sp5.y };
+                    draw();
+                    return;
+                  }
+                }
                 dragWall.off = Math.round(o * 4) / 4;   // 1/4" steps
                 draw();
                 return;
@@ -4059,7 +4154,7 @@
                 return;
               }
               if (mode === 'sel' && dragWall) {
-                if (dragWall.moved && Math.abs(dragWall.off) >= 0.25) {
+                if (dragWall.moved && (dragWall.snapPt || Math.abs(dragWall.off) >= 0.25)) {
                   if (dragWall.pi != null) {          // not applied yet -> local move
                     movePendingWall(dragWall.pi, dragWall.off);
                   } else {
@@ -4390,6 +4485,21 @@
             }
             function applyDone(n) { pending = []; draw(); }
             function planDone(ok) {}
+
+            // Levels (2026-08-03): the editor works on ONE level at a time.
+            // Ruby filters the walls; here we only track and show the choice.
+            var activeLevel = 1;
+            function setLevel(n) {
+              if (n === activeLevel) return;
+              applyPending();            // blue walls land on their own level
+              sketchup.set_level(String(n));
+            }
+            function loadLevel(n) {
+              activeLevel = (n === 2) ? 2 : 1;
+              var b1 = document.getElementById('lv1'), b2 = document.getElementById('lv2');
+              if (b1) b1.className = (activeLevel === 1) ? 'on' : '';
+              if (b2) b2.className = (activeLevel === 2) ? 'on' : '';
+            }
             // Selection to restore after a model round-trip (edit/move/resize),
             // so the panel stays open on the same wall/opening.
             var keepSel = null;

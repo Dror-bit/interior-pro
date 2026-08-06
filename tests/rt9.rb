@@ -165,5 +165,20 @@ ok('and caps the crown below a raised top', src.include?('wall_h = ch if ch > 12
 ok('the baseboard skips high openings (windows)',
    src.include?("openings.select { |o| o[:floor_offset].to_f < base_top }"))
 
+# ---- ensure_structure_below!: the auto hook (2026-08-04) -----------------
+Sketchup.reset_model!
+m9 = Sketchup.active_model
+square_building(m9)
+LM.set_active_level!(1)
+ok('on level 1 the hook does nothing', LM.ensure_structure_below! == 0,
+   LM.ensure_structure_below!)
+ok('walls untouched on level 1', LM.exterior_walls.all? { |w| w.get_attribute('InteriorPro', 'height') == 96.0 })
+LM.set_active_level!(2)
+n9 = LM.ensure_structure_below!
+ok('on level 2 the hook builds the structure', n9 == 4, n9)
+ok('exterior walls rose to 106', LM.exterior_walls.all? { |w| w.get_attribute('InteriorPro', 'height') == 106.0 },
+   LM.exterior_walls.map { |w| w.get_attribute('InteriorPro', 'height') })
+LM.set_active_level!(1)
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

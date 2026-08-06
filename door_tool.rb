@@ -3287,6 +3287,9 @@ module InteriorPro
       build_u_jamb(parent_ents, half_w, half_h, head_inner, iw, v0, v1,
                    unit, n, frame_mat, 'Jamb')
 
+      # Cased opening: the jamb IS the whole body. Stop here before any leaf.
+      return true if cased_opening?
+
       gap = 0.125
       leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
 
@@ -5217,6 +5220,13 @@ module InteriorPro
 
     def closet_door?
       @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Closet'
+    end
+
+    # A doorway with no door in it (2026-08-03): the jamb is built exactly as
+    # for any interior door, and then nothing else - no leaf, no stop, no
+    # handle. Casing still applies, so it reads as a finished opening.
+    def cased_opening?
+      @door_category.to_s == 'interior' && @door_type.to_s.strip == 'Cased Opening'
     end
 
     def handle_enabled?

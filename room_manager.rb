@@ -5,15 +5,34 @@ module InteriorPro
   module RoomManager
     CORNER_TOL = 1.5 unless const_defined?(:CORNER_TOL, false) # inches
 
-    def self.wall_list
-      # TEMPORARY level guard (2026-08-03, part 1): room detection flattens
-      # everything to z=0, so level-2 walls would collide with level-1
-      # rooms. Until per-level rooms arrive (part 2), only level-1 walls
-      # take part in room detection.
+    # Per-level rooms (2026-08-04, part 2): detection flattens everything to
+    # z=0, so each level is detected SEPARATELY. wall_list(2) = level-2
+    # walls; the default stays level 1 (all old callers keep working).
+    def self.wall_list(level = 1)
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall' &&
-          (g.get_attribute('InteriorPro', 'level') || 1).to_i == 1
+          (g.get_attribute('InteriorPro', 'level') || 1).to_i == level.to_i
       end
+    end
+
+    # Every level that has walls (sorted, always includes 1).
+    def self.wall_levels
+      lvls = Sketchup.active_model.entities.grep(Sketchup::Group).map do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        (g.get_attribute('InteriorPro', 'level') || 1).to_i
+      end.compact.uniq
+      (lvls | [1]).sort
+    end
+
+    def self.level_base_z(level)
+      return 0.0 unless defined?(InteriorPro::LevelManager)
+      InteriorPro::LevelManager.level_base(level.to_i)
+    rescue StandardError
+      0.0
+    end
+
+    def self.room_level(grp)
+      (grp.get_attribute('InteriorPro', 'level') || 1).to_i
     end
 
     # World-space centerline of a wall (flattened to z=0), derived from the
@@ -283,10 +302,10 @@ module InteriorPro
       dedup
     end
 
-    def self.detect_rooms!(verbose: true)
-      segs = wall_list.map { |w| centerline(w) }.compact
+    def self.detect_rooms!(verbose: true, level: 1)
+      segs = wall_list(level).map { |w| centerline(w) }.compact
       if segs.empty?
-        puts '[Rooms] no walls found'
+        puts "[Rooms] no walls found on level #{level}" if verbose
         return []
       end
       nodes, edges = build_graph(segs)
@@ -308,7 +327,8 @@ module InteriorPro
         rooms << {
           boundary: inner,
           net_area_sqft: signed_area(inner).abs / 144.0,
-          wall_ids: edata.compact.map { |e| e[:wall].get_attribute('InteriorPro', 'id') }
+          wall_ids: edata.compact.map { |e| e[:wall].get_attribute('InteriorPro', 'id') },
+          level: level.to_i
         }
       end
 
@@ -379,7 +399,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'boundary_xy', flat)
       grp.set_attribute('InteriorPro', 'bounding_wall_ids', r[:wall_ids].compact)
       grp.set_attribute('InteriorPro', 'area_sqft', r[:net_area_sqft].to_f)
-      grp.set_attribute('InteriorPro', 'level', 1)
+      grp.set_attribute('InteriorPro', 'level', (r[:level] || 1).to_i)
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
     end
 
@@ -395,7 +415,8 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       build_label!(grp, name, r[:net_area_sqft])
       c = centroid(r[:boundary])
-      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, 0.25))
+      z = level_base_z(r[:level] || 1) + 0.25
+      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, z))
       grp
     end
 
@@ -406,7 +427,8 @@ module InteriorPro
       write_room_attrs!(grp, r, id: id, name: name, number: number)
       build_label!(grp, name, r[:net_area_sqft])
       c = centroid(r[:boundary])
-      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, 0.25))
+      z = level_base_z(r[:level] || 1) + 0.25
+      grp.transformation = Geom::Transformation.new(Geom::Point3d.new(c.x, c.y, z))
       grp
     end
 
@@ -414,7 +436,10 @@ module InteriorPro
     # centroid), new loops get new rooms, stale rooms are erased.
     def self.sync_rooms!
       model = Sketchup.active_model
-      detected = detect_rooms!(verbose: false)
+      # Per-level rooms (2026-08-04): each level is detected on its own and
+      # matched only against its own rooms - levels share x/y, so a level-2
+      # room sits right over a level-1 room and must never steal its id.
+      detected = wall_levels.flat_map { |lv| detect_rooms!(verbose: false, level: lv) }
       existing = rooms_in_model
       model.start_operation('InteriorPro Sync Rooms', true)
       used = []
@@ -422,6 +447,7 @@ module InteriorPro
         c = centroid(r[:boundary])
         match = existing.find do |g|
           next false if used.include?(g)
+          next false if room_level(g) != (r[:level] || 1).to_i
           g.transformation.origin.distance(Geom::Point3d.new(c.x, c.y, g.transformation.origin.z)) < MATCH_TOL
         end
         if match

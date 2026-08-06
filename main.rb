@@ -38,6 +38,9 @@ module InteriorPro
       foundation_manager.rb
       ceiling_manager.rb
       level_manager.rb
+      roof_manager.rb
+      roof_dialog.rb
+      roof_gable_tool.rb
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb

@@ -220,6 +220,10 @@ module InteriorPro
                 else 0.0
                 end
       ceiling_z = floor_z + wall_height
+      # Levels (2026-08-03): a lifted wall (level 2 / dropped garage) carries
+      # its height in the group TRANSFORMATION. The opening cut is local and
+      # follows by itself - the window BODY must be lifted explicitly.
+      wall_z = wall_group.transformation.origin.z.to_f
 
       # Project picked point (XY) onto centerline.
       click_xy = Geom::Point3d.new(picked_point.x, picked_point.y, 0)
@@ -307,7 +311,7 @@ module InteriorPro
         window_group.name = 'InteriorPro_Window'
         window_group.entities.add_cpoint(Geom::Point3d.new(0, 0, 0))
         window_group.transformation = Geom::Transformation.new(
-          Geom::Point3d.new(cx, cy, (win_bot_z + win_top_z) / 2.0)
+          Geom::Point3d.new(cx, cy, wall_z + (win_bot_z + win_top_z) / 2.0)
         )
 
         window_id      = generate_window_id
@@ -335,8 +339,8 @@ module InteriorPro
         window_group.set_attribute('InteriorPro', 'host_wall_id',           host_wall_id)
         window_group.set_attribute('InteriorPro', 'position_along_wall_in', t.to_f)
         window_group.set_attribute('InteriorPro', 'clicked_side',           clicked_side)
-        window_group.set_attribute('InteriorPro', 'bottom_z',               win_bot_z.to_f)
-        window_group.set_attribute('InteriorPro', 'top_z',                  win_top_z.to_f)
+        window_group.set_attribute('InteriorPro', 'bottom_z',               (wall_z + win_bot_z).to_f)
+        window_group.set_attribute('InteriorPro', 'top_z',                  (wall_z + win_top_z).to_f)
         window_group.set_attribute('InteriorPro', 'created_at',             Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
         window_group.set_attribute('InteriorPro', 'plugin_version',         '0.1')
 

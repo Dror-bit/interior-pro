@@ -146,7 +146,7 @@ ok('main ridge at the real house height (~220.6"), nothing higher',
    (r5 - 220.55).abs < 0.1, r5)
 faces5 = g_grp.entities.grep(Sketchup::Face)
 tris5 = faces5.select { |f| f.pts.length == 3 && f.normal.z.abs < 0.01 }
-ok('4 full gable triangles (main W+E, both wing ends)', tris5.length == 4, tris5.length)
+ok('no white gable triangles (2026-08-05B: open ends)', tris5.length == 0, tris5.length)
 ok('6 sloped roof planes', faces5.count { |f| f.normal.z.abs > 0.3 } == 6,
    faces5.count { |f| f.normal.z.abs > 0.3 })
 zs5 = faces5.flat_map(&:pts).map(&:z)
@@ -167,6 +167,42 @@ ok('the wing ridge dives into the main roof on a true valley',
 # rakes get a clean 3-point chain on every gabled end (via max-z zmap)
 chain_ok = plan5[:edges].length >= 4
 ok('gabled poly edges resolved for bands/rakes', chain_ok, plan5[:edges])
+
+# Gable STYLE with zero clicks (2026-08-05, "make the whole roof gable"):
+# every wing end + both main short ends gable automatically.
+plan6 = RF.framed_plan(zshape, ids5, [], 'gable')
+ok('Gable style, no clicks: main short ends + every wing end gable',
+   plan6 && plan6[:g][:e] && plan6[:g][:w] && plan6[:wings].all? { |w| w[:gabled] },
+   plan6 && [plan6[:g], plan6[:wings].map { |w| w[:gabled] }])
+g_grp6 = Sketchup.active_model.entities.add_group
+RF.build_framed_geometry!(g_grp6, plan6, 96.0, 1.0 / 3.0, 12.0, nil, nil)
+tris6 = g_grp6.entities.grep(Sketchup::Face).select { |f| f.pts.length == 3 && f.normal.z.abs < 0.01 }
+ok('Gable style, no clicks: no white triangles', tris6.length == 0, tris6.length)
+
+# regression 2026-08-05 (the user's THIRD house): wings hang on BOTH axes
+# (a leg going south + a bump going east), so single-axis slab cuts left
+# a chained wing with no parent and the plan fell back to strip gables.
+# grid_rects (maximal rectangles on the vertex grid) finds the intuitive
+# main + 2 wings directly on it.
+h3 = [[72.0, 950.38], [-979.78, 950.38], [-979.78, -709.84],
+      [-475.13, -709.84], [-475.13, -12.0], [72.0, -12.0],
+      [72.0, 209.93], [260.05, 209.93], [260.05, 758.77], [72.0, 758.77]]
+r3 = RF.grid_rects(h3)
+ok('third house: 3 rects on the vertex grid', r3 && r3.length == 3, r3 && r3.length)
+plan7 = RF.framed_plan(h3, Array.new(10) { |i| "v#{i}" }, [], 'gable')
+ok('third house: main is the big block, 2 wings attach to it',
+   plan7 && plan7[:wings].length == 2 &&
+   (plan7[:main][0] + 979.78).abs < 0.1 && (plan7[:main][1] + 12.0).abs < 0.1 &&
+   (plan7[:main][2] - 72.0).abs < 0.1 && (plan7[:main][3] - 950.38).abs < 0.1,
+   plan7 && plan7[:main])
+ok('third house: leg mouths north, bump mouths west',
+   plan7 && plan7[:wings].map { |w| w[:mouth] }.sort == [:n, :w],
+   plan7 && plan7[:wings].map { |w| w[:mouth] })
+g_grp7 = Sketchup.active_model.entities.add_group
+r7, = RF.build_framed_geometry!(g_grp7, plan7, 96.0, 1.0 / 3.0, 12.0, nil, nil)
+tris7 = g_grp7.entities.grep(Sketchup::Face).select { |f| f.pts.length == 3 && f.normal.z.abs < 0.01 }
+ok('third house: gable style = no triangles, sane ridge',
+   tris7.length == 0 && (r7 - 252.4).abs < 0.1, [tris7.length, r7])
 
 # ---- no walls: quiet skip -------------------------------------------------
 Sketchup.reset_model!
@@ -288,15 +324,14 @@ ok('ridge reaches the gable ends at the right height',
 # 2 surfaces + fascia/drip on the 2 sloped eaves (24) + rake boards on the
 # 2 gable ends (2 ends x 2 segments x 6 faces = 24)
 band_faces = rg.entities.grep(Sketchup::Face).length
-ok('gable roof: surfaces + bands + rakes + 2 gable triangles = 52 faces',
-   band_faces == 52, band_faces)
+ok('gable roof: surfaces + bands + rakes = 50 faces (no triangles)',
+   band_faces == 50, band_faces)
 tris = rg.entities.grep(Sketchup::Face).select do |f|
   xs3 = f.pts.map(&:x)
   f.pts.length == 3 && (xs3.max - xs3.min).abs < 0.01
 end
-ok('the gable triangles close the ends up to the ridge',
-   tris.length == 2 && tris.all? { |f| (f.pts.map(&:z).max - gz).abs < 0.05 },
-   tris.length)
+ok('no white triangles at the gable ends (2026-08-05B)',
+   tris.length == 0, tris.length)
 rake_top = rg.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).max
 ok('rake boards climb to the ridge', (rake_top - gz).abs < 0.05, rake_top)
 
@@ -316,13 +351,28 @@ ok('roof rebuilt with ONE gable end (3 sloped faces)', top_faces(rm1).length == 
    top_faces(rm1).length)
 ok('marking works even in Hip style', RF.settings[:style] == 'hip')
 # 3 surfaces + fascia 3x6 + drip 3x6 + rake 2x6
-ok('one gable end = 52 faces (incl. its triangle)',
-   rm1.entities.grep(Sketchup::Face).length == 52,
+ok('one gable end = 51 faces (no triangle)',
+   rm1.entities.grep(Sketchup::Face).length == 51,
    rm1.entities.grep(Sketchup::Face).length)
 RF.toggle_gable_wall!(w1)
 ok('second click un-marks', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
 ok('and the roof is a full hip again', top_faces(RF.roofs.first).length == 4,
    top_faces(RF.roofs.first).length)
+
+# stale marks (2026-08-05, the user's split/join walls): an id from before
+# a wall split/join points at a wall that no longer exists. It must not
+# block the Gable style, and a toggle must prune it from the stored list.
+m.set_attribute('InteriorPro', 'roof_gable_wall_ids', ['dead-id'])
+m.set_attribute('InteriorPro', 'roof_gable_click_xy', [1e9, 1e9])
+r_st = RF.build_roof!(style: 'gable')
+ok('a stale mark does not block the Gable style (2 sloped planes)',
+   !r_st.nil? && top_faces(r_st).length == 2,
+   r_st && top_faces(r_st).length)
+w2s = m.entities.grep(Sketchup::Group).find { |g| g.get_attribute('InteriorPro', 'id') == 'e2' }
+RF.toggle_gable_wall!(w2s)
+ok('a toggle prunes dead ids from the stored marks', RF.gable_wall_ids == ['e2'], RF.gable_wall_ids)
+RF.toggle_gable_wall!(w2s)
+RF.build_roof!(style: 'hip')
 
 # ---- gable stops at the mother roof (2026-08-05) -------------------------
 # ONE long front wall spans a deep mother (x 0..300) and a shallow attached

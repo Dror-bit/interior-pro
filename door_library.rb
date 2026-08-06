@@ -23,7 +23,10 @@ module InteriorPro
     ].freeze
     # Interior types = opening mechanisms. The leaf DESIGN (Flush/Shaker/Caiman...)
     # is a separate 'leaf_style' setting - see DoorLeafStyles.
-    INTERIOR_TYPES = ['Single', 'Double', 'Pocket', 'Folding', 'Closet'].freeze
+    # 'Cased Opening' (2026-08-03) is a doorway with no door in it: jamb and
+    # casing only. Common in interiors - kitchen to living room, study entry -
+    # and it needs no leaf, no swing and no handle.
+    INTERIOR_TYPES = ['Single', 'Double', 'Pocket', 'Folding', 'Closet', 'Cased Opening'].freeze
 
     BUILT_IN_BY_CATEGORY = {
       'exterior' => EXTERIOR_TYPES,
@@ -118,7 +121,8 @@ module InteriorPro
       'interior' => {
         'Double'  => { 'width' => 60.0 },
         'Folding' => { 'width' => 48.0 },
-        'Closet'  => { 'width' => 72.0, 'closet_leaf_count' => 2 }
+        'Closet'  => { 'width' => 72.0, 'closet_leaf_count' => 2 },
+        'Cased Opening' => { 'width' => 48.0, 'height' => 84.0 }
       },
       'exterior' => {
         'Front Door'              => { 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
