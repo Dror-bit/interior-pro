@@ -1092,13 +1092,18 @@ module InteriorPro
         model.set_attribute('InteriorPro', 'underlay_scale', r['scale'].to_f)
         model.set_attribute('InteriorPro', 'underlay_opacity', r['opacity'].to_f)
         model.set_attribute('InteriorPro', 'underlay_locked', r['locked'] ? 1 : 0)
+        # mirror + free rotation of the traced image (2026-08-07)
+        model.set_attribute('InteriorPro', 'underlay_flipx', r['flipx'].to_i)
+        model.set_attribute('InteriorPro', 'underlay_flipy', r['flipy'].to_i)
+        model.set_attribute('InteriorPro', 'underlay_rot', r['rot'].to_f)
       rescue StandardError => e
         puts "[PlanEditor] store_underlay_placement: #{e.message}"
       end
 
       def clear_underlay_placement
         model = Sketchup.active_model
-        %w[underlay_x underlay_y underlay_scale underlay_opacity underlay_locked].each do |k|
+        %w[underlay_x underlay_y underlay_scale underlay_opacity underlay_locked
+           underlay_flipx underlay_flipy underlay_rot].each do |k|
           begin; model.delete_attribute('InteriorPro', k); rescue StandardError; end
         end
       rescue StandardError
@@ -1114,7 +1119,10 @@ module InteriorPro
           'y' => model.get_attribute('InteriorPro', 'underlay_y').to_f,
           'scale' => sc,
           'opacity' => op > 0 ? op : 0.55,
-          'locked' => model.get_attribute('InteriorPro', 'underlay_locked').to_i != 0 }
+          'locked' => model.get_attribute('InteriorPro', 'underlay_locked').to_i != 0,
+          'flipx' => (model.get_attribute('InteriorPro', 'underlay_flipx').to_i.negative? ? -1 : 1),
+          'flipy' => (model.get_attribute('InteriorPro', 'underlay_flipy').to_i.negative? ? -1 : 1),
+          'rot' => model.get_attribute('InteriorPro', 'underlay_rot').to_f }
       rescue StandardError
         nil
       end
@@ -2074,9 +2082,29 @@ module InteriorPro
                   <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="startCalib()">כייל לפי מידה</button></div>
                   <label>שקיפות</label>
                   <input type="range" id="underOp" min="10" max="100" value="55" style="width:100%" oninput="setUnderOpacity(this.value)">
-                  <div class="seg" style="margin-top:4px">
-                    <button id="underLockBtn" class="on" onclick="toggleUnderLock()">נעול</button>
-                    <button onclick="fitUnderlay(1)">מרכז</button>
+                  <div class="seg3" style="margin-top:6px">
+                    <button title="הפוך ימין / שמאל" onclick="flipUnderlay('x')">
+                      <svg width="20" height="16" viewBox="0 0 24 20">
+                        <path d="M12 1 V19" stroke="#9aa2ad" stroke-width="1.3" stroke-dasharray="3 2"/>
+                        <path d="M10 4 L3 10 L10 16 Z" fill="currentColor"/>
+                        <path d="M14 4 L21 10 L14 16 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                    <button title="הפוך מעלה / מטה" onclick="flipUnderlay('y')">
+                      <svg width="20" height="16" viewBox="0 0 24 20">
+                        <path d="M2 10 H22" stroke="#9aa2ad" stroke-width="1.3" stroke-dasharray="3 2"/>
+                        <path d="M5 8 L12 2 L19 8 Z" fill="currentColor"/>
+                        <path d="M5 12 L12 18 L19 12 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                    <button title="סובב 90°" onclick="rotateUnderlay(90)">
+                      <svg width="20" height="16" viewBox="0 0 24 20">
+                        <path d="M5 12 A7 7 0 1 1 12 19" fill="none" stroke="currentColor"
+                              stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M5 7 L5 12 L10 12" fill="none" stroke="currentColor"
+                              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  </div>
+                  <div class="row" style="margin-top:6px; display:flex; align-items:center; gap:6px">
+                    <input type="number" id="underAng" value="0" step="1"
+                           style="width:64px; flex:0 0 auto" oninput="setUnderRotation(this.value)">
+                    <span style="flex:0 0 auto; color:#555">°</span>
+                    <span style="flex:1 1 auto; color:#777; font-size:12px">סיבוב התמונה</span>
                   </div>
                 </div>
                 </div>
@@ -2815,7 +2843,9 @@ module InteriorPro
             var underX = 0, underY = 0;
             var underScale = 1;
             var underOpacity = 0.55;
-            var underLocked = true;
+            var underLocked = true;    // the image never drags; the calibration places it
+            var underFlipX = 1, underFlipY = 1;   // -1 = mirrored on that axis
+            var underRot = 0;                     // degrees, counter-clockwise
             var calib = null;
             var dragUnder = null;
 
@@ -2838,7 +2868,9 @@ module InteriorPro
               if (!underImg) return;
               try {
                 sketchup.save_underlay(JSON.stringify({ x: underX, y: underY, scale: underScale,
-                                                        opacity: underOpacity, locked: underLocked }));
+                                                        opacity: underOpacity, locked: underLocked,
+                                                        flipx: underFlipX, flipy: underFlipY,
+                                                        rot: underRot }));
               } catch (e) {}
             }
 
@@ -2859,8 +2891,11 @@ module InteriorPro
                   underX = place.x; underY = place.y; underScale = place.scale;
                   underOpacity = place.opacity > 0 ? place.opacity : 0.55;
                   underLocked = place.locked !== false;
+                  underFlipX = place.flipx < 0 ? -1 : 1;
+                  underFlipY = place.flipy < 0 ? -1 : 1;
+                  underRot = Number(place.rot) || 0;
                   document.getElementById('underOp').value = Math.round(underOpacity * 100);
-                  document.getElementById('underLockBtn').className = underLocked ? 'on' : '';
+                  showUnderAngle();
                   draw();
                 } else {
                   fitUnderlay(1);
@@ -2881,11 +2916,33 @@ module InteriorPro
 
             function setUnderOpacity(v) { underOpacity = Math.max(0.05, v / 100); saveUnderlay(); draw(); }
 
-            function toggleUnderLock() {
-              underLocked = !underLocked;
-              document.getElementById('underLockBtn').className = underLocked ? 'on' : '';
+            // Mirror the traced image left/right or top/bottom. Both flips can
+            // be on at once, which is the same as a half turn.
+            function flipUnderlay(axis) {
+              if (!underImg) return;
+              if (axis === 'y') underFlipY = -underFlipY; else underFlipX = -underFlipX;
               saveUnderlay();
               draw();
+            }
+
+            function showUnderAngle() {
+              var el = document.getElementById('underAng');
+              if (el) el.value = Math.round(underRot * 10) / 10;
+            }
+
+            // Free rotation: type any angle, or nudge it a quarter turn.
+            function setUnderRotation(deg) {
+              if (!underImg) return;
+              var a = parseFloat(deg);
+              underRot = isFinite(a) ? ((a % 360) + 360) % 360 : 0;
+              saveUnderlay();
+              draw();
+            }
+
+            function rotateUnderlay(delta) {
+              if (!underImg) return;
+              setUnderRotation(underRot + delta);
+              showUnderAngle();
             }
 
             function startCalib() {
@@ -2907,10 +2964,9 @@ module InteriorPro
                 underX = calib.a.x + (underX - calib.a.x) * f;
                 underY = calib.a.y + (underY - calib.a.y) * f;
                 underScale *= f;
-                // A calibrated image locks itself: a stray click must never
-                // shift it once it is to scale.
+                // The image stays put: a stray click must never shift it
+                // once it is to scale (the lock button is gone - 2026-08-07).
                 underLocked = true;
-                document.getElementById('underLockBtn').className = 'on';
                 saveUnderlay();
               }
               calib = null;
@@ -2925,7 +2981,13 @@ module InteriorPro
               var h5 = underImg.height * underScale * scale;
               ctx.save();
               ctx.globalAlpha = underOpacity;
-              try { ctx.drawImage(underImg, sx(underX), sy(underY), w5, h5); } catch (e) {}
+              // Mirror + free rotation happen about the image CENTRE, so the
+              // picture turns in place instead of walking off the screen.
+              var cx5 = sx(underX) + w5 / 2, cy5 = sy(underY) + h5 / 2;
+              ctx.translate(cx5, cy5);
+              if (underRot) ctx.rotate(-underRot * Math.PI / 180);   // + = counter-clockwise
+              if (underFlipX < 0 || underFlipY < 0) ctx.scale(underFlipX, underFlipY);
+              try { ctx.drawImage(underImg, -w5 / 2, -h5 / 2, w5, h5); } catch (e) {}
               ctx.restore();
               if (calib && calib.a) {
                 ctx.strokeStyle = '#e0392b'; ctx.lineWidth = 1.6;

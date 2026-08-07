@@ -57,8 +57,22 @@ ok('no placement -> re-fits', !near(g('underScale'), saved.scale), g('underScale
 calls.length=0;
 c('setUnderOpacity', 30);
 ok('opacity saved', lastSave() && near(lastSave().opacity, 0.30), lastSave());
-c('toggleUnderLock');
-ok('lock change saved', lastSave() && lastSave().locked===g('underLocked'), [lastSave(), g('underLocked')]);
+// mirror + free rotation replaced the lock/centre buttons (2026-08-07)
+c('flipUnderlay','x');
+ok('flip left/right saved', lastSave() && lastSave().flipx===-1 && g('underFlipX')===-1,
+   [lastSave(), g('underFlipX')]);
+c('flipUnderlay','x');
+ok('flipping again puts it back', g('underFlipX')===1, g('underFlipX'));
+c('flipUnderlay','y');
+ok('flip up/down saved', lastSave() && lastSave().flipy===-1, lastSave());
+c('flipUnderlay','y');
+c('setUnderRotation', 30);
+ok('a typed angle is saved', lastSave() && near(lastSave().rot, 30), lastSave());
+c('rotateUnderlay', 90);
+ok('the quarter-turn button adds 90', near(g('underRot'), 120), g('underRot'));
+c('setUnderRotation', 350); c('rotateUnderlay', 20);
+ok('the angle wraps at 360', near(g('underRot'), 10), g('underRot'));
+c('setUnderRotation', 0);
 
 // --- clearing hides everything ---
 c('loadUnderlay', null);
