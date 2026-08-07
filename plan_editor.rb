@@ -2207,7 +2207,10 @@ module InteriorPro
               document.getElementById('secWall').style.display = m === 'wall' ? '' : 'none';
               document.getElementById('secDoor').style.display = m === 'door' ? '' : 'none';
               document.getElementById('secWin').style.display = m === 'win' ? '' : 'none';
-              document.getElementById('secLine').style.display = m === 'line' ? '' : 'none';
+              // The Shapes panel stays open in Select mode too (2026-08-07):
+              // move / rotate something and the drawing tools are still
+              // one click away instead of reopening the panel every time.
+              document.getElementById('secLine').style.display = (m === 'line' || m === 'sel') ? '' : 'none';
               if (m !== 'line') endLine();
               var hint = m === 'line'
                 ? 'קליק-קליק לצייר קו · הקלד אורך + Enter · קליק על הנקודה הראשונה סוגר צורה · Esc מסיים'
@@ -2926,6 +2929,9 @@ module InteriorPro
             }
 
             function setLineTool(t) {
+              // clicking a drawing tool from Select mode jumps straight
+              // into drawing — no separate mode click needed
+              if (mode !== 'line') { setMode('line'); }
               lineTool = t;
               if (curLine) finishLine(false);
               arcPts = []; circC = null; typed = ''; updateVcb();
@@ -3419,7 +3425,7 @@ module InteriorPro
                   ctx.beginPath();
                   ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
                   ctx.fillStyle = '#ffffff'; ctx.fill();
-                  ctx.strokeStyle = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                  ctx.strokeStyle = snapColor(snapInd.kind);
                   ctx.lineWidth = 2.5; ctx.stroke();
                 }
                 return;
@@ -3662,7 +3668,7 @@ module InteriorPro
               ctx.beginPath();
               ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
               ctx.fillStyle = '#ffffff'; ctx.fill();
-              ctx.strokeStyle = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+              ctx.strokeStyle = snapColor(snapInd.kind);
               ctx.lineWidth = 2.5; ctx.stroke();
             }
 
@@ -3873,7 +3879,7 @@ module InteriorPro
                   ctx.beginPath();
                   ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
                   ctx.fillStyle = '#ffffff'; ctx.fill();
-                  ctx.strokeStyle = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                  ctx.strokeStyle = snapColor(snapInd.kind);
                   ctx.lineWidth = 2.5; ctx.stroke();
                 }
                 return;
@@ -3907,7 +3913,7 @@ module InteriorPro
                 ctx.beginPath();
                 ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
                 ctx.fillStyle = '#ffffff'; ctx.fill();
-                ctx.strokeStyle = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                ctx.strokeStyle = snapColor(snapInd.kind);
                 ctx.lineWidth = 2.5; ctx.stroke();
               }
               var txt = fmtLen(Math.hypot(moveOp.dx, moveOp.dy));
@@ -5069,7 +5075,8 @@ module InteriorPro
                   ctx.stroke();
                   ctx.setLineDash([]);
                 }
-                if (parInd && !snapInd) {                  // parallel guide
+                // the guide also stays while touching an edge body
+                if (parInd && (!snapInd || snapInd.kind === 'edge')) {   // parallel guide
                   ctx.strokeStyle = '#c026d3'; ctx.lineWidth = 1;
                   ctx.setLineDash([6, 5]);
                   ctx.beginPath();
@@ -5079,7 +5086,7 @@ module InteriorPro
                   ctx.setLineDash([]);
                 }
                 if (snapInd && !lockedNow) {   // ring on the point: green = corner, cyan = midpoint
-                  var mcol = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                  var mcol = snapColor(snapInd.kind);
                   ctx.beginPath();
                   ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
                   ctx.fillStyle = '#ffffff'; ctx.fill();
@@ -5121,7 +5128,7 @@ module InteriorPro
                   }
                 }
                 if (snapInd) {                // inference point marker
-                  ctx.fillStyle = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                  ctx.fillStyle = snapColor(snapInd.kind);
                   ctx.beginPath();
                   ctx.arc(sx(snapInd.x), sy(snapInd.y), 5, 0, Math.PI*2);
                   ctx.fill();
@@ -5129,7 +5136,7 @@ module InteriorPro
               }
               // Same marker while only HOVERING, before the chain has started.
               if (mode === 'wall' && !drawing && snapInd) {
-                var hcol = snapInd.kind === 'end' ? '#1a9d55' : '#00b8d9';
+                var hcol = snapColor(snapInd.kind);
                 ctx.beginPath();
                 ctx.arc(sx(snapInd.x), sy(snapInd.y), 6, 0, Math.PI * 2);
                 ctx.fillStyle = '#ffffff'; ctx.fill();
@@ -5411,6 +5418,14 @@ module InteriorPro
 
             var snapInd = null;   // last inference point {x, y, kind:'end'|'mid'} for display
 
+            // Snap marker colour: green = corner, cyan = midpoint,
+            // magenta = a point ON the line itself.
+            function snapColor(kind) {
+              if (kind === 'end') return '#1a9d55';
+              if (kind === 'edge') return '#c026d3';
+              return '#00b8d9';
+            }
+
             function snapPoint(p, from) {
               snapInd = null;
               var r = 14 / scale;
@@ -5430,6 +5445,32 @@ module InteriorPro
                 var cf = [];
                 curLine.pts.forEach(function(pt) { cf.push(pt.x, pt.y); });
                 eyeSketch(cf);
+              }
+              // ON-EDGE snap (2026-08-07): the cursor also locks onto the
+              // BODY of a line / shape edge / wall face, not just its
+              // corners and midpoints. Weakest of the three - a corner or
+              // a midpoint nearby always wins - so it never gets in the way.
+              var bestEdge = null, bestEdgeD = 9 / scale;
+              function eyeEdge(flat, closed) {
+                if (!flat || flat.length < 4) return;
+                var n9 = flat.length / 2;
+                function seg(ax, ay, bx, by) {
+                  var vx = bx - ax, vy = by - ay;
+                  var L9 = vx * vx + vy * vy;
+                  if (L9 < 1e-9) return;
+                  var t9 = ((p.x - ax) * vx + (p.y - ay) * vy) / L9;
+                  if (t9 < 0) t9 = 0; else if (t9 > 1) t9 = 1;
+                  var qx = ax + vx * t9, qy = ay + vy * t9;
+                  var d9 = Math.hypot(p.x - qx, p.y - qy);
+                  if (d9 < bestEdgeD) {
+                    bestEdgeD = d9;
+                    bestEdge = { x: qx, y: qy, seg: { ax: ax, ay: ay, bx: bx, by: by } };
+                  }
+                }
+                for (var i9 = 0; i9 + 1 < n9; i9++) {
+                  seg(flat[i9 * 2], flat[i9 * 2 + 1], flat[(i9 + 1) * 2], flat[(i9 + 1) * 2 + 1]);
+                }
+                if (closed && n9 > 2) seg(flat[(n9 - 1) * 2], flat[(n9 - 1) * 2 + 1], flat[0], flat[1]);
               }
               var allW = walls.concat(pending);
               allW.forEach(function(w){
@@ -5487,6 +5528,30 @@ module InteriorPro
               if (bestMid) {
                 snapInd = { x:bestMid.x, y:bestMid.y, kind:'mid' };
                 return { x:bestMid.x, y:bestMid.y, snapped:true };
+              }
+              // no corner and no midpoint nearby - fall back to the edge body
+              guides.forEach(function(g) { eyeEdge([g.x1, g.y1, g.x2, g.y2], false); });
+              sketches.forEach(function(sk) { eyeEdge(sk.pts, sk.closed); });
+              pendingSketches.forEach(function(sk) { eyeEdge(sk.pts, sk.closed); });
+              if (curLine) {
+                var cf2 = [];
+                curLine.pts.forEach(function(pt) { cf2.push(pt.x, pt.y); });
+                eyeEdge(cf2, false);
+              }
+              allW.concat(ghosts).forEach(function(w) {
+                eyeEdge([w.sx, w.sy, w.ex, w.ey], false);
+                var bq2 = bandQuad(w);
+                if (bq2) {
+                  var C5 = endCorners(w, allW, bq2);
+                  if (C5) {
+                    eyeEdge([C5.sp.x, C5.sp.y, C5.ep.x, C5.ep.y], false);
+                    eyeEdge([C5.sq.x, C5.sq.y, C5.eq.x, C5.eq.y], false);
+                  }
+                }
+              });
+              if (bestEdge) {
+                snapInd = { x:bestEdge.x, y:bestEdge.y, kind:'edge', seg:bestEdge.seg };
+                return { x:bestEdge.x, y:bestEdge.y, snapped:true };
               }
               var out = { x:p.x, y:p.y, snapped:false };
               if (from) {
@@ -5604,6 +5669,13 @@ module InteriorPro
                   var pq = applyParallel(anch, q9);
                   if (parInd) dir = { x: parInd.dx, y: parInd.dy };
                   q9 = pq;
+                } else if (snapInd && snapInd.kind === 'edge') {
+                  // Touching the BODY of a wall / line must not throw the
+                  // parallel lock away (2026-08-07): the magenta guide holds
+                  // and the point lands where that direction MEETS the edge,
+                  // so you still connect exactly - until you click.
+                  applyParallel(anch, cursor);
+                  if (parInd) dir = { x: parInd.dx, y: parInd.dy };
                 } else {
                   parInd = null;
                 }
@@ -5613,6 +5685,16 @@ module InteriorPro
                 lockedNow = true;
                 var basePt = q9.snapped ? q9 : cursor;
                 var t9 = (basePt.x - anch.x) * dir.x + (basePt.y - anch.y) * dir.y;
+                // exact meeting point with the edge we are touching
+                if (snapInd && snapInd.kind === 'edge' && snapInd.seg) {
+                  var sg9 = snapInd.seg;
+                  var ex9 = sg9.bx - sg9.ax, ey9 = sg9.by - sg9.ay;
+                  var den9 = dir.x * ey9 - dir.y * ex9;
+                  if (Math.abs(den9) > 1e-6) {
+                    var tt9 = ((sg9.ax - anch.x) * ey9 - (sg9.ay - anch.y) * ex9) / den9;
+                    if (isFinite(tt9) && Math.abs(tt9 - t9) < 60) t9 = tt9;
+                  }
+                }
                 if (typedLen) t9 = typedLen;
                 if (Math.abs(t9) < 0.5) t9 = t9 < 0 ? -0.5 : 0.5;
                 var endPt = { x: anch.x + dir.x * t9, y: anch.y + dir.y * t9 };
