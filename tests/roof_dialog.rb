@@ -17,6 +17,13 @@ module InteriorPro
       )
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol|
+        # Apply in Hip mode = a clean full hip: clear click marks (user
+        # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
+        if style.to_s == 'hip'
+          m = Sketchup.active_model
+          m.set_attribute('InteriorPro', 'roof_gable_wall_ids', [])
+          m.set_attribute('InteriorPro', 'roof_gable_click_xy', [])
+        end
         RoofManager.build_roof!(
           style: style.to_s,
           pitch: pitch.to_f > 0.01 ? pitch.to_f : nil,

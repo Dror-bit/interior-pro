@@ -100,6 +100,11 @@ c('setMode', 'sel'); s('selList', [shp2]); s('sel', shp2);
 c('startFreeMove'); ok('a move is running', g('moveOp') !== null);
 c('setMode', 'line'); ok('switching tools cancels the move', g('moveOp') === null);
 
+// R rotates the selection, the same way M moves it
+c('setMode', 'sel'); s('selList', [shp2]); s('sel', shp2);
+key('KeyR', 'r'); ok('R starts a rotate', g('rotOp') !== null);
+c('rotCancel');
+
 c('setGuideAim', 'v'); ok('guide armed again', g('guideMode') === true);
 c('toggleGuideMode'); ok('the guide button still toggles off', g('guideMode') === false);
 c('toggleGuideMode'); ok('and back on', g('guideMode') === true);
@@ -113,6 +118,90 @@ c('applyBusy', false);
 ok('apply button returns to normal',
    document.getElementById('applyBtn').className === 'blue' &&
    document.getElementById('applyBtn').textContent === 'Apply to Model');
+
+// ---- single line vs polyline (2026-08-07) ----
+s('scale', 1); s('walls', []); s('pending', []); s('sketches', []); s('guides', []);
+s('pendingSketches', []); s('curLine', null);
+c('setMode', 'line'); c('setLineTool', 'line');
+c('addLinePoint', { x: 0, y: 0 });
+c('addLinePoint', { x: 100, y: 0 });
+c('addLinePoint', { x: 100, y: 60 });
+ok('single-line tool: every click-pair is its own object',
+   g('pendingSketches').length === 2, g('pendingSketches').map(function (q) { return q.pts; }));
+ok('and the run keeps going from the last point',
+   g('curLine') && g('curLine').pts.length === 1, g('curLine'));
+c('undoLinePoint');
+ok('undo walks back one segment', g('pendingSketches').length === 1, g('pendingSketches').length);
+c('endLine');
+
+s('pendingSketches', []); s('curLine', null);
+c('setLineTool', 'poly');
+c('addLinePoint', { x: 0, y: 0 });
+c('addLinePoint', { x: 100, y: 0 });
+c('addLinePoint', { x: 100, y: 60 });
+ok('polyline keeps one growing object', g('curLine') && g('curLine').pts.length === 3, g('curLine'));
+c('endLine');
+ok('polyline lands as ONE object with 3 points',
+   g('pendingSketches').length === 1 && g('pendingSketches')[0].pts.length === 6,
+   g('pendingSketches'));
+
+// ---- stretching a line by its end ----
+s('pendingSketches', [{ pts: [0, 0, 100, 0], closed: false, style: 'solid', weight: 1, shape: 'line' }]);
+const ln = { type: 'sketch', sk: g('pendingSketches')[0], kind: 'pending', i: 0 };
+c('setMode', 'sel'); s('selList', [ln]); s('sel', ln);
+const hv = c('hitSketchVertex', { x: 100, y: 0 });
+ok('the end of a selected line is grabbable', hv && hv.i === 1, hv && { i: hv.i });
+s('dragVert', { sk: ln.sk, i: 1, o: ln, pts: ln.sk.pts.slice(), moved: false });
+c('handleMove', c('sx', 160), c('sy', 0));
+ok('dragging the end stretches the line',
+   Math.abs(g('pendingSketches')[0].pts[2] - 160) < 1, g('pendingSketches')[0].pts);
+c('finishVertexDrag');
+ok('the stretch ends cleanly', g('dragVert') === null);
+c('undoAction');
+ok('undo puts the old length back',
+   Math.abs(g('pendingSketches')[0].pts[2] - 100) < 0.01, g('pendingSketches')[0].pts);
+
+// ---- the measure tape locks to the axes (2026-08-07) ----
+s('scale', 1); s('walls', []); s('pending', []); s('sketches', []);
+s('pendingSketches', []); s('guides', []); s('measA', null); s('measB', null);
+c('setMode', 'line'); c('setLineTool', 'measure');
+c('lineToolClick', { x: 0, y: 0 });
+s('cursor', { x: 100, y: 3 });
+let mr = c('measureAim', { x: 100, y: 3 });
+ok('a nearly flat tape locks flat', Math.abs(mr.y) < 1e-9 && g('measAxis') === 'x',
+   { r: mr, ax: g('measAxis') });
+s('cursor', { x: 2, y: 80 }); mr = c('measureAim', { x: 2, y: 80 });
+ok('a nearly upright tape locks upright', Math.abs(mr.x) < 1e-9 && g('measAxis') === 'y',
+   { r: mr, ax: g('measAxis') });
+s('cursor', { x: 60, y: 60 }); mr = c('measureAim', { x: 60, y: 60 });
+ok('a real diagonal is left alone', g('measAxis') === null, g('measAxis'));
+s('shiftDown', true); mr = c('measureAim', { x: 60, y: 20 });
+ok('Shift forces the stronger axis', Math.abs(mr.y) < 1e-9 && g('measAxis') === 'x',
+   { r: mr, ax: g('measAxis') });
+s('shiftDown', false);
+s('cursor', { x: 100, y: 3 }); c('lineToolClick', { x: 100, y: 3 });
+ok('the second click lands on the lock, not the raw cursor',
+   Math.abs(g('measB').y) < 1e-9, g('measB'));
+
+// ---- unapplied work survives closing the editor (2026-08-07) ----
+s('pending', [{ sx: 0, sy: 0, ex: 100, ey: 0, th: 5, ha: 'left', cat: 'exterior' }]);
+s('pendingSketches', [{ pts: [0, 0, 50, 50], closed: false, style: 'solid', weight: 1, shape: 'line' }]);
+s('guides', [{ x1: 0, y1: 20, x2: 1, y2: 20 }]);
+c('saveDraft', true);
+const dcalls = global.__calls.filter(function (x) { return x[0] === 'save_draft'; });
+ok('the draft is parked on the model', dcalls.length > 0);
+const djson = dcalls[dcalls.length - 1][1];
+s('pending', []); s('pendingSketches', []); s('guides', []);   // as if the editor closed
+c('restoreDraft', djson);
+ok('blue walls come back on reopen', g('pending').length === 1, g('pending'));
+ok('unapplied shapes come back', g('pendingSketches').length === 1, g('pendingSketches'));
+ok('helper lines come back', g('guides').length === 1, g('guides'));
+ok('the wall keeps its numbers',
+   g('pending')[0].ex === 100 && g('pending')[0].th === 5, g('pending')[0]);
+c('applyDone', 1);
+ok('applying empties the wall draft', g('pending').length === 0);
+c('sketchesDone', 1);
+ok('applying empties the shape draft', g('pendingSketches').length === 0);
 
 console.log(fails ? '\n*** ' + fails + ' FAILED ***' : '\nALL PASS');
 process.exit(fails ? 1 : 0);

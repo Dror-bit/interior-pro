@@ -1312,6 +1312,15 @@ module InteriorPro
           end
           created << g if g
         end
+        # 2026-08-06: a wall drawn backwards in the editor came out with
+        # exterior/interior swapped. Fix the loop BEFORE mitering.
+        begin
+          if InteriorPro::WallTool.respond_to?(:normalize_exterior_orientation!)
+            InteriorPro::WallTool.normalize_exterior_orientation!(created)
+          end
+        rescue StandardError => e
+          puts "[PlanEditor] normalize orientation: #{e.message}"
+        end
         created.each do |g|
           begin
             InteriorPro::WallTool.join_corners(g, model)

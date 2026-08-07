@@ -55,12 +55,21 @@ reset(); s('mode','line'); c('setLineTool','line');
 s('scale', 1.6);
 let sp = c('snapPoint', { x: 10.31, y: 20.77 }, null);
 ok('snap: rounds to 1/2 in', near(sp.x, 10.5) && near(sp.y, 21.0), sp);
-reset(); s('mode','line'); c('setLineTool','line');
+// Polyline keeps the whole chain in ONE object (the old line behaviour)
+reset(); s('mode','line'); c('setLineTool','poly');
 fire('cv','mousedown',{ button:0, ...toPx(0,0), shiftKey:false, preventDefault(){} });
 fire('cv','mousedown',{ button:0, ...toPx(100,0), shiftKey:false, preventDefault(){} });
 ok('draw: two clicks make a line', g('curLine') && g('curLine').pts.length === 2, g('curLine'));
 c('endLine');
 ok('draw: finished shape is pending', g('pendingSketches').length === 1, g('pendingSketches').length);
+// Single-line tool: each click-pair is its OWN object (2026-08-07)
+reset(); s('mode','line'); c('setLineTool','line');
+fire('cv','mousedown',{ button:0, ...toPx(0,0), shiftKey:false, preventDefault(){} });
+fire('cv','mousedown',{ button:0, ...toPx(100,0), shiftKey:false, preventDefault(){} });
+fire('cv','mousedown',{ button:0, ...toPx(100,60), shiftKey:false, preventDefault(){} });
+ok('draw: single-line tool makes separate lines', g('pendingSketches').length === 2,
+   g('pendingSketches').map(function(s2){ return s2.pts; }));
+c('endLine');
 
 // ---- F. wall drawing regression (mode wall) ----------------------------
 reset(); s('mode','wall'); s('drawing', false); s('startPt', null);

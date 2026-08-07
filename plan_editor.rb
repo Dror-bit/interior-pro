@@ -46,6 +46,18 @@ module InteriorPro
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
+          push_draft(dlg)
+        end
+
+        # Unapplied work (blue walls, un-applied shapes, guides) is parked on
+        # the model as a draft (2026-08-07), so closing the editor - or
+        # SketchUp - never throws it away. Cleared once it is applied.
+        dlg.add_action_callback('save_draft') do |_, json|
+          begin
+            Sketchup.active_model.set_attribute('InteriorPro', 'plan_draft', json.to_s)
+          rescue StandardError => e
+            puts "[PlanEditor] save_draft: #{e.message}"
+          end
         end
         dlg.add_action_callback('sync_model') do |_|
           push_catalogs(dlg)   # re-read the model's wall/door/window defaults
@@ -1107,6 +1119,15 @@ module InteriorPro
         nil
       end
 
+      # Hand the parked draft back to the canvas when the editor opens.
+      def push_draft(dlg)
+        json = Sketchup.active_model.get_attribute('InteriorPro', 'plan_draft').to_s
+        return if json.empty? || json == 'null'
+        dlg.execute_script("restoreDraft(#{JSON.generate(json)})")
+      rescue StandardError => e
+        puts "[PlanEditor] push_draft: #{e.message}"
+      end
+
       def push_underlay(dlg)
         path = Sketchup.active_model.get_attribute('InteriorPro', 'underlay_path').to_s
         return if path.empty? || !File.exist?(path)
@@ -1951,7 +1972,8 @@ module InteriorPro
               <div id="secLine" style="display:none">
                 <div class="sktb">
                   <div class="sktb-g">
-                    <button id="ltLine" title="Line" onclick="setLineTool('line')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 19 L20 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><circle cx="20" cy="5" r="2.2" fill="currentColor"/></svg></button>
+                    <button id="ltLine" title="קו בודד — כל קו הוא אובייקט בפני עצמו" onclick="setLineTool('line')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 19 L20 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><circle cx="20" cy="5" r="2.2" fill="currentColor"/></svg></button>
+                    <button id="ltPoly" title="פוליליין — קווים מחוברים כאובייקט אחד" onclick="setLineTool('poly')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 18 L9 8 L15 14 L21 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="3" cy="18" r="2" fill="currentColor"/><circle cx="21" cy="5" r="2" fill="currentColor"/></svg></button>
                     <button id="ltCirc" title="Circle" onclick="setLineTool('circle')"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
                     <button id="ltArc" title="Arc" onclick="setLineTool('arc')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 18 A12 12 0 0 1 20 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="18" r="2.2" fill="currentColor"/><circle cx="20" cy="18" r="2.2" fill="currentColor"/></svg></button>
                     <button id="ltHex" title="Polygon - type a number then S for the side count" onclick="setLineTool('hex')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 3 L20 7.5 L20 16.5 L12 21 L4 16.5 L4 7.5 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
@@ -2103,6 +2125,38 @@ module InteriorPro
               sel = selList.length ? selList[selList.length - 1] : null;
             }
             var dragSym = null;       // {w, s, startT, curT, valid, moved}
+            // Stretching a line: grab one END of a selected shape and pull it.
+            // Longer, shorter, or swung to a new angle - the rest stays put.
+            var dragVert = null;      // { sk, i, o, pts, moved }
+
+            function hitSketchVertex(p) {
+              var tol = 9 / scale;
+              var best = null, bestD = tol;
+              selList.forEach(function(o) {
+                if (o.type !== 'sketch') return;
+                var f = o.sk.pts;
+                for (var i = 0; i + 1 < f.length; i += 2) {
+                  var d = Math.hypot(f[i] - p.x, f[i + 1] - p.y);
+                  if (d < bestD) { bestD = d; best = { sk: o.sk, i: i / 2, o: o }; }
+                }
+              });
+              return best;
+            }
+
+            function finishVertexDrag() {
+              if (!dragVert) return;
+              var dv = dragVert;
+              dragVert = null;
+              if (dv.moved) {
+                histPush({ shapes: [{ sk: dv.sk, pts: dv.pts.slice() }] });
+                if (dv.o.kind !== 'pending' && dv.sk.id) {
+                  sketchup.update_sketches(JSON.stringify({ shapes: [{ id: dv.sk.id, pts: dv.sk.pts }] }));
+                }
+              }
+              updateSelPanel();
+              draw();
+            }
+
             var dragWall = null;      // {w, b, from:{x,y}, off, moved} - sideways move
             var shiftDown = false;    // Shift = lock the current drawing direction (SketchUp style)
             var lockDir = null;       // locked unit direction while Shift is held
@@ -2897,6 +2951,28 @@ module InteriorPro
             var lineStyle = 'solid';   // derived
             var lineWeight = 1;        // derived
             var measA = null, measB = null;   // measure tool points
+            var measAxis = null;              // 'x' | 'y' while the tape is locked
+
+            // The tape locks to right / left / up / down the moment it points
+            // that way (2026-08-07), and Shift forces the stronger axis. A
+            // real corner or midpoint under the cursor still wins.
+            function measureAim(p) {
+              measAxis = null;
+              var q = snapPoint(p, null);
+              if (!measA || q.snapped) return q;
+              var dx = q.x - measA.x, dy = q.y - measA.y;
+              var lock = null;
+              if (shiftDown) {
+                lock = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+              } else if (Math.hypot(dx, dy) > 1) {
+                if (Math.abs(dy) < Math.abs(dx) * 0.09) lock = 'x';
+                else if (Math.abs(dx) < Math.abs(dy) * 0.09) lock = 'y';
+              }
+              if (!lock) return q;
+              measAxis = lock;
+              return lock === 'x' ? { x: q.x, y: measA.y, snapped: false }
+                                  : { x: measA.x, y: q.y, snapped: false };
+            }
             var polySides = 6;         // polygon tool: type "8s" to change it
 
             // ---- guides (2026-07-31) ----------------------------------------
@@ -3087,6 +3163,8 @@ module InteriorPro
             function refreshToolUi() {
               var t = lineTool;
               document.getElementById('ltLine').className = t === 'line' ? 'on' : '';
+              var pb = document.getElementById('ltPoly');
+              if (pb) pb.className = t === 'poly' ? 'on' : '';
               document.getElementById('ltArc').className = t === 'arc' ? 'on' : '';
               document.getElementById('ltRect').className = t === 'rect' ? 'on' : '';
               document.getElementById('ltCirc').className = t === 'circle' ? 'on' : '';
@@ -3094,7 +3172,8 @@ module InteriorPro
               document.getElementById('ltMeas').className = t === 'measure' ? 'on' : '';
               document.getElementById('ltErase').className = t === 'erase' ? 'on' : '';
               var helps = {
-                line: 'קליק-קליק לציור. חזרה לנקודה הראשונה סוגרת צורה — ואז נוצר משטח במודל.',
+                line: 'קו בודד: כל קליק-קליק יוצר קו נפרד. הציור ממשיך מהנקודה האחרונה · Esc מסיים.',
+                poly: 'פוליליין: כל הקווים הם אובייקט אחד. חזרה לנקודה הראשונה סוגרת צורה — ואז נוצר משטח במודל.',
                 arc: 'קליק בהתחלה, קליק בסוף, ואז קליק כדי לקבוע את הקימור.',
                 rect: 'קליק בפינה אחת ואז בפינה הנגדית · או הקלד רוחב,גובה + Enter.',
                 circle: 'קליק במרכז, ואז קליק לרדיוס (או הקלד רדיוס + Enter).',
@@ -3185,7 +3264,7 @@ module InteriorPro
             function lineToolClick(p) {
               if (lineTool === 'measure') {
                 if (!measA) { measA = p; }
-                else if (!measB) { measB = p; }
+                else if (!measB) { measB = measureAim(cursor || p); }
                 else { measA = p; measB = null; }
                 draw();
                 return true;
@@ -3228,6 +3307,22 @@ module InteriorPro
 
             function addLinePoint(p) {
               if (!curLine) { curLine = { pts: [p] }; draw(); return; }
+              // SINGLE LINE tool (2026-08-07, BricsCAD/AutoCAD habit): every
+              // click-pair becomes its OWN line. The chain keeps running from
+              // the last point so a room is still 5 clicks, but nothing is
+              // welded together. Use the Polyline tool for one linked object.
+              if (lineTool === 'line') {
+                var a = curLine.pts[curLine.pts.length - 1];
+                if (Math.hypot(p.x - a.x, p.y - a.y) > 0.05) {
+                  pendingSketches.push({ pts: [a.x, a.y, p.x, p.y], closed: false,
+                                         style: lineStyle, weight: lineWeight,
+                                         shape: 'line', _seq: ++actSeq });
+                  updateStatus();
+                }
+                curLine = { pts: [p] };
+                draw();
+                return;
+              }
               var first = curLine.pts[0];
               // back on the first point -> close the shape
               if (curLine.pts.length >= 2 && Math.hypot(p.x - first.x, p.y - first.y) < 12 / scale) {
@@ -3253,6 +3348,20 @@ module InteriorPro
             function endLine() { finishLine(false); }
 
             function undoLinePoint() {
+              // Single-line tool: walk BACK along the run, removing the last
+              // finished segment and standing on its start point again.
+              if (lineTool === 'line' && curLine && curLine.pts.length === 1) {
+                var last = pendingSketches[pendingSketches.length - 1];
+                var here = curLine.pts[0];
+                if (last && last.pts.length === 4 &&
+                    Math.hypot(last.pts[2] - here.x, last.pts[3] - here.y) < 0.05) {
+                  pendingSketches.pop();
+                  curLine = { pts: [{ x: last.pts[0], y: last.pts[1] }] };
+                  updateStatus(); draw();
+                  return;
+                }
+                curLine = null; draw(); return;
+              }
               if (curLine && curLine.pts.length > 1) { curLine.pts.pop(); draw(); return; }
               if (curLine) { curLine = null; draw(); return; }
               if (pendingSketches.length) { pendingSketches.pop(); updateStatus(); draw(); }
@@ -3261,6 +3370,7 @@ module InteriorPro
             function sketchesDone(n) {
               pendingSketches = [];
               applyBusy(false);
+              saveDraft(true);
               // applied shapes got new model ids — drop history entries
               // that still point at the old pending objects
               editHist = editHist.filter(function(h) {
@@ -5244,8 +5354,24 @@ module InteriorPro
                 }
               }
               if (mode === 'line' && lineTool === 'measure' && measA && cursor) {
-                var mb = measB || snapPoint(cursor, null);
-                ctx.strokeStyle = '#0a7d4f'; ctx.lineWidth = 1.4;
+                var mb = measB || measureAim(cursor);
+                // locked = the axis colour (red across, green up), like the
+                // wall tool - so you SEE that the tape is running square
+                var mcol2 = measB ? '#0a7d4f'
+                          : (measAxis === 'x' ? '#e0392b' : measAxis === 'y' ? '#1a9d55' : '#0a7d4f');
+                if (!measB && measAxis) {          // the axis it locked onto
+                  ctx.strokeStyle = mcol2; ctx.lineWidth = 1;
+                  ctx.setLineDash([2, 4]);
+                  ctx.beginPath();
+                  if (measAxis === 'x') {
+                    ctx.moveTo(sx(measA.x - 4000), sy(measA.y)); ctx.lineTo(sx(measA.x + 4000), sy(measA.y));
+                  } else {
+                    ctx.moveTo(sx(measA.x), sy(measA.y - 4000)); ctx.lineTo(sx(measA.x), sy(measA.y + 4000));
+                  }
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                }
+                ctx.strokeStyle = mcol2; ctx.lineWidth = measAxis && !measB ? 2 : 1.4;
                 ctx.setLineDash([6, 4]);
                 ctx.beginPath();
                 ctx.moveTo(sx(measA.x), sy(measA.y));
@@ -5255,7 +5381,7 @@ module InteriorPro
                 [measA, mb].forEach(function(mp) {
                   ctx.beginPath();
                   ctx.arc(sx(mp.x), sy(mp.y), 4, 0, Math.PI * 2);
-                  ctx.fillStyle = '#0a7d4f'; ctx.fill();
+                  ctx.fillStyle = mcol2; ctx.fill();
                 });
                 var mtx = (sx(measA.x) + sx(mb.x)) / 2, mty = (sy(measA.y) + sy(mb.y)) / 2;
                 var mtxt = fmtLen(Math.hypot(mb.x - measA.x, mb.y - measA.y));
@@ -5418,6 +5544,19 @@ module InteriorPro
               selList.forEach(function(o) {
                 if (o.type === 'sketch') drawSketch(o.sk.pts, o.sk.closed, '#4b89ff', 3.2, null);
               });
+              // grab handles on the ends of every selected line
+              if (mode === 'sel' && !moveOp && !rotOp && !offOp) {
+                selList.forEach(function(o) {
+                  if (o.type !== 'sketch') return;
+                  var f = o.sk.pts;
+                  for (var i = 0; i + 1 < f.length; i += 2) {
+                    ctx.beginPath();
+                    ctx.rect(sx(f[i]) - 3.5, sy(f[i + 1]) - 3.5, 7, 7);
+                    ctx.fillStyle = '#ffffff'; ctx.fill();
+                    ctx.strokeStyle = '#1a6ee0'; ctx.lineWidth = 1.6; ctx.stroke();
+                  }
+                });
+              }
               if (selList.length > 1) {      // multi-select: outline only, no dims
                 selList.forEach(function(o) {
                   if (o.type === 'sketch' || o.type === 'guide') return;   // already drawn
@@ -6048,6 +6187,14 @@ module InteriorPro
               if (mode === 'sel') {
                 if (ghostCopy) { placeGhostCopy(); return; }
                 if (ghostOpen) { placeGhostOpen(p); return; }
+                // an END of an already-selected line: grab it and stretch
+                var hv = hitSketchVertex(p);
+                if (hv) {
+                  dragVert = { sk: hv.sk, i: hv.i, o: hv.o, pts: hv.sk.pts.slice(), moved: false };
+                  setStatusHint('גרור להארכה / קיצור · שחרר לסיום');
+                  draw();
+                  return;
+                }
                 var he = hitWallEnd(ev.offsetX, ev.offsetY);  // click a corner = choose moving end
                 if (he) { setMovingEnd(he); return; }
                 var dt = hitDimTag(ev.offsetX, ev.offsetY);   // click a dimension = edit it
@@ -6108,7 +6255,8 @@ module InteriorPro
               if (mode === 'line') {
                 cursor = { x:p.x, y:p.y };
                 if (lineTool === 'erase') { erasePick = eraseFind(p); eraseApply(); return; }
-                var lp = (lineTool === 'line' && curLine) ? chainEnd(chainAnchor()) : snapPoint(p, null);
+                var lp = ((lineTool === 'line' || lineTool === 'poly') && curLine)
+                         ? chainEnd(chainAnchor()) : snapPoint(p, null);
                 if (lineToolClick(lp)) { draw(); return; }
                 addLinePoint(lp);
                 typed = ''; updateVcb();
@@ -6156,6 +6304,15 @@ module InteriorPro
 
             function handleMove(px, py) {
               evCount.mm++; updateDbg();
+              if (dragVert) {                       // stretching a line end
+                cursor = { x:mx(px), y:my(py) };
+                var qv = snapPoint(cursor, null);
+                dragVert.sk.pts[dragVert.i * 2] = qv.x;
+                dragVert.sk.pts[dragVert.i * 2 + 1] = qv.y;
+                dragVert.moved = true;
+                draw();
+                return;
+              }
               if (dragUnder) {
                 underX = mx(px) - dragUnder.fx;
                 underY = my(py) - dragUnder.fy;
@@ -6275,7 +6432,7 @@ module InteriorPro
               try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
             });
             cv.addEventListener('pointermove', function(ev) {
-              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder) return;
+              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder && !dragVert) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -6284,7 +6441,7 @@ module InteriorPro
               finishDrag();
             });
             window.addEventListener('mousemove', function(ev) {
-              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder) return;
+              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder && !dragVert) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -6293,6 +6450,7 @@ module InteriorPro
             function finishDrag() {
               evCount.mu++; updateDbg();
               panning = false;
+              if (dragVert) { finishVertexDrag(); return; }
               if (dragUnder) { dragUnder = null; saveUnderlay(); return; }
               if (rubber) {
                 var picked = rubber.on ? rubberPick() : [];
@@ -6416,6 +6574,19 @@ module InteriorPro
                 // O arms / disarms the guide-line tool
                 if (ev.code === 'KeyO' || ev.key === 'o' || ev.key === 'O' || ev.key === 'ם') {
                   toggleGuideMode();
+                  ev.preventDefault();
+                  return;
+                }
+                // R = rotate the selection, the same way M moves it
+                if (ev.code === 'KeyR' || ev.key === 'r' || ev.key === 'R' || ev.key === 'ר') {
+                  if (mode === 'sel' && selList.some(function(o) { return o.type === 'sketch'; })) {
+                    startFreeRotate();
+                  } else if (mode !== 'sel') {
+                    setMode('sel');
+                    setStatusHint('בחר צורה, ואז R מסובב אותה');
+                  } else {
+                    setStatusHint('אין בחירה — בחר צורה ואז R');
+                  }
                   ev.preventDefault();
                   return;
                 }
@@ -6684,7 +6855,7 @@ module InteriorPro
               autoOrientExterior();
               sketchup.apply_walls(JSON.stringify(pending));
             }
-            function applyDone(n) { pending = []; applyBusy(false); draw(); }
+            function applyDone(n) { pending = []; applyBusy(false); saveDraft(true); draw(); }
             function planDone(ok) {}
 
             // Levels (2026-08-03): the editor works on ONE level at a time.
@@ -6742,6 +6913,37 @@ module InteriorPro
               panX = pad - minX * scale;
               panY = pad - minY * scale;
             }
+
+            // ---- draft: unapplied work survives closing the editor ----------
+            // Blue walls, un-applied shapes and helper lines are parked on the
+            // model every couple of seconds and handed back on reopen, so
+            // leaving the editor without Apply never loses the drawing.
+            var lastDraft = '';
+            function draftJson() {
+              return JSON.stringify({ pending: pending, sketches: pendingSketches, guides: guides });
+            }
+            function saveDraft(force) {
+              var j = draftJson();
+              if (!force && j === lastDraft) return;
+              lastDraft = j;
+              try { sketchup.save_draft(j); } catch (e) {}
+            }
+            function restoreDraft(json) {
+              try {
+                var d = typeof json === 'string' ? JSON.parse(json) : json;
+                if (!d) return;
+                if (d.pending && d.pending.length) pending = d.pending;
+                if (d.sketches && d.sketches.length) {
+                  pendingSketches = d.sketches;
+                  pendingSketches.forEach(function(s3) { s3._seq = ++actSeq; });
+                }
+                if (d.guides && d.guides.length) guides = d.guides;
+                lastDraft = draftJson();
+                markGuideBox(); updateStatus(); draw();
+              } catch (e) {}
+            }
+            setInterval(function() { saveDraft(false); }, 1500);
+            window.addEventListener('beforeunload', function() { saveDraft(true); });
 
             fillSelect('dType', DOOR_TYPES[doorCat]);
             fillSelect('wType', WIN_TYPES);
