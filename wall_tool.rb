@@ -1408,7 +1408,7 @@ module InteriorPro
     # fix). Swaps the drawn direction (start<->end), mirrors h_anchor and
     # door positions, rebuilds in place. The body stays exactly where it
     # was - only exterior/interior swap sides.
-    def self.flip_wall_faces!(wall)
+    def self.flip_wall_faces!(wall, wrap_operation: true)
       return false unless wall&.valid? &&
                           wall.get_attribute('InteriorPro', 'type') == 'wall'
       sx = wall.get_attribute('InteriorPro', 'start_x').to_f
@@ -1416,7 +1416,7 @@ module InteriorPro
       ex = wall.get_attribute('InteriorPro', 'end_x').to_f
       ey = wall.get_attribute('InteriorPro', 'end_y').to_f
       model = Sketchup.active_model
-      model.start_operation('InteriorPro Flip Wall', true)
+      model.start_operation('InteriorPro Flip Wall', true) if wrap_operation
       wall.set_attribute('InteriorPro', 'start_x', ex)
       wall.set_attribute('InteriorPro', 'start_y', ey)
       wall.set_attribute('InteriorPro', 'end_x', sx)
@@ -1434,17 +1434,101 @@ module InteriorPro
         persist_door_openings!(wall, openings)
       end
       ok = rebuild_wall_native!(wall)
-      ok ? model.commit_operation : model.abort_operation
+      if wrap_operation
+        ok ? model.commit_operation : model.abort_operation
+      end
       puts "[WallTool] flip_wall_faces!: #{ok ? 'flipped' : 'FAILED'}"
       ok
     rescue StandardError => e
-      begin
-        model.abort_operation
-      rescue StandardError
-        nil
+      if wrap_operation
+        begin
+          model.abort_operation
+        rescue StandardError
+          nil
+        end
       end
       puts "[WallTool] flip_wall_faces!: #{e.message}"
       false
+    end
+
+    # Which walls in a closed exterior loop are drawn against the loop?
+    # Pure geometry (testable): segs = [[sx, sy, ex, ey], ...] in any
+    # order/direction. Returns the indices whose stored start->end runs
+    # against the counter-clockwise traversal - the orientation where the
+    # RIGHT side of start->end (this plugin's exterior side) faces out.
+    # Returns [] when the segments do not form one clean closed loop.
+    def self.reversed_loop_segments(segs, tol = 0.75)
+      return [] if segs.nil? || segs.length < 3
+      pts = segs.map { |g| [[g[0].to_f, g[1].to_f], [g[2].to_f, g[3].to_f]] }
+      same = lambda do |a, b|
+        (a[0] - b[0]).abs < tol && (a[1] - b[1]).abs < tol
+      end
+      order = [0]
+      fwd = [true]
+      used = { 0 => true }
+      cur = pts[0][1]
+      while order.length < segs.length
+        nxt = nil
+        dir = nil
+        pts.each_with_index do |p, i|
+          next if used[i]
+          if same.call(p[0], cur)
+            nxt = i
+            dir = true
+            break
+          elsif same.call(p[1], cur)
+            nxt = i
+            dir = false
+            break
+          end
+        end
+        return [] if nxt.nil?
+        used[nxt] = true
+        order << nxt
+        fwd << dir
+        cur = dir ? pts[nxt][1] : pts[nxt][0]
+      end
+      return [] unless same.call(cur, pts[0][0]) # the loop must close
+      verts = order.each_with_index.map { |i, k| fwd[k] ? pts[i][0] : pts[i][1] }
+      area = 0.0
+      verts.each_with_index do |p, k|
+        q = verts[(k + 1) % verts.length]
+        area += p[0] * q[1] - q[0] * p[1]
+      end
+      fwd = fwd.map { |d| !d } if area < 0.0 # force counter-clockwise
+      order.each_with_index.reject { |_, k| fwd[k] }.map(&:first).sort
+    rescue StandardError => e
+      puts "[WallTool] reversed_loop_segments: #{e.message}"
+      []
+    end
+
+    # 2D->3D (2026-08-06): the editor passes each wall's DRAWN direction
+    # through as-is, and exterior is always the right side of start->end,
+    # so a wall the user happened to draw backwards came out inside-out
+    # (the user's Mac plan, wall a4a2ed66). Flip whoever disagrees with
+    # the loop. Silently does nothing when the walls are not one closed
+    # loop. Caller owns the model operation.
+    def self.normalize_exterior_orientation!(walls)
+      walls = (walls || []).select do |w|
+        w&.valid? && w.get_attribute('InteriorPro', 'type') == 'wall' &&
+          (w.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s == 'exterior'
+      end
+      return 0 if walls.length < 3
+      segs = walls.map do |w|
+        [w.get_attribute('InteriorPro', 'start_x').to_f,
+         w.get_attribute('InteriorPro', 'start_y').to_f,
+         w.get_attribute('InteriorPro', 'end_x').to_f,
+         w.get_attribute('InteriorPro', 'end_y').to_f]
+      end
+      bad = reversed_loop_segments(segs)
+      return 0 if bad.empty?
+      n = 0
+      bad.each { |i| n += 1 if flip_wall_faces!(walls[i], wrap_operation: false) }
+      puts "[WallTool] normalize_exterior_orientation!: flipped #{n} backwards wall(s)"
+      n
+    rescue StandardError => e
+      puts "[WallTool] normalize_exterior_orientation!: #{e.message}"
+      0
     end
 
     def self.rebuild_wall_native!(wall)
