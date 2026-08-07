@@ -32,8 +32,10 @@ c('toggleGuideMode');
 ok('dot shows while guide mode is on', els.guideDot.style.display==='');
 c('toggleGuideMode');
 ok('dot hides when guide mode goes off', els.guideDot.style.display==='none');
+c('setGuideAim','2pt');
 c('guideClick',{x:0,y:0}); c('guideClick',{x:100,y:0});
 ok('a drawn guide keeps the dot on', g('guides').length===1 && els.guideDot.style.display==='', {n:g('guides').length, d:els.guideDot.style.display});
+if (g('guideMode')) c('toggleGuideMode');   // a direction button also arms guide mode
 c('clearGuides');
 ok('clearing turns the dot off', g('guides').length===0 && els.guideDot.style.display==='none');
 

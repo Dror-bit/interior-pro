@@ -1777,6 +1777,9 @@ module InteriorPro
             #top button { flex:0 0 auto; white-space:nowrap; }
             button { border:0; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:12px; }
             .blue { background:#4b89ff; color:#fff; } .gray { background:#57606f; color:#fff; }
+            /* every button dips when pressed, so a click always LOOKS like one */
+            button:active { transform:translateY(1px); filter:brightness(0.88); }
+            .blue.busy { background:#2f6bd8; box-shadow:inset 0 2px 5px rgba(0,0,0,.35); }
             .red { background:#e0392b; color:#fff; }
             #main { display:flex; height:calc(100% - 66px); min-width:0; }
             /* min-width:0 + overflow:hidden let the canvas shrink instead of
@@ -1791,8 +1794,17 @@ module InteriorPro
             #side label { display:block; margin:8px 0 3px; color:#333; }
             #side input[type=text] { width:70px; padding:3px; border:1px solid #c3c9d1; border-radius:3px; }
             #side select { width:100%; padding:3px; border:1px solid #c3c9d1; border-radius:3px; }
-            .seg { display:flex; gap:4px; }
+            .seg { display:flex; gap:4px; flex-wrap:wrap; }
             .seg button { background:#fff; border:1px solid #c3c9d1; color:#333; }
+            /* Guide direction buttons: 4 equal cells, never clipped. */
+            .seg3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; }
+            .seg3 button { background:#fff; border:1px solid #c3c9d1; color:#333;
+                           padding:5px 2px; min-width:0; display:flex;
+                           align-items:center; justify-content:center; }
+            .seg3 button.on { background:#dce9ff; border-color:#4b89ff; }
+            .seg2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:4px; }
+            .seg2 button { background:#fff; border:1px solid #c3c9d1; color:#333;
+                           padding:5px 2px; font-size:12px; white-space:nowrap; min-width:0; }
             .seg button.on { background:#dce9ff; border-color:#4b89ff; }
             #bottom { height:30px; background:#eceff3; border-top:1px solid #d6dae0; display:flex; align-items:center; padding:0 10px; gap:10px; overflow:hidden; }
             #vcb { background:#fffbe6; border:1px solid #e0b400; border-radius:3px; padding:3px 8px; min-width:70px; font-weight:bold; flex:0 0 auto; }
@@ -1827,7 +1839,7 @@ module InteriorPro
           </style></head><body>
           <div id="top">
             <span class="title">Interior Pro - 2D Editor</span>
-            <button class="blue" onclick="applyPending()">Apply to Model</button>
+            <button id="applyBtn" class="blue" onclick="applyPending()">Apply to Model</button>
             <button class="gray" onclick="sketchup.build_plan()">Plans (2D)</button>
             <button class="gray" onclick="sketchup.sync_model()">Sync</button>
           </div>
@@ -1992,9 +2004,35 @@ module InteriorPro
                   <span id="guideCaret" class="caret">▾</span>
                 </div>
                 <div id="guideBody" class="foldBody" style="display:none">
-                  <div class="seg">
+                  <div class="seg2">
                     <button id="guideBtn" onclick="toggleGuideMode()">קו עזר</button>
                     <button onclick="clearGuides()">נקה עזר</button>
+                  </div>
+                  <div class="seg3" style="margin-top:6px">
+                    <button id="gaH" class="on" title="קו עזר אופקי" onclick="setGuideAim('h')">
+                      <svg width="20" height="16" viewBox="0 0 20 16"><path d="M2 8 H18" fill="none"
+                        stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2"/></svg></button>
+                    <button id="gaV" title="קו עזר אנכי" onclick="setGuideAim('v')">
+                      <svg width="20" height="16" viewBox="0 0 20 16"><path d="M10 1 V15" fill="none"
+                        stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2"/></svg></button>
+                    <button id="gaA" title="קו עזר בזווית" onclick="setGuideAim('ang')">
+                      <svg width="20" height="16" viewBox="0 0 20 16"><path d="M3 14 L17 2" fill="none"
+                        stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2"/></svg></button>
+                  </div>
+                  <div class="row" style="margin-top:6px; display:flex; align-items:center; gap:6px">
+                    <input type="number" id="guideAng" value="45" step="1"
+                           style="width:64px; flex:0 0 auto" oninput="setGuideAim('ang')">
+                    <span style="flex:0 0 auto; color:#555">°</span>
+                    <button id="gaFlip" title="הפוך לזווית המשלימה (מקש U)" onclick="flipGuideAngle()"
+                            style="flex:0 0 auto; padding:4px 8px">
+                      <svg width="18" height="16" viewBox="0 0 20 16">
+                        <path d="M3 14 L17 2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                        <path d="M3 2 L17 14" fill="none" stroke="#b9c0c9" stroke-width="1.6"/></svg></button>
+                    <span id="gaShow" style="flex:1 1 auto; color:#777; font-size:12px">45°</span>
+                  </div>
+                  <div class="seg2" style="margin-top:6px">
+                    <button onclick="dupGuides()">שכפל נבחר</button>
+                    <button onclick="deleteSelected()">מחק נבחר</button>
                   </div>
                 </div>
               </div>
@@ -2194,7 +2232,27 @@ module InteriorPro
               document.getElementById('dSwL').className = s === 'left' ? 'on' : '';
               document.getElementById('dSwR').className = s === 'right' ? 'on' : '';
             }
+            // Picking ANY tool ends whatever was running (2026-08-07). No
+            // Escape first: one click on a button = that tool, every time.
+            function cancelOps() {
+              if (rotOp) rotCancel();
+              if (moveOp) moveCancel();
+              if (offOp) offCancel();
+              if (guideMode) {
+                guideMode = false;
+                var gb = document.getElementById('guideBtn');
+                if (gb) gb.className = '';
+                markGuideBox();
+              }
+              guideStart = null;
+              calib = null;
+              ghostCopy = null; ghostOpen = null;
+              rubber = null;
+              setStatusHint(null);
+            }
+
             function setMode(m) {
+              cancelOps();
               mode = m; endChain(); hoverHit = null; setSel(null); dragSym = null;
               // Doors/windows need applied walls - apply pending automatically.
               if ((m === 'door' || m === 'win') && pending.length) applyPending();
@@ -2258,9 +2316,10 @@ module InteriorPro
               // The edit strip: only the actions that fit the selection show.
               var hasShapes = selList.some(function(o) { return o.type === 'sketch'; });
               var hasWalls = selList.some(function(o) { return o.type === 'wall' || o.type === 'pending'; });
+              var hasGuides = selList.some(function(o) { return o.type === 'guide'; });
               ebar.style.display = '';
               var eb = function(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; };
-              eb('ebMove', hasShapes || hasWalls);
+              eb('ebMove', hasShapes || hasWalls || hasGuides);
               eb('ebOff', hasShapes);
               eb('ebArea', selList.some(function(o) { return o.type === 'sketch' && o.sk.closed; }));
               eb('ebFlipH', hasShapes || hasWalls); eb('ebFlipV', hasShapes || hasWalls);
@@ -2279,6 +2338,10 @@ module InteriorPro
                 info.innerHTML = 'נבחרו <b>' + selList.length + '</b> אלמנטים' +
                   '<br><span style="font-size:11px; color:#777">' + nWall + ' קירות · ' + nOpen +
                   ' פתחים · ' + nShape + ' צורות</span>';
+                return;
+              }
+              if (sel.type === 'guide') {
+                info.textContent = 'קו עזר · M להזזה · Delete למחיקה';
                 return;
               }
               if (sel.type === 'sketch') {
@@ -2366,6 +2429,9 @@ module InteriorPro
               });
               (h.pwalls || []).forEach(function(r) {
                 r.t.sx = r.sx; r.t.sy = r.sy; r.t.ex = r.ex; r.t.ey = r.ey;
+              });
+              (h.guides || []).forEach(function(r) {
+                r.t.x1 = r.sx; r.t.y1 = r.sy; r.t.x2 = r.ex; r.t.y2 = r.ey;
               });
               if (payload.length) sketchup.update_sketches(JSON.stringify({ shapes: payload }));
               if (h.wmove) sketchup.move_selection(JSON.stringify({ ids: h.wmove.ids, dx: -h.wmove.dx, dy: -h.wmove.dy }));
@@ -2848,11 +2914,68 @@ module InteriorPro
               if (d) d.style.display = (guideMode || guides.length) ? '' : 'none';
             }
 
+            // BricsCAD-style guides (2026-08-07): pick the direction first -
+            // horizontal, vertical or a typed angle - and ONE click drops an
+            // infinite helper line there. Two-point mode is still available.
+            var guideAim = 'h';        // 'h' | 'v' | 'ang' | '2pt'
+
+            function guideHint() {
+              if (guideAim === '2pt') return 'קליק בשתי נקודות ליצירת קו עזר · Esc לכיבוי';
+              var w = guideAim === 'h' ? 'אופקי' : guideAim === 'v' ? 'אנכי' : guideAngle() + '°';
+              return 'קליק אחד מניח קו עזר ' + w + ' · Esc לכיבוי';
+            }
+
+            function guideAngle() {
+              var el = document.getElementById('guideAng');
+              var v = el ? parseFloat(el.value) : 45;
+              return isFinite(v) ? v : 45;
+            }
+
+            function setGuideAim(t) {
+              guideAim = t;
+              guideStart = null;
+              ['h', 'v', 'ang', '2pt'].forEach(function(k) {
+                var id = k === 'h' ? 'gaH' : k === 'v' ? 'gaV' : k === 'ang' ? 'gaA' : 'ga2';
+                var b = document.getElementById(id);
+                if (b) b.className = (t === k) ? 'on' : '';
+              });
+              showGuideAngle();
+              if (!guideMode) toggleGuideMode(); else setStatusHint(guideHint());
+              draw();
+            }
+
+            function showGuideAngle() {
+              var s = document.getElementById('gaShow');
+              if (s) s.textContent = guideAngle() + '°';
+            }
+
+            // U flips to the OTHER diagonal: 45 <-> 135, 30 <-> 150 - the
+            // same line mirrored, which is the second option every time.
+            function flipGuideAngle() {
+              var a = 180 - guideAngle();
+              a = ((a % 180) + 180) % 180;
+              var el = document.getElementById('guideAng');
+              if (el) el.value = a;
+              setGuideAim('ang');
+            }
+
+            // Direction the next guide will take, as a unit vector.
+            function guideDir() {
+              if (guideAim === 'v') return { x: 0, y: 1 };
+              if (guideAim === 'ang') {
+                var a = guideAngle() * Math.PI / 180;
+                return { x: Math.cos(a), y: Math.sin(a) };
+              }
+              return { x: 1, y: 0 };
+            }
+
             function toggleGuideMode() {
-              guideMode = !guideMode;
+              var was = guideMode;
+              cancelOps();               // drops move / rotate / offset first
+              guideMode = !was;
               guideStart = null;
               document.getElementById('guideBtn').className = guideMode ? 'on' : '';
-              setStatusHint(guideMode ? 'קליק בשתי נקודות ליצירת קו עזר · לחץ שוב לכיבוי' : null);
+              setStatusHint(guideMode ? guideHint() : null);
               markGuideBox();
               draw();
             }
@@ -2860,28 +2983,83 @@ module InteriorPro
             function clearGuides() { guides = []; markGuideBox(); draw(); }
 
             function guideClick(p) {
-              if (!guideStart) { guideStart = p; draw(); return true; }
-              guides.push({ x1: guideStart.x, y1: guideStart.y, x2: p.x, y2: p.y });
-              guideStart = null;
+              if (guideAim === '2pt') {
+                if (!guideStart) { guideStart = p; draw(); return true; }
+                guides.push({ x1: guideStart.x, y1: guideStart.y, x2: p.x, y2: p.y });
+                guideStart = null;
+              } else {
+                var d = guideDir();
+                guides.push({ x1: p.x, y1: p.y, x2: p.x + d.x, y2: p.y + d.y });
+              }
               markGuideBox();
               draw();
               return true;
             }
 
+            // Click near a guide (in Select mode) to grab it.
+            function hitGuide(p) {
+              var tol = 7 / scale;
+              var best = null, bestD = tol;
+              guides.forEach(function(g, i) {
+                var dx = g.x2 - g.x1, dy = g.y2 - g.y1;
+                var L = Math.hypot(dx, dy);
+                if (L < 1e-9) return;
+                var d = Math.abs((p.x - g.x1) * (dy / L) - (p.y - g.y1) * (dx / L));
+                if (d < bestD) { bestD = d; best = { type: 'guide', g: g, i: i }; }
+              });
+              return best;
+            }
+
+            // Copy every selected guide and start moving the copies, so a
+            // duplicate lands wherever you drop it.
+            function dupGuides() {
+              var gs = selList.filter(function(o) { return o.type === 'guide'; });
+              if (!gs.length) return;
+              var made = [];
+              gs.forEach(function(o) {
+                var c = { x1: o.g.x1, y1: o.g.y1, x2: o.g.x2, y2: o.g.y2 };
+                guides.push(c);
+                made.push({ type: 'guide', g: c, i: guides.length - 1 });
+              });
+              selList = made; sel = made[made.length - 1];
+              markGuideBox(); updateSelPanel();
+              startFreeMove();
+            }
+
+            function deleteGuides(list) {
+              list.forEach(function(o) {
+                var k = guides.indexOf(o.g);
+                if (k >= 0) guides.splice(k, 1);
+              });
+              markGuideBox();
+            }
+
+            function drawGuideLine(g, col, w) {
+              var dx = g.x2 - g.x1, dy = g.y2 - g.y1;
+              var L = Math.hypot(dx, dy) || 1;
+              var ux = dx / L, uy = dy / L;
+              ctx.strokeStyle = col; ctx.lineWidth = w;
+              ctx.beginPath();
+              ctx.moveTo(sx(g.x1 - ux * 5000), sy(g.y1 - uy * 5000));
+              ctx.lineTo(sx(g.x1 + ux * 5000), sy(g.y1 + uy * 5000));
+              ctx.stroke();
+            }
+
             function drawGuides() {
-              ctx.strokeStyle = '#00b8d9'; ctx.lineWidth = 1;
               ctx.setLineDash([3, 5]);
               guides.forEach(function(g) {
                 // drawn well past both ends so it reads as an infinite helper
-                var dx = g.x2 - g.x1, dy = g.y2 - g.y1;
-                var L = Math.hypot(dx, dy) || 1;
-                var ux = dx / L, uy = dy / L;
-                ctx.beginPath();
-                ctx.moveTo(sx(g.x1 - ux * 5000), sy(g.y1 - uy * 5000));
-                ctx.lineTo(sx(g.x1 + ux * 5000), sy(g.y1 + uy * 5000));
-                ctx.stroke();
+                var on = selList.some(function(o) { return o.type === 'guide' && o.g === g; });
+                drawGuideLine(g, on ? '#e0392b' : '#00b8d9', on ? 2 : 1);
               });
+              // live preview of the guide about to be dropped
+              if (guideMode && cursor && guideAim !== '2pt') {
+                var d = guideDir();
+                drawGuideLine({ x1: cursor.x, y1: cursor.y, x2: cursor.x + d.x, y2: cursor.y + d.y },
+                              '#9be3f2', 1);
+              }
               if (guideStart && cursor) {
+                ctx.strokeStyle = '#00b8d9'; ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(sx(guideStart.x), sy(guideStart.y));
                 ctx.lineTo(sx(cursor.x), sy(cursor.y));
@@ -2931,7 +3109,7 @@ module InteriorPro
             function setLineTool(t) {
               // clicking a drawing tool from Select mode jumps straight
               // into drawing — no separate mode click needed
-              if (mode !== 'line') { setMode('line'); }
+              if (mode !== 'line') { setMode('line'); } else { cancelOps(); }
               lineTool = t;
               if (curLine) finishLine(false);
               arcPts = []; circC = null; typed = ''; updateVcb();
@@ -3082,6 +3260,7 @@ module InteriorPro
 
             function sketchesDone(n) {
               pendingSketches = [];
+              applyBusy(false);
               // applied shapes got new model ids — drop history entries
               // that still point at the old pending objects
               editHist = editHist.filter(function(h) {
@@ -3327,6 +3506,7 @@ module InteriorPro
             var offOp = null;   // { shapes:[o], d, sgn, prev:[{pts,closed,sk}] }
 
             function startFreeOffset() {
+              cancelOps();
               var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
               if (!shapes.length) return;
               offOp = { shapes: shapes, start: null, d: 0, sgn: 1, prev: [] };
@@ -3538,6 +3718,7 @@ module InteriorPro
             // The SketchUp protractor: click the centre, click a start point to
             // fix the base angle, then turn. Degrees can be typed at any point.
             function startFreeRotate() {
+              cancelOps();
               var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
               if (!shapes.length) return;
               rotOp = {
@@ -3758,6 +3939,7 @@ module InteriorPro
             var moveOp = null;   // { grab, orig:[{o, pts}], dx, dy, lock }
 
             function startFreeMove() {
+              cancelOps();
               // Move works on EVERYTHING selected (2026-08-04): shapes,
               // pending walls and applied walls travel together - the base
               // for fences, kitchens, pools and the rest.
@@ -3765,6 +3947,8 @@ module InteriorPro
               selList.forEach(function(o) {
                 if (o.type === 'sketch') {
                   recs.push({ kind: 'sk', o: o, pts: o.sk.pts.slice() });
+                } else if (o.type === 'guide') {
+                  recs.push({ kind: 'gd', t: o.g, sx: o.g.x1, sy: o.g.y1, ex: o.g.x2, ey: o.g.y2 });
                 } else if (o.type === 'pending' && pending[o.i]) {
                   var pw0 = pending[o.i];
                   recs.push({ kind: 'pw', t: pw0, sx: pw0.sx, sy: pw0.sy, ex: pw0.ex, ey: pw0.ey });
@@ -3795,6 +3979,11 @@ module InteriorPro
                   var f = rec.pts, np = [];
                   for (var i = 0; i + 1 < f.length; i += 2) np.push(f[i] + dx, f[i + 1] + dy);
                   rec.o.sk.pts = np;
+                  return;
+                }
+                if (rec.kind === 'gd') {          // helper line: both ends shift
+                  rec.t.x1 = rec.sx + dx; rec.t.y1 = rec.sy + dy;
+                  rec.t.x2 = rec.ex + dx; rec.t.y2 = rec.ey + dy;
                   return;
                 }
                 var t = rec.t;
@@ -3841,12 +4030,13 @@ module InteriorPro
               });
               // record the move so Ctrl+Z puts everything back
               if (Math.abs(mdx) > 0.001 || Math.abs(mdy) > 0.001) {
-                var hsh = [], hpw = [];
+                var hsh = [], hpw = [], hgd = [];
                 moveOp.orig.forEach(function(rec) {
                   if (rec.kind === 'sk') hsh.push({ sk: rec.o.sk, pts: rec.pts.slice() });
                   else if (rec.kind === 'pw') hpw.push({ t: rec.t, sx: rec.sx, sy: rec.sy, ex: rec.ex, ey: rec.ey });
+                  else if (rec.kind === 'gd') hgd.push({ t: rec.t, sx: rec.sx, sy: rec.sy, ex: rec.ex, ey: rec.ey });
                 });
-                histPush({ shapes: hsh, pwalls: hpw,
+                histPush({ shapes: hsh, pwalls: hpw, guides: hgd,
                            wmove: wallIds.length ? { ids: wallIds.slice(), dx: mdx, dy: mdy } : null });
               }
               moveOp = null;
@@ -3862,6 +4052,10 @@ module InteriorPro
               if (!moveOp) return;
               moveOp.orig.forEach(function(rec) {
                 if (rec.kind === 'sk') { rec.o.sk.pts = rec.pts.slice(); return; }
+                if (rec.kind === 'gd') {
+                  rec.t.x1 = rec.sx; rec.t.y1 = rec.sy; rec.t.x2 = rec.ex; rec.t.y2 = rec.ey;
+                  return;
+                }
                 var t = rec.t;
                 t.sx = rec.sx; t.sy = rec.sy; t.ex = rec.ex; t.ey = rec.ey;
                 if (rec.kind === 'w' && rec.corners) t.corners = rec.corners.slice();
@@ -3955,6 +4149,15 @@ module InteriorPro
 
             function deleteSelected() {
               if (!sel) return;
+              // helper lines are editor-only: they just go, no confirm
+              var gsel = selList.filter(function(o) { return o.type === 'guide'; });
+              if (gsel.length) {
+                deleteGuides(gsel);
+                selList = selList.filter(function(o) { return o.type !== 'guide'; });
+                sel = selList.length ? selList[selList.length - 1] : null;
+                updateSelPanel(); draw();
+                if (!sel) return;
+              }
               if (sel.type === 'sketch' && selList.length === 1) {
                 if (!confirm('למחוק את הצורה?')) return;
                 deleteShapes([sel]);
@@ -5217,7 +5420,7 @@ module InteriorPro
               });
               if (selList.length > 1) {      // multi-select: outline only, no dims
                 selList.forEach(function(o) {
-                  if (o.type === 'sketch') return;   // already outlined above
+                  if (o.type === 'sketch' || o.type === 'guide') return;   // already drawn
                   if (o.type === 'wall') outlineBand(o.w, '#4b89ff');
                   else if (o.type === 'pending') { var pw2 = pending[o.i]; if (pw2) outlineBand(pw2, '#4b89ff'); }
                   else outlineOpening(o.w, o.s, o.s.t, '#4b89ff');
@@ -5226,6 +5429,7 @@ module InteriorPro
               }
               if (!sel) return;
               if (sel.type === 'sketch') return;
+              if (sel.type === 'guide') return;   // already drawn red by drawGuides
               if (sel.type === 'wall') { outlineBand(sel.w, '#4b89ff'); drawWallDims(sel.w); }
               else if (sel.type === 'pending') {
                 var w = pending[sel.i];
@@ -5885,6 +6089,10 @@ module InteriorPro
                       var pw0 = pending[pi];
                       dragWall = { w:pw0, b:bandQuad(pw0), pi:pi, from:{x:p.x, y:p.y},
                                    sxy:{x:ev.offsetX, y:ev.offsetY}, off:0, moved:false };
+                    } else if (hitGuide(p)) {               // a helper line
+                      var gsel = hitGuide(p);
+                      if (ev.shiftKey) { toggleSel(gsel); updateSelPanel(); draw(); return; }
+                      setSel(gsel);
                     } else if (underImg && !underLocked) {   // move the background
                       dragUnder = { fx:p.x - underX, fy:p.y - underY };
                     } else {         // empty space -> rubber-band selection
@@ -6189,6 +6397,35 @@ module InteriorPro
                 if (mode === 'sel') { setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw(); }
                 return;
               }
+              // Mode shortcuts (2026-08-07): S select · D door · W window ·
+              // L line. ev.code is the PHYSICAL key, so a Hebrew layout works.
+              // Held back while an op runs or while a number is half-typed,
+              // so 5' stays 5' instead of jumping to Window mode.
+              if (!moveOp && !rotOp && !offOp && !dragWall && !dragSym && !typed) {
+                var mk = null;
+                if (ev.code === 'KeyS' || ev.key === 's' || ev.key === 'S') mk = 'sel';
+                else if (ev.code === 'KeyD' || ev.key === 'd' || ev.key === 'D') mk = 'door';
+                else if (ev.code === 'KeyW' || ev.key === 'w' || ev.key === 'W') mk = 'win';
+                else if (ev.code === 'KeyL' || ev.key === 'l' || ev.key === 'L') mk = 'line';
+                if (mk) {
+                  if (guideMode) toggleGuideMode();
+                  setMode(mk);
+                  ev.preventDefault();
+                  return;
+                }
+                // O arms / disarms the guide-line tool
+                if (ev.code === 'KeyO' || ev.key === 'o' || ev.key === 'O' || ev.key === 'ם') {
+                  toggleGuideMode();
+                  ev.preventDefault();
+                  return;
+                }
+              }
+              // U (physical key, so Hebrew "ו" works) flips the guide angle
+              // to the other diagonal while the guide tool is armed.
+              if (guideMode &&
+                  (ev.code === 'KeyU' || ev.key === 'u' || ev.key === 'U' || ev.key === 'ו')) {
+                flipGuideAngle(); ev.preventDefault(); return;
+              }
               // M = free move for the current selection (SketchUp habit).
               // ev.code is the PHYSICAL key, so a Hebrew layout ("צ")
               // works the same. Ignored while another op is running.
@@ -6433,13 +6670,21 @@ module InteriorPro
               draw();
             }
 
+            function applyBusy(on) {
+              var b = document.getElementById('applyBtn');
+              if (!b) return;
+              b.className = on ? 'blue busy' : 'blue';
+              b.textContent = on ? 'מחיל…' : 'Apply to Model';
+            }
+
             function applyPending() {
+              applyBusy(true);            // the button shows it was pressed
               if (pendingSketches.length) sketchup.apply_sketches(JSON.stringify(pendingSketches));
-              if (!pending.length) return;
+              if (!pending.length) { setTimeout(function() { applyBusy(false); }, 250); return; }
               autoOrientExterior();
               sketchup.apply_walls(JSON.stringify(pending));
             }
-            function applyDone(n) { pending = []; draw(); }
+            function applyDone(n) { pending = []; applyBusy(false); draw(); }
             function planDone(ok) {}
 
             // Levels (2026-08-03): the editor works on ONE level at a time.
