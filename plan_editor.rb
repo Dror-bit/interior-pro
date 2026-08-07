@@ -1312,6 +1312,15 @@ module InteriorPro
           end
           created << g if g
         end
+        # 2026-08-06: a wall drawn backwards in the editor came out with
+        # exterior/interior swapped. Fix the loop BEFORE mitering.
+        begin
+          if InteriorPro::WallTool.respond_to?(:normalize_exterior_orientation!)
+            InteriorPro::WallTool.normalize_exterior_orientation!(created)
+          end
+        rescue StandardError => e
+          puts "[PlanEditor] normalize orientation: #{e.message}"
+        end
         created.each do |g|
           begin
             InteriorPro::WallTool.join_corners(g, model)
@@ -2330,6 +2339,47 @@ module InteriorPro
             // but not yet applied; sketches are what already exists in the model.
             var sketches = [];
             var pendingSketches = [];
+            // Canvas-side undo history (2026-08-07): every move / rotate /
+            // flip of shapes is recorded, so Ctrl+Z first REVERTS the last
+            // transform instead of deleting the newest shape. actSeq orders
+            // transforms against shape creation (newest thing undoes first).
+            var editHist = [];
+            var actSeq = 0;
+            function histPush(entry) {
+              entry.seq = ++actSeq;
+              editHist.push(entry);
+              if (editHist.length > 100) editHist.shift();
+            }
+            function histUndo() {
+              if (!editHist.length) return false;
+              var h = editHist[editHist.length - 1];
+              var lastSk = pendingSketches.length ? pendingSketches[pendingSketches.length - 1] : null;
+              if (lastSk && (lastSk._seq || 0) > h.seq) return false; // shape is newer
+              editHist.pop();
+              var payload = [];
+              (h.shapes || []).forEach(function(r) {
+                r.sk.pts = r.pts.slice();
+                if (r.sk.id) payload.push({ id: r.sk.id, pts: r.sk.pts });
+              });
+              (h.pwalls || []).forEach(function(r) {
+                r.t.sx = r.sx; r.t.sy = r.sy; r.t.ex = r.ex; r.t.ey = r.ey;
+              });
+              if (payload.length) sketchup.update_sketches(JSON.stringify({ shapes: payload }));
+              if (h.wmove) sketchup.move_selection(JSON.stringify({ ids: h.wmove.ids, dx: -h.wmove.dx, dy: -h.wmove.dy }));
+              updateStatus(); draw();
+              return true;
+            }
+            // Undoing a finished polyline walks BACK one segment at a time —
+            // the same steps it was drawn in. Other shapes go in one piece.
+            function popSketchStep() {
+              if (!pendingSketches.length) return false;
+              var sk = pendingSketches[pendingSketches.length - 1];
+              var lineish = !sk.shape || sk.shape === 'line';
+              if (lineish && sk.closed && sk.pts.length >= 6) { sk.closed = false; draw(); return true; }
+              if (lineish && sk.pts.length > 4) { sk.pts = sk.pts.slice(0, -2); draw(); return true; }
+              pendingSketches.pop(); updateStatus(); draw();
+              return true;
+            }
             var curLine = null;     // { pts:[{x,y}...] }
 
             var ghostCopy = null;   // { src:[wall...], ox, oy } while placing
@@ -2941,7 +2991,8 @@ module InteriorPro
               var flat = [];
               pts.forEach(function(pt) { flat.push(pt.x, pt.y); });
               pendingSketches.push({ pts: flat, closed: !!closed, style: lineStyle,
-                                     weight: lineWeight, shape: shape || 'line' });
+                                     weight: lineWeight, shape: shape || 'line',
+                                     _seq: ++actSeq });
               updateStatus();
               draw();
             }
@@ -3007,7 +3058,8 @@ module InteriorPro
               if (!curLine || curLine.pts.length < 2) { curLine = null; draw(); return; }
               var flat = [];
               curLine.pts.forEach(function(pt) { flat.push(pt.x, pt.y); });
-              pendingSketches.push({ pts: flat, closed: !!closed, style: lineStyle, weight: lineWeight });
+              pendingSketches.push({ pts: flat, closed: !!closed, style: lineStyle,
+                                     weight: lineWeight, _seq: ++actSeq });
               curLine = null;
               updateStatus();
               draw();
@@ -3022,7 +3074,15 @@ module InteriorPro
               if (pendingSketches.length) { pendingSketches.pop(); updateStatus(); draw(); }
             }
 
-            function sketchesDone(n) { pendingSketches = []; updateStatus(); draw(); }
+            function sketchesDone(n) {
+              pendingSketches = [];
+              // applied shapes got new model ids — drop history entries
+              // that still point at the old pending objects
+              editHist = editHist.filter(function(h) {
+                return !(h.shapes || []).some(function(r) { return !r.sk.id; });
+              });
+              updateStatus(); draw();
+            }
 
             function flatten(pts) {
               var f = [];
@@ -3335,7 +3395,8 @@ module InteriorPro
                 pendingSketches.push({ pts: pc.pts, closed: pc.closed,
                                        style: pc.sk.style || 'solid',
                                        weight: pc.sk.weight || 1,
-                                       shape: pc.sk.shape || 'line' });
+                                       shape: pc.sk.shape || 'line',
+                                       _seq: ++actSeq });
                 made++;
               });
               offOp = null;
@@ -3443,6 +3504,10 @@ module InteriorPro
               var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
               if (!shapes.length) return;
               var c = selShapesCentre(shapes);
+              // snapshot before the flip/turn, so Ctrl+Z reverts it
+              histPush({ shapes: shapes.map(function(o) {
+                return { sk: o.sk, pts: o.sk.pts.slice() };
+              }) });
               var payload = [];
               shapes.forEach(function(o) {
                 var f = o.sk.pts;
@@ -3572,6 +3637,12 @@ module InteriorPro
                   payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
                 }
               });
+              // record the turn so Ctrl+Z turns it back
+              if (Math.abs(rotOp.ang) > 1e-9) {
+                histPush({ shapes: rotOp.orig.map(function(rec) {
+                  return { sk: rec.o.sk, pts: rec.pts.slice() };
+                }) });
+              }
               rotOp = null;
               setStatusHint(null);
               draw();
@@ -3698,7 +3769,7 @@ module InteriorPro
               });
               if (!recs.length) return;
               moveOp = { grab: null, dx: 0, dy: 0, lock: null, orig: recs };
-              setStatusHint('לחץ על נקודת אחיזה באובייקט — פינה, קצה או אמצע');
+              setStatusHint('קליק ראשון תופס — מכל מקום, לא חייב על האובייקט · קליק שני מניח');
               draw();
             }
 
@@ -3762,6 +3833,16 @@ module InteriorPro
                   wallIds.push(rec.t.id);
                 }
               });
+              // record the move so Ctrl+Z puts everything back
+              if (Math.abs(mdx) > 0.001 || Math.abs(mdy) > 0.001) {
+                var hsh = [], hpw = [];
+                moveOp.orig.forEach(function(rec) {
+                  if (rec.kind === 'sk') hsh.push({ sk: rec.o.sk, pts: rec.pts.slice() });
+                  else if (rec.kind === 'pw') hpw.push({ t: rec.t, sx: rec.sx, sy: rec.sy, ex: rec.ex, ey: rec.ey });
+                });
+                histPush({ shapes: hsh, pwalls: hpw,
+                           wmove: wallIds.length ? { ids: wallIds.slice(), dx: mdx, dy: mdy } : null });
+              }
               moveOp = null;
               setStatusHint(null);
               draw();
@@ -4799,7 +4880,24 @@ module InteriorPro
               for (var y = y0; y < cv.height; y += stepPx) { if (y < 0) continue; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke(); }
             }
 
+            // The mouse becomes the tool's own icon while move / rotate /
+            // offset are active, so you can SEE which mode you are in.
+            // SVG data-URIs mirror the toolbar buttons ('%23' = '#').
+            var CUR_ROT = 'url("data:image/svg+xml,' +
+              encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14 A8 8 0 1 1 12 20"/><path d="M4 9 L4 14 L9 14"/></g><g fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14 A8 8 0 1 1 12 20"/><path d="M4 9 L4 14 L9 14"/></g></svg>') +
+              '") 12 12, pointer';
+            var CUR_OFF = 'url("data:image/svg+xml,' +
+              encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="white" stroke-width="4"><rect x="4" y="4" width="16" height="16"/><rect x="8.5" y="8.5" width="7" height="7"/></g><g fill="none" stroke="black" stroke-width="1.8"><rect x="4" y="4" width="16" height="16"/><rect x="8.5" y="8.5" width="7" height="7"/></g></svg>') +
+              '") 12 12, pointer';
+            function syncCursor() {
+              var c = '';
+              if (moveOp) c = 'move';
+              else if (rotOp) c = CUR_ROT;
+              else if (offOp) c = CUR_OFF;
+              if (cv.style.cursor !== c) cv.style.cursor = c;
+            }
             function draw() {
+              syncCursor();
               ctx.clearRect(0, 0, cv.width, cv.height);
               drawUnderlay();
               drawGrid();
@@ -6009,6 +6107,20 @@ module InteriorPro
                 if (mode === 'sel') { setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw(); }
                 return;
               }
+              // M = free move for the current selection (SketchUp habit).
+              // ev.code is the PHYSICAL key, so a Hebrew layout ("צ")
+              // works the same. Ignored while another op is running.
+              if (!moveOp && !rotOp && !offOp &&
+                  (ev.code === 'KeyM' || ev.key === 'm' || ev.key === 'M' || ev.key === 'צ')) {
+                if (mode === 'sel' && selList.length) { startFreeMove(); ev.preventDefault(); return; }
+                if (mode !== 'sel') {
+                  setMode('sel');
+                  setStatusHint('בחר אובייקט, ואז M מזיז אותו');
+                  ev.preventDefault(); return;
+                }
+                setStatusHint('אין בחירה — בחר אובייקט ואז M');
+                return;
+              }
               // While dragging a wall / opening you can TYPE the exact amount
               // (SketchUp-style): digits go to the VCB, Enter applies.
               if (mode === 'sel' && (dragWall || dragSym)) {
@@ -6158,13 +6270,15 @@ module InteriorPro
                 if (circC) { circC = null; draw(); return; }
                 if (measB) { measB = null; draw(); return; }
                 if (measA) { measA = null; draw(); return; }
-                if (pendingSketches.length) { pendingSketches.pop(); updateStatus(); draw(); return; }
+                if (histUndo()) return;
+                if (popSketchStep()) return;
                 if (pending.length) { undoPending(); return; }
                 sketchup.undo_model();
                 return;
               }
+              if (histUndo()) return;
               if (pending.length) { undoPending(); return; }
-              if (pendingSketches.length) { pendingSketches.pop(); updateStatus(); draw(); return; }
+              if (popSketchStep()) return;
               sketchup.undo_model();
             }
 
