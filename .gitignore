@@ -1,3 +1,24 @@
 _to_delete/
 debug_*.rb
 *.zip
+
+# Test-run leftovers: run_all.sh COPIES the live plugin files into tests/
+# and regenerates the extracted JS there. None of it belongs in git.
+tests/out.js
+tests/out.html
+tests/tmp_heredoc.rb
+tests/plan_editor.rb
+tests/plan_generator.rb
+tests/door_library.rb
+tests/door_tool.rb
+tests/room_manager.rb
+tests/ceiling_manager.rb
+tests/level_manager.rb
+tests/molding_tool.rb
+tests/wall_tool.rb
+tests/foundation_manager.rb
+tests/ui_dialogs.rb
+tests/wall_stretch_tool.rb
+tests/floor_manager.rb
+tests/roof_manager.rb
+tests/roof_dialog.rb
