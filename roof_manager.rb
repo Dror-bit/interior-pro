@@ -719,21 +719,30 @@ module InteriorPro
       # gable ends stay OPEN - no white triangle fill (user 2026-08-05B:
       # the wall itself will rise to the roof shape later).
       # build_gable_wall_face! is kept unused for a quick revert.
+      # Where each gabled edge actually RISES above the eave: that is the
+      # stretch the rake owns and the flat fascia must skip. The rest of
+      # the same edge is a plain eave and keeps its fascia (2026-08-09).
+      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
+      gable_spans = nil
+      if zmap && !gables.empty?
+        gable_spans = {}
+        gables.each do |i|
+          ch = edge_profile_chain(poly, i, zmap, surface: surf)
+          next if ch.nil?
+          gable_spans[i] = chain_regions_above(ch, band_top)
+                           .map { |rg| [rg.first[0], rg.last[0]] }
+        end
+      end
       if s[:fascia]
-        build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth], gable_flags)
-        # rake boards: fascia climbing the sloped edges of every gable end.
-        # Framed path (2026-08-05B): ONE full-profile rake per gable-end
-        # LINE (a plane can span several poly edges); fallback keeps the
-        # per-edge clipped rake.
+        build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth],
+                    gable_flags, gable_spans)
+        # rake boards: the fascia climbing the sloped edges of a gable end.
+        # One per gabled POLY EDGE, clipped to that edge (2026-08-09) - the
+        # z profile still comes from the whole end-plane line, so an apex
+        # outside the edge still makes the board climb, but the board never
+        # leaves the building outline.
         if zmap && framed
-          # One rake per gabled POLY EDGE, clipped to that edge (2026-08-09).
-          # The z profile still comes from the whole end-plane line, so an
-          # apex outside the edge still makes the board climb - but the
-          # board itself never leaves the building outline. Running the
-          # full line instead left a rake (and a wall) floating in mid-air
-          # over a wing's roof, where there is no gable end at all.
           owners = framed_line_owners(framed)
-          surf = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) }
           gables.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
@@ -745,7 +754,8 @@ module InteriorPro
         end
       end
       if s[:drip]
-        build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH, gable_flags)
+        build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
+                    gable_flags, gable_spans)
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
@@ -2030,14 +2040,54 @@ module InteriorPro
     # A rectangular band (fascia board / drip edge) around the eave
     # perimeter: between the outward offsets k_in and k_out of the polygon,
     # from z_top down to z_bot. One mitered box per edge, 6 faces each.
-    def self.build_band!(grp, poly, k_in, k_out, z_top, z_bot, skip_flags = nil)
+    # What is LEFT of 0..len once the spans are removed.
+    def self.complement_spans(spans, len)
+      out = []
+      cur = 0.0
+      spans.map { |a, b| [[a, 0.0].max, [b, len].min] }
+           .reject { |a, b| b <= a }
+           .sort_by(&:first)
+           .each do |a, b|
+        out << [cur, a] if a > cur
+        cur = b if b > cur
+      end
+      out << [cur, len] if cur < len
+      out
+    end
+
+    def self.lerp2(p, q, f)
+      [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]
+    end
+
+    # skip_flags[i]  - drop the fascia/drip on this whole edge (gable rake)
+    # skip_spans[i]  - drop it only on these t ranges along the edge, and
+    #                  keep the rest (2026-08-09). A marked wall can run
+    #                  past its own gable onto a wing, where the roof is a
+    #                  plain eave that still needs its fascia - flagging
+    #                  the whole edge erased it.
+    def self.build_band!(grp, poly, k_in, k_out, z_top, z_bot, skip_flags = nil,
+                         skip_spans = nil)
       inner = k_in.abs < 1e-9 ? poly : offset_polygon(poly, k_in)
       outer = offset_polygon(poly, k_out)
       return if inner.nil? || outer.nil?
       n = poly.length
       n.times do |i|
-        next if skip_flags && skip_flags[i] # no fascia/drip on gable rakes
         j = (i + 1) % n
+        spans = skip_spans && skip_spans[i]
+        if spans
+          len = vlen(vsub(poly[j], poly[i]))
+          next if len < 1.0e-6
+          complement_spans(spans, len).each do |(ta, tb)|
+            next if tb - ta < 0.5
+            fa = ta / len
+            fb = tb / len
+            quad = [lerp2(inner[i], inner[j], fa), lerp2(inner[i], inner[j], fb),
+                    lerp2(outer[i], outer[j], fb), lerp2(outer[i], outer[j], fa)]
+            add_prism!(grp.entities, quad, z_top, z_bot)
+          end
+          next
+        end
+        next if skip_flags && skip_flags[i] # no fascia/drip on gable rakes
         quad = [inner[i], inner[j], outer[j], outer[i]]
         add_prism!(grp.entities, quad, z_top, z_bot)
       end

@@ -253,5 +253,16 @@ ok('the fascia stops at the body corner too - nothing hanging over the wing',
 rz = rake11.flat_map(&:pts).map(&:z)
 ok('and it still climbs all the way to the ridge', (rz.max - 564.97).abs < 1.0, rz.max)
 
+# ...and the REST of that same wall is a plain eave: it keeps its fascia.
+band11 = r11.entities.grep(Sketchup::Face).select do |f|
+  zs = f.pts.map(&:z)
+  f.pts.map(&:x).max < -1295.0 && zs.max - zs.min < 0.01 && (zs.max - 91.0).abs < 0.01
+end
+ok('the eave stretch of the marked wall still gets its fascia', !band11.empty?,
+   band11.length)
+by = band11.flat_map(&:pts).map(&:y)
+ok('the fascia covers the wing stretch (y -1714..-12) and stops at the gable',
+   (by.min + 1714.33).abs < 1.5 && by.max < -10.0, by.minmax)
+
 puts $fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***"
 exit($fails.zero? ? 0 : 1)
