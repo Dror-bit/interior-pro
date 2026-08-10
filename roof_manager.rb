@@ -75,7 +75,8 @@ module InteriorPro
         fascia_depth: g.call('roof_fascia_depth', DEFAULT_FASCIA_DEPTH).to_f,
         drip: g.call('roof_drip', true) == true,
         roof_color: g.call('roof_color', DEFAULT_ROOF_COLOR).to_s,
-        fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s
+        fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s,
+        gable_walls: g.call('roof_gable_walls', true) == true
       }
     end
 
@@ -89,6 +90,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_drip', s[:drip])
       m.set_attribute('InteriorPro', 'roof_color', s[:roof_color])
       m.set_attribute('InteriorPro', 'roof_fascia_color', s[:fascia_color])
+      m.set_attribute('InteriorPro', 'roof_gable_walls', s[:gable_walls])
       s
     end
 
@@ -597,9 +599,11 @@ module InteriorPro
     #   InteriorPro::RoofManager.build_roof!(style: 'flat')
     def self.build_roof!(style: nil, pitch: nil, overhang: nil,
                          fascia: nil, fascia_depth: nil, drip: nil,
-                         roof_color: nil, fascia_color: nil)
+                         roof_color: nil, fascia_color: nil,
+                         gable_walls: nil)
       model = Sketchup.active_model
       s = settings
+      s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
       s[:style] = style.to_s if style
       s[:pitch] = pitch.to_f if pitch
       s[:overhang] = overhang.to_f unless overhang.nil?
@@ -722,27 +726,19 @@ module InteriorPro
         # LINE (a plane can span several poly edges); fallback keeps the
         # per-edge clipped rake.
         if zmap && framed
-          owners = {}
-          framed[:g].each do |sd, on|
-            next unless on
-            vert, c, = framed_end_line(framed[:main], sd)
-            owners[[vert ? :v : :h, c.round(2)]] = :main
-          end
-          framed[:wings].each_with_index do |w2, wi|
-            next unless w2[:gabled]
-            vert, c, = framed_end_line(w2[:rect], OPP_SIDE[w2[:mouth]])
-            owners[[vert ? :v : :h, c.round(2)]] = wi
-          end
-          seen = []
+          # One rake per gabled POLY EDGE, clipped to that edge (2026-08-09).
+          # The z profile still comes from the whole end-plane line, so an
+          # apex outside the edge still makes the board climb - but the
+          # board itself never leaves the building outline. Running the
+          # full line instead left a rake (and a wall) floating in mid-air
+          # over a wing's roof, where there is no gable end at all.
+          owners = framed_line_owners(framed)
+          surf = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) }
           gables.each do |i|
-            a2 = poly[i]
-            b2 = poly[(i + 1) % poly.length]
-            d2 = vnorm(vsub(b2, a2))
-            key = d2[0].abs > d2[1].abs ? [:h, a2[1].round(2)] : [:v, a2[0].round(2)]
-            next if seen.include?(key)
-            seen << key
+            key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-            build_rake_board!(grp, poly, i, zmap, s[:fascia_depth], full: true, cover: cov)
+            build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
+                              cover: cov, surface: surf)
           end
         elsif zmap
           gables.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
@@ -750,6 +746,15 @@ module InteriorPro
       end
       if s[:drip]
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH, gable_flags)
+      end
+      # Real gable walls (2026-08-08): the wall itself rises into the
+      # triangle - wall-thick prisms at the WALL line (overhang back from
+      # the roof edge), painted with each wall's own sides. They live in
+      # this group, so every roof rebuild replaces them. Kill switch:
+      #   InteriorPro::RoofManager.build_roof!(gable_walls: false)
+      if s[:gable_walls] && zmap && !gables.empty?
+        build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
+                               s[:overhang], framed, band_top, slope)
       end
       grp.entities.grep(Sketchup::Face).each do |f|
         next if f.material
@@ -994,6 +999,205 @@ module InteriorPro
       puts "[Roof] build_gable_wall_face!: #{e.message}"
     end
 
+    # ---------- real gable walls (2026-08-08) ----------
+    # The wall itself rises into the gable triangle (user 2026-08-05B):
+    # wall-thick prisms from the wall top up to the roof-edge silhouette,
+    # sitting on the WALL line (overhang back from the roof edge) and
+    # painted with that wall's own exterior/interior sides.
+
+    def self.wall_by_id(id)
+      return nil unless id
+      InteriorPro::LevelManager.all_walls.find do |w|
+        w.get_attribute('InteriorPro', 'id') == id
+      end
+    end
+
+    # Which end-plane LINE a poly edge lies on: [:h|:v, coord.round(2)].
+    def self.line_key(poly, i)
+      a = poly[i]
+      d = vnorm(vsub(poly[(i + 1) % poly.length], a))
+      d[0].abs > d[1].abs ? [:h, a[1].round(2)] : [:v, a[0].round(2)]
+    end
+
+    # gable-end LINE -> which framed piece owns it (:main or wing index),
+    # for framed_cover_z exclusion. Key: [:h|:v, coord.round(2)].
+    def self.framed_line_owners(framed)
+      owners = {}
+      framed[:g].each do |sd, on|
+        next unless on
+        vert, c, = framed_end_line(framed[:main], sd)
+        owners[[vert ? :v : :h, c.round(2)]] = :main
+      end
+      framed[:wings].each_with_index do |w2, wi|
+        next unless w2[:gabled]
+        vert, c, = framed_end_line(w2[:rect], OPP_SIDE[w2[:mouth]])
+        owners[[vert ? :v : :h, c.round(2)]] = wi
+      end
+      owners
+    end
+
+    # Spans of a profile chain that rise ABOVE zbase, entry/exit points
+    # interpolated AT zbase. chain = [[t, [x,y], z], ...] sorted.
+    # Returns [[[t, z], ...], ...]. Pure geometry (testable).
+    def self.chain_regions_above(chain, zbase, eps = 0.02)
+      regions = []
+      cur = nil
+      cross = lambda do |t1, z1, t2, z2|
+        t1 + (t2 - t1) * (zbase - z1) / (z2 - z1)
+      end
+      chain.each_cons(2) do |(t1, _, z1), (t2, _, z2)|
+        next if t2 - t1 < 1.0e-6
+        a_up = z1 > zbase + eps
+        b_up = z2 > zbase + eps
+        if a_up
+          cur ||= [[t1, z1]]
+          if b_up
+            cur << [t2, z2]
+          else
+            cur << [(z1 - z2).abs < 1.0e-9 ? t2 : cross.call(t1, z1, t2, z2), zbase]
+            regions << cur
+            cur = nil
+          end
+        elsif b_up
+          cur = [[(z1 - z2).abs < 1.0e-9 ? t1 : cross.call(t1, z1, t2, z2), zbase],
+                 [t2, z2]]
+        end
+      end
+      regions << cur if cur
+      regions.select { |r| r.length >= 2 && r.last[0] - r.first[0] > 0.5 }
+    end
+
+    def self.build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
+                                    overhang, framed, band_top, slope)
+      owners = framed ? framed_line_owners(framed) : {}
+      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
+      gables.each do |i|
+        a = poly[i]
+        b = poly[(i + 1) % poly.length]
+        d = vnorm(vsub(b, a))
+        key = line_key(poly, i)
+        wall = wall_by_id(wall_ids[i])
+        next unless wall
+        th = wall.get_attribute('InteriorPro', 'thickness').to_f
+        next if th < 0.1
+        wt_z = wall.get_attribute('InteriorPro', 'base_z').to_f +
+               wall.get_attribute('InteriorPro', 'height').to_f
+        zbase = wt_z > 1.0 ? wt_z : z0
+        # clipped to THIS poly edge, and following the TRUE roof
+        # silhouette (2026-08-09 - it used to run the whole end-plane
+        # line and bridge straight over the wing roof, in mid-air).
+        chain = edge_profile_chain(poly, i, zmap, surface: surf)
+        next if chain.nil?
+        cov = if framed
+                lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
+              end
+        inw = [-d[1], d[0]] # inward for CCW
+        names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
+                InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
+        chain_regions_above(chain, zbase).each do |prof|
+          # Only the VISIBLE spans get a prism (dense sampling, same rule
+          # as the rakes): where a wing roof covers this line the profile
+          # coincides with (or dives under) the wing surface, and a wall
+          # there would knife through the wing roof - that was the lower
+          # half of the "green line" bug (2026-08-09).
+          wall_visible_profile(prof, a, d, cov).each do |pp|
+            build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, pp, names)
+          end
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] build_gable_wall_tops!: #{e.message}"
+    end
+
+    # The visible sub-profiles of a wall-top region: each cons pair is
+    # clipped by rake_visible_runs (6" sampling + bisection, shared with
+    # the rake boards), then contiguous runs are merged back so a span
+    # that stays visible across the apex still becomes ONE face.
+    def self.wall_visible_profile(prof, a, d, cov)
+      return [prof] if cov.nil?
+      segs = []
+      prof.each_cons(2) do |(t1, z1), (t2, z2)|
+        next if t2 - t1 < 1.0e-6
+        p1 = [a[0] + d[0] * t1, a[1] + d[1] * t1]
+        p2 = [a[0] + d[0] * t2, a[1] + d[1] * t2]
+        rake_visible_runs(t1, t2, z1, z2, p1, p2, cov).each do |ra, rb|
+          fa = (ra - t1) / (t2 - t1)
+          fb = (rb - t1) / (t2 - t1)
+          segs << [[ra, z1 + (z2 - z1) * fa], [rb, z1 + (z2 - z1) * fb]]
+        end
+      end
+      runs = []
+      segs.each do |s|
+        if runs.any? && (s[0][0] - runs.last.last[0]).abs < 0.02
+          runs.last << s[1]
+        else
+          runs << s.dup
+        end
+      end
+      runs
+    end
+
+    # One prism: the profile face on the wall's OUTER plane, push-pulled
+    # one wall thickness inward. prof = [[t, z], ...] along the edge.
+    def self.build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, prof, names)
+      return if prof.length < 2
+      return if prof.last[0] - prof.first[0] < 0.5
+      return if prof.map { |_, z| z }.max < zbase + 0.1
+      at = lambda do |t|
+        [a[0] + d[0] * t + inw[0] * overhang.to_f,
+         a[1] + d[1] * t + inw[1] * overhang.to_f]
+      end
+      pts = prof.map { |t, z| q = at.call(t); Geom::Point3d.new(q[0], q[1], z) }
+      if prof.last[1] > zbase + 0.01
+        q = at.call(prof.last[0])
+        pts << Geom::Point3d.new(q[0], q[1], zbase)
+      end
+      if prof.first[1] > zbase + 0.01
+        q = at.call(prof.first[0])
+        pts << Geom::Point3d.new(q[0], q[1], zbase)
+      end
+      return if pts.length < 3
+      sub = grp.entities.add_group
+      sub.name = 'InteriorPro_GableWall'
+      sub.set_attribute('InteriorPro', 'part', 'gable_wall_top')
+      f = sub.entities.add_face(pts)
+      return if f.nil?
+      inw3 = Geom::Vector3d.new(inw[0], inw[1], 0)
+      f.pushpull((f.normal % inw3) > 0 ? th : -th) if f.respond_to?(:pushpull)
+      paint_gable_top!(sub, d, inw, names)
+    rescue StandardError => e
+      puts "[Roof] build_gable_top_prism!: #{e.message}"
+    end
+
+    # Exterior side gets the wall's exterior material, interior side the
+    # interior one - the triangle reads as the same wall, not as trim.
+    # EVERY face is painted on BOTH sides: push-pulled faces come out with
+    # arbitrary orientation, and a material on the back side only renders
+    # as the default WHITE from outside (the 2026-08-09 white triangle).
+    def self.paint_gable_top!(sub, d, inw, names)
+      ext_name, int_name = names
+      unless ext_name || int_name
+        puts '[Roof] gable wall top: no wall materials found - left unpainted'
+        return
+      end
+      return unless InteriorPro::WallTool.respond_to?(:new)
+      wt = InteriorPro::WallTool.new
+      ext_m = ext_name ? wt.load_or_create_material(ext_name) : nil
+      int_m = int_name ? wt.load_or_create_material(int_name) : nil
+      dir3 = Geom::Vector3d.new(d[0], d[1], 0)
+      out3 = Geom::Vector3d.new(-inw[0], -inw[1], 0)
+      sub.entities.grep(Sketchup::Face).each do |fc|
+        n = fc.normal
+        inner = n.z.abs < 0.5 && (n % dir3).abs < 0.5 && (n % out3) < 0
+        m = inner ? (int_m || ext_m) : (ext_m || int_m)
+        next unless m
+        fc.material = m
+        fc.back_material = m
+      end
+    rescue StandardError => e
+      puts "[Roof] paint_gable_top!: #{e.message}"
+    end
+
     # Rake board: the fascia climbing the two sloped edges of a gable end.
     # One mitered-ish box per profile segment, FASCIA_THICK outward.
     # z of the framed-roof surface at (x, y) EXCLUDING one piece (:main
@@ -1090,16 +1294,19 @@ module InteriorPro
       runs.select { |ra, rb| rb - ra > 1.0 }
     end
 
-    def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil)
+    # The roof-edge silhouette over poly edge i: [[t, [x,y], z], ...]
+    # sorted along the edge, upper envelope only (a point sagging below
+    # its neighbours' line - e.g. a wing eave corner sitting ON the
+    # gable-end line - is not part of the silhouette). full: profile of
+    # the whole INFINITE line (a gable plane can span several poly edges,
+    # 2026-08-05B); otherwise clipped to this edge with interpolated z at
+    # the ends. Returns nil when no usable profile. Shared by the rake
+    # boards and the real gable walls (2026-08-08).
+    def self.edge_profile_chain(poly, i, zmap, full: false, surface: nil)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
       len = vlen(vsub(b, a))
-      out = [d[1] * FASCIA_THICK, -d[0] * FASCIA_THICK] # outward for CCW
-      # profile on the INFINITE line: a gable plane can span several poly
-      # edges (2026-08-05B: a wing covers part of the main end wall, so
-      # the apex sits outside this edge and the old segment-only chain
-      # collapsed to a FLAT board at the eave).
       chain = []
       zmap.each do |(x, y), z|
         p = [x, y]
@@ -1107,20 +1314,32 @@ module InteriorPro
         chain << [vdot(vsub(p, a), d), p, z]
       end
       chain.sort_by!(&:first)
-      return if chain.length < 2
-      # upper envelope: a point sagging below its neighbours' line is not
-      # part of the roof-edge silhouette (e.g. a wing eave corner sitting
-      # ON the gable-end line) - drop it.
-      loop do
-        k = (1...(chain.length - 1)).find do |j|
-          t0, _, z0 = chain[j - 1]
-          t1, _, z1 = chain[j]
-          t2, _, z2 = chain[j + 1]
-          span = t2 - t0
-          span > 1.0e-6 && z1 < z0 + (z2 - z0) * (t1 - t0) / span - 0.01
+      return nil if chain.length < 2
+      if surface
+        # The TRUE silhouette (2026-08-09): keep a node when it really is
+        # the top of the roof there, drop it when some other roof piece
+        # runs above it. The old "upper envelope" rule guessed this from
+        # the neighbours alone and deleted legitimate low corners - on a
+        # wall running past the main body onto a wing it erased the
+        # body's own eave corner, so the fascia bridged from the ridge
+        # straight out over the wing, in mid-air.
+        chain = chain.reject do |_t, p, z|
+          sz = surface.call(p[0], p[1])
+          sz && sz > z + 0.5
         end
-        break unless k
-        chain.delete_at(k)
+        return nil if chain.length < 2
+      else
+        loop do
+          k = (1...(chain.length - 1)).find do |j|
+            t0, _, z0 = chain[j - 1]
+            t1, _, z1 = chain[j]
+            t2, _, z2 = chain[j + 1]
+            span = t2 - t0
+            span > 1.0e-6 && z1 < z0 + (z2 - z0) * (t1 - t0) / span - 0.01
+          end
+          break unless k
+          chain.delete_at(k)
+        end
       end
       unless full
         # clip the profile to THIS poly edge, interpolating z at the ends
@@ -1134,14 +1353,29 @@ module InteriorPro
         end
         inner_pts = chain.select { |t, _, _| t > NODE_TOL && t < len - NODE_TOL }
         chain = [[0.0, a, zat.call(0.0)]] + inner_pts + [[len, b, zat.call(len)]]
-        return if chain.length < 2
+        return nil if chain.length < 2
       end
+      chain
+    end
+
+    def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil,
+                               surface: nil)
+      a = poly[i]
+      b = poly[(i + 1) % poly.length]
+      d = vnorm(vsub(b, a))
+      out = [d[1] * FASCIA_THICK, -d[0] * FASCIA_THICK] # outward for CCW
+      chain = edge_profile_chain(poly, i, zmap, full: full, surface: surface)
+      return if chain.nil?
       # full profile (framed path, 2026-08-05B): the rake runs the WHOLE
       # gable-end plane - over covering wings too - eave to apex to eave.
       # Flat eave-level leftovers on the same line are skipped.
       zmin = chain.map { |c| c[2] }.min
       chain.each_cons(2) do |(t1, p1, z1), (t2, p2, z2)|
-        next if full && z1 < zmin + 0.02 && z2 < zmin + 0.02
+        # A run that stays at eave level is a plain EAVE, not a rake -
+        # build_band! already put fascia there (2026-08-09: this used to
+        # be checked only in full mode, so a clipped profile that ran on
+        # past the gable doubled the fascia along the wing).
+        next if z1 < zmin + 0.02 && z2 < zmin + 0.02
         next if t2 - t1 < 1.0e-6
         runs = cover ? rake_visible_runs(t1, t2, z1, z2, p1, p2, cover) : [[t1, t2]]
         runs.each do |ra, rb|
