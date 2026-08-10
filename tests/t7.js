@@ -57,22 +57,54 @@ ok('no placement -> re-fits', !near(g('underScale'), saved.scale), g('underScale
 calls.length=0;
 c('setUnderOpacity', 30);
 ok('opacity saved', lastSave() && near(lastSave().opacity, 0.30), lastSave());
-// mirror + free rotation replaced the lock/centre buttons (2026-08-07)
-c('flipUnderlay','x');
-ok('flip left/right saved', lastSave() && lastSave().flipx===-1 && g('underFlipX')===-1,
-   [lastSave(), g('underFlipX')]);
-c('flipUnderlay','x');
-ok('flipping again puts it back', g('underFlipX')===1, g('underFlipX'));
-c('flipUnderlay','y');
-ok('flip up/down saved', lastSave() && lastSave().flipy===-1, lastSave());
-c('flipUnderlay','y');
+// The image is an ORDINARY object while its panel is open (2026-08-07):
+// no lock button, no flip buttons, no rotation box - Select's own tools.
 c('setUnderRotation', 30);
 ok('a typed angle is saved', lastSave() && near(lastSave().rot, 30), lastSave());
-c('rotateUnderlay', 90);
-ok('the quarter-turn button adds 90', near(g('underRot'), 120), g('underRot'));
-c('setUnderRotation', 350); c('rotateUnderlay', 20);
-ok('the angle wraps at 360', near(g('underRot'), 10), g('underRot'));
 c('setUnderRotation', 0);
+s('scale', 1);
+c('loadUnderlay','data:image/png;base64,zz',{x:0,y:0,scale:0.2,opacity:0.5,rot:0});
+c('toggleFold','under',false);
+ok('panel closed = the image is locked', g('underLocked')===true);
+ok('a locked image is not pickable', c('hitUnderlay',{x:100,y:-80})===null);
+c('toggleFold','under',true);
+ok('panel open = the image is live', g('underLocked')===false);
+ok('an open image IS pickable', c('hitUnderlay',{x:100,y:-80})!==null);
+ok('outside the image is still empty canvas', c('hitUnderlay',{x:900,y:-80})===null);
+c('setMode','sel'); s('selList',[{type:'under'}]); s('sel',{type:'under'});
+c('startFreeMove'); c('moveApply',50,20);
+ok('the image moves with the normal Move tool',
+   near(g('underX'),50) && near(g('underY'),20), [g('underX'),g('underY')]);
+c('moveCommit');
+c('startFreeRotate');
+ok('the image accepts the normal Rotate tool', g('rotOp')!==null && g('rotOp').ub!==null);
+c('rotCentre',{x:150,y:-60}); c('rotApply', Math.PI/2);
+ok('rotating turns the image 90 degrees', near(g('underRot'),90), g('underRot'));
+c('rotCancel');
+ok('cancel puts the angle back', near(g('underRot'),0), g('underRot'));
+s('selList',[{type:'under'}]); s('sel',{type:'under'});
+c('toggleFold','under',false);
+ok('closing the panel deselects AND locks',
+   g('underLocked')===true && g('sel')===null, [g('underLocked'), g('sel')]);
+c('toggleFold','under',true);
+
+// sending the traced image into the 3D model (2026-08-07) - optional
+s('scale', 1);
+c('loadUnderlay','data:image/png;base64,zz',{x:10, y:400, scale:0.2, opacity:0.5, rot:30});
+calls.length = 0;
+c('sendUnderlayTo3D');
+const sendCall = calls.filter(function(x){ return x[0]==='place_underlay_3d'; })[0];
+ok('the send button reaches Ruby', !!sendCall);
+const sendArg = sendCall ? JSON.parse(sendCall[1]) : {};
+ok('it passes the size in real inches',
+   near(sendArg.w, 200) && near(sendArg.h, 160), sendArg);
+ok('it passes the corner and the angle',
+   sendArg.x===10 && sendArg.y===400 && sendArg.rot===30, sendArg);
+// an image parked outside the view walks itself back in, scale untouched
+c('loadUnderlay','data:image/png;base64,zz',
+  {x:900000, y:900000, scale:0.2, opacity:0.5, locked:true, rot:0});
+ok('an off-screen image is pulled back into view', Math.abs(g('underX')) < 100000, g('underX'));
+ok('and its scale is untouched', near(g('underScale'), 0.2), g('underScale'));
 
 // --- clearing hides everything ---
 c('loadUnderlay', null);

@@ -21,7 +21,11 @@ ok('guides open on click', els.guideBody.style.display==='' && els.guideCaret.in
 ok('the image box did NOT open with it', els.underBody.style.display==='none');
 c('toggleFold','under');
 ok('image box opens on its own', els.underBody.style.display==='');
-ok('and the guides stay open', els.guideBody.style.display==='');
+// 2026-08-07: ONE helper panel at a time - opening one folds the other away
+ok('opening the image box folds the guides away', els.guideBody.style.display==='none');
+c('toggleFold','guide');
+ok('guides open again', els.guideBody.style.display==='' && els.guideCaret.innerHTML==='▴');
+ok('and the image box folded away in turn', els.underBody.style.display==='none');
 c('toggleFold','guide');
 ok('guides fold back', els.guideBody.style.display==='none' && els.guideCaret.innerHTML==='▾');
 

@@ -10,13 +10,21 @@ module InteriorPro
         begin; @dialog.close; rescue StandardError; end
         @dialog = nil
       end
+      # preferences_key makes SketchUp remember the last size, and once a
+      # window has been maximised it comes back maximised forever - which
+      # is what happened after the panel grew three rows (2026-08-10).
+      # min/max box it in, and set_size below forces the small side panel
+      # every time it opens, whatever is remembered.
       dlg = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Roof',
         preferences_key: 'InteriorPro_Roof',
-        width: 340, height: 560, resizable: true
+        width: 340, height: 640, resizable: true,
+        min_width: 300, min_height: 380,
+        max_width: 560, max_height: 1000
       )
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
-                                                fascia, fdepth, drip, rcol, fcol|
+                                                fascia, fdepth, drip, rcol, fcol,
+                                                rmat, thick, rcap|
         # Apply in Hip mode = a clean full hip: clear click marks (user
         # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
         if style.to_s == 'hip'
@@ -32,11 +40,20 @@ module InteriorPro
           fascia_depth: fdepth.to_f > 0.01 ? fdepth.to_f : nil,
           drip: truthy(drip),
           roof_color: rcol.to_s,
-          fascia_color: fcol.to_s
+          fascia_color: fcol.to_s,
+          roof_material: rmat.nil? ? nil : rmat.to_s,
+          thickness: thick.nil? ? nil : thick.to_f,
+          ridge_cap: rcap.nil? ? nil : truthy(rcap)
         )
       end
       dlg.add_action_callback('remove_roof') { |_| RoofManager.remove_all! }
       dlg.set_html(build_html(RoofManager.settings))
+      begin
+        dlg.set_size(340, 640)
+        dlg.center if dlg.respond_to?(:center)
+      rescue StandardError => e
+        puts "[Roof] dialog size: #{e.message}"
+      end
       dlg.show
       @dialog = dlg
     end
@@ -49,6 +66,12 @@ module InteriorPro
       pitch_options = (2..12).map do |p|
         sel = (s[:pitch].round - p).zero? ? ' selected' : ''
         "<option value=\"#{p}\"#{sel}>#{p}:12</option>"
+      end.join
+      # The colour picker below tints whatever is chosen here, so one
+      # greyscale tile covers every shingle colour (2026-08-10).
+      mat_options = [['color', 'Solid color'], ['shingle', 'Shingles']].map do |v, t|
+        sel = s[:roof_material].to_s == v ? ' selected' : ''
+        "<option value=\"#{v}\"#{sel}>#{t}</option>"
       end.join
       <<~HTML
         <!DOCTYPE html>
@@ -82,6 +105,13 @@ module InteriorPro
             <input type="number" id="fasciaDepth" step="0.25" min="1" value="#{s[:fascia_depth]}"> in</div>
           <div class="row"><label><input type="checkbox" id="drip"#{s[:drip] ? ' checked' : ''}> Metal drip edge</label></div>
 
+          <div class="section-title">Surface</div>
+          <div class="row"><label>Roof material</label>
+            <select id="roofMat">#{mat_options}</select></div>
+          <div class="row"><label>Roof thickness</label>
+            <input type="number" id="thickness" step="0.25" min="0" value="#{s[:thickness]}"> in</div>
+          <div class="row"><label><input type="checkbox" id="ridgeCap"#{s[:ridge_cap] ? ' checked' : ''}> Ridge cap</label></div>
+
           <div class="section-title">Colors</div>
           <div class="row"><label>Roof color</label>
             <input type="color" id="roofColor" value="#{s[:roof_color]}"></div>
@@ -108,7 +138,10 @@ module InteriorPro
                 document.getElementById('fasciaDepth').value,
                 document.getElementById('drip').checked,
                 document.getElementById('roofColor').value,
-                document.getElementById('fasciaColor').value);
+                document.getElementById('fasciaColor').value,
+                document.getElementById('roofMat').value,
+                document.getElementById('thickness').value,
+                document.getElementById('ridgeCap').checked);
             }
             styleChanged();
             eavesChanged();

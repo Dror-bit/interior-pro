@@ -32,6 +32,24 @@ require './room_manager'
 require './level_manager'
 require './roof_manager'
 
+# These suites count the faces of the roof SHELL and its trim. Since
+# 2026-08-10 the slab is thickened by default, which builds a SECOND
+# shell and doubles those counts - so here the roof is built as a bare
+# sheet and the thickness gets its own suite (rt18).
+module InteriorPro
+  module RoofManager
+    class << self
+      alias_method :build_roof_sheet_orig!, :build_roof!
+      def build_roof!(**kw)
+        kw[:thickness] = 0.0 unless kw.key?(:thickness)
+        kw[:ridge_cap] = false unless kw.key?(:ridge_cap)
+        build_roof_sheet_orig!(**kw)
+      end
+    end
+  end
+end
+
+
 $fails = 0
 def ok(n, c, x = nil); puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}")); $fails += 1 unless c; end
 RF = InteriorPro::RoofManager

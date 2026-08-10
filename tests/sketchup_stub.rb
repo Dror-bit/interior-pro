@@ -67,9 +67,17 @@ module Sketchup
     def initialize(*_a); end
   end
 
+  class Texture
+    attr_accessor :size
+    attr_reader :filename
+    def initialize(f = nil); @filename = f; end
+  end
+
   class Material
     attr_accessor :color, :alpha, :name
+    attr_reader :texture
     def initialize(n); @name = n; end
+    def texture=(f); @texture = f.nil? ? nil : Texture.new(f); end
   end
   class Materials
     def initialize; @h = {}; end

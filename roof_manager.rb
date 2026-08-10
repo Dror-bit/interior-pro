@@ -19,6 +19,13 @@ module InteriorPro
     FASCIA_THICK = 0.75 unless const_defined?(:FASCIA_THICK, false)
     DRIP_THICK   = 0.1  unless const_defined?(:DRIP_THICK, false)
     DRIP_DEPTH   = 2.0  unless const_defined?(:DRIP_DEPTH, false)
+    # ...until 2026-08-10. A zero-thickness sheet has no edge to look at,
+    # and worse: the gable wall rises to exactly the same plane, so the
+    # wall showed THROUGH the shingles along the rake. The slab is now
+    # thickened UPWARD - the underside stays where it always was, so the
+    # fascia, the rake and the gable walls all still meet it, and the new
+    # material sits on top and covers the wall.
+    DEFAULT_ROOF_THICKNESS = 0.5 unless const_defined?(:DEFAULT_ROOF_THICKNESS, false)
     DEFAULT_ROOF_COLOR   = '#584e4a' unless const_defined?(:DEFAULT_ROOF_COLOR, false)
     DEFAULT_FASCIA_COLOR = '#ffffff' unless const_defined?(:DEFAULT_FASCIA_COLOR, false)
 
@@ -76,6 +83,9 @@ module InteriorPro
         drip: g.call('roof_drip', true) == true,
         roof_color: g.call('roof_color', DEFAULT_ROOF_COLOR).to_s,
         fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s,
+        roof_material: g.call('roof_material', 'color').to_s,
+        thickness: g.call('roof_thickness', DEFAULT_ROOF_THICKNESS).to_f,
+        ridge_cap: g.call('roof_ridge_cap', true) == true,
         gable_walls: g.call('roof_gable_walls', true) == true
       }
     end
@@ -90,6 +100,9 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_drip', s[:drip])
       m.set_attribute('InteriorPro', 'roof_color', s[:roof_color])
       m.set_attribute('InteriorPro', 'roof_fascia_color', s[:fascia_color])
+      m.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
+      m.set_attribute('InteriorPro', 'roof_thickness', s[:thickness])
+      m.set_attribute('InteriorPro', 'roof_ridge_cap', s[:ridge_cap])
       m.set_attribute('InteriorPro', 'roof_gable_walls', s[:gable_walls])
       s
     end
@@ -108,6 +121,47 @@ module InteriorPro
       return m if m
       m = model.materials.add(name)
       m.color = hex_to_color(hex)
+      m
+    end
+
+    # Roof surface families (2026-08-10). A flat colour never reads as a
+    # roof from any distance - the courses are what the eye picks up. Each
+    # family is ONE greyscale tile that the chosen roof colour COLORIZES,
+    # so "shingles in colours" costs one file, not one file per colour.
+    # size = the tile's REAL size in inches, [width, height]; the shingle
+    # tile is 4 courses of 6" exposure across 4 tabs of 12".
+    ROOF_TEXTURES = {
+      'shingle' => { file: 'roof_shingle.jpg', size: [48.0, 24.0] }
+    }.freeze unless const_defined?(:ROOF_TEXTURES, false)
+
+    def self.texture_path(fname)
+      File.join(File.dirname(__FILE__), 'textures', fname.to_s)
+    end
+
+    # What the roof SURFACE is painted with: a plain colour, or a textured
+    # family tinted by that same colour. Falls back to the plain colour if
+    # the family is unknown or its file is missing, so a bad setting can
+    # never leave the roof unbuilt.
+    def self.surface_material(model, s)
+      spec = ROOF_TEXTURES[s[:roof_material].to_s]
+      return color_material(model, s[:roof_color]) if spec.nil?
+      path = texture_path(spec[:file])
+      unless File.exist?(path)
+        puts "[Roof] texture missing: #{path} - falling back to colour"
+        return color_material(model, s[:roof_color])
+      end
+      hex = s[:roof_color].to_s.gsub('#', '').downcase
+      name = "InteriorPro_Roof_#{s[:roof_material]}_#{hex}"
+      m = model.materials[name]
+      return m if m
+      m = model.materials.add(name)
+      begin
+        m.texture = path
+        m.texture.size = spec[:size] if m.texture
+      rescue StandardError => e
+        puts "[Roof] texture #{spec[:file]}: #{e.message}"
+      end
+      m.color = hex_to_color(s[:roof_color]) # tints the greyscale tile
       m
     end
 
@@ -600,6 +654,7 @@ module InteriorPro
     def self.build_roof!(style: nil, pitch: nil, overhang: nil,
                          fascia: nil, fascia_depth: nil, drip: nil,
                          roof_color: nil, fascia_color: nil,
+                         roof_material: nil, thickness: nil, ridge_cap: nil,
                          gable_walls: nil)
       model = Sketchup.active_model
       s = settings
@@ -612,6 +667,9 @@ module InteriorPro
       s[:drip] = (drip == true) unless drip.nil?
       s[:roof_color] = roof_color.to_s if roof_color
       s[:fascia_color] = fascia_color.to_s if fascia_color
+      s[:roof_material] = roof_material.to_s if roof_material
+      s[:thickness] = thickness.to_f unless thickness.nil?
+      s[:ridge_cap] = (ridge_cap == true) unless ridge_cap.nil?
       slope = s[:pitch] / 12.0
 
       walls = top_walls
@@ -688,7 +746,7 @@ module InteriorPro
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Roof'
       InteriorPro.assign_tag(grp, 'IP/Roofs')
-      roof_mat = color_material(model, s[:roof_color])
+      roof_mat = surface_material(model, s)
       trim_mat = color_material(model, s[:fascia_color]) # fascia + drip + underside
       gable_flags = Array.new(poly.length, false)
       gables.each { |i| gable_flags[i] = true }
@@ -710,6 +768,37 @@ module InteriorPro
         model.abort_operation
         puts '[Roof] roof geometry failed'
         return nil
+      end
+
+      # ---- give the slab a thickness (2026-08-10) -----------------------
+      # The shell just built becomes the UNDERSIDE. An identical shell is
+      # built dz higher and the two are closed along the footprint, so the
+      # roof reads as a real slab and the gable wall - which stops at the
+      # underside - is covered instead of poking through the shingles.
+      # Everything downstream keeps using the UNDERSIDE zmap, so the
+      # fascia, the rake and the gable walls do not move at all.
+      dz = slab_lift(s[:thickness], s[:style] == 'flat' ? 0.0 : slope)
+      shell_before = grp.entities.grep(Sketchup::Face)
+      if dz > 0.001
+        if s[:style] == 'flat'
+          build_flat_geometry!(grp, poly, z0 + dz, roof_mat, roof_mat)
+        elsif framed
+          build_framed_geometry!(grp, framed, z0 + dz, slope, s[:overhang],
+                                 roof_mat, roof_mat)
+        else
+          build_hip_geometry!(grp, poly, cells, z0 + dz, slope, s[:overhang],
+                              roof_mat, roof_mat)
+        end
+        build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat)
+      end
+
+      # ---- ridge cap (2026-08-10) --------------------------------------
+      # Read off the TOP shell only, so the caps sit on the surface you
+      # can actually see rather than inside the slab.
+      if s[:ridge_cap] && s[:style] != 'flat'
+        cap_faces = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
+                               : shell_before
+        build_ridge_caps!(grp, ridge_lines(cap_faces), slope, roof_mat)
       end
 
       # Fascia + drip edge tuck UNDER the roof edge (user 2026-08-05: the
@@ -776,6 +865,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'id',
                         format('roof-%s-%04d', Time.now.to_i.to_s(36), rand(10_000)))
       grp.set_attribute('InteriorPro', 'roof_style', s[:style])
+      grp.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
       grp.set_attribute('InteriorPro', 'level', lvl)
       grp.set_attribute('InteriorPro', 'pitch', s[:pitch])
       grp.set_attribute('InteriorPro', 'overhang_in', s[:overhang])
@@ -893,6 +983,367 @@ module InteriorPro
       [ridge, zmap]
     rescue StandardError => e
       puts "[Roof] build_hip_geometry!: #{e.message}"
+      nil
+    end
+
+    # How far to lift the top shell so the slab is `thickness` thick
+    # MEASURED PERPENDICULAR to the roof plane. A vertical lift of dz on a
+    # plane of this slope gives a perpendicular thickness of dz*cos(angle),
+    # so dz = t / cos = t * sqrt(1 + slope^2). Pure maths, tested.
+    def self.slab_lift(thickness, slope)
+      t = thickness.to_f
+      return 0.0 if t <= 0.0
+      t * Math.sqrt(1.0 + slope.to_f * slope.to_f)
+    end
+
+    # The slab's visible EDGE: a vertical ribbon along every footprint
+    # edge, from the underside profile up to the top shell. Without it the
+    # roof would be two sheets with a gap between them.
+    # zmap nil (flat roof) -> a plain band at z_flat.
+    def self.build_slab_edge!(grp, poly, zmap, dz, z_flat, mat)
+      return if dz <= 0.001
+      n = poly.length
+      n.times do |i|
+        j = (i + 1) % n
+        chain = zmap ? edge_profile_chain(poly, i, zmap) : nil
+        segs = if chain && chain.length >= 2
+                 chain.each_cons(2).map { |(_t1, p1, z1), (_t2, p2, z2)| [p1, z1, p2, z2] }
+               else
+                 [[poly[i], z_flat, poly[j], z_flat]]
+               end
+        segs.each do |p1, z1, p2, z2|
+          next if vlen(vsub(p2, p1)) < 1.0e-6
+          pts = [Geom::Point3d.new(p1[0], p1[1], z1),
+                 Geom::Point3d.new(p2[0], p2[1], z2),
+                 Geom::Point3d.new(p2[0], p2[1], z2 + dz),
+                 Geom::Point3d.new(p1[0], p1[1], z1 + dz)]
+          f = grp.entities.add_face(pts)
+          next if f.nil?
+          f.material = mat
+          f.back_material = mat
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] build_slab_edge!: #{e.message}"
+    end
+
+    # ---------- ridge cap ----------
+    # Cap shingles bent over the ridge and down every hip. Real caps are
+    # SEPARATE pieces, each one lapping the tail of the one before it, and
+    # they sit ON the roof - the first attempt (2026-08-10) drew one long
+    # tent whose skirts were sunk into the planes, so it read as a rail,
+    # not as roofing.
+    RIDGE_CAP_WIDTH    = 12.0 unless const_defined?(:RIDGE_CAP_WIDTH, false)
+    RIDGE_CAP_THICK    = 0.45 unless const_defined?(:RIDGE_CAP_THICK, false)
+    RIDGE_CAP_EXPOSURE = 12.0 unless const_defined?(:RIDGE_CAP_EXPOSURE, false)
+    RIDGE_CAP_LENGTH   = 15.0 unless const_defined?(:RIDGE_CAP_LENGTH, false)
+    # A real cap is ARCHED over the ridge, not creased like a tent
+    # (user 2026-08-10, photos). CROWN is how high the middle of the arch
+    # lifts off the crease; SEGMENTS is how many facets per side draw it.
+    RIDGE_CAP_CROWN    = 1.0 unless const_defined?(:RIDGE_CAP_CROWN, false)
+    RIDGE_CAP_SEGMENTS = 2   unless const_defined?(:RIDGE_CAP_SEGMENTS, false)
+    # A free end is CUT FLUSH with the roof edge - hanging it over left
+    # a cap floating in the air off the corner (user 2026-08-10).
+    RIDGE_CAP_OVERSHOOT = 0.0 unless const_defined?(:RIDGE_CAP_OVERSHOOT, false)
+    # At a junction one run passes OVER and the others stop short and
+    # tuck under it, the way a ridge cap covers the tops of the hips.
+    RIDGE_CAP_TUCK = 2.0 unless const_defined?(:RIDGE_CAP_TUCK, false)
+    # At the bottom of a hip the roof narrows to a point, so a full-width
+    # cap there hangs off the corner in mid-air (user 2026-08-10). The
+    # last stretch is trimmed to a point instead, the way a roofer cuts it.
+    RIDGE_CAP_END_TAPER = 9.0 unless const_defined?(:RIDGE_CAP_END_TAPER, false)
+    # Above this many pieces the caps collapse into one continuous run.
+    # A 200ft roof of 10" pieces is ~250 solids; a whole estate is not.
+    MAX_RIDGE_CAP_PIECES = 1500 unless const_defined?(:MAX_RIDGE_CAP_PIECES, false)
+
+    def self.face_points(f)
+      return f.pts if f.respond_to?(:pts) && f.pts
+      return f.vertices.map(&:position) if f.respond_to?(:vertices)
+      nil
+    rescue StandardError
+      nil
+    end
+
+    # The uphill/downhill gradient of a roof face: dz per inch of travel
+    # in xy. For a plane with upward normal n it is (-nx/nz, -ny/nz).
+    def self.face_gradient(f)
+      n = f.respond_to?(:normal) ? f.normal : nil
+      return nil if n.nil?
+      nz = n.z
+      return nil if nz.abs < 0.2 # vertical: a tear face or the slab edge
+      sgn = nz.negative? ? -1.0 : 1.0
+      [-(n.x * sgn) / (nz * sgn), -(n.y * sgn) / (nz * sgn)]
+    rescue StandardError
+      nil
+    end
+
+    # Ridge AND hip lines, read straight off the faces that were built so
+    # this works for every style without repeating the roof maths.
+    #
+    # An xy segment shared by two roof planes is a ridge/hip when the
+    # surface DESCENDS as you walk off it into either plane, and a valley
+    # when it climbs. The first version compared face centroid heights,
+    # which is true for a hip END but exactly borderline for the long
+    # slope beside it - so every hip on a real roof was skipped
+    # (user 2026-08-10). Gradients decide it properly.
+    #
+    # Returns [ka, za, kb, zb, sides] where sides is one
+    # [side(+1/-1), dz-per-inch walking into that face] per plane.
+    def self.ridge_lines(faces, tol = 0.05)
+      edges = Hash.new { |h, k| h[k] = [] }
+      faces.each do |f|
+        pts = face_points(f)
+        next if pts.nil? || pts.length < 3
+        grad = face_gradient(f)
+        next if grad.nil?
+        cen = [pts.map(&:x).inject(:+) / pts.length.to_f,
+               pts.map(&:y).inject(:+) / pts.length.to_f]
+        pts.each_index do |i|
+          a = pts[i]
+          b = pts[(i + 1) % pts.length]
+          ka = [a.x.round(3), a.y.round(3)]
+          kb = [b.x.round(3), b.y.round(3)]
+          next if ka == kb
+          if (ka <=> kb) <= 0
+            edges[[ka, kb]] << [a.z, b.z, grad, cen]
+          else
+            edges[[kb, ka]] << [b.z, a.z, grad, cen]
+          end
+        end
+      end
+      out = []
+      edges.each do |(ka, kb), recs|
+        next if recs.length < 2
+        za = recs[0][0]
+        zb = recs[0][1]
+        next unless recs.all? { |r| (r[0] - za).abs < tol && (r[1] - zb).abs < tol }
+        seg = vsub(kb, ka)
+        next if vlen(seg) < 1.0e-6
+        d = vnorm(seg)
+        u = [-d[1], d[0]]
+        mid = [(ka[0] + kb[0]) / 2.0, (ka[1] + kb[1]) / 2.0]
+        sides = recs.map do |(_za, _zb, grad, cen)|
+          s = vdot(u, vsub(cen, mid)) >= 0.0 ? 1.0 : -1.0
+          [s, (grad[0] * u[0] + grad[1] * u[1]) * s]
+        end
+        next unless sides.all? { |(_s, dz)| dz < -1.0e-6 } # a valley climbs
+        next unless sides.map(&:first).uniq.length >= 2    # one plane each side
+        out << [ka, za, kb, zb, sides.uniq { |(s, _dz)| s }]
+      end
+      out
+    end
+
+    # Lay the caps along one line as pieces that LAP each other. Each
+    # piece is a bent plate: its tail lies on the two planes and its head
+    # is lifted one thickness, so it rides on the tail of the piece before
+    # it instead of sitting beside it (user 2026-08-10 - laid flat they
+    # read as tiles in a row, not as roofing).
+    #
+    # Two more things the first version got wrong:
+    #  - at a Y junction the runs stopped dead and left a notch, so a line
+    #    whose end meets another line is extended half a cap past it and
+    #    the three runs pile over each other the way a real cap does.
+    #  - the last piece was cut off wherever the line ended, leaving a
+    #    stub. Now the final piece is pulled BACK so it ends flush.
+    # Where each piece begins, measured from the LOW end of the run. The
+    # spacing is ALWAYS one exposure - the earlier version pulled the last
+    # piece back to end flush, which broke the uniform lap and made that
+    # piece cut into its neighbour. Now the last piece is simply CUT at
+    # the end of the run (user 2026-08-10).
+    def self.cap_starts(total, plen, expo)
+      return [0.0] if total <= plen + 0.01
+      out = []
+      r = 0.0
+      while r < total - 0.5
+        out << r
+        r += expo
+      end
+      out
+    end
+
+    # Endpoints where two or more ridge lines meet (a Y at the top of a
+    # hip). Those ends get run past; an end that touches nothing is an
+    # eave and must stop clean.
+    def self.ridge_junctions(lines)
+      seen = Hash.new(0)
+      lines.each do |ka, _za, kb, _zb, _s|
+        seen[[ka[0].round(2), ka[1].round(2)]] += 1
+        seen[[kb[0].round(2), kb[1].round(2)]] += 1
+      end
+      seen.select { |_k, v| v > 1 }.keys
+    end
+
+    def self.junction?(js, p)
+      js.include?([p[0].round(2), p[1].round(2)])
+    end
+
+    # At a junction ONE run passes over and the rest tuck under it, so the
+    # corner reads as a cap wrapping the top instead of three arches piled
+    # on each other (user 2026-08-10). The runner is the flattest line
+    # there - on a hip roof that is the ridge, which is what really covers
+    # the hip tops; on a pyramid apex, where nothing is flat, the longest
+    # hip takes the job. Returns junction key -> index of the winning line.
+    def self.junction_runners(lines, js)
+      out = {}
+      js.each do |k|
+        best = nil
+        lines.each_with_index do |(ka, za, kb, zb, _s), i|
+          next unless junction?([k], ka) || junction?([k], kb)
+          rank = [(za - zb).abs.round(2), -vlen(vsub(kb, ka))]
+          best = [rank, i] if best.nil? || (rank <=> best[0]) < 0
+        end
+        out[k] = best[1] if best
+      end
+      out
+    end
+
+    # How high a piece rides on the one below it. For consecutive pieces
+    # to meet EXACTLY - no gap, no biting in - the lift must be
+    # thickness * length / exposure, not the thickness itself: both
+    # undersides then fall at the same rate, so the upper one lies right
+    # on the lower one's back the whole way along the lap. With a plain
+    # thickness they crossed by 0.11" (user measured it, 2026-08-10).
+    def self.cap_head_lift
+      RIDGE_CAP_THICK * RIDGE_CAP_LENGTH / RIDGE_CAP_EXPOSURE
+    end
+
+    def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil)
+      return if lines.nil? || lines.empty?
+      total_len = lines.sum { |l| vlen(vsub(l[2], l[0])) }
+      one_run = (total_len / RIDGE_CAP_EXPOSURE).ceil > MAX_RIDGE_CAP_PIECES
+      if one_run
+        puts format('[Roof] ridge cap: %d" of ridge - drawn as one run to stay light',
+                    total_len.round)
+      end
+      js = ridge_junctions(lines)
+      runners = junction_runners(lines, js)
+      half = RIDGE_CAP_WIDTH / 2.0
+      lift = cap_head_lift
+      lines.each_with_index do |(ka, za, kb, zb, sides), idx|
+        len = vlen(vsub(kb, ka))
+        next if len < 1.0
+        next if sides.length < 2
+        d = vnorm(vsub(kb, ka))
+        prof = cap_profile([-d[1], d[0]], sides)
+        tucked = {}
+        adj = lambda do |p|
+          k = [p[0].round(2), p[1].round(2)]
+          next RIDGE_CAP_OVERSHOOT unless js.include?(k)
+          next half if runners[k] == idx
+          tucked[k] = true
+          -RIDGE_CAP_TUCK
+        end
+        a0 = -adj.call(ka)
+        b0 = len + adj.call(kb)
+        span = b0 - a0
+        next if span < 1.0
+        # A run that tucks under another dips one thickness at that end,
+        # so it passes BENEATH the covering run instead of crossing it.
+        drop_a = tucked[[ka[0].round(2), ka[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
+        drop_b = tucked[[kb[0].round(2), kb[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
+        zadj = lambda do |q|
+          v = 0.0
+          v -= drop_a * [0.0, 1.0 - (q - a0) / RIDGE_CAP_LENGTH].max if drop_a > 0.0
+          v -= drop_b * [0.0, 1.0 - (b0 - q) / RIDGE_CAP_LENGTH].max if drop_b > 0.0
+          v
+        end
+        rising = zb >= za
+        free_a = !js.include?([ka[0].round(2), ka[1].round(2)])
+        free_b = !js.include?([kb[0].round(2), kb[1].round(2)])
+        low_free = rising ? free_a : free_b
+        # Only the BOTTOM of a slope needs trimming: that is the eave
+        # corner, where the two planes pinch out. A level ridge ending at
+        # a rake is full width right to the edge, so it is cut square.
+        sloping = (za - zb).abs > 1.0
+        taper_lo = sloping && low_free ? RIDGE_CAP_END_TAPER : 0.0
+        wscale = lambda do |q|
+          next 1.0 if taper_lo <= 0.0
+          r = rising ? (q - a0) : (b0 - q)
+          [[r / taper_lo, 1.0].min, 0.03].max
+        end
+        plen = one_run ? span : RIDGE_CAP_LENGTH
+        starts = one_run ? [0.0] : cap_starts(span, plen, RIDGE_CAP_EXPOSURE)
+        starts.each_with_index do |r1, i|
+          r2 = [r1 + plen, span].min
+          next if r2 - r1 < 0.5
+          # r runs from the LOW end of the line, so water always laps the
+          # right way whichever way ridge_lines happened to order it.
+          q1 = rising ? a0 + r1 : b0 - r1
+          q2 = rising ? a0 + r2 : b0 - r2
+          h = (one_run || (i.zero? && low_free)) ? 0.0 : lift
+          build_cap_piece!(grp, ka, d, za, zb, len, q1, q2, prof, mat,
+                           h, plen, zadj, wscale)
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] build_ridge_caps!: #{e.message}"
+    end
+
+    # The arch, as offsets from a point on the ridge: outer edge of one
+    # plane, up over the crown, down to the outer edge of the other.
+    # Each entry is [xy offset, z on the plane there, z added by the arch].
+    # The arch is a parabola: nothing at the edges, CROWN in the middle,
+    # so the cap lands flush on both planes and still reads as rounded.
+    def self.cap_profile(u, sides)
+      half = RIDGE_CAP_WIDTH / 2.0
+      seg = [RIDGE_CAP_SEGMENTS, 1].max
+      pt = lambda do |side, a|
+        k = a / half
+        [[u[0] * side[0] * a, u[1] * side[0] * a], side[1] * a,
+         RIDGE_CAP_CROWN * (1.0 - k * k)]
+      end
+      out = (0...seg).map { |i| pt.call(sides[0], half * (seg - i).to_f / seg) }
+      out << [[0.0, 0.0], 0.0, RIDGE_CAP_CROWN]
+      out + (1..seg).map { |i| pt.call(sides[1], half * i.to_f / seg) }
+    end
+
+    # q1 is the piece's LOW end and q2 its high end (q2 may be closer to
+    # the start of the line - that is fine, the maths only cares which is
+    # lower). head_lift tapers over the NOMINAL piece length, not over the
+    # cut span, so a piece cut short still lines up with its neighbour.
+    def self.build_cap_piece!(grp, ka, d, za, zb, len, q1, q2, prof, mat,
+                              head_lift = 0.0, plen = nil, zadj = nil,
+                              wscale = nil)
+      plen = (q2 - q1).abs if plen.nil? || plen <= 0.0
+      sec = lambda do |q|
+        px = ka[0] + d[0] * q
+        py = ka[1] + d[1] * q
+        z = za + (zb - za) * (q / len)
+        z += head_lift * [0.0, 1.0 - (q - q1).abs / plen].max if head_lift > 0.0
+        z += zadj.call(q) if zadj
+        w = wscale ? wscale.call(q) : 1.0
+        prof.map do |(off, dz, arc)|
+          Geom::Point3d.new(px + off[0] * w, py + off[1] * w,
+                            z + (dz + arc) * w)
+        end
+      end
+      a = sec.call(q1)
+      b = sec.call(q2)
+      up = lambda { |q| Geom::Point3d.new(q.x, q.y, q.z + RIDGE_CAP_THICK) }
+      au = a.map { |q| up.call(q) }
+      bu = b.map { |q| up.call(q) }
+      m = prof.length
+      sub = grp.entities.add_group
+      sub.name = 'InteriorPro_RidgeCap'
+      sub.set_attribute('InteriorPro', 'part', 'ridge_cap')
+      polys = []
+      (0...(m - 1)).each do |i|
+        polys << [a[i], a[i + 1], b[i + 1], b[i]]
+        polys << [au[i], au[i + 1], bu[i + 1], bu[i]]
+      end
+      polys << [a[0], b[0], bu[0], au[0]]
+      polys << [a[m - 1], b[m - 1], bu[m - 1], au[m - 1]]
+      polys << (a + au.reverse)
+      polys << (b + bu.reverse)
+      polys.each do |pp|
+        f = sub.entities.add_face(pp)
+        next if f.nil? || mat.nil?
+        f.material = mat
+        f.back_material = mat
+      end
+      sub
+    rescue StandardError => e
+      puts "[Roof] build_cap_piece!: #{e.message}"
       nil
     end
 

@@ -25,3 +25,37 @@ You must NEVER edit these files (you may READ them to learn patterns, but never 
 ## Refusal rule
 
 If asked to change wall or window behavior, refuse and say you are restricted to doors.
+
+---
+
+# UI rules (added 2026-08-07, set by the user)
+
+## No duplicate ways to do the same thing
+
+**Rotation covers flipping. Never build both.** Flip / mirror buttons
+(left-right, up-down) and a rotation control are the same idea wearing a
+different hat. Build the ROTATION only - a typed angle plus a quarter-turn
+button - and leave flips out.
+
+More generally: before adding a second control, ask whether an existing one
+already does that job. If it does, do not add it. Fewer buttons, fewer
+clicks. This is the user's standing preference for the whole plugin.
+
+## Fewer clicks, always
+
+- Clicking any tool button immediately runs that tool. No Escape first, no
+  cancelling the previous mode by hand - the click itself cancels it.
+- Panels stay open when the mode changes; the user must never reopen a panel
+  to reach the tool they just used.
+- Every action worth reaching for gets a single-letter keyboard shortcut.
+  Current map: S select, D door, W window, L line, O guide line, M move,
+  R rotate, U flip the guide angle to the other diagonal.
+- Icons over words in dense panels: a dashed horizontal line beats the word
+  "horizontal".
+
+## Feedback
+
+- A button that was pressed must LOOK pressed (Apply to Model shows a busy
+  state until the model is built).
+- The mouse cursor becomes the tool's own icon while move / rotate / offset
+  are running, so the active mode is always visible.
