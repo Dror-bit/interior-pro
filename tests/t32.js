@@ -24,11 +24,20 @@ c('setMode', 'line'); c('setLineTool', 'hex'); s('typed', '6'); key('KeyS', 's')
 ok('6 then S still sets the polygon side count', g('polySides') === 6, g('polySides'));
 s('typed', '');
 
-// ---- O arms and disarms the guide tool ----
+// ---- O arms the guide tool, then walks the directions ----
 c('setMode', 'sel');
+c('setGuideAim', 'h');
 if (g('guideMode')) c('toggleGuideMode');
-key('KeyO', 'o'); ok('O arms the guide tool', g('guideMode') === true);
-key('KeyO', 'o'); ok('O disarms it again', g('guideMode') === false);
+key('KeyO', 'o');
+ok('O arms the guide tool', g('guideMode') === true && g('guideAim') === 'h', g('guideAim'));
+key('KeyO', 'o'); ok('O again -> vertical', g('guideAim') === 'v', g('guideAim'));
+key('KeyO', 'o');
+ok('O again -> 45', g('guideAim') === 'ang' && Number(angEl().value) === 45,
+   [g('guideAim'), angEl().value]);
+key('KeyO', 'o');
+ok('O again -> the other diagonal, 135', Number(angEl().value) === 135, angEl().value);
+key('KeyO', 'o'); ok('O wraps back to horizontal', g('guideAim') === 'h', g('guideAim'));
+c('toggleGuideMode');
 
 // ---- M starts a move on the current selection ----
 c('setMode', 'sel');
@@ -202,6 +211,179 @@ c('applyDone', 1);
 ok('applying empties the wall draft', g('pending').length === 0);
 c('sketchesDone', 1);
 ok('applying empties the shape draft', g('pendingSketches').length === 0);
+
+// ---- dimension tags: a permanent mark, not just a readout (2026-08-07) ----
+s('scale', 1); s('dims', []); s('selList', []); s('sel', null); s('measA', null);
+c('setMode', 'line'); c('setLineTool', 'dim');
+s('cursor', { x: 100, y: 3 });
+c('lineToolClick', { x: 0, y: 0 });
+c('lineToolClick', { x: 100, y: 3 });
+ok('two clicks leave a dimension on the drawing', g('dims').length === 1, g('dims'));
+ok('and it locked to the axis', Math.abs(g('dims')[0].y2) < 1e-9, g('dims')[0]);
+c('finishDimPlace');   // since 2026-08-08 the tag follows the cursor until a 3rd click
+// free (diagonal) still works
+s('cursor', { x: 60, y: 60 });
+c('lineToolClick', { x: 0, y: 0 });
+c('lineToolClick', { x: 60, y: 60 });
+c('finishDimPlace');
+ok('a diagonal dimension is left free',
+   g('dims').length === 2 && Math.abs(g('dims')[1].y2 - 60) < 1, g('dims')[1]);
+// pick one and delete it
+c('setMode', 'sel');
+const dh = c('hitDim', { x: 50, y: 0 });
+ok('a dimension is pickable', dh && dh.type === 'dim', dh);
+s('selList', [dh]); s('sel', dh);
+c('deleteSelected');
+ok('Delete removes just that dimension', g('dims').length === 1, g('dims').length);
+// Still holding the dimension tool: clicking an EXISTING tag grabs it
+// instead of starting another one (2026-08-07)
+s('scale', 1); s('panX', 0); s('panY', 0);
+s('walls', []); s('pending', []); s('sketches', []); s('pendingSketches', []); s('guides', []);
+s('dims', [{ x1:0, y1:0, x2:100, y2:0 }]); s('selList', []); s('sel', null); s('dimA', null);
+c('setMode', 'line'); c('setLineTool', 'dim');
+global.__listeners.cv.mousedown[0]({
+  button:0, offsetX:c('sx',50), offsetY:c('sy',0), shiftKey:false, preventDefault(){}
+});
+ok('the dim tool grabs an existing tag', g('dragDim') !== null);
+ok('and does not make a second one', g('dims').length === 1, g('dims').length);
+c('handleMove', c('sx',50), c('sy',-24));
+ok('dragging pulls it out while still in the dim tool',
+   Math.abs(g('dims')[0].off) === 24, g('dims')[0]);
+c('finishDrag');
+
+// a selection box must pick up dimensions and guides, not ignore them
+s('dims', [{ x1:0, y1:0, x2:100, y2:0, off:-24 }]);
+s('guides', [{ x1:0, y1:10, x2:1, y2:10 }]);
+s('selList', []); s('sel', null);
+c('setMode', 'sel');
+s('rubber', { x0:-20, y0:-60, x1:200, y1:40, sx:0, sy:0, on:true });
+const boxed = c('rubberPick');
+ok('a selection box picks up dimensions',
+   boxed.some(function(o){ return o.type === 'dim'; }), boxed.map(function(o){ return o.type; }));
+ok('and helper lines too',
+   boxed.some(function(o){ return o.type === 'guide'; }), boxed.map(function(o){ return o.type; }));
+s('rubber', null); s('guides', []);
+
+// A dimension lying exactly ON the wall it measures must still be the thing
+// the click grabs - otherwise a fresh tag can never be pulled out (2026-08-07)
+s('scale', 1); s('panX', 0); s('panY', 0);
+s('walls', [{ id:'w1', sx:0, sy:0, ex:100, ey:0, th:5, ha:'left', cat:'exterior', ops:[] }]);
+s('pending', []); s('sketches', []); s('pendingSketches', []); s('guides', []);
+s('dims', [{ x1:0, y1:0, x2:100, y2:0 }]); s('selList', []); s('sel', null);
+c('setMode', 'sel');
+global.__listeners.cv.mousedown[0]({
+  button:0, offsetX:c('sx',50), offsetY:c('sy',0), shiftKey:false, preventDefault(){}
+});
+ok('a dimension on top of a wall wins the click',
+   g('dragDim') !== null && g('sel') && g('sel').type === 'dim',
+   { drag: !!g('dragDim'), sel: g('sel') && g('sel').type });
+c('handleMove', c('sx',50), c('sy',-24));
+ok('and dragging pulls it off the wall', Math.abs(g('dims')[0].off) === 24, g('dims')[0]);
+c('finishDrag');
+s('walls', []);
+
+// pull it away from what it measures, and rename the number (2026-08-07)
+s('dims', [{ x1: 0, y1: 0, x2: 100, y2: 0 }]); s('selList', []); s('sel', null);
+c('setMode', 'sel');
+ok('a fresh dimension sits on the line it measured', !!c('hitDim', { x: 50, y: 0 }));
+s('dragDim', { d: g('dims')[0], off: 0, moved: false });
+c('dimDragTo', { x: 50, y: -24 });
+ok('dragging sets its distance from the object',
+   Math.abs(g('dims')[0].off) === 24, g('dims')[0]);
+c('finishDimDrag');
+ok('the old spot is no longer grabbable', c('hitDim', { x: 50, y: 0 }) === null);
+ok('you grab it where it is now drawn', !!c('hitDim', { x: 50, y: -24 }));
+const dg = c('dimGeom', g('dims')[0]);
+g('dims')[0].txt = 'EQ';
+ok('a typed label replaces the number', c('dimText', g('dims')[0], dg) === 'EQ');
+delete g('dims')[0].txt;
+ok('clearing it brings the measured length back', c('dimText', g('dims')[0], dg) !== 'EQ');
+
+// and it rides along in the draft
+s('dims', [{ x1: 0, y1: 0, x2: 100, y2: 0, off: -24 }]);
+c('saveDraft', true);
+const dc2 = global.__calls.filter(function (x) { return x[0] === 'save_draft'; });
+const dj2 = JSON.parse(dc2[dc2.length - 1][1]);
+ok('dimensions are parked in the draft too', dj2.dims && dj2.dims.length === 1, dj2.dims);
+s('dims', []);
+c('restoreDraft', dc2[dc2.length - 1][1]);
+ok('and come back on reopen', g('dims').length === 1, g('dims'));
+c('clearDims');
+
+// ---- CAD flow: the 3rd click sets the distance (2026-08-08) ----
+s('scale', 1); s('panX', 0); s('panY', 0);
+s('walls', []); s('pending', []); s('sketches', []); s('pendingSketches', []); s('guides', []);
+s('dims', []); s('selList', []); s('sel', null); s('dimA', null); s('dimPlace', null);
+c('setMode', 'line'); c('setLineTool', 'dim');
+const md3 = global.__listeners.cv.mousedown[0];
+const clk = (x, y) => md3({ button: 0, offsetX: c('sx', x), offsetY: c('sy', y),
+                            shiftKey: false, preventDefault() {} });
+clk(0, 0); clk(100, 0);
+ok('after two clicks the new dim is following the cursor',
+   g('dimPlace') !== null && g('dims').length === 1,
+   { place: !!g('dimPlace'), n: g('dims').length });
+c('handleMove', c('sx', 50), c('sy', -24));
+ok('moving the mouse pulls it out before any drag',
+   Math.abs(g('dims')[0].off) === 24, g('dims')[0]);
+clk(50, -24);
+ok('the 3rd click fixes the distance',
+   g('dimPlace') === null && g('dims').length === 1 && Math.abs(g('dims')[0].off) === 24,
+   { place: !!g('dimPlace'), d: g('dims')[0] });
+ok('and it is grabbable where it was left', !!c('hitDim', { x: 50, y: -24 }));
+
+// Esc mid-placement throws the half-placed dim away
+clk(0, 40); clk(100, 40);
+ok('a second dim is being placed', g('dimPlace') !== null && g('dims').length === 2);
+key('Escape', 'Escape');
+ok('Esc removes the half-placed dim, keeps the finished one',
+   g('dimPlace') === null && g('dims').length === 1, g('dims').length);
+
+// switching tools mid-placement keeps the dim where it is now
+clk(0, 60); clk(100, 60);
+c('handleMove', c('sx', 50), c('sy', 80));
+c('setLineTool', 'line');
+ok('switching tools commits the dim at its current distance',
+   g('dimPlace') === null && g('dims').length === 2 && Math.abs(g('dims')[1].off) === 20,
+   g('dims')[1]);
+s('dims', []);
+
+
+// ---- Shift locks the direction you are DRAWING (2026-08-10) ----
+// The user drew a wall downward, pressed Shift to hold that direction and
+// the wall jumped sideways: a leftover parallel inference (parInd is only
+// refreshed by the line chain, never in wall mode) grabbed the lock.
+s('mode', 'wall'); s('drawing', true); s('startPt', { x: 0, y: 0 });
+s('curLine', null); s('shiftDown', false); s('lockDir', null);
+s('parInd', { x: 0, y: 0, dx: 1, dy: 0 });          // stale: sideways
+s('cursor', { x: 0.4, y: -300 });                    // pointing straight down
+c('captureLockDir');
+ok('a stale sideways inference does not hijack a downward wall',
+   g('lockDir') && Math.abs(g('lockDir').x) < 0.02 && g('lockDir').y < -0.98,
+   g('lockDir'));
+
+// an inference that AGREES with the drawn direction still wins (the old
+// magnet behaviour: hover parallel, hold Shift, then aim at any corner)
+s('lockDir', null);
+s('parInd', { x: 0, y: 0, dx: 0.6, dy: -0.8 });
+s('cursor', { x: 60, y: -80 });
+c('captureLockDir');
+ok('a matching parallel inference still takes the lock',
+   g('lockDir') && Math.abs(g('lockDir').x - 0.6) < 1e-9 &&
+   Math.abs(g('lockDir').y + 0.8) < 1e-9, g('lockDir'));
+
+// and with no inference at all the raw cursor direction is used
+s('lockDir', null); s('parInd', null);
+s('cursor', { x: -2, y: 250 });
+c('captureLockDir');
+ok('no inference: the cursor direction is what gets locked',
+   g('lockDir') && Math.abs(g('lockDir').x) < 0.02 && g('lockDir').y > 0.98,
+   g('lockDir'));
+
+// ending the chain must not leave a parallel lock behind
+s('parInd', { x: 0, y: 0, dx: 1, dy: 0 });
+c('endChain');
+ok('endChain clears the parallel inference', g('parInd') === null, g('parInd'));
+s('mode', 'sel'); s('drawing', false); s('startPt', null);
 
 console.log(fails ? '\n*** ' + fails + ' FAILED ***' : '\nALL PASS');
 process.exit(fails ? 1 : 0);

@@ -21,6 +21,7 @@ module InteriorPro
       @drawing = false
       @locked_axis = nil
       @auto_snap = nil
+      @raw_point = nil
       @length_input = ''
       @ip = nil
       @preview_group = nil
@@ -161,6 +162,7 @@ module InteriorPro
       @preview_group.hidden = false if @preview_group && @preview_group.valid?
       if @drawing
         raw = raw_cursor_position(view, x, y)
+        @raw_point = raw if raw          # what the cursor really points at
         pt = pick_point(view, x, y)
         pt = snap_start_to_wall_centerline(pt)
         if @auto_snap == :manual
@@ -245,10 +247,17 @@ module InteriorPro
         finish_drawing
         return
       end
-      if key == 16 && @drawing && @start_point
-        dx = @end_point ? (@end_point.x - @start_point.x).abs : 0
-        dy = @end_point ? (@end_point.y - @start_point.y).abs : 0
-        @locked_axis = dx > dy ? :x : :y
+      if InteriorPro::WallTool.shift_key?(key) && @drawing && @start_point
+        # Lock the axis the CURSOR is pointing at, not the one the preview
+        # already snapped to (2026-08-10). @end_point has been flattened by
+        # snap_to_axis, so when the auto-snap had guessed horizontal its dy
+        # was already 0 and Shift could only ever re-confirm horizontal -
+        # drawing downward and pressing Shift threw the wall sideways.
+        ref = @raw_point || @end_point
+        axis = ref ? InteriorPro::WallTool.axis_lock(ref.x - @start_point.x,
+                                                     ref.y - @start_point.y) : nil
+        return if axis.nil?
+        @locked_axis = axis
         @auto_snap = :manual
         Sketchup.set_status_text('Direction locked (hold Shift).', SB_PROMPT)
         view.invalidate
@@ -300,11 +309,33 @@ module InteriorPro
     end
 
     def onKeyUp(key, repeat, flags, view)
-      if key == 16
+      if InteriorPro::WallTool.shift_key?(key)
         @locked_axis = nil
         @auto_snap = nil
         view.invalidate
       end
+    end
+
+    # Shift does NOT arrive with the same key code on both platforms.
+    # onKeyDown reports 16 on Windows, but on the Mac it reports
+    # CONSTRAIN_MODIFIER_KEY - which is the macOS Shift MASK, 131072
+    # (verified on the user's SketchUp 2026, 2026-08-10). Hard-coding 16
+    # meant the direction lock never fired on the Mac at all: the wall just
+    # kept following the auto-guess, which is exactly the "Shift throws it
+    # sideways" report. Compare against the constant, never the number, so
+    # this keeps working if the value changes. The PC is unaffected -
+    # there CONSTRAIN_MODIFIER_KEY == 16 already.
+    def self.shift_key?(key)
+      return true if key == 16
+      defined?(CONSTRAIN_MODIFIER_KEY) && key == CONSTRAIN_MODIFIER_KEY
+    end
+
+    # Which axis a direction lock should take. Pure, so it is testable:
+    # :x when the run is mostly sideways, :y when mostly up/down, nil when
+    # there is no direction yet.
+    def self.axis_lock(dx, dy)
+      return nil if dx.abs < 0.001 && dy.abs < 0.001
+      dx.abs > dy.abs ? :x : :y
     end
 
     def detect_auto_snap(pt)

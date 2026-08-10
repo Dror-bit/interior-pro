@@ -131,6 +131,26 @@ module InteriorPro
           store_underlay_placement(JSON.parse(json))
         end
 
+        # Put the traced image into the 3D model, at the same place and size
+        # it has on the canvas (2026-08-07). Purely optional.
+        dlg.add_action_callback('place_underlay_3d') do |_, json|
+          begin
+            place_underlay_3d(JSON.parse(json))
+          rescue StandardError => e
+            puts "[PlanEditor] place_underlay_3d: #{e.message}"
+            UI.messagebox("לא הצלחתי להניח את התמונה במודל: #{e.message}")
+          end
+        end
+
+        dlg.add_action_callback('remove_underlay_3d') do |_|
+          begin
+            n = remove_underlay_3d
+            puts "[PlanEditor] removed #{n} underlay image(s) from the model"
+          rescue StandardError => e
+            puts "[PlanEditor] remove_underlay_3d: #{e.message}"
+          end
+        end
+
         dlg.add_action_callback('apply_sketches') do |_, json|
           rows = JSON.parse(json)
           model = Sketchup.active_model
@@ -1092,9 +1112,7 @@ module InteriorPro
         model.set_attribute('InteriorPro', 'underlay_scale', r['scale'].to_f)
         model.set_attribute('InteriorPro', 'underlay_opacity', r['opacity'].to_f)
         model.set_attribute('InteriorPro', 'underlay_locked', r['locked'] ? 1 : 0)
-        # mirror + free rotation of the traced image (2026-08-07)
-        model.set_attribute('InteriorPro', 'underlay_flipx', r['flipx'].to_i)
-        model.set_attribute('InteriorPro', 'underlay_flipy', r['flipy'].to_i)
+        # free rotation of the traced image (2026-08-07)
         model.set_attribute('InteriorPro', 'underlay_rot', r['rot'].to_f)
       rescue StandardError => e
         puts "[PlanEditor] store_underlay_placement: #{e.message}"
@@ -1103,7 +1121,7 @@ module InteriorPro
       def clear_underlay_placement
         model = Sketchup.active_model
         %w[underlay_x underlay_y underlay_scale underlay_opacity underlay_locked
-           underlay_flipx underlay_flipy underlay_rot].each do |k|
+           underlay_rot].each do |k|
           begin; model.delete_attribute('InteriorPro', k); rescue StandardError; end
         end
       rescue StandardError
@@ -1120,8 +1138,6 @@ module InteriorPro
           'scale' => sc,
           'opacity' => op > 0 ? op : 0.55,
           'locked' => model.get_attribute('InteriorPro', 'underlay_locked').to_i != 0,
-          'flipx' => (model.get_attribute('InteriorPro', 'underlay_flipx').to_i.negative? ? -1 : 1),
-          'flipy' => (model.get_attribute('InteriorPro', 'underlay_flipy').to_i.negative? ? -1 : 1),
           'rot' => model.get_attribute('InteriorPro', 'underlay_rot').to_f }
       rescue StandardError
         nil
@@ -1134,6 +1150,60 @@ module InteriorPro
         dlg.execute_script("restoreDraft(#{JSON.generate(json)})")
       rescue StandardError => e
         puts "[PlanEditor] push_draft: #{e.message}"
+      end
+
+      # Every underlay image already sitting in the model.
+      def underlay_images(model = Sketchup.active_model)
+        model.entities.grep(Sketchup::Image).select do |im|
+          im.valid? && im.get_attribute('InteriorPro', 'type') == 'underlay'
+        end
+      end
+
+      def remove_underlay_3d
+        model = Sketchup.active_model
+        imgs = underlay_images(model)
+        return 0 if imgs.empty?
+        model.start_operation('InteriorPro Remove Underlay', true)
+        imgs.each { |im| im.erase! if im.valid? }
+        model.commit_operation
+        imgs.length
+      end
+
+      # r = { 'x','y' } top-left corner in editor world inches (y up),
+      # 'w','h' the size in inches, 'rot' degrees counter-clockwise.
+      def place_underlay_3d(r)
+        path = Sketchup.active_model.get_attribute('InteriorPro', 'underlay_path').to_s
+        if path.empty? || !File.exist?(path)
+          UI.messagebox('אין תמונת רקע טעונה')
+          return nil
+        end
+        w = r['w'].to_f
+        h = r['h'].to_f
+        return nil unless w > 0.01 && h > 0.01
+        model = Sketchup.active_model
+        remove_underlay_3d
+        model.start_operation('InteriorPro Underlay to 3D', true)
+        # SketchUp anchors an image at its LOWER-left corner; the editor
+        # stores the UPPER-left one, so drop by the image height.
+        origin = Geom::Point3d.new(r['x'].to_f, r['y'].to_f - h, 0)
+        img = model.entities.add_image(path, origin, w)
+        if img.nil?
+          model.abort_operation
+          UI.messagebox('SketchUp did not accept this image file')
+          return nil
+        end
+        rot = r['rot'].to_f
+        unless rot.abs < 0.001
+          centre = Geom::Point3d.new(r['x'].to_f + w / 2.0, r['y'].to_f - h / 2.0, 0)
+          img.transform!(Geom::Transformation.rotation(centre, Z_AXIS, rot.degrees))
+        end
+        img.set_attribute('InteriorPro', 'type', 'underlay')
+        begin
+          InteriorPro.assign_tag(img, 'IP/Underlay') if InteriorPro.respond_to?(:assign_tag)
+        rescue StandardError
+        end
+        model.commit_operation
+        img
       end
 
       def push_underlay(dlg)
@@ -1986,6 +2056,7 @@ module InteriorPro
                     <button id="ltArc" title="Arc" onclick="setLineTool('arc')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 18 A12 12 0 0 1 20 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="18" r="2.2" fill="currentColor"/><circle cx="20" cy="18" r="2.2" fill="currentColor"/></svg></button>
                     <button id="ltHex" title="Polygon - type a number then S for the side count" onclick="setLineTool('hex')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 3 L20 7.5 L20 16.5 L12 21 L4 16.5 L4 7.5 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
                     <button id="ltRect" title="Rectangle" onclick="setLineTool('rect')"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                    <button id="ltDim" title="סימון מידה — נשאר על הסרטוט" onclick="setLineTool('dim')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 6 V18 M21 6 V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3 12 H21" stroke="currentColor" stroke-width="1.6"/><path d="M6 9 L3 12 L6 15 M18 9 L21 12 L18 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <button id="ltMeas" title="Measure" onclick="setLineTool('measure')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 17 L17 3 L21 7 L7 21 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 13 L9 15 M10 10 L12 12 M13 7 L15 9" stroke="currentColor" stroke-width="1.6"/></svg></button>
                     <button id="ltErase" title="Erase one segment" onclick="setLineTool('erase')"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M10 18 L4 12 L13 3 L20 10 L12 18 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 21 H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
                   </div>
@@ -2078,34 +2149,19 @@ module InteriorPro
                   <button onclick="sketchup.pick_underlay()">טען</button>
                   <button onclick="sketchup.clear_underlay()">הסר</button>
                 </div>
+                <div class="seg2" style="margin-top:6px">
+                  <button onclick="sendUnderlayTo3D()">שלח ל-3D</button>
+                  <button onclick="sketchup.remove_underlay_3d()">הסר מ-3D</button>
+                </div>
                 <div id="underRow" style="display:none">
                   <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="startCalib()">כייל לפי מידה</button></div>
                   <label>שקיפות</label>
                   <input type="range" id="underOp" min="10" max="100" value="55" style="width:100%" oninput="setUnderOpacity(this.value)">
-                  <div class="seg3" style="margin-top:6px">
-                    <button title="הפוך ימין / שמאל" onclick="flipUnderlay('x')">
-                      <svg width="20" height="16" viewBox="0 0 24 20">
-                        <path d="M12 1 V19" stroke="#9aa2ad" stroke-width="1.3" stroke-dasharray="3 2"/>
-                        <path d="M10 4 L3 10 L10 16 Z" fill="currentColor"/>
-                        <path d="M14 4 L21 10 L14 16 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                    <button title="הפוך מעלה / מטה" onclick="flipUnderlay('y')">
-                      <svg width="20" height="16" viewBox="0 0 24 20">
-                        <path d="M2 10 H22" stroke="#9aa2ad" stroke-width="1.3" stroke-dasharray="3 2"/>
-                        <path d="M5 8 L12 2 L19 8 Z" fill="currentColor"/>
-                        <path d="M5 12 L12 18 L19 12 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
-                    <button title="סובב 90°" onclick="rotateUnderlay(90)">
-                      <svg width="20" height="16" viewBox="0 0 24 20">
-                        <path d="M5 12 A7 7 0 1 1 12 19" fill="none" stroke="currentColor"
-                              stroke-width="1.8" stroke-linecap="round"/>
-                        <path d="M5 7 L5 12 L10 12" fill="none" stroke="currentColor"
-                              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  <div style="margin-top:6px; color:#777; font-size:12px">
+                    כל עוד החלון הזה פתוח התמונה נבחרת ככל צורה אחרת —
+                    הזזה, סיבוב, כל כלי Select. סגירת החלון נועלת אותה.
                   </div>
-                  <div class="row" style="margin-top:6px; display:flex; align-items:center; gap:6px">
-                    <input type="number" id="underAng" value="0" step="1"
-                           style="width:64px; flex:0 0 auto" oninput="setUnderRotation(this.value)">
-                    <span style="flex:0 0 auto; color:#555">°</span>
-                    <span style="flex:1 1 auto; color:#777; font-size:12px">סיבוב התמונה</span>
-                  </div>
+                  <input type="hidden" id="underAng" value="0">
                 </div>
                 </div>
               </div>
@@ -2327,6 +2383,8 @@ module InteriorPro
                 markGuideBox();
               }
               guideStart = null;
+              if (dimPlace) finishDimPlace();   // switching tools keeps the dim where it is now
+              dimA = null;
               calib = null;
               ghostCopy = null; ghostOpen = null;
               rubber = null;
@@ -2335,6 +2393,9 @@ module InteriorPro
 
             function setMode(m) {
               cancelOps();
+              // switching tools folds the helper panels away
+              if (foldOpen.guide) toggleFold('guide', false);
+              if (foldOpen.under) toggleFold('under', false);
               mode = m; endChain(); hoverHit = null; setSel(null); dragSym = null;
               // Doors/windows need applied walls - apply pending automatically.
               if ((m === 'door' || m === 'win') && pending.length) applyPending();
@@ -2399,9 +2460,12 @@ module InteriorPro
               var hasShapes = selList.some(function(o) { return o.type === 'sketch'; });
               var hasWalls = selList.some(function(o) { return o.type === 'wall' || o.type === 'pending'; });
               var hasGuides = selList.some(function(o) { return o.type === 'guide'; });
+              var hasUnder = selList.some(function(o) { return o.type === 'under'; });
+              var hasDims = selList.some(function(o) { return o.type === 'dim'; });
               ebar.style.display = '';
               var eb = function(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; };
-              eb('ebMove', hasShapes || hasWalls || hasGuides);
+              eb('ebRotFree', hasShapes || hasUnder);
+              eb('ebMove', hasShapes || hasWalls || hasGuides || hasUnder || hasDims);
               eb('ebOff', hasShapes);
               eb('ebArea', selList.some(function(o) { return o.type === 'sketch' && o.sk.closed; }));
               eb('ebFlipH', hasShapes || hasWalls); eb('ebFlipV', hasShapes || hasWalls);
@@ -2424,6 +2488,14 @@ module InteriorPro
               }
               if (sel.type === 'guide') {
                 info.textContent = 'קו עזר · M להזזה · Delete למחיקה';
+                return;
+              }
+              if (sel.type === 'under') {
+                info.textContent = 'תמונת רקע · M להזזה · R לסיבוב · סגירת החלון נועלת';
+                return;
+              }
+              if (sel.type === 'dim') {
+                info.textContent = 'סימון מידה · M להזזה · Delete למחיקה';
                 return;
               }
               if (sel.type === 'sketch') {
@@ -2843,9 +2915,9 @@ module InteriorPro
             var underX = 0, underY = 0;
             var underScale = 1;
             var underOpacity = 0.55;
-            var underLocked = true;    // the image never drags; the calibration places it
-            var underFlipX = 1, underFlipY = 1;   // -1 = mirrored on that axis
-            var underRot = 0;                     // degrees, counter-clockwise
+            var underLocked = true;    // true until its panel is opened
+            var underRot = 0;          // degrees, counter-clockwise (rotation only -
+                                       // user rule 2026-08-07: no separate flip)
             var calib = null;
             var dragUnder = null;
 
@@ -2858,6 +2930,33 @@ module InteriorPro
               var on = foldOpen[which];
               document.getElementById(which + 'Body').style.display = on ? '' : 'none';
               document.getElementById(which + 'Caret').innerHTML = on ? '▴' : '▾';
+              // The background image is live ONLY while its panel is open
+              // (2026-08-07): open = it selects and edits like any other
+              // object, closed = it is locked and clicks pass straight through.
+              // One helper panel at a time (2026-08-07): opening one closes
+              // the other, so the screen only ever shows the tool in use.
+              if (on && which === 'under' && foldOpen.guide) toggleFold('guide', false);
+              if (on && which === 'guide' && foldOpen.under) toggleFold('under', false);
+              // A closed guide panel means the guide tool is not armed.
+              if (which === 'guide' && !on && guideMode) {
+                guideMode = false;
+                guideStart = null;
+                var gb2 = document.getElementById('guideBtn');
+                if (gb2) gb2.className = '';
+                markGuideBox();
+                setStatusHint(null);
+                draw();
+              }
+              if (which === 'under') {
+                underLocked = !on;
+                if (!on) {
+                  selList = selList.filter(function(o) { return o.type !== 'under'; });
+                  if (sel && sel.type === 'under') sel = selList.length ? selList[selList.length - 1] : null;
+                  dragUnder = null;
+                  updateSelPanel();
+                }
+                draw();
+              }
             }
             function toggleUnderBox(force) { toggleFold('under', force); }
 
@@ -2869,7 +2968,6 @@ module InteriorPro
               try {
                 sketchup.save_underlay(JSON.stringify({ x: underX, y: underY, scale: underScale,
                                                         opacity: underOpacity, locked: underLocked,
-                                                        flipx: underFlipX, flipy: underFlipY,
                                                         rot: underRot }));
               } catch (e) {}
             }
@@ -2890,18 +2988,36 @@ module InteriorPro
                 if (place && place.scale > 0) {
                   underX = place.x; underY = place.y; underScale = place.scale;
                   underOpacity = place.opacity > 0 ? place.opacity : 0.55;
-                  underLocked = place.locked !== false;
-                  underFlipX = place.flipx < 0 ? -1 : 1;
-                  underFlipY = place.flipy < 0 ? -1 : 1;
+                  // the lock now follows the panel, not a saved flag
+                  underLocked = !foldOpen.under;
                   underRot = Number(place.rot) || 0;
                   document.getElementById('underOp').value = Math.round(underOpacity * 100);
                   showUnderAngle();
+                  ensureUnderlayVisible();
                   draw();
                 } else {
                   fitUnderlay(1);
                 }
               };
               im.src = src;
+            }
+
+            // If the saved spot is off the edge of the current view, walk the
+            // image back to the middle of the screen (2026-08-07). The SCALE is
+            // never touched, so a calibrated image stays to scale - it just
+            // stops hiding outside the window. Runs by itself, no button.
+            function ensureUnderlayVisible() {
+              if (!underImg) return;
+              var w5 = underImg.width * underScale * scale;
+              var h5 = underImg.height * underScale * scale;
+              var x0 = sx(underX), y0 = sy(underY);
+              var visible = (x0 + w5 > 0) && (x0 < cv.width) &&
+                            (y0 + h5 > 0) && (y0 < cv.height);
+              if (visible) return;
+              underX = mx(cv.width / 2 - w5 / 2);
+              underY = my(cv.height / 2 - h5 / 2);
+              saveUnderlay();
+              draw();
             }
 
             function fitUnderlay(save) {
@@ -2916,13 +3032,50 @@ module InteriorPro
 
             function setUnderOpacity(v) { underOpacity = Math.max(0.05, v / 100); saveUnderlay(); draw(); }
 
-            // Mirror the traced image left/right or top/bottom. Both flips can
-            // be on at once, which is the same as a half turn.
-            function flipUnderlay(axis) {
+            // The image in world units, and its centre - rotation and moves
+            // are expressed through these so the maths stays in one place.
+            function underSizeWorld() {
+              if (!underImg) return null;
+              return { w: underImg.width * underScale, h: underImg.height * underScale };
+            }
+
+            function underCentre() {
+              var s5 = underSizeWorld();
+              if (!s5) return null;
+              return { x: underX + s5.w / 2, y: underY - s5.h / 2 };
+            }
+
+            function setUnderCentre(cx, cy) {
+              var s5 = underSizeWorld();
+              if (!s5) return;
+              underX = cx - s5.w / 2;
+              underY = cy + s5.h / 2;
+            }
+
+            // Is the cursor over the background image? Only while its panel is
+            // open - a closed panel means the image is scenery, not an object.
+            function hitUnderlay(p) {
+              if (!underImg || underLocked) return null;
+              var s5 = underSizeWorld();
+              var c5 = underCentre();
+              // undo the rotation, then test against the plain rectangle
+              var a5 = -underRot * Math.PI / 180;
+              var dx = p.x - c5.x, dy = p.y - c5.y;
+              var rx = dx * Math.cos(a5) - dy * Math.sin(a5);
+              var ry = dx * Math.sin(a5) + dy * Math.cos(a5);
+              if (Math.abs(rx) > s5.w / 2 || Math.abs(ry) > s5.h / 2) return null;
+              return { type: 'under' };
+            }
+
+            // Drop the traced image into the 3D model, exactly where and at
+            // the size it sits here (2026-08-07). Optional - the editor works
+            // fine without it; this is for when you want to trace in 3D too.
+            function sendUnderlayTo3D() {
               if (!underImg) return;
-              if (axis === 'y') underFlipY = -underFlipY; else underFlipX = -underFlipX;
-              saveUnderlay();
-              draw();
+              var s6 = underSizeWorld();
+              sketchup.place_underlay_3d(JSON.stringify({
+                x: underX, y: underY, w: s6.w, h: s6.h, rot: underRot
+              }));
             }
 
             function showUnderAngle() {
@@ -2964,9 +3117,8 @@ module InteriorPro
                 underX = calib.a.x + (underX - calib.a.x) * f;
                 underY = calib.a.y + (underY - calib.a.y) * f;
                 underScale *= f;
-                // The image stays put: a stray click must never shift it
-                // once it is to scale (the lock button is gone - 2026-08-07).
-                underLocked = true;
+                // Calibration only sets the scale; whether the image can be
+                // grabbed is decided by its panel being open (2026-08-07).
                 saveUnderlay();
               }
               calib = null;
@@ -2981,13 +3133,23 @@ module InteriorPro
               var h5 = underImg.height * underScale * scale;
               ctx.save();
               ctx.globalAlpha = underOpacity;
-              // Mirror + free rotation happen about the image CENTRE, so the
-              // picture turns in place instead of walking off the screen.
+              // Rotation happens about the image CENTRE, so the picture turns
+              // in place instead of walking off the screen.
               var cx5 = sx(underX) + w5 / 2, cy5 = sy(underY) + h5 / 2;
               ctx.translate(cx5, cy5);
               if (underRot) ctx.rotate(-underRot * Math.PI / 180);   // + = counter-clockwise
-              if (underFlipX < 0 || underFlipY < 0) ctx.scale(underFlipX, underFlipY);
               try { ctx.drawImage(underImg, -w5 / 2, -h5 / 2, w5, h5); } catch (e) {}
+              // selected = blue frame; unlocked but not selected = faint frame,
+              // so you can see the image is live while its panel is open
+              var uSel = selList.some(function(o) { return o.type === 'under'; });
+              if (uSel || !underLocked) {
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = uSel ? '#4b89ff' : '#b9c0c9';
+                ctx.lineWidth = uSel ? 2.5 : 1;
+                if (!uSel) ctx.setLineDash([5, 4]);
+                ctx.strokeRect(-w5 / 2, -h5 / 2, w5, h5);
+                ctx.setLineDash([]);
+              }
               ctx.restore();
               if (calib && calib.a) {
                 ctx.strokeStyle = '#e0392b'; ctx.lineWidth = 1.6;
@@ -3014,14 +3176,21 @@ module InteriorPro
             var lineWeight = 1;        // derived
             var measA = null, measB = null;   // measure tool points
             var measAxis = null;              // 'x' | 'y' while the tape is locked
+            var dimA = null;                  // first point of a dimension tag
+            var dims = [];                    // [{x1,y1,x2,y2}] permanent marks
 
             // The tape locks to right / left / up / down the moment it points
             // that way (2026-08-07), and Shift forces the stronger axis. A
-            // real corner or midpoint under the cursor still wins.
-            function measureAim(p) {
+            // real corner or midpoint under the cursor still wins. Free
+            // (diagonal) still works - the lock only grabs near an axis.
+            function measureAim(p) { return axisAim(measA, p); }
+            function dimAim(p) { return axisAim(dimA, p); }
+
+            function axisAim(anchor, p) {
               measAxis = null;
               var q = snapPoint(p, null);
-              if (!measA || q.snapped) return q;
+              if (!anchor || q.snapped) return q;
+              var measA = anchor;
               var dx = q.x - measA.x, dy = q.y - measA.y;
               var lock = null;
               if (shiftDown) {
@@ -3082,6 +3251,21 @@ module InteriorPro
               draw();
             }
 
+            // The O key walks the four directions in order.
+            function cycleGuideAim() {
+              var el = document.getElementById('guideAng');
+              if (guideAim === 'h') { setGuideAim('v'); return; }
+              if (guideAim === 'v') {
+                if (el) el.value = 45;
+                setGuideAim('ang'); return;
+              }
+              if (guideAim === 'ang' && Math.abs(guideAngle() - 45) < 0.01) {
+                if (el) el.value = 135;
+                setGuideAim('ang'); return;
+              }
+              setGuideAim('h');
+            }
+
             function showGuideAngle() {
               var s = document.getElementById('gaShow');
               if (s) s.textContent = guideAngle() + '°';
@@ -3112,6 +3296,7 @@ module InteriorPro
               cancelOps();               // drops move / rotate / offset first
               guideMode = !was;
               guideStart = null;
+              if (guideMode) toggleFold('guide', true);   // the tool and its panel travel together
               document.getElementById('guideBtn').className = guideMode ? 'on' : '';
               setStatusHint(guideMode ? guideHint() : null);
               markGuideBox();
@@ -3183,6 +3368,164 @@ module InteriorPro
               ctx.stroke();
             }
 
+            // Where a dimension actually DRAWS: the measured points, the
+            // across-direction, and the offset line the user pulled out to.
+            function dimGeom(d) {
+              var dx = d.x2 - d.x1, dy = d.y2 - d.y1;
+              var L = Math.hypot(dx, dy);
+              if (L < 0.01) return null;
+              var ux = dx / L, uy = dy / L;
+              var nx = -uy, ny = ux;
+              var off = d.off || 0;
+              return { L: L, ux: ux, uy: uy, nx: nx, ny: ny, off: off,
+                       p1: { x: d.x1, y: d.y1 }, p2: { x: d.x2, y: d.y2 },
+                       a: { x: d.x1 + nx * off, y: d.y1 + ny * off },
+                       b: { x: d.x2 + nx * off, y: d.y2 + ny * off } };
+            }
+
+            function dimText(d, g6) { return d.txt ? d.txt : fmtLen(g6.L); }
+
+            // A dimension tag drawn the way a real plan does it: witness lines
+            // from the two points out to an offset dimension line, a slash at
+            // each end, and the number in a white box on top.
+            function drawDimMark(d, col, wide) {
+              var g6 = dimGeom(d);
+              if (!g6) return;
+              ctx.strokeStyle = col;
+              if (Math.abs(g6.off) > 0.01) {              // witness lines
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 3]);
+                [[g6.p1, g6.a], [g6.p2, g6.b]].forEach(function(pr) {
+                  ctx.beginPath();
+                  ctx.moveTo(sx(pr[0].x), sy(pr[0].y));
+                  ctx.lineTo(sx(pr[1].x + g6.nx * 4 / scale), sy(pr[1].y + g6.ny * 4 / scale));
+                  ctx.stroke();
+                });
+                ctx.setLineDash([]);
+              }
+              ctx.lineWidth = wide ? 2.4 : 1.4;
+              ctx.beginPath();
+              ctx.moveTo(sx(g6.a.x), sy(g6.a.y));
+              ctx.lineTo(sx(g6.b.x), sy(g6.b.y));
+              ctx.stroke();
+              [g6.a, g6.b].forEach(function(pt) {          // architect's slash
+                var k = 5 / scale;
+                ctx.beginPath();
+                ctx.moveTo(sx(pt.x + (g6.nx + g6.ux) * k), sy(pt.y + (g6.ny + g6.uy) * k));
+                ctx.lineTo(sx(pt.x - (g6.nx + g6.ux) * k), sy(pt.y - (g6.ny + g6.uy) * k));
+                ctx.stroke();
+              });
+              var tx = (sx(g6.a.x) + sx(g6.b.x)) / 2, ty = (sy(g6.a.y) + sy(g6.b.y)) / 2;
+              var txt = dimText(d, g6);
+              ctx.font = 'bold 12px Arial';
+              var bw = ctx.measureText(txt).width + 10;
+              ctx.fillStyle = '#ffffff'; ctx.fillRect(tx - bw / 2, ty - 18, bw, 16);
+              ctx.strokeStyle = col; ctx.lineWidth = 1;
+              ctx.strokeRect(tx - bw / 2, ty - 18, bw, 16);
+              ctx.fillStyle = col; ctx.textAlign = 'center';
+              ctx.fillText(txt, tx, ty - 6);
+              ctx.textAlign = 'left';
+            }
+
+            // Double-click a dimension to type whatever should be written in
+            // it (2026-08-07). Empty box puts the measured length back.
+            function editDimText(d) {
+              var g6 = dimGeom(d);
+              if (!g6) return;
+              var v = prompt('מה לרשום על המידה? (ריק = המידה האמיתית)', dimText(d, g6));
+              if (v === null) return;
+              v = String(v).trim();
+              if (v === '' || v === fmtLen(g6.L)) delete d.txt; else d.txt = v;
+              draw();
+            }
+
+            function drawDims() {
+              dims.forEach(function(d) {
+                var on = d === dimPlace ||
+                         selList.some(function(o) { return o.type === 'dim' && o.d === d; });
+                drawDimMark(d, on ? '#e0392b' : '#1a6ee0', on);
+              });
+              if (mode === 'line' && lineTool === 'dim' && dimA && cursor) {
+                var q8 = dimAim(cursor);
+                drawDimMark({ x1: dimA.x, y1: dimA.y, x2: q8.x, y2: q8.y },
+                            measAxis === 'x' ? '#e0392b' : measAxis === 'y' ? '#1a9d55' : '#8a8f98',
+                            false);
+              }
+            }
+
+            // Click a dimension where it is DRAWN (the offset line), not where
+            // it was measured - that is what the eye expects to grab.
+            function hitDim(p) {
+              var tol = 8 / scale;
+              var best = null, bestD = tol;
+              dims.forEach(function(d, i) {
+                var g6 = dimGeom(d);
+                if (!g6) return;
+                var dd = distToSeg(p, g6.a.x, g6.a.y, g6.b.x, g6.b.y);
+                if (dd < bestD) { bestD = dd; best = { type: 'dim', d: d, i: i }; }
+              });
+              return best;
+            }
+
+            // Drag a dimension sideways to set how far it sits from what it
+            // measures (2026-08-07). One click and pull = distance; a
+            // double-click edits the number instead.
+            var dragDim = null;      // { d, off, moved }
+            var dimPlace = null;     // a NEW dim following the cursor until a 3rd click fixes its distance
+
+            // One source of truth for "how far from the measured line is the
+            // cursor" - used both when dragging an old dim and when placing
+            // a new one (2026-08-08).
+            function dimOffTo(d, p) {
+              var dx = d.x2 - d.x1, dy = d.y2 - d.y1;
+              var L = Math.hypot(dx, dy);
+              if (L < 0.01) return;
+              var nx = -dy / L, ny = dx / L;
+              d.off = (p.x - d.x1) * nx + (p.y - d.y1) * ny;
+              d.off = Math.round(d.off * 2) / 2;      // same 1/2 in grid as everything else
+            }
+
+            function dimDragTo(p) {
+              if (!dragDim) return;
+              dimOffTo(dragDim.d, p);
+              dragDim.moved = true;
+              draw();
+            }
+
+            function finishDimPlace() {              // 3rd click: distance fixed
+              if (!dimPlace) return;
+              dimPlace = null;
+              setStatusHint(null);
+              updateStatus();
+              draw();
+            }
+
+            function cancelDimPlace() {              // Esc: the half-placed dim goes away
+              if (!dimPlace) return;
+              var k9 = dims.indexOf(dimPlace);
+              if (k9 >= 0) dims.splice(k9, 1);
+              dimPlace = null;
+              setStatusHint(null);
+              updateStatus();
+              draw();
+            }
+
+            function finishDimDrag() {
+              if (!dragDim) return;
+              dragDim = null;
+              updateStatus();
+              draw();
+            }
+
+            function deleteDims(list) {
+              list.forEach(function(o) {
+                var k = dims.indexOf(o.d);
+                if (k >= 0) dims.splice(k, 1);
+              });
+            }
+
+            function clearDims() { dims = []; updateStatus(); draw(); }
+
             function drawGuides() {
               ctx.setLineDash([3, 5]);
               guides.forEach(function(g) {
@@ -3232,6 +3575,8 @@ module InteriorPro
               document.getElementById('ltCirc').className = t === 'circle' ? 'on' : '';
               document.getElementById('ltHex').className = t === 'hex' ? 'on' : '';
               document.getElementById('ltMeas').className = t === 'measure' ? 'on' : '';
+              var db = document.getElementById('ltDim');
+              if (db) db.className = t === 'dim' ? 'on' : '';
               document.getElementById('ltErase').className = t === 'erase' ? 'on' : '';
               var helps = {
                 line: 'קו בודד: כל קליק-קליק יוצר קו נפרד. הציור ממשיך מהנקודה האחרונה · Esc מסיים.',
@@ -3241,6 +3586,7 @@ module InteriorPro
                 circle: 'קליק במרכז, ואז קליק לרדיוס (או הקלד רדיוס + Enter).',
                 hex: 'קליק במרכז, ואז קליק לרדיוס (או הקלד רדיוס + Enter) · הקלד מספר ואז S למספר צלעות.',
                 measure: 'קליק בשתי נקודות למדידה. קליק נוסף מתחיל מדידה חדשה.',
+                dim: 'סימון מידה: קליק בשתי נקודות, הזזה וקליק שלישי קובעים את המרחק מהאובייקט · Esc מבטל · דאבל-קליק משנה את המספר · Delete מוחק מידה מסומנת.',
                 erase: 'ריחוף מדליק באדום את הקטע שיימחק · קליק מוחק רק אותו. צורה בקבוצה נמחקת שלמה.'
               };
               document.getElementById('lineHelp').innerHTML =
@@ -3253,7 +3599,7 @@ module InteriorPro
               if (mode !== 'line') { setMode('line'); } else { cancelOps(); }
               lineTool = t;
               if (curLine) finishLine(false);
-              arcPts = []; circC = null; typed = ''; updateVcb();
+              arcPts = []; circC = null; typed = ''; updateVcb(); dimA = null;
               measA = null; measB = null; erasePick = null;
               refreshToolUi();
               draw();
@@ -3328,6 +3674,26 @@ module InteriorPro
                 if (!measA) { measA = p; }
                 else if (!measB) { measB = measureAim(cursor || p); }
                 else { measA = p; measB = null; }
+                draw();
+                return true;
+              }
+              // Dimension tag (2026-08-07): two clicks leave a PERMANENT mark
+              // on the drawing, unlike the tape which is only a readout.
+              if (lineTool === 'dim') {
+                // safety net: any click while a dim is being placed = fix it
+                if (dimPlace) { finishDimPlace(); return true; }
+                if (!dimA) { dimA = p; draw(); return true; }
+                var q7 = dimAim(cursor || p);
+                if (Math.hypot(q7.x - dimA.x, q7.y - dimA.y) > 0.5) {
+                  var nd = { x1: dimA.x, y1: dimA.y, x2: q7.x, y2: q7.y, off: 0 };
+                  dims.push(nd);
+                  // CAD flow (2026-08-08): the new tag now follows the cursor;
+                  // a 3rd click sets how far it sits from what it measures.
+                  dimPlace = nd;
+                  setStatusHint('הזז למרחק הרצוי · קליק קובע · Esc מבטל');
+                  updateStatus();
+                }
+                dimA = null;
                 draw();
                 return true;
               }
@@ -3892,12 +4258,17 @@ module InteriorPro
             function startFreeRotate() {
               cancelOps();
               var shapes = selList.filter(function(o) { return o.type === 'sketch'; });
-              if (!shapes.length) return;
+              // the background image turns with the SAME tool as everything
+              // else (2026-08-07) - no separate rotation box in its panel
+              var ub = underImg && selList.some(function(o) { return o.type === 'under'; })
+                       ? { rot: underRot, c: underCentre() } : null;
+              if (!shapes.length && !ub) return;
               rotOp = {
                 c: null,
                 base: null,
                 baseP: null,
                 ang: 0,
+                ub: ub,
                 orig: shapes.map(function(o) { return { o: o, pts: o.sk.pts.slice() }; })
               };
               setStatusHint('לחץ על מרכז הסיבוב');
@@ -3959,6 +4330,12 @@ module InteriorPro
                 }
                 rec.o.sk.pts = np;
               });
+              if (rotOp.ub) {                     // the image turns AND orbits
+                var ux = rotOp.ub.c.x - c.x, uy = rotOp.ub.c.y - c.y;
+                setUnderCentre(c.x + ux * ca - uy * sa, c.y + ux * sa + uy * ca);
+                underRot = ((rotOp.ub.rot + ang * 180 / Math.PI) % 360 + 360) % 360;
+                showUnderAngle();
+              }
             }
 
             function rotMove() {
@@ -3996,6 +4373,7 @@ module InteriorPro
                   payload.push({ id: rec.o.sk.id, pts: rec.o.sk.pts });
                 }
               });
+              if (rotOp.ub && Math.abs(rotOp.ang) > 1e-9) saveUnderlay();
               // record the turn so Ctrl+Z turns it back
               if (Math.abs(rotOp.ang) > 1e-9) {
                 histPush({ shapes: rotOp.orig.map(function(rec) {
@@ -4010,6 +4388,11 @@ module InteriorPro
 
             function rotCancel() {
               if (!rotOp) return;
+              if (rotOp.ub) {
+                underRot = rotOp.ub.rot;
+                setUnderCentre(rotOp.ub.c.x, rotOp.ub.c.y);
+                showUnderAngle();
+              }
               rotOp.orig.forEach(function(rec) { rec.o.sk.pts = rec.pts.slice(); });
               rotOp = null;
               setStatusHint(null);
@@ -4121,6 +4504,10 @@ module InteriorPro
                   recs.push({ kind: 'sk', o: o, pts: o.sk.pts.slice() });
                 } else if (o.type === 'guide') {
                   recs.push({ kind: 'gd', t: o.g, sx: o.g.x1, sy: o.g.y1, ex: o.g.x2, ey: o.g.y2 });
+                } else if (o.type === 'dim') {
+                  recs.push({ kind: 'gd', t: o.d, sx: o.d.x1, sy: o.d.y1, ex: o.d.x2, ey: o.d.y2 });
+                } else if (o.type === 'under' && underImg) {
+                  recs.push({ kind: 'ub', sx: underX, sy: underY });
                 } else if (o.type === 'pending' && pending[o.i]) {
                   var pw0 = pending[o.i];
                   recs.push({ kind: 'pw', t: pw0, sx: pw0.sx, sy: pw0.sy, ex: pw0.ex, ey: pw0.ey });
@@ -4156,6 +4543,10 @@ module InteriorPro
                 if (rec.kind === 'gd') {          // helper line: both ends shift
                   rec.t.x1 = rec.sx + dx; rec.t.y1 = rec.sy + dy;
                   rec.t.x2 = rec.ex + dx; rec.t.y2 = rec.ey + dy;
+                  return;
+                }
+                if (rec.kind === 'ub') {          // the background image
+                  underX = rec.sx + dx; underY = rec.sy + dy;
                   return;
                 }
                 var t = rec.t;
@@ -4207,6 +4598,7 @@ module InteriorPro
                   if (rec.kind === 'sk') hsh.push({ sk: rec.o.sk, pts: rec.pts.slice() });
                   else if (rec.kind === 'pw') hpw.push({ t: rec.t, sx: rec.sx, sy: rec.sy, ex: rec.ex, ey: rec.ey });
                   else if (rec.kind === 'gd') hgd.push({ t: rec.t, sx: rec.sx, sy: rec.sy, ex: rec.ex, ey: rec.ey });
+                  else if (rec.kind === 'ub') saveUnderlay();
                 });
                 histPush({ shapes: hsh, pwalls: hpw, guides: hgd,
                            wmove: wallIds.length ? { ids: wallIds.slice(), dx: mdx, dy: mdy } : null });
@@ -4228,6 +4620,7 @@ module InteriorPro
                   rec.t.x1 = rec.sx; rec.t.y1 = rec.sy; rec.t.x2 = rec.ex; rec.t.y2 = rec.ey;
                   return;
                 }
+                if (rec.kind === 'ub') { underX = rec.sx; underY = rec.sy; return; }
                 var t = rec.t;
                 t.sx = rec.sx; t.sy = rec.sy; t.ex = rec.ex; t.ey = rec.ey;
                 if (rec.kind === 'w' && rec.corners) t.corners = rec.corners.slice();
@@ -4321,6 +4714,15 @@ module InteriorPro
 
             function deleteSelected() {
               if (!sel) return;
+              // dimension tags are editor-only: they just go, no confirm
+              var dsel = selList.filter(function(o) { return o.type === 'dim'; });
+              if (dsel.length) {
+                deleteDims(dsel);
+                selList = selList.filter(function(o) { return o.type !== 'dim'; });
+                sel = selList.length ? selList[selList.length - 1] : null;
+                updateStatus(); updateSelPanel(); draw();
+                if (!sel) return;
+              }
               // helper lines are editor-only: they just go, no confirm
               var gsel = selList.filter(function(o) { return o.type === 'guide'; });
               if (gsel.length) {
@@ -4781,6 +5183,17 @@ module InteriorPro
               }
               sketches.forEach(function(sk, i1) { if (skTaken(sk)) out.push({ type:'sketch', sk:sk, kind:'model', i:i1 }); });
               pendingSketches.forEach(function(sk, i1) { if (skTaken(sk)) out.push({ type:'sketch', sk:sk, kind:'pending', i:i1 }); });
+              // dimension tags and helper lines are pickable by a box too
+              // (2026-08-07) - they were being skipped by the rubber band
+              dims.forEach(function(d, i1) {
+                var g7 = dimGeom(d);
+                if (g7 && ringTaken([g7.a, g7.b], false)) out.push({ type:'dim', d:d, i:i1 });
+              });
+              guides.forEach(function(gd2, i1) {
+                if (ringTaken([{ x:gd2.x1, y:gd2.y1 }, { x:gd2.x2, y:gd2.y2 }], false)) {
+                  out.push({ type:'guide', g:gd2, i:i1 });
+                }
+              });
               return out;
             }
 
@@ -5283,6 +5696,7 @@ module InteriorPro
               drawUnderlay();
               drawGrid();
               drawGuides();
+              drawDims();
               // Outline only - a closed shape is NOT filled unless the user
               // asks for it (house rule, same as the floor hatch).
               sketches.forEach(function(sk) { drawSketch(sk.pts, sk.closed, '#7a5c33', sketchWidth(sk), null, sketchDash(sk)); });
@@ -5621,7 +6035,8 @@ module InteriorPro
               }
               if (selList.length > 1) {      // multi-select: outline only, no dims
                 selList.forEach(function(o) {
-                  if (o.type === 'sketch' || o.type === 'guide') return;   // already drawn
+                  if (o.type === 'sketch' || o.type === 'guide' ||
+                      o.type === 'under' || o.type === 'dim') return;
                   if (o.type === 'wall') outlineBand(o.w, '#4b89ff');
                   else if (o.type === 'pending') { var pw2 = pending[o.i]; if (pw2) outlineBand(pw2, '#4b89ff'); }
                   else outlineOpening(o.w, o.s, o.s.t, '#4b89ff');
@@ -5631,6 +6046,8 @@ module InteriorPro
               if (!sel) return;
               if (sel.type === 'sketch') return;
               if (sel.type === 'guide') return;   // already drawn red by drawGuides
+              if (sel.type === 'dim') return;     // already drawn red by drawDims
+              if (sel.type === 'under') return;   // outlined by drawUnderlay
               if (sel.type === 'wall') { outlineBand(sel.w, '#4b89ff'); drawWallDims(sel.w); }
               else if (sel.type === 'pending') {
                 var w = pending[sel.i];
@@ -6037,13 +6454,21 @@ module InteriorPro
             function captureLockDir() {
               var anch = chainAnchor();
               if (!anch) { lockDir = null; return; }
-              // Shift pressed while a parallel inference is showing locks THAT
-              // direction - hover until it goes parallel, hold Shift, then point
-              // at any corner and the line runs out opposite it.
-              if (parInd) { lockDir = { x: parInd.dx, y: parInd.dy }; return; }
               var dx = cursor.x - anch.x, dy = cursor.y - anch.y;
               var d = Math.hypot(dx, dy);
               if (d < 1) { lockDir = null; return; }
+              // Shift pressed while a parallel inference is showing locks THAT
+              // direction - hover until it goes parallel, hold Shift, then point
+              // at any corner and the line runs out opposite it. But only while
+              // the inference really IS the direction being drawn: parInd is
+              // refreshed by the LINE chain only, so in wall mode a leftover
+              // from an earlier line used to grab the lock and throw the wall
+              // sideways (2026-08-10).
+              if (parInd &&
+                  (dx / d) * parInd.dx + (dy / d) * parInd.dy > 0.966) {  // 15 deg
+                lockDir = { x: parInd.dx, y: parInd.dy };
+                return;
+              }
               var ang = Math.atan2(dy, dx);
               var snapAng = Math.round(ang / (Math.PI/4)) * (Math.PI/4);
               if (Math.abs(ang - snapAng) < 0.18) ang = snapAng;
@@ -6205,6 +6630,7 @@ module InteriorPro
 
             function endChain() {
               arcPts = []; circC = null; measA = null; measB = null;
+              parInd = null;      // never let a stale parallel lock outlive the chain
               if (curLine) finishLine(false);
               drawing = false; startPt = null; typed = ''; updateVcb(); draw();
             }
@@ -6249,6 +6675,19 @@ module InteriorPro
               if (mode === 'sel') {
                 if (ghostCopy) { placeGhostCopy(); return; }
                 if (ghostOpen) { placeGhostOpen(p); return; }
+                // A dimension tag is an annotation ON TOP of the drawing, so
+                // it is tested FIRST (2026-08-07). A brand new one lies
+                // exactly on the wall it measures - if the wall were checked
+                // first the tag could never be grabbed and pulled out.
+                var hd0 = hitDim(p);
+                if (hd0) {
+                  if (ev.shiftKey) { toggleSel(hd0); updateSelPanel(); draw(); return; }
+                  setSel(hd0);
+                  dragDim = { d: hd0.d, off: hd0.d.off || 0, moved: false };
+                  setStatusHint('גרור כדי להרחיק / לקרב · דאבל-קליק לשנות את המספר');
+                  updateSelPanel(); draw();
+                  return;
+                }
                 // an END of an already-selected line: grab it and stretch
                 var hv = hitSketchVertex(p);
                 if (hv) {
@@ -6302,7 +6741,8 @@ module InteriorPro
                       var gsel = hitGuide(p);
                       if (ev.shiftKey) { toggleSel(gsel); updateSelPanel(); draw(); return; }
                       setSel(gsel);
-                    } else if (underImg && !underLocked) {   // move the background
+                    } else if (hitUnderlay(p)) {            // the background image
+                      setSel({ type: 'under' });
                       dragUnder = { fx:p.x - underX, fy:p.y - underY };
                     } else {         // empty space -> rubber-band selection
                       rubber = { x0:p.x, y0:p.y, x1:p.x, y1:p.y,
@@ -6317,6 +6757,24 @@ module InteriorPro
               if (mode === 'line') {
                 cursor = { x:p.x, y:p.y };
                 if (lineTool === 'erase') { erasePick = eraseFind(p); eraseApply(); return; }
+                // 3rd click of the dimension tool: the tag was following the
+                // cursor, this click fixes its distance (2026-08-08). Must
+                // come before the grab-an-existing-tag test below, or the
+                // half-placed dim would grab itself.
+                if (lineTool === 'dim' && dimPlace) { finishDimPlace(); return; }
+                // Still holding the dimension tool? Clicking an EXISTING tag
+                // grabs it instead of starting a new one (2026-08-07) - you
+                // should not have to switch to Select just to pull one out.
+                if (lineTool === 'dim' && !dimA) {
+                  var hdl = hitDim(p);
+                  if (hdl) {
+                    setSel(hdl);
+                    dragDim = { d: hdl.d, off: hdl.d.off || 0, moved: false };
+                    setStatusHint('גרור כדי להרחיק / לקרב · דאבל-קליק לשנות את המספר');
+                    updateSelPanel(); draw();
+                    return;
+                  }
+                }
                 var lp = ((lineTool === 'line' || lineTool === 'poly') && curLine)
                          ? chainEnd(chainAnchor()) : snapPoint(p, null);
                 if (lineToolClick(lp)) { draw(); return; }
@@ -6366,6 +6824,17 @@ module InteriorPro
 
             function handleMove(px, py) {
               evCount.mm++; updateDbg();
+              if (dimPlace) {                       // new dim follows the cursor
+                cursor = { x:mx(px), y:my(py) };
+                dimOffTo(dimPlace, cursor);
+                draw();
+                return;
+              }
+              if (dragDim) {                        // pulling a dimension out
+                cursor = { x:mx(px), y:my(py) };
+                dimDragTo(cursor);
+                return;
+              }
               if (dragVert) {                       // stretching a line end
                 cursor = { x:mx(px), y:my(py) };
                 var qv = snapPoint(cursor, null);
@@ -6494,7 +6963,8 @@ module InteriorPro
               try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
             });
             cv.addEventListener('pointermove', function(ev) {
-              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder && !dragVert) return;
+              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
+                  !dragVert && !dragDim && !dimPlace) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -6503,7 +6973,8 @@ module InteriorPro
               finishDrag();
             });
             window.addEventListener('mousemove', function(ev) {
-              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder && !dragVert) return;
+              if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
+                  !dragVert && !dragDim && !dimPlace) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -6512,6 +6983,7 @@ module InteriorPro
             function finishDrag() {
               evCount.mu++; updateDbg();
               panning = false;
+              if (dragDim) { finishDimDrag(); return; }
               if (dragVert) { finishVertexDrag(); return; }
               if (dragUnder) { dragUnder = null; saveUnderlay(); return; }
               if (rubber) {
@@ -6545,6 +7017,16 @@ module InteriorPro
                 draw();
               }
             }
+            // Double-click a dimension = type a different number in it.
+            cv.addEventListener('dblclick', function(ev) {
+              if (mode !== 'sel' && !(mode === 'line' && lineTool === 'dim')) return;
+              var p = { x: mx(ev.offsetX), y: my(ev.offsetY) };
+              var hd = hitDim(p);
+              if (!hd) return;
+              dragDim = null;
+              ev.preventDefault();
+              editDimText(hd.d);
+            });
             cv.addEventListener('contextmenu', function(ev) { ev.preventDefault(); });
             cv.addEventListener('wheel', function(ev) {
               ev.preventDefault();
@@ -6613,6 +7095,7 @@ module InteriorPro
                 if (moveOp) { moveCancel(); return; }
                 if (offOp) { offCancel(); return; }
                 if (ghostCopy || ghostOpen) { ghostCopy = null; ghostOpen = null; setStatusHint(null); draw(); return; }
+                if (dimPlace) { cancelDimPlace(); return; }
                 endChain();
                 if (mode === 'sel') { setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw(); }
                 return;
@@ -6633,15 +7116,17 @@ module InteriorPro
                   ev.preventDefault();
                   return;
                 }
-                // O arms / disarms the guide-line tool
+                // O arms the guide tool, and every further press steps to the
+                // next direction: horizontal -> vertical -> 45 -> 135 -> ...
                 if (ev.code === 'KeyO' || ev.key === 'o' || ev.key === 'O' || ev.key === 'ם') {
-                  toggleGuideMode();
+                  if (!guideMode) toggleGuideMode(); else cycleGuideAim();
                   ev.preventDefault();
                   return;
                 }
                 // R = rotate the selection, the same way M moves it
                 if (ev.code === 'KeyR' || ev.key === 'r' || ev.key === 'R' || ev.key === 'ר') {
-                  if (mode === 'sel' && selList.some(function(o) { return o.type === 'sketch'; })) {
+                  if (mode === 'sel' && selList.some(function(o) {
+                        return o.type === 'sketch' || o.type === 'under'; })) {
                     startFreeRotate();
                   } else if (mode !== 'sel') {
                     setMode('sel');
@@ -6822,6 +7307,9 @@ module InteriorPro
                 if (circC) { circC = null; draw(); return; }
                 if (measB) { measB = null; draw(); return; }
                 if (measA) { measA = null; draw(); return; }
+                if (dimPlace) { cancelDimPlace(); return; }
+                if (dimA) { dimA = null; draw(); return; }
+                if (lineTool === 'dim' && dims.length) { dims.pop(); updateStatus(); draw(); return; }
                 if (histUndo()) return;
                 if (popSketchStep()) return;
                 if (pending.length) { undoPending(); return; }
@@ -6982,7 +7470,8 @@ module InteriorPro
             // leaving the editor without Apply never loses the drawing.
             var lastDraft = '';
             function draftJson() {
-              return JSON.stringify({ pending: pending, sketches: pendingSketches, guides: guides });
+              return JSON.stringify({ pending: pending, sketches: pendingSketches,
+                                      guides: guides, dims: dims });
             }
             function saveDraft(force) {
               var j = draftJson();
@@ -7000,6 +7489,7 @@ module InteriorPro
                   pendingSketches.forEach(function(s3) { s3._seq = ++actSeq; });
                 }
                 if (d.guides && d.guides.length) guides = d.guides;
+                if (d.dims && d.dims.length) dims = d.dims;
                 lastDraft = draftJson();
                 markGuideBox(); updateStatus(); draw();
               } catch (e) {}
