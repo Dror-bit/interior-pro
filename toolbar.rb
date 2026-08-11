@@ -5,6 +5,7 @@ require_relative 'wall_tool.rb'
 require_relative 'wall_edit_tool.rb'
 require_relative 'wall_move_tool.rb'
 require_relative 'wall_stretch_tool.rb'
+require_relative 'wall_curve_tool.rb'
 require_relative 'wall_merge_tool.rb'
 require_relative 'wall_split_tool.rb'
 require_relative 'wall_delete_tool.rb'
@@ -377,6 +378,15 @@ module InteriorPro
           cmenu.add_item('Interior Pro: Flip Wall Faces') do
             InteriorPro::WallTool.flip_wall_faces!(Sketchup.active_model.selection.first)
           end
+          # Curved walls (2026-08-11): reach them straight from the wall.
+          # Two ways in because they are two different hands, not two
+          # controls for the same job - mouse, or keyboard.
+          cmenu.add_item('Interior Pro: Curve Wall - drag the middle') do
+            Sketchup.active_model.select_tool(InteriorPro::WallCurveTool.new)
+          end
+          cmenu.add_item('Interior Pro: Curve Wall - type the bow') do
+            InteriorPro::WallCurveTool.prompt_wall_sag!(Sketchup.active_model.selection.first)
+          end
         end
       end
 
@@ -394,6 +404,12 @@ module InteriorPro
       }
       menu.add_item('Stretch Wall') {
         Sketchup.active_model.select_tool(InteriorPro::WallStretchTool.new)
+      }
+
+      # Curve Wall (2026-08-10): click a wall, drag its middle sideways.
+      # Menu only for now - the toolbar still needs a matching icon.
+      menu.add_item('Curve Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::WallCurveTool.new)
       }
 
       menu.add_item('Merge Wall') {

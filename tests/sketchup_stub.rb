@@ -2,6 +2,31 @@
 # Minimal SketchUp API stand-in - enough to actually RUN the PlanEditor Ruby.
 require_relative 'geom_stub'
 
+# SketchUp adds String#to_l (text -> a length in inches). Plain Ruby does not,
+# so any tool that reads a typed length could not be tested without this.
+# Handles: 12, 7.5, 1', 6", 1'6", 1' 6". Anything else raises, exactly like
+# the real one, so the callers' rescue paths get exercised.
+unless String.method_defined?(:to_l)
+  class String
+    def to_l
+      s = strip
+      raise ArgumentError, "bad length #{inspect}" if s.empty?
+      if (m = s.match(/\A(-?\d+(?:\.\d+)?)\s*'\s*(?:(\d+(?:\.\d+)?)\s*")?\z/))
+        feet = m[1].to_f
+        inches = m[2].to_f
+        return feet * 12.0 + (feet.negative? ? -inches : inches)
+      end
+      if (m = s.match(/\A(-?\d+(?:\.\d+)?)\s*"\z/))
+        return m[1].to_f
+      end
+      if (m = s.match(/\A-?\d+(?:\.\d+)?\z/))
+        return m[0].to_f
+      end
+      raise ArgumentError, "bad length #{inspect}"
+    end
+  end
+end
+
 module Sketchup
   class ModelObserver; end
 

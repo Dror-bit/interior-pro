@@ -26,6 +26,13 @@ module InteriorPro
     # How far a flat facet may sag away from the true curve, in inches.
     CURVE_TOL = 0.125 unless const_defined?(:CURVE_TOL, false)
 
+    # A curved wall is really many flat panels side by side, so SketchUp draws
+    # a seam line between every pair. Any seam whose two panels differ by less
+    # than this angle is softened away, and the wall reads as one smooth
+    # surface. Bigger than this is a real corner (the wall's own end) and stays
+    # visible. Degrees.
+    CURVE_SMOOTH_MAX_ANGLE = 60.0 unless const_defined?(:CURVE_SMOOTH_MAX_ANGLE, false)
+
     attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category, :side_a_color, :side_b_color
 
     def initialize
@@ -1075,6 +1082,7 @@ module InteriorPro
         # straight painter (which classifies against ONE direction) would
         # leave some of them unpainted. Paint radially instead.
         InteriorPro::WallTool.paint_curved_wall_long_faces!(group, ext_mat, int_mat)
+        InteriorPro::WallTool.smooth_curved_wall_edges!(group)
       else
         paint_wall_long_faces!(group, ext_mat, int_mat)
         add_board_and_batten(group) if ext_mat == 'Board and Batten'
@@ -1513,6 +1521,35 @@ module InteriorPro
       end
     rescue StandardError => e
       puts "[WallTool] paint_curved_wall_long_faces!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # Hide the seams between the flat panels so a curved wall looks like one
+    # smooth surface instead of a folded paper fan.
+    #
+    # Only the UPRIGHT seams are touched, and only where the two panels either
+    # side of them are nearly in line. The wall's own end corners, where the
+    # panels meet at a real angle, are left alone - otherwise the wall would
+    # lose its edges and look like a smudge.
+    def self.smooth_curved_wall_edges!(group)
+      return unless group&.valid?
+      cos_limit = Math.cos(CURVE_SMOOTH_MAX_ANGLE * Math::PI / 180.0)
+      softened = 0
+      group.entities.grep(Sketchup::Edge).each do |e|
+        faces = e.faces
+        next unless faces.length == 2
+        v = e.line[1]
+        len = v.length
+        next if len < 1e-9
+        next if (v.z.abs / len) < 0.9          # not an upright seam
+        next if faces[0].normal.dot(faces[1].normal) < cos_limit   # a real corner
+        e.soft = true
+        e.smooth = true
+        softened += 1
+      end
+      softened
+    rescue StandardError => e
+      puts "[WallTool] smooth_curved_wall_edges!: #{e.message}"
+      0
     end
 
     # THE ONE ENTRY POINT for curving a wall. Both things the user asked for
