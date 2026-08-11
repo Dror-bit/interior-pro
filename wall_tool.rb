@@ -4,6 +4,28 @@ module InteriorPro
   class WallTool
     USE_NATIVE_OPENINGS = true
 
+    # ---- CURVED WALLS (2026-08-10) ---------------------------------------
+    # Kill switch. Set to false and every wall builds dead straight again,
+    # exactly as before, no matter what 'arc_sag' says. Nothing is deleted,
+    # so flipping it back to true restores the curves.
+    #   InteriorPro::WallTool::USE_CURVED_WALLS = false
+    USE_CURVED_WALLS = true unless const_defined?(:USE_CURVED_WALLS, false)
+
+    # How far the middle of the wall is pulled sideways off the straight line
+    # between its two ends, in inches, SIGNED: positive = to the LEFT of
+    # start -> end. Stored on the wall as 'arc_sag'. One number is enough to
+    # rebuild the whole curve, and because the two ends are still plain
+    # start/end attributes, every existing tool that moves a wall (move,
+    # stretch, the 2D editor drag) keeps working untouched - the bow simply
+    # follows the ends.
+    #
+    # Below this the wall is treated as straight. 1/16" of bow over a whole
+    # wall is not a curve, it is noise.
+    MIN_ARC_SAG = 0.0625 unless const_defined?(:MIN_ARC_SAG, false)
+
+    # How far a flat facet may sag away from the true curve, in inches.
+    CURVE_TOL = 0.125 unless const_defined?(:CURVE_TOL, false)
+
     attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category, :side_a_color, :side_b_color
 
     def initialize
@@ -1030,8 +1052,13 @@ module InteriorPro
         return
       end
 
+      # A curved wall replaces the 4-corner footprint with a many-sided one.
+      # Everything downstream (add_face + pushpull) is unchanged - it never
+      # cared how many points the footprint had. nil = build straight.
+      footprint = InteriorPro::WallTool.curved_footprint_for(group, data) || corners_xy
+
       group.entities.clear!
-      build_geometry_in_group(group, corners_xy, data[:z_offset], data[:height],
+      build_geometry_in_group(group, footprint, data[:z_offset], data[:height],
                               data[:ext_mat], data[:int_mat])
     end
 
@@ -1043,8 +1070,15 @@ module InteriorPro
       return false unless face
       sign = face.normal.z >= 0 ? 1 : -1
       face.pushpull(height * sign)
-      paint_wall_long_faces!(group, ext_mat, int_mat)
-      add_board_and_batten(group) if ext_mat == 'Board and Batten'
+      if InteriorPro::WallTool.curved_wall?(group)
+        # A curved wall's long faces each point a different way, so the
+        # straight painter (which classifies against ONE direction) would
+        # leave some of them unpainted. Paint radially instead.
+        InteriorPro::WallTool.paint_curved_wall_long_faces!(group, ext_mat, int_mat)
+      else
+        paint_wall_long_faces!(group, ext_mat, int_mat)
+        add_board_and_batten(group) if ext_mat == 'Board and Batten'
+      end
       true
     end
 
@@ -1363,6 +1397,191 @@ module InteriorPro
     rescue StandardError => e
       puts "[WallTool] set_wall_base!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
       false
+    end
+
+    # ==== CURVED WALLS ====================================================
+    # A curved wall is an ordinary wall with one extra attribute, 'arc_sag'.
+    # Straight walls do not have it, so every straight wall keeps taking the
+    # exact same code path it always did.
+
+    # The stored bow, in inches. 0.0 when the wall is straight.
+    def self.wall_sag(wall)
+      return 0.0 unless wall&.valid?
+      v = wall.get_attribute('InteriorPro', 'arc_sag')
+      v.nil? ? 0.0 : v.to_f
+    rescue StandardError
+      0.0
+    end
+
+    def self.curved_wall?(wall)
+      return false unless USE_CURVED_WALLS
+      wall_sag(wall).abs >= MIN_ARC_SAG
+    end
+
+    # The two side offsets, measured along the LEFT perpendicular of
+    # start -> end. Deliberately identical to what perpendicular_corners_xy
+    # does for a straight wall, so a curve and a straight line put their two
+    # faces in exactly the same places relative to the drawn line.
+    def self.anchor_side_offsets(thickness, h_anchor)
+      t = thickness.to_f
+      case h_anchor
+      when 'left'  then [t,       0.0]
+      when 'right' then [0.0,     -t]
+      else              [t / 2.0, -t / 2.0]
+      end
+    end
+
+    # PURE: numbers in, numbers out. The floor footprint of a curved wall, as
+    # a closed ring of [x, y] points - the outer side walked start -> end,
+    # then the inner side walked back. Returns nil when the wall should stay
+    # straight (kill switch off, bow too small, or the curve is so tight that
+    # the inner face would swallow its own centre).
+    def self.curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag, tol = CURVE_TOL)
+      return nil unless USE_CURVED_WALLS
+      return nil if sag.nil? || sag.to_f.abs < MIN_ARC_SAG
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx.to_f, sy.to_f, ex.to_f, ey.to_f, sag.to_f)
+      return nil unless arc
+
+      o_pos, o_neg = anchor_side_offsets(thickness, h_anchor)
+      pos = am.offset_points(arc, o_pos, tol)
+      neg = am.offset_points(arc, o_neg, tol)
+      return nil unless pos && neg
+
+      pos + neg.reverse
+    rescue StandardError => e
+      puts "[WallTool] curved_footprint_xy: #{e.message}"
+      nil
+    end
+
+    # The footprint for a real wall group, or nil to build it straight.
+    def self.curved_footprint_for(group, data)
+      return nil unless data && group&.valid?
+      return nil unless curved_wall?(group)
+
+      unless read_door_openings(group).empty?
+        puts '[WallTool] this wall has openings - curving is not wired to openings yet, building it straight.'
+        return nil
+      end
+
+      curved_footprint_xy(data[:drawn_start][0], data[:drawn_start][1],
+                          data[:drawn_end][0],   data[:drawn_end][1],
+                          data[:thickness], data[:h_anchor], wall_sag(group))
+    end
+
+    # Paint a curved wall's two long sides. The straight painter classifies
+    # every face against ONE wall direction; on a curve each facet points a
+    # different way, so instead we ask each facet whether it looks AWAY from
+    # the arc centre (outer side) or TOWARDS it (inner side). End caps look
+    # sideways and are skipped, top and bottom look up/down and are skipped.
+    def self.paint_curved_wall_long_faces!(group, ext_mat, int_mat)
+      return unless group&.valid? && ext_mat && int_mat
+
+      sx = group.get_attribute('InteriorPro', 'start_x')
+      sy = group.get_attribute('InteriorPro', 'start_y')
+      ex = group.get_attribute('InteriorPro', 'end_x')
+      ey = group.get_attribute('InteriorPro', 'end_y')
+      return unless sx && sy && ex && ey
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx.to_f, sy.to_f, ex.to_f, ey.to_f, wall_sag(group))
+      return unless arc
+
+      # Exterior stays the RIGHT side of start -> end, same rule as a straight
+      # wall. Right = the negative offset side, which is the far-from-centre
+      # side exactly when the centre lies to the left of travel.
+      ext_is_outer = am.center_side(arc) > 0
+
+      inst = InteriorPro::WallTool.new
+      ext_material = inst.load_or_create_material(ext_mat)
+      int_material = inst.load_or_create_material(int_mat)
+
+      group.entities.grep(Sketchup::Face).each do |f|
+        n = f.normal
+        next if n.z.abs > 0.5                       # top / bottom
+        c = f.bounds.center
+        rx = c.x - arc[:cx]
+        ry = c.y - arc[:cy]
+        len = Math.sqrt(rx * rx + ry * ry)
+        next if len < 1e-6
+        radial = (n.x * rx + n.y * ry) / len
+        next if radial.abs < 0.5                    # end cap
+        outer = radial > 0
+        f.material = (outer == ext_is_outer) ? ext_material : int_material
+        f.back_material = nil
+      end
+    rescue StandardError => e
+      puts "[WallTool] paint_curved_wall_long_faces!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # THE ONE ENTRY POINT for curving a wall. Both things the user asked for
+    # end here: dragging a wall's middle, and the 3-click arc tool.
+    # sag is signed, in inches, positive = left of start -> end.
+    # Pass 0 to straighten the wall again.
+    def self.set_wall_sag!(wall, sag, wrap_operation: true)
+      return false unless wall&.valid?
+      return false unless wall.get_attribute('InteriorPro', 'type') == 'wall'
+
+      sag = sag.to_f
+      straight = sag.abs < MIN_ARC_SAG
+
+      unless straight || read_door_openings(wall).empty?
+        puts '[WallTool] this wall has doors or windows in it - curving those is the next step. Nothing changed.'
+        return false
+      end
+
+      sx = wall.get_attribute('InteriorPro', 'start_x').to_f
+      sy = wall.get_attribute('InteriorPro', 'start_y').to_f
+      ex = wall.get_attribute('InteriorPro', 'end_x').to_f
+      ey = wall.get_attribute('InteriorPro', 'end_y').to_f
+      thickness = wall.get_attribute('InteriorPro', 'thickness').to_f
+      height = wall.get_attribute('InteriorPro', 'height').to_f
+      anchor = wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center'
+      _v_anchor, h_anchor = InteriorPro::WallTool.new.parse_anchor(anchor)
+
+      # Refuse BEFORE touching the model if the curve cannot be built, so a
+      # bad number can never leave a wall half-rebuilt.
+      unless straight
+        if curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag).nil?
+          puts "[WallTool] a bow of #{sag}\" is too tight for a #{thickness}\" wall here. Nothing changed."
+          return false
+        end
+        if (wall.get_attribute('InteriorPro', 'exterior_material') == 'Board and Batten')
+          puts '[WallTool] note: board-and-batten strips are not bent yet, so they are left off this curved wall.'
+        end
+      end
+
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Curve Wall', true) if wrap_operation
+      begin
+        if straight
+          wall.delete_attribute('InteriorPro', 'arc_sag')
+        else
+          wall.set_attribute('InteriorPro', 'arc_sag', sag)
+        end
+
+        # Keep the schedule numbers honest: a curved wall is longer than the
+        # straight line between its ends.
+        chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+        arc = straight ? nil : InteriorPro::ArcMath.from_chord_and_sag(sx, sy, ex, ey, sag)
+        length_in = arc ? InteriorPro::ArcMath.length(arc) : chord
+        wall.set_attribute('InteriorPro', 'length_in', length_in)
+        wall.set_attribute('InteriorPro', 'gross_area_sqft', (length_in * height) / 144.0)
+        wall.set_attribute('InteriorPro', 'volume_cuft', (length_in * height * thickness) / 1728.0)
+
+        inst = InteriorPro::WallTool.new
+        data = inst.wall_data(wall)
+        raise 'wall_data unavailable' unless data
+        corners = inst.read_corners_attr(wall) || inst.compute_perpendicular_corners_from_data(data)
+        inst.rebuild_wall_geometry(wall, corners, data)
+        model.commit_operation if wrap_operation
+      rescue StandardError => e
+        model.abort_operation if wrap_operation
+        puts "[WallTool] set_wall_sag!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        return false
+      end
+      true
     end
 
     def self.native_floor_z(v_anchor, height)
