@@ -798,7 +798,10 @@ module InteriorPro
 
       total_t = poly.last[2]
       openings = InteriorPro::WallTool.read_door_openings(group)
-      inset = InteriorPro::WallTool.trim_inset(total_t)
+      trim_on, trim_w = InteriorPro::WallTool.corner_trim_settings(group)
+      inset = trim_on ? InteriorPro::WallTool.trim_inset(total_t, trim_w) : 0.0
+      ext0 = InteriorPro::WallTool.wall_end_neighbor?(group, :start) ? SIDING_TRIM_DEPTH : 0.0
+      ext1 = InteriorPro::WallTool.wall_end_neighbor?(group, :end) ? SIDING_TRIM_DEPTH : 0.0
       courses = InteriorPro::WallTool.siding_courses(z_min, z_max, HSIDING_EXPOSURE)
 
       # Work out the cost BEFORE building anything. A wall that would need
@@ -812,7 +815,7 @@ module InteriorPro
         end
       end
       pieces = runs.sum { |r, _z0, _z1| r.length - 1 }
-      trim_runs = InteriorPro::WallTool.corner_trim_runs(poly, total_t)
+      trim_runs = trim_on ? InteriorPro::WallTool.corner_trim_runs(poly, total_t, trim_w, ext0, ext1) : []
       pieces += trim_runs.sum { |r| r.length - 1 }
       if pieces > MAX_SIDING_PIECES
         puts "[WallTool] siding skipped: this wall would need #{pieces} boards (limit #{MAX_SIDING_PIECES}). The flat face is kept."
@@ -888,21 +891,77 @@ module InteriorPro
       end
     end
 
-    # The two stretches of wall the corner boards cover.
-    def self.corner_trim_runs(poly, total_t)
-      inset = trim_inset(total_t)
+    # The two stretches of wall the corner boards cover. ext_start/ext_end
+    # push the board PAST the wall end - by the trim depth - so the two boards
+    # meeting at a corner overlap into one closed 90-degree L instead of two
+    # separate planks with a notch between them (user photo, 2026-08-11).
+    # A free end (no neighbour) gets no extension and stays flush.
+    def self.corner_trim_runs(poly, total_t, w = SIDING_TRIM_WIDTH, ext_start = 0.0, ext_end = 0.0)
+      inset = trim_inset(total_t, w)
       return [] if inset <= 0.0
-      [[0.0, inset], [total_t - inset, total_t]].map do |ta, tb|
-        polyline_between(poly, ta, tb)
-      end.compact.select { |r| r.length >= 2 }
+      runs = []
+      r0 = polyline_between(poly, 0.0, inset)
+      if r0 && r0.length >= 2
+        if ext_start > 0.0
+          dx = r0[1][0] - r0[0][0]
+          dy = r0[1][1] - r0[0][1]
+          l = Math.sqrt(dx * dx + dy * dy)
+          r0 = [[r0[0][0] - dx / l * ext_start, r0[0][1] - dy / l * ext_start]] + r0 if l > 1e-9
+        end
+        runs << r0
+      end
+      r1 = polyline_between(poly, total_t - inset, total_t)
+      if r1 && r1.length >= 2
+        if ext_end > 0.0
+          dx = r1[-1][0] - r1[-2][0]
+          dy = r1[-1][1] - r1[-2][1]
+          l = Math.sqrt(dx * dx + dy * dy)
+          r1 = r1 + [[r1[-1][0] + dx / l * ext_end, r1[-1][1] + dy / l * ext_end]] if l > 1e-9
+        end
+        runs << r1
+      end
+      runs
+    end
+
+    # Per-wall corner-trim setting, ONE attribute: 'corner_trim_width'.
+    #   missing -> the default 3"    0 -> no corner boards    2/3/4... -> that width
+    def self.corner_trim_settings(group)
+      v = group&.valid? ? group.get_attribute('InteriorPro', 'corner_trim_width') : nil
+      return [true, SIDING_TRIM_WIDTH] if v.nil?
+      w = v.to_f
+      w > 0.0 ? [true, w] : [false, 0.0]
+    rescue StandardError
+      [true, SIDING_TRIM_WIDTH]
     end
 
     # PURE: how wide the corner board may be on this wall. A wall too short
     # to carry two of them plus something in between gets none at all.
-    def self.trim_inset(total_t)
-      w = SIDING_TRIM_WIDTH
+    def self.trim_inset(total_t, w = SIDING_TRIM_WIDTH)
+      w = w.to_f
+      return 0.0 if w <= 0.0
       return 0.0 if total_t.to_f < (w * 2.0) + 6.0
       w
+    end
+
+    # Does another wall end at this wall's start/end point? Decides whether a
+    # corner board should wrap round the corner (there is a neighbour to meet)
+    # or stop flush at the end (a free-standing wall end).
+    def self.wall_end_neighbor?(group, side)
+      return false unless group&.valid?
+      key = side == :start ? %w[start_x start_y] : %w[end_x end_y]
+      px = group.get_attribute('InteriorPro', key[0]).to_f
+      py = group.get_attribute('InteriorPro', key[1]).to_f
+      Sketchup.active_model.entities.grep(Sketchup::Group).any? do |g|
+        next false if g == group
+        next false unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        [%w[start_x start_y], %w[end_x end_y]].any? do |kx, ky|
+          qx = g.get_attribute('InteriorPro', kx)
+          qy = g.get_attribute('InteriorPro', ky)
+          qx && qy && Math.sqrt((qx.to_f - px)**2 + (qy.to_f - py)**2) < 1.5
+        end
+      end
+    rescue StandardError
+      false
     end
 
     # One straight piece of one lap board, between two points on the wall's
@@ -1123,7 +1182,10 @@ module InteriorPro
       # battens keep clear of them.
       poly = InteriorPro::WallTool.exterior_face_polyline(group, SIDING_CURVE_TOL)
       total_t = poly ? poly.last[2] : 0.0
-      inset = InteriorPro::WallTool.trim_inset(total_t)
+      trim_on, trim_w = InteriorPro::WallTool.corner_trim_settings(group)
+      inset = trim_on ? InteriorPro::WallTool.trim_inset(total_t, trim_w) : 0.0
+      ext0 = InteriorPro::WallTool.wall_end_neighbor?(group, :start) ? SIDING_TRIM_DEPTH : 0.0
+      ext1 = InteriorPro::WallTool.wall_end_neighbor?(group, :end) ? SIDING_TRIM_DEPTH : 0.0
 
       # Same ceiling lap siding has: never let one wall's trimmings bury
       # SketchUp. Every band of every batten is one little solid.
@@ -1131,7 +1193,7 @@ module InteriorPro
         next 0 if inset > 0.0 && (t < inset + half_width || t > total_t - inset - half_width)
         InteriorPro::WallTool.batten_z_bands(t, half_width, z_min, z_max, openings, z_min).length
       end
-      planned += InteriorPro::WallTool.corner_trim_runs(poly, total_t).sum { |r| r.length - 1 } if poly
+      planned += InteriorPro::WallTool.corner_trim_runs(poly, total_t, trim_w, ext0, ext1).sum { |r| r.length - 1 } if poly && trim_on
       if planned > MAX_SIDING_PIECES
         puts "[WallTool] battens skipped: this wall would need #{planned} pieces (limit #{MAX_SIDING_PIECES}). The flat face is kept."
         return
@@ -1140,7 +1202,7 @@ module InteriorPro
       sub = siding_group(group)
       return unless sub
       if poly && inset > 0.0
-        InteriorPro::WallTool.corner_trim_runs(poly, total_t).each do |run|
+        InteriorPro::WallTool.corner_trim_runs(poly, total_t, trim_w, ext0, ext1).each do |run|
           run.each_cons(2) do |a, b|
             build_siding_board!(sub, a, b, z_min, z_max,
                                 SIDING_TRIM_DEPTH, SIDING_TRIM_DEPTH)

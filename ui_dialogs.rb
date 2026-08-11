@@ -77,7 +77,8 @@ module InteriorPro
         resizable: true
       )
       base_z = group.get_attribute('InteriorPro', 'base_z').to_f
-      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length, base_z)
+      cur_trim = group.get_attribute('InteriorPro', 'corner_trim_width')
+      html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length, base_z, cur_trim)
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         model = Sketchup.active_model
@@ -89,6 +90,10 @@ module InteriorPro
         group.set_attribute('InteriorPro', 'wall_category', params['wall_category']) if params['wall_category']
         group.set_attribute('InteriorPro', 'side_a_color', params['side_a']) if params['side_a']
         group.set_attribute('InteriorPro', 'side_b_color', params['side_b']) if params['side_b']
+        # Corner trim: one attribute, 0 = off, missing = the 3" default.
+        unless params['corner_trim'].to_s.strip.empty?
+          group.set_attribute('InteriorPro', 'corner_trim_width', params['corner_trim'].to_f)
+        end
         # Length change: keep the start point, move the end along the wall axis.
         new_len_raw = params['length'].to_s.strip
         unless new_len_raw.empty?
@@ -561,7 +566,8 @@ module InteriorPro
 
     def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false,
                              category = 'exterior', side_a = '#ffffff', side_b = '#ffffff',
-                             length = nil, base_z = nil)
+                             length = nil, base_z = nil, corner_trim = nil)
+      trim_sel = corner_trim.nil? ? '3' : format('%g', corner_trim.to_f)
       title = edit_mode ? 'Edit Wall' : 'Wall Settings'
       mat_options = MATERIALS.map { |m| "<option value='#{m}' #{m == ext_mat ? 'selected' : ''}>#{m}</option>" }.join
       int_color = (int_mat.is_a?(String) && int_mat.start_with?('#')) ? int_mat : '#ffffff'
@@ -609,6 +615,12 @@ module InteriorPro
       html += "</div>"
       html += "<div class='section' id='extSection'><div class='section-title'>Materials (Exterior Wall)</div>"
       html += "<label>Exterior Material</label><select id='exterior'>#{mat_options}</select>"
+      if edit_mode
+        trim_opts = [['0', 'Off'], ['2', '2&quot;'], ['3', '3&quot;'], ['4', '4&quot;']].map { |v, t|
+          "<option value='#{v}' #{v == trim_sel ? 'selected' : ''}>#{t}</option>"
+        }.join
+        html += "<label>Corner trim (siding)</label><select id='cornerTrim'>#{trim_opts}</select>"
+      end
       html += "<label>Interior Color</label><input type='color' id='intColor' value='#{int_color}' #{color_style}>"
       html += "</div>"
       html += "<div class='section' id='intSection'><div class='section-title'>Colors (Interior Wall)</div>"
@@ -627,7 +639,8 @@ module InteriorPro
       html += "var sb=document.getElementById('sameColors').checked?sa:document.getElementById('sideBColor').value;"
       html += "var lenEl=document.getElementById('wallLength');"
       html += "var baseEl=document.getElementById('wallBase');"
-      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:''),base:(baseEl?baseEl.value:'')});}"
+      html += "var trimEl=document.getElementById('cornerTrim');"
+      html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:''),base:(baseEl?baseEl.value:''),corner_trim:(trimEl?trimEl.value:'')});}"
       html += "syncSections();syncSame();"
       html += "</script>"
       html += "</body></html>"

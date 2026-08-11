@@ -196,7 +196,7 @@ ok('and it stands proud of the siding',
 ok('a normal wall gets its corner boards', close(WT.trim_inset(240.0), 3.0))
 ok('a wall too short for two of them gets none', close(WT.trim_inset(8.0), 0.0), WT.trim_inset(8.0))
 ok('a wall just long enough does get them', WT.trim_inset(13.0) > 0.0, WT.trim_inset(13.0))
-ok('lap siding builds its corner boards', src.include?('trim_runs = InteriorPro::WallTool.corner_trim_runs(poly, total_t)'))
+ok('lap siding builds its corner boards', src.include?('corner_trim_runs(poly, total_t, trim_w, ext0, ext1)'))
 ok('board and batten builds them too',
    src.include?('InteriorPro::WallTool.corner_trim_runs(poly, total_t).each do |run|'))
 ok('a corner board runs the full height of the wall',

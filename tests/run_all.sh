@@ -29,7 +29,7 @@ for t in t1 t2 t3 t4 t5 t6 t7 t8 t9 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 
 done
 
 echo "== ruby suites (callbacks, rooms, plans, doors) =="
-for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27; do
+for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27 rt28; do
   [ -f "$r.rb" ] || continue
   if ruby "$r.rb" >/dev/null 2>&1; then echo "  PASS $r"; else echo "  FAIL $r"; ruby "$r.rb" 2>&1 | grep FAIL | head -3; fail=1; fi
 done
