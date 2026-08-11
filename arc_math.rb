@@ -264,6 +264,30 @@ module InteriorPro
       sample(off, n)
     end
 
+    # One point of an offset side, at a given distance ALONG the arc. Same
+    # maths offset_points does, but one point at a time, so a caller can pick
+    # its own stations instead of even ones - which is how a wall gets a flat
+    # pocket for a door. Positive o = left of travel. nil if the offset would
+    # swallow the centre.
+    def self.offset_point_at_distance(arc, d, o)
+      rr = arc[:r] - o * center_side(arc)
+      return nil if rr <= EPS
+      dir = arc[:ccw] ? 1.0 : -1.0
+      t = arc[:a0] + dir * (d / arc[:r])
+      [arc[:cx] + rr * Math.cos(t), arc[:cy] + rr * Math.sin(t)]
+    end
+
+    # How much ARC a straight chord of the given length eats, as a half-length
+    # measured along the arc. A door is measured straight across, but it is
+    # placed along the wall, and on a curve those are not the same number.
+    # nil when the chord is wider than the circle itself.
+    def self.half_arc_for_chord(arc, chord)
+      return nil if chord <= 0.0
+      ratio = chord / (2.0 * arc[:r])
+      return nil if ratio >= 1.0
+      arc[:r] * Math.asin(ratio)
+    end
+
     # ------------------------------------------------------------ persistence
 
     # Flat array for a SketchUp attribute dictionary (they store plain types).

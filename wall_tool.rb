@@ -33,7 +33,19 @@ module InteriorPro
     # visible. Degrees.
     CURVE_SMOOTH_MAX_ANGLE = 60.0 unless const_defined?(:CURVE_SMOOTH_MAX_ANGLE, false)
 
+    # Two walls that meet almost in line have no real corner to cut. Mitering
+    # them anyway sends the cut racing off to where their two faces finally
+    # cross - miles away - and the wall end blows out into a long spike.
+    # A near half-circle arch does exactly this: its tangent at the spring
+    # point runs straight down, the same way as the wall it springs from.
+    # Under this many degrees of turn, both ends are simply squared off.
+    COLLINEAR_CORNER_DEG = 3.0 unless const_defined?(:COLLINEAR_CORNER_DEG, false)
+
     attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category, :side_a_color, :side_b_color
+
+    # Set by the 3-click Arc tool before it calls create_wall. nil / 0 means
+    # the ordinary straight wall, so the plain Wall tool is unaffected.
+    attr_accessor :arc_sag
 
     def initialize
       @start_point = nil
@@ -496,7 +508,16 @@ module InteriorPro
       if group && defined?(InteriorPro::LevelManager)
         InteriorPro::LevelManager.place_wall_on_active_level!(group)
       end
-      join_corners(group, model) if group
+      # The 3-click Arc tool builds the wall straight first and bends it here,
+      # so a curved wall is created by exactly the same path as a straight one
+      # (same attributes, same materials, same level). set_wall_sag! resets
+      # the ends and joins the corners itself, which is why it replaces the
+      # plain join_corners call rather than following it.
+      if group && @arc_sag && @arc_sag.to_f.abs >= InteriorPro::WallTool::MIN_ARC_SAG
+        InteriorPro::WallTool.set_wall_sag!(group, @arc_sag.to_f, wrap_operation: false)
+      elsif group
+        join_corners(group, model)
+      end
 
       model.commit_operation
 
@@ -522,6 +543,7 @@ module InteriorPro
       rescue StandardError => e
         puts "[Levels] structure after wall create: #{e.message}"
       end
+      group
     end
 
     def current_attrs
@@ -897,12 +919,39 @@ module InteriorPro
       u_a_nat.normalize!
       u_b_nat.normalize!
 
+      # CURVED WALLS (2026-08-11): a curved wall does not run along the
+      # straight line between its ends - at this corner it runs along the
+      # TANGENT to its arc. Mitering against the straight line cut the
+      # neighbour at the wrong angle and left a visible step. Straight walls
+      # are untouched: corner_direction returns exactly the same vector, and
+      # the centreline reference below is only swapped when a curve is
+      # actually involved, so straight-to-straight corners stay bit-for-bit
+      # what they were.
+      curved_corner = InteriorPro::WallTool.curved_wall?(group_a) ||
+                      InteriorPro::WallTool.curved_wall?(group_b)
+      if curved_corner
+        u_a_nat = InteriorPro::WallTool.corner_direction(group_a, data_a, side_a) || u_a_nat
+        u_b_nat = InteriorPro::WallTool.corner_direction(group_b, data_b, side_b) || u_b_nat
+      end
+
       # Direction INTO the corner (from A) and OUT of the corner (toward B).
       u_into = (side_a == :end)   ? u_a_nat : Geom::Vector3d.new(-u_a_nat.x, -u_a_nat.y, 0)
       u_out  = (side_b == :start) ? u_b_nat : Geom::Vector3d.new(-u_b_nat.x, -u_b_nat.y, 0)
 
       cross_z = u_into.x * u_out.y - u_into.y * u_out.x
       return if cross_z.abs < 1e-6  # collinear walls -- no real corner
+
+      # A curve that runs smoothly into its neighbour has no corner to cut.
+      # Square both ends off instead - they already line up, because the
+      # curve's end cut is square to its own direction and so is the straight
+      # wall's. Guarded by curved_corner so straight-to-straight corners are
+      # untouched.
+      if curved_corner &&
+         InteriorPro::WallTool.corner_too_straight?([u_into.x, u_into.y], [u_out.x, u_out.y])
+        square_corner!(group_a, side_a)
+        square_corner!(group_b, side_b)
+        return false
+      end
 
       # Outward bisector at the corner (points to the convex/outside side).
       outside_dir = Geom::Vector3d.new(-u_into.x + u_out.x, -u_into.y + u_out.y, 0)
@@ -929,8 +978,21 @@ module InteriorPro
 
       # Corner = intersection of the two centerlines; fall back to wall A's
       # endpoint if the lines are parallel and never cross.
-      line_a = [cl_a_start, u_a_nat]
-      line_b = [cl_b_start, u_b_nat]
+      # For a straight wall the centreline runs through cl_a_start, so the two
+      # forms below describe the SAME infinite line. For a curved wall only
+      # the second one is right: its centreline at this corner is the tangent
+      # through this end, not a line through its far end.
+      if curved_corner
+        ep_a = endpoint_pt(data_a, side_a)
+        ep_b = endpoint_pt(data_b, side_b)
+        off_a = InteriorPro::WallTool.centerline_offset(ha_a, t_a_full)
+        off_b = InteriorPro::WallTool.centerline_offset(ha_b, t_b_full)
+        line_a = [Geom::Point3d.new(ep_a.x + n_a.x * off_a, ep_a.y + n_a.y * off_a, 0), u_a_nat]
+        line_b = [Geom::Point3d.new(ep_b.x + n_b.x * off_b, ep_b.y + n_b.y * off_b, 0), u_b_nat]
+      else
+        line_a = [cl_a_start, u_a_nat]
+        line_b = [cl_b_start, u_b_nat]
+      end
       cl_intersect = Geom.intersect_line_line(line_a, line_b)
       corner = cl_intersect || ((side_a == :end) ? cl_a_end : cl_a_start)
 
@@ -1025,6 +1087,30 @@ module InteriorPro
         apply_miter_to_wall(thin_group, thin_side, thin_pos_world.transform(thin_xform_inv), thin_neg_world.transform(thin_xform_inv), wall_data(thin_group))
       end
 
+    # Put one end of a wall back to its own plain square cut, throwing away
+    # any miter that was cut into it. For a straight wall that is square to
+    # its length; for a curved one it is square to the curve's direction
+    # there (radial). Used when a corner turns out not to be a corner.
+    def square_corner!(group, side)
+      return unless group&.valid?
+      data = wall_data(group)
+      return unless data
+      plain = compute_perpendicular_corners_from_data(data)
+      return unless plain
+      corners = read_corners_attr(group) || plain
+      if side == :start
+        corners[0] = plain[0]
+        corners[3] = plain[3]
+      else
+        corners[1] = plain[1]
+        corners[2] = plain[2]
+      end
+      save_corners_attr(group, corners)
+      rebuild_wall_geometry(group, corners, data)
+    rescue StandardError => e
+      puts "[WallTool] square_corner!: #{e.message}"
+    end
+
     def apply_miter_to_wall(group, side, miter_pos, miter_neg, data)
       return unless group&.valid?
       corners = read_corners_attr(group) || compute_perpendicular_corners_from_data(data)
@@ -1041,6 +1127,19 @@ module InteriorPro
     end
 
     def compute_perpendicular_corners_from_data(data)
+      # A curved wall's ends are cut radially, so its default corners are NOT
+      # the ones a straight wall would get. Everything that resets a wall's
+      # corners comes through here, so this is the single place that has to
+      # know the difference.
+      g = data[:group]
+      if g && InteriorPro::WallTool.curved_wall?(g)
+        rc = InteriorPro::WallTool.curved_end_corners_xy(
+          data[:drawn_start][0], data[:drawn_start][1],
+          data[:drawn_end][0],   data[:drawn_end][1],
+          data[:thickness], data[:h_anchor], InteriorPro::WallTool.wall_sag(g)
+        )
+        return rc if rc
+      end
       drawn_start = Geom::Point3d.new(data[:drawn_start][0], data[:drawn_start][1], 0)
       drawn_end   = Geom::Point3d.new(data[:drawn_end][0],   data[:drawn_end][1],   0)
       perpendicular_corners_xy(drawn_start, drawn_end, data[:thickness], data[:h_anchor])
@@ -1444,7 +1543,8 @@ module InteriorPro
     # then the inner side walked back. Returns nil when the wall should stay
     # straight (kill switch off, bow too small, or the curve is so tight that
     # the inner face would swallow its own centre).
-    def self.curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag, tol = CURVE_TOL)
+    def self.curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag,
+                                 tol = CURVE_TOL, openings = nil)
       return nil unless USE_CURVED_WALLS
       return nil if sag.nil? || sag.to_f.abs < MIN_ARC_SAG
 
@@ -1452,14 +1552,190 @@ module InteriorPro
       arc = am.from_chord_and_sag(sx.to_f, sy.to_f, ex.to_f, ey.to_f, sag.to_f)
       return nil unless arc
 
+      stations = curved_wall_stations(arc, tol, openings)
+      return nil unless stations
+
       o_pos, o_neg = anchor_side_offsets(thickness, h_anchor)
-      pos = am.offset_points(arc, o_pos, tol)
-      neg = am.offset_points(arc, o_neg, tol)
-      return nil unless pos && neg
+      pos = stations.map { |d| am.offset_point_at_distance(arc, d, o_pos) }
+      neg = stations.map { |d| am.offset_point_at_distance(arc, d, o_neg) }
+      return nil if pos.any?(&:nil?) || neg.any?(&:nil?)
 
       pos + neg.reverse
     rescue StandardError => e
       puts "[WallTool] curved_footprint_xy: #{e.message}"
+      nil
+    end
+
+    # PURE: the distances along the arc where the wall's outline gets a point.
+    #
+    # Without openings these are just even steps, fine enough that the wall
+    # reads as smooth. WITH openings, the stretch a door occupies gets NO
+    # points in the middle - only its two ends - so that stretch comes out as
+    # one straight FLAT PANEL. A door frame is a straight thing; it needs
+    # something straight to sit in. Real builders do the same.
+    #
+    # The flat panel is sized so that its straight width is exactly the door's
+    # width. A door measured straight across eats slightly MORE wall when the
+    # wall is curved, and half_arc_for_chord is what accounts for that.
+    #
+    # Returns nil when the openings cannot fit: too wide for the curve, off
+    # the end of the wall, or overlapping each other.
+    def self.curved_wall_stations(arc, tol, openings)
+      am = InteriorPro::ArcMath
+      total = am.length(arc)
+      n = am.segment_count(arc, tol)
+      even = (0..n).map { |i| total * i / n.to_f }
+
+      list = (openings || []).map { |o| normalize_pocket(o) }.compact
+      return even if list.empty?
+
+      pockets = []
+      list.each do |t, width|
+        half = am.half_arc_for_chord(arc, width)
+        return nil unless half             # door wider than the curve itself
+        d0 = t - half
+        d1 = t + half
+        return nil if d0 < -1e-6 || d1 > total + 1e-6
+        pockets << [d0, d1]
+      end
+      pockets.sort_by!(&:first)
+      pockets.each_cons(2) { |a, b| return nil if b[0] < a[1] - 1e-6 }
+
+      inside = ->(d) { pockets.any? { |p| d > p[0] + 1e-6 && d < p[1] - 1e-6 } }
+      stations = even.reject { |d| inside.call(d) }
+      pockets.each { |p| stations << p[0] << p[1] }
+      stations << 0.0 << total
+      stations.sort!
+
+      out = []
+      stations.each { |d| out << d if out.empty? || (d - out.last).abs > 1e-6 }
+      out
+    end
+
+    # Openings arrive as symbol hashes from read_door_openings, but string
+    # keys turn up too (attributes round-tripped through JSON). Take both.
+    def self.normalize_pocket(o)
+      return nil unless o
+      t = o[:t] || o['t']
+      w = o[:width] || o['width']
+      return nil if t.nil? || w.nil?
+      w = w.to_f
+      return nil if w <= 0.0
+      [t.to_f, w]
+    end
+
+    # PURE: where an opening's flat panel actually lands on a curved wall.
+    # This is what a door body will need in order to sit square in its hole:
+    # the panel's two ends, its middle, and the direction it runs.
+    #
+    # A straight wall answers with the straight equivalent, so a caller never
+    # needs to ask whether the wall is curved.
+    # t = distance along the wall from the start; width = the opening width.
+    def self.opening_pocket(sx, sy, ex, ey, sag, t, width)
+      sx = sx.to_f; sy = sy.to_f; ex = ex.to_f; ey = ey.to_f
+      t = t.to_f; width = width.to_f
+      return nil if width <= 0.0
+      chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+      return nil if chord < 0.001
+
+      am = InteriorPro::ArcMath
+      arc = (USE_CURVED_WALLS && !sag.nil? && sag.to_f.abs >= MIN_ARC_SAG) ?
+              am.from_chord_and_sag(sx, sy, ex, ey, sag.to_f) : nil
+
+      unless arc
+        u = [(ex - sx) / chord, (ey - sy) / chord]
+        return nil if t - width / 2.0 < -1e-6 || t + width / 2.0 > chord + 1e-6
+        p0 = [sx + u[0] * (t - width / 2.0), sy + u[1] * (t - width / 2.0)]
+        p1 = [sx + u[0] * (t + width / 2.0), sy + u[1] * (t + width / 2.0)]
+        return { d0: t - width / 2.0, d1: t + width / 2.0, p0: p0, p1: p1,
+                 center: [sx + u[0] * t, sy + u[1] * t], dir: u, width: width,
+                 curved: false }
+      end
+
+      half = am.half_arc_for_chord(arc, width)
+      return nil unless half
+      total = am.length(arc)
+      d0 = t - half
+      d1 = t + half
+      return nil if d0 < -1e-6 || d1 > total + 1e-6
+
+      p0 = am.point_at_distance(arc, d0)
+      p1 = am.point_at_distance(arc, d1)
+      dx = p1[0] - p0[0]
+      dy = p1[1] - p0[1]
+      len = Math.sqrt(dx * dx + dy * dy)
+      return nil if len < 1e-9
+      { d0: d0, d1: d1, p0: p0, p1: p1,
+        center: [(p0[0] + p1[0]) / 2.0, (p0[1] + p1[1]) / 2.0],
+        dir: [dx / len, dy / len], width: len, curved: true }
+    end
+
+    # PURE: the two END cross-sections of a curved wall, in the same order the
+    # straight builder uses - [s_pos, e_pos, e_neg, s_neg]. A curved wall's
+    # ends are cut RADIALLY (square to the wall's own direction there), not
+    # square to the straight line between its ends, so these are NOT the same
+    # four points perpendicular_corners_xy would give.
+    def self.curved_end_corners_xy(sx, sy, ex, ey, thickness, h_anchor, sag, tol = CURVE_TOL)
+      fp = curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag, tol)
+      return nil unless fp
+      n = fp.length / 2
+      [fp[0], fp[n - 1], fp[n], fp[(2 * n) - 1]]
+    end
+
+    # PURE: which way the wall actually RUNS at one of its ends, as a unit
+    # [dx, dy] in the natural start -> end sense.
+    #
+    # This is the whole fix for "the curve does not meet its neighbours". A
+    # curved wall does not run along the straight line between its ends - at
+    # its end it runs along the TANGENT to its arc. Mitering the neighbour
+    # against the straight line cuts it at the wrong angle and leaves a step.
+    # For a straight wall the tangent IS that line, so nothing changes.
+    def self.corner_direction_xy(sx, sy, ex, ey, sag, side)
+      chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+      return nil if chord < 0.001
+      straight = [(ex - sx) / chord, (ey - sy) / chord]
+      return straight unless USE_CURVED_WALLS
+      return straight if sag.nil? || sag.to_f.abs < MIN_ARC_SAG
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, sag.to_f)
+      return straight unless arc
+      d = side == :start ? 0.0 : am.length(arc)
+      t = am.tangent_at_distance(arc, d)
+      len = Math.sqrt(t[0]**2 + t[1]**2)
+      len < 1e-9 ? straight : [t[0] / len, t[1] / len]
+    end
+
+    # PURE: is this corner too close to straight to be worth cutting?
+    # u_into = the direction arriving at the corner, u_out = the direction
+    # leaving it, both unit [x, y]. Returns true for a near-straight run AND
+    # for a hairpin - neither has a miter that means anything.
+    def self.corner_too_straight?(u_into, u_out, max_deg = COLLINEAR_CORNER_DEG)
+      cross = (u_into[0] * u_out[1]) - (u_into[1] * u_out[0])
+      dot   = (u_into[0] * u_out[0]) + (u_into[1] * u_out[1])
+      turn  = Math.atan2(cross.abs, dot) * 180.0 / Math::PI   # 0..180
+      turn < max_deg || turn > (180.0 - max_deg)
+    end
+
+    # PURE: how far a wall's centreline sits off its DRAWN line, given the
+    # anchor. Same rule wall_data uses; pulled out so the corner code can
+    # rebuild a centreline reference point at either end.
+    def self.centerline_offset(h_anchor, thickness)
+      case h_anchor
+      when 'left'  then thickness.to_f / 2.0
+      when 'right' then -thickness.to_f / 2.0
+      else 0.0
+      end
+    end
+
+    # Wall-group flavour of corner_direction_xy. Returns a Geom::Vector3d.
+    def self.corner_direction(group, data, side)
+      d = corner_direction_xy(data[:drawn_start][0], data[:drawn_start][1],
+                              data[:drawn_end][0],   data[:drawn_end][1],
+                              curved_wall?(group) ? wall_sag(group) : 0.0, side)
+      return nil unless d
+      Geom::Vector3d.new(d[0], d[1], 0)
+    rescue StandardError
       nil
     end
 
@@ -1473,9 +1749,35 @@ module InteriorPro
         return nil
       end
 
-      curved_footprint_xy(data[:drawn_start][0], data[:drawn_start][1],
-                          data[:drawn_end][0],   data[:drawn_end][1],
-                          data[:thickness], data[:h_anchor], wall_sag(group))
+      fp = curved_footprint_xy(data[:drawn_start][0], data[:drawn_start][1],
+                               data[:drawn_end][0],   data[:drawn_end][1],
+                               data[:thickness], data[:h_anchor], wall_sag(group))
+      return nil unless fp
+      apply_corner_overrides(fp, group)
+    end
+
+    # Pull the four END points of the footprint from corners_xy, so a curved
+    # wall gets mitered into its neighbours exactly like a straight one. All
+    # the points in between - the curve itself - are untouched.
+    #
+    # corners_xy always holds the truth for the two ends: with no neighbour it
+    # holds the plain radial cut (see compute_perpendicular_corners_from_data),
+    # and after a corner join it holds the miter.
+    def self.apply_corner_overrides(fp, group)
+      flat = group.get_attribute('InteriorPro', 'corners_xy')
+      return fp unless flat.is_a?(Array) && flat.length == 8
+      return fp unless flat.all? { |v| v.is_a?(Numeric) }
+      n = fp.length / 2
+      return fp if n < 2
+      out = fp.dup
+      out[0]           = [flat[0], flat[1]]   # s_pos
+      out[n - 1]       = [flat[2], flat[3]]   # e_pos
+      out[n]           = [flat[4], flat[5]]   # e_neg
+      out[(2 * n) - 1] = [flat[6], flat[7]]   # s_neg
+      out
+    rescue StandardError => e
+      puts "[WallTool] apply_corner_overrides: #{e.message}"
+      fp
     end
 
     # Paint a curved wall's two long sides. The straight painter classifies
@@ -1521,6 +1823,82 @@ module InteriorPro
       end
     rescue StandardError => e
       puts "[WallTool] paint_curved_wall_long_faces!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # LOOK ONLY (2026-08-11). Draws the outline a curved wall WOULD have once
+    # its doors and windows get their flat panels, as loose lines in their own
+    # group. Nothing about the real wall is touched - this is here so the
+    # shape can be checked before any hole is cut. Delete the group when done,
+    # or call clear_pocket_preview!.
+    PREVIEW_GROUP_NAME = 'InteriorPro_PocketPreview' unless const_defined?(:PREVIEW_GROUP_NAME, false)
+
+    def self.clear_pocket_preview!
+      model = Sketchup.active_model
+      gone = 0
+      model.entities.to_a.each do |e|
+        next unless e.is_a?(Sketchup::Group) && e.valid?
+        next unless e.name == PREVIEW_GROUP_NAME
+        e.erase!
+        gone += 1
+      end
+      puts "[WallTool] removed #{gone} pocket preview(s)"
+      gone
+    end
+
+    def self.preview_pockets!(wall)
+      unless wall&.valid? && wall.get_attribute('InteriorPro', 'type') == 'wall'
+        puts '[WallTool] select an Interior Pro wall first'
+        return false
+      end
+      sag = wall_sag(wall)
+      if sag.abs < MIN_ARC_SAG
+        puts '[WallTool] that wall is straight - bow it first, then preview'
+        return false
+      end
+      sx = wall.get_attribute('InteriorPro', 'start_x').to_f
+      sy = wall.get_attribute('InteriorPro', 'start_y').to_f
+      ex = wall.get_attribute('InteriorPro', 'end_x').to_f
+      ey = wall.get_attribute('InteriorPro', 'end_y').to_f
+      thickness = wall.get_attribute('InteriorPro', 'thickness').to_f
+      anchor = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      h_anchor = anchor.split('-')[1] || 'center'
+      openings = read_door_openings(wall)
+      if openings.empty?
+        puts '[WallTool] that wall has no doors or windows - nothing to pocket'
+        return false
+      end
+
+      fp = curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag, CURVE_TOL, openings)
+      unless fp
+        puts '[WallTool] those openings do not fit on this curve (too wide, off the end, or overlapping)'
+        return false
+      end
+
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Pocket Preview', true)
+      begin
+        clear_pocket_preview!
+        z = wall.bounds.min.z + 0.25
+        grp = model.entities.add_group
+        grp.name = PREVIEW_GROUP_NAME
+        pts = fp.map { |c| Geom::Point3d.new(c[0], c[1], z) }
+        pts.each_with_index { |p, i| grp.entities.add_line(p, pts[(i + 1) % pts.length]) }
+        # Mark each flat panel with a line across it, so it is obvious which
+        # stretch went straight.
+        openings.each do |o|
+          pk = opening_pocket(sx, sy, ex, ey, sag, o[:t], o[:width])
+          next unless pk
+          grp.entities.add_line(Geom::Point3d.new(pk[:p0][0], pk[:p0][1], z),
+                                Geom::Point3d.new(pk[:p1][0], pk[:p1][1], z))
+        end
+        model.commit_operation
+      rescue StandardError => e
+        model.abort_operation
+        puts "[WallTool] preview_pockets!: #{e.message}"
+        return false
+      end
+      puts "[WallTool] preview drawn: #{fp.length} outline points, #{openings.length} flat panel(s)"
+      true
     end
 
     # Hide the seams between the flat panels so a curved wall looks like one
@@ -1610,8 +1988,19 @@ module InteriorPro
         inst = InteriorPro::WallTool.new
         data = inst.wall_data(wall)
         raise 'wall_data unavailable' unless data
-        corners = inst.read_corners_attr(wall) || inst.compute_perpendicular_corners_from_data(data)
+
+        # Throw away the old end cuts and start from this wall's own square
+        # ends - a miter cut for a straight wall is wrong once it bends, and
+        # vice versa.
+        corners = inst.compute_perpendicular_corners_from_data(data)
+        raise 'could not work out the wall ends' unless corners
+        inst.save_corners_attr(wall, corners)
         inst.rebuild_wall_geometry(wall, corners, data)
+
+        # Now re-cut the corners against the neighbours. This is what makes a
+        # curved wall meet the walls it grew out of instead of leaving a step.
+        inst.join_corners(wall, model, allow_centerline_fallback: true)
+
         model.commit_operation if wrap_operation
       rescue StandardError => e
         model.abort_operation if wrap_operation
