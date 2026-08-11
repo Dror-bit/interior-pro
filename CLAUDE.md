@@ -69,13 +69,41 @@ the bow just follows the ends.
   `arc_math.rb` - on a half circle the straight-line test flips on floating
   point noise and would swap a wall's inside and outside).
 
+### Curved walls - corners (fixed 2026-08-11)
+
+A curved wall reports its TANGENT at each end, not the straight line between
+its ends (`WallTool.corner_direction_xy`). `apply_miter` uses that, so the
+neighbour gets cut at the right angle. Its own ends are cut radially
+(`curved_end_corners_xy`), and `apply_corner_overrides` swaps the four stored
+`corners_xy` into the built curve, so a miter reaches a curved wall the same
+way it reaches a straight one. `set_wall_sag!` resets the corners and re-runs
+`join_corners` afterwards.
+
+STRAIGHT-TO-STRAIGHT CORNERS ARE UNTOUCHED. The tangent swap and the
+centreline reference point both sit behind `curved_corner`, so a corner with
+no curve in it runs the identical old code. `tests/rt22.rb` guards this.
+
 ### Curved walls - NOT wired up yet (deliberate, do not treat as bugs)
 
 - Openings. A wall with doors or windows refuses to curve and says so.
-- Corner miters. A curved wall does not miter into its neighbours.
+- Butt joints (interior wall meeting an exterior one) still use the straight
+  line, not the tangent.
 - Board and Batten strips are left off a curved wall.
 - `plan_generator.rb` draws it as a straight line in the 2D plan.
 - `RoofManager.eave_polygon` treats it as a straight segment.
+- The 2D editor cannot draw or bend a curved wall at all.
+
+### Curved walls - the 3-click Arc tool (2026-08-11)
+
+`wall_arc_tool.rb`, `WallArcTool < WallTool`. Click start, click end, click the
+bow. It owns NO building logic: it fills in `@start_point`, `@end_point` and
+`@arc_sag`, then calls the inherited `create_wall`, which bends the finished
+wall via `set_wall_sag!` inside the same operation. That is why a curved wall
+gets the same attributes, materials, level and corner joining as a straight
+one. Do not give it its own builder - `tests/rt23.rb` fails if it grows one.
+
+Reached from Extensions > Interior Pro > "Arc Wall (3 clicks)", which opens the
+wall library first exactly like the Wall tool.
 
 ## UI rules (added 2026-08-07, set by the user)
 

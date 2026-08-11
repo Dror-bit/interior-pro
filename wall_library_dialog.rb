@@ -10,11 +10,16 @@ module InteriorPro
         dialog_title: 'Interior Pro - Wall Library',
         preferences_key: 'InteriorPro_WallLibrary',
         width: 420,
-        height: 580,
+        height: 760,
+        min_width: 400,
+        min_height: 340,
         resizable: true
       )
 
       dialog.set_html(build_html)
+      # preferences_key makes SketchUp remember the last size, so a window
+      # that was once squashed opens squashed for ever. Force it open.
+      dialog.set_size(420, 760)
 
       dialog.add_action_callback('get_library') { |action_context|
         library = InteriorPro::WallLibrary.load
@@ -67,7 +72,8 @@ module InteriorPro
         <meta charset="utf-8">
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; background: #f0f0f0; }
+          html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
+          body { font-family: Arial, sans-serif; background: #f0f0f0; padding-bottom: 24px; }
           .header { background: #1565C0; color: white; padding: 12px 16px; font-size: 15px; font-weight: bold; }
           .content { padding: 12px; }
           .wall-list { background: white; border-radius: 6px; margin-bottom: 12px; overflow: hidden; border: 1px solid #ddd; }

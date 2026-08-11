@@ -12,6 +12,10 @@ module Geom
     def normalize; l = length; l.zero? ? self : Vector3d.new(@x / l, @y / l, @z / l); end
     def normalize!; l = length; unless l.zero?; @x /= l; @y /= l; @z /= l; end; self; end
     def to_a; [@x, @y, @z]; end
+    def cross(o); Vector3d.new(@y * o.z - @z * o.y, @z * o.x - @x * o.z, @x * o.y - @y * o.x); end
+    def dot(o); (@x * o.x) + (@y * o.y) + (@z * o.z); end
+    def clone; Vector3d.new(@x, @y, @z); end
+    def valid?; length > 0; end
   end
 
   class Point3d
@@ -48,6 +52,9 @@ module Geom
   class Transformation
     def self.rotation(_c, _axis, _ang); new; end
     def self.translation(v); new(Geom::Point3d.new(v.x, v.y, v.z)); end
+    # The stub only ever models a plain shift, so "no shift" is identity.
+    def identity?; @ox.zero? && @oy.zero? && @oz.zero?; end
+    def inverse; Transformation.new(Geom::Point3d.new(-@ox, -@oy, -@oz)); end
   end
 
   def self.intersect_line_line(l1, l2)

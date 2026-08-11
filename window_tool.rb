@@ -227,8 +227,46 @@ module InteriorPro
 
       # Project picked point (XY) onto centerline.
       click_xy = Geom::Point3d.new(picked_point.x, picked_point.y, 0)
+
+      # CURVED WALLS (2026-08-11): a curved wall is not a straight ruler.
+      # Measure the click ALONG the curve, then swing the local frame round
+      # to the flat panel this window will sit in - exactly what doors do.
+      # A straight wall goes through none of this.
+      wall_sag = 0.0
+      curved = false
+      begin
+        if defined?(InteriorPro::WallTool) && InteriorPro::WallTool.curved_wall?(wall_group)
+          wall_sag = InteriorPro::WallTool.wall_sag(wall_group)
+          arc = InteriorPro::ArcMath.from_chord_and_sag(drawn_start.x, drawn_start.y,
+                                                        drawn_end.x, drawn_end.y, wall_sag)
+          if arc
+            curved = true
+            wall_length = InteriorPro::ArcMath.length(arc)
+          end
+        end
+      rescue StandardError => e
+        puts "[WindowTool] curve check: #{e.message}"
+      end
+
+      if curved
+        t = InteriorPro::WallTool.t_from_point_xy(drawn_start.x, drawn_start.y,
+                                                  drawn_end.x, drawn_end.y,
+                                                  wall_sag, click_xy.x, click_xy.y)
+        t = (click_xy - cline_start).dot(unit) if t.nil?
+        pk = InteriorPro::WallTool.opening_pocket(drawn_start.x, drawn_start.y,
+                                                  drawn_end.x, drawn_end.y,
+                                                  wall_sag, t, @width)
+        if pk
+          unit = Geom::Vector3d.new(pk[:dir][0], pk[:dir][1], 0)
+          n = Geom::Vector3d.new(-unit.y, unit.x, 0)
+          cline_start = Geom::Point3d.new(pk[:center][0] - unit.x * t,
+                                          pk[:center][1] - unit.y * t, 0)
+        end
+      else
+        t = (click_xy - cline_start).dot(unit)
+      end
+
       to_click = click_xy - cline_start
-      t = to_click.dot(unit)
       n_offset = to_click.dot(n)
       # Always orient the window exterior-out, regardless of which side was
       # clicked: the wall's exterior face is the right perpendicular of the drawn

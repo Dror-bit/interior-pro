@@ -78,18 +78,32 @@ ok('the pocket knows it is on a curve', pk[:curved] == true)
 # Every station strictly inside the pocket must be gone, so the stretch is a
 # single straight run.
 st = WT.curved_wall_stations(ARC, WT::CURVE_TOL, door)
-inside = st.select { |d| d > pk[:d0] + 1e-6 && d < pk[:d1] - 1e-6 }
+inside = st.select { |d| d > pk[:panel_d0] + 1e-6 && d < pk[:panel_d1] - 1e-6 }
 ok('no outline point survives inside the door opening', inside.empty?, inside)
-ok('both ends of the opening ARE outline points',
-   st.any? { |d| close(d, pk[:d0], 1e-6) } && st.any? { |d| close(d, pk[:d1], 1e-6) },
-   [pk[:d0], pk[:d1]])
+# The flat panel is a little wider than the opening, so the hole is cut well
+# inside flat wall and never right on the seam where the curve starts again.
+ok('the panel is wider than the opening it holds',
+   pk[:panel_d0] < pk[:d0] && pk[:panel_d1] > pk[:d1], [pk[:panel_d0], pk[:d0], pk[:d1], pk[:panel_d1]])
+ok('both ends of the flat PANEL are outline points',
+   st.any? { |d| close(d, pk[:panel_d0], 1e-6) } && st.any? { |d| close(d, pk[:panel_d1], 1e-6) },
+   [pk[:panel_d0], pk[:panel_d1]])
+ok('no outline point survives inside the flat panel either',
+   st.none? { |d| d > pk[:panel_d0] + 1e-6 && d < pk[:panel_d1] - 1e-6 })
+ok('the opening sits in the middle of its panel',
+   close((pk[:d0] + pk[:d1]) / 2.0, (pk[:panel_d0] + pk[:panel_d1]) / 2.0, 1e-9))
+ok('the opening\'s two ends lie ON the flat panel, not on the curve',
+   off_line(pk[:panel_p0], pk[:panel_p1], pk[:p0]) < 1e-9 &&
+   off_line(pk[:panel_p0], pk[:panel_p1], pk[:p1]) < 1e-9,
+   [off_line(pk[:panel_p0], pk[:panel_p1], pk[:p0])])
+ok('and they are exactly the opening width apart',
+   close(AM.dist(pk[:p0][0], pk[:p0][1], pk[:p1][0], pk[:p1][1]), 36.0, 1e-9))
 ok('the wall still starts at 0 and ends at its full length',
    close(st.first, 0.0, 1e-9) && close(st.last, LEN, 1e-6), [st.first, st.last, LEN])
 ok('the stations only ever go forwards', st.each_cons(2).all? { |a, b| b > a })
 
 # The flat panel really is flat, on BOTH faces of the wall.
-i0 = st.index { |d| close(d, pk[:d0], 1e-6) }
-i1 = st.index { |d| close(d, pk[:d1], 1e-6) }
+i0 = st.index { |d| close(d, pk[:panel_d0], 1e-6) }
+i1 = st.index { |d| close(d, pk[:panel_d1], 1e-6) }
 ok('the flat panel is one single step of the outline', i1 == i0 + 1, [i0, i1])
 
 # ------------------------------------- the panel is exactly the door's width
@@ -105,6 +119,9 @@ ok('the flat panel is one single step of the outline', i1 == i0 + 1, [i0, i1])
   ok("#{label}: eats slightly MORE wall than that, because the wall curves",
      (p[:d1] - p[:d0]) > w, [p[:d1] - p[:d0], w])
   ok("#{label}: but not much more", (p[:d1] - p[:d0]) < w * 1.2, p[:d1] - p[:d0])
+  ok("#{label}: gets a strip of flat wall either side",
+     (p[:panel_d1] - p[:panel_d0]) > (p[:d1] - p[:d0]),
+     [p[:panel_d1] - p[:panel_d0], p[:d1] - p[:d0]])
   ok("#{label}: is centred on where the door was asked for",
      close((p[:d0] + p[:d1]) / 2.0, LEN / 2.0, 1e-9), (p[:d0] + p[:d1]) / 2.0)
   ok("#{label}: reports a unit direction",
@@ -117,8 +134,8 @@ end
 # The panel's direction must be the direction of its own straight run - that
 # is what a door body will be turned to.
 p36 = WT.opening_pocket(SX, SY, EX, EY, SAG, LEN / 2.0, 36.0)
-dx = p36[:p1][0] - p36[:p0][0]
-dy = p36[:p1][1] - p36[:p0][1]
+dx = p36[:panel_p1][0] - p36[:panel_p0][0]
+dy = p36[:panel_p1][1] - p36[:panel_p0][1]
 dl = Math.sqrt(dx * dx + dy * dy)
 ok('the panel direction really is end-minus-start',
    close(p36[:dir][0], dx / dl, 1e-9) && close(p36[:dir][1], dy / dl, 1e-9))
@@ -135,14 +152,14 @@ ok('a door near the end leans, following the wall there', poff[:dir][1].abs > 0.
 fp_open = fp_with(door)
 st_open = WT.curved_wall_stations(ARC, WT::CURVE_TOL, door)
 st_plain = WT.curved_wall_stations(ARC, WT::CURVE_TOL, nil)
-kept = st_plain.select { |d| d < pk[:d0] - 1e-6 || d > pk[:d1] + 1e-6 }
+kept = st_plain.select { |d| d < pk[:panel_d0] - 1e-6 || d > pk[:panel_d1] + 1e-6 }
 ok('every curve point outside the opening survives',
    kept.all? { |d| st_open.any? { |s| close(s, d, 1e-9) } })
 ok('the wall away from the door is still curved',
-   st_open.select { |d| d < pk[:d0] - 1e-6 }.length >= 2,
-   st_open.select { |d| d < pk[:d0] - 1e-6 }.length)
+   st_open.select { |d| d < pk[:panel_d0] - 1e-6 }.length >= 2,
+   st_open.select { |d| d < pk[:panel_d0] - 1e-6 }.length)
 # Points before the opening must NOT be in a line - that stretch still bends.
-before = st_open.select { |d| d <= pk[:d0] + 1e-9 }
+before = st_open.select { |d| d <= pk[:panel_d0] + 1e-9 }
 if before.length >= 3
   a = AM.point_at_distance(ARC, before[0])
   b = AM.point_at_distance(ARC, before[-1])
@@ -159,7 +176,7 @@ st2 = WT.curved_wall_stations(ARC, WT::CURVE_TOL, two)
 two.each do |o|
   p = WT.opening_pocket(SX, SY, EX, EY, SAG, o[:t], o[:width])
   ok("opening at #{o[:t].round(1)} gets its own flat panel",
-     st2.none? { |d| d > p[:d0] + 1e-6 && d < p[:d1] - 1e-6 })
+     st2.none? { |d| d > p[:panel_d0] + 1e-6 && d < p[:panel_d1] - 1e-6 })
 end
 ok('openings given out of order still work',
    WT.curved_wall_stations(ARC, WT::CURVE_TOL, two.reverse) == st2)
@@ -217,10 +234,10 @@ ok('a zero-width opening reports nothing', WT.opening_pocket(0, 0, 240, 0, 0.0, 
 # The two outline points either side of the panel, on BOTH faces, plus the
 # wall thickness between them - the door has to fit in there.
 o_pos, o_neg = WT.anchor_side_offsets(TH, 'center')
-a_pos = AM.offset_point_at_distance(ARC, pk[:d0], o_pos)
-b_pos = AM.offset_point_at_distance(ARC, pk[:d1], o_pos)
-a_neg = AM.offset_point_at_distance(ARC, pk[:d0], o_neg)
-b_neg = AM.offset_point_at_distance(ARC, pk[:d1], o_neg)
+a_pos = AM.offset_point_at_distance(ARC, pk[:panel_d0], o_pos)
+b_pos = AM.offset_point_at_distance(ARC, pk[:panel_d1], o_pos)
+a_neg = AM.offset_point_at_distance(ARC, pk[:panel_d0], o_neg)
+b_neg = AM.offset_point_at_distance(ARC, pk[:panel_d1], o_neg)
 ok('the panel is still one wall thickness deep at both ends',
    close(AM.dist(a_pos[0], a_pos[1], a_neg[0], a_neg[1]), TH, 1e-6) &&
    close(AM.dist(b_pos[0], b_pos[1], b_neg[0], b_neg[1]), TH, 1e-6))
@@ -236,6 +253,48 @@ ok('the panel\'s two faces are parallel, so a straight frame fits',
 ok('the outer face is the longer one on a wall bowing this way',
    (Math.sqrt(d_out[0]**2 + d_out[1]**2) - Math.sqrt(d_in[0]**2 + d_in[1]**2)).abs > 1e-6,
    [Math.sqrt(d_out[0]**2 + d_out[1]**2), Math.sqrt(d_in[0]**2 + d_in[1]**2)])
+
+# ------------------------------------------ the hole lands ON the panel
+
+# The hole is drawn on the wall's own face and pushed through to the back.
+# Two things have to be exactly right or SketchUp makes a mess: the four
+# corners must sit ON the face (not a hair inside it), and the push depth
+# must be the real distance to the face behind - which on a curve is a touch
+# LESS than the wall thickness.
+o_p, o_n = WT.anchor_side_offsets(TH, 'center')
+pkx = WT.opening_pocket(SX, SY, EX, EY, SAG, LEN / 2.0, 36.0)
+fa = AM.offset_point_at_distance(ARC, pkx[:panel_d0], o_p)
+fb = AM.offset_point_at_distance(ARC, pkx[:panel_d1], o_p)
+ba = AM.offset_point_at_distance(ARC, pkx[:panel_d0], o_n)
+bb = AM.offset_point_at_distance(ARC, pkx[:panel_d1], o_n)
+uxx = fb[0] - fa[0]
+uyy = fb[1] - fa[1]
+ull = Math.sqrt(uxx**2 + uyy**2)
+uxx /= ull; uyy /= ull
+nxx = -uyy; nyy = uxx
+depth = ((ba[0] - fa[0]) * nxx) + ((ba[1] - fa[1]) * nyy)
+
+ok('the two panel faces are parallel', close(off_line(fa, fb, ba), off_line(fa, fb, bb), 1e-9))
+ok('the push depth is a real distance', depth.abs > 0.1, depth)
+ok('the push depth is slightly LESS than the wall thickness (it is a curve)',
+   depth.abs < TH && depth.abs > TH * 0.95, [depth.abs, TH])
+ok('pushing the full thickness would poke out the back', TH > depth.abs)
+
+# The hole itself: centred on the panel face, exactly the door width.
+mxx = (fa[0] + fb[0]) / 2.0
+myy = (fa[1] + fb[1]) / 2.0
+h1 = [mxx - uxx * 18.0, myy - uyy * 18.0]
+h2 = [mxx + uxx * 18.0, myy + uyy * 18.0]
+ok('the hole is exactly the door width', close(AM.dist(h1[0], h1[1], h2[0], h2[1]), 36.0, 1e-9))
+ok('both hole edges sit ON the panel face',
+   off_line(fa, fb, h1) < 1e-9 && off_line(fa, fb, h2) < 1e-9)
+ok('the hole fits inside the panel face with room to spare',
+   AM.dist(fa[0], fa[1], h1[0], h1[1]) > 0.5 && AM.dist(fb[0], fb[1], h2[0], h2[1]) > 0.5,
+   [AM.dist(fa[0], fa[1], h1[0], h1[1]), AM.dist(fb[0], fb[1], h2[0], h2[1])])
+ok('the panel face is wider than the hole', ull > 36.0, ull)
+
+# A door too wide for the panel it was given must never be cut.
+ok('a door as wide as its whole panel is caught before cutting', ull - 36.0 > 0.02, ull - 36.0)
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

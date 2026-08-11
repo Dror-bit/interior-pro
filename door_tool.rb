@@ -481,6 +481,7 @@ module InteriorPro
 
     # Build cut/fill data from stored door position (no click required).
     def build_opening_data(wall_group, geo, width:, height:, floor_offset:, t:, clicked_side:, fx: nil, fy: nil)
+      geo = InteriorPro::DoorManager.geo_at(geo, t, width)
       thickness = geo[:thickness]
       half_w = width / 2.0
       door_bot_z = geo[:floor_z] + floor_offset.to_f
@@ -1158,6 +1159,7 @@ module InteriorPro
 
     # Broad search along wall centerline when stored coordinates are off.
     def find_inner_loop_near_position(wall_group, geo, t, mid_z_local, half_w = 24.0)
+      geo = InteriorPro::DoorManager.geo_at(geo, t, half_w * 2.0)
       unit = geo[:unit]
       n = geo[:n]
       cx_w = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
@@ -1182,6 +1184,7 @@ module InteriorPro
 
     # Inner loops near position t along the wall (ignores stored fx/fy).
     def inner_loops_near_wall_t(wall_group, geo, t, half_w_pad)
+      geo = InteriorPro::DoorManager.geo_at(geo, t, half_w_pad * 2.0)
       xform = wall_group.transformation
       unit = geo[:unit]
       n = geo[:n]
@@ -1198,6 +1201,7 @@ module InteriorPro
     end
 
     def point_near_opening_at_t?(pt, wall_group, geo, t, half_w, door_bot_z, door_top_z)
+      geo = InteriorPro::DoorManager.geo_at(geo, t, half_w * 2.0)
       unit = geo[:unit]
       n = geo[:n]
       cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]
@@ -1231,6 +1235,7 @@ module InteriorPro
     def bottom_notch_near_t?(wall_group, geo, t, half_w)
       return false unless geo
 
+      geo = InteriorPro::DoorManager.geo_at(geo, t, half_w * 2.0)
       xform = wall_group.transformation
       floor_z = geo[:floor_z]
       tol_z = 1.5
@@ -1439,8 +1444,24 @@ module InteriorPro
       floor_z = geo[:floor_z]
       ceiling_z = geo[:ceiling_z]
 
+      # On a curved wall the click has to be measured ALONG the curve, not
+      # along the straight line between the wall's ends, or the door lands
+      # somewhere else entirely.
+      t = if geo[:curved]
+            InteriorPro::WallTool.t_from_point_xy(geo[:drawn_start].x, geo[:drawn_start].y,
+                                                  geo[:drawn_end].x, geo[:drawn_end].y,
+                                                  geo[:sag], picked_point.x, picked_point.y)
+          end
+      t = (picked_point - cline_start).dot(unit) if t.nil?
+
+      # Now swing the whole frame round to the flat panel this door will sit
+      # in. On a straight wall this gives the same geo back.
+      geo = InteriorPro::DoorManager.geo_at(geo, t, @width)
+      unit = geo[:unit]
+      n = geo[:n]
+      cline_start = geo[:cline_start]
+
       to_click = picked_point - cline_start
-      t = to_click.dot(unit)
       n_offset = to_click.dot(n)
       clicked_side = n_offset >= 0 ? 1 : -1
 
@@ -1996,6 +2017,7 @@ module InteriorPro
     def bottom_opening_point?(pt, wall_group, geo, data)
       return false unless (pt.z - geo[:floor_z]).abs < 1.5
 
+      geo = InteriorPro::DoorManager.geo_at(geo, data[:t], data[:half_w].to_f * 2.0)
       unit = geo[:unit]
       cx = geo[:cline_start].x + unit.x * data[:t] + geo[:n].x * geo[:n_side]
       cy = geo[:cline_start].y + unit.y * data[:t] + geo[:n].y * geo[:n_side]
@@ -2059,6 +2081,7 @@ module InteriorPro
     def opening_axis_center_xy(data, geo)
       if geo
         t = data[:t]
+        geo = InteriorPro::DoorManager.geo_at(geo, t, data[:half_w].to_f * 2.0)
         unit = geo[:unit]
         n = geo[:n]
         cx = geo[:cline_start].x + unit.x * t + n.x * geo[:n_side]

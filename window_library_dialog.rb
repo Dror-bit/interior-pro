@@ -10,7 +10,9 @@ module InteriorPro
         dialog_title: 'Interior Pro - Window',
         preferences_key: 'InteriorPro_Window',
         width: 400,
-        height: 580,
+        height: 720,
+        min_width: 380,
+        min_height: 340,
         resizable: true
       )
 
@@ -49,6 +51,7 @@ module InteriorPro
         Sketchup.active_model.select_tool(tool)
       }
 
+      dialog.set_size(400, 720)
       dialog.show
     end
 
@@ -71,7 +74,9 @@ module InteriorPro
         dialog_title: 'Interior Pro - Edit Window',
         preferences_key: 'InteriorPro_WindowEdit',
         width: 400,
-        height: 580,
+        height: 720,
+        min_width: 380,
+        min_height: 340,
         resizable: true
       )
       dialog.set_html(build_html)
@@ -93,6 +98,7 @@ module InteriorPro
         InteriorPro::WindowManager.update_window(window, settings)
       }
 
+      dialog.set_size(400, 720)
       dialog.show
     end
 
@@ -118,7 +124,8 @@ module InteriorPro
         <meta charset="utf-8">
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; background: #f0f0f0; }
+          html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
+          body { font-family: Arial, sans-serif; background: #f0f0f0; padding-bottom: 24px; }
           .header { background: #6A1B9A; color: white; padding: 12px 16px; font-size: 15px; font-weight: bold; }
           .content { padding: 14px; }
           .panel { background: white; border-radius: 6px; padding: 14px; border: 1px solid #ddd; }

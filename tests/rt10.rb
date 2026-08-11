@@ -76,8 +76,14 @@ ok('and NOT the level-2 wall', !ids.include?('w2'))
 src = File.read('wall_tool.rb', encoding: 'UTF-8')
 ok('create_wall places the wall on the active level',
    src.include?('InteriorPro::LevelManager.place_wall_on_active_level!(group)'))
+# Corner joining now has two shapes: the plain one, and set_wall_sag! for a
+# wall the Arc tool asked to bend (it joins the corners itself). The level
+# must be set before EITHER of them.
 ok('and it happens BEFORE join_corners',
-   src.index('place_wall_on_active_level!(group)') < src.index('join_corners(group, model) if group'))
+   src.index('place_wall_on_active_level!(group)') < src.index('join_corners(group, model)'))
+ok('and BEFORE the curved-wall corner join too',
+   src.index('place_wall_on_active_level!(group)') <
+   src.index('InteriorPro::WallTool.set_wall_sag!(group, @arc_sag.to_f'))
 ok('find_neighbor_at filters by level',
    src.include?("excl_level = (exclude_group.get_attribute('InteriorPro', 'level') || 1).to_i") &&
    src.include?("next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == excl_level"))

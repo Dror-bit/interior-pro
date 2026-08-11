@@ -8,10 +8,13 @@ module InteriorPro
     def self.wall_settings(tool)
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Wall Settings',
-        preferences_key: 'InteriorPro_WallSettings',
-        width: 320,
-        height: 420,
-        resizable: false
+        width: 340,
+        height: 700,
+        min_width: 320,
+        min_height: 340,
+        max_width: 620,
+        max_height: 1200,
+        resizable: true
       )
       html = build_wall_html(tool.height, tool.thickness, tool.exterior_material, tool.interior_material,
                              false, tool.wall_category || 'exterior',
@@ -27,20 +30,27 @@ module InteriorPro
         tool.side_b_color = params['side_b'] if params['side_b'] && tool.respond_to?(:side_b_color=)
         dialog.close
       }
+      force_dialog_size(dialog, 340, 700)
       dialog.show
+      force_dialog_size(dialog, 340, 700)
     end
 
     def self.wall_settings_standalone
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Wall Settings',
-        preferences_key: 'InteriorPro_WallSettings',
-        width: 320,
-        height: 420,
-        resizable: false
+        width: 340,
+        height: 700,
+        min_width: 320,
+        min_height: 340,
+        max_width: 620,
+        max_height: 1200,
+        resizable: true
       )
       html = build_wall_html(96.0, 6.0, 'Stucco', '#ffffff')
       dialog.set_html(html)
+      force_dialog_size(dialog, 340, 700)
       dialog.show
+      force_dialog_size(dialog, 340, 700)
     end
 
     def self.wall_edit(group)
@@ -58,10 +68,13 @@ module InteriorPro
       cur_length = Math.sqrt((w_ex - w_sx)**2 + (w_ey - w_sy)**2)
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Edit Wall',
-        preferences_key: 'InteriorPro_WallEdit',
-        width: 320,
-        height: 480,
-        resizable: false
+        width: 360,
+        height: 760,
+        min_width: 340,
+        min_height: 340,
+        max_width: 640,
+        max_height: 1200,
+        resizable: true
       )
       base_z = group.get_attribute('InteriorPro', 'base_z').to_f
       html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length, base_z)
@@ -130,20 +143,26 @@ module InteriorPro
         end
         dialog.close
       }
+      force_dialog_size(dialog, 360, 760)
       dialog.show
+      force_dialog_size(dialog, 360, 760)
     end
 
     def self.wall_move(group)
       dialog = UI::HtmlDialog.new(
         dialog_title: 'Move Wall',
-        preferences_key: 'InteriorPro_WallMove',
         width: 360,
-        height: 280,
-        resizable: false
+        height: 380,
+        min_width: 340,
+        min_height: 260,
+        max_width: 640,
+        max_height: 800,
+        resizable: true
       )
 
       html  = "<!DOCTYPE html><html><head><style>"
-      html += "body{font-family:Arial,sans-serif;padding:16px;background:#f5f5f5;}"
+      html += "html,body{height:auto;overflow-y:auto;overflow-x:hidden;}"
+      html += "body{font-family:Arial,sans-serif;padding:16px 16px 24px;background:#f5f5f5;margin:0;}"
       html += "h2{color:#333;margin-bottom:8px;font-size:16px;}"
       html += ".hint{color:#666;font-size:12px;margin-bottom:12px;}"
       html += "label{display:block;margin-top:0;font-size:13px;color:#555;}"
@@ -380,7 +399,9 @@ module InteriorPro
 
       dialog.add_action_callback('cancel') { |_, _| dialog.close }
 
+      force_dialog_size(dialog, 360, 380)
       dialog.show
+      force_dialog_size(dialog, 360, 380)
     end
 
     def self.wall_edit_multi(walls, all_mode: false)
@@ -398,16 +419,20 @@ module InteriorPro
 
       dialog = UI::HtmlDialog.new(
         dialog_title: "Edit #{count} Walls",
-        preferences_key: 'InteriorPro_WallEditMulti',
-        width: 360,
-        height: 520,
-        resizable: false
+        width: 380,
+        height: 780,
+        min_width: 360,
+        min_height: 340,
+        max_width: 660,
+        max_height: 1200,
+        resizable: true
       )
 
       mat_options = MATERIALS.map { |m| "<option value='#{m}' #{m == ext_mat ? 'selected' : ''}>#{m}</option>" }.join
 
       html  = "<!DOCTYPE html><html><head><style>"
-      html += "body{font-family:Arial,sans-serif;padding:16px;background:#f5f5f5;}"
+      html += "html,body{height:auto;overflow-y:auto;overflow-x:hidden;}"
+      html += "body{font-family:Arial,sans-serif;padding:16px 16px 24px;background:#f5f5f5;margin:0;}"
       html += "h2{color:#333;margin-bottom:8px;font-size:16px;}"
       html += ".hint{color:#666;font-size:12px;margin-bottom:12px;}"
       html += "label{display:block;margin-top:0;font-size:13px;color:#555;}"
@@ -518,7 +543,20 @@ module InteriorPro
         dialog.close
       }
 
+      force_dialog_size(dialog, 380, 780)
       dialog.show
+      force_dialog_size(dialog, 380, 780)
+    end
+
+    # Make a dialog actually open at the size we asked for. SketchUp restores
+    # a remembered size on the way up, so set_size once before show and once
+    # after: the second call beats whatever was restored. The dialogs also
+    # dropped preferences_key, so there is nothing left to remember.
+    def self.force_dialog_size(dialog, w, h)
+      dialog.set_size(w, h)
+      dialog.center if dialog.respond_to?(:center)
+    rescue StandardError => e
+      puts "[InteriorPro] dialog size: #{e.message}"
     end
 
     def self.build_wall_html(height, thickness, ext_mat, int_mat, edit_mode = false,
@@ -533,7 +571,8 @@ module InteriorPro
       same_checked = sa_color.downcase == sb_color.downcase ? 'checked' : ''
       color_style = "style='width:100%; height:36px; padding:2px; border:1px solid #ccc; border-radius:4px;'"
       html = "<!DOCTYPE html><html><head><style>"
-      html += "body{font-family:Arial,sans-serif;padding:16px;background:#f5f5f5;}"
+      html += "html,body{height:auto;overflow-y:auto;overflow-x:hidden;}"
+      html += "body{font-family:Arial,sans-serif;padding:16px 16px 24px;background:#f5f5f5;margin:0;}"
       html += "h2{color:#333;margin-bottom:16px;font-size:16px;}"
       html += "label{display:block;margin-top:12px;font-size:13px;color:#555;}"
       html += "input,select{width:100%;padding:6px;margin-top:4px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;}"

@@ -13,6 +13,8 @@ module InteriorPro
       wall_edit_tool.rb
       wall_move_tool.rb
       wall_stretch_tool.rb
+      wall_curve_tool.rb
+      wall_arc_tool.rb
       wall_merge_tool.rb
       wall_split_tool.rb
       wall_delete_tool.rb

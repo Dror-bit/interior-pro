@@ -26,6 +26,57 @@ module InteriorPro
     # How far a flat facet may sag away from the true curve, in inches.
     CURVE_TOL = 0.125 unless const_defined?(:CURVE_TOL, false)
 
+    # A strip of flat wall left either side of every opening, in inches, so
+    # the hole is cut well inside its flat panel and never right on the seam
+    # where the curve starts again.
+    POCKET_PAD = 1.5 unless const_defined?(:POCKET_PAD, false)
+
+    # Board and Batten: the real 3D strips on the outside of a wall.
+    BATTEN_WIDTH   = 1.5  unless const_defined?(:BATTEN_WIDTH, false)
+    BATTEN_DEPTH   = 0.75 unless const_defined?(:BATTEN_DEPTH, false)
+    BATTEN_SPACING = 16.0 unless const_defined?(:BATTEN_SPACING, false)
+
+    # Horizontal Siding: real lap boards. Each course shows EXPOSURE inches,
+    # sticks out DEPTH_BOTTOM at its lower edge and tucks back to DEPTH_TOP at
+    # its upper edge - that taper is what throws the shadow line that makes
+    # lap siding read as lap siding instead of a flat wall with lines on it.
+    HSIDING_EXPOSURE     = 6.0    unless const_defined?(:HSIDING_EXPOSURE, false)
+    HSIDING_DEPTH_BOTTOM = 0.75   unless const_defined?(:HSIDING_DEPTH_BOTTOM, false)
+    HSIDING_DEPTH_TOP    = 0.125  unless const_defined?(:HSIDING_DEPTH_TOP, false)
+
+    # Corner boards: the vertical trim that closes off the siding at every
+    # corner of the house. 3" on each face, standing a little proud of the
+    # siding so the boards butt into it instead of running past it.
+    SIDING_TRIM_WIDTH = 3.0 unless const_defined?(:SIDING_TRIM_WIDTH, false)
+    SIDING_TRIM_DEPTH = 1.0 unless const_defined?(:SIDING_TRIM_DEPTH, false)
+
+    # KILL SWITCH for all 3D siding. Set to false and walls go back to a flat
+    # painted/textured face, instantly, with no geometry built at all:
+    #   InteriorPro::WallTool.send(:remove_const, :USE_3D_SIDING)
+    #   InteriorPro::WallTool::USE_3D_SIDING = false
+    USE_3D_SIDING = true unless const_defined?(:USE_3D_SIDING, false)
+
+    # Hard ceiling on how many pieces one wall's siding may be built from.
+    # Every piece is a little solid, and SketchUp will fall over long before
+    # it runs out of patience. Over this, the wall keeps its flat face.
+    MAX_SIDING_PIECES = 260 unless const_defined?(:MAX_SIDING_PIECES, false)
+
+    # Siding on a curved wall is faceted far more coarsely than the wall body
+    # itself. The wall needs 1/8" smoothness; the boards riding on it do not,
+    # and at 1/8" a curved wall would need hundreds of them.
+    SIDING_CURVE_TOL = 1.5 unless const_defined?(:SIDING_CURVE_TOL, false)
+
+    # All siding lives in ONE sub-group inside the wall.
+    #
+    # This is what stopped SketchUp crashing (2026-08-11). Drawing a board
+    # directly into the wall group puts its back edge ON the wall's own face,
+    # which splits that face. Do that a few hundred times and SketchUp is
+    # re-solving one face against hundreds of cuts, over and over, inside a
+    # single operation - and it falls over. In its own group the siding never
+    # touches the wall's geometry at all: no splitting, no re-solving, and
+    # the whole lot can be painted and thrown away in one go.
+    SIDING_GROUP_NAME = 'InteriorPro_Siding' unless const_defined?(:SIDING_GROUP_NAME, false)
+
     # A curved wall is really many flat panels side by side, so SketchUp draws
     # a seam line between every pair. Any seam whose two panels differ by less
     # than this angle is softened away, and the wall reads as one smooth
@@ -663,7 +714,7 @@ module InteriorPro
       perp_corners = perpendicular_corners_xy(start_pt, end_pt, thickness, h_anchor)
       save_corners_attr(group, perp_corners) if perp_corners
 
-      add_board_and_batten(group) if attrs[:exterior_material] == 'Board and Batten'
+      add_exterior_siding(group, attrs[:exterior_material])
 
       group
     end
@@ -701,6 +752,311 @@ module InteriorPro
     # height, centered every 16" along the exterior face length. Painted white.
     # Z range is read from group.bounds so this works for both build paths
     # (build_wall_group extrudes down; build_geometry_in_group extrudes up).
+    # The one door into 3D siding. Flat-texture materials fall straight
+    # through and nothing is built.
+    def add_exterior_siding(group, ext_mat)
+      return unless USE_3D_SIDING
+      case ext_mat
+      when 'Board and Batten' then add_board_and_batten(group)
+      when 'Horizontal Siding' then add_horizontal_siding(group)
+      end
+    rescue StandardError => e
+      puts "[WallTool] add_exterior_siding: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # Real 3D lap siding: a stack of boards up the outside of the wall, each
+    # one sticking out at its bottom edge and tucking back at its top, so it
+    # throws a shadow line. Boards stop either side of every window and door
+    # instead of running across the glass.
+    def add_horizontal_siding(group)
+      return unless group&.valid?
+
+      poly = InteriorPro::WallTool.exterior_face_polyline(group, SIDING_CURVE_TOL)
+      return if poly.nil? || poly.length < 2
+
+      # Painted siding: white by default, like the trim.
+      board_mat = load_or_create_material('#ffffff')
+      if InteriorPro::WallTool.curved_wall?(group)
+        paint_curved_exterior_white!(group, board_mat)
+      else
+        u = [poly[1][0] - poly[0][0], poly[1][1] - poly[0][1]]
+        ul = Math.sqrt(u[0]**2 + u[1]**2)
+        return if ul < 0.001
+        outward = Geom::Vector3d.new(u[1] / ul, -u[0] / ul, 0)
+        group.entities.grep(Sketchup::Face).each do |f|
+          n = f.normal
+          next if n.z.abs > 0.5
+          next if n.dot(outward) < 0.5
+          f.material = board_mat
+          f.back_material = nil
+        end
+      end
+
+      z_min = group.bounds.min.z
+      z_max = group.bounds.max.z
+      return if (z_max - z_min) < 0.5
+
+      total_t = poly.last[2]
+      openings = InteriorPro::WallTool.read_door_openings(group)
+      inset = InteriorPro::WallTool.trim_inset(total_t)
+      courses = InteriorPro::WallTool.siding_courses(z_min, z_max, HSIDING_EXPOSURE)
+
+      # Work out the cost BEFORE building anything. A wall that would need
+      # more pieces than SketchUp can comfortably hold keeps its flat face
+      # instead of taking the whole model down with it.
+      runs = []
+      courses.each do |z0, z1|
+        InteriorPro::WallTool.clear_t_intervals(total_t, openings, z0, z1, z_min, inset).each do |ta, tb|
+          r = InteriorPro::WallTool.polyline_between(poly, ta, tb)
+          runs << [r, z0, z1] if r && r.length >= 2
+        end
+      end
+      pieces = runs.sum { |r, _z0, _z1| r.length - 1 }
+      trim_runs = InteriorPro::WallTool.corner_trim_runs(poly, total_t)
+      pieces += trim_runs.sum { |r| r.length - 1 }
+      if pieces > MAX_SIDING_PIECES
+        puts "[WallTool] siding skipped: this wall would need #{pieces} boards (limit #{MAX_SIDING_PIECES}). The flat face is kept."
+        return
+      end
+
+      sub = siding_group(group)
+      return unless sub
+
+      begin
+        runs.each do |run, z0, z1|
+          run.each_cons(2) do |a, b|
+            build_siding_board!(sub, a, b, z0, z1,
+                                HSIDING_DEPTH_BOTTOM, HSIDING_DEPTH_TOP)
+          end
+        end
+        trim_runs.each do |run|
+          run.each_cons(2) do |a, b|
+            build_siding_board!(sub, a, b, z_min, z_max,
+                                SIDING_TRIM_DEPTH, SIDING_TRIM_DEPTH)
+          end
+        end
+      rescue StandardError => e
+        puts "[WallTool] siding build failed, removing it: #{e.message}"
+        sub.erase! if sub.valid?
+        return
+      end
+
+      # One material on the whole sub-group - no face-by-face painting at all.
+      if sub.valid? && sub.entities.length.zero?
+        sub.erase!
+      elsif sub.valid?
+        sub.material = board_mat
+      end
+    end
+
+    # A clean, empty sub-group to build this wall's siding in. Any previous
+    # one is thrown away first, so a rebuild never stacks siding on siding.
+    def siding_group(group)
+      group.entities.grep(Sketchup::Group).each do |g|
+        g.erase! if g.valid? && g.name == SIDING_GROUP_NAME
+      end
+      sub = group.entities.add_group
+      sub.name = SIDING_GROUP_NAME
+      sub
+    rescue StandardError => e
+      puts "[WallTool] siding_group: #{e.message}"
+      nil
+    end
+
+    # Paint whatever has no material yet. Used once, after all the siding is
+    # built, so nothing has to diff the face list per board.
+    def paint_unpainted_faces!(group, mat)
+      return unless group&.valid? && mat
+      group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        f.material = mat if f.material.nil?
+        f.back_material = mat if f.back_material.nil? && f.material == mat
+      end
+    rescue StandardError => e
+      puts "[WallTool] paint_unpainted_faces!: #{e.message}"
+    end
+
+    # The vertical corner boards at both ends of the wall. Where two walls
+    # meet, each contributes one, so the corner reads as a 3"-per-face trim -
+    # the way siding is actually finished.
+    def add_corner_trim(holder, poly, total_t, z_min, z_max)
+      InteriorPro::WallTool.corner_trim_runs(poly, total_t).each do |run|
+        run.each_cons(2) do |a, b|
+          build_siding_board!(holder, a, b, z_min, z_max,
+                              SIDING_TRIM_DEPTH, SIDING_TRIM_DEPTH)
+        end
+      end
+    end
+
+    # The two stretches of wall the corner boards cover.
+    def self.corner_trim_runs(poly, total_t)
+      inset = trim_inset(total_t)
+      return [] if inset <= 0.0
+      [[0.0, inset], [total_t - inset, total_t]].map do |ta, tb|
+        polyline_between(poly, ta, tb)
+      end.compact.select { |r| r.length >= 2 }
+    end
+
+    # PURE: how wide the corner board may be on this wall. A wall too short
+    # to carry two of them plus something in between gets none at all.
+    def self.trim_inset(total_t)
+      w = SIDING_TRIM_WIDTH
+      return 0.0 if total_t.to_f < (w * 2.0) + 6.0
+      w
+    end
+
+    # One straight piece of one lap board, between two points on the wall's
+    # outside face. Built as its end profile, then pushed along the wall.
+    def build_siding_board!(holder, a, b, z0, z1,
+                            depth_bottom = HSIDING_DEPTH_BOTTOM,
+                            depth_top = HSIDING_DEPTH_TOP)
+      dx = b[0] - a[0]
+      dy = b[1] - a[1]
+      len = Math.sqrt(dx * dx + dy * dy)
+      return if len < 0.05
+      ux = dx / len
+      uy = dy / len
+      nx = uy       # outward = right of travel along the exterior face
+      ny = -ux
+
+      profile = [
+        Geom::Point3d.new(a[0], a[1], z0),
+        Geom::Point3d.new(a[0] + nx * depth_bottom, a[1] + ny * depth_bottom, z0),
+        Geom::Point3d.new(a[0] + nx * depth_top, a[1] + ny * depth_top, z1),
+        Geom::Point3d.new(a[0], a[1], z1)
+      ]
+
+      face = begin
+        holder.entities.add_face(profile)
+      rescue StandardError
+        nil
+      end
+      return unless face && face.valid?
+
+      along = Geom::Vector3d.new(ux, uy, 0)
+      sign = face.normal.dot(along) >= 0 ? 1.0 : -1.0
+      begin
+        face.pushpull(len * sign)
+      rescue StandardError => e
+        puts "[WallTool] siding board: #{e.message}"
+      end
+    end
+
+    # PURE: the courses of lap siding up a wall, bottom to top. The last one
+    # is trimmed to the top of the wall, and a sliver is dropped.
+    def self.siding_courses(z_min, z_max, exposure)
+      return [] if exposure <= 0.0
+      out = []
+      z = z_min.to_f
+      while z < z_max - 0.25
+        top = [z + exposure, z_max].min
+        out << [z, top] if (top - z) > 0.25
+        z += exposure
+      end
+      out
+    end
+
+    # PURE: the stretches of wall a board at this height may actually cross -
+    # everything except the openings it would run over. Distances along the
+    # wall, in inches from the start.
+    def self.clear_t_intervals(total_t, openings, z0, z1, floor_z, inset = 0.0)
+      lo = inset.to_f
+      hi = total_t.to_f - inset.to_f
+      return [] if hi - lo < 0.25
+      gaps = []
+      (openings || []).each do |o|
+        next unless o
+        ot = (o[:t] || o['t']).to_f
+        ow = (o[:width] || o['width']).to_f
+        next if ow <= 0.0
+        zb = floor_z.to_f + (o[:floor_offset] || o['floor_offset']).to_f
+        zt = zb + (o[:height] || o['height']).to_f
+        next if zt <= z0 + 1e-9 || zb >= z1 - 1e-9    # this board misses it
+        gaps << [ot - (ow / 2.0), ot + (ow / 2.0)]
+      end
+      return [[lo, hi]] if gaps.empty?
+
+      gaps.sort_by!(&:first)
+      out = []
+      cursor = lo
+      gaps.each do |g0, g1|
+        stop = [g0, hi].min
+        out << [cursor, stop] if stop - cursor > 0.25
+        cursor = [cursor, g1].max
+      end
+      out << [cursor, hi] if hi - cursor > 0.25
+      out
+    end
+
+    # The wall's outside face as a list of [x, y, t] - t being how far along
+    # the wall (measured on its CENTRE line, the same ruler openings use).
+    # A straight wall is two points; a curved one follows its curve.
+    def self.exterior_face_polyline(group, tol = CURVE_TOL)
+      corners = InteriorPro::WallTool.new.read_corners_attr(group)
+      return nil unless corners
+
+      unless curved_wall?(group)
+        s_neg = corners[3]
+        e_neg = corners[2]
+        len = Math.sqrt((e_neg[0] - s_neg[0])**2 + (e_neg[1] - s_neg[1])**2)
+        return nil if len < 0.001
+        return [[s_neg[0], s_neg[1], 0.0], [e_neg[0], e_neg[1], len]]
+      end
+
+      sx = group.get_attribute('InteriorPro', 'start_x').to_f
+      sy = group.get_attribute('InteriorPro', 'start_y').to_f
+      ex = group.get_attribute('InteriorPro', 'end_x').to_f
+      ey = group.get_attribute('InteriorPro', 'end_y').to_f
+      thickness = group.get_attribute('InteriorPro', 'thickness').to_f
+      anchor = (group.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      h_anchor = anchor.split('-')[1] || 'center'
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, wall_sag(group))
+      return nil unless arc
+      _o_pos, o_neg = anchor_side_offsets(thickness, h_anchor)
+      face = am.offset(arc, o_neg)
+      return nil unless face
+
+      to_center = arc[:r] / face[:r]
+      stations = curved_wall_stations(arc, tol, read_door_openings(group))
+      return nil unless stations
+      stations.map do |t_center|
+        d_face = t_center / to_center
+        p = am.point_at_distance(face, d_face)
+        [p[0], p[1], t_center]
+      end
+    rescue StandardError => e
+      puts "[WallTool] exterior_face_polyline: #{e.message}"
+      nil
+    end
+
+    # PURE: the piece of a polyline between two distances along it, with the
+    # two ends interpolated so a board can stop exactly at a window jamb.
+    def self.polyline_between(poly, ta, tb)
+      return nil if poly.nil? || poly.length < 2
+      ta = ta.to_f
+      tb = tb.to_f
+      return nil if tb - ta < 0.05
+      out = []
+      out << point_on_polyline(poly, ta)
+      poly.each { |p| out << [p[0], p[1]] if p[2] > ta + 1e-6 && p[2] < tb - 1e-6 }
+      out << point_on_polyline(poly, tb)
+      out.compact
+    end
+
+    def self.point_on_polyline(poly, t)
+      return [poly.first[0], poly.first[1]] if t <= poly.first[2]
+      return [poly.last[0], poly.last[1]] if t >= poly.last[2]
+      poly.each_cons(2) do |a, b|
+        next unless t >= a[2] && t <= b[2]
+        span = b[2] - a[2]
+        f = span < 1e-9 ? 0.0 : (t - a[2]) / span
+        return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]
+      end
+      [poly.last[0], poly.last[1]]
+    end
+
     def add_board_and_batten(group)
       return unless group&.valid?
 
@@ -719,15 +1075,22 @@ module InteriorPro
 
       dx = e_neg[0] - s_neg[0]
       dy = e_neg[1] - s_neg[1]
-      wall_length = Math.sqrt(dx**2 + dy**2)
-      return if wall_length < 0.001
+      straight_length = Math.sqrt(dx**2 + dy**2)
+      return if straight_length < 0.001
 
       # Unit vector along the exterior face from s_neg toward e_neg.
-      ux = dx / wall_length
-      uy = dy / wall_length
+      ux = dx / straight_length
+      uy = dy / straight_length
       # Outward perpendicular (right of u) = away from wall body.
       rx = uy
       ry = -ux
+
+      # On a CURVED wall the exterior face is not a straight run, so the
+      # battens have to walk the curve instead: every one gets its own place
+      # and its own direction.
+      curved = InteriorPro::WallTool.curved_wall?(group)
+      stations = batten_stations(group, s_neg, [ux, uy], [rx, ry], straight_length, curved)
+      return if stations.nil? || stations.empty?
 
       white_mat = load_or_create_material('#ffffff')
 
@@ -735,13 +1098,17 @@ module InteriorPro
       # the boards (wall surface between battens) read as painted siding.
       # Doing this before the loop guarantees the batten snapshot-diff sees
       # the painted wall face as pre-existing and doesn't repaint it.
-      outward = Geom::Vector3d.new(rx, ry, 0)
-      group.entities.grep(Sketchup::Face).each do |f|
-        n = f.normal
-        next if n.z.abs > 0.5         # skip top/bottom
-        next if n.dot(outward) < 0.5  # skip interior face + end caps
-        f.material = white_mat
-        f.back_material = nil
+      if curved
+        paint_curved_exterior_white!(group, white_mat)
+      else
+        outward = Geom::Vector3d.new(rx, ry, 0)
+        group.entities.grep(Sketchup::Face).each do |f|
+          n = f.normal
+          next if n.z.abs > 0.5         # skip top/bottom
+          next if n.dot(outward) < 0.5  # skip interior face + end caps
+          f.material = white_mat
+          f.back_material = nil
+        end
       end
 
       z_min = group.bounds.min.z
@@ -749,44 +1116,201 @@ module InteriorPro
       h = z_max - z_min
       return if h < 0.001
 
-      batten_width = 1.5
-      batten_depth = 0.75
-      spacing      = 16.0
-      half_width   = batten_width / 2.0
+      half_width = BATTEN_WIDTH / 2.0
+      openings = InteriorPro::WallTool.read_door_openings(group)
 
-      center_offset = spacing / 2.0
-      while center_offset + half_width <= wall_length
-        cx = s_neg[0] + ux * center_offset
-        cy = s_neg[1] + uy * center_offset
+      # Board and batten gets the same corner boards as lap siding, and the
+      # battens keep clear of them.
+      poly = InteriorPro::WallTool.exterior_face_polyline(group, SIDING_CURVE_TOL)
+      total_t = poly ? poly.last[2] : 0.0
+      inset = InteriorPro::WallTool.trim_inset(total_t)
 
-        p1 = Geom::Point3d.new(cx - ux * half_width,
-                               cy - uy * half_width,
-                               z_min)
-        p2 = Geom::Point3d.new(cx + ux * half_width,
-                               cy + uy * half_width,
-                               z_min)
-        p3 = Geom::Point3d.new(cx + ux * half_width + rx * batten_depth,
-                               cy + uy * half_width + ry * batten_depth,
-                               z_min)
-        p4 = Geom::Point3d.new(cx - ux * half_width + rx * batten_depth,
-                               cy - uy * half_width + ry * batten_depth,
-                               z_min)
+      # Same ceiling lap siding has: never let one wall's trimmings bury
+      # SketchUp. Every band of every batten is one little solid.
+      planned = stations.sum do |_c, _u, _r, t|
+        next 0 if inset > 0.0 && (t < inset + half_width || t > total_t - inset - half_width)
+        InteriorPro::WallTool.batten_z_bands(t, half_width, z_min, z_max, openings, z_min).length
+      end
+      planned += InteriorPro::WallTool.corner_trim_runs(poly, total_t).sum { |r| r.length - 1 } if poly
+      if planned > MAX_SIDING_PIECES
+        puts "[WallTool] battens skipped: this wall would need #{planned} pieces (limit #{MAX_SIDING_PIECES}). The flat face is kept."
+        return
+      end
 
-        existing_faces = group.entities.grep(Sketchup::Face).to_a
-        face = group.entities.add_face(p1, p2, p3, p4)
-        if face
-          sign = face.normal.z >= 0 ? 1 : -1
-          face.pushpull(h * sign)
-
-          new_faces = group.entities.grep(Sketchup::Face).to_a - existing_faces
-          new_faces.each do |f|
-            f.material = white_mat
-            f.back_material = white_mat
+      sub = siding_group(group)
+      return unless sub
+      if poly && inset > 0.0
+        InteriorPro::WallTool.corner_trim_runs(poly, total_t).each do |run|
+          run.each_cons(2) do |a, b|
+            build_siding_board!(sub, a, b, z_min, z_max,
+                                SIDING_TRIM_DEPTH, SIDING_TRIM_DEPTH)
           end
         end
-
-        center_offset += spacing
       end
+
+      stations.each do |c, u, r, t|
+        next if inset > 0.0 && (t < inset + half_width || t > total_t - inset - half_width)
+        # A batten must not run straight across a window or a door. Break it
+        # into the pieces that miss the opening - a stub above the head, a
+        # stub below the sill - exactly like real siding.
+        bands = InteriorPro::WallTool.batten_z_bands(t, half_width, z_min, z_max,
+                                                     openings, z_min)
+        bands.each do |zb, zt|
+          band_h = zt - zb
+          next if band_h < 0.25
+
+          p1 = Geom::Point3d.new(c[0] - u[0] * half_width, c[1] - u[1] * half_width, zb)
+          p2 = Geom::Point3d.new(c[0] + u[0] * half_width, c[1] + u[1] * half_width, zb)
+          p3 = Geom::Point3d.new(c[0] + u[0] * half_width + r[0] * BATTEN_DEPTH,
+                                 c[1] + u[1] * half_width + r[1] * BATTEN_DEPTH, zb)
+          p4 = Geom::Point3d.new(c[0] - u[0] * half_width + r[0] * BATTEN_DEPTH,
+                                 c[1] - u[1] * half_width + r[1] * BATTEN_DEPTH, zb)
+
+          face = begin
+            sub.entities.add_face(p1, p2, p3, p4)
+          rescue StandardError
+            nil
+          end
+          next unless face && face.valid?
+
+          sign = face.normal.z >= 0 ? 1 : -1
+          begin
+            face.pushpull(band_h * sign)
+          rescue StandardError => e
+            puts "[WallTool] batten: #{e.message}"
+          end
+        end
+      end
+
+      if sub.valid? && sub.entities.length.zero?
+        sub.erase!
+      elsif sub.valid?
+        sub.material = white_mat
+      end
+    end
+
+    # PURE: the vertical pieces of ONE batten once the openings it crosses are
+    # taken out of it. A batten clear of every opening comes back as one full
+    # height piece; one that crosses a window comes back as two stubs.
+    # t = how far along the wall this batten stands.
+    def self.batten_z_bands(t, half_batten, z_min, z_max, openings, floor_z)
+      bands = [[z_min, z_max]]
+      (openings || []).each do |o|
+        next unless o
+        ot = (o[:t] || o['t']).to_f
+        ow = (o[:width] || o['width']).to_f
+        next if ow <= 0.0
+        # Not in front of this opening at all - leave the batten alone.
+        next if t < ot - (ow / 2.0) - half_batten
+        next if t > ot + (ow / 2.0) + half_batten
+        zb = floor_z + (o[:floor_offset] || o['floor_offset']).to_f
+        zt = zb + (o[:height] || o['height']).to_f
+        next if zt <= zb
+        bands = bands.flat_map { |b0, b1| subtract_z_band(b0, b1, zb, zt) }
+      end
+      bands.select { |b0, b1| (b1 - b0) > 0.25 }
+    end
+
+    # PURE: what is left of the run b0..b1 once zb..zt is cut out of it.
+    def self.subtract_z_band(b0, b1, zb, zt)
+      return [[b0, b1]] if zt <= b0 || zb >= b1
+      out = []
+      out << [b0, zb] if zb > b0
+      out << [zt, b1] if zt < b1
+      out
+    end
+
+    # Where each batten goes: [centre point, direction along the wall, push
+    # outward, distance along the wall], one per batten, evenly spaced along
+    # the EXTERIOR face. A straight wall walks a straight line; a curved one
+    # walks its curve, so every batten stands square to the wall right where
+    # it is.
+    def batten_stations(group, s_neg, u, r, straight_length, curved)
+      half_width = BATTEN_WIDTH / 2.0
+
+      unless curved
+        out = []
+        d = BATTEN_SPACING / 2.0
+        while d + half_width <= straight_length
+          out << [[s_neg[0] + u[0] * d, s_neg[1] + u[1] * d], u, r, d]
+          d += BATTEN_SPACING
+        end
+        return out
+      end
+
+      InteriorPro::WallTool.curved_batten_stations(group)
+    end
+
+    # Battens on a curved wall, walked along the arc of the EXTERIOR face.
+    def self.curved_batten_stations(group)
+      sx = group.get_attribute('InteriorPro', 'start_x').to_f
+      sy = group.get_attribute('InteriorPro', 'start_y').to_f
+      ex = group.get_attribute('InteriorPro', 'end_x').to_f
+      ey = group.get_attribute('InteriorPro', 'end_y').to_f
+      thickness = group.get_attribute('InteriorPro', 'thickness').to_f
+      anchor = (group.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      h_anchor = anchor.split('-')[1] || 'center'
+      sag = wall_sag(group)
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, sag)
+      return [] unless arc
+
+      # Exterior = the RIGHT side of start -> end, i.e. the negative offset.
+      _o_pos, o_neg = anchor_side_offsets(thickness, h_anchor)
+      face = am.offset(arc, o_neg)
+      return [] unless face
+
+      total = am.length(face)
+      half_width = BATTEN_WIDTH / 2.0
+      # Openings are measured along the wall's CENTRE line, battens along its
+      # outside face. On a curve those two rulers run at different speeds, so
+      # convert before comparing them.
+      to_center = arc[:r] / face[:r]
+      out = []
+      d = BATTEN_SPACING / 2.0
+      outward_sign = am.center_side(arc) > 0 ? 1.0 : -1.0
+      while d + half_width <= total
+        p = am.point_at_distance(face, d)
+        t = am.tangent_at_distance(face, d)
+        nx = -t[1] * outward_sign
+        ny = t[0] * outward_sign
+        out << [p, [t[0], t[1]], [nx, ny], d * to_center]
+        d += BATTEN_SPACING
+      end
+      out
+    rescue StandardError => e
+      puts "[WallTool] curved_batten_stations: #{e.message}"
+      []
+    end
+
+    # Paint the outward-facing side of a curved wall white, ready for battens.
+    def paint_curved_exterior_white!(group, white_mat)
+      sx = group.get_attribute('InteriorPro', 'start_x').to_f
+      sy = group.get_attribute('InteriorPro', 'start_y').to_f
+      ex = group.get_attribute('InteriorPro', 'end_x').to_f
+      ey = group.get_attribute('InteriorPro', 'end_y').to_f
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, InteriorPro::WallTool.wall_sag(group))
+      return unless arc
+      ext_is_outer = am.center_side(arc) > 0
+      group.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        n = f.normal
+        next if n.z.abs > 0.5
+        c = f.bounds.center
+        rx = c.x - arc[:cx]
+        ry = c.y - arc[:cy]
+        len = Math.sqrt(rx * rx + ry * ry)
+        next if len < 1e-6
+        radial = ((n.x * rx) + (n.y * ry)) / len
+        next if radial.abs < 0.5
+        next unless (radial > 0) == ext_is_outer
+        f.material = white_mat
+        f.back_material = nil
+      end
+    rescue StandardError => e
+      puts "[WallTool] paint_curved_exterior_white!: #{e.message}"
     end
 
     # Miter both ends of a newly-created wall against any existing wall whose
@@ -1148,7 +1672,11 @@ module InteriorPro
     def rebuild_wall_geometry(group, corners_xy, data)
       return unless group&.valid?
 
+      # A CURVED wall with doors is built by the curved path below, which
+      # cuts the holes itself. The native path builds a straight wall, so it
+      # must not grab a curved one.
       if InteriorPro::WallTool::USE_NATIVE_OPENINGS &&
+         !InteriorPro::WallTool.curved_wall?(group) &&
          !InteriorPro::WallTool.read_door_openings(group).empty?
         begin
           InteriorPro::WallTool.rebuild_wall_native_geometry!(group)
@@ -1177,14 +1705,19 @@ module InteriorPro
       sign = face.normal.z >= 0 ? 1 : -1
       face.pushpull(height * sign)
       if InteriorPro::WallTool.curved_wall?(group)
+        # Doors are cut BEFORE painting, so the painter sees the finished
+        # shape. The faces inside a hole point sideways or up and down, so
+        # the radial painter skips them on its own.
+        InteriorPro::WallTool.punch_curved_openings!(group, z_offset)
         # A curved wall's long faces each point a different way, so the
         # straight painter (which classifies against ONE direction) would
         # leave some of them unpainted. Paint radially instead.
         InteriorPro::WallTool.paint_curved_wall_long_faces!(group, ext_mat, int_mat)
         InteriorPro::WallTool.smooth_curved_wall_edges!(group)
+        add_exterior_siding(group, ext_mat)
       else
         paint_wall_long_faces!(group, ext_mat, int_mat)
-        add_board_and_batten(group) if ext_mat == 'Board and Batten'
+        add_exterior_siding(group, ext_mat)
       end
       true
     end
@@ -1525,6 +2058,46 @@ module InteriorPro
       wall_sag(wall).abs >= MIN_ARC_SAG
     end
 
+    # Does this wall have anything cut into it?
+    #
+    # Doors register in the wall's own 'door_openings' list, so a rebuild puts
+    # their holes back. WINDOWS DO NOT: window_tool cuts the hole straight
+    # into the wall's faces and nothing records it, so any rebuild of the wall
+    # wipes that hole out. Bending a wall rebuilds it - so a wall hosting a
+    # window has to be refused just as firmly as one with a door, or the
+    # window would end up buried in solid wall.
+    def self.wall_has_openings?(wall)
+      return false unless wall&.valid?
+      return true unless read_door_openings(wall).empty?
+      hosted_opening_count(wall) > 0
+    rescue StandardError
+      true    # if we cannot tell, assume yes and refuse - never destroy work
+    end
+
+    def self.hosted_opening_count(wall, kinds = %w[window door])
+      wid = wall.get_attribute('InteriorPro', 'id')
+      return 0 unless wid
+      n = 0
+      Sketchup.active_model.entities.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        next unless e.valid?
+        next unless kinds.include?(e.get_attribute('InteriorPro', 'type').to_s)
+        n += 1 if e.get_attribute('InteriorPro', 'host_wall_id') == wid
+      end
+      n
+    rescue StandardError
+      0
+    end
+
+    # Windows only. This is the one that still blocks a curve, because a
+    # window's hole is not recorded anywhere and a rebuild would erase it.
+    def self.hosted_window_count(wall)
+      return 0 unless wall&.valid?
+      hosted_opening_count(wall, %w[window])
+    rescue StandardError
+      1     # cannot tell -> assume there is one and refuse
+    end
+
     # The two side offsets, measured along the LEFT perpendicular of
     # start -> end. Deliberately identical to what perpendicular_corners_xy
     # does for a straight wall, so a curve and a straight line put their two
@@ -1591,8 +2164,8 @@ module InteriorPro
 
       pockets = []
       list.each do |t, width|
-        half = am.half_arc_for_chord(arc, width)
-        return nil unless half             # door wider than the curve itself
+        half = padded_half_arc(arc, t, width, total)
+        return nil unless half
         d0 = t - half
         d1 = t + half
         return nil if d0 < -1e-6 || d1 > total + 1e-6
@@ -1610,6 +2183,32 @@ module InteriorPro
       out = []
       stations.each { |d| out << d if out.empty? || (d - out.last).abs > 1e-6 }
       out
+    end
+
+    # Half the arc length the FLAT PANEL takes up: the opening itself plus a
+    # strip of flat wall either side of it.
+    #
+    # The strip matters. Without it the hole's edges would land exactly on the
+    # panel's own edges, and cutting a hole whose sides are shared with the
+    # curve either side of it is asking for trouble. With it, the hole sits
+    # comfortably inside a flat panel - which is also how the wall would
+    # really be built.
+    #
+    # The strip shrinks, down to nothing, rather than let a panel run off the
+    # end of the wall.
+    def self.padded_half_arc(arc, t, width, total)
+      am = InteriorPro::ArcMath
+      bare = am.half_arc_for_chord(arc, width)
+      return nil unless bare
+      pad = POCKET_PAD
+      while pad > 1e-6
+        half = am.half_arc_for_chord(arc, width + 2.0 * pad)
+        if half && (t - half) >= -1e-6 && (t + half) <= total + 1e-6
+          return half
+        end
+        pad /= 2.0
+      end
+      bare
     end
 
     # Openings arrive as symbol hashes from read_door_openings, but string
@@ -1631,45 +2230,6 @@ module InteriorPro
     # A straight wall answers with the straight equivalent, so a caller never
     # needs to ask whether the wall is curved.
     # t = distance along the wall from the start; width = the opening width.
-    def self.opening_pocket(sx, sy, ex, ey, sag, t, width)
-      sx = sx.to_f; sy = sy.to_f; ex = ex.to_f; ey = ey.to_f
-      t = t.to_f; width = width.to_f
-      return nil if width <= 0.0
-      chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
-      return nil if chord < 0.001
-
-      am = InteriorPro::ArcMath
-      arc = (USE_CURVED_WALLS && !sag.nil? && sag.to_f.abs >= MIN_ARC_SAG) ?
-              am.from_chord_and_sag(sx, sy, ex, ey, sag.to_f) : nil
-
-      unless arc
-        u = [(ex - sx) / chord, (ey - sy) / chord]
-        return nil if t - width / 2.0 < -1e-6 || t + width / 2.0 > chord + 1e-6
-        p0 = [sx + u[0] * (t - width / 2.0), sy + u[1] * (t - width / 2.0)]
-        p1 = [sx + u[0] * (t + width / 2.0), sy + u[1] * (t + width / 2.0)]
-        return { d0: t - width / 2.0, d1: t + width / 2.0, p0: p0, p1: p1,
-                 center: [sx + u[0] * t, sy + u[1] * t], dir: u, width: width,
-                 curved: false }
-      end
-
-      half = am.half_arc_for_chord(arc, width)
-      return nil unless half
-      total = am.length(arc)
-      d0 = t - half
-      d1 = t + half
-      return nil if d0 < -1e-6 || d1 > total + 1e-6
-
-      p0 = am.point_at_distance(arc, d0)
-      p1 = am.point_at_distance(arc, d1)
-      dx = p1[0] - p0[0]
-      dy = p1[1] - p0[1]
-      len = Math.sqrt(dx * dx + dy * dy)
-      return nil if len < 1e-9
-      { d0: d0, d1: d1, p0: p0, p1: p1,
-        center: [(p0[0] + p1[0]) / 2.0, (p0[1] + p1[1]) / 2.0],
-        dir: [dx / len, dy / len], width: len, curved: true }
-    end
-
     # PURE: the two END cross-sections of a curved wall, in the same order the
     # straight builder uses - [s_pos, e_pos, e_neg, s_neg]. A curved wall's
     # ends are cut RADIALLY (square to the wall's own direction there), not
@@ -1706,6 +2266,36 @@ module InteriorPro
       len < 1e-9 ? straight : [t[0] / len, t[1] / len]
     end
 
+    # PURE: how far along the wall a clicked point is, in inches from the
+    # start. On a straight wall that is the plain projection onto the wall.
+    # On a curved one it is measured ALONG THE CURVE, which is the only
+    # measurement doors and windows ever use. A click past either end is
+    # pulled back to that end rather than wrapping round the circle.
+    def self.t_from_point_xy(sx, sy, ex, ey, sag, px, py)
+      sx = sx.to_f; sy = sy.to_f; ex = ex.to_f; ey = ey.to_f
+      chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+      return nil if chord < 0.001
+      straight = (((px - sx) * (ex - sx)) + ((py - sy) * (ey - sy))) / chord
+      return straight unless USE_CURVED_WALLS
+      return straight if sag.nil? || sag.to_f.abs < MIN_ARC_SAG
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, sag.to_f)
+      return straight unless arc
+
+      th = Math.atan2(py - arc[:cy], px - arc[:cx])
+      dir = arc[:ccw] ? 1.0 : -1.0
+      swept = am.norm_angle((th - arc[:a0]) * dir)
+      d = arc[:r] * swept
+      total = am.length(arc)
+      return d if d <= total
+      # Past the far end: snap to whichever end is nearer the long way round.
+      circumference = arc[:r] * am::TWO_PI
+      (d - total) <= (circumference - d) ? total : 0.0
+    rescue StandardError
+      nil
+    end
+
     # PURE: is this corner too close to straight to be worth cutting?
     # u_into = the direction arriving at the corner, u_out = the direction
     # leaving it, both unit [x, y]. Returns true for a near-straight run AND
@@ -1739,19 +2329,67 @@ module InteriorPro
       nil
     end
 
+    def self.opening_pocket(sx, sy, ex, ey, sag, t, width)
+      sx = sx.to_f; sy = sy.to_f; ex = ex.to_f; ey = ey.to_f
+      t = t.to_f; width = width.to_f
+      return nil if width <= 0.0
+      chord = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
+      return nil if chord < 0.001
+
+      am = InteriorPro::ArcMath
+      arc = (USE_CURVED_WALLS && !sag.nil? && sag.to_f.abs >= MIN_ARC_SAG) ?
+              am.from_chord_and_sag(sx, sy, ex, ey, sag.to_f) : nil
+
+      unless arc
+        u = [(ex - sx) / chord, (ey - sy) / chord]
+        return nil if t - width / 2.0 < -1e-6 || t + width / 2.0 > chord + 1e-6
+        pad = [POCKET_PAD, t - width / 2.0, chord - (t + width / 2.0)].min
+        pad = 0.0 if pad < 0.0
+        c = [sx + u[0] * t, sy + u[1] * t]
+        return { d0: t - width / 2.0, d1: t + width / 2.0,
+                 panel_d0: t - width / 2.0 - pad, panel_d1: t + width / 2.0 + pad,
+                 panel_p0: [sx + u[0] * (t - width / 2.0 - pad), sy + u[1] * (t - width / 2.0 - pad)],
+                 panel_p1: [sx + u[0] * (t + width / 2.0 + pad), sy + u[1] * (t + width / 2.0 + pad)],
+                 p0: [c[0] - u[0] * width / 2.0, c[1] - u[1] * width / 2.0],
+                 p1: [c[0] + u[0] * width / 2.0, c[1] + u[1] * width / 2.0],
+                 center: c, dir: u, width: width, curved: false }
+      end
+
+      bare = am.half_arc_for_chord(arc, width)
+      return nil unless bare
+      total = am.length(arc)
+      return nil if t - bare < -1e-6 || t + bare > total + 1e-6
+
+      half = padded_half_arc(arc, t, width, total)
+      return nil unless half
+      pd0 = t - half
+      pd1 = t + half
+      pp0 = am.point_at_distance(arc, pd0)
+      pp1 = am.point_at_distance(arc, pd1)
+      dx = pp1[0] - pp0[0]
+      dy = pp1[1] - pp0[1]
+      len = Math.sqrt(dx * dx + dy * dy)
+      return nil if len < 1e-9
+      u = [dx / len, dy / len]
+      # The opening sits in the MIDDLE of its flat panel, and its two ends lie
+      # ON that panel - not on the curve - so the hole is cut in flat wall.
+      c = [(pp0[0] + pp1[0]) / 2.0, (pp0[1] + pp1[1]) / 2.0]
+      { d0: t - bare, d1: t + bare,
+        panel_d0: pd0, panel_d1: pd1, panel_p0: pp0, panel_p1: pp1,
+        p0: [c[0] - u[0] * width / 2.0, c[1] - u[1] * width / 2.0],
+        p1: [c[0] + u[0] * width / 2.0, c[1] + u[1] * width / 2.0],
+        center: c, dir: u, width: width, curved: true }
+    end
+
     # The footprint for a real wall group, or nil to build it straight.
     def self.curved_footprint_for(group, data)
       return nil unless data && group&.valid?
       return nil unless curved_wall?(group)
 
-      unless read_door_openings(group).empty?
-        puts '[WallTool] this wall has openings - curving is not wired to openings yet, building it straight.'
-        return nil
-      end
-
       fp = curved_footprint_xy(data[:drawn_start][0], data[:drawn_start][1],
                                data[:drawn_end][0],   data[:drawn_end][1],
-                               data[:thickness], data[:h_anchor], wall_sag(group))
+                               data[:thickness], data[:h_anchor], wall_sag(group),
+                               CURVE_TOL, read_door_openings(group))
       return nil unless fp
       apply_corner_overrides(fp, group)
     end
@@ -1823,6 +2461,102 @@ module InteriorPro
       end
     rescue StandardError => e
       puts "[WallTool] paint_curved_wall_long_faces!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    # Cut every door opening through a curved wall.
+    #
+    # The curved wall is one solid, built by pushing its floor outline
+    # upwards. Each opening already has a FLAT panel waiting for it in that
+    # outline, so the hole is simply drawn on that panel and pushed straight
+    # through to the far side. The panel is a little wider than the hole, so
+    # the cut never lands on the seam where the curve starts again.
+    #
+    # Returns how many holes were cut.
+    def self.punch_curved_openings!(group, z_offset)
+      return 0 unless group&.valid?
+      openings = read_door_openings(group)
+      return 0 if openings.empty?
+
+      sx = group.get_attribute('InteriorPro', 'start_x').to_f
+      sy = group.get_attribute('InteriorPro', 'start_y').to_f
+      ex = group.get_attribute('InteriorPro', 'end_x').to_f
+      ey = group.get_attribute('InteriorPro', 'end_y').to_f
+      thickness = group.get_attribute('InteriorPro', 'thickness').to_f
+      anchor = (group.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      h_anchor = anchor.split('-')[1] || 'center'
+      sag = wall_sag(group)
+      return 0 if thickness <= 0.0
+
+      am = InteriorPro::ArcMath
+      arc = am.from_chord_and_sag(sx, sy, ex, ey, sag)
+      return 0 unless arc
+      o_pos, o_neg = anchor_side_offsets(thickness, h_anchor)
+      cut = 0
+
+      openings.each do |o|
+        pk = opening_pocket(sx, sy, ex, ey, sag, o[:t], o[:width])
+        next unless pk
+
+        z1 = z_offset.to_f + o[:floor_offset].to_f
+        z2 = z1 + o[:height].to_f
+        next if (z2 - z1) < 0.01
+
+        # The panel's own two faces, taken straight from the wall outline so
+        # the hole is drawn EXACTLY on the face and never a hair inside it.
+        a = am.offset_point_at_distance(arc, pk[:panel_d0], o_pos)
+        b = am.offset_point_at_distance(arc, pk[:panel_d1], o_pos)
+        a2 = am.offset_point_at_distance(arc, pk[:panel_d0], o_neg)
+        next unless a && b && a2
+
+        ux = b[0] - a[0]
+        uy = b[1] - a[1]
+        ul = Math.sqrt(ux * ux + uy * uy)
+        next if ul < 0.01
+        ux /= ul
+        uy /= ul
+        nx = -uy
+        ny = ux
+
+        # How deep to push: the straight distance from this face to the one
+        # behind it. On a curve that is a touch less than the wall thickness,
+        # and pushing the wrong amount would either miss or poke out the back.
+        depth = ((a2[0] - a[0]) * nx) + ((a2[1] - a[1]) * ny)
+        next if depth.abs < 0.01
+
+        # The opening sits in the middle of the panel face.
+        mx = (a[0] + b[0]) / 2.0
+        my = (a[1] + b[1]) / 2.0
+        hw = o[:width].to_f / 2.0
+        next if hw <= 0.0 || (2.0 * hw) > (ul - 0.02)
+        p1x = mx - ux * hw
+        p1y = my - uy * hw
+        p2x = mx + ux * hw
+        p2y = my + uy * hw
+
+        rect = [Geom::Point3d.new(p1x, p1y, z1),
+                Geom::Point3d.new(p2x, p2y, z1),
+                Geom::Point3d.new(p2x, p2y, z2),
+                Geom::Point3d.new(p1x, p1y, z2)]
+        face = begin
+          group.entities.add_face(rect)
+        rescue StandardError
+          nil
+        end
+        next unless face && face.valid?
+
+        pushv = Geom::Vector3d.new(nx * depth, ny * depth, 0)
+        sign = face.normal.dot(pushv) >= 0 ? 1.0 : -1.0
+        begin
+          face.pushpull(depth.abs * sign)
+          cut += 1
+        rescue StandardError => e
+          puts "[WallTool] punch_curved_openings!: #{e.message}"
+        end
+      end
+      cut
+    rescue StandardError => e
+      puts "[WallTool] punch_curved_openings!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
     end
 
     # LOOK ONLY (2026-08-11). Draws the outline a curved wall WOULD have once
@@ -1941,11 +2675,6 @@ module InteriorPro
       sag = sag.to_f
       straight = sag.abs < MIN_ARC_SAG
 
-      unless straight || read_door_openings(wall).empty?
-        puts '[WallTool] this wall has doors or windows in it - curving those is the next step. Nothing changed.'
-        return false
-      end
-
       sx = wall.get_attribute('InteriorPro', 'start_x').to_f
       sy = wall.get_attribute('InteriorPro', 'start_y').to_f
       ex = wall.get_attribute('InteriorPro', 'end_x').to_f
@@ -1958,13 +2687,12 @@ module InteriorPro
       # Refuse BEFORE touching the model if the curve cannot be built, so a
       # bad number can never leave a wall half-rebuilt.
       unless straight
-        if curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag).nil?
+        if curved_footprint_xy(sx, sy, ex, ey, thickness, h_anchor, sag,
+                               CURVE_TOL, read_door_openings(wall)).nil?
           puts "[WallTool] a bow of #{sag}\" is too tight for a #{thickness}\" wall here. Nothing changed."
           return false
         end
-        if (wall.get_attribute('InteriorPro', 'exterior_material') == 'Board and Batten')
-          puts '[WallTool] note: board-and-batten strips are not bent yet, so they are left off this curved wall.'
-        end
+
       end
 
       model = Sketchup.active_model
@@ -2073,6 +2801,11 @@ module InteriorPro
       apply_native_miter_corners!(wall, drawn_start, drawn_end, thickness_f, h_anchor)
       ext_mat, int_mat = wall_side_material_names(wall)
       paint_wall_long_faces!(wall, ext_mat, int_mat)
+      # Board and Batten is real 3D strips, and this rebuild wiped them out
+      # along with everything else. Put them back, or the wall ends up as a
+      # blank slab wearing an empty material. (2026-08-11: this is what turned
+      # a shed wall black the moment a window went into it.)
+      InteriorPro::WallTool.new.add_exterior_siding(wall, ext_mat)
       true
     rescue StandardError => e
       puts "[WallTool] rebuild_wall_native_geometry!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"

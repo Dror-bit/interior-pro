@@ -6,6 +6,7 @@ require_relative 'wall_edit_tool.rb'
 require_relative 'wall_move_tool.rb'
 require_relative 'wall_stretch_tool.rb'
 require_relative 'wall_curve_tool.rb'
+require_relative 'wall_arc_tool.rb'
 require_relative 'wall_merge_tool.rb'
 require_relative 'wall_split_tool.rb'
 require_relative 'wall_delete_tool.rb'
@@ -410,6 +411,14 @@ module InteriorPro
       # Menu only for now - the toolbar still needs a matching icon.
       menu.add_item('Curve Wall') {
         Sketchup.active_model.select_tool(InteriorPro::WallCurveTool.new)
+      }
+
+      # Arc Wall (2026-08-11): draw a NEW curved wall in three clicks.
+      # Goes through the wall library first, exactly like the Wall tool, so
+      # it picks up thickness, height and materials the same way.
+      menu.add_item('Arc Wall (3 clicks)') {
+        tool = InteriorPro::WallArcTool.new
+        InteriorPro::WallLibraryDialog.show(tool)
       }
 
       menu.add_item('Merge Wall') {

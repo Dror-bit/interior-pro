@@ -339,6 +339,25 @@ module InteriorPro
                 else 0.0
                 end
 
+      # CURVED WALLS (2026-08-11): a curved wall is longer than the straight
+      # line between its ends, and openings are measured along the wall, so
+      # the length has to be the real one.
+      sag = 0.0
+      curved = false
+      begin
+        if defined?(InteriorPro::WallTool) && InteriorPro::WallTool.curved_wall?(wall_group)
+          sag = InteriorPro::WallTool.wall_sag(wall_group)
+          arc = InteriorPro::ArcMath.from_chord_and_sag(drawn_start.x, drawn_start.y,
+                                                        drawn_end.x, drawn_end.y, sag)
+          if arc
+            wall_length = InteriorPro::ArcMath.length(arc)
+            curved = true
+          end
+        end
+      rescue StandardError => e
+        puts "[DoorManager] wall_geometry curve: #{e.message}"
+      end
+
       {
         wall: wall_group,
         unit: unit,
@@ -349,8 +368,45 @@ module InteriorPro
         cline_start: cline_start,
         floor_z: floor_z,
         ceiling_z: floor_z + wall_height,
-        n_side: -thickness / 2.0
+        n_side: -thickness / 2.0,
+        curved: curved,
+        sag: sag,
+        drawn_start: drawn_start,
+        drawn_end: drawn_end
       }
+    end
+
+    # THE curve adapter for doors.
+    #
+    # Every piece of door code works out where a door goes with the same one
+    # line: cline_start + unit * t + n * n_side. That line assumes the wall is
+    # a straight ruler. On a curved wall it is not, and the door lands in
+    # thin air.
+    #
+    # Instead of rewriting all of that, this hands back the SAME geo with its
+    # ruler moved: unit points along the flat panel the door sits in, and
+    # cline_start is shifted so that the very same formula, with the very same
+    # t, lands exactly in the middle of that panel. Straight walls get their
+    # geo back untouched.
+    def self.geo_at(geo, t, width = nil)
+      return geo unless geo.is_a?(Hash)
+      return geo unless geo[:curved]
+      ds = geo[:drawn_start]
+      de = geo[:drawn_end]
+      return geo unless ds && de
+      w = width.to_f
+      w = 1.0 if w <= 0.0
+      pk = InteriorPro::WallTool.opening_pocket(ds.x, ds.y, de.x, de.y,
+                                                geo[:sag], t.to_f, w)
+      return geo unless pk
+      unit = Geom::Vector3d.new(pk[:dir][0], pk[:dir][1], 0)
+      n = horizontal_perpendicular(unit)
+      cline_start = Geom::Point3d.new(pk[:center][0] - unit.x * t.to_f,
+                                      pk[:center][1] - unit.y * t.to_f, 0)
+      geo.merge(unit: unit, n: n, cline_start: cline_start)
+    rescue StandardError => e
+      puts "[DoorManager] geo_at: #{e.message}"
+      geo
     end
 
     def self.parse_anchor(anchor)
@@ -392,6 +448,7 @@ module InteriorPro
         door_bot_z = geo[:floor_z] + floor_offset
         door_top_z = door_bot_z + height
       end
+      geo = geo_at(geo, t, width)
       cx = geo[:cline_start].x + geo[:unit].x * t + geo[:n].x * geo[:n_side]
       cy = geo[:cline_start].y + geo[:unit].y * t + geo[:n].y * geo[:n_side]
       stored_fx = door.get_attribute('InteriorPro', 'face_x')
@@ -431,6 +488,7 @@ module InteriorPro
       if use_stored_face && !ctx[:fx].nil? && !ctx[:fy].nil?
         [ctx[:fx], ctx[:fy]]
       else
+        geo = geo_at(geo, ctx[:t], ctx[:width])
         cx = geo[:cline_start].x + geo[:unit].x * ctx[:t] + geo[:n].x * geo[:n_side]
         cy = geo[:cline_start].y + geo[:unit].y * ctx[:t] + geo[:n].y * geo[:n_side]
         opening_face_xy_from_center(cx, cy, ctx[:clicked_side], geo)

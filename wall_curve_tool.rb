@@ -21,11 +21,6 @@ module InteriorPro
       return false unless wall&.valid?
       return false unless wall.get_attribute('InteriorPro', 'type') == 'wall'
 
-      unless InteriorPro::WallTool.read_door_openings(wall).empty?
-        UI.messagebox("This wall has doors or windows in it.\nBending those is the next step.")
-        return false
-      end
-
       current = InteriorPro::WallTool.wall_sag(wall)
       answer = UI.inputbox(
         ['Bow (inches). + = one side, - = the other, 0 = straight'],
@@ -205,10 +200,6 @@ module InteriorPro
         break if wall
       end
       return UI.messagebox('Click an Interior Pro wall') unless wall
-
-      unless InteriorPro::WallTool.read_door_openings(wall).empty?
-        return UI.messagebox("This wall has doors or windows in it.\nBending those is the next step - pick a wall without openings.")
-      end
 
       @sx = wall.get_attribute('InteriorPro', 'start_x').to_f
       @sy = wall.get_attribute('InteriorPro', 'start_y').to_f
