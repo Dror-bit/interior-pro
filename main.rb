@@ -5,6 +5,7 @@ module InteriorPro
 
   def self.plugin_files
     %w[
+      arc_math.rb
       wall_library.rb
       wall_library_dialog.rb
       wall_tool.rb
