@@ -74,7 +74,12 @@ module Sketchup
     def valid?; @valid; end
     def erase!; @valid = false; Sketchup.active_model.entities.erase_entity(self); end
     def bounds; BBox.new; end
-    def transform!(_t); self; end
+    # Really compose it, so a test can ask where a body ended up
+    # (2026-08-12: rt37 moves doors when their wall bends).
+    def transform!(t)
+      @transformation = t.is_a?(Geom::Transformation) ? t * transformation : transformation
+      self
+    end
     attr_writer :transformation
     def transformation; @transformation ||= Geom::Transformation.new; end
   end
@@ -119,7 +124,12 @@ module Sketchup
     def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
     def get_attribute(d, k, dflt = nil); (@attrs[d] || {}).key?(k) ? @attrs[d][k] : dflt; end
     def delete_attribute(d, k); (@attrs[d] || {}).delete(k); end
-    def start_operation(n, _x = nil); @ops << [:start, n]; true; end
+    # Real signature: (name, disable_ui, next_transparent, transparent) -
+    # the transparent flag folds an op into the previous undo step.
+    def start_operation(n, _disable_ui = nil, _next_tr = nil, transparent = false)
+      @ops << [:start, n, transparent ? :transparent : nil].compact
+      true
+    end
     def commit_operation; @ops << [:commit]; true; end
     def abort_operation; @ops << [:abort]; true; end
     def add_observer(_o); true; end

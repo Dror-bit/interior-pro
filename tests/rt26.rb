@@ -265,7 +265,10 @@ ok('the last batten is still inside the wall',
      d.include?('dialog.set_size('))
   ok("#{label}: scrolls instead of cutting content off", d.include?('overflow-y: auto'))
   ok("#{label}: never scrolls sideways", d.include?('overflow-x: hidden'))
-  ok("#{label}: leaves room under the last button", d.include?('padding-bottom: 24px'))
+  # Any real gap counts - the window form went compact (user 2026-08-12:
+  # everything must fit with no scrolling), so the exact 24px is history.
+  ok("#{label}: leaves room under the last button",
+     d =~ /padding-bottom: (\d+)px/ && Regexp.last_match(1).to_i >= 8)
 end
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")

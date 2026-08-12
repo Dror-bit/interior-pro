@@ -64,6 +64,14 @@ module InteriorPro
       Math.sqrt((bx - ax)**2 + (by - ay)**2)
     end
 
+    # The shortest way round from one angle to another, in (-PI, PI]. Used to
+    # move an angle a SMALL amount without ever jumping a whole turn.
+    def self.signed_delta(from, to)
+      d = norm_angle(to - from)
+      d -= TWO_PI if d > Math::PI
+      d
+    end
+
     # Twice the signed area of triangle a-b-c. Positive = c is LEFT of a->b.
     def self.cross2(ax, ay, bx, by, cx, cy)
       (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
@@ -210,6 +218,95 @@ module InteriorPro
       return 0.0 if chord < EPS
       mx, my = mid_point(arc)
       cross2(sx, sy, ex, ey, mx, my) / chord
+    end
+
+    # ------------------------------------------------------- walk it backwards
+
+    # The SAME arc, travelled the other way: start and end swap and the sweep
+    # direction flips. Everything that is measured against the direction of
+    # travel therefore flips too - center_side, offset, normal_at_distance -
+    # which is exactly the point. A caller that has an arc in the wall's own
+    # start -> end sense but needs it in ITS loop's sense reverses it once,
+    # here, and then never has to think about the sign again.
+    def self.reverse(arc)
+      return nil unless arc
+      arc.merge(a0: arc[:a1], a1: arc[:a0], ccw: !arc[:ccw])
+    end
+
+    # ---------------------------------------------------- intersections (2D)
+
+    # Where the INFINITE line through (px, py) with direction (dx, dy) meets
+    # the circle (cx, cy, r). Returns [] / [[x, y]] / [[x, y], [x, y]].
+    def self.line_circle(px, py, dx, dy, cx, cy, r)
+      dd = dx * dx + dy * dy
+      return [] if dd < EPS
+      fx = px - cx
+      fy = py - cy
+      b = (fx * dx + fy * dy) / dd
+      c = (fx * fx + fy * fy - r * r) / dd
+      disc = b * b - c
+      return [] if disc < -EPS
+      disc = 0.0 if disc < 0.0
+      sq = Math.sqrt(disc)
+      ts = sq < EPS ? [-b] : [-b - sq, -b + sq]
+      ts.map { |t| [px + dx * t, py + dy * t] }
+    end
+
+    # Where two circles meet. Returns [] / [[x, y]] / [[x, y], [x, y]].
+    def self.circle_circle(c1x, c1y, r1, c2x, c2y, r2)
+      d = dist(c1x, c1y, c2x, c2y)
+      return [] if d < EPS                       # same centre: no crossing
+      return [] if d > r1 + r2 + EPS             # too far apart
+      return [] if d < (r1 - r2).abs - EPS       # one inside the other
+      a = (d * d + r1 * r1 - r2 * r2) / (2.0 * d)
+      h2 = r1 * r1 - a * a
+      h2 = 0.0 if h2 < 0.0
+      h = Math.sqrt(h2)
+      ux = (c2x - c1x) / d
+      uy = (c2y - c1y) / d
+      mx = c1x + ux * a
+      my = c1y + uy * a
+      return [[mx, my]] if h < EPS
+      [[mx - uy * h, my + ux * h], [mx + uy * h, my - ux * h]]
+    end
+
+    # The point on the INFINITE line through (px, py) direction (dx, dy) that
+    # is closest to (qx, qy). This is the answer when a line and a circle do
+    # not actually cross: the straight run stays exactly where it is and the
+    # curve is brought to meet it, which is the same rule the wall corners use.
+    def self.closest_point_on_line(px, py, dx, dy, qx, qy)
+      dd = dx * dx + dy * dy
+      return [px, py] if dd < EPS
+      t = (((qx - px) * dx) + ((qy - py) * dy)) / dd
+      [px + dx * t, py + dy * t]
+    end
+
+    # The one of these candidate points that sits closest to a reference point.
+    # This is how a caller picks the RIGHT root of an intersection without
+    # guessing: the corner it wants is the one near where the arc already ends.
+    def self.nearest_point(cands, rx, ry)
+      return nil if cands.nil? || cands.empty?
+      cands.min_by { |p| dist(p[0], p[1], rx, ry) }
+    end
+
+    # ------------------------------------------------------------- re-trimming
+
+    # The same circle, but starting and/or ending somewhere else. Each new end
+    # is moved by the SHORT way round from the old one (signed_delta), so a cut
+    # that lands a hair BEFORE the old start lengthens the arc a hair instead of
+    # wrapping it a whole turn. p0 / p1 are [x, y]; nil leaves that end alone.
+    # nil when the result would be an empty or full-circle sweep.
+    def self.retrim(arc, p0 = nil, p1 = nil)
+      return nil unless arc
+      dir = arc[:ccw] ? 1.0 : -1.0
+      d0 = p0 ? signed_delta(arc[:a0], Math.atan2(p0[1] - arc[:cy], p0[0] - arc[:cx])) : 0.0
+      d1 = p1 ? signed_delta(arc[:a1], Math.atan2(p1[1] - arc[:cy], p1[0] - arc[:cx])) : 0.0
+      # a0 and a1 are raw atan2 values, so a1 - a0 is only right modulo a full
+      # turn. Work from the sweep instead: moving the START forwards along the
+      # direction of travel eats sweep, moving the END forwards adds it.
+      sweep = arc[:sweep] - (dir * d0) + (dir * d1)
+      return nil if sweep <= EPS || sweep >= TWO_PI - EPS
+      arc.merge(a0: arc[:a0] + d0, a1: arc[:a1] + d1, sweep: sweep)
     end
 
     # --------------------------------------------------------------- faceting

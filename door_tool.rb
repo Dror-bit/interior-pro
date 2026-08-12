@@ -408,7 +408,7 @@ module InteriorPro
         # Re-cut molding around the new door (no-op when no molding in model).
         if defined?(InteriorPro::MoldingManager)
           begin
-            InteriorPro::MoldingManager.refresh!
+            InteriorPro::MoldingManager.refresh!(transparent: true)
           rescue StandardError => e
             puts "[DoorTool] molding refresh failed: #{e.message}"
           end
@@ -442,7 +442,7 @@ module InteriorPro
 
       model = Sketchup.active_model
       if use_operations
-        model.start_operation('Undo Failed Door', true)
+        model.start_operation('Undo Failed Door', true, false, true) # transparent: part of the failed placement
       end
       begin
         InteriorPro::DoorManager.erase_door_at_placement(wall_group, data[:t])
@@ -2765,7 +2765,7 @@ module InteriorPro
       comp = nil
 
       if use_operations
-        model.start_operation('Door Data', true)
+        model.start_operation('Door Data', true, false, true) # transparent: same gesture as the cut
         begin
           door_group = create_door_group_with_attrs!(wall_group, data, unit, n, t, clicked_side,
                                                      door_bot_z, door_top_z, cx, cy, mark: mark)
@@ -2889,7 +2889,7 @@ module InteriorPro
     def build_door_body_in_component!(comp, data, unit, n, thickness)
       label = @door_type.to_s.strip
       model = Sketchup.active_model
-      model.start_operation("Build #{label} Body", true)
+      model.start_operation("Build #{label} Body", true, false, true) # transparent
       begin
         door_log "[DoorTool] door body: comp=#{comp.entityID} type=#{label} def_ents=#{comp.definition.entities.length}"
         ok = build_door_body_geometry!(comp.definition.entities, data, unit, n, thickness)
@@ -5061,7 +5061,7 @@ module InteriorPro
         build_french_hinged_geometry!(door_group.entities, data, unit, n, thickness)
       else
         model = Sketchup.active_model
-        model.start_operation('Build French Hinged Body', true)
+        model.start_operation('Build French Hinged Body', true, false, true) # transparent
         begin
           ok = build_french_hinged_geometry!(door_group.entities, data, unit, n, thickness)
           model.commit_operation

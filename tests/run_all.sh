@@ -7,7 +7,7 @@ set -u
 SRC="${1:-..}"
 cd "$(dirname "$0")" || exit 1
 
-for f in plan_editor.rb plan_generator.rb door_library.rb door_tool.rb room_manager.rb ceiling_manager.rb level_manager.rb molding_tool.rb wall_tool.rb foundation_manager.rb ui_dialogs.rb wall_stretch_tool.rb wall_curve_tool.rb wall_arc_tool.rb floor_manager.rb roof_manager.rb roof_dialog.rb arc_math.rb door_manager.rb window_tool.rb wall_curve_tool.rb; do
+for f in plan_editor.rb plan_generator.rb door_library.rb door_tool.rb room_manager.rb ceiling_manager.rb level_manager.rb molding_tool.rb wall_tool.rb foundation_manager.rb ui_dialogs.rb wall_stretch_tool.rb wall_curve_tool.rb wall_arc_tool.rb floor_manager.rb roof_manager.rb roof_dialog.rb arc_math.rb door_manager.rb window_tool.rb window_library_dialog.rb wall_library_dialog.rb; do
   [ -f "$SRC/$f" ] && cp "$SRC/$f" . || echo "  (missing $f - some suites will be skipped)"
 done
 
@@ -29,7 +29,7 @@ for t in t1 t2 t3 t4 t5 t6 t7 t8 t9 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 
 done
 
 echo "== ruby suites (callbacks, rooms, plans, doors) =="
-for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27 rt28 rt29 rt30 rt31 rt32 rt33 rt34 rt35 rt36; do
+for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27 rt28 rt29 rt30 rt31 rt32 rt33 rt34 rt35 rt36 rt37 rt38; do
   [ -f "$r.rb" ] || continue
   if ruby "$r.rb" >/dev/null 2>&1; then echo "  PASS $r"; else echo "  FAIL $r"; ruby "$r.rb" 2>&1 | grep FAIL | head -3; fail=1; fi
 done

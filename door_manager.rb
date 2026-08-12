@@ -60,6 +60,91 @@ module InteriorPro
       0
     end
 
+    # ---- an opening follows its wall when the WALL'S SHAPE changes ---------
+    #
+    # Bending a wall rebuilds it, and the hole moves onto the new arc - the
+    # wall's own openings list takes care of that, for windows too. The BODY
+    # is a separate group, and nothing was moving it: on a 200" wall bowed
+    # 48" the door stayed 47.8" behind its own hole (measured 2026-08-12).
+    #
+    # This is a MOVE, not a rebuild. The body is already the right shape - it
+    # sits in a flat pocket either way - so it only has to turn to the new
+    # panel direction and slide to the new pocket. Nothing is torn down, so
+    # handles, casings and glass all survive untouched.
+
+    # Where an opening's body sits on a given wall shape: the point every
+    # other caller computes with cline_start + unit * t + n * n_side, plus
+    # the direction its flat panel runs in.
+    def self.opening_seat(geo, t, width)
+      return nil unless geo.is_a?(Hash)
+      g = geo_at(geo, t, width)
+      [g[:cline_start].x + g[:unit].x * t + g[:n].x * geo[:n_side],
+       g[:cline_start].y + g[:unit].y * t + g[:n].y * geo[:n_side],
+       g[:unit]]
+    rescue StandardError => e
+      puts "[DoorManager] opening_seat: #{e.message}"
+      nil
+    end
+
+    # PURE: the move that carries a body from the seat it had to the seat it
+    # has now. Turn about the OLD seat first, then slide - so the body pivots
+    # in place instead of swinging round the wall's start point.
+    def self.seat_transform(old_seat, new_seat)
+      ox, oy, ou = old_seat
+      nx, ny, nu = new_seat
+      dot   = ou.x * nu.x + ou.y * nu.y
+      cross = ou.x * nu.y - ou.y * nu.x
+      ang   = Math.atan2(cross, dot)
+      tr = Geom::Transformation.translation(Geom::Vector3d.new(nx - ox, ny - oy, 0))
+      return tr if ang.abs < 1e-9
+      tr * Geom::Transformation.rotation(Geom::Point3d.new(ox, oy, 0),
+                                         Geom::Vector3d.new(0, 0, 1), ang)
+    end
+
+    # Move every door and window on this wall onto the wall's CURRENT shape.
+    # `old_geo` must be the wall_geometry read BEFORE the shape changed - the
+    # openings are still standing on it.
+    def self.reseat_hosted_openings!(wall, old_geo)
+      return 0 unless wall&.valid? && old_geo.is_a?(Hash)
+      wall_id = wall.get_attribute('InteriorPro', 'id')
+      return 0 if wall_id.to_s.empty?
+      new_geo = wall_geometry(wall)
+      return 0 unless new_geo
+
+      moved = 0
+      Sketchup.active_model.entities.to_a.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        next unless e.valid?
+        type = e.get_attribute('InteriorPro', 'type')
+        next unless type == 'door' || type == 'window'
+        next unless e.get_attribute('InteriorPro', 'host_wall_id') == wall_id
+
+        t     = e.get_attribute('InteriorPro', 'position_along_wall_in').to_f
+        width = e.get_attribute('InteriorPro', 'width_in').to_f
+        old_seat = opening_seat(old_geo, t, width)
+        new_seat = opening_seat(new_geo, t, width)
+        next unless old_seat && new_seat
+
+        tr = seat_transform(old_seat, new_seat)
+        next if tr.identity?
+
+        e.transform!(tr)
+        fx = e.get_attribute('InteriorPro', 'face_x')
+        fy = e.get_attribute('InteriorPro', 'face_y')
+        unless fx.nil? || fy.nil?
+          p = Geom::Point3d.new(fx.to_f, fy.to_f, 0).transform(tr)
+          e.set_attribute('InteriorPro', 'face_x', p.x)
+          e.set_attribute('InteriorPro', 'face_y', p.y)
+        end
+        moved += 1
+      end
+      puts "[DoorManager] reseat_hosted_openings!: #{moved} opening(s) followed the wall"
+      moved
+    rescue StandardError => e
+      puts "[DoorManager] reseat_hosted_openings!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      0
+    end
+
     def self.search_entities(entities, &block)
       entities.each do |e|
         return e if block.call(e)
@@ -369,6 +454,7 @@ module InteriorPro
         floor_z: floor_z,
         ceiling_z: floor_z + wall_height,
         n_side: -thickness / 2.0,
+        center_offset: center_offset,
         curved: curved,
         sag: sag,
         drawn_start: drawn_start,
@@ -401,8 +487,17 @@ module InteriorPro
       return geo unless pk
       unit = Geom::Vector3d.new(pk[:dir][0], pk[:dir][1], 0)
       n = horizontal_perpendicular(unit)
-      cline_start = Geom::Point3d.new(pk[:center][0] - unit.x * t.to_f,
-                                      pk[:center][1] - unit.y * t.to_f, 0)
+      # The pocket centre sits on the DRAWN arc, but cline_start means the
+      # anchored CENTRELINE - the straight path bakes center_offset into it
+      # and every caller then adds n * n_side on top. Dropping the offset
+      # here pushed each door half a thickness into the house on any
+      # left/right-anchored curved wall (user 2026-08-12, the round room:
+      # "the doors are inside the house - they must move to the opening").
+      # With it, a hair of curvature moves a door a hair, never 2.5".
+      co = geo[:center_offset].to_f
+      cline_start = Geom::Point3d.new(
+        pk[:center][0] + n.x * co - unit.x * t.to_f,
+        pk[:center][1] + n.y * co - unit.y * t.to_f, 0)
       geo.merge(unit: unit, n: n, cline_start: cline_start)
     rescue StandardError => e
       puts "[DoorManager] geo_at: #{e.message}"

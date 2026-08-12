@@ -373,20 +373,36 @@ module InteriorPro
       # (2026-08-06, fixes a flipped wall from the 2D->3D generator).
       UI.add_context_menu_handler do |cmenu|
         sel = Sketchup.active_model.selection
-        if sel.length == 1 && sel.first.respond_to?(:get_attribute) &&
-           sel.first.get_attribute('InteriorPro', 'type') == 'wall'
+        sel_walls = sel.select do |e|
+          e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro', 'type') == 'wall'
+        end
+        unless sel_walls.empty?
           cmenu.add_separator
-          cmenu.add_item('Interior Pro: Flip Wall Faces') do
-            InteriorPro::WallTool.flip_wall_faces!(Sketchup.active_model.selection.first)
+          # Flip works on ANY number of selected walls in one go (user
+          # 2026-08-12) - selecting five and flipping them one at a time was
+          # five right-clicks and five undo steps.
+          flip_label = sel_walls.length > 1 ? "Interior Pro: Flip Wall Faces (#{sel_walls.length})" : 'Interior Pro: Flip Wall Faces'
+          cmenu.add_item(flip_label) do
+            InteriorPro::WallTool.flip_wall_faces_multi!(Sketchup.active_model.selection.to_a)
+          end
+          # Body-side move (2026-08-12): the drawn line stays, the thickness
+          # changes sides. Fixes corners where two bodies sit on opposite
+          # sides and can only meet with a shoulder.
+          side_label = sel_walls.length > 1 ? "Interior Pro: Wall Body to Other Side (#{sel_walls.length})" : 'Interior Pro: Wall Body to Other Side'
+          cmenu.add_item(side_label) do
+            InteriorPro::WallTool.swap_wall_side_multi!(Sketchup.active_model.selection.to_a)
           end
           # Curved walls (2026-08-11): reach them straight from the wall.
           # Two ways in because they are two different hands, not two
-          # controls for the same job - mouse, or keyboard.
-          cmenu.add_item('Interior Pro: Curve Wall - drag the middle') do
-            Sketchup.active_model.select_tool(InteriorPro::WallCurveTool.new)
-          end
-          cmenu.add_item('Interior Pro: Curve Wall - type the bow') do
-            InteriorPro::WallCurveTool.prompt_wall_sag!(Sketchup.active_model.selection.first)
+          # controls for the same job - mouse, or keyboard. Both act on ONE
+          # wall, so they only appear when exactly one is selected.
+          if sel_walls.length == 1
+            cmenu.add_item('Interior Pro: Curve Wall - drag the middle') do
+              Sketchup.active_model.select_tool(InteriorPro::WallCurveTool.new)
+            end
+            cmenu.add_item('Interior Pro: Curve Wall - type the bow') do
+              InteriorPro::WallCurveTool.prompt_wall_sag!(Sketchup.active_model.selection.first)
+            end
           end
         end
       end

@@ -56,6 +56,29 @@ module InteriorPro
     #   InteriorPro::WallTool::USE_3D_SIDING = false
     USE_3D_SIDING = true unless const_defined?(:USE_3D_SIDING, false)
 
+    # Free-hand drawing (2026-08-12). Until now every wall was thrown onto
+    # red or green - whichever was nearer - so an angled wall was impossible
+    # to draw by hand. Now the cursor is only PULLED onto a direction when it
+    # is genuinely close to one, and is left completely alone otherwise.
+    #
+    # Red and green get the wider pull, so they still win a tie. Widen or
+    # narrow either one in a single line:
+    #   InteriorPro::WallTool.send(:remove_const, :DRAW_SNAP_ORTHO_DEG)
+    #   InteriorPro::WallTool::DRAW_SNAP_ORTHO_DEG = 10.0
+    DRAW_SNAP_ORTHO_DEG = 8.0 unless const_defined?(:DRAW_SNAP_ORTHO_DEG, false)
+    DRAW_SNAP_DIAG_DEG  = 5.0 unless const_defined?(:DRAW_SNAP_DIAG_DEG, false)
+
+    # KILL SWITCH for the whole thing: true = the old behaviour, every wall
+    # snapped to red or green and nothing else.
+    DRAW_SNAP_ORTHO_ONLY = false unless const_defined?(:DRAW_SNAP_ORTHO_ONLY, false)
+
+    # KILL SWITCH: doors and windows follow their wall when it is bowed.
+    # False = the old behaviour, where the hole moved onto the arc and the
+    # body stayed behind:
+    #   InteriorPro::WallTool.send(:remove_const, :RESEAT_OPENINGS_ON_CURVE)
+    #   InteriorPro::WallTool::RESEAT_OPENINGS_ON_CURVE = false
+    RESEAT_OPENINGS_ON_CURVE = true unless const_defined?(:RESEAT_OPENINGS_ON_CURVE, false)
+
     # Hard ceiling on how many pieces one wall's siding may be built from.
     # Every piece is a little solid, and SketchUp will fall over long before
     # it runs out of patience. Over this, the wall keeps its flat face.
@@ -122,6 +145,7 @@ module InteriorPro
       @wall_category = 'exterior'
       @drawing = false
       @locked_axis = nil
+      @locked_dir = nil
       @auto_snap = nil
       @raw_point = nil
       @length_input = ''
@@ -145,10 +169,18 @@ module InteriorPro
       @ip.draw(view) if @ip && @ip.display?
       return unless @drawing && @start_point && @locked_axis
 
-      if @locked_axis == :x
+      case @locked_axis
+      when :x
         view.drawing_color = Sketchup::Color.new(255, 0, 0)
         p1 = Geom::Point3d.new(@start_point.x - 10000, @start_point.y, @start_point.z)
         p2 = Geom::Point3d.new(@start_point.x + 10000, @start_point.y, @start_point.z)
+      when :diag
+        # SketchUp's own colour for "on a line, but not on an axis".
+        ux, uy = @locked_dir
+        return if ux.nil?
+        view.drawing_color = Sketchup::Color.new(255, 0, 255)
+        p1 = Geom::Point3d.new(@start_point.x - ux * 10000, @start_point.y - uy * 10000, @start_point.z)
+        p2 = Geom::Point3d.new(@start_point.x + ux * 10000, @start_point.y + uy * 10000, @start_point.z)
       else
         view.drawing_color = Sketchup::Color.new(0, 200, 0)
         p1 = Geom::Point3d.new(@start_point.x, @start_point.y - 10000, @start_point.z)
@@ -360,6 +392,7 @@ module InteriorPro
                                                      ref.y - @start_point.y) : nil
         return if axis.nil?
         @locked_axis = axis
+        @locked_dir = nil
         @auto_snap = :manual
         Sketchup.set_status_text('Direction locked (hold Shift).', SB_PROMPT)
         view.invalidate
@@ -413,6 +446,7 @@ module InteriorPro
     def onKeyUp(key, repeat, flags, view)
       if InteriorPro::WallTool.shift_key?(key)
         @locked_axis = nil
+        @locked_dir = nil
         @auto_snap = nil
         view.invalidate
       end
@@ -440,20 +474,65 @@ module InteriorPro
       dx.abs > dy.abs ? :x : :y
     end
 
+    # PURE: which direction the free hand should be pulled onto, if any.
+    #
+    #   :x                -> red      :y                -> green
+    #   [:diag, ux, uy]   -> a 45     nil               -> leave it alone
+    #
+    # Red and green are tested FIRST and with the wider window, so on a tie
+    # they win. Outside both windows nothing is snapped and the wall goes
+    # exactly where the mouse is - which is the whole point (2026-08-12:
+    # "there should be more options... and it must not limit me").
+    def self.direction_snap(dx, dy,
+                            ortho_deg = DRAW_SNAP_ORTHO_DEG,
+                            diag_deg  = DRAW_SNAP_DIAG_DEG)
+      dx = dx.to_f
+      dy = dy.to_f
+      return nil if Math.sqrt(dx * dx + dy * dy) < 0.1
+
+      ang = Math.atan2(dy, dx) * 180.0 / Math::PI
+
+      # red / green
+      [0.0, 90.0, 180.0, -90.0].each do |cand|
+        next unless angle_gap(ang, cand) <= ortho_deg.to_f
+        return (cand.abs == 90.0 ? :y : :x)
+      end
+      return nil if DRAW_SNAP_ORTHO_ONLY
+
+      # the four 45s
+      [45.0, 135.0, -135.0, -45.0].each do |cand|
+        next unless angle_gap(ang, cand) <= diag_deg.to_f
+        r = cand * Math::PI / 180.0
+        return [:diag, Math.cos(r), Math.sin(r)]
+      end
+      nil
+    end
+
+    # PURE: the smaller of the two ways round between two headings, degrees.
+    def self.angle_gap(a, b)
+      d = (a.to_f - b.to_f) % 360.0
+      d -= 360.0 if d > 180.0
+      d.abs
+    end
+
     def detect_auto_snap(pt)
       return unless @start_point
-      dx = pt.x - @start_point.x
-      dy = pt.y - @start_point.y
-      if dx.abs < 0.1 && dy.abs < 0.1
+      dir = InteriorPro::WallTool.direction_snap(pt.x - @start_point.x,
+                                                 pt.y - @start_point.y)
+      if dir.nil?
+        # Not near anything: free hand. The old code could never land here -
+        # it always picked the nearer axis - and that is what made an angled
+        # wall impossible to draw.
         @locked_axis = nil
+        @locked_dir = nil
         @auto_snap = nil
-        return
-      end
-      if dx.abs >= dy.abs
-        @locked_axis = :x
+      elsif dir.is_a?(Array)
+        @locked_axis = :diag
+        @locked_dir = [dir[1], dir[2]]
         @auto_snap = :auto
       else
-        @locked_axis = :y
+        @locked_axis = dir
+        @locked_dir = nil
         @auto_snap = :auto
       end
     end
@@ -461,10 +540,17 @@ module InteriorPro
     def snap_to_axis(pt)
       base = active_base
       return Geom::Point3d.new(pt.x, pt.y, base) unless @drawing && @start_point
-      if @locked_axis == :x
+      case @locked_axis
+      when :x
         Geom::Point3d.new(pt.x, @start_point.y, base)
-      elsif @locked_axis == :y
+      when :y
         Geom::Point3d.new(@start_point.x, pt.y, base)
+      when :diag
+        ux, uy = @locked_dir
+        return Geom::Point3d.new(pt.x, pt.y, base) if ux.nil?
+        # slide along the 45, as far as the cursor has gone down it
+        d = (pt.x - @start_point.x) * ux + (pt.y - @start_point.y) * uy
+        Geom::Point3d.new(@start_point.x + ux * d, @start_point.y + uy * d, base)
       else
         Geom::Point3d.new(pt.x, pt.y, base)
       end
@@ -2916,6 +3002,15 @@ module InteriorPro
 
       end
 
+      # The wall the doors and windows are still standing on. Read it BEFORE
+      # anything changes - it is the "from" half of the move that carries them
+      # onto the new shape (2026-08-12).
+      old_geo = begin
+        RESEAT_OPENINGS_ON_CURVE ? InteriorPro::DoorManager.wall_geometry(wall) : nil
+      rescue StandardError
+        nil
+      end
+
       model = Sketchup.active_model
       model.start_operation('InteriorPro Curve Wall', true) if wrap_operation
       begin
@@ -2945,6 +3040,24 @@ module InteriorPro
         raise 'could not work out the wall ends' unless corners
         inst.save_corners_attr(wall, corners)
         inst.rebuild_wall_geometry(wall, corners, data)
+
+        # Bring the doors and windows across NOW, while old_geo still
+        # describes the wall they are standing on. It has to happen before
+        # align_curve_lanes!, because that can move a body sideways again -
+        # and swap_wall_side! does its own reseat for that. Each change
+        # reseats straight after itself, so nothing is ever moved twice.
+        if old_geo
+          begin
+            InteriorPro::DoorManager.reseat_hosted_openings!(wall, old_geo)
+          rescue StandardError => e
+            puts "[WallTool] set_wall_sag! reseat: #{e.message}"
+          end
+        end
+
+        # A curve can only weld cleanly onto a neighbour whose body sits on
+        # the SAME side of the drawn line. Re-seat whoever needs it - the
+        # user draws, the plugin sorts the sides out (2026-08-12).
+        align_curve_lanes!(wall, model) unless straight
 
         # Now re-cut the corners against the neighbours. This is what makes a
         # curved wall meet the walls it grew out of instead of leaving a step.
@@ -3084,6 +3197,265 @@ module InteriorPro
       end
       puts "[WallTool] flip_wall_faces!: #{e.message}"
       false
+    end
+
+    # Flip SEVERAL walls at once (user 2026-08-12: "if I select a few walls
+    # together I should be able to turn their faces to the other side, all
+    # together"). One undo step for the whole lot; anything in the selection
+    # that is not a wall is quietly ignored. Each wall goes through the very
+    # same flip_wall_faces! the single-wall menu item uses, so there is only
+    # one flip behaviour to maintain.
+    def self.flip_wall_faces_multi!(entities)
+      walls = Array(entities).select do |e|
+        e.respond_to?(:get_attribute) && e.valid? &&
+          e.get_attribute('InteriorPro', 'type') == 'wall'
+      end
+      return 0 if walls.empty?
+      return (flip_wall_faces!(walls.first) ? 1 : 0) if walls.length == 1
+
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Flip Walls', true)
+      n = 0
+      walls.each { |w| n += 1 if flip_wall_faces!(w, wrap_operation: false) }
+      model.commit_operation
+      puts "[WallTool] flip_wall_faces_multi!: #{n}/#{walls.length} walls flipped"
+      n
+    rescue StandardError => e
+      begin
+        Sketchup.active_model.abort_operation
+      rescue StandardError
+        nil
+      end
+      puts "[WallTool] flip_wall_faces_multi!: #{e.message}"
+      0
+    end
+
+    # ==== AUTOMATIC LANE ALIGNMENT (2026-08-12) ==========================
+    # THE BUG (user, rightly annoyed): draw walls, bend one - and the corner
+    # comes out with a 5" tooth. Cause: a curve can only weld cleanly onto a
+    # neighbour whose BODY sits on the same side of the drawn line, and the
+    # plugin happily let them sit on opposite sides. The user should never
+    # need a button for that - so bending a wall now aligns the sides by
+    # itself, inside the same undo step. The manual right-click tool stays
+    # for exotic cases, but the normal flow never needs it.
+
+    MIRROR_H = { 'left' => 'right', 'right' => 'left' }.freeze unless const_defined?(:MIRROR_H, false)
+
+    def self.wall_h_anchor(wall)
+      a = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      a == 'center' ? 'center' : (a.split('-')[1] || 'center')
+    end
+
+    # The two lips of a wall's end cut, from attributes alone (pure trial -
+    # nothing is touched), optionally pretending the anchor were mirrored.
+    def self.end_cuts_xy(wall, side, h_override = nil)
+      sx = wall.get_attribute('InteriorPro', 'start_x').to_f
+      sy = wall.get_attribute('InteriorPro', 'start_y').to_f
+      ex = wall.get_attribute('InteriorPro', 'end_x').to_f
+      ey = wall.get_attribute('InteriorPro', 'end_y').to_f
+      th = wall.get_attribute('InteriorPro', 'thickness').to_f
+      h  = h_override || wall_h_anchor(wall)
+      c = if curved_wall?(wall)
+            curved_end_corners_xy(sx, sy, ex, ey, th, h, wall_sag(wall))
+          else
+            new.perpendicular_corners_xy(Geom::Point3d.new(sx, sy, 0),
+                                         Geom::Point3d.new(ex, ey, 0), th, h)
+          end
+      return nil unless c
+      side == :start ? [c[0], c[3]] : [c[1], c[2]]
+    rescue StandardError
+      nil
+    end
+
+    # Would this corner take weld_corner!'s EXACT-SEAM branch? Same test the
+    # weld itself runs: pair the four lips by nearness, both pairs within
+    # 1.2 x the fatter thickness.
+    def self.corner_snaps?(wa, sa, wb, sb, ha_override: nil, hb_override: nil)
+      a = end_cuts_xy(wa, sa, ha_override)
+      b = end_cuts_xy(wb, sb, hb_override)
+      return false unless a && b
+      dd = ->(p, q) { Math.hypot(p[0] - q[0], p[1] - q[1]) }
+      st = dd.call(a[0], b[0]) + dd.call(a[1], b[1])
+      cr = dd.call(a[0], b[1]) + dd.call(a[1], b[0])
+      pair = st <= cr ? [[a[0], b[0]], [a[1], b[1]]] : [[a[0], b[1]], [a[1], b[0]]]
+      thr = [wa.get_attribute('InteriorPro', 'thickness').to_f,
+             wb.get_attribute('InteriorPro', 'thickness').to_f].max * 1.2
+      pair.all? { |p, q| dd.call(p, q) <= thr }
+    rescue StandardError
+      false
+    end
+
+    # Align the body sides around a curved wall so every corner can weld to
+    # one exact seam. Preference order: first re-seat the CURVE itself (it is
+    # the thing that just changed), then any straight neighbour that still
+    # clashes - but only a neighbour that is safe to move (not curved, not
+    # center-anchored, hosts no window, same category). Runs inside the
+    # caller's operation; returns how many walls were re-seated.
+    def self.align_curve_lanes!(wall, model = Sketchup.active_model)
+      return 0 unless curved_wall?(wall)
+      return 0 unless MIRROR_H[wall_h_anchor(wall)]
+      cat = (wall.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+
+      walls = model.active_entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g != wall && g.get_attribute('InteriorPro', 'type') == 'wall' &&
+          (g.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s == cat
+      end
+      ends = []
+      [[:start, 'start_x', 'start_y'], [:end, 'end_x', 'end_y']].each do |side, kx, ky|
+        px = wall.get_attribute('InteriorPro', kx).to_f
+        py = wall.get_attribute('InteriorPro', ky).to_f
+        nb = nil
+        nb_side = nil
+        walls.each do |o|
+          break if nb
+          [[:start, 'start_x', 'start_y'], [:end, 'end_x', 'end_y']].each do |os, okx, oky|
+            next if nb
+            d = Math.hypot(o.get_attribute('InteriorPro', okx).to_f - px,
+                           o.get_attribute('InteriorPro', oky).to_f - py)
+            if d < 1.0
+              nb = o
+              nb_side = os
+            end
+          end
+        end
+        ends << [side, nb, nb_side] if nb
+      end
+      return 0 if ends.empty?
+
+      snap_now = ends.count { |s, nb, ns| corner_snaps?(wall, s, nb, ns) }
+      return 0 if snap_now == ends.length
+
+      mirrored = MIRROR_H[wall_h_anchor(wall)]
+      snap_sw = ends.count { |s, nb, ns| corner_snaps?(wall, s, nb, ns, ha_override: mirrored) }
+
+      swapped = []
+      # Re-seat the curve when that helps - or on a tie, because the curve is
+      # the newcomer and its spring wall is usually the cheaper thing to move.
+      if snap_sw > snap_now || (snap_sw == snap_now && snap_now < ends.length)
+        swapped << wall if swap_wall_side!(wall, wrap_operation: false)
+      end
+      ends.each do |side, nb, nb_side|
+        next if corner_snaps?(wall, side, nb, nb_side)
+        next if curved_wall?(nb)
+        nbh = wall_h_anchor(nb)
+        next unless MIRROR_H[nbh]
+        next if hosted_window_count(nb) > 0
+        next unless corner_snaps?(wall, side, nb, nb_side, hb_override: MIRROR_H[nbh])
+        swapped << nb if swap_wall_side!(nb, wrap_operation: false)
+      end
+      unless swapped.empty?
+        inst = new
+        touched = ([wall] + ends.map { |_s, nb, _ns| nb }).uniq
+        2.times { touched.each { |w| inst.join_corners(w, model) } }
+        puts "[WallTool] align_curve_lanes!: re-seated #{swapped.length} wall(s) so the curve corners weld clean"
+      end
+      swapped.length
+    rescue StandardError => e
+      puts "[WallTool] align_curve_lanes!: #{e.message}"
+      0
+    end
+
+    # Move a wall's BODY to the other side of its drawn line (user
+    # 2026-08-12, after the left arc corner): the line the user drew stays
+    # exactly where it is; only the thickness changes sides, by mirroring
+    # the anchor (left <-> right). This is NOT flip_wall_faces! - flip keeps
+    # the body in place and swaps which face is exterior; this MOVES the
+    # body. It exists because two walls whose bodies sit on opposite sides
+    # of the same corner can only ever meet with a shoulder - putting both
+    # bodies on the same side is what makes the seam exact.
+    #
+    # A wall hosting a WINDOW is refused: moving the body rebuilds the wall
+    # and a window's hole is not recorded anywhere (see wall_has_openings?),
+    # so the rebuild would bury it. Doors re-cut themselves and are fine.
+    # A center-anchored wall has no "other side" and is skipped.
+    def self.swap_wall_side!(wall, wrap_operation: true)
+      return false unless wall&.valid? &&
+                          wall.get_attribute('InteriorPro', 'type') == 'wall'
+      anchor = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      parts = anchor.split('-')
+      mirrored = { 'left' => 'right', 'right' => 'left' }[parts.last]
+      unless mirrored
+        puts '[WallTool] swap_wall_side!: center anchor has no other side'
+        return false
+      end
+      if hosted_window_count(wall) > 0
+        UI.messagebox('This wall hosts a window - move the window first.')
+        return false
+      end
+
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Wall Body Side', true) if wrap_operation
+
+      # The body is about to jump a full thickness sideways. The doors on it
+      # are separate groups and were being left standing where the wall used
+      # to be - so a door on a perfectly straight wall ended up inside the
+      # house, exactly one wall thickness off (measured 6.000" on a 6" wall,
+      # 2026-08-12). Read the wall they are still standing on first.
+      old_geo = begin
+        RESEAT_OPENINGS_ON_CURVE ? InteriorPro::DoorManager.wall_geometry(wall) : nil
+      rescue StandardError
+        nil
+      end
+
+      wall.set_attribute('InteriorPro', 'anchor',
+                         parts.length == 2 ? "#{parts[0]}-#{mirrored}" : mirrored)
+      tool = new
+      data = tool.wall_data(wall)
+      fresh = tool.compute_perpendicular_corners_from_data(data)
+      raise 'could not recompute corners' unless fresh
+      tool.save_corners_attr(wall, fresh)
+      tool.rebuild_wall_geometry(wall, fresh, data)
+      if old_geo
+        begin
+          InteriorPro::DoorManager.reseat_hosted_openings!(wall, old_geo)
+        rescue StandardError => e
+          puts "[WallTool] swap_wall_side! reseat: #{e.message}"
+        end
+      end
+      model.commit_operation if wrap_operation
+      puts '[WallTool] swap_wall_side!: body moved to the other side'
+      true
+    rescue StandardError => e
+      begin
+        model.abort_operation if wrap_operation
+      rescue StandardError
+        nil
+      end
+      puts "[WallTool] swap_wall_side!: #{e.message}"
+      false
+    end
+
+    # The multi-wall wrapper, one undo step, then every corner is re-joined
+    # (fix_corners_once pattern - proven): a moved body changes which cuts
+    # meet at each of its corners, and its NEIGHBOURS' cuts have to follow.
+    def self.swap_wall_side_multi!(entities)
+      walls = Array(entities).select do |e|
+        e.respond_to?(:get_attribute) && e.valid? &&
+          e.get_attribute('InteriorPro', 'type') == 'wall'
+      end
+      return 0 if walls.empty?
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Wall Body Side', true)
+      n = 0
+      walls.each { |w| n += 1 if swap_wall_side!(w, wrap_operation: false) }
+      if n > 0
+        tool = new
+        all = model.active_entities.grep(Sketchup::Group).select do |g|
+          g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        end
+        2.times { all.each { |w| tool.join_corners(w, model) } }
+      end
+      model.commit_operation
+      puts "[WallTool] swap_wall_side_multi!: #{n}/#{walls.length} walls moved"
+      n
+    rescue StandardError => e
+      begin
+        Sketchup.active_model.abort_operation
+      rescue StandardError
+        nil
+      end
+      puts "[WallTool] swap_wall_side_multi!: #{e.message}"
+      0
     end
 
     # Which walls in a closed exterior loop are drawn against the loop?

@@ -37,14 +37,7 @@ module InteriorPro
     # edge the straight skeleton has to chew through (same reasoning as
     # SIDING_CURVE_TOL).
     ROOF_CURVE_TOL = 1.5 unless const_defined?(:ROOF_CURVE_TOL, false)
-    # Where a CURVED wall runs into its neighbour tangentially, the eave barely
-    # turns - typically half a facet angle - so the hip the skeleton raises
-    # there is a whisker of a crease, not a corner. A ridge cap on it reads as
-    # a scar across a smooth roof (user 2026-08-12B, seeing his own house:
-    # "I would be glad to drop the ridge cap at the join on the sides, I do not
-    # think it is needed"). A corner that turns LESS than this keeps its hip
-    # but loses its cap. Straight-to-straight corners are never touched.
-    SOFT_CORNER_DEG = 30.0 unless const_defined?(:SOFT_CORNER_DEG, false)
+
 
     # ---------- lookup ----------
 
@@ -850,6 +843,17 @@ module InteriorPro
         dead = marked.reject { |id2| loop_ids.include?(id2) }
         puts "[Roof] ignoring #{dead.length} stale/off-loop gable mark(s)" unless dead.empty?
         marked -= dead
+        # A CURVED wall never gables (2026-08-12B). toggle_gable_wall! refuses
+        # to mark one, but a wall can be marked first and BENT afterwards, and
+        # the Gable style picks its own ends with no marks at all. A bowed wall
+        # reaches the roof as a run of facets sharing one id, so it is spotted
+        # the same way facet_hip_points spots it.
+        bowed = wall_ids.compact.tally.select { |_i, c| c > 1 }.keys
+        unless bowed.empty?
+          dropped = marked & bowed
+          marked -= bowed
+          puts "[Roof] #{dropped.length} gable mark(s) ignored - the wall is curved" unless dropped.empty?
+        end
         gables = (0...poly.length).select { |i| wall_ids[i] && marked.include?(wall_ids[i]) }
         want_gable = !gables.empty? || s[:style] == 'gable'
         # Over-framing first (2026-08-05, the user's mock): a marked wall
@@ -860,7 +864,11 @@ module InteriorPro
           gables = framed[:edges]
         else
           puts '[Roof] plan not decomposable - strip-gable fallback' if want_gable
-          gables = pick_gable_edges(poly) if gables.empty? && s[:style] == 'gable'
+          if gables.empty? && s[:style] == 'gable'
+            gables = pick_gable_edges(poly)
+            # ...but never onto a bowed wall's facets.
+            gables = gables.reject { |i| bowed.include?(wall_ids[i]) }
+          end
           unless gables.empty?
             # A marked wall that runs past its own roof section (a wing
             # attaches along it) gets its gable only on ONE span: the strip
@@ -1324,33 +1332,32 @@ module InteriorPro
       out
     end
 
-    # Eave corners that ARE real corners (two different walls) but barely turn,
-    # with a CURVED wall on at least one side - the tangential join where an
-    # arc runs out into the straight wall beside it. The hip stays; only its
-    # cap goes. A curved wall is spotted the same way facet_hip_points spots
-    # it: its id owns more than one edge of the loop.
+    # Every eave corner where a CURVED wall meets a different wall.
     #
-    # A corner between two STRAIGHT walls is never returned here, however
-    # shallow it is, so a plain roof keeps every cap it ever had.
-    def self.soft_hip_points(poly, wall_ids, max_deg = SOFT_CORNER_DEG)
+    # The rule the user set, in his own words (2026-08-12B): "a cap on all the
+    # ridges and on the descending diagonals, EXCEPT on the round part". So a
+    # hip that lands anywhere the curve touches gets no cap, whatever angle the
+    # two walls meet at. Two earlier tries measured that angle - first a flat 30
+    # degrees, then half the curve's own facet turn - and both were wrong on his
+    # house: his arcs run into their neighbours at 39.6 and 22.9 degrees, real
+    # corners by any measure, and he still wants them bare. The round part is
+    # read as one smooth surface, and a cap anywhere on it is a scar.
+    #
+    # A corner between two STRAIGHT walls is never returned here, so a plain
+    # roof keeps every cap it ever had.
+    def self.soft_hip_points(poly, wall_ids, _unused = nil)
       return [] unless poly && wall_ids
       n = poly.length
       return [] if n < 3
       faceted = wall_ids.compact.tally.select { |_id, c| c > 1 }.keys
       return [] if faceted.empty?
-      lim = max_deg * Math::PI / 180.0
       out = []
       n.times do |i|
         j = (i + 1) % n
-        k = (j + 1) % n
         next if wall_ids[i].nil? || wall_ids[j].nil?
         next if wall_ids[i] == wall_ids[j]                       # a facet seam
         next unless faceted.include?(wall_ids[i]) || faceted.include?(wall_ids[j])
-        a = vsub(poly[j], poly[i])
-        b = vsub(poly[k], poly[j])
-        next if vlen(a) < 1.0e-9 || vlen(b) < 1.0e-9
-        turn = Math.atan2(vcross(a, b), vdot(a, b)).abs
-        out << poly[j] if turn < lim
+        out << poly[j]
       end
       out
     end
@@ -1621,6 +1628,18 @@ module InteriorPro
       flat.each_slice(2).to_a
     end
 
+    # PURE-ish: is this wall one a gable end must be refused on? Only a bowed
+    # wall is. Safe when the curve code is not loaded at all - then nothing is
+    # curved and nothing is refused.
+    def self.gable_refused?(wall)
+      return false unless wall && wall.valid?
+      return false unless defined?(InteriorPro::WallTool) &&
+                          InteriorPro::WallTool.respond_to?(:curved_wall?)
+      InteriorPro::WallTool.curved_wall?(wall)
+    rescue StandardError
+      false
+    end
+
     # Toggle a wall's roof end between hip and gable; saved by wall id on
     # the model, so it survives every rebuild. The CLICK POINT is saved
     # too — on a long wall the gable applies to the roof section under the
@@ -1631,6 +1650,24 @@ module InteriorPro
                           wall.get_attribute('InteriorPro', 'type') == 'wall'
       id = wall.get_attribute('InteriorPro', 'id')
       return false if id.nil?
+      # A CURVED wall cannot carry a gable end (2026-08-12B). A gable end is a
+      # flat triangle standing on a straight line; over a bowed wall there is
+      # no such line, and the over-framing maths would quietly build a twisted
+      # roof instead of saying so. Marking one is refused here - politely, and
+      # BEFORE anything is saved - exactly the way a wall with a door in it
+      # refuses to bend. Un-marking a wall that was already marked and then
+      # bent still works, so nobody gets stuck.
+      if gable_refused?(wall) && !gable_wall_ids.include?(id)
+        msg = 'A curved wall cannot have a gable end. Straighten it first, ' \
+              'or leave this end as a hip.'
+        puts "[Roof] gable refused on curved wall #{id}"
+        begin
+          UI.messagebox(msg)
+        rescue StandardError
+          nil
+        end
+        return false
+      end
       ids = gable_wall_ids.dup
       pts = gable_click_points
       pts = pts.first(ids.length) + Array.new([ids.length - pts.length, 0].max, [1e9, 1e9])

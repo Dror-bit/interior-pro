@@ -442,7 +442,12 @@ module InteriorPro
       comps
     end
 
-    def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil, color_mode: nil)
+    # transparent: true folds this rebuild into the PREVIOUS undo step - used
+    # when the refresh runs as the tail of another gesture (placing a door),
+    # so one Ctrl+Z undoes the door AND the molding re-cut together
+    # (user 2026-08-12: "Ctrl+Z doesn't return my last action, or only one").
+    def apply_all!(base_name: nil, crown_name: nil, base_h: nil, crown_h: nil,
+                   color_mode: nil, transparent: false)
       model = Sketchup.active_model
       model.set_attribute('InteriorPro', 'molding_color_mode', color_mode) if color_mode
       last_profiles[:base] = base_name
@@ -485,7 +490,7 @@ module InteriorPro
       resolve_tees!(plan)
       resolve_flush_butts!(plan)
 
-      model.start_operation('Molding: Apply All', true)
+      model.start_operation('Molding: Apply All', true, false, transparent)
       # Clear ALL existing molding first (incl. walls excluded since the
       # last apply), then rebuild only the planned runs.
       model.entities.grep(Sketchup::Group).each do |g|
@@ -652,7 +657,7 @@ module InteriorPro
 
     # Rebuild all molding with the profiles currently in the model.
     # Called after door place/move/delete so molding stays cut correctly.
-    def refresh!
+    def refresh!(transparent: false)
       model = Sketchup.active_model
       base = nil
       crown = nil
@@ -670,7 +675,8 @@ module InteriorPro
         break if base && crown
       end
       return unless base || crown
-      apply_all!(base_name: base, crown_name: crown, base_h: base_h, crown_h: crown_h)
+      apply_all!(base_name: base, crown_name: crown, base_h: base_h, crown_h: crown_h,
+                 transparent: transparent)
     end
 
     # Apply molding ONLY to the currently selected walls; all other walls

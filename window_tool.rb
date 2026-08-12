@@ -259,8 +259,13 @@ module InteriorPro
         if pk
           unit = Geom::Vector3d.new(pk[:dir][0], pk[:dir][1], 0)
           n = Geom::Vector3d.new(-unit.y, unit.x, 0)
-          cline_start = Geom::Point3d.new(pk[:center][0] - unit.x * t,
-                                          pk[:center][1] - unit.y * t, 0)
+          # Same fix as DoorManager.geo_at (2026-08-12): the pocket centre is
+          # on the DRAWN arc; cline_start must be the anchored CENTRELINE,
+          # so the anchor's center_offset comes along - or the window slides
+          # half a thickness off its own hole on a left/right-anchored wall.
+          cline_start = Geom::Point3d.new(
+            pk[:center][0] + n.x * center_offset - unit.x * t,
+            pk[:center][1] + n.y * center_offset - unit.y * t, 0)
         end
       else
         t = (click_xy - cline_start).dot(unit)
@@ -343,7 +348,7 @@ module InteriorPro
 
       # Placeholder window group + attributes + wall back-link. Wrapped in its
       # own operation so a failure here cannot roll back the wall cut above.
-      model.start_operation('Window Data', true)
+      model.start_operation('Window Data', true, false, true) # transparent: same gesture as the cut
       begin
         window_group = wall_group.parent.entities.add_group
         window_group.name = 'InteriorPro_Window'
@@ -411,7 +416,7 @@ module InteriorPro
       # doors. Own operation so a failure cannot roll back the cut/body.
       if window_group && window_group.valid? &&
          (casing_enabled?(@exterior_casing_style) || casing_enabled?(@interior_casing_style))
-        model.start_operation('Window Casing', true)
+        model.start_operation('Window Casing', true, false, true) # transparent
         begin
           frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
                                              Sketchup::Color.new(255, 255, 255), 1.0)
@@ -438,7 +443,7 @@ module InteriorPro
       # reusable, named definition. Wrapped in its own operation so a failure
       # here cannot roll back the wall cut, the window_group data, or the body.
       if window_group && window_group.valid?
-        model.start_operation('Window To Component', true)
+        model.start_operation('Window To Component', true, false, true) # transparent
         begin
           # Snapshot every InteriorPro attribute before the conversion, since
           # to_component is not guaranteed to carry the instance dictionary
@@ -471,7 +476,7 @@ module InteriorPro
 
     def build_casement_body(window_group, unit, n, thickness, clicked_side)
       model = Sketchup.active_model
-      model.start_operation('Build Casement Body', true)
+      model.start_operation('Build Casement Body', true, false, true) # transparent
       begin
         frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
                                            Sketchup::Color.new(255, 255, 255), 1.0)
@@ -570,7 +575,7 @@ module InteriorPro
     # wall hole (same circle) so the frame sits flush in the opening.
     def build_arched_body(window_group, unit, n, thickness, clicked_side, rise)
       model = Sketchup.active_model
-      model.start_operation('Build Arched Window', true)
+      model.start_operation('Build Arched Window', true, false, true) # transparent
       begin
         frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
                                            Sketchup::Color.new(255, 255, 255), 1.0)
@@ -692,7 +697,7 @@ module InteriorPro
     # exterior face (exterior = negative v, i.e. clicked_side direction).
     def build_garden_body(window_group, unit, n, thickness, clicked_side)
       model = Sketchup.active_model
-      model.start_operation('Build Garden Window', true)
+      model.start_operation('Build Garden Window', true, false, true) # transparent
       begin
         glass_mat = get_or_create_material(model, 'InteriorPro_Glass',
                                            Sketchup::Color.new(180, 180, 180), 0.4)

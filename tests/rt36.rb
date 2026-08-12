@@ -79,9 +79,9 @@ if ep
   # The two joins: last straight point before the arc, and the arc's last point.
   j_in  = ids.index('arc')                       # s1  -> arc
   j_out = ids.index('s2')                        # arc -> s2
-  ok('the join into the curve barely turns (under 15 deg)',
+  ok('this one happens to be a tangential join (about 7 deg)',
      turn_at(poly, j_in) < 15.0, turn_at(poly, j_in))
-  ok('and so does the join out of it',
+  ok('and so is the join out of it',
      turn_at(poly, j_out) < 15.0, turn_at(poly, j_out))
 
   soft = RF.soft_hip_points(poly, ids)
@@ -107,9 +107,13 @@ if ep
   ok('nothing else was thrown away', kept.length == 2, kept.length)
 end
 
-# ------------------------------------------------- a curve that REALLY turns
-# The same wing, but the arc is a shallow bow on the END wall only: it meets
-# its neighbours at a proper corner, so those caps must stay.
+# ------------------------------- a curve that meets its neighbour at an ANGLE
+# The same wing with a SHALLOW bow, so the arc runs into the straight walls at
+# a proper corner - about 60 degrees, not a tangent. Two earlier versions of
+# this rule measured that angle and kept the cap here. The user's own house
+# then came in at 39.6 and 22.9 degrees on its two bowed walls, real corners
+# both, and he still wanted them bare: "except the round part". So the angle is
+# not measured at all any more - anything the curve touches goes bare.
 sharp = eave([['s1',   0.0,   0.0, 900.0,   0.0, nil],
               ['arc', 900.0,   0.0, 900.0, 300.0, -20.0],
               ['s2',  900.0, 300.0,   0.0, 300.0, nil],
@@ -118,10 +122,14 @@ if sharp
   poly = sharp[:pts]
   ids  = sharp[:wall_ids]
   j_in = ids.index('arc')
-  ok('a shallow bow still meets its neighbour at a real corner',
+  ok('a shallow bow really does meet its neighbour at an angle',
      turn_at(poly, j_in) > 45.0, turn_at(poly, j_in))
-  ok('so that corner is NOT soft and keeps its cap',
-     RF.soft_hip_points(poly, ids).empty?, RF.soft_hip_points(poly, ids))
+  ok('and it STILL goes bare - the curve owns both its ends',
+     RF.soft_hip_points(poly, ids).length == 2,
+     RF.soft_hip_points(poly, ids).length)
+  ok('the two square corners at the far end keep their caps',
+     RF.soft_hip_points(poly, ids).none? { |p| p == poly[ids.index('s3')] },
+     RF.soft_hip_points(poly, ids))
 end
 
 # ------------------------------------------------------- straight walls only
@@ -228,6 +236,29 @@ if l_cells
   ok('and every line the roof really has is found (8)', l_lines.length == 8,
      l_lines.length)
 end
+
+# ------------------------------- a curved wall may not carry a gable end
+# 2026-08-12B, plan step 4. A gable end is a flat triangle standing on a
+# STRAIGHT line. Over a bowed wall there is no such line, and the over-framing
+# maths would quietly build a twisted roof instead of saying so. Marking one is
+# refused before anything is saved, and a wall marked first and BENT afterwards
+# is ignored at build time.
+Sketchup.reset_model!
+gm = Sketchup.active_model
+ROUND_END.each { |w| mkwall(gm, *w) }
+g_arc = gm.entities.grep(Sketchup::Group).find { |w| w.get_attribute(D, 'id') == 'arc' }
+g_str = gm.entities.grep(Sketchup::Group).find { |w| w.get_attribute(D, 'id') == 's1' }
+
+ok('a bowed wall is spotted as gable-refused', RF.gable_refused?(g_arc))
+ok('a straight wall is not', !RF.gable_refused?(g_str))
+ok('marking the bowed wall as a gable end is refused',
+   RF.toggle_gable_wall!(g_arc) == false)
+ok('and nothing was written to the model', RF.gable_wall_ids.empty?,
+   RF.gable_wall_ids)
+ok('the straight wall can still be marked', RF.toggle_gable_wall!(g_str) == true)
+ok('and it really is marked', RF.gable_wall_ids.include?('s1'), RF.gable_wall_ids)
+ok('marking it a second time un-marks it', RF.toggle_gable_wall!(g_str) == true)
+ok('so the list is empty again', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

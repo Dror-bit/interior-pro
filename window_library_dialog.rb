@@ -123,27 +123,29 @@ module InteriorPro
         <head>
         <meta charset="utf-8">
         <style>
+          /* Compact on purpose (user 2026-08-12): the WHOLE form must fit
+             the dialog with NO scrolling - every margin here is load-bearing. */
           * { box-sizing: border-box; margin: 0; padding: 0; }
           html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
-          body { font-family: Arial, sans-serif; background: #f0f0f0; padding-bottom: 24px; }
-          .header { background: #6A1B9A; color: white; padding: 12px 16px; font-size: 15px; font-weight: bold; }
-          .content { padding: 14px; }
-          .panel { background: white; border-radius: 6px; padding: 14px; border: 1px solid #ddd; }
-          .section-title { font-size: 11px; color: #6A1B9A; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 3px; }
+          body { font-family: Arial, sans-serif; background: #f0f0f0; padding-bottom: 8px; }
+          .header { background: #6A1B9A; color: white; padding: 7px 12px; font-size: 13px; font-weight: bold; }
+          .content { padding: 8px; }
+          .panel { background: white; border-radius: 6px; padding: 10px; border: 1px solid #ddd; }
+          .section-title { font-size: 10px; color: #6A1B9A; font-weight: bold; text-transform: uppercase; margin-top: 7px; margin-bottom: 2px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
           .section-title:first-child { margin-top: 0; }
-          label { display: block; font-size: 12px; color: #555; margin-top: 8px; margin-bottom: 2px; }
-          input, select { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-          .row { display: flex; gap: 8px; }
+          label { display: block; font-size: 11px; color: #555; margin-top: 4px; margin-bottom: 1px; }
+          input, select { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+          .row { display: flex; gap: 6px; }
           .row > div { flex: 1; }
           .type-row { display: flex; gap: 6px; align-items: flex-end; }
           .type-row > select { flex: 1; }
-          .btn-add-type { padding: 6px 10px; background: #43A047; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+          .btn-add-type { padding: 4px 8px; background: #43A047; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap; }
           .btn-add-type:hover { background: #388E3C; }
-          .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+          .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
           .checkbox-row input { width: auto; }
           .checkbox-row label { margin: 0; }
-          .place-row { margin-top: 16px; }
-          .btn-place { width: 100%; padding: 10px; background: #6A1B9A; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+          .place-row { margin-top: 10px; }
+          .btn-place { width: 100%; padding: 8px; background: #6A1B9A; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
           .btn-place:hover { background: #4A148C; }
         </style>
         </head>
@@ -188,16 +190,12 @@ module InteriorPro
               </div>
             </div>
 
-            <div class="section-title">Arch (for "Arched" type)</div>
+            <div class="section-title">Arch &amp; Glass</div>
             <div class="row">
               <div>
                 <label>Arch Height (in) — blank = semicircle</label>
                 <input type="number" id="archHeight" value="#{dar}" min="0" step="0.5" placeholder="auto">
               </div>
-            </div>
-
-            <div class="section-title">Glass</div>
-            <div class="row">
               <div>
                 <label>Glass Grid</label>
                 <select id="glassGridStyle">
@@ -216,18 +214,24 @@ module InteriorPro
               <label for="installWindow">Install Window (frame + glass)</label>
             </div>
             <div class="section-title">Casing &amp; Trim</div>
-            <label>Exterior Casing</label>
-            <select id="exteriorCasingStyle">
-              <option value="none">None</option>
-              <option value="flat">Flat (square)</option>
-              #{casing_opts}
-            </select>
-            <label>Interior Casing</label>
-            <select id="interiorCasingStyle">
-              <option value="none">None</option>
-              <option value="flat">Flat (square)</option>
-              #{casing_opts}
-            </select>
+            <div class="row">
+              <div>
+                <label>Exterior Casing</label>
+                <select id="exteriorCasingStyle">
+                  <option value="none">None</option>
+                  <option value="flat">Flat (square)</option>
+                  #{casing_opts}
+                </select>
+              </div>
+              <div>
+                <label>Interior Casing</label>
+                <select id="interiorCasingStyle">
+                  <option value="none">None</option>
+                  <option value="flat">Flat (square)</option>
+                  #{casing_opts}
+                </select>
+              </div>
+            </div>
 
             <div class="place-row">
               <button class="btn-place" onclick="placeWindow()">Place Window on Wall</button>

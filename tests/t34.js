@@ -23,13 +23,39 @@ ok('the pending arc still has a closed outline', co && co.length >= 6, co && co.
 // The neighbour's square cut at the shared point (200, 100): bandQuad of the
 // straight wall, faces at +n*p and +n*q from the endpoint.
 var pb = c('bandQuad', straight);
-var s1 = { x: 200 + pb.nx * pb.p, y: 100 + pb.ny * pb.p };
-var s2 = { x: 200 + pb.nx * pb.q, y: 100 + pb.ny * pb.q };
+var s1 = { x: 200 + pb.nx * pb.p, y: 100 + pb.ny * pb.p };   // FAR lip  (200, 105)
+var s2 = { x: 200 + pb.nx * pb.q, y: 100 + pb.ny * pb.q };   // near lip (200, 100)
 function hasPt(pts, p) {
   return pts.some(function(q) { return close(q.x, p.x) && close(q.y, p.y); });
 }
-ok('the arc outline lands EXACTLY on one lip of the neighbour cut', hasPt(co, s1), [s1, co[0], co[co.length - 1]]);
-ok('and EXACTLY on the other lip - one shared seam, no notch', hasPt(co, s2), [s2]);
+
+// OPPOSITE-SIDE bands. The two bodies sit on opposite sides of the drawn
+// line, so the two cuts share only the drawn corner and are ~10" apart at
+// their far lips - well past the "same side" threshold. weld_corner! in
+// wall_tool.rb therefore takes its SHOULDER branch: the touching lip is
+// pulled onto the owner's FAR lip and the other stays on the natural radial
+// cut. Running the Ruby on this exact pair gives corners
+// (201.098, 95.122) and (200, 105) - the preview must draw the same two.
+ok('the arc outline lands EXACTLY on the neighbour FAR lip', hasPt(co, s1),
+   [s1, co[0], co[co.length - 1]]);
+ok('the other end keeps its natural radial cut - same as weld_corner!',
+   hasPt(co, { x: 201.0976, y: 95.1220 }), [co[0], co[co.length - 1]]);
+ok('so the near lip is NOT also grabbed (that would twist the band into a beak)',
+   !hasPt(co, s2), [s2]);
+
+// SAME-SIDE bands: an almost-tangent arch springing off a leg. Here the two
+// cuts nearly coincide, so the guest snaps EXACTLY onto the owner's cut -
+// one shared seam. This is the branch tests/rt31.rb pins on the Ruby side.
+var leg  = { sx: 0, sy: 0, ex: 0, ey: 100, th: 5, ha: 'left', cat: 'exterior', ops: [] };
+var arch = { sx: 0, sy: 100, ex: 120, ey: 100, th: 5, ha: 'left', cat: 'exterior', ops: [], sag: 55 };
+s('pending', [leg, arch]);
+var coA = c('curvedOutline', arch);
+var lb = c('bandQuad', leg);
+var l1 = { x: 0 + lb.nx * lb.p, y: 100 + lb.ny * lb.p };
+var l2 = { x: 0 + lb.nx * lb.q, y: 100 + lb.ny * lb.q };
+ok('same-side: the arch snaps onto BOTH lips - one exact shared seam',
+   coA && hasPt(coA, l1) && hasPt(coA, l2), [l1, l2, coA && coA[0], coA && coA[coA.length - 1]]);
+s('pending', [straight, arc]);
 
 // A steep, honest corner is NOT welded: bow the arc gently so its tangent
 // really turns away from the neighbour.
