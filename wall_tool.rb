@@ -92,6 +92,16 @@ module InteriorPro
     # Under this many degrees of turn, both ends are simply squared off.
     COLLINEAR_CORNER_DEG = 3.0 unless const_defined?(:COLLINEAR_CORNER_DEG, false)
 
+    # How far a corner's miter points may sit from the two wall ends, as a
+    # multiple of the walls' COMBINED thickness, before a corner with a curve
+    # in it gives up on the miter and squares both ends off instead. A right
+    # angle reaches about 0.7 of the summed thickness and 45 degrees about
+    # 1.2; shallower than ~30 degrees the reach explodes (the user's model:
+    # 22" and 64" on 5" walls - the wall looked torn in 2D, and the same
+    # stored corners broke the 3D build). Straight-to-straight corners never
+    # come through this check.
+    CURVE_MITER_REACH = 1.5 unless const_defined?(:CURVE_MITER_REACH, false)
+
     attr_accessor :height, :thickness, :exterior_material, :interior_material, :wall_type_name, :anchor, :wall_category, :side_a_color, :side_b_color
 
     # Set by the 3-click Arc tool before it calls create_wall. nil / 0 means
@@ -1525,17 +1535,25 @@ module InteriorPro
       u_out  = (side_b == :start) ? u_b_nat : Geom::Vector3d.new(-u_b_nat.x, -u_b_nat.y, 0)
 
       cross_z = u_into.x * u_out.y - u_into.y * u_out.x
-      return if cross_z.abs < 1e-6  # collinear walls -- no real corner
+      if cross_z.abs < 1e-6         # collinear -- no corner to cut
+        # ...unless a curve is involved: an exact half-circle arrives dead
+        # parallel to its neighbour (sag = half the chord) and still needs
+        # its seam welded, or the end cap shows (2026-08-12).
+        if curved_corner
+          weld_corner!(group_a, side_a, group_b, side_b)
+          return false
+        end
+        return
+      end
 
       # A curve that runs smoothly into its neighbour has no corner to cut.
-      # Square both ends off instead - they already line up, because the
-      # curve's end cut is square to its own direction and so is the straight
-      # wall's. Guarded by curved_corner so straight-to-straight corners are
-      # untouched.
+      # WELD the two ends onto one shared seam instead (two independent
+      # square cuts sit at slightly different angles and leave a small step
+      # at the joint - the user's screenshot, 2026-08-12). Guarded by
+      # curved_corner so straight-to-straight corners are untouched.
       if curved_corner &&
          InteriorPro::WallTool.corner_too_straight?([u_into.x, u_into.y], [u_out.x, u_out.y])
-        square_corner!(group_a, side_a)
-        square_corner!(group_b, side_b)
+        weld_corner!(group_a, side_a, group_b, side_b)
         return false
       end
 
@@ -1561,6 +1579,21 @@ module InteriorPro
       a_neg_off = (ha_a == 'left') ? 0.0      : ((ha_a == 'right') ? -t_a_full : -t_a_full / 2.0)
       b_pos_off = (ha_b == 'left') ? t_b_full : ((ha_b == 'right') ? 0.0 : t_b_full / 2.0)
       b_neg_off = (ha_b == 'left') ? 0.0      : ((ha_b == 'right') ? -t_b_full : -t_b_full / 2.0)
+
+      # A corner with a curve in it is ALWAYS welded (2026-08-12). The miter
+      # math measures its face offsets from straight centrelines; on a
+      # curved corner that lands the cut sideways and the whole wall face
+      # tilts (the user's 11'x8'5" room, sag 20-30). The weld covers every
+      # case cleanly: near-identical cuts snap onto one exact shared seam,
+      # opposite-side bands get a small shoulder that hides the end cap.
+      # Butt joints (interior meeting exterior) keep their own path below.
+      # rt31 pins this; straight-to-straight corners never reach here.
+      cat_wa = (group_a.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+      cat_wb = (group_b.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+      if curved_corner && cat_wa == cat_wb
+        weld_corner!(group_a, side_a, group_b, side_b)
+        return false
+      end
 
       # Corner = intersection of the two centerlines; fall back to wall A's
       # endpoint if the lines are parallel and never cross.
@@ -1612,6 +1645,19 @@ module InteriorPro
       miter_outside = Geom.intersect_line_line(a_outside, b_outside)
       miter_inside  = Geom.intersect_line_line(a_inside,  b_inside)
       return unless miter_outside && miter_inside
+
+      # Safety net only: same-category curved corners are welded above and
+      # never reach this point; this guards any future path that does.
+      if curved_corner
+        ep_ra = endpoint_pt(data_a, side_a)
+        ep_rb = endpoint_pt(data_b, side_b)
+        if InteriorPro::WallTool.curve_miter_too_far?(
+             [[miter_outside.x, miter_outside.y], [miter_inside.x, miter_inside.y]],
+             [ep_ra.x, ep_ra.y], [ep_rb.x, ep_rb.y], t_a_full, t_b_full)
+          weld_corner!(group_a, side_a, group_b, side_b)
+          return false
+        end
+      end
 
       a_miter_pos = a_pos_outside ? miter_outside : miter_inside
       a_miter_neg = a_pos_outside ? miter_inside  : miter_outside
@@ -1673,6 +1719,23 @@ module InteriorPro
         apply_miter_to_wall(thin_group, thin_side, thin_pos_world.transform(thin_xform_inv), thin_neg_world.transform(thin_xform_inv), wall_data(thin_group))
       end
 
+    # A wall's own plain cross-section at one end, in WORLD coordinates -
+    # [pos, neg] as [x, y] pairs. What the end looks like with no neighbour.
+    def natural_cut_world(group, side)
+      data = wall_data(group)
+      return nil unless data
+      plain = compute_perpendicular_corners_from_data(data)
+      return nil unless plain
+      pts = side == :start ? [plain[0], plain[3]] : [plain[1], plain[2]]
+      xf = group.transformation
+      pts.map do |p|
+        gp = Geom::Point3d.new(p[0].to_f, p[1].to_f, 0).transform(xf)
+        [gp.x.to_f, gp.y.to_f]
+      end
+    rescue StandardError
+      nil
+    end
+
     # Put one end of a wall back to its own plain square cut, throwing away
     # any miter that was cut into it. For a straight wall that is square to
     # its length; for a curved one it is square to the curve's direction
@@ -1695,6 +1758,87 @@ module InteriorPro
       rebuild_wall_geometry(group, corners, data)
     rescue StandardError => e
       puts "[WallTool] square_corner!: #{e.message}"
+    end
+
+    # ONE shared seam for a corner that cannot be mitered (a curve running
+    # almost in line with its neighbour, or a miter that would fly off).
+    # Two independent square cuts sit at slightly different angles and leave
+    # a small step / sliver at the joint. Instead: the STRAIGHT wall keeps
+    # its own plain square cut, and the curved wall's end is pulled onto
+    # exactly that segment - both faces coincide, so there is no gap and no
+    # step. With two curves, wall A's cut owns the seam. Never called for a
+    # straight-to-straight corner.
+    def weld_corner!(group_a, side_a, group_b, side_b)
+      a_curved = InteriorPro::WallTool.curved_wall?(group_a)
+      b_curved = InteriorPro::WallTool.curved_wall?(group_b)
+      owner, o_side, guest, g_side =
+        if a_curved && !b_curved
+          [group_b, side_b, group_a, side_a]
+        else
+          [group_a, side_a, group_b, side_b]
+        end
+      o_data = wall_data(owner)
+      g_data = wall_data(guest)
+      return unless o_data && g_data
+
+      plain = compute_perpendicular_corners_from_data(o_data)
+      return unless plain
+      square_corner!(owner, o_side)
+      seam_local = (o_side == :start) ? [plain[0], plain[3]] : [plain[1], plain[2]]
+
+      # The seam lives in the owner's local frame; carry it into the guest's.
+      to_world = owner.transformation
+      to_guest = guest.transformation.inverse
+      seam = seam_local.map do |p|
+        gp = Geom::Point3d.new(p[0].to_f, p[1].to_f, 0).transform(to_world).transform(to_guest)
+        [gp.x.to_f, gp.y.to_f]
+      end
+
+      # Pair the seam's two points with the guest's own two cut points by
+      # nearness, so the band is never written in crossed.
+      g_plain = compute_perpendicular_corners_from_data(g_data)
+      return unless g_plain
+      g_pts = (g_side == :start) ? [g_plain[0], g_plain[3]] : [g_plain[1], g_plain[2]]
+      dd = lambda { |p, q| Math.sqrt(((p[0] - q[0])**2) + ((p[1] - q[1])**2)) }
+      straight_fit = dd.call(seam[0], g_pts[0]) + dd.call(seam[1], g_pts[1])
+      crossed_fit  = dd.call(seam[0], g_pts[1]) + dd.call(seam[1], g_pts[0])
+      map = straight_fit <= crossed_fit ? [0, 1] : [1, 0]   # seam index for each g index
+
+      # TWO different geometries come here (verified by rendering the
+      # user's exact rooms, 2026-08-12):
+      # * SAME-SIDE bands (the near-parallel spring): the two cuts almost
+      #   coincide - snap the guest's cut exactly onto the owner's. The
+      #   points move under an inch; the seam becomes shared and exact.
+      # * OPPOSITE-SIDE bands (the bodies sit on opposite sides of the
+      #   drawn line): the cuts only share the drawn corner. Replacing the
+      #   whole cut twists the band into a beak. Instead only the touching
+      #   lip is pulled onto the owner's FAR lip, so the arc grows a small
+      #   shoulder that covers the owner's exposed end face; the other
+      #   side of the cut stays where the curve wants it.
+      pair_d = [dd.call(seam[map[0]], g_pts[0]), dd.call(seam[map[1]], g_pts[1])]
+      same_side = pair_d.max <= [o_data[:thickness], g_data[:thickness]].max * 1.2
+      new_g = [nil, nil]
+      if same_side
+        new_g[0] = seam[map[0]]
+        new_g[1] = seam[map[1]]
+      else
+        ti = pair_d[0] <= pair_d[1] ? 0 : 1      # the touching guest point
+        new_g[ti] = seam[map[1 - ti]]            # -> the owner's far lip
+        new_g[1 - ti] = g_pts[1 - ti]            # the other stays natural
+      end
+
+      corners = read_corners_attr(guest) || g_plain
+      if g_side == :start
+        corners[0] = new_g[0]
+        corners[3] = new_g[1]
+      else
+        corners[1] = new_g[0]
+        corners[2] = new_g[1]
+      end
+      save_corners_attr(guest, corners)
+      rebuild_wall_geometry(guest, corners, g_data)
+    rescue StandardError => e
+      puts "[WallTool] weld_corner!: #{e.message}"
     end
 
     def apply_miter_to_wall(group, side, miter_pos, miter_neg, data)
@@ -2369,6 +2513,21 @@ module InteriorPro
       turn < max_deg || turn > (180.0 - max_deg)
     end
 
+    # PURE: is this miter so far from the wall ends it would read as a tear?
+    # miter_pts = the two candidate corner points, ep_a / ep_b = the two
+    # walls' drawn endpoints at this corner, all plain [x, y]. The cap
+    # scales with the combined thickness (see CURVE_MITER_REACH). Only
+    # corners with a curve in them are ever asked.
+    def self.curve_miter_too_far?(miter_pts, ep_a, ep_b, t_a, t_b, factor = CURVE_MITER_REACH)
+      cap = (t_a.to_f + t_b.to_f) * factor.to_f
+      return true if cap <= 0.0
+      miter_pts.any? do |m|
+        [ep_a, ep_b].any? do |e|
+          Math.sqrt(((m[0] - e[0])**2) + ((m[1] - e[1])**2)) > cap
+        end
+      end
+    end
+
     # PURE: how far a wall's centreline sits off its DRAWN line, given the
     # anchor. Same rule wall_data uses; pulled out so the corner code can
     # rebuild a centreline reference point at either end.
@@ -2892,6 +3051,11 @@ module InteriorPro
       wall.set_attribute('InteriorPro', 'start_y', ey)
       wall.set_attribute('InteriorPro', 'end_x', sx)
       wall.set_attribute('InteriorPro', 'end_y', sy)
+      # A bow is signed relative to start->end. Swapping the ends flips the
+      # frame, so the sign must flip with it or the wall jumps to the other
+      # side of its own line (found wiring the 2D editor, 2026-08-12).
+      old_sag = wall.get_attribute('InteriorPro', 'arc_sag')
+      wall.set_attribute('InteriorPro', 'arc_sag', -old_sag.to_f) unless old_sag.nil?
       anchor = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
       parts = anchor.split('-')
       if parts.length == 2

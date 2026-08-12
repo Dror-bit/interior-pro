@@ -441,6 +441,20 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        # Curve a MODEL wall from the panel (2026-08-12). set_wall_sag! is the
+        # one entry point 3D uses too, so 2D and 3D can never disagree.
+        dlg.add_action_callback('set_wall_sag') do |_, json|
+          r = JSON.parse(json)
+          wall = find_wall(r['id'].to_s)
+          if wall && InteriorPro::WallTool.respond_to?(:set_wall_sag!)
+            ok = InteriorPro::WallTool.set_wall_sag!(wall, r['sag'].to_f)
+            puts "[PlanEditor] bow #{r['sag']} on #{r['id']} -> #{ok}"
+          else
+            puts "[PlanEditor] bow: wall not found"
+          end
+          push_walls(dlg)
+        end
+
         dlg.add_action_callback('delete_wall') do |_, json|
           r = JSON.parse(json)
           wall = find_wall(r['wall_id'].to_s)
@@ -810,10 +824,39 @@ module InteriorPro
               [p.x.to_f.round(3), p.y.to_f.round(3)]
             end
           end
+          # Curved wall (2026-08-12): ship the bow and the exact floor
+          # outline, so the canvas draws the same arc the model builds.
+          sag = InteriorPro::WallTool.respond_to?(:wall_sag) ? InteriorPro::WallTool.wall_sag(w) : 0.0
+          fp = nil
+          if sag.abs >= 0.0625 && InteriorPro::WallTool.respond_to?(:curved_footprint_xy)
+            raw = InteriorPro::WallTool.curved_footprint_xy(
+              w.get_attribute('InteriorPro', 'start_x').to_f,
+              w.get_attribute('InteriorPro', 'start_y').to_f,
+              w.get_attribute('InteriorPro', 'end_x').to_f,
+              w.get_attribute('InteriorPro', 'end_y').to_f,
+              w.get_attribute('InteriorPro', 'thickness').to_f,
+              h_anchor, sag, 0.125,
+              InteriorPro::WallTool.read_door_openings(w)
+            )
+            # The built wall's ends carry the mitered / squared corners_xy;
+            # ship the SAME ends to the canvas or the 2D seam will not match
+            # the 3D build (2026-08-12).
+            if raw && InteriorPro::WallTool.respond_to?(:apply_corner_overrides)
+              raw = InteriorPro::WallTool.apply_corner_overrides(raw, w)
+            end
+            if raw
+              fp = raw.flat_map do |px, py|
+                p = Geom::Point3d.new(px, py, 0).transform(xf)
+                [p.x.to_f.round(3), p.y.to_f.round(3)]
+              end
+            end
+          end
           {
             'id' => w.get_attribute('InteriorPro', 'id').to_s,
             'sx' => s.x.to_f.round(3), 'sy' => s.y.to_f.round(3),
             'ex' => e.x.to_f.round(3), 'ey' => e.y.to_f.round(3),
+            'sag' => sag.round(4),
+            'fp' => fp,
             'th' => w.get_attribute('InteriorPro', 'thickness').to_f,
             'h' => w.get_attribute('InteriorPro', 'height').to_f,
             'lib' => w.get_attribute('InteriorPro', 'wall_type').to_s,
@@ -854,10 +897,39 @@ module InteriorPro
               [pt.x.to_f.round(3), pt.y.to_f.round(3)]
             end
           end
+          # Curved wall (2026-08-12): ship the bow and the exact floor
+          # outline, so the canvas draws the same arc the model builds.
+          sag = InteriorPro::WallTool.respond_to?(:wall_sag) ? InteriorPro::WallTool.wall_sag(w) : 0.0
+          fp = nil
+          if sag.abs >= 0.0625 && InteriorPro::WallTool.respond_to?(:curved_footprint_xy)
+            raw = InteriorPro::WallTool.curved_footprint_xy(
+              w.get_attribute('InteriorPro', 'start_x').to_f,
+              w.get_attribute('InteriorPro', 'start_y').to_f,
+              w.get_attribute('InteriorPro', 'end_x').to_f,
+              w.get_attribute('InteriorPro', 'end_y').to_f,
+              w.get_attribute('InteriorPro', 'thickness').to_f,
+              h_anchor, sag, 0.125,
+              InteriorPro::WallTool.read_door_openings(w)
+            )
+            # The built wall's ends carry the mitered / squared corners_xy;
+            # ship the SAME ends to the canvas or the 2D seam will not match
+            # the 3D build (2026-08-12).
+            if raw && InteriorPro::WallTool.respond_to?(:apply_corner_overrides)
+              raw = InteriorPro::WallTool.apply_corner_overrides(raw, w)
+            end
+            if raw
+              fp = raw.flat_map do |px, py|
+                p = Geom::Point3d.new(px, py, 0).transform(xf)
+                [p.x.to_f.round(3), p.y.to_f.round(3)]
+              end
+            end
+          end
           {
             'id' => w.get_attribute('InteriorPro', 'id').to_s,
             'sx' => s.x.to_f.round(3), 'sy' => s.y.to_f.round(3),
             'ex' => e.x.to_f.round(3), 'ey' => e.y.to_f.round(3),
+            'sag' => sag.round(4),
+            'fp' => fp,
             'th' => w.get_attribute('InteriorPro', 'thickness').to_f,
             'ha' => anchor == 'center' ? 'center' : (anchor.split('-')[1] || 'left'),
             'cat' => (w.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s,
@@ -1409,6 +1481,11 @@ module InteriorPro
           if g && defined?(InteriorPro::LevelManager)
             InteriorPro::LevelManager.place_wall_on_active_level!(g)
           end
+          # A pending wall drawn with a bow lands curved (2026-08-12).
+          if g && r['sag'].to_f.abs >= 0.0625 &&
+             InteriorPro::WallTool.respond_to?(:set_wall_sag!)
+            InteriorPro::WallTool.set_wall_sag!(g, r['sag'].to_f, wrap_operation: false)
+          end
           created << g if g
         end
         # 2026-08-06: a wall drawn backwards in the editor came out with
@@ -1886,6 +1963,13 @@ module InteriorPro
             #canvasWrap { flex:1 1 auto; min-width:0; overflow:hidden; position:relative; background:#fbfcfe; }
             canvas { display:block; }
             #side { flex:0 0 200px; width:200px; box-sizing:border-box; background:#f4f6f9; border-left:1px solid #d6dae0; padding:10px; overflow-y:auto; display:flex; flex-direction:column; }
+            /* Narrow window: no room on the side, so the panel moves to the
+               BOTTOM as a scrollable strip and the canvas keeps the width. */
+            @media (max-width: 620px) {
+              #main { flex-direction:column; }
+              #side { flex:0 0 auto; width:100%; max-height:44%; border-left:0; border-top:1px solid #d6dae0; }
+              #botWrap { margin-top:8px; }
+            }
             /* underBox already carries the margin-top:auto that pins the tail of
                the panel to the bottom - undo just follows it. */
             #undoWrap { margin-top:0; padding-top:10px; text-align:right; }
@@ -1910,7 +1994,13 @@ module InteriorPro
             #hint { color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             #status { margin-top:14px; color:#555; font-size:12px; }
             .okmsg { color:#1a9d55; }
-            .modebtn { flex:0 0 47%; margin-bottom:4px; }
+            .modebar { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; margin-bottom:8px; }
+            .modebtn { display:flex; flex-direction:column; align-items:center; gap:2px;
+                       padding:6px 2px; background:#fff; border:1px solid #c3c9d1; border-radius:8px;
+                       color:#3a4048; cursor:pointer; font-size:10px; }
+            .modebtn svg { width:22px; height:22px; }
+            .modebtn.on { background:#2f7de1; border-color:#2f7de1; color:#fff; }
+            .modebtn:hover { border-color:#2f7de1; }
             /* SketchUp-style dark tool strip: icon-only, grouped, 2 rows. */
             .sktb { display:flex; background:#26282d; border-radius:8px; padding:4px; gap:0; margin-bottom:8px; }
             .sktb-g { display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, 26px); gap:2px; padding:0 4px; }
@@ -1945,12 +2035,26 @@ module InteriorPro
           <div id="main">
             <div id="canvasWrap"><canvas id="cv"></canvas></div>
             <div id="side">
-              <div class="seg" style="flex-wrap:wrap">
-                <button id="modeSel" class="on modebtn" onclick="setMode('sel')">Select</button>
-                <button id="modeWall" class="modebtn" onclick="setMode('wall')">Wall</button>
-                <button id="modeDoor" class="modebtn" onclick="setMode('door')">Door</button>
-                <button id="modeWin" class="modebtn" onclick="setMode('win')">Window</button>
-                <button id="modeLine" class="modebtn" onclick="setMode('line')">Line</button>
+              <div class="modebar">
+                <button id="modeSel" class="on modebtn" title="בחירה (S)" onclick="setMode('sel')">
+                  <svg viewBox="0 0 24 24"><path d="M5 3 L5 19 L9 15 L12 21 L14.5 20 L11.5 14 L17 14 Z"
+                    fill="currentColor"/></svg><span>בחר</span></button>
+                <button id="modeWall" class="modebtn" title="קיר (Wall)" onclick="setMode('wall')">
+                  <svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">
+                    <rect x="3" y="4" width="8" height="4"/><rect x="13" y="4" width="8" height="4"/>
+                    <rect x="3" y="10" width="18" height="4"/><rect x="3" y="16" width="8" height="4"/>
+                    <rect x="13" y="16" width="8" height="4"/></g></svg><span>קיר</span></button>
+                <button id="modeDoor" class="modebtn" title="דלת (Door)" onclick="setMode('door')">
+                  <svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M6 21 L6 4 L18 4 L18 21"/><path d="M6 21 A12 12 0 0 1 18 9" stroke-dasharray="2 2"/>
+                    </g></svg><span>דלת</span></button>
+                <button id="modeWin" class="modebtn" title="חלון (Window)" onclick="setMode('win')">
+                  <svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">
+                    <rect x="4" y="6" width="16" height="12"/><path d="M12 6 L12 18 M4 12 L20 12"/>
+                    </g></svg><span>חלון</span></button>
+                <button id="modeLine" class="modebtn" title="קו / צורה (Line)" onclick="setMode('line')">
+                  <svg viewBox="0 0 24 24"><path d="M3 20 L14 9 L21 16" fill="none" stroke="currentColor"
+                    stroke-width="1.6"/><circle cx="14" cy="9" r="1.8" fill="currentColor"/></svg><span>קו</span></button>
               </div>
 
               <div id="secSel">
@@ -1972,28 +2076,54 @@ module InteriorPro
                   </div>
                 </div>
                 <div id="selWallOpts" style="display:none">
-                  <label>Length</label><input type="text" id="selLen">
-                  <label>Which end moves</label>
-                  <div class="seg"><button id="mvS" onclick="setMovingEnd('start')">Start ●</button><button id="mvE" class="on" onclick="setMovingEnd('end')">End ●</button></div>
-                  <div style="color:#777; font-size:11px; margin-top:4px">אפשר גם ללחוץ על הפינה עצמה בקנבס — ירוק = הקצה שיזוז, אדום = נשאר</div>
-                  <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applyWallLen()">Apply length</button></div>
-                  <label style="margin-top:12px">Move sideways (in)</label>
-                  <input type="text" id="selMove" value="6">
-                  <div class="seg" style="margin-top:6px">
-                    <button onclick="moveWall(1)">Out ▲</button><button onclick="moveWall(-1)">In ▼</button>
+                  <div class="foldBox" style="margin-top:6px">
+                    <div class="foldHead" onclick="toggleFold('wlen')">
+                      <span style="flex:1 1 auto">אורך</span><span id="wlenCaret" class="caret">▾</span>
+                    </div>
+                    <div id="wlenBody" class="foldBody" style="display:none">
+                      <label>Length</label><input type="text" id="selLen">
+                      <label>Which end moves</label>
+                      <div class="seg"><button id="mvS" onclick="setMovingEnd('start')">Start ●</button><button id="mvE" class="on" onclick="setMovingEnd('end')">End ●</button></div>
+                      <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applyWallLen()">Apply length</button></div>
+                    </div>
                   </div>
-                  <div style="color:#777; font-size:11px; margin-top:4px">או פשוט לגרור את הקיר בקנבס</div>
-                  <label style="margin-top:12px">Corners</label>
-                  <div class="seg">
-                    <button id="cnKeep" class="on" onclick="setKeepCorners(true)">Keep joined</button>
-                    <button id="cnCut" onclick="setKeepCorners(false)">Detach ✂</button>
+                  <div class="foldBox">
+                    <div class="foldHead" onclick="toggleFold('wmove')">
+                      <span style="flex:1 1 auto">הזזה הצידה</span><span id="wmoveCaret" class="caret">▾</span>
+                    </div>
+                    <div id="wmoveBody" class="foldBody" style="display:none">
+                      <label>Move sideways (in)</label>
+                      <input type="text" id="selMove" value="6">
+                      <div class="seg" style="margin-top:6px">
+                        <button onclick="moveWall(1)">Out ▲</button><button onclick="moveWall(-1)">In ▼</button>
+                      </div>
+                    </div>
                   </div>
-                  <div style="color:#777; font-size:11px; margin-top:4px">Detach = הקיר זז/מתארך לבד, בלי לגרור את הקירות בפינות</div>
-                  <div style="margin-top:6px"><button class="gray" style="width:100%" onclick="diagWall()">Diag → Ruby Console</button></div>
+                  <div class="foldBox">
+                    <div class="foldHead" onclick="toggleFold('wcorn')">
+                      <span style="flex:1 1 auto">פינות</span><span id="wcornCaret" class="caret">▾</span>
+                    </div>
+                    <div id="wcornBody" class="foldBody" style="display:none">
+                      <div class="seg">
+                        <button id="cnKeep" class="on" onclick="setKeepCorners(true)">Keep joined</button>
+                        <button id="cnCut" onclick="setKeepCorners(false)">Detach ✂</button>
+                      </div>
+                      <div style="margin-top:6px"><button class="gray" style="width:100%" onclick="diagWall()">Diag → Ruby Console</button></div>
+                    </div>
+                  </div>
                 </div>
                 <div id="selThickOpts" style="display:none">
-                  <label>Thickness (in)</label><input type="text" id="selTh">
-                  <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applySelThickness()">Apply thickness</button></div>
+                  <div class="foldBox">
+                    <div class="foldHead" onclick="toggleFold('wth')">
+                      <span style="flex:1 1 auto">עובי · קשת</span><span id="wthCaret" class="caret">▾</span>
+                    </div>
+                    <div id="wthBody" class="foldBody" style="display:none">
+                      <label>Thickness (in)</label><input type="text" id="selTh">
+                      <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applySelThickness()">Apply thickness</button></div>
+                      <label>קשת (0 = ישר, פלוס = החוצה, מינוס = פנימה)</label><input type="text" id="selSag">
+                      <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="applySelSag()">Apply bow</button></div>
+                    </div>
+                  </div>
                 </div>
                 <div id="selCopyOpts" style="display:none"></div>
                 <div id="selShapeOpts" style="display:none">
@@ -2026,6 +2156,16 @@ module InteriorPro
                 <div class="seg"><button id="catE" class="on" onclick="setCat('exterior')">Ext</button><button id="catI" onclick="setCat('interior')">Int</button></div>
                 <label>Draw side</label>
                 <div class="seg"><button id="sideL" class="on" onclick="setSide('L')">L</button><button id="sideR" onclick="setSide('R')">R</button></div>
+                <label>צורה</label>
+                <div class="seg">
+                  <button id="wShapeStraight" class="on" title="קיר ישר" onclick="setWallShape('straight')">
+                    <svg width="22" height="14" viewBox="0 0 24 14"><path d="M2 7 H22" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button id="wShapeArc" title="קיר בקשת" onclick="setWallShape('arc')">
+                    <svg width="22" height="14" viewBox="0 0 24 14"><path d="M2 12 Q12 -2 22 12" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                </div>
+                <div id="wArcHint" style="display:none; color:#777; font-size:11px; margin-top:4px">
+                  קשת: קליק התחלה · קליק סוף · הזז לקימור · קליק. או הקלד קימור + Enter.
+                </div>
               </div>
 
               <div id="secDoor" style="display:none">
@@ -2455,6 +2595,9 @@ module InteriorPro
                 var ths = wsel.map(function(o) { return o.type === 'pending' ? (pending[o.i] || {}).th : o.w.th; });
                 var same = ths.every(function(v) { return v === ths[0]; });
                 document.getElementById('selTh').value = (same && ths[0] != null) ? ths[0] : '';
+                var sags = wsel.map(function(o) { return (o.type === 'pending' ? (pending[o.i] || {}).sag : o.w.sag) || 0; });
+                var sagSame = sags.every(function(v) { return v === sags[0]; });
+                document.getElementById('selSag').value = sagSame ? modelSagToUi(Math.round(sags[0] * 100) / 100) : '';
               }
               // The edit strip: only the actions that fit the selection show.
               var hasShapes = selList.some(function(o) { return o.type === 'sketch'; });
@@ -2924,7 +3067,7 @@ module InteriorPro
             // The helper panels fold away: they are set up once and then just
             // sit there, so they live at the bottom and open on demand. Nothing
             // in the side panel moves while you switch tools.
-            var foldOpen = { guide:false, under:false };
+            var foldOpen = { guide:false, under:false, wlen:false, wmove:false, wcorn:false, wth:false };
             function toggleFold(which, force) {
               foldOpen[which] = (force === undefined) ? !foldOpen[which] : !!force;
               var on = foldOpen[which];
@@ -3828,6 +3971,31 @@ module InteriorPro
 
             function sketchWidth(sk) { return sk.weight === 2 ? 3.6 : 1.6; }
             function sketchDash(sk) { return sk.style === 'dashed' ? [8, 6] : null; }
+
+            // BOW SIGN (2026-08-12). Stored sag is positive to the LEFT of
+            // start->end, and this plugin's EXTERIOR side is the RIGHT of
+            // start->end (wall_tool.rb apply_materials, and the closed loop is
+            // normalised so right faces out). So a stored positive sag bows
+            // INTO the house. The user types the number the way a person
+            // thinks about it - plus = bulge OUT of the house - so the typed
+            // box is the negative of what is stored. Only this one text box
+            // flips; dragging the middle is unchanged, it already follows the
+            // mouse.
+            function uiSagToModel(v) { return -v; }
+            function modelSagToUi(v) { return -v; }
+
+            function applySelSag() {
+              var v = uiSagToModel(parseFloat(document.getElementById('selSag').value));
+              if (isNaN(v)) return;
+              selList.forEach(function(o) {
+                if (o.type === 'pending') { var pw4 = pending[o.i]; if (pw4) pw4.sag = v; }
+                else if (o.type === 'wall' && o.w.id) {
+                  keepSel = { kind: 'wall', id: o.w.id };
+                  sketchup.set_wall_sag(JSON.stringify({ id: o.w.id, sag: v }));
+                }
+              });
+              draw();
+            }
 
             function applySelThickness() {
               var v = parseLen(document.getElementById('selTh').value);
@@ -5268,7 +5436,135 @@ module InteriorPro
               return def;
             }
 
+            // One side of a curved wall as a point list. off = sideways from
+            // the drawn line, positive to the LEFT of start->end - the same
+            // convention as the Ruby arc maths, so both draw the same wall.
+            function arcSidePts(sxp, syp, exp, eyp, sag, off, N) {
+              var dx = exp - sxp, dy = eyp - syp, chord = Math.hypot(dx, dy);
+              if (chord < 1e-6) return null;
+              var lx = -dy / chord, ly = dx / chord;
+              var mx = (sxp + exp) / 2 + lx * sag, my = (syp + eyp) / 2 + ly * sag;
+              var d = 2 * (sxp * (my - eyp) + mx * (eyp - syp) + exp * (syp - my));
+              if (Math.abs(d) < 1e-9) return null;
+              var sa = sxp*sxp + syp*syp, sm = mx*mx + my*my, sb = exp*exp + eyp*eyp;
+              var ccx = (sa * (my - eyp) + sm * (eyp - syp) + sb * (syp - my)) / d;
+              var ccy = (sa * (exp - mx) + sm * (sxp - exp) + sb * (mx - sxp)) / d;
+              var r = Math.hypot(sxp - ccx, syp - ccy);
+              var a0 = Math.atan2(syp - ccy, sxp - ccx);
+              var a1 = Math.atan2(eyp - ccy, exp - ccx);
+              var am = Math.atan2(my - ccy, mx - ccx);
+              var TWO = Math.PI * 2;
+              function nrm(t) { t %= TWO; if (t < 0) t += TWO; return t; }
+              var tm = nrm(am - a0), tb = nrm(a1 - a0);
+              var ccw = tm < tb;
+              var sweep = ccw ? tb : TWO - tb;
+              var rr = r - off * (ccw ? 1 : -1);
+              if (rr <= 0.01) return null;
+              var pts = [];
+              for (var i = 0; i <= N; i++) {
+                var t = a0 + (ccw ? 1 : -1) * sweep * i / N;
+                pts.push({ x: ccx + rr * Math.cos(t), y: ccy + rr * Math.sin(t) });
+              }
+              return pts;
+            }
+
+            // The arc's direction of travel at one of its ends - same maths
+            // as arcSidePts, so the two always agree.
+            function arcTangentAt(sxp, syp, exp, eyp, sag, atEnd) {
+              var dx = exp - sxp, dy = eyp - syp, chord = Math.hypot(dx, dy);
+              if (chord < 1e-6) return null;
+              var lx = -dy / chord, ly = dx / chord;
+              var mx = (sxp + exp) / 2 + lx * sag, my = (syp + eyp) / 2 + ly * sag;
+              var d = 2 * (sxp * (my - eyp) + mx * (eyp - syp) + exp * (syp - my));
+              if (Math.abs(d) < 1e-9) return null;
+              var sa = sxp*sxp + syp*syp, sm = mx*mx + my*my, sb = exp*exp + eyp*eyp;
+              var ccx = (sa * (my - eyp) + sm * (eyp - syp) + sb * (syp - my)) / d;
+              var ccy = (sa * (exp - mx) + sm * (sxp - exp) + sb * (mx - sxp)) / d;
+              var a0 = Math.atan2(syp - ccy, sxp - ccx);
+              var a1 = Math.atan2(eyp - ccy, exp - ccx);
+              var am = Math.atan2(my - ccy, mx - ccx);
+              var TWO = Math.PI * 2;
+              function nrm(t) { t %= TWO; if (t < 0) t += TWO; return t; }
+              var ccw = nrm(am - a0) < nrm(a1 - a0);
+              var t = atEnd ? a1 : a0;
+              var dirn = ccw ? 1 : -1;
+              return { x: -Math.sin(t) * dirn, y: Math.cos(t) * dirn };
+            }
+
+            // WELD a pending arc's ends onto the neighbour's square cut when
+            // the arc runs almost in line with it - the same rule the model
+            // build uses (weld_corner! in wall_tool.rb). Without this the
+            // BLUE preview shows a little wedge notch at the seam that the
+            // built model no longer has (2026-08-12).
+            function weldPendingEnds(w, a, b2) {
+              [0, a.length - 1].forEach(function(idx) {
+                var isEnd = idx !== 0;
+                var P = isEnd ? { x: w.ex, y: w.ey } : { x: w.sx, y: w.sy };
+                var partner = null;
+                pending.concat(walls).forEach(function(o) {
+                  if (o === w || partner) return;
+                  if (Math.hypot(o.sx - P.x, o.sy - P.y) < 1.0 ||
+                      Math.hypot(o.ex - P.x, o.ey - P.y) < 1.0) partner = o;
+                });
+                if (!partner) return;
+                var pb = bandQuad(partner); if (!pb) return;
+                var tan = arcTangentAt(w.sx, w.sy, w.ex, w.ey, w.sag, isEnd);
+                if (!tan) return;
+                // Only the near-straight continuation is welded; a real
+                // corner keeps its own drawing.
+                if (Math.abs(pb.ux * tan.x + pb.uy * tan.y) < 0.82) return;
+                var s1 = { x: P.x + pb.nx * pb.p, y: P.y + pb.ny * pb.p };
+                var s2 = { x: P.x + pb.nx * pb.q, y: P.y + pb.ny * pb.q };
+                var dd = function(p, q) { return Math.hypot(p.x - q.x, p.y - q.y); };
+                // pair the two cuts by nearness, never crossed
+                var st = dd(a[idx], s1) + dd(b2[idx], s2);
+                var cr = dd(a[idx], s2) + dd(b2[idx], s1);
+                var sa = st <= cr ? s1 : s2, sb = st <= cr ? s2 : s1;
+                var da = dd(a[idx], sa), db = dd(b2[idx], sb);
+                // Same rule as weld_corner! in wall_tool.rb: cuts that almost
+                // coincide snap fully; opposite-side cuts pull only the
+                // touching lip onto the neighbour's FAR lip (a shoulder).
+                if (Math.max(da, db) <= Math.max(w.th || 5, partner.th || 5) * 1.2) {
+                  a[idx] = sa; b2[idx] = sb;
+                } else if (da <= db) {
+                  a[idx] = sb;
+                } else {
+                  b2[idx] = sa;
+                }
+              });
+            }
+
+            // A curved wall's closed outline. A model wall ships its exact
+            // footprint from Ruby ('fp'); a pending one is computed here.
+            function curvedOutline(w) {
+              if (w.fp && w.fp.length >= 8) {
+                var pts = [];
+                for (var i = 0; i < w.fp.length; i += 2) pts.push({ x: w.fp[i], y: w.fp[i + 1] });
+                return pts;
+              }
+              if (!w.sag || Math.abs(w.sag) < 0.0625) return null;
+              // pending walls are drawn bottom-left: faces at +th and 0
+              var a = arcSidePts(w.sx, w.sy, w.ex, w.ey, w.sag, w.th || 5, 16);
+              var b2 = arcSidePts(w.sx, w.sy, w.ex, w.ey, w.sag, 0, 16);
+              if (a && b2) weldPendingEnds(w, a, b2);
+              if (!a || !b2) return null;
+              return a.concat(b2.reverse());
+            }
+
             function drawWallBand(w, fillEx, fillIn, alpha, all) {
+              // Curved wall: draw the real outline and stop - the straight
+              // band maths below would flatten it back into a line.
+              var co = (w.fp || (w.sag && Math.abs(w.sag) >= 0.0625)) ? curvedOutline(w) : null;
+              if (co) {
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = (w.cat === 'interior') ? fillIn : fillEx;
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                co.forEach(function(p, i) { i ? ctx.lineTo(sx(p.x), sy(p.y)) : ctx.moveTo(sx(p.x), sy(p.y)); });
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.globalAlpha = 1;
+                return;
+              }
               var b = bandQuad(w); if (!b) return;
               var C = endCorners(w, all, b);
               var cuts = (w.ops || []).map(function(o){ return [o[0]-o[1]/2, o[0]+o[1]/2]; })
@@ -5903,7 +6199,13 @@ module InteriorPro
               var all = walls.concat(pending);
               walls.forEach(function(w){ drawWallBand(w, '#444', '#cfcfcf', 1, all); drawSyms(w); dimLabel(w, '#1a6ee0', all); });
               pending.forEach(function(w){ drawWallBand(w, '#2f6bd8', '#9db8e8', 1, all); dimLabel(w, '#e0392b', all); });
-              if (mode === 'wall' && drawing && startPt) {
+              if (mode === 'wall' && arcBow) {
+                drawWallBand(arcBow.w, '#2f6bd8', '#9db8e8', 0.5, all);
+                ctx.fillStyle = '#1a6ee0'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+                var mxb = (arcBow.sx + arcBow.ex) / 2, myb = (arcBow.sy + arcBow.ey) / 2;
+                ctx.fillText('קימור ' + fmtLen(Math.abs(arcBow.w.sag || 0)), sx(mxb) + 12, sy(myb) - 8);
+              }
+              if (mode === 'wall' && drawing && startPt && !arcBow) {
                 var end = currentEnd();
                 var w = tempWall(startPt, end);
                 drawWallBand(w, '#2f6bd8', '#9db8e8', 0.5, all);
@@ -5912,8 +6214,9 @@ module InteriorPro
                 ctx.beginPath(); ctx.moveTo(sx(startPt.x), sy(startPt.y)); ctx.lineTo(sx(end.x), sy(end.y)); ctx.stroke();
                 ctx.setLineDash([]);
                 var dd = Math.hypot(end.x - startPt.x, end.y - startPt.y);
+                var aDeg = Math.round((Math.atan2(startPt.y - end.y, end.x - startPt.x) * 180 / Math.PI + 360) % 360);
                 ctx.fillStyle = '#1a6ee0'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
-                ctx.fillText(fmtLen(dd), sx(end.x) + 12, sy(end.y) - 8);
+                ctx.fillText(fmtLen(dd) + '  ∠' + aDeg + '°', sx(end.x) + 12, sy(end.y) - 8);
                 if (shiftDown && lockDir) {   // locked-direction guide line
                   ctx.strokeStyle = '#c026d3'; ctx.lineWidth = 1;
                   ctx.setLineDash([2,4]);
@@ -5958,6 +6261,17 @@ module InteriorPro
             }
 
             function outlineBand(w, color) {
+              // A curved wall's highlight follows its real arc - never the
+              // old straight band (the user: "it marks the wall that WAS
+              // straight", 2026-08-12).
+              var co = (w.fp || (w.sag && Math.abs(w.sag) >= 0.0625)) ? curvedOutline(w) : null;
+              if (co && co.length >= 3) {
+                ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                co.forEach(function(p, i) { i ? ctx.lineTo(sx(p.x), sy(p.y)) : ctx.moveTo(sx(p.x), sy(p.y)); });
+                ctx.closePath(); ctx.stroke();
+                return;
+              }
               var b = bandQuad(w); if (!b) return;
               ctx.strokeStyle = color; ctx.lineWidth = 2.5;
               ctx.beginPath();
@@ -6211,11 +6525,34 @@ module InteriorPro
               hoverHit.ok = ok;
             }
 
+            // Is a point inside a closed polygon (ray cast)?
+            function pointInPoly(px, py, poly) {
+              var inside = false;
+              for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                var xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+                if (((yi > py) !== (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+              }
+              return inside;
+            }
+
             function hitWall(p) {
               var best = null;
               var tol = 8 / scale;
               walls.forEach(function(w){
                 if (!w.id) return;
+                // A curved wall is not a straight band - test its real outline,
+                // so clicking on the ARC selects it (not the old chord line).
+                var co = (w.fp || (w.sag && Math.abs(w.sag) >= 0.0625)) ? curvedOutline(w) : null;
+                if (co && co.length >= 3) {
+                  if (pointInPoly(p.x, p.y, co)) {
+                    var b0 = bandQuad(w);
+                    var t0 = b0 ? Math.max(0, Math.min(b0.len,
+                              (p.x - w.sx) * b0.ux + (p.y - w.sy) * b0.uy)) : 0;
+                    if (!best || best.score > 0) best = { w:w, b:b0, t:t0, off:0, score:0 };
+                  }
+                  return;
+                }
                 var b = bandQuad(w); if (!b) return;
                 var dx = p.x - w.sx, dy = p.y - w.sy;
                 var tt = dx*b.ux + dy*b.uy;
@@ -6569,7 +6906,7 @@ module InteriorPro
             }
 
             function currentEnd() {
-              var typedLen = parseLen(typed);
+              var typedLen = parseTypedLenPart(typed);
               if (shiftDown && lockDir && startPt) {
                 // Locked direction: any point (incl. endpoint snaps) projects
                 // onto the locked ray; typed length wins.
@@ -6581,12 +6918,52 @@ module InteriorPro
                 return typedLen ? lp2 : clampToBoundary(startPt, lp2);
               }
               var p = snapPoint(cursor, startPt);
+              // Typed "length<angle" (also / or @): aim to an EXACT angle and
+              // length, no mouse needed. Angle is degrees from the +X axis,
+              // counter-clockwise, like a protractor. Length alone still uses
+              // the mouse direction.
+              var av = parseTypedAngle(typed);
+              if (av !== null && startPt) {
+                var L = typedLen || Math.hypot(p.x - startPt.x, p.y - startPt.y) || 12;
+                var rad = av * Math.PI / 180;
+                return { x: startPt.x + Math.cos(rad) * L, y: startPt.y - Math.sin(rad) * L };
+              }
               if (typedLen && startPt) {
                 var dx = p.x - startPt.x, dy = p.y - startPt.y;
                 var d = Math.hypot(dx, dy);
                 if (d > 0.01) return { x: startPt.x + dx/d*typedLen, y: startPt.y + dy/d*typedLen };
               }
               return clampToBoundary(startPt, p);
+            }
+
+            // Pull the angle out of a "len<ang" / "len/ang" / "len@ang" string.
+            // Returns null when there is no angle part.
+            function parseTypedAngle(t) {
+              if (!t) return null;
+              var m = String(t).match(/[<\/@]\s*(-?\d+(?:\.\d+)?)/);
+              return m ? parseFloat(m[1]) : null;
+            }
+            // The length part is whatever sits before the angle separator.
+            function parseTypedLenPart(t) {
+              if (!t) return null;
+              return parseLen(String(t).split(/[<\/@]/)[0]);
+            }
+
+            var wallShape = 'straight';   // 'straight' | 'arc'
+            var arcBow = null;            // while bowing a just-placed arc wall: {w, sx,sy,ex,ey}
+            function setWallShape(sh) {
+              wallShape = (sh === 'arc') ? 'arc' : 'straight';
+              document.getElementById('wShapeStraight').className = wallShape === 'straight' ? 'on' : '';
+              document.getElementById('wShapeArc').className = wallShape === 'arc' ? 'on' : '';
+              document.getElementById('wArcHint').style.display = wallShape === 'arc' ? '' : 'none';
+              arcBow = null; draw();
+            }
+            // Signed sideways distance of a point from the start->end line,
+            // positive to the LEFT - the same convention as the wall bow.
+            function bowOf(sxp, syp, exp, eyp, px, py) {
+              var dx = exp - sxp, dy = eyp - syp, c = Math.hypot(dx, dy);
+              if (c < 1e-6) return 0;
+              return ((exp - sxp) * (py - syp) - (eyp - syp) * (px - sxp)) / c;
             }
 
             function commitSegment() {
@@ -6601,8 +6978,26 @@ module InteriorPro
                 w.sx = w.ex; w.sy = w.ey; w.ex = t2.x; w.ey = t2.y;
                 w.ha = 'left';
               }
+              if (wallShape === 'arc') {
+                // Second click of an arc wall: hold it and bow it with the
+                // next mouse move / typed value, then a third click commits.
+                arcBow = { w: w, sx: w.sx, sy: w.sy, ex: w.ex, ey: w.ey };
+                typed = ''; updateVcb(); draw();
+                return;
+              }
               if (!mergeCollinear(w)) pending.push(w);
               startPt = end; typed = ''; updateVcb(); draw();
+            }
+
+            // Third click (or typed value) of an arc wall: lock the bow in and
+            // drop the finished curved wall into pending.
+            function commitArcBow() {
+              if (!arcBow) return;
+              var sag = arcBow.w.sag || 0;
+              arcBow.w.sag = sag;
+              pending.push(arcBow.w);
+              startPt = { x: arcBow.ex, y: arcBow.ey };
+              arcBow = null; typed = ''; updateVcb(); draw();
             }
 
             // A wall drawn as an exact continuation of a pending wall (collinear,
@@ -6632,6 +7027,7 @@ module InteriorPro
               arcPts = []; circC = null; measA = null; measB = null;
               parInd = null;      // never let a stale parallel lock outlive the chain
               if (curLine) finishLine(false);
+              arcBow = null;
               drawing = false; startPt = null; typed = ''; updateVcb(); draw();
             }
             function updateVcb() { document.getElementById('vcb').innerHTML = typed ? typed : '&nbsp;'; }
@@ -6807,6 +7203,7 @@ module InteriorPro
                 }
                 return;
               }
+              if (arcBow) { cursor = p; commitArcBow(); return; }
               var ps = snapPoint(p, drawing ? startPt : null);
               if (!drawing) { drawing = true; startPt = ps; }
               else commitSegment();
@@ -6950,6 +7347,10 @@ module InteriorPro
               // Wall mode BEFORE the first click: work out the inference now, so
               // the green corner marker shows while you are still aiming - it
               // used to appear only once a wall was already started.
+              if (mode === 'wall' && arcBow) {
+                arcBow.w.sag = bowOf(arcBow.sx, arcBow.sy, arcBow.ex, arcBow.ey, cursor.x, cursor.y);
+                draw(); return;
+              }
               if (mode === 'wall' && !drawing) { snapPoint(cursor, null); draw(); return; }
               if (drawing) draw();
             }
@@ -7263,9 +7664,18 @@ module InteriorPro
                 return;
               }
               if (mode !== 'wall') return;
+              if (arcBow) {
+                if (ev.key === 'Enter') {
+                  var bv = parseFloat(typed);
+                  if (isFinite(bv)) arcBow.w.sag = Math.abs(bv) * ((arcBow.w.sag || 0) >= 0 ? 1 : -1);
+                  commitArcBow(); ev.preventDefault(); return;
+                }
+                if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
+                if (/^[0-9.-]$/.test(ev.key)) { typed += ev.key; updateVcb(); draw(); ev.preventDefault(); return; }
+              }
               if (ev.key === 'Enter') { if (drawing && typed) commitSegment(); return; }
               if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); if (drawing) draw(); ev.preventDefault(); return; }
-              if (/^[0-9.'" ]$/.test(ev.key)) { typed += ev.key; updateVcb(); if (drawing) draw(); }
+              if (/^[0-9.'"<\/@ -]$/.test(ev.key)) { typed += ev.key; updateVcb(); if (drawing) draw(); }
             });
 
             // ---- side panel (wall) ----

@@ -37,6 +37,14 @@ page template, page size (Arch D / Arch E / A1...), a fixed scale, images and
 dimensions. Check what the 2D editor and `plan_generator.rb` already do before
 building anything twice.
 
+## TODO the user asked to come back to (do not lose)
+
+- **Corner boards (siding trim): "נראות בסדר אבל יש עוד מה לשפר — למקסם"**
+  (2026-08-12). Current state: per-wall width picker (Off/2/3/4), closed 90°
+  overlap with the neighbour. Ideas for the polish round: a true single L
+  solid instead of two overlapping boards, trim around window/door openings,
+  cap the top edge.
+
 ## Kill switches (turn a feature off without deleting it)
 
 - `InteriorPro::WallTool::USE_CURVED_WALLS = false` - every wall builds
@@ -69,19 +77,36 @@ the bow just follows the ends.
   `arc_math.rb` - on a half circle the straight-line test flips on floating
   point noise and would swap a wall's inside and outside).
 
-### Curved walls - corners (fixed 2026-08-11)
+### Curved walls - corners are WELDED, never mitered (2026-08-12)
 
-A curved wall reports its TANGENT at each end, not the straight line between
-its ends (`WallTool.corner_direction_xy`). `apply_miter` uses that, so the
-neighbour gets cut at the right angle. Its own ends are cut radially
-(`curved_end_corners_xy`), and `apply_corner_overrides` swaps the four stored
-`corners_xy` into the built curve, so a miter reaches a curved wall the same
-way it reaches a straight one. `set_wall_sag!` resets the corners and re-runs
-`join_corners` afterwards.
+THE RULE (replaced the 2026-08-11 tangent-miter after it kept producing
+spikes, steps and tilted walls on the user's rooms): a same-category corner
+with a curve in it ALWAYS goes through `weld_corner!` in `apply_miter`.
+The miter math measures face offsets from straight centrelines and lands
+the cut sideways on a curve - do not bring it back.
 
-STRAIGHT-TO-STRAIGHT CORNERS ARE UNTOUCHED. The tangent swap and the
-centreline reference point both sit behind `curved_corner`, so a corner with
-no curve in it runs the identical old code. `tests/rt22.rb` guards this.
+`weld_corner!`: the STRAIGHT wall (owner) keeps its FULL length and its own
+plain square cut - never pulled back, never tilted. The curved wall (guest)
+is fitted to it: if the two natural cuts nearly coincide (same-side bands)
+the guest snaps EXACTLY onto the owner's cut - one shared seam; otherwise
+(opposite-side bands) only the touching lip is pulled onto the owner's FAR
+lip, a small shoulder that hides the owner's end cap. Verified by RENDERING
+the user's exact rooms (sim in the 2026-08-12 session). `tests/rt31.rb`
+pins both branches; `rt30.rb` pins the reach-cap safety net. The 2D editor
+mirrors the same rule for pending walls (`weldPendingEnds` in
+plan_editor.rb, `tests/t34.js`) and ships built walls' footprints WITH
+their corner overrides, so 2D and 3D always draw the same seam.
+Known small case: an INWARD-bulging arc meeting a wall at a shallow angle
+can leave a tooth-sized overlap on the outside - accepted for now.
+
+`fix_corners_once.rb` (project root) = one console line that reloads the
+code, VERIFIES the new code actually loaded, re-joins every corner and
+checks every curve seam. Use it after any corner-code change - twice this
+session "nothing changed" turned out to be stale loaded code.
+
+STRAIGHT-TO-STRAIGHT CORNERS ARE UNTOUCHED. Everything above sits behind
+`curved_corner`, so a corner with no curve in it runs the identical old
+code. `tests/rt22.rb` guards this.
 
 ### Curved walls - NOT wired up yet (deliberate, do not treat as bugs)
 
@@ -90,8 +115,12 @@ no curve in it runs the identical old code. `tests/rt22.rb` guards this.
   line, not the tangent.
 - Board and Batten strips are left off a curved wall.
 - `plan_generator.rb` draws it as a straight line in the 2D plan.
-- `RoofManager.eave_polygon` treats it as a straight segment.
-- The 2D editor cannot draw or bend a curved wall at all.
+- `RoofManager.eave_polygon` treats it as a straight segment. (NEXT UP -
+  the user asked for roof over a curved wall after corners closed.)
+
+(The 2D editor DOES draw and bend curved walls now, 2026-08-12: typed bow
+in the עובי·קשת panel - typed plus = OUTWARD, stored sag is the negative,
+see uiSagToModel/modelSagToUi and tests/t33.js.)
 
 ### Curved walls - the 3-click Arc tool (2026-08-11)
 
