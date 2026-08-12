@@ -31,6 +31,20 @@ module InteriorPro
 
     EPS = 1e-9 unless const_defined?(:EPS, false)
     NODE_TOL = 0.05 unless const_defined?(:NODE_TOL, false) # skeleton graph merge, inches
+    # How smoothly a CURVED eave is faceted, in inches of bulge between one
+    # facet and the true arc. Deliberately coarser than a wall's own 1/8":
+    # the roof is read from further away and every extra facet is another
+    # edge the straight skeleton has to chew through (same reasoning as
+    # SIDING_CURVE_TOL).
+    ROOF_CURVE_TOL = 1.5 unless const_defined?(:ROOF_CURVE_TOL, false)
+    # Where a CURVED wall runs into its neighbour tangentially, the eave barely
+    # turns - typically half a facet angle - so the hip the skeleton raises
+    # there is a whisker of a crease, not a corner. A ridge cap on it reads as
+    # a scar across a smooth roof (user 2026-08-12B, seeing his own house:
+    # "I would be glad to drop the ridge cap at the join on the sides, I do not
+    # think it is needed"). A corner that turns LESS than this keeps its hip
+    # but loses its cap. Straight-to-straight corners are never touched.
+    SOFT_CORNER_DEG = 30.0 unless const_defined?(:SOFT_CORNER_DEG, false)
 
     # ---------- lookup ----------
 
@@ -203,48 +217,185 @@ module InteriorPro
     # Mirror of RoomManager.inner_boundary, offset to the OTHER side:
     # each loop edge moves outward by half its wall thickness + overhang.
     # Returns [[point, wall_id_of_the_edge_starting_here], ...].
+    #
+    # CURVED WALLS (2026-08-12). A bowed wall is no longer flattened to its
+    # chord here. Its eave is the CONCENTRIC arc - the wall's centreline
+    # circle pushed out by half the thickness plus the overhang - cut at both
+    # ends against its neighbours' own eaves, then chopped into short straight
+    # pieces. Every one of those pieces carries the SAME wall id, so the roof
+    # downstream (fascia, gable marks, cells) still knows which wall it is
+    # standing on. A straight wall runs the identical code it always did.
     def self.outer_offset(poly, loop_edges, overhang)
-      rm = InteriorPro::RoomManager
       n = poly.length
-      lines = []
+      rails = []
       n.times do |i|
         p = poly[i]
         q = poly[(i + 1) % n]
         ref = Geom::Vector3d.new(q.x - p.x, q.y - p.y, 0)
         return nil if ref.length < 0.01
-
-        edge = loop_edges[i]
-        th = edge ? edge[:th].to_f : 0.0
-        seg = edge && edge[:wall] ? rm.centerline(edge[:wall]) : nil
-        if seg
-          s = seg[:s]
-          e = seg[:e]
-          d = Geom::Vector3d.new(e.x - s.x, e.y - s.y, 0)
-          d.reverse! if d % ref < 0
-          base = s
-        else
-          d = ref
-          base = p
-        end
-        len = d.length
-        k = th / 2.0 + overhang.to_f
-        off = Geom::Vector3d.new(d.y / len * k, -d.x / len * k, 0) # right = exterior
-        lines << [base + off, d]
+        r = eave_rail(loop_edges[i], ref, p, overhang)
+        return nil unless r
+        rails << r
       end
+
+      corners = Array.new(n) { |i| rail_corner(rails[(i - 1) % n], rails[i]) }
+      return nil if corners.any?(&:nil?)
+
       out = []
       n.times do |i|
-        prev = lines[(i - 1) % n]
-        cur  = lines[i]
-        pt = Geom.intersect_line_line(prev, cur)
-        pt ||= cur[0]
         edge = loop_edges[i]
         wid = edge && edge[:wall] ? edge[:wall].get_attribute('InteriorPro', 'id') : nil
-        out << [Geom::Point3d.new(pt.x, pt.y, 0), wid]
+        pts = if rails[i][:kind] == :arc
+                facet_rail(rails[i][:arc], corners[i], corners[(i + 1) % n])
+              else
+                [corners[i]]
+              end
+        pts.each { |pt| out << [Geom::Point3d.new(pt[0], pt[1], 0), wid] }
       end
       dedup = []
       out.each { |p| dedup << p if dedup.empty? || dedup.last[0].distance(p[0]) > 0.01 }
       dedup.pop if dedup.length > 1 && dedup.first[0].distance(dedup.last[0]) < 0.01
       dedup.length < 3 ? nil : dedup
+    end
+
+    # The wall's CENTRELINE as an arc in world XY, or nil when the wall is
+    # straight (no arc_sag), when the curve maths is not loaded, or when the
+    # bow is so tight that the centreline would swallow its own centre.
+    # Exactly what RoomManager.centerline describes - the drawn line pushed
+    # sideways by the anchor - only kept as a circle instead of a chord.
+    def self.wall_center_arc(wall)
+      return nil unless wall && wall.valid?
+      return nil unless defined?(InteriorPro::WallTool) && defined?(InteriorPro::ArcMath)
+      wt = InteriorPro::WallTool
+      am = InteriorPro::ArcMath
+      return nil unless wt.curved_wall?(wall)
+
+      t  = wall.transformation
+      sx = wall.get_attribute('InteriorPro', 'start_x')
+      sy = wall.get_attribute('InteriorPro', 'start_y')
+      ex = wall.get_attribute('InteriorPro', 'end_x')
+      ey = wall.get_attribute('InteriorPro', 'end_y')
+      return nil if sx.nil? || ex.nil?
+      s = Geom::Point3d.new(sx.to_f, sy.to_f, 0).transform(t)
+      e = Geom::Point3d.new(ex.to_f, ey.to_f, 0).transform(t)
+
+      arc = am.from_chord_and_sag(s.x, s.y, e.x, e.y, wt.wall_sag(wall))
+      return nil unless arc
+
+      th = wall.get_attribute('InteriorPro', 'thickness').to_f
+      anchor = (wall.get_attribute('InteriorPro', 'anchor') || 'bottom-center').to_s
+      h = anchor == 'center' ? 'center' : (anchor.split('-')[1] || 'center')
+      o_pos, o_neg = wt.anchor_side_offsets(th, h)
+      am.offset(arc, (o_pos + o_neg) / 2.0)
+    rescue StandardError => e2
+      puts "[Roof] wall_center_arc: #{e2.message}"
+      nil
+    end
+
+    # One edge of the eave, ready to be crossed with its neighbours. A straight
+    # wall gives a LINE, a curved one an ARC - both already pushed out by half
+    # the thickness plus the overhang, and both already running the way the
+    # loop runs. nil only when the edge is degenerate.
+    def self.eave_rail(edge, ref, fallback_base, overhang)
+      rm = InteriorPro::RoomManager
+      wall = edge && edge[:wall]
+      th = edge ? edge[:th].to_f : 0.0
+      k = th / 2.0 + overhang.to_f
+
+      arc = wall ? wall_center_arc(wall) : nil
+      if arc
+        am = InteriorPro::ArcMath
+        sp = am.start_point(arc)
+        ep = am.end_point(arc)
+        along = ((ep[0] - sp[0]) * ref.x) + ((ep[1] - sp[1]) * ref.y)
+        arc = am.reverse(arc) if along < 0.0     # walk it the loop's way
+        pushed = am.offset(arc, -k)              # right of travel = exterior
+        return { kind: :arc, arc: pushed } if pushed
+      end
+
+      seg = wall ? rm.centerline(wall) : nil
+      if seg
+        s = seg[:s]
+        e = seg[:e]
+        d = Geom::Vector3d.new(e.x - s.x, e.y - s.y, 0)
+        d.reverse! if d % ref < 0
+        base = s
+      else
+        d = ref
+        base = fallback_base
+      end
+      len = d.length
+      return nil if len < 1e-9
+      off = Geom::Vector3d.new(d.y / len * k, -d.x / len * k, 0) # right = exterior
+      { kind: :line, base: base + off, dir: d }
+    end
+
+    # Where two neighbouring eave rails cross, as [x, y].
+    # Straight/straight is the plain line intersection the roof always used.
+    # With a curve in it the maths stays closed-form - a line meets a circle,
+    # or two circles meet - and the right root is simply the one nearest where
+    # the rail already ends. No guessing, no tolerance fiddling.
+    def self.rail_corner(prev, cur)
+      return nil if prev.nil? || cur.nil?
+      am = InteriorPro::ArcMath if defined?(InteriorPro::ArcMath)
+
+      if prev[:kind] == :line && cur[:kind] == :line
+        pt = Geom.intersect_line_line([prev[:base], prev[:dir]], [cur[:base], cur[:dir]])
+        pt ||= cur[:base]
+        return [pt.x, pt.y]
+      end
+      return nil unless am
+
+      if prev[:kind] == :arc && cur[:kind] == :arc
+        a = prev[:arc]
+        b = cur[:arc]
+        ref = am.end_point(a)
+        hit = am.nearest_point(am.circle_circle(a[:cx], a[:cy], a[:r],
+                                                b[:cx], b[:cy], b[:r]), ref[0], ref[1])
+        return hit if hit
+        # Two circles that never meet: halfway along the line of centres, at
+        # each circle's own closest approach.
+        d = am.dist(a[:cx], a[:cy], b[:cx], b[:cy])
+        return ref if d < 1e-9
+        ux = (b[:cx] - a[:cx]) / d
+        uy = (b[:cy] - a[:cy]) / d
+        return [((a[:cx] + ux * a[:r]) + (b[:cx] - ux * b[:r])) / 2.0,
+                ((a[:cy] + uy * a[:r]) + (b[:cy] - uy * b[:r])) / 2.0]
+      end
+
+      arc  = prev[:kind] == :arc ? prev[:arc] : cur[:arc]
+      line = prev[:kind] == :arc ? cur : prev
+      ref  = prev[:kind] == :arc ? am.end_point(arc) : am.start_point(arc)
+      hit = am.nearest_point(am.line_circle(line[:base].x, line[:base].y,
+                                            line[:dir].x, line[:dir].y,
+                                            arc[:cx], arc[:cy], arc[:r]), ref[0], ref[1])
+      return hit if hit
+      # A big bulge can carry the curve's eave circle clear PAST its
+      # neighbour's eave line, so they never cross. The straight run must not
+      # be tilted to chase it (that would slope a whole fascia board): the
+      # straight eave stays exactly where it is and the corner is put at the
+      # nearest point on it, which the curve then reaches for. Same rule the
+      # wall corners use - the straight one owns the seam.
+      am.closest_point_on_line(line[:base].x, line[:base].y,
+                               line[:dir].x, line[:dir].y,
+                               arc[:cx], arc[:cy])
+    end
+
+    # A curved eave as the short straight pieces the roof is really built from:
+    # the arc cut back to its two corners, then sampled. The LAST sample is
+    # dropped - it is the next edge's corner, and that edge emits it.
+    def self.facet_rail(arc, c0, c1)
+      am = InteriorPro::ArcMath
+      cut = am.retrim(arc, c0, c1)
+      return [c0] unless cut
+      pts = am.chord_points(cut, ROOF_CURVE_TOL)
+      return [c0] if pts.nil? || pts.length < 2
+      pts[0] = c0            # sit exactly on the corner, not a rounded copy
+      pts.pop
+      pts
+    rescue StandardError => e
+      puts "[Roof] facet_rail: #{e.message}"
+      [c0]
     end
 
     # ---------- tiny 2D vector helpers ([x, y] arrays) ----------
@@ -798,7 +949,8 @@ module InteriorPro
       if s[:ridge_cap] && s[:style] != 'flat'
         cap_faces = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
                                : shell_before
-        build_ridge_caps!(grp, ridge_lines(cap_faces), slope, roof_mat)
+        build_ridge_caps!(grp, drop_facet_hips(ridge_lines(cap_faces), poly, wall_ids),
+                          slope, roof_mat)
       end
 
       # Fascia + drip edge tuck UNDER the roof edge (user 2026-08-05: the
@@ -1077,6 +1229,27 @@ module InteriorPro
       nil
     end
 
+    # WHICH SIDE of a shared edge a face actually lies on (2026-08-12B).
+    #
+    # The obvious answer - compare the face's CENTRE of gravity with the middle
+    # of the edge - is wrong for the long L-shaped cells a hip roof grows over a
+    # wing: the centre can sit past the edge's own line, the face is filed on
+    # the wrong side, and a perfectly good ridge is thrown away as "both planes
+    # on one side". That is exactly what left the user's wing ridge bare.
+    #
+    # Instead step a whisker off the middle of the edge, once each way, and ask
+    # the face's own outline which step landed inside it. nil when neither or
+    # both do (a face folded back on itself) - the caller then falls back to the
+    # old centre-of-gravity guess.
+    def self.face_side_of_edge(flat, mid, u, eps = 0.25)
+      return nil if flat.nil? || flat.length < 3
+      plus  = point_in_poly?(flat, mid[0] + u[0] * eps, mid[1] + u[1] * eps)
+      minus = point_in_poly?(flat, mid[0] - u[0] * eps, mid[1] - u[1] * eps)
+      return 1.0 if plus && !minus
+      return -1.0 if minus && !plus
+      nil
+    end
+
     # Ridge AND hip lines, read straight off the faces that were built so
     # this works for every style without repeating the roof maths.
     #
@@ -1104,10 +1277,11 @@ module InteriorPro
           ka = [a.x.round(3), a.y.round(3)]
           kb = [b.x.round(3), b.y.round(3)]
           next if ka == kb
+          flat = pts.map { |q| [q.x.to_f, q.y.to_f] }
           if (ka <=> kb) <= 0
-            edges[[ka, kb]] << [a.z, b.z, grad, cen]
+            edges[[ka, kb]] << [a.z, b.z, grad, cen, flat]
           else
-            edges[[kb, ka]] << [b.z, a.z, grad, cen]
+            edges[[kb, ka]] << [b.z, a.z, grad, cen, flat]
           end
         end
       end
@@ -1122,8 +1296,9 @@ module InteriorPro
         d = vnorm(seg)
         u = [-d[1], d[0]]
         mid = [(ka[0] + kb[0]) / 2.0, (ka[1] + kb[1]) / 2.0]
-        sides = recs.map do |(_za, _zb, grad, cen)|
-          s = vdot(u, vsub(cen, mid)) >= 0.0 ? 1.0 : -1.0
+        sides = recs.map do |(_za, _zb, grad, cen, flat)|
+          s = face_side_of_edge(flat, mid, u)
+          s ||= vdot(u, vsub(cen, mid)) >= 0.0 ? 1.0 : -1.0
           [s, (grad[0] * u[0] + grad[1] * u[1]) * s]
         end
         next unless sides.all? { |(_s, dz)| dz < -1.0e-6 } # a valley climbs
@@ -1131,6 +1306,74 @@ module InteriorPro
         out << [ka, za, kb, zb, sides.uniq { |(s, _dz)| s }]
       end
       out
+    end
+
+    # Eave corners that are NOT real corners: the joins between two facets of
+    # ONE curved wall. Edge i and edge i+1 carry the same wall id there, so the
+    # vertex between them (poly[i + 1]) is a seam in the faceting, not a place
+    # where two walls meet.
+    def self.facet_hip_points(poly, wall_ids)
+      return [] unless poly && wall_ids
+      n = poly.length
+      out = []
+      n.times do |i|
+        j = (i + 1) % n
+        next if wall_ids[i].nil?
+        out << poly[j] if wall_ids[i] == wall_ids[j]
+      end
+      out
+    end
+
+    # Eave corners that ARE real corners (two different walls) but barely turn,
+    # with a CURVED wall on at least one side - the tangential join where an
+    # arc runs out into the straight wall beside it. The hip stays; only its
+    # cap goes. A curved wall is spotted the same way facet_hip_points spots
+    # it: its id owns more than one edge of the loop.
+    #
+    # A corner between two STRAIGHT walls is never returned here, however
+    # shallow it is, so a plain roof keeps every cap it ever had.
+    def self.soft_hip_points(poly, wall_ids, max_deg = SOFT_CORNER_DEG)
+      return [] unless poly && wall_ids
+      n = poly.length
+      return [] if n < 3
+      faceted = wall_ids.compact.tally.select { |_id, c| c > 1 }.keys
+      return [] if faceted.empty?
+      lim = max_deg * Math::PI / 180.0
+      out = []
+      n.times do |i|
+        j = (i + 1) % n
+        k = (j + 1) % n
+        next if wall_ids[i].nil? || wall_ids[j].nil?
+        next if wall_ids[i] == wall_ids[j]                       # a facet seam
+        next unless faceted.include?(wall_ids[i]) || faceted.include?(wall_ids[j])
+        a = vsub(poly[j], poly[i])
+        b = vsub(poly[k], poly[j])
+        next if vlen(a) < 1.0e-9 || vlen(b) < 1.0e-9
+        turn = Math.atan2(vcross(a, b), vdot(a, b)).abs
+        out << poly[j] if turn < lim
+      end
+      out
+    end
+
+    # Drop the ridge lines that are only there because a curve was faceted.
+    #
+    # A curved wall reaches the roof as a run of short straight pieces, and the
+    # straight skeleton dutifully raises a hip between every neighbouring pair
+    # - a fan of rays across what is really ONE smooth surface (user, seeing
+    # the first curved hip roof: "on the round part I do not need all these
+    # ridge caps, only where it joins the other roof"). Those rays are an
+    # artefact of the faceting, so they get no cap. Since 2026-08-12B the
+    # TANGENTIAL join at each end of the curve loses its cap too - see
+    # soft_hip_points. Every hip between two walls that really do turn, and
+    # every real ridge, is untouched.
+    def self.drop_facet_hips(lines, poly, wall_ids, tol = 0.25)
+      pts = facet_hip_points(poly, wall_ids) + soft_hip_points(poly, wall_ids)
+      return lines if pts.empty?
+      lines.reject do |line|
+        ka = line[0]
+        kb = line[2]
+        pts.any? { |p| vlen(vsub(ka, p)) < tol || vlen(vsub(kb, p)) < tol }
+      end
     end
 
     # Lay the caps along one line as pieces that LAP each other. Each
