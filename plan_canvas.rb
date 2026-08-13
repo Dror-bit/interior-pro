@@ -76,10 +76,13 @@ module InteriorPro
       def transform!(t)
         p0 = Geom::Point3d.new(0, 0, 0).transform(t)
         p1 = Geom::Point3d.new(1, 0, 0).transform(t)
-        @ang += Math.atan2(p1.y - p0.y, p1.x - p0.x)
+        @ang += Math.atan2(p1.y.to_f - p0.y.to_f, p1.x.to_f - p0.x.to_f)
         @pos = @pos.transform(t)
-        @shape[:x]        = @pos.x
-        @shape[:y]        = @pos.y
+        # to_f is not decoration: SketchUp hands back Length objects, and a
+        # Length turns into a STRING in JSON. That is what made the sheet
+        # window come up blank on 2026-08-12.
+        @shape[:x]        = @pos.x.to_f
+        @shape[:y]        = @pos.y.to_f
         @shape[:rotation] = @ang * 180.0 / Math::PI
         self
       end
@@ -121,9 +124,12 @@ module InteriorPro
 
       def add_circle(center, _normal, radius, segments = CIRCLE_SEGMENTS)
         n = [segments.to_i, 3].max
+        cx = center.x.to_f
+        cy = center.y.to_f
+        r  = radius.to_f
         pts = (0...n).map do |i|
           a = 2.0 * Math::PI * i / n
-          [center.x + Math.cos(a) * radius, center.y + Math.sin(a) * radius]
+          [cx + Math.cos(a) * r, cy + Math.sin(a) * r]
         end
         push(type: :polyline, points: pts + [pts.first], closed: true)
         []
@@ -148,7 +154,8 @@ module InteriorPro
           keep = list.reject { |s| s[:dead] || (s[:type] == :text && s[:text].to_s.empty?) }
           next if keep.empty?
           lay = canvas.layer(name)
-          keep.each { |s| lay.shapes << s }
+          # numbers!: SketchUp Lengths in, plain Floats out (see plan_doc.rb)
+          keep.each { |s| lay.shapes << lay.numbers!(s) }
         end
         canvas
       end

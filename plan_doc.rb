@@ -115,11 +115,30 @@ module InteriorPro
         @locked  = false
       end
 
+      # Anything that is a measurement has to end up a plain Float. SketchUp
+      # hands back Length objects, and JSON turns a Length into a string like
+      # "~ 12' 3\"" - which makes every sum in the sheet window NaN and the
+      # page come up blank (2026-08-12). Caught here once, for every caller.
+      NUM_KEYS = %i[x y x1 y1 x2 y2 w h weight spacing angle rotation row_h
+                    tracking].freeze unless const_defined?(:NUM_KEYS, false)
+
       def add(type, props = {})
         t = type.to_sym
         raise ArgumentError, "unknown shape #{type.inspect}" unless SHAPE_TYPES.include?(t)
         shape = { type: t }.merge(props)
+        numbers!(shape)
         @shapes << shape
+        shape
+      end
+
+      def numbers!(shape)
+        NUM_KEYS.each { |k| shape[k] = shape[k].to_f if shape[k].is_a?(Numeric) }
+        if shape[:points].is_a?(Array)
+          shape[:points] = shape[:points].map { |p| [p[0].to_f, p[1].to_f] }
+        end
+        if shape[:col_widths].is_a?(Array)
+          shape[:col_widths] = shape[:col_widths].map(&:to_f)
+        end
         shape
       end
 
@@ -226,7 +245,10 @@ module InteriorPro
           end
         end
         return nil if xs.empty?
-        [xs.min, ys.min, xs.max, ys.max]
+        # Plain Floats, always. A SketchUp Length looks like a number in Ruby
+        # but turns into "~ 12' 3\"" in JSON, and then every sum in the sheet
+        # window becomes NaN (2026-08-12).
+        [xs.min.to_f, ys.min.to_f, xs.max.to_f, ys.max.to_f]
       end
 
       def to_h
