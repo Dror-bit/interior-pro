@@ -715,6 +715,15 @@ module InteriorPro
           dlg.execute_script("planDone(#{ok ? 'true' : 'false'})")
         end
 
+        # Straight from the 2D editor to the sheet window (2026-08-12).
+        dlg.add_action_callback('open_sheet') do |_|
+          begin
+            InteriorPro::PlanSheetDialog.show
+          rescue StandardError => e
+            puts "[PlanEditor] open_sheet: #{e.message}"
+          end
+        end
+
         dlg.set_html(build_html)
         dlg.set_on_closed { detach_undo_observer }
         attach_undo_observer(dlg)
@@ -2030,6 +2039,7 @@ module InteriorPro
             <span class="title">Interior Pro - 2D Editor</span>
             <button id="applyBtn" class="blue" onclick="applyPending()">Apply to Model</button>
             <button class="gray" onclick="sketchup.build_plan()">Plans (2D)</button>
+            <button class="gray" onclick="sketchup.open_sheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
             <button class="gray" onclick="sketchup.sync_model()">Sync</button>
           </div>
           <div id="main">

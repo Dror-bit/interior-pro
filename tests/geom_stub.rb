@@ -16,6 +16,13 @@ module Geom
     def dot(o); (@x * o.x) + (@y * o.y) + (@z * o.z); end
     def clone; Vector3d.new(@x, @y, @z); end
     def valid?; length > 0; end
+    # A direction is TURNED by a transformation but never shifted.
+    # (2026-08-12, rt40: plan_generator turns wall directions into world
+    # space when it draws the dimension chains.)
+    def transform(t)
+      return self if t.nil?
+      Vector3d.new(t.m00 * @x + t.m01 * @y, t.m10 * @x + t.m11 * @y, @z)
+    end
   end
 
   class Point3d

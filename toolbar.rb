@@ -347,7 +347,8 @@ module InteriorPro
     # (TOOLBAR_ITEM_COUNT) would skip any item added there now.
     def self.setup_2d_toolbar
       tb = UI::Toolbar.new('Interior Pro 2D')
-      return if tb.length >= 1
+      # two buttons now: the 2D editor and the sheet window (2026-08-12).
+      return if tb.length >= 2
 
       editor_cmd = UI::Command.new('2D Editor') {
         InteriorPro::PlanEditor.show
@@ -357,6 +358,17 @@ module InteriorPro
       editor_cmd.small_icon = icon_path('plan_2d')
       editor_cmd.large_icon = icon_path('plan_2d')
       tb.add_item(editor_cmd)
+
+      # The sheet window: page, scale, layers, PDF (2026-08-12). A button,
+      # not a menu item - the user asked for it where he can see it.
+      sheet_cmd = UI::Command.new('Sheet') {
+        InteriorPro::PlanSheetDialog.show
+      }
+      sheet_cmd.tooltip = 'Sheet - the page, the scale and the PDF'
+      sheet_cmd.status_bar_text = 'Open the sheet window: page size, scale, layers, export PDF'
+      sheet_cmd.small_icon = icon_path('sheet_pdf')
+      sheet_cmd.large_icon = icon_path('sheet_pdf')
+      tb.add_item(sheet_cmd)
 
       tb.restore
     end
@@ -540,6 +552,17 @@ module InteriorPro
       }
       menu.add_item('2D Plan: Remove') {
         InteriorPro::PlanGenerator.remove_all!
+      }
+      # The sheet window (2026-08-12): see the page before it prints.
+      menu.add_item('Sheet: Page + PDF') {
+        InteriorPro::PlanSheetDialog.show
+      }
+
+      # One click instead of restarting SketchUp after a code change
+      # (2026-08-12). New menu items still need a restart - SketchUp
+      # cannot take a menu item away once it is there.
+      menu.add_item('Reload Interior Pro') {
+        InteriorPro.reload!
       }
     end
   end

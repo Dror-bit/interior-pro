@@ -376,7 +376,8 @@ module InteriorPro
 
     class Document
       attr_reader :pages, :canvases
-      attr_accessor :project_name, :job_address, :logo_path, :date, :units
+      attr_accessor :project_name, :job_address, :logo_path, :date, :units,
+                    :schedules
 
       def initialize(project_name = '')
         @project_name = project_name.to_s
@@ -386,6 +387,8 @@ module InteriorPro
         @units        = :inch
         @pages        = []
         @canvases     = []
+        # plain rows for the door/window tables, filled by plan_canvas
+        @schedules    = { 'doors' => [], 'windows' => [] }
       end
 
       def canvas(name)
@@ -414,8 +417,8 @@ module InteriorPro
       def to_h
         { version: VERSION, project_name: @project_name,
           job_address: @job_address, logo_path: @logo_path, date: @date,
-          units: @units, canvases: @canvases.map(&:to_h),
-          pages: @pages.map(&:to_h) }
+          units: @units, schedules: @schedules,
+          canvases: @canvases.map(&:to_h), pages: @pages.map(&:to_h) }
       end
     end
 
@@ -446,7 +449,8 @@ module InteriorPro
       col_w  = opts[:label_width] || 2.6
 
       view = opts[:scale_from] ? page.view(opts[:scale_from]) : page.views.first
-      scale_str = view ? PlanDoc.scale_text(view.scale) : ''
+      # a sheet with no drawing on it (a table sheet) is not to any scale
+      scale_str = view ? PlanDoc.scale_text(view.scale) : 'N.T.S.'
 
       rows = [
         ['Job address :', doc.job_address.to_s],

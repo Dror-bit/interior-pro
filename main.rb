@@ -49,6 +49,10 @@ module InteriorPro
       molding_dialog.rb
       plan_doc.rb
       plan_generator.rb
+      plan_tables.rb
+      plan_canvas.rb
+      plan_pdf.rb
+      plan_sheet_dialog.rb
       plan_editor.rb
       toolbar.rb
     ]
@@ -188,9 +192,33 @@ module InteriorPro
     puts "[InteriorPro] assign_tag failed: #{e.message}"
   end
 
+  # Reload everything WITHOUT restarting SketchUp (2026-08-12).
+  #
+  # It reloads main.rb itself first, not just the files main.rb knew about
+  # last time - otherwise a brand new file added to plugin_files would never
+  # be picked up and only a restart would help.
+  #
+  # Then it re-runs the small toolbars. Each of those has a length guard, so
+  # calling them again either adds a button that is missing or does nothing.
+  # The MENU is deliberately left alone: SketchUp cannot remove a menu item,
+  # so re-running it would list everything twice.
   def self.reload!
-    load_files
-    puts 'InteriorPro: classes reloaded (toolbar/menu preserved).'
+    load File.join(PLUGIN_DIR, 'main.rb')
+    refresh_toolbars!
+    puts 'InteriorPro: reloaded. (New menu ITEMS still need a restart.)'
+    nil
+  end
+
+  def self.refresh_toolbars!
+    return unless const_defined?(:Toolbar, false)
+    %i[setup_2d_toolbar setup_floors_toolbar setup_roofs_toolbar].each do |m|
+      next unless InteriorPro::Toolbar.respond_to?(m)
+      begin
+        InteriorPro::Toolbar.send(m)
+      rescue StandardError => e
+        puts "[InteriorPro] #{m}: #{e.message}"
+      end
+    end
     nil
   end
 end
