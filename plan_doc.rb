@@ -354,6 +354,11 @@ module InteriorPro
       include HasLayers
       attr_reader :name, :width, :height
       attr_accessor :number, :size_name, :orientation, :margin, :views
+      # What kind of sheet this is ('plan', 'schedules', 'image') and, for a
+      # picture sheet, which picture in the user's list it came from. The sheet
+      # window shows one list of every page and lets him delete one; without
+      # these it would have to guess what deleting a page means.
+      attr_accessor :kind, :ref
 
       def initialize(name, size_name = DEFAULT_PAGE_SIZE,
                      orientation = DEFAULT_ORIENTATION, number = nil)
@@ -389,9 +394,14 @@ module InteriorPro
       def to_h
         { name: @name, number: @number, size_name: @size_name,
           orientation: @orientation, width: @width, height: @height,
-          margin: @margin, views: @views.map(&:to_h),
+          margin: @margin, kind: @kind, ref: @ref,
+          sheet_number: @sheet_number, views: @views.map(&:to_h),
           layers: layers.map(&:to_h) }
       end
+
+      # The number printed in the title block, kept so the page list in the
+      # window can show the same thing the paper will.
+      attr_accessor :sheet_number
     end
 
     # -------------------------------------------------------------- document
@@ -448,6 +458,7 @@ module InteriorPro
 
     TITLE_LAYER  = 'TITLE'  unless const_defined?(:TITLE_LAYER, false)
     TITLE_HEIGHT = 1.1      unless const_defined?(:TITLE_HEIGHT, false)
+    IMAGE_LAYER  = 'IMAGES' unless const_defined?(:IMAGE_LAYER, false)
 
     # Draws the user's own title block along the bottom of the sheet, in paper
     # inches. Left: job address over scale, each on a rule. Right: the logo.
@@ -523,6 +534,35 @@ module InteriorPro
                     fw - 2 * pad, fh - tb - 2 * pad,
                     opts[:canvas] || 'MODEL',
                     opts[:scale] || DEFAULT_SCALE)
+      build_title_block!(page, doc, opts)
+      page
+    end
+
+    # A whole sheet given over to ONE picture: it takes everything above the
+    # title block and nothing else is on the page (2026-08-14, the user asked
+    # for exactly this - "the simplest thing in the world").
+    #
+    # The box is the space; the picture keeps its own proportions inside it and
+    # sits in the middle. plan_pdf does that fitting, so what the window shows
+    # and what the PDF prints are worked out the same way.
+    def self.new_image_sheet(doc, name, path, opts = {})
+      page = doc.add_page(name,
+                          opts[:size] || DEFAULT_PAGE_SIZE,
+                          opts[:orientation] || DEFAULT_ORIENTATION)
+      place_image_full!(page, doc, path, opts)
+      page
+    end
+
+    def self.place_image_full!(page, doc, path, opts = {})
+      fx, fy, fw, fh = page.frame
+      tb  = (opts[:title_height] || TITLE_HEIGHT).to_f
+      pad = opts.key?(:image_pad) ? opts[:image_pad].to_f : 0.25
+      lay = page.layer(IMAGE_LAYER)
+      lay.shapes.clear
+      lay.image(path, fx + pad, fy + tb + pad,
+                fw - 2 * pad, fh - tb - 2 * pad,
+                frame: opts[:frame] ? true : false,
+                stretch: opts[:stretch] ? true : false)
       build_title_block!(page, doc, opts)
       page
     end

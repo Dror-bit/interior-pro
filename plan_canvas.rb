@@ -13,6 +13,8 @@ require File.join(File.dirname(__FILE__), 'plan_doc') unless
   defined?(InteriorPro::PlanDoc)
 require File.join(File.dirname(__FILE__), 'plan_tables') unless
   defined?(InteriorPro::PlanTables)
+require File.join(File.dirname(__FILE__), 'plan_geometry') unless
+  defined?(InteriorPro::PlanGeometry)
 
 module InteriorPro
   module PlanCanvas
@@ -185,7 +187,7 @@ module InteriorPro
 
     # Reads the model through plan_generator and fills doc's canvas.
     # Returns the canvas.
-    def self.build(model, doc, canvas_name = 'MODEL')
+    def self.build(model, doc, canvas_name = 'MODEL', opts = {})
       pg = InteriorPro::PlanGenerator
       cv = doc.canvas(canvas_name)
       cv.layers.clear
@@ -221,6 +223,12 @@ module InteriorPro
       rec.flush_into(cv)
       doc.schedules = InteriorPro::PlanTables.rows_from(doors, windows) if
         defined?(InteriorPro::PlanTables)
+
+      # Hand-drawn SketchUp geometry, if the user picked any. Its own layer,
+      # so turning it off leaves everything else exactly as it was.
+      if defined?(InteriorPro::PlanGeometry)
+        safely { InteriorPro::PlanGeometry.build!(model, cv, opts[:site] || {}) }
+      end
       cv
     end
 
@@ -257,7 +265,7 @@ module InteriorPro
       doc.date        = opts[:date]
       doc.logo_path   = opts[:logo]
 
-      build(model, doc, 'MODEL')
+      build(model, doc, 'MODEL', site: opts[:site] || {})
 
       st = {
         'size'            => opts[:size] || pd::DEFAULT_PAGE_SIZE,
@@ -266,6 +274,8 @@ module InteriorPro
         'sheet_number'    => opts[:sheet_number],
         'sheet_title'     => opts[:sheet_title],
         'tables_own_page' => opts.key?(:tables_own_page) ? opts[:tables_own_page] : true,
+        'images'          => Array(opts[:images]),
+        'image_title'     => opts[:image_title],
         'hidden'          => []
       }
       layout_pages!(doc, st)
@@ -290,6 +300,8 @@ module InteriorPro
                         size: size, orientation: orient,
                         scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
                         sheet_number: num, sheet_title: title)
+      p1.kind = 'plan'
+      p1.sheet_number = num
 
       own       = st['tables_own_page'] != false
       tables_on = pt.any?(doc) && !hidden.include?(pt::LAYER)
@@ -312,11 +324,29 @@ module InteriorPro
         v.centre_on!(b)
       end
 
+      last = num
       if tables_on && own
+        last = next_sheet_number(num)
         p2 = doc.add_page('SCHEDULES', size, orient)
         pt.place!(p2, doc, full: true)
-        pd.build_title_block!(p2, doc, sheet_number: next_sheet_number(num),
+        pd.build_title_block!(p2, doc, sheet_number: last,
                                        sheet_title: 'SCHEDULES')
+        p2.kind = 'schedules'
+        p2.sheet_number = last
+      end
+
+      # One picture, one sheet, in the order the user put them in. Renders come
+      # after the drawings, so A-101 stays the floor plan whatever he adds.
+      img_title = st['image_title'].to_s.empty? ? 'RENDERING' : st['image_title'].to_s
+      Array(st['images']).each_with_index do |path, i|
+        next if path.to_s.empty?
+        last = next_sheet_number(last)
+        pg = pd.new_image_sheet(doc, "#{img_title} #{i + 1}", path,
+                                size: size, orientation: orient,
+                                sheet_number: last, sheet_title: img_title)
+        pg.kind = 'image'
+        pg.ref  = i                 # which picture in the user's list this is
+        pg.sheet_number = last
       end
 
       apply_visibility!(doc, hidden)
