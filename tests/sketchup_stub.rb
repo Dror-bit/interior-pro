@@ -38,9 +38,25 @@ module Sketchup
     def to_a; [@x, @y, @z]; end
   end
 
+  # A vertex, so plugin code can use the real API (edge.start.position)
+  # instead of reaching into the stub's own fields (2026-08-13, rt46).
+  class Vertex
+    attr_reader :position
+    def initialize(p); @position = p; end
+  end
+
+  @next_pid = 0
+  def self.next_pid; @next_pid += 1; end
+
   class Edge
     attr_accessor :soft, :smooth, :a, :b
     def initialize(a, b); @a = a; @b = b; end
+    def start; Vertex.new(@a); end
+    def end; Vertex.new(@b); end
+    def soft?; @soft == true; end
+    def smooth?; @smooth == true; end
+    def valid?; true; end
+    def persistent_id; @pid ||= Sketchup.next_pid; end
   end
   class Face; end
 
@@ -82,6 +98,30 @@ module Sketchup
     end
     attr_writer :transformation
     def transformation; @transformation ||= Geom::Transformation.new; end
+    def persistent_id; @pid ||= Sketchup.next_pid; end
+  end
+
+  # Behaves like a Group but keeps its edges on a definition, exactly like the
+  # real one - plan_geometry has to walk both (2026-08-13, rt46).
+  class ComponentDefinition
+    attr_reader :entities
+    def initialize; @entities = Entities.new; end
+  end
+
+  class ComponentInstance < Group
+    def definition; @definition ||= ComponentDefinition.new; end
+  end
+
+  class Selection
+    include Enumerable
+    def initialize; @list = []; end
+    def each(&b); @list.each(&b); end
+    def to_a; @list.dup; end
+    def add(e); Array(e).each { |x| @list << x unless @list.include?(x) }; @list; end
+    def clear; @list = []; end
+    def length; @list.length; end
+    def empty?; @list.empty?; end
+    def first; @list.first; end
   end
 
   class Layer
@@ -119,8 +159,13 @@ module Sketchup
   class Model
     attr_reader :entities, :layers
     attr_accessor :ops
-    def initialize; @attrs = {}; @entities = Entities.new; @layers = Layers.new; @ops = []; @materials = Materials.new; end
+    # A real model knows where it was saved, and answers '' until it has been.
+    # The stub had no #path at all, so plan_sheet_dialog blew up in the cloud on
+    # code that is perfectly fine in SketchUp (2026-08-14, rt51).
+    attr_accessor :path, :title
+    def initialize; @attrs = {}; @entities = Entities.new; @layers = Layers.new; @ops = []; @materials = Materials.new; @selection = Selection.new; @path = ''; @title = ''; end
     def materials; @materials; end
+    def selection; @selection; end
     def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
     def get_attribute(d, k, dflt = nil); (@attrs[d] || {}).key?(k) ? @attrs[d][k] : dflt; end
     def delete_attribute(d, k); (@attrs[d] || {}).delete(k); end
@@ -165,9 +210,73 @@ end
 
 module InteriorPro
   def self.assign_tag(_g, _name); true; end
+
+  # In SketchUp this is a CLASS, and plan_editor really does say
+  # `InteriorPro::WallTool.new` after moving a wall end, to rebuild the band
+  # and re-join the corners. The stub had it as a module, so every code path
+  # that got that far died on "undefined method new for module" - the
+  # coordinates had already been written, so the test LOOKED like it passed
+  # while the operation had actually failed (2026-08-14, rt54).
+  #
+  # It is a class now, with the handful of methods that path calls. They do
+  # nothing to the geometry - there is no geometry here - but they let the
+  # real code run to the end, which is the whole point of the stub.
   module WallTool
     USE_NATIVE_OPENINGS = true
     def self.read_door_openings(_w); []; end
+    def self.persist_door_openings!(w, list)
+      w.set_attribute('InteriorPro', 'door_openings',
+                      list.map { |o| [o[:t], o[:width], o[:height]] })
+    end
+
+    # A module, not a class, ON PURPOSE. In SketchUp WallTool IS a class, but a
+    # dozen suites reopen it here as `module InteriorPro; module WallTool` to
+    # feed it their own openings, and a class would make every one of them die
+    # on "WallTool is not a module". A module that answers .new behaves exactly
+    # the same for every caller, which is what the stub is for.
+    def self.new; Builder.new; end
+
+    class Builder
+    def wall_data(group)
+      return nil unless group && group.valid?
+      { group: group,
+        sx: group.get_attribute('InteriorPro', 'start_x').to_f,
+        sy: group.get_attribute('InteriorPro', 'start_y').to_f,
+        ex: group.get_attribute('InteriorPro', 'end_x').to_f,
+        ey: group.get_attribute('InteriorPro', 'end_y').to_f,
+        th: group.get_attribute('InteriorPro', 'thickness').to_f }
+    end
+
+    # The four band corners, square to the wall - enough shape for anything
+    # that only wants to know they were recomputed.
+    def compute_perpendicular_corners_from_data(d)
+      return nil unless d
+      len = Math.hypot(d[:ex] - d[:sx], d[:ey] - d[:sy])
+      return nil if len < 1e-9
+      ux = (d[:ex] - d[:sx]) / len
+      uy = (d[:ey] - d[:sy]) / len
+      hx = -uy * d[:th]
+      hy = ux * d[:th]
+      [d[:sx], d[:sy], d[:ex], d[:ey],
+       d[:ex] + hx, d[:ey] + hy, d[:sx] + hx, d[:sy] + hy]
+    end
+
+    def save_corners_attr(group, corners)
+      group.set_attribute('InteriorPro', 'corners_xy', corners)
+    end
+
+    def rebuild_wall_geometry(group, _corners, _data)
+      group.set_attribute('InteriorPro', 'rebuilt',
+                          group.get_attribute('InteriorPro', 'rebuilt').to_i + 1)
+      true
+    end
+
+    def join_corners(group, _model, allow_centerline_fallback: false)
+      group.set_attribute('InteriorPro', 'joined',
+                          group.get_attribute('InteriorPro', 'joined').to_i + 1)
+      allow_centerline_fallback
+    end
+    end
   end
 end
 

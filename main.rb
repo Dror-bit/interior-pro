@@ -50,6 +50,7 @@ module InteriorPro
       plan_doc.rb
       plan_generator.rb
       plan_tables.rb
+      plan_geometry.rb
       plan_canvas.rb
       plan_pdf.rb
       plan_sheet_dialog.rb

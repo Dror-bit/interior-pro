@@ -1,0 +1,47 @@
+Interior Pro - image report - 2026-08-13 18:34:19 -0700
+SketchUp 24.0.594
+
+-- state ------------------------------------------------------
+images in the settings: 18
+  C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_1 - Photo.jpg
+  C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_2 - Photo.jpg
+  C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_3 - Photo.jpg
+  ... (15 more)
+every file exists on disk: true
+
+-- the document ------------------------------------------------
+pages: 20
+  FLOOR PLAN | views 1 | image shapes 0
+  SCHEDULES | views 0 | image shapes 0
+  RENDERING 1 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_1 - Photo.jpg
+  RENDERING 2 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_2 - Photo.jpg
+  RENDERING 3 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_3 - Photo.jpg
+  RENDERING 4 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_4 - Photo.jpg
+  RENDERING 5 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_5 - Photo.jpg
+  RENDERING 6 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_6 - Photo.jpg
+  RENDERING 7 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_1 - Photo.jpg
+  RENDERING 8 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_2 - Photo.jpg
+  RENDERING 9 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_3 - Photo.jpg
+  RENDERING 10 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_4 - Photo.jpg
+  RENDERING 11 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_5 - Photo.jpg
+  RENDERING 12 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/2_6 - Photo.jpg
+  RENDERING 13 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_1 - Photo.jpg
+  RENDERING 14 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_2 - Photo.jpg
+  RENDERING 15 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_3 - Photo.jpg
+  RENDERING 16 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_4 - Photo.jpg
+  RENDERING 17 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_5 - Photo.jpg
+  RENDERING 18 | views 0 | image shapes 1 | C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/3_6 - Photo.jpg
+shape path == settings path: true
+
+-- can SketchUp shrink a picture? -------------------------------
+trying: 1_1 - Photo.jpg
+Sketchup::ImageRep defined: yes
+loaded: 3840 x 2160, 24 bits
+responds to resize: false
+responds to save_as: false
+what the window builds now: nil
+
+-- the window ---------------------------------------------------
+file:/// loaded:  YES 3840x2160
+data: URL loaded: YES
+url tried: file:///C:/Users/rordt/OneDrive/Desktop/Clients/2026/3D/15723 E La Belle St, La Puente, CA 91745/Rendering/1_1 - Photo.jpg

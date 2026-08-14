@@ -1,0 +1,31 @@
+Interior Pro - drop report - 2026-08-13 18:43:09 -0700
+SketchUp 24.0.594
+
+-- גרירה --------------------------------------------
+files handed over: 18
+  [0] name: 1_4 - Photo.jpg
+      size: 7261162
+      path property: NOT THERE
+      webkitRelativePath: (empty)
+      exists on disk at that path: no
+  [1] name: 1_5 - Photo.jpg
+      size: 4863842
+      path property: NOT THERE
+      webkitRelativePath: (empty)
+      exists on disk at that path: no
+  [2] name: 1_6 - Photo.jpg
+      size: 5617678
+      path property: NOT THERE
+      webkitRelativePath: (empty)
+      exists on disk at that path: no
+  [3] name: 2_1 - Photo.jpg
+      size: 5814234
+      path property: NOT THERE
+      webkitRelativePath: (empty)
+      exists on disk at that path: no
+  [4] name: 2_2 - Photo.jpg
+      size: 4837263
+      path property: NOT THERE
+      webkitRelativePath: (empty)
+      exists on disk at that path: no
+keys the window can see on a file: name, lastModified, lastModifiedDate, webkitRelativePath, size, type, arrayBuffer, slice, stream, text

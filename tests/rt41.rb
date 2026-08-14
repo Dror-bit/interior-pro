@@ -59,13 +59,44 @@ ok('the four page sizes are offered from Ruby, not hard-coded in the page',
 ok('nothing is stored in the browser', !h.include?('localStorage') && !h.include?('sessionStorage'))
 ok('there is an Export PDF button', h.include?('Export PDF'))
 ok('the fit line reports what would fit', h.include?('הכי גדול שנכנס'))
+# Pull one function out of the window's script by counting its braces.
+#
+# This used to be a regular expression that stopped at the first "}" alone on a
+# line. That is fine until somebody puts an `if` inside the function - which
+# happened on 2026-08-14 - and then it hands back half a function and the test
+# fails for a reason that has nothing to do with what it is checking. Counting
+# braces is duller and it does not lie.
+def js_function(src, name)
+  start = src.index("function #{name}")
+  return '' unless start
+  open = src.index('{', start)
+  return '' unless open
+  depth = 0
+  i = open
+  while i < src.length
+    depth += 1 if src[i] == '{'
+    depth -= 1 if src[i] == '}'
+    return src[start..i] if depth.zero?
+    i += 1
+  end
+  ''
+end
+
 # showFit() must never touch the scale. Only fitPlan(), which is a button the
 # user presses himself, is allowed to change it.
-show_fit = h[/function showFit\(\)\s*\{.*?^\s*\}\s*$/m].to_s
+show_fit = js_function(h, 'showFit()')
 ok('the fit line changes nothing by itself',
    !show_fit.empty? && !show_fit.include?('STATE.scale='), show_fit[0, 120])
 ok('a button he presses himself may fit it for him',
    h.include?('function fitPlan()') && h.include?("$('fitplan').onclick"))
+# The very first time on a model nothing has been chosen yet, and a sheet that
+# opens blank looks broken. So the first open fits; after that his choice wins.
+load_fn = js_function(h, 'loadSheet(p)')
+ok('the first open fits the plan to the sheet',
+   load_fn.include?('if(first){ fitPlan(); return; }'), load_fn[-200, 200])
+ok('and "first" means nothing was ever positioned',
+   load_fn =~ /var first\s*=\s*\(STATE\.origin_x===undefined\|\|STATE\.origin_x===null\)/,
+   load_fn[/var first.{0,80}/])
 ok('dragging moves the plan', h.include?('mousedown') && h.include?('origin_x'))
 
 # ------------------------------------------------------------ state on/off

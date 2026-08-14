@@ -35,7 +35,9 @@ module Geom
     end
     def distance(o); Math.sqrt((@x - o.x)**2 + (@y - o.y)**2 + (@z - o.z)**2); end
     def transform(t)
-      return self if t.nil?
+      # SketchUp raises on nil. The stub used to shrug it off, and that hid a
+      # real crash in plan_geometry (2026-08-13) - so it raises now too.
+      raise TypeError, 'no implicit conversion to Transformation' if t.nil?
       Point3d.new(t.m00 * @x + t.m01 * @y + t.ox,
                   t.m10 * @x + t.m11 * @y + t.oy,
                   @z + t.oz)

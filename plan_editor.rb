@@ -654,6 +654,22 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        # Set the angle at a corner. The window says which two walls meet there,
+        # which of them should turn, and what the angle should be.
+        dlg.add_action_callback('set_corner_angle') do |_, json|
+          begin
+            r = JSON.parse(json)
+            turn_wall!(find_wall(r['turn_id'].to_s), find_wall(r['keep_id'].to_s),
+                       r['pivot'].to_s == 'start' ? :start : :end,
+                       r['deg'].to_f,
+                       r['keep'].nil? ? true : (r['keep'] ? true : false))
+            push_walls(dlg)
+          rescue StandardError => e
+            puts "[PlanEditor] set_corner_angle: #{e.class}: #{e.message}\n  " +
+                 Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
         # Diagnostics for the selected wall: endpoints + how far every other
         # wall's endpoints are from them (why a corner does / does not follow).
         dlg.add_action_callback('debug_wall') do |_, json|
@@ -1540,7 +1556,100 @@ module InteriorPro
 
       # which = :end  -> the END point moves (start stays)
       # which = :start-> the START point moves (end stays)
-      def stretch_wall!(wall, len_new, which = :end, keep_corners = true)
+      # Swing a wall round one of its ends until it makes the asked-for angle
+      # with a neighbour (2026-08-14).
+      #
+      # The user could see a corner was not square only after building the 3D.
+      # The drawing shows him the degrees now; this is how he fixes them.
+      #
+      # It does NOT rotate anything itself: it works out where the far end has
+      # to land and hands that to stretch_wall!, which already knows how to
+      # move a wall end and take the corner partners, openings, geometry and
+      # joins with it. One way of moving a wall end, used twice.
+      #
+      #   wall     the one that turns
+      #   other    the one that stays put - the angle is measured against it
+      #   pivot    :start or :end of `wall` - the corner they share
+      #   deg      the angle wanted between them, 0..180
+      def turn_wall!(wall, other, pivot, deg, keep_corners = true)
+        return false unless wall && other
+        deg = deg.to_f
+        unless deg > 0.05 && deg < 179.95
+          puts '[PlanEditor] turn: an angle has to be between 0 and 180'
+          return false
+        end
+
+        gx = ->(g, k) { g.get_attribute('InteriorPro', k).to_f }
+        p_x = pivot == :start ? gx.call(wall, 'start_x') : gx.call(wall, 'end_x')
+        p_y = pivot == :start ? gx.call(wall, 'start_y') : gx.call(wall, 'end_y')
+        f_x = pivot == :start ? gx.call(wall, 'end_x') : gx.call(wall, 'start_x')
+        f_y = pivot == :start ? gx.call(wall, 'end_y') : gx.call(wall, 'start_y')
+        len = Math.sqrt((f_x - p_x)**2 + (f_y - p_y)**2)
+        if len < 1.0
+          puts '[PlanEditor] turn: wall too short'
+          return false
+        end
+
+        # The neighbour, pointing AWAY from the shared corner. That is the arm
+        # the angle is measured from.
+        o_sx = gx.call(other, 'start_x')
+        o_sy = gx.call(other, 'start_y')
+        o_ex = gx.call(other, 'end_x')
+        o_ey = gx.call(other, 'end_y')
+        d_s = Math.sqrt((o_sx - p_x)**2 + (o_sy - p_y)**2)
+        d_e = Math.sqrt((o_ex - p_x)**2 + (o_ey - p_y)**2)
+        if [d_s, d_e].min > 1.0
+          puts '[PlanEditor] turn: those two walls do not share a corner'
+          return false
+        end
+        if d_s <= d_e
+          ax = o_ex - p_x
+          ay = o_ey - p_y
+        else
+          ax = o_sx - p_x
+          ay = o_sy - p_y
+        end
+        alen = Math.sqrt(ax * ax + ay * ay)
+        if alen < 1.0
+          puts '[PlanEditor] turn: the other wall is too short to aim from'
+          return false
+        end
+        ax /= alen
+        ay /= alen
+
+        # Two ways round give the same angle. Take the one the wall is already
+        # nearer to, so a 90 that is really 89.4 tidies itself up instead of
+        # flipping to the other side of the neighbour.
+        rad = deg * Math::PI / 180.0
+        cur_x = (f_x - p_x) / len
+        cur_y = (f_y - p_y) / len
+        best = nil
+        [1, -1].each do |sgn|
+          c = Math.cos(rad * sgn)
+          s = Math.sin(rad * sgn)
+          nx = ax * c - ay * s
+          ny = ax * s + ay * c
+          near = nx * cur_x + ny * cur_y      # 1 = already pointing that way
+          best = { x: nx, y: ny, near: near } if best.nil? || near > best[:near]
+        end
+
+        stretch_wall!(wall, len, pivot == :start ? :end : :start, keep_corners,
+                      [p_x + best[:x] * len, p_y + best[:y] * len])
+      end
+
+      # Move ONE end of a wall and leave the other where it is.
+      #
+      # `aim` is the whole of the 2026-08-14 addition. Without it this is what
+      # it always was: put the end further along the wall's own direction, so
+      # the wall gets longer or shorter. WITH it, the end goes to the point
+      # given instead - which is how a corner angle is changed, by swinging the
+      # far end round the corner.
+      #
+      # Everything after that decision is identical for both - the corner
+      # partners that must follow, the openings, the rebuild, the re-join - so
+      # it is written once here rather than copied into a second method that
+      # would slowly drift away from this one.
+      def stretch_wall!(wall, len_new, which = :end, keep_corners = true, aim = nil)
         unless wall && len_new > 6.0
           puts '[PlanEditor] stretch: bad wall/length'
           return false
@@ -1556,7 +1665,9 @@ module InteriorPro
           return false
         end
         delta = len_new - len_old
-        if delta.abs < 0.05
+        # A turn keeps the length, so "nothing changed" cannot be judged by the
+        # length. It is judged further down, by how far the end actually moved.
+        if aim.nil? && delta.abs < 0.05
           puts '[PlanEditor] stretch: no change'
           return false
         end
@@ -1582,6 +1693,18 @@ module InteriorPro
         end
 
         old_moving = Geom::Point3d.new(fixed.x + u.x * len_old, fixed.y + u.y * len_old, 0)
+
+        # Where the moving end is going. Straight out along the wall for a
+        # length; wherever it was told for a turn.
+        if aim
+          aim_x = aim[0].to_f
+          aim_y = aim[1].to_f
+          if Math.sqrt((aim_x - old_moving.x)**2 + (aim_y - old_moving.y)**2) < 0.05
+            puts '[PlanEditor] turn: no change'
+            return false
+          end
+        end
+
         # Partner walls whose endpoint sits on the moving corner. With
         # keep_corners they FOLLOW the corner (stay attached); otherwise they
         # are only re-squared/re-joined (the corner detaches).
@@ -1601,10 +1724,10 @@ module InteriorPro
           end
         end
 
-        model.start_operation('Set Wall Length', true)
+        model.start_operation(aim ? 'Set Corner Angle' : 'Set Wall Length', true)
         begin
-          nx = fixed.x + u.x * len_new
-          ny = fixed.y + u.y * len_new
+          nx = aim ? aim_x : fixed.x + u.x * len_new
+          ny = aim ? aim_y : fixed.y + u.y * len_new
           if which == :end
             wall.set_attribute('InteriorPro', 'end_x', nx)
             wall.set_attribute('InteriorPro', 'end_y', ny)
@@ -1971,6 +2094,12 @@ module InteriorPro
                pushing the side panel off-screen at small window sizes. */
             #canvasWrap { flex:1 1 auto; min-width:0; overflow:hidden; position:relative; background:#fbfcfe; }
             canvas { display:block; }
+            #canvasMenu { position:fixed; display:none; z-index:900; background:#fff;
+                          border:1px solid #c3c8d0; border-radius:5px; padding:4px;
+                          box-shadow:0 6px 20px rgba(0,0,0,.18); min-width:170px; }
+            #canvasMenu .mi { padding:7px 10px; cursor:pointer; border-radius:3px;
+                              font-size:13px; white-space:nowrap; }
+            #canvasMenu .mi:hover { background:#1a6ee0; color:#fff; }
             #side { flex:0 0 200px; width:200px; box-sizing:border-box; background:#f4f6f9; border-left:1px solid #d6dae0; padding:10px; overflow-y:auto; display:flex; flex-direction:column; }
             /* Narrow window: no room on the side, so the panel moves to the
                BOTTOM as a scrollable strip and the canvas keeps the width. */
@@ -2044,6 +2173,7 @@ module InteriorPro
           </div>
           <div id="main">
             <div id="canvasWrap"><canvas id="cv"></canvas></div>
+            <div id="canvasMenu"></div>
             <div id="side">
               <div class="modebar">
                 <button id="modeSel" class="on modebtn" title="בחירה (S)" onclick="setMode('sel')">
@@ -2362,6 +2492,11 @@ module InteriorPro
             // Stretching a line: grab one END of a selected shape and pull it.
             // Longer, shorter, or swung to a new angle - the rest stays put.
             var dragVert = null;      // { sk, i, o, pts, moved }
+            // Pulling the GREEN handle to lengthen or shorten a wall.
+            // Clicking a corner only ever chose which end would move; there was
+            // no way to drag it, so the user grabbed the green dot, pulled, and
+            // nothing happened (2026-08-14). { w, b, pi, len, start, moved }
+            var dragEnd = null;
 
             function hitSketchVertex(p) {
               var tol = 9 / scale;
@@ -2533,6 +2668,7 @@ module InteriorPro
                 markGuideBox();
               }
               guideStart = null;
+              dragEnd = null;                   // a half-pulled wall is not carried into another tool
               if (dimPlace) finishDimPlace();   // switching tools keeps the dim where it is now
               dimA = null;
               calib = null;
@@ -2712,23 +2848,92 @@ module InteriorPro
             // but not yet applied; sketches are what already exists in the model.
             var sketches = [];
             var pendingSketches = [];
-            // Canvas-side undo history (2026-08-07): every move / rotate /
-            // flip of shapes is recorded, so Ctrl+Z first REVERTS the last
-            // transform instead of deleting the newest shape. actSeq orders
-            // transforms against shape creation (newest thing undoes first).
+            // ---- one history, in the order things happened ----------------
+            //
+            // This used to be a fixed ORDER OF PREFERENCE, not a history:
+            // Ctrl+Z looked for a shape transform, then for the newest blue
+            // wall to delete, then for a sketch, and only then asked SketchUp.
+            // Nothing recorded a change to a blue wall's LENGTH - so on
+            // 2026-08-14 the user stretched a wall, pressed Ctrl+Z to put it
+            // back, and the editor deleted the wall instead. His words:
+            // "the last action should be the last action and nothing else."
+            //
+            // So there is one list now, in order, and Undo takes whatever is
+            // on top of it. Two kinds go on:
+            //
+            //   local  - blue walls, sketches, guides, dimensions. The whole
+            //            lot is photographed BEFORE the change; undo puts the
+            //            photograph back. Cheap - it is a few dozen small
+            //            numbers - and it cannot miss a field the way a
+            //            hand-written reverse step can.
+            //   model  - anything already sent to SketchUp. SketchUp has it on
+            //            ITS undo stack, so undo just asks SketchUp, and the
+            //            ordering between the two stacks stays right because
+            //            both are represented here in the same list.
             var editHist = [];
+            var HIST_MAX = 200;
+            // Shapes are still stamped with a number as they are made. The old
+            // history used it to work out whether a shape was newer than a
+            // transform; the list is in order now so nothing reads it any more,
+            // but the shape tools still write it and it costs nothing to keep.
             var actSeq = 0;
+
             function histPush(entry) {
-              entry.seq = ++actSeq;
               editHist.push(entry);
-              if (editHist.length > 100) editHist.shift();
+              if (editHist.length > HIST_MAX) editHist.shift();
             }
+
+            // Photograph everything the canvas owns.
+            function localSnap() {
+              return {
+                pending: pending.map(function(w) {
+                  var c = {};
+                  for (var k in w) if (w.hasOwnProperty(k)) c[k] = w[k];
+                  if (w.syms) c.syms = w.syms.map(function(s) {
+                    var t = {}; for (var q in s) if (s.hasOwnProperty(q)) t[q] = s[q]; return t;
+                  });
+                  return c;
+                }),
+                psk: pendingSketches.map(function(sk) {
+                  var c = {};
+                  for (var k2 in sk) if (sk.hasOwnProperty(k2)) c[k2] = sk[k2];
+                  if (sk.pts) c.pts = sk.pts.slice();
+                  return c;
+                }),
+                dims: dims.map(function(d) {
+                  var c = {}; for (var k3 in d) if (d.hasOwnProperty(k3)) c[k3] = d[k3]; return c;
+                })
+              };
+            }
+
+            function localRestore(s) {
+              pending.length = 0;
+              s.pending.forEach(function(w) { pending.push(w); });
+              pendingSketches.length = 0;
+              s.psk.forEach(function(k) { pendingSketches.push(k); });
+              dims.length = 0;
+              s.dims.forEach(function(d) { dims.push(d); });
+              sel = null; selList = []; keepSel = null;
+              updateSelPanel(); updateStatus(); draw();
+            }
+
+            // Call this BEFORE changing anything the canvas owns.
+            function histLocal(what) {
+              histPush({ kind: 'local', what: what || '', snap: localSnap() });
+            }
+
+            // Call this after sending a change to SketchUp.
+            function histModel(what) {
+              histPush({ kind: 'model', what: what || '' });
+            }
+
             function histUndo() {
               if (!editHist.length) return false;
-              var h = editHist[editHist.length - 1];
-              var lastSk = pendingSketches.length ? pendingSketches[pendingSketches.length - 1] : null;
-              if (lastSk && (lastSk._seq || 0) > h.seq) return false; // shape is newer
-              editHist.pop();
+              var h = editHist.pop();
+              if (h.kind === 'model') { sketchup.undo_model(); return true; }
+              if (h.kind === 'local') { localRestore(h.snap); return true; }
+
+              // the older hand-written entries, still used by the shape tools
               var payload = [];
               (h.shapes || []).forEach(function(r) {
                 r.sk.pts = r.pts.slice();
@@ -2828,12 +3033,14 @@ module InteriorPro
               if (!hw3 || !hw3.w.id) return;
               ghostOpen.src.forEach(function(sm) {
                 if (sm.body === 'window') {
+                  histModel('place_window');
                   sketchup.place_window(JSON.stringify({
                     wall_id: hw3.w.id, px: p.x, py: p.y,
                     window_type: sm.wtype || 'Casement',
                     width: sm.w, height: sm.h, header: sm.header || 80
                   }));
                 } else {
+                  histModel('place_door');
                   sketchup.place_door(JSON.stringify({
                     wall_id: hw3.w.id, px: p.x, py: p.y,
                     category: sm.dcat || 'interior',
@@ -2857,6 +3064,7 @@ module InteriorPro
 
             function placeGhostCopy() {
               if (!ghostCopy) return;
+              histLocal('paste walls');
               ghostCopy.src.forEach(function(c) {
                 var n2 = cloneWall(c);
                 n2.sx += ghostCopy.ox; n2.ex += ghostCopy.ox;
@@ -4001,6 +4209,7 @@ module InteriorPro
                 if (o.type === 'pending') { var pw4 = pending[o.i]; if (pw4) pw4.sag = v; }
                 else if (o.type === 'wall' && o.w.id) {
                   keepSel = { kind: 'wall', id: o.w.id };
+                  histModel('set_wall_sag');
                   sketchup.set_wall_sag(JSON.stringify({ id: o.w.id, sag: v }));
                 }
               });
@@ -4016,15 +4225,44 @@ module InteriorPro
                 else if (o.type === 'wall' && o.w.id) ids.push(o.w.id);
               });
               draw();
+              histModel('set_thickness');
               if (ids.length) sketchup.set_thickness(JSON.stringify({ ids: ids, th: v }));
             }
 
+            // Let go of the green handle: the wall takes the length it was
+            // pulled to. Nothing was changed while the mouse was down - only
+            // a preview was drawn - so letting go is the only thing the model
+            // ever hears about, and one Undo puts it back.
+            function finishEndDrag() {
+              var d = dragEnd;
+              dragEnd = null;
+              setStatusHint(null);
+              if (!d) { draw(); return; }
+              if (!d.moved || Math.abs(d.len - d.start) < 0.05) { draw(); return; }
+              if (d.pi != null) { setPendingLength(d.pi, d.len); return; }
+              if (!d.w.id) { draw(); return; }
+              keepSel = { kind:'wall', id: d.w.id };
+              histModel('set_wall_length');
+              sketchup.set_wall_length(JSON.stringify({
+                wall_id: d.w.id, len: d.len, fixed: fixedEndName(), keep: keepCorners
+              }));
+            }
+
+            function cancelEndDrag() {
+              if (!dragEnd) return false;
+              dragEnd = null; setStatusHint(null); draw();
+              return true;
+            }
+
             function applyWallLen() {
-              var v = parseLen(document.getElementById('selLen').value);
+              // 'ft': a bare number here is FEET. This box asks for the length
+              // of a wall, and nobody means eleven inches when they type 11.
+              var v = parseLen(document.getElementById('selLen').value, 'ft');
               if (!v || v <= 6 || !sel) return;
               if (sel.type === 'pending') { setPendingLength(sel.i, v); return; }
               if (sel.type !== 'wall' || !sel.w.id) return;
               keepSel = { kind:'wall', id: sel.w.id };
+              histModel('set_wall_length');
               sketchup.set_wall_length(JSON.stringify({ wall_id: sel.w.id, len: v, fixed: fixedEndName(), keep: keepCorners }));
             }
 
@@ -4032,9 +4270,18 @@ module InteriorPro
             // the drag direction; opening = distance moved along the wall.
             function applyTypedDrag() {
               var neg = typed.trim().charAt(0) === '-';
-              var v = parseLen(typed.replace('-', ''));
+              // A wall being stretched wants a LENGTH, so a lone number there
+              // is feet, the same as everywhere else a wall length is asked
+              // for. Everything else in here is a distance in inches.
+              var v = parseLen(typed.replace('-', ''), dragEnd ? 'ft' : 'in');
               typed = ''; updateVcb();
               if (!v) return;
+              if (dragEnd) {
+                dragEnd.len = Math.max(6, v);
+                dragEnd.moved = true;
+                finishEndDrag();
+                return;
+              }
               if (dragWall) {
                 var dir = (dragWall.off < 0 ? -1 : 1) * (neg ? -1 : 1);
                 var off = dir * v;
@@ -4042,6 +4289,7 @@ module InteriorPro
                 dragWall = null;
                 if (sel && sel.type === 'pending') { movePendingWall(sel.i, off); return; }
                 keepSel = { kind:'wall', id: w.id };
+                histModel('move_wall');
                 sketchup.move_wall(JSON.stringify({ wall_id: w.id, dist: -off, keep: keepCorners }));
                 draw();
                 return;
@@ -4051,6 +4299,7 @@ module InteriorPro
                 var s = dragSym.s;
                 dragSym = null;
                 keepSel = { kind:'sym', id: s.id };
+                histModel('move_opening');
                 sketchup.move_opening(JSON.stringify({ id: s.id, body: s.body, delta: dir2 * v }));
                 draw();
               }
@@ -4093,6 +4342,7 @@ module InteriorPro
 
             function setPendingLength(idx, len) {
               var pw = pending[idx], b = bandQuad(pw); if (!b) return;
+              histLocal('wall length');
               var oldPt = movingEnd === 'end' ? { x:pw.ex, y:pw.ey } : { x:pw.sx, y:pw.sy };
               var partners = keepCorners ? pendingPartners(idx, oldPt) : [];
               if (movingEnd === 'end') { pw.ex = pw.sx + b.ux*len; pw.ey = pw.sy + b.uy*len; }
@@ -4131,11 +4381,13 @@ module InteriorPro
               var offN = sign * v * outwardSign(sel.w, b);   // in +n units
               keepSel = { kind:'wall', id: sel.w.id };
               // Ruby's positive distance = RIGHT perpendicular = -n
+              histModel('move_wall');
               sketchup.move_wall(JSON.stringify({ wall_id: sel.w.id, dist: -offN, keep: keepCorners }));
             }
 
             function applySelSize() {
               if (!sel || sel.type !== 'sym') return;
+              histModel('edit_opening_size');
               sketchup.edit_opening_size(JSON.stringify({
                 id: sel.s.id,
                 body: sel.s.body,
@@ -4786,6 +5038,7 @@ module InteriorPro
               draw();
               if (payload.length) sketchup.update_sketches(JSON.stringify({ shapes: payload }));
               if (wallIds.length && (Math.abs(mdx) > 0.001 || Math.abs(mdy) > 0.001)) {
+                histModel('move_selection');
                 sketchup.move_selection(JSON.stringify({ ids: wallIds, dx: mdx, dy: mdy }));
               }
             }
@@ -4929,14 +5182,17 @@ module InteriorPro
                   else if (o.s.id) items.push({ kind:'opening', id:o.s.id, body:o.s.body });
                 }
                 setSel(null); updateSelPanel(); draw();
+                histModel('delete_many');
                 if (items.length) sketchup.delete_many(JSON.stringify({ items: items }));
                 return;
               }
               if (sel.type === 'pending') { pending.splice(sel.i, 1); setSel(null); updateSelPanel(); draw(); return; }
               if (!confirm('למחוק את מה שנבחר?')) return;
               if (sel.type === 'wall') {
+                histModel('delete_wall');
                 sketchup.delete_wall(JSON.stringify({ wall_id: sel.w.id }));
               } else {
+                histModel('delete_opening');
                 sketchup.delete_opening(JSON.stringify({ id: sel.s.id, body: sel.s.body }));
               }
               setSel(null); updateSelPanel();
@@ -5284,16 +5540,63 @@ module InteriorPro
               return (neg ? '-' : '') + s;
             }
 
-            // Accepts: 42 | 42" | 3' | 3' 6 | 3'6" | 3 6 (feet space inches)
-            function parseLen(s) {
-              s = String(s).trim(); if (!s) return null;
-              var m = s.match(/^(\\d+(?:\\.\\d+)?)'\\s*(\\d+(?:\\.\\d+)?)?\\"?$/);
-              if (m) return parseFloat(m[1]) * 12 + (m[2] ? parseFloat(m[2]) : 0);
-              m = s.match(/^(\\d+(?:\\.\\d+)?)\\s+(\\d+(?:\\.\\d+)?)$/);
-              if (m) return parseFloat(m[1]) * 12 + parseFloat(m[2]);
-              m = s.match(/^(\\d+(?:\\.\\d+)?)\\"?$/);
-              if (m) return parseFloat(m[1]);
-              return null;
+            // What a builder actually types. Every one of these is 42 inches:
+            //   42"   42 in   3'   3' 6   3'6"   3'-6"   3 6   3 ft 6 in
+            // and 3' 5 1/2" is 41.5. The old reader took three fixed spellings
+            // and gave back nothing for anything else - so a length copied off
+            // the drawing, where it is printed 3'-6", quietly did nothing at
+            // all and looked like the box was ignoring inches (2026-08-14).
+            //
+            // A BARE number has no unit on it, so it depends on what is being
+            // asked for: a wall is spoken about in FEET, an opening or a
+            // thickness in INCHES. The caller says which. The user chose this:
+            // he typed 11 for an eleven foot wall and got eleven inches.
+            function parseLen(s, bare) {
+              var t = String(s == null ? '' : s).trim().toLowerCase();
+              if (!t) return null;
+              var neg = t.charAt(0) === '-';
+              if (neg) t = t.slice(1);
+              t = t.replace(/feet|foot|ft[.]?/g, "'")
+                   .replace(/inches|inch|in[.]?/g, '"')
+                   .replace(/[’‘´]/g, "'")
+                   .replace(/[”“]/g, '"')
+                   .replace(/-/g, ' ');
+              if (!/^[0-9.\\s'"\\/]+$/.test(t)) return null;
+
+              var parts = [], m;
+              var re = /(\\d+(?:\\.\\d+)?)(?:\\s*\\/\\s*(\\d+(?:\\.\\d+)?))?\\s*(['"]?)/g;
+              while ((m = re.exec(t)) !== null) {
+                var den = m[2] ? parseFloat(m[2]) : 0;
+                parts.push({ v: m[2] ? (den ? parseFloat(m[1]) / den : 0)
+                                     : parseFloat(m[1]),
+                             frac: !!m[2], mark: m[3] });
+              }
+              if (!parts.length) return null;
+
+              // "3 1/2" is three and a half of ONE thing, not three of one and
+              // half of another. Glue a fraction onto the number in front of it.
+              for (var i = parts.length - 1; i > 0; i--) {
+                if (parts[i].frac && !parts[i-1].frac && parts[i-1].mark === '') {
+                  parts[i-1].v += parts[i].v;
+                  parts[i-1].mark = parts[i].mark;
+                  parts.splice(i, 1);
+                }
+              }
+
+              var feet = 0, inch = 0, lone = null;
+              for (var j = 0; j < parts.length; j++) {
+                var p = parts[j];
+                if (p.mark === "'") feet += p.v;
+                else if (p.mark === '"') inch += p.v;
+                else if (p.frac) inch += p.v;      // half a FOOT is not a thing
+                else if (parts.length === 1) lone = p.v;
+                else if (j === 0) feet += p.v;     // "3 6" = three feet six
+                else inch += p.v;
+              }
+              if (lone !== null) { if (bare === 'ft') feet += lone; else inch += lone; }
+              var total = feet * 12 + inch;
+              if (!isFinite(total)) return null;
+              return neg ? -total : total;
             }
 
             // Selection box, SketchUp behaviour (2026-08-01). Dragging LEFT to
@@ -5411,6 +5714,138 @@ module InteriorPro
             // Band corner points at both wall ends. Applied walls use the exact
             // mitered corners_xy from the model; pending walls get a JS miter
             // against the neighbour that shares the endpoint.
+            // ---- the angle at every corner ------------------------------
+            //
+            // The user, 2026-08-14: "a lot of the time I think I am pointing in
+            // the right direction, and then I look at the 3D and the walls are
+            // not straight - I have to see the degrees on the drawing."
+            //
+            // So every corner where two walls meet says what angle it is. A
+            // round one - 90, 45, 30 and their friends - is written small and
+            // grey and gets out of the way. Anything else is RED, because that
+            // is the one he wants to catch before it reaches the model.
+            //
+            // Right-click on empty paper turns them off; they are on by
+            // default, since the whole point is to notice without looking.
+            var showAngles = true;
+            var ANGLE_ROUND = [0, 15, 22.5, 30, 45, 60, 90, 120, 135, 150, 180];
+            var ANGLE_TOL = 0.15;   // degrees - tighter than a wall can be drawn by hand
+
+            function isRoundAngle(deg) {
+              for (var i = 0; i < ANGLE_ROUND.length; i++) {
+                if (Math.abs(deg - ANGLE_ROUND[i]) <= ANGLE_TOL) return true;
+              }
+              return false;
+            }
+
+            // Every place two walls share an end, once each - a corner belongs
+            // to a pair, not to a wall, or every angle would be drawn twice.
+            function wallCorners(all) {
+              var out = [];
+              for (var i = 0; i < all.length; i++) {
+                for (var j = i + 1; j < all.length; j++) {
+                  var a = all[i], c = all[j];
+                  var ends = [['s', a.sx, a.sy], ['e', a.ex, a.ey]];
+                  var oends = [['s', c.sx, c.sy], ['e', c.ex, c.ey]];
+                  for (var m = 0; m < 2; m++) {
+                    for (var n = 0; n < 2; n++) {
+                      if (Math.hypot(ends[m][1] - oends[n][1],
+                                     ends[m][2] - oends[n][2]) >= 1.0) continue;
+                      // point each wall AWAY from the corner
+                      var av = ends[m][0] === 's' ? { x:a.ex - a.sx, y:a.ey - a.sy }
+                                                  : { x:a.sx - a.ex, y:a.sy - a.ey };
+                      var cvv = oends[n][0] === 's' ? { x:c.ex - c.sx, y:c.ey - c.sy }
+                                                    : { x:c.sx - c.ex, y:c.sy - c.ey };
+                      var la = Math.hypot(av.x, av.y), lc = Math.hypot(cvv.x, cvv.y);
+                      if (la < 0.5 || lc < 0.5) continue;
+                      av.x /= la; av.y /= la; cvv.x /= lc; cvv.y /= lc;
+                      var dot = Math.max(-1, Math.min(1, av.x*cvv.x + av.y*cvv.y));
+                      // wa/wb are the two walls themselves and ea/eb say which
+                      // of their ends sits on this corner, so the angle can be
+                      // changed and not only read.
+                      out.push({ x: ends[m][1], y: ends[m][2],
+                                 a: av, b: cvv, wa: a, wb: c,
+                                 ea: ends[m][0], eb: oends[n][0],
+                                 deg: Math.acos(dot) * 180 / Math.PI });
+                    }
+                  }
+                }
+              }
+              return out;
+            }
+
+            function fmtAngle(deg) {
+              var r = Math.round(deg * 10) / 10;
+              return (r % 1 === 0 ? r : r.toFixed(1)) + '°';
+            }
+
+            function drawCornerAngles(all) {
+              if (!showAngles) return;
+              var list = wallCorners(all);
+              for (var i = 0; i < list.length; i++) {
+                var c = list[i];
+                if (c.deg < 0.5 || c.deg > 179.5) continue;   // a straight run is not a corner
+                var round = isRoundAngle(c.deg);
+                var col = round ? '#8a8f98' : '#e0392b';
+                var px = sx(c.x), py = sy(c.y);
+                // the little arc, drawn in SCREEN space so it stays readable
+                // however far out the drawing is zoomed
+                var a1 = Math.atan2(-c.a.y, c.a.x);
+                var a2 = Math.atan2(-c.b.y, c.b.x);
+                var d = a2 - a1;
+                while (d > Math.PI) d -= 2*Math.PI;
+                while (d < -Math.PI) d += 2*Math.PI;
+                var R = round ? 15 : 19;
+                ctx.strokeStyle = col;
+                ctx.lineWidth = round ? 1 : 1.8;
+                ctx.beginPath();
+                ctx.arc(px, py, R, a1, a1 + d, d < 0);
+                ctx.stroke();
+                // the number, out along the middle of the arc
+                var mid = a1 + d/2;
+                ctx.font = (round ? '10px' : 'bold 11px') + ' Arial';
+                ctx.fillStyle = col;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                var tx = px + Math.cos(mid)*(R+11), ty = py + Math.sin(mid)*(R+11);
+                ctx.fillText(fmtAngle(c.deg), tx, ty);
+                ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+                // pressing the number asks for a new angle
+                dimTags.push({ x:tx - 18, y:ty - 9, w:36, h:18,
+                               kind:'angle', data:c });
+              }
+            }
+
+            function toggleAngles() {
+              showAngles = !showAngles;
+              setStatusHint(showAngles ? 'מעלות בפינות: מוצגות' : 'מעלות בפינות: מוסתרות');
+              draw();
+            }
+
+            // A small menu on the right button. Built here rather than as fixed
+            // HTML so the next thing that wants to live on it is one line.
+            function hideMenu() {
+              var el = document.getElementById('canvasMenu');
+              if (el) el.style.display = 'none';
+            }
+
+            function showMenu(px, py) {
+              var el = document.getElementById('canvasMenu');
+              if (!el) return;
+              el.innerHTML = '';
+              [[showAngles ? 'הסתר מעלות בפינות' : 'הצג מעלות בפינות', toggleAngles]]
+                .forEach(function(row) {
+                  var b = document.createElement('div');
+                  b.className = 'mi';
+                  b.textContent = row[0];
+                  b.onclick = function() { hideMenu(); row[1](); };
+                  el.appendChild(b);
+                });
+              var r = cv.getBoundingClientRect();
+              el.style.left = (r.left + px) + 'px';
+              el.style.top = (r.top + py) + 'px';
+              el.style.display = 'block';
+            }
+
             function endCorners(w, all, b) {
               if (w.corners && w.corners.length === 8) {
                 return { sp:{x:w.corners[0],y:w.corners[1]}, ep:{x:w.corners[2],y:w.corners[3]},
@@ -6209,6 +6644,14 @@ module InteriorPro
               var all = walls.concat(pending);
               walls.forEach(function(w){ drawWallBand(w, '#444', '#cfcfcf', 1, all); drawSyms(w); dimLabel(w, '#1a6ee0', all); });
               pending.forEach(function(w){ drawWallBand(w, '#2f6bd8', '#9db8e8', 1, all); dimLabel(w, '#e0392b', all); });
+              // The clickable boxes are emptied HERE, before anything fills
+              // them. It used to be emptied further down - AFTER
+              // drawCornerAngles had already put the corner numbers on the
+              // list - so every angle box was thrown away the moment it was
+              // made, and pressing a number did nothing. That is why he could
+              // see the degrees and not set them (2026-08-14).
+              dimTags = [];
+              drawCornerAngles(all);
               if (mode === 'wall' && arcBow) {
                 drawWallBand(arcBow.w, '#2f6bd8', '#9db8e8', 0.5, all);
                 ctx.fillStyle = '#1a6ee0'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
@@ -6261,7 +6704,6 @@ module InteriorPro
                 ctx.strokeStyle = hcol; ctx.lineWidth = 2.5; ctx.stroke();
               }
               if ((mode === 'door' || mode === 'win') && hoverHit) drawGhostOpening();
-              dimTags = [];
               if (mode === 'sel') drawSelection();
               // Labels last, so they sit on top and stay clickable.
               drawShapeDims();
@@ -6460,12 +6902,51 @@ module InteriorPro
               ctx.moveTo(ax, ay);
               ctx.lineTo(ax - 8*Math.cos(ang2 + 0.4), ay - 8*Math.sin(ang2 + 0.4));
               ctx.stroke();
+              // While the green handle is being pulled, show where the wall is
+              // going and how long it will be. The model is not touched until
+              // the mouse is let go, so this is the only thing he can see.
+              if (dragEnd && dragEnd.w === w) {
+                var fxp2 = movingEnd === 'end' ? { x:w.sx, y:w.sy } : { x:w.ex, y:w.ey };
+                var sgn2 = movingEnd === 'end' ? 1 : -1;
+                var nx2 = fxp2.x + b.ux * sgn2 * dragEnd.len;
+                var ny2 = fxp2.y + b.uy * sgn2 * dragEnd.len;
+                ctx.save();
+                ctx.setLineDash([6, 4]);
+                ctx.strokeStyle = '#1a9d55'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(sx(fxp2.x), sy(fxp2.y));
+                ctx.lineTo(sx(nx2), sy(ny2));
+                ctx.stroke();
+                ctx.restore();
+                ctx.fillStyle = '#1a9d55';
+                ctx.beginPath(); ctx.arc(sx(nx2), sy(ny2), 6, 0, Math.PI*2); ctx.fill();
+                dimTag(sx((fxp2.x + nx2)/2), sy((fxp2.y + ny2)/2) - 18,
+                       fmtLen(dragEnd.len), 'drag', null);
+              }
+              // The green arrow says "this end moves". Pressing it now asks for
+              // the length in words, so the wall can be set exactly and not
+              // only dragged to about the right place (2026-08-14).
+              //
+              // Only the HEAD is clickable, 26 pixels out. The corner itself is
+              // grabbed within 12 pixels and is tested first, so dragging the
+              // end still works exactly as it did.
+              dimTags.push({ x: ax - 13, y: ay - 13, w: 26, h: 26, kind: 'wallLen',
+                             data: { wall_id:w.id, len:b.len,
+                                     pi:(pi == null ? null : pi) } });
             }
 
             // Click near a selected wall's corner to make THAT end the moving one.
+            //
+            // A BLUE wall counts too. The green handle is drawn on a blue
+            // wall exactly as it is on a grey one, but this said
+            // sel.type !== 'wall' and turned every blue one away - so
+            // grabbing the green dot on a wall that had not been applied yet
+            // did nothing whatsoever (2026-08-14).
             function hitWallEnd(px, py) {
-              if (!sel || sel.type !== 'wall') return null;
-              var w = sel.w;
+              if (!sel) return null;
+              var w = sel.type === 'wall' ? sel.w
+                    : (sel.type === 'pending' ? pending[sel.i] : null);
+              if (!w) return null;
               var ds = Math.hypot(sx(w.sx) - px, sy(w.sy) - py);
               var de = Math.hypot(sx(w.ex) - px, sy(w.ey) - py);
               if (ds < 12 && ds <= de) return 'start';
@@ -6481,7 +6962,55 @@ module InteriorPro
               return null;
             }
 
+            // Pressing an angle: say what it should be, and which of the two
+            // walls should swing to make it. The other one does not move.
+            //
+            // Which one is offered first is not a coin toss - it is the one
+            // whose FAR end is free. Turning a wall that is joined at both ends
+            // drags whatever is attached to it, and that is rarely what anyone
+            // wants when they are squaring up one corner.
+            function freeFarEnd(w, endHere, all) {
+              var fx = endHere === 's' ? w.ex : w.sx;
+              var fy = endHere === 's' ? w.ey : w.sy;
+              for (var i = 0; i < all.length; i++) {
+                var o = all[i];
+                if (o === w) continue;
+                if (Math.hypot(o.sx - fx, o.sy - fy) < 1.0) return false;
+                if (Math.hypot(o.ex - fx, o.ey - fy) < 1.0) return false;
+              }
+              return true;
+            }
+
+            function editAngle(c) {
+              var all = walls.concat(pending);
+              var aFree = freeFarEnd(c.wa, c.ea, all);
+              var bFree = freeFarEnd(c.wb, c.eb, all);
+              // the free one first; if both or neither, the second one drawn
+              var turn, keep, pivot;
+              if (aFree && !bFree) { turn = c.wa; pivot = c.ea; keep = c.wb; }
+              else { turn = c.wb; pivot = c.eb; keep = c.wa; }
+
+              if (!turn.id) { alert('הקיר הזה עוד לא עבר Apply to Model'); return; }
+              var v = prompt('כמה מעלות בפינה הזאת?' +
+                             (aFree || bFree ? '' :
+                              ' (שני הקירות מחוברים גם בקצה השני - מה שמחובר יזוז איתם)'),
+                             fmtAngle(c.deg).replace('°', ''));
+              if (v === null) return;
+              var deg = parseFloat(String(v).replace('°', '').trim());
+              if (!isFinite(deg) || deg <= 0 || deg >= 180) {
+                setStatusHint('זווית חייבת להיות בין 0 ל-180');
+                return;
+              }
+              keepSel = { kind:'wall', id: turn.id };
+              histModel('set_corner_angle');
+              sketchup.set_corner_angle(JSON.stringify({
+                turn_id: turn.id, keep_id: keep.id, pivot: (pivot === 's' ? 'start' : 'end'),
+                deg: deg, keep: keepCorners
+              }));
+            }
+
             function editDimTag(t) {
+              if (t.kind === 'angle') { editAngle(t.data); return; }
               if (t.kind === 'room') { editRoomName(t.data); return; }
               if (t.kind === 'skarea') { editShapeAreaName(t.data); return; }
               var cur = '';
@@ -6490,24 +7019,36 @@ module InteriorPro
               else cur = '';
               // NOTE: never use backslash escapes inside this heredoc-embedded JS
               // (a single \\' would break the whole script).
-              var v = prompt('הקלד מידה חדשה — feet inch, למשל: 3 6', cur);
+              //
+              // A wall is asked for in feet, an opening in inches - so the
+              // question says which, instead of leaving him to find out by
+              // getting it wrong.
+              var isWall = (t.kind === 'wallLen');
+              var ask = isWall
+                ? 'אורך הקיר. מספר לבד = רגל. אפשר גם 11 6 = 11 רגל 6 אינץ, או 11 6 1/2'
+                : 'מידה חדשה. מספר לבד = אינץ. אפשר גם 2 6 = 2 רגל 6 אינץ';
+              var v = prompt(ask, cur);
               if (v === null) return;
-              var val = parseLen(v);
+              var val = parseLen(v, isWall ? 'ft' : 'in');
               if (!val || val <= 0) return;
               if (t.kind === 'wallLen') {
                 if (t.data.pi != null) { setPendingLength(t.data.pi, val); return; }
                 if (!t.data.wall_id) { alert('הקיר עוד לא עבר Apply to Model'); return; }
                 keepSel = { kind:'wall', id: t.data.wall_id };
+                histModel('set_wall_length');
                 sketchup.set_wall_length(JSON.stringify({ wall_id: t.data.wall_id, len: val, fixed: fixedEndName(), keep: keepCorners }));
               } else if (t.kind === 'size') {
+                histModel('edit_opening_size');
                 sketchup.edit_opening_size(JSON.stringify({
                   id: t.data.id, body: t.data.body, width: val, height: 0, header: 0
                 }));
               } else if (t.kind === 'pos') {
+                histModel('set_opening_t');
                 sketchup.set_opening_t(JSON.stringify({
                   id: t.data.id, body: t.data.body, t: t.data.base + val + t.data.hw
                 }));
               } else if (t.kind === 'posEnd') {
+                histModel('set_opening_t');
                 sketchup.set_opening_t(JSON.stringify({
                   id: t.data.id, body: t.data.body, t: t.data.base - val - t.data.hw
                 }));
@@ -6892,8 +7433,18 @@ module InteriorPro
             // face it reaches, so you can aim roughly and still land exactly on
             // the wall. A TYPED length is an explicit instruction and is never
             // clipped - the same rule the whole editor follows.
-            function clampToBoundary(a, bpt) {
-              if (!a || cat !== 'interior') return bpt;
+            //
+            // 2026-08-14: this was written for the DRAWING path only, and it
+            // only ever asked `cat` - the category of the tool in his hand at
+            // that moment. Pulling an EXISTING interior wall by its green
+            // handle never goes through currentEnd(), so nothing stopped it and
+            // the wall walked straight into the exterior band (his screenshot).
+            // The wall being pulled knows its own category, so it can say so:
+            // whoWith overrides `cat`, and leaving it out keeps the old
+            // behaviour for the drawing path exactly.
+            function clampToBoundary(a, bpt, whoWith) {
+              var myCat = whoWith || cat;
+              if (!a || myCat !== 'interior') return bpt;
               var dx = bpt.x - a.x, dy = bpt.y - a.y;
               var L = Math.hypot(dx, dy);
               if (L < 1) return bpt;
@@ -6903,6 +7454,7 @@ module InteriorPro
                 if ((w.cat || 'exterior') !== 'exterior') return;
                 var bq = bandQuad(w); if (!bq) return;
                 var C = endCorners(w, allW, bq);
+                if (!C) return;
                 [[C.sp, C.ep], [C.sq, C.eq], [C.sp, C.sq], [C.ep, C.eq]].forEach(function(sg) {
                   var t = segCross(a, bpt, sg[0], sg[1]);
                   if (t === null) return;
@@ -6913,6 +7465,26 @@ module InteriorPro
               });
               if (best === null) return bpt;
               return { x: a.x + dx / L * best, y: a.y + dy / L * best };
+            }
+
+            // How long the wall being pulled by its green handle is ALLOWED to
+            // be. The drag works in lengths, the boundary rule works in points,
+            // so this turns one into the other and back. It calls the very same
+            // clampToBoundary the drawing path calls - two ways of lengthening a
+            // wall must never disagree about where the building ends.
+            //
+            // Only an interior wall is held back. An exterior wall IS the
+            // boundary; nothing stops it, and it keeps its old freedom.
+            // Shortening is never touched - you can always pull back.
+            function dragLenLimit(d, pinned, sgn, wantLen) {
+              if (!d || !d.w || !d.b || !pinned) return wantLen;
+              if ((d.w.cat || 'exterior') !== 'interior') return wantLen;
+              if (!(wantLen > 0)) return wantLen;
+              var dirx = d.b.ux * sgn, diry = d.b.uy * sgn;
+              var want = { x: pinned.x + dirx * wantLen, y: pinned.y + diry * wantLen };
+              var cut = clampToBoundary(pinned, want, 'interior');
+              var got = (cut.x - pinned.x) * dirx + (cut.y - pinned.y) * diry;
+              return (got < wantLen) ? got : wantLen;
             }
 
             function currentEnd() {
@@ -6995,6 +7567,7 @@ module InteriorPro
                 typed = ''; updateVcb(); draw();
                 return;
               }
+              histLocal('draw wall');
               if (!mergeCollinear(w)) pending.push(w);
               startPt = end; typed = ''; updateVcb(); draw();
             }
@@ -7005,6 +7578,7 @@ module InteriorPro
               if (!arcBow) return;
               var sag = arcBow.w.sag || 0;
               arcBow.w.sag = sag;
+              histLocal('draw curved wall');
               pending.push(arcBow.w);
               startPt = { x: arcBow.ex, y: arcBow.ey };
               arcBow = null; typed = ''; updateVcb(); draw();
@@ -7056,7 +7630,18 @@ module InteriorPro
             cv.addEventListener('mousedown', function(ev) {
               evCount.md++; updateDbg();
               if (ev.button === 1) { panning = true; panFrom = {x:ev.offsetX, y:ev.offsetY}; ev.preventDefault(); return; }
-              if (ev.button === 2) { endChain(); return; }
+              // Right button: while something is being drawn it ends the chain,
+              // as it always did. On empty paper with nothing going on it opens
+              // the little menu - which today holds one thing, the corner
+              // angles (2026-08-14, the user asked for a way to switch them off
+              // once he has finished checking them).
+              if (ev.button === 2) {
+                var busy = drawing || (curLine && curLine.pts && curLine.pts.length) ||
+                           arcPts.length || circC || measA || dragEnd;
+                if (busy) { endChain(); return; }
+                showMenu(ev.offsetX, ev.offsetY);
+                return;
+              }
               if (ev.button !== 0) return;
               var p = {x:mx(ev.offsetX), y:my(ev.offsetY)};
               if (calib) { cursor = p; calibClick(p); return; }
@@ -7102,8 +7687,24 @@ module InteriorPro
                   draw();
                   return;
                 }
-                var he = hitWallEnd(ev.offsetX, ev.offsetY);  // click a corner = choose moving end
-                if (he) { setMovingEnd(he); return; }
+                // The green dot is the end that moves; the red one is pinned.
+                // Grab the RED one and it becomes the moving end. Grab the
+                // GREEN one and the wall stretches with the mouse.
+                var he = hitWallEnd(ev.offsetX, ev.offsetY);
+                if (he) {
+                  if (he !== movingEnd) { setMovingEnd(he); return; }
+                  var w0 = sel && (sel.type === 'wall' ? sel.w
+                                 : (sel.type === 'pending' ? pending[sel.i] : null));
+                  var b0 = w0 && bandQuad(w0);
+                  if (b0) {
+                    dragEnd = { w:w0, b:b0, len:b0.len, start:b0.len, moved:false,
+                                pi:(sel.type === 'pending' ? sel.i : null) };
+                    setStatusHint('גרור להארכה / קיצור · או הקלד אורך + Enter · שחרר לסיום');
+                    draw();
+                    return;
+                  }
+                  setMovingEnd(he); return;
+                }
                 var dt = hitDimTag(ev.offsetX, ev.offsetY);   // click a dimension = edit it
                 if (dt) { editDimTag(dt); return; }
                 var hk = hitSketch(p);
@@ -7194,6 +7795,7 @@ module InteriorPro
                 if (!hoverHit) return;
                 if (!hoverHit.ok) return;
                 if (mode === 'door') {
+                  histModel('place_door');
                   sketchup.place_door(JSON.stringify({
                     wall_id: hoverHit.w.id, px: p.x, py: p.y,
                     category: doorCat,
@@ -7203,6 +7805,7 @@ module InteriorPro
                     swing: doorSwing
                   }));
                 } else {
+                  histModel('place_window');
                   sketchup.place_window(JSON.stringify({
                     wall_id: hoverHit.w.id, px: p.x, py: p.y,
                     window_type: document.getElementById('wType').value,
@@ -7234,6 +7837,28 @@ module InteriorPro
               if (dimPlace) {                       // new dim follows the cursor
                 cursor = { x:mx(px), y:my(py) };
                 dimOffTo(dimPlace, cursor);
+                draw();
+                return;
+              }
+              if (dragEnd) {                        // stretching a wall by its green end
+                cursor = { x:mx(px), y:my(py) };
+                // How far along its OWN direction the cursor is, measured from
+                // the pinned end. Sideways wandering is ignored, so the wall
+                // cannot go crooked - it only gets longer or shorter.
+                var fxp = movingEnd === 'end' ? { x:dragEnd.w.sx, y:dragEnd.w.sy }
+                                              : { x:dragEnd.w.ex, y:dragEnd.w.ey };
+                var sgn = movingEnd === 'end' ? 1 : -1;
+                var alen = (cursor.x - fxp.x) * dragEnd.b.ux * sgn +
+                           (cursor.y - fxp.y) * dragEnd.b.uy * sgn;
+                // An INTERIOR wall stops at the exterior wall - it may not
+                // enter the band and it may not cross it. The rule and the
+                // maths already existed for drawing a new wall; this path is
+                // the one he was using and it had no stop at all, so the wall
+                // ran into the dark band (2026-08-14). Same function, so the
+                // two ways of lengthening a wall can never disagree.
+                alen = dragLenLimit(dragEnd, fxp, sgn, alen);
+                dragEnd.len = Math.max(6, alen);
+                dragEnd.moved = true;
                 draw();
                 return;
               }
@@ -7375,7 +8000,7 @@ module InteriorPro
             });
             cv.addEventListener('pointermove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -7385,7 +8010,7 @@ module InteriorPro
             });
             window.addEventListener('mousemove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -7394,6 +8019,7 @@ module InteriorPro
             function finishDrag() {
               evCount.mu++; updateDbg();
               panning = false;
+              if (dragEnd) { finishEndDrag(); return; }
               if (dragDim) { finishDimDrag(); return; }
               if (dragVert) { finishVertexDrag(); return; }
               if (dragUnder) { dragUnder = null; saveUnderlay(); return; }
@@ -7411,6 +8037,7 @@ module InteriorPro
                   } else {
                     // our n is the LEFT perpendicular; Ruby expects RIGHT (outward)
                     keepSel = { kind:'wall', id: dragWall.w.id };
+                    histModel('move_wall');
                     sketchup.move_wall(JSON.stringify({ wall_id: dragWall.w.id, dist: -dragWall.off, keep: keepCorners }));
                   }
                 }
@@ -7422,6 +8049,7 @@ module InteriorPro
                 var delta = dragSym.curT - dragSym.startT;
                 if (dragSym.moved && Math.abs(delta) > 0.25) {
                   keepSel = { kind:'sym', id: dragSym.s.id };
+                  histModel('move_opening');
                   sketchup.move_opening(JSON.stringify({ id: dragSym.s.id, body: dragSym.s.body, delta: delta }));
                 }
                 dragSym = null;
@@ -7439,6 +8067,11 @@ module InteriorPro
               editDimText(hd.d);
             });
             cv.addEventListener('contextmenu', function(ev) { ev.preventDefault(); });
+            // anywhere else, or a key, puts the little menu away again
+            window.addEventListener('mousedown', function(ev) {
+              var el = document.getElementById('canvasMenu');
+              if (el && el.style.display === 'block' && !el.contains(ev.target)) hideMenu();
+            }, true);
             cv.addEventListener('wheel', function(ev) {
               ev.preventDefault();
               var f = ev.deltaY < 0 ? 1.15 : 1/1.15;
@@ -7453,6 +8086,12 @@ module InteriorPro
               if (ev.key === 'Shift') { shiftDown = false; lockDir = null; if (drawing || curLine) draw(); }
             });
             window.addEventListener('keydown', function(ev) {
+              // Any key puts the little right-click menu away. Done HERE, in the
+              // handler that already exists, and not as a second listener: the
+              // test suites reach for window keydown listener [0], and a new one
+              // registered ahead of this took its place and broke every keyboard
+              // shortcut (t32 caught it, 2026-08-14).
+              hideMenu();
               if (ev.key === 'Shift') {
                 if (!shiftDown) { shiftDown = true; captureLockDir(); }
                 if (rotOp) { rotMove(); return; }
@@ -7500,6 +8139,18 @@ module InteriorPro
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
                 if (/^[0-9.-]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
               }
+              // Escape backs out one step at a time, and Select is where it
+              // always ends up. The user asked for this on 2026-08-14: "Select
+              // should be the default of every state, unless it is in some
+              // other defined state." Whatever is half-done IS that other
+              // state, so it goes first; when there is nothing half-done, the
+              // tool itself is put down.
+              //
+              //   busy op  ->  cancel it            (rotate, move, offset...)
+              //   half-typed number -> forget it
+              //   drawing a chain   -> end the chain, stay in the tool
+              //   any other tool    -> back to Select
+              //   already in Select -> drop the selection
               if (ev.key === 'Escape') {
                 if (guideMode) { toggleGuideMode(); return; }
                 if (rotOp) { rotCancel(); return; }
@@ -7507,8 +8158,13 @@ module InteriorPro
                 if (offOp) { offCancel(); return; }
                 if (ghostCopy || ghostOpen) { ghostCopy = null; ghostOpen = null; setStatusHint(null); draw(); return; }
                 if (dimPlace) { cancelDimPlace(); return; }
-                endChain();
-                if (mode === 'sel') { setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw(); }
+                if (cancelEndDrag()) return;
+                if (typed) { typed = ''; updateVcb(); draw(); return; }
+                var mid = drawing || (curLine && curLine.pts && curLine.pts.length) ||
+                          arcPts.length || circC || measA;
+                if (mid) { endChain(); return; }
+                if (mode !== 'sel') { setMode('sel'); return; }
+                setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw();
                 return;
               }
               // Mode shortcuts (2026-08-07): S select · D door · W window ·
@@ -7720,25 +8376,24 @@ module InteriorPro
             // One Undo for everything, newest thing first: a point of the line
             // being drawn, then a half-started arc/circle/rect, then the last
             // finished shape or wall, and only then SketchUp's own undo stack.
+            // One Undo, and it takes the LAST THING THAT HAPPENED.
+            //
+            // The only things that jump the queue are the half-finished ones -
+            // a chain still being clicked out, an arc with one point on it, a
+            // tape measure mid-stretch. Those are not actions yet; they are an
+            // action being typed, and Undo backs a character off it. Once they
+            // are finished they go into the history like everything else.
             function undoAction() {
-              if (mode === 'line') {
-                if (curLine && curLine.pts.length) { undoLinePoint(); return; }
-                if (arcPts.length) { arcPts.pop(); draw(); return; }
-                if (circC) { circC = null; draw(); return; }
-                if (measB) { measB = null; draw(); return; }
-                if (measA) { measA = null; draw(); return; }
-                if (dimPlace) { cancelDimPlace(); return; }
-                if (dimA) { dimA = null; draw(); return; }
-                if (lineTool === 'dim' && dims.length) { dims.pop(); updateStatus(); draw(); return; }
-                if (histUndo()) return;
-                if (popSketchStep()) return;
-                if (pending.length) { undoPending(); return; }
-                sketchup.undo_model();
-                return;
-              }
+              if (curLine && curLine.pts.length) { undoLinePoint(); return; }
+              if (arcPts.length) { arcPts.pop(); draw(); return; }
+              if (circC) { circC = null; draw(); return; }
+              if (measB) { measB = null; draw(); return; }
+              if (measA) { measA = null; draw(); return; }
+              if (dimPlace) { cancelDimPlace(); return; }
+              if (dimA) { dimA = null; draw(); return; }
+              if (dragEnd) { cancelEndDrag(); return; }
               if (histUndo()) return;
-              if (pending.length) { undoPending(); return; }
-              if (popSketchStep()) return;
+              // nothing of ours left: SketchUp's own stack
               sketchup.undo_model();
             }
 
@@ -7823,6 +8478,7 @@ module InteriorPro
               if (pendingSketches.length) sketchup.apply_sketches(JSON.stringify(pendingSketches));
               if (!pending.length) { setTimeout(function() { applyBusy(false); }, 250); return; }
               autoOrientExterior();
+              histModel('apply_walls');
               sketchup.apply_walls(JSON.stringify(pending));
             }
             function applyDone(n) { pending = []; applyBusy(false); saveDraft(true); draw(); }
@@ -7921,9 +8577,19 @@ module InteriorPro
             fillSelect('wType', WIN_TYPES);
             doorTypeChanged();
             winTypeChanged();
-            setMode('sel');
+            // The editor opens in SELECT, every time (2026-08-14).
+            //
+            // It used to say setMode('sel') and then setLineTool('line') to
+            // pick a default shape - and setLineTool jumps into Line mode on
+            // purpose, so that a drawing tool can be clicked straight from
+            // Select. The result was that the editor opened with the Line tool
+            // already armed, which is not where anyone wants to start.
+            //
+            // So the tools are set up FIRST and Select is chosen last. Order
+            // matters here; do not tidy these three lines back together.
             setLineTool('line');
             setLinePreset('solid');
+            setMode('sel');
             resize();
             sketchup.editor_ready();
           </script>

@@ -216,5 +216,39 @@ ok('deleting a render sheet removes that render',
 ok('and the sheet numbers close up behind it',
    d2.pages.map(&:sheet_number) == %w[A-101 A-102], d2.pages.map(&:sheet_number))
 
+# --------------------------------------------------------------- the logo
+# The user's own mark, in the corner of the title block, instead of the built-in
+# VISUALIZE wordmark. One file, so it is chosen with UI.openpanel and nothing is
+# copied anywhere - the sheet just points at where it lives.
+def title_of(doc, i = 0)
+  doc.pages[i].layer(PD::TITLE_LAYER).shapes
+end
+
+with_logo = PC.build_document(m, size: 'ARCH D', scale: '1/4"',
+                              logo: 'C:/brand/dror.png')
+pic = title_of(with_logo).select { |s2| s2[:type] == :image }
+ok('the logo reaches the title block', pic.length == 1, pic.length)
+ok('and it points at the file the user chose',
+   pic[0] && pic[0][:path] == 'C:/brand/dror.png', pic[0] && pic[0][:path])
+ok('the built-in wordmark steps aside for it',
+   title_of(with_logo).none? { |s2| s2[:text] == 'VISUALIZE' },
+   title_of(with_logo).select { |s2| s2[:type] == :text }.map { |s2| s2[:text] })
+ok('it sits in the corner, not over the writing',
+   pic[0] && pic[0][:x] > with_logo.pages[0].width / 2, pic[0] && pic[0][:x])
+
+no_logo = PC.build_document(m, size: 'ARCH D', scale: '1/4"')
+ok('with no logo the wordmark comes back',
+   title_of(no_logo).any? { |s2| s2[:text] == 'VISUALIZE' } &&
+   title_of(no_logo).none? { |s2| s2[:type] == :image },
+   title_of(no_logo).map { |s2| s2[:type] }.uniq)
+
+# every render sheet gets it too, not just the plan
+two = PC.build_document(m, size: 'ARCH D', scale: '1/4"',
+                        logo: 'C:/brand/dror.png', images: [R1])
+ok('every sheet in the set carries the logo',
+   two.pages.all? { |pg2| pg2.layer(PD::TITLE_LAYER).shapes
+                             .any? { |s2| s2[:type] == :image } },
+   two.pages.map { |pg2| pg2.name })
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

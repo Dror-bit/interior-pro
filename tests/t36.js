@@ -222,6 +222,36 @@ sandbox.showLogo(null);
 ok('no logo means an empty box, not a broken picture',
    nodes.logoshow.className === '', nodes.logoshow.className);
 
+// The bug the user hit: he picked a logo and the sheet showed an empty dashed
+// box. The window only knew the addresses of the RENDERS, and a logo is a
+// picture in the title block - so it had no address and could not be drawn.
+// Every picture the sheet can hold has to be in that list, not just some.
+ok('the window is told where the logo file is, not only the renders',
+   js.includes('if(p.logo && p.logo.url) URLS[p.logo.path]=p.logo.url;'),
+   'the logo is missing from the address list again');
+
+const PAGE_LOGO = {
+  name: 'FLOOR PLAN', sheet_number: 'A-101', kind: 'plan', width: 36, height: 24,
+  views: [],
+  layers: [{ name: 'TITLE', visible: true, shapes: [
+    { type: 'image', path: 'C:/a/logo.png', x: 32, y: 0.6, w: 2.2, h: 0.75 }
+  ] }]
+};
+sandbox.URLS = {};
+const noAddr = sandbox.sheetSVG(PAGE_LOGO, 20, false);
+ok('without an address the logo really does come out as an empty box',
+   !noAddr.includes('<image ') && noAddr.includes('stroke-dasharray="3 3"'),
+   'the test is not measuring what it thinks it is');
+
+sandbox.URLS = { 'C:/a/logo.png': 'file:///C:/a/logo.png' };
+const withAddr = sandbox.sheetSVG(PAGE_LOGO, 20, false);
+ok('with one, the logo is drawn',
+   withAddr.includes('<image ') && withAddr.includes('file:///C:/a/logo.png'),
+   withAddr.slice(0, 200));
+ok('and it keeps its proportions in the title block',
+   withAddr.includes('preserveAspectRatio="xMidYMid meet"'));
+sandbox.URLS = { 'C:/r/1.jpg': 'file:///C:/r/1.jpg' };
+
 // A layer switched off and then hidden behind a fold is how a sheet comes out
 // missing something and nobody can see why. The heading has to say so.
 sandbox.STATE.hidden = ['SITE', 'NOTES'];

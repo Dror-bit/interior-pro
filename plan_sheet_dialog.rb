@@ -1292,8 +1292,13 @@ module InteriorPro
 
           function loadSheet(p){
             DOC=p.doc; STATE=p.state; BOUNDS=p.bounds; SCALES=p.scales;
+            // Every picture the sheet can show needs an address here, not just
+            // the renders. The logo is a picture too - it sits in the title
+            // block - and leaving it out of this list is why the user picked a
+            // logo and saw nothing but the empty dashed box (2026-08-14).
             URLS={};
             (p.images||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
+            if(p.logo && p.logo.url) URLS[p.logo.path]=p.logo.url;
             if(STATE.active===undefined||STATE.active===null) STATE.active=0;
             ZOOM = STATE.zoom || null;
             PAGE=DOC.pages[0];

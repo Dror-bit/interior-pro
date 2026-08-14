@@ -276,6 +276,7 @@ module InteriorPro
         'tables_own_page' => opts.key?(:tables_own_page) ? opts[:tables_own_page] : true,
         'images'          => Array(opts[:images]),
         'image_title'     => opts[:image_title],
+        'marks'           => Array(opts[:marks]),
         'hidden'          => []
       }
       layout_pages!(doc, st)
@@ -290,6 +291,11 @@ module InteriorPro
       pt     = InteriorPro::PlanTables
       hidden = Array(st['hidden']).map(&:to_s)
       doc.pages.clear
+
+      # The hand-drawn marks are redrawn here rather than when the model is
+      # read, so a dimension the user just stretched shows up on the very next
+      # frame instead of waiting for the next trip through SketchUp.
+      apply_marks!(doc, st)
 
       size   = st['size'] || pd::DEFAULT_PAGE_SIZE
       orient = (st['orientation'] || 'landscape').to_sym
@@ -351,6 +357,189 @@ module InteriorPro
 
       apply_visibility!(doc, hidden)
       doc
+    end
+
+    # --------------------------------------------- dimensions and notes by hand
+    #
+    # The plan already dimensions itself. This is the other half: a line the
+    # user stretches between two points he chose, and a word written where he
+    # wants it. Without them the free geometry he traces is only a picture
+    # (2026-08-14).
+    #
+    # They live in MODEL inches on the canvas, not on the paper, so they sit on
+    # the thing they describe: move the plan, change the scale, change the page
+    # size, and the dimension stays on the wall it measures.
+    #
+    # The text height is the same 5 model inches the automatic dimensions use,
+    # so a hand-drawn one and a machine-drawn one look like the same drawing.
+    MARK_LAYER = 'NOTES' unless const_defined?(:MARK_LAYER, false)
+    MARK_TICK  = 4.0 unless const_defined?(:MARK_TICK, false)
+
+    # NOT PlanGenerator::DIM_TEXT_H, which is what everyone writes first and
+    # what rt52 caught (2026-08-14). The constant is declared inside
+    # `class << self`, so it belongs to the singleton class and the obvious
+    # spelling raises NameError. It used to be swallowed by a rescue that
+    # returned 5.0 - the same number DIM_TEXT_H happens to hold, so nothing
+    # looked wrong, and the day anyone changed it the hand-drawn dimensions
+    # would have quietly stayed behind. It says so out loud now.
+    def self.mark_text_h
+      InteriorPro::PlanGenerator.singleton_class.const_get(:DIM_TEXT_H)
+    rescue StandardError, NameError => e
+      puts "[PlanCanvas] cannot read the dimension text height (#{e.class}), using 5.0"
+      5.0
+    end
+
+    def self.apply_marks!(doc, st)
+      cv  = doc.canvas('MODEL')
+      lay = cv.layer(MARK_LAYER)
+      lay.shapes.clear
+      Array(st['marks']).each do |m|
+        h = m['t'] || m[:t]
+        case h.to_s
+        when 'dim'  then safely { draw_mark_dim(lay, m) }
+        when 'note' then safely { draw_mark_note(lay, m) }
+        end
+      end
+      cv
+    end
+
+    def self.mark_num(m, key)
+      (m[key.to_s] || m[key.to_sym]).to_f
+    end
+
+    def self.draw_mark_dim(lay, m)
+      x1 = mark_num(m, :x1); y1 = mark_num(m, :y1)
+      x2 = mark_num(m, :x2); y2 = mark_num(m, :y2)
+      dx = x2 - x1
+      dy = y2 - y1
+      len = Math.hypot(dx, dy)
+      return if len < 0.5                       # a stray double click, not a line
+      ux = dx / len
+      uy = dy / len
+      nx = -uy                                  # across the line
+      ny = ux
+
+      lay.line(x1, y1, x2, y2)
+      # a slash through each end, the way a plan dimension is ticked
+      t = MARK_TICK / 2.0
+      [[x1, y1], [x2, y2]].each do |px, py|
+        ax = (ux + nx) * t
+        ay = (uy + ny) * t
+        lay.line(px - ax, py - ay, px + ax, py + ay)
+      end
+
+      # Never upside down: past vertical, read it from the other side.
+      ang = Math.atan2(dy, dx) * 180.0 / Math::PI
+      ang -= 180.0 while ang > 90.0
+      ang += 180.0 while ang < -90.0
+
+      h   = mark_num(m, :h)
+      h   = mark_text_h if h <= 0
+      off = h * 0.8
+      lay.text(InteriorPro::PlanGenerator.send(:fmt_feet, len),
+               (x1 + x2) / 2.0 + nx * off, (y1 + y2) / 2.0 + ny * off,
+               h: h, align: :center, rotation: ang)
+    end
+
+    # A note is the SketchUp Text tool: words in a box, and a line with an
+    # arrow running from the box to the thing being talked about. The user sent
+    # a picture of it rather than describe it, which is the right way round for
+    # anything that has to LOOK like something (2026-08-14).
+    #
+    # The box is measured, not guessed: plan_pdf already carries the real
+    # Helvetica letter widths, because it has to centre every label on the
+    # sheet. Feeding it model inches gives a box back in model inches.
+    MARK_PAD   = 0.45 unless const_defined?(:MARK_PAD, false)    # of the text height
+    MARK_ARROW = 1.6  unless const_defined?(:MARK_ARROW, false)  # ditto
+
+    def self.text_width(str, h)
+      require File.join(File.dirname(__FILE__), 'plan_pdf') unless
+        defined?(InteriorPro::PlanPDF)
+      pp = InteriorPro::PlanPDF
+      pp.text_width(str, h / pp::CAP_RATIO)
+    rescue StandardError, NameError
+      str.to_s.length * h * 0.6         # only if plan_pdf is not there at all
+    end
+
+    def self.draw_mark_note(lay, m)
+      txt = (m['text'] || m[:text]).to_s
+      return if txt.strip.empty?
+      h = mark_num(m, :h)
+      h = mark_text_h if h <= 0
+      x = mark_num(m, :x)
+      y = mark_num(m, :y)
+
+      lay.text(txt, x, y, h: h, align: :center)
+
+      w   = text_width(txt, h)
+      pad = h * MARK_PAD
+      bw  = w / 2.0 + pad
+      bh  = h / 2.0 + pad
+      lay.polygon([[x - bw, y - bh], [x + bw, y - bh],
+                   [x + bw, y + bh], [x - bw, y + bh]])
+
+      # the leader, if the user pointed at something
+      return unless m.key?('lx') || m.key?(:lx)
+      lx = mark_num(m, :lx)
+      ly = mark_num(m, :ly)
+
+      # Two segments, not one (2026-08-14, from the user's third picture): a
+      # short shoulder straight out of the label, a knee, then the slant down to
+      # the thing itself. That is how SketchUp, Revit and every drawing on his
+      # desk do it, and it keeps the slanted line clear of the words.
+      #
+      # A note written before this existed has no knee and keeps its single
+      # straight line - it is still a perfectly good leader.
+      knee = (m.key?('kx') || m.key?(:kx))
+      if knee
+        kx = mark_num(m, :kx)
+        ky = mark_num(m, :ky)
+        sx, sy = box_exit(x, y, bw, bh, kx, ky)
+        lay.line(sx, sy, kx, ky) if Math.hypot(kx - sx, ky - sy) >= 0.5
+        return if Math.hypot(lx - kx, ly - ky) < 0.5
+        lay.line(kx, ky, lx, ly)
+        arrow = m.key?('arrow') ? m['arrow'] : (m.key?(:arrow) ? m[:arrow] : true)
+        arrow_head(lay, kx, ky, lx, ly, h * MARK_ARROW) unless arrow == false
+        return
+      end
+
+      sx, sy = box_exit(x, y, bw, bh, lx, ly)
+      return if Math.hypot(lx - sx, ly - sy) < 0.5
+      lay.line(sx, sy, lx, ly)
+
+      # With or without a head on the end. SketchUp's own text leader is a bare
+      # line, and the user sent a picture of one - so both are offered and he
+      # picks per note. A note written before this existed has no say in the
+      # matter and keeps the head it already had.
+      arrow = m.key?('arrow') ? m['arrow'] : (m.key?(:arrow) ? m[:arrow] : true)
+      arrow_head(lay, sx, sy, lx, ly, h * MARK_ARROW) unless arrow == false
+    end
+
+    # Where the line from the middle of the box leaves the box. Without this the
+    # leader would start in the middle of the words and strike them through.
+    def self.box_exit(x, y, bw, bh, lx, ly)
+      dx = lx - x
+      dy = ly - y
+      return [x, y] if dx.abs < 1e-9 && dy.abs < 1e-9
+      tx = dx.abs < 1e-9 ? Float::INFINITY : bw / dx.abs
+      ty = dy.abs < 1e-9 ? Float::INFINITY : bh / dy.abs
+      t  = [tx, ty].min
+      [x + dx * t, y + dy * t]
+    end
+
+    def self.arrow_head(lay, sx, sy, lx, ly, size)
+      dx = lx - sx
+      dy = ly - sy
+      len = Math.hypot(dx, dy)
+      return if len < 1e-9
+      ux = dx / len
+      uy = dy / len
+      nx = -uy
+      ny = ux
+      back = size
+      side = size * 0.38
+      lay.line(lx, ly, lx - ux * back + nx * side, ly - uy * back + ny * side)
+      lay.line(lx, ly, lx - ux * back - nx * side, ly - uy * back - ny * side)
     end
 
     # Do two [minx, miny, maxx, maxy] boxes touch at all?
