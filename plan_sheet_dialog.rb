@@ -67,7 +67,7 @@ module InteriorPro
               dlg.execute_script("siteReport(#{JSON.generate(sel.length)}, #{JSON.generate(r)})")
             end
           rescue StandardError => e
-            puts "[Sheet] add_selection: #{e.message}"
+            puts "[Sheet] add_selection: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("siteDone(0, #{JSON.generate(e.message)})")
           end
         end
@@ -82,7 +82,7 @@ module InteriorPro
             push_all(dlg)
             dlg.execute_script('siteDone(0, null)')
           rescue StandardError => e
-            puts "[Sheet] clear_selection: #{e.message}"
+            puts "[Sheet] clear_selection: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
         end
 
@@ -122,7 +122,7 @@ module InteriorPro
               dlg.execute_script('dropReady(false)')
             end
           rescue StandardError => e
-            puts "[Sheet] drop_begin: #{e.message}"
+            puts "[Sheet] drop_begin: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("dropFailed(#{JSON.generate(e.message)})")
           end
         end
@@ -134,7 +134,7 @@ module InteriorPro
             end
             dlg.execute_script('chunkDone()')
           rescue StandardError => e
-            puts "[Sheet] drop_chunk: #{e.message}"
+            puts "[Sheet] drop_chunk: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("dropFailed(#{JSON.generate(e.message)})")
           end
         end
@@ -147,7 +147,7 @@ module InteriorPro
             @drop_done = nil
             dlg.execute_script('fileDone()')
           rescue StandardError => e
-            puts "[Sheet] drop_end: #{e.message}"
+            puts "[Sheet] drop_end: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("dropFailed(#{JSON.generate(e.message)})")
           end
         end
@@ -158,7 +158,7 @@ module InteriorPro
             @drop_list = []
             add_images!(dlg, list)
           rescue StandardError => e
-            puts "[Sheet] drop_finish: #{e.message}"
+            puts "[Sheet] drop_finish: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("dropFailed(#{JSON.generate(e.message)})")
           end
         end
@@ -168,6 +168,41 @@ module InteriorPro
         # the sheet is, and only Ruby knows: a render leaves the picture list, a
         # schedules sheet gets its layer turned off. The plan sheet has no x,
         # because the drawing is the point of the whole document.
+        # The logo. ONE file, so UI.openpanel is right here - it hands back a
+        # real path, and nothing has to be copied anywhere. (The pictures go the
+        # long way round only because SketchUp cannot pick several at once.)
+        dlg.add_action_callback('choose_logo') do |_|
+          begin
+            path = UI.openpanel('בחר קובץ לוגו', logo_dir,
+                                'Images|*.jpg;*.jpeg;*.png;*.JPG;*.JPEG;*.PNG||')
+            if path
+              st = load_state
+              st['logo'] = path.to_s.tr('\\', '/')
+              save_state(st)
+              @doc = nil
+              push_all(dlg)
+            else
+              dlg.execute_script('logoDone(null)')
+            end
+          rescue StandardError => e
+            puts "[Sheet] choose_logo: #{e.class}: #{e.message}\n  " +
+                 Array(e.backtrace).first(4).join("\n  ")
+            dlg.execute_script("logoDone(#{JSON.generate(e.message)})")
+          end
+        end
+
+        dlg.add_action_callback('clear_logo') do |_|
+          begin
+            st = load_state
+            st['logo'] = nil
+            save_state(st)
+            @doc = nil
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] clear_logo: #{e.class}: #{e.message}"
+          end
+        end
+
         dlg.add_action_callback('delete_page') do |_, json|
           begin
             r  = JSON.parse(json.to_s)
@@ -190,7 +225,7 @@ module InteriorPro
             @doc = nil
             push_all(dlg)
           rescue StandardError => e
-            puts "[Sheet] delete_page: #{e.message}"
+            puts "[Sheet] delete_page: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("imageReport(0, #{JSON.generate(e.message)})")
           end
         end
@@ -202,7 +237,7 @@ module InteriorPro
             apply_state!(document, st)
             push_pages(dlg)
           rescue StandardError => e
-            puts "[Sheet] set_state: #{e.message}"
+            puts "[Sheet] set_state: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
         end
 
@@ -240,7 +275,8 @@ module InteriorPro
           InteriorPro::PlanCanvas.build_document(
             Sketchup.active_model,
             size: st['size'], orientation: (st['orientation'] || 'landscape').to_sym,
-            scale: st['scale'], address: st['address'],
+            scale: st['scale'], address: st['address'], marks: st['marks'],
+            logo: (st['logo'].to_s.empty? ? nil : st['logo']),
             sheet_number: st['sheet_number'], sheet_title: st['sheet_title'],
             date: st['date'],
             site: { lines: site_lines, pids: st['site_pids'],
@@ -271,6 +307,10 @@ module InteriorPro
           page_sizes: InteriorPro::PlanDoc.page_size_names,
           scales: InteriorPro::PlanDoc.scale_labels,
           images: image_payload(st),
+          logo: (st['logo'].to_s.empty? ? nil :
+                 { 'path' => st['logo'], 'name' => File.basename(st['logo'].to_s),
+                   'url' => file_url(st['logo']),
+                   'there' => File.file?(st['logo'].to_s) }),
           bounds: d.canvas('MODEL').bounds
         }
         dlg.execute_script("loadSheet(#{JSON.generate(payload)})")
@@ -280,11 +320,20 @@ module InteriorPro
 
       # Only the paper changes when a control moves; the plan itself does not,
       # so the shapes stay where they are in the window.
+      #
+      # The one exception is the hand-drawn marks. They ARE on the plan, and the
+      # user has just stretched one, so that single layer goes back too - built
+      # by the same Ruby that builds it for the PDF. The window never draws a
+      # dimension of its own; if it did, the paper and the preview would slowly
+      # stop agreeing, which is the whole thing this file exists to prevent.
       def push_pages(dlg)
-        d = document
-        dlg.execute_script("applyPages(#{JSON.generate(d.pages.map(&:to_h))})")
+        d   = document
+        lay = d.canvas('MODEL').layers
+               .find { |l| l.name == InteriorPro::PlanCanvas::MARK_LAYER }
+        dlg.execute_script("applyPages(#{JSON.generate(d.pages.map(&:to_h))}, " \
+                           "#{JSON.generate(lay && lay.to_h)})")
       rescue StandardError => e
-        puts "[Sheet] push_pages: #{e.message}"
+        puts "[Sheet] push_pages: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
       end
 
       # --------------------------------------------------------------- state
@@ -306,7 +355,8 @@ module InteriorPro
           'address' => '', 'sheet_number' => 'A-101', 'sheet_title' => 'FLOOR PLAN',
           'hidden' => [], 'tables_own_page' => true,
           'site_pids' => [], 'site_z_max' => nil, 'site_soft' => false,
-          'images' => [], 'image_title' => 'RENDERING' }
+          'images' => [], 'image_title' => 'RENDERING', 'marks' => [],
+          'note_arrow' => true, 'strip' => false, 'open' => {}, 'logo' => nil }
       end
 
       # Settings that are remembered but have no default: where the plan sits,
@@ -346,7 +396,7 @@ module InteriorPro
             Sketchup.active_model.delete_attribute(ATTR_DICT, SITE_ATTR)
           end
         rescue StandardError => e
-          puts "[Sheet] site_lines: #{e.message}"
+          puts "[Sheet] site_lines: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           @site_saved = false
         end
         @site_lines
@@ -372,6 +422,13 @@ module InteriorPro
         dlg.execute_script("imageReport(#{wanted.length}, null)")
       end
 
+      def logo_dir
+        st = load_state
+        st['logo'].to_s.empty? ? default_dir : File.dirname(st['logo'].to_s)
+      rescue StandardError
+        default_dir
+      end
+
       # Where a picture is put down: beside the SketchUp file, so it travels
       # with the job. An unsaved model has no folder of its own, so it falls
       # back to the plugin folder rather than refusing.
@@ -390,7 +447,7 @@ module InteriorPro
         Dir.mkdir(d) unless File.directory?(d)
         d
       rescue StandardError => e
-        puts "[Sheet] drop_dir: #{e.message}"
+        puts "[Sheet] drop_dir: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
         plugin_dir
       end
 
@@ -487,11 +544,6 @@ module InteriorPro
                      display:flex; align-items:flex-start; justify-content:center; }
             #sheetWrap { background:#fff; box-shadow:0 0 22px rgba(0,0,0,.55);
                          flex:none; margin:auto; }
-            #zoombar { position:absolute; right:14px; bottom:14px; display:flex; gap:4px;
-                       background:#2b2b2b; border:1px solid #555; border-radius:4px;
-                       padding:4px; z-index:5; }
-            #zoombar button { width:34px; margin:0; padding:4px 0; }
-            #zoombar button.wide { width:52px; font-size:12px; }
             h4 { margin:14px 0 6px; font-size:11px; letter-spacing:.08em;
                  text-transform:uppercase; color:#9a9a9a; font-weight:600; }
             h4:first-child { margin-top:0; }
@@ -514,7 +566,48 @@ module InteriorPro
             #fit { font-size:12px; color:#c9c9c9; margin-top:6px; }
             .hint { font-size:11px; color:#888; margin-top:4px; }
             #pages { border:1px solid #444; border-radius:3px; overflow:hidden;
-                     max-height:210px; overflow-y:auto; background:#1e1e1e; }
+                     max-height:210px; overflow-y:auto; background:#1e1e1e;
+                     outline:none; }
+            #pages:focus { border-color:#1f6feb; }
+            #strip { display:none; width:190px; flex:none; background:#242424;
+                     border-left:1px solid #111; overflow-y:auto; padding:10px; }
+            #strip.on { display:block; }
+            .thumb { margin-bottom:12px; cursor:pointer; }
+            .thumb .sheet { background:#fff; border:2px solid #444; border-radius:2px;
+                            overflow:hidden; display:flex; }
+            .thumb.sel .sheet { border-color:#1f6feb; }
+            .thumb .cap { font-size:11px; color:#aaa; padding:3px 1px 0;
+                          direction:ltr; text-align:left; white-space:nowrap;
+                          overflow:hidden; text-overflow:ellipsis; }
+            .thumb.sel .cap { color:#9ecbff; }
+            .thumb svg { width:100%; height:auto; }
+            /* A section is a box you press. Closed it is a raised blue-grey
+               slab; open it turns solid blue and the arrow points down. The
+               user asked for headings that stand out and invite a click, with
+               everything else folded away behind them. */
+            .sec { margin-bottom:7px; }
+            .sec > h4 { margin:0; padding:9px 10px; background:#2f3d52;
+                        border:1px solid #43587a; border-radius:5px;
+                        display:flex; align-items:center; gap:8px; cursor:pointer;
+                        color:#dfe7f2; font-size:12px; font-weight:600;
+                        letter-spacing:.03em; text-transform:none;
+                        user-select:none; }
+            .sec > h4:hover { background:#3a4c66; border-color:#5b76a1; }
+            .sec.open > h4 { background:#1f6feb; border-color:#1f6feb; color:#fff;
+                             border-bottom-left-radius:0; border-bottom-right-radius:0; }
+            .sec > h4 .ar { font-size:10px; opacity:.9; width:9px; flex:none; }
+            .sec > h4 .tag { margin-right:auto; font-weight:400; font-size:11px;
+                             opacity:.8; letter-spacing:0; }
+            .sec > .bd { display:none; padding:9px 8px 5px;
+                         border:1px solid #43587a; border-top:none;
+                         border-radius:0 0 5px 5px; background:#262626; }
+            .sec.open > .bd { display:block; }
+            .sec > .bd > button:first-child,
+            .sec > .bd > select:first-child { margin-top:0; }
+            #logoshow { display:none; width:100%; max-height:90px;
+                        object-fit:contain; background:#fff; border-radius:3px;
+                        padding:6px; margin-bottom:6px; }
+            #logoshow.on { display:block; }
             .pg { display:flex; align-items:center; gap:6px; padding:5px 6px;
                   cursor:pointer; border-bottom:1px solid #333; font-size:12px; }
             .pg:last-child { border-bottom:none; }
@@ -530,6 +623,23 @@ module InteriorPro
             .pg:hover button { opacity:1; }
             .pg button:hover { color:#ff8a8a; background:none; }
             #filepick { display:none; }
+            button.tool { width:auto; flex:1; padding:5px 0; margin-top:0;
+                          display:flex; align-items:center; justify-content:center; }
+            button.tool svg { width:20px; height:20px; display:block; }
+            button.tool svg .s { fill:none; stroke:#e8e8e8; stroke-width:1.6;
+                                 stroke-linecap:round; stroke-linejoin:round; }
+            button.tool.on { background:#1f6feb; border-color:#1f6feb; }
+            button.tool.on svg .s { stroke:#fff; }
+            button.tool:disabled { opacity:.35; }
+            #notebar { position:absolute; top:14px; left:50%;
+                       transform:translateX(-50%); z-index:20; display:none;
+                       background:#2b2b2b; border:1px solid #1f6feb;
+                       border-radius:5px; padding:8px; gap:6px; width:380px;
+                       box-shadow:0 6px 24px rgba(0,0,0,.5); }
+            #notebar.on { display:flex; align-items:center; }
+            #notebar input { flex:1; }
+            #notebar button { width:auto; margin:0; padding:6px 12px; }
+            #notebar button.tool { flex:none; width:36px; padding:5px 0; }
             #curtain { position:fixed; inset:0; z-index:50; display:none;
                        background:rgba(20,40,70,.82); color:#cfe4ff;
                        align-items:center; justify-content:center; font-size:22px;
@@ -538,66 +648,175 @@ module InteriorPro
           </style></head>
           <body>
             <div id="side">
-              <h4>דפים</h4>
-              <div id="pages"></div>
-
-              <h4>גודל דף</h4>
-              <select id="size"></select>
-              <div class="row" style="margin-top:6px">
-                <button id="land">לרוחב</button>
-                <button id="port">לאורך</button>
+              <!-- Everything lives in a box that opens. The user's words:
+                   "not everything needs to be on the screen - it should be in
+                   boxes that open, and the boxes have to be obvious and invite
+                   a click." Only the page list starts open; the Export button
+                   stays out of the boxes, because it is the point of the
+                   window and should never be one click away. -->
+              <div class="sec" data-k="pages">
+                <h4><span class="ar">&#9656;</span>דפים</h4>
+                <div class="bd">
+                  <div id="pages" tabindex="0"></div>
+                  <button id="stripbtn">הצג את כל הדפים</button>
+                </div>
               </div>
 
-              <h4>קנה מידה</h4>
-              <select id="scale"></select>
-              <div id="fit"></div>
-
-              <h4>שכבות</h4>
-              <div id="layers"></div>
-              <label class="chk" style="margin-top:6px">
-                <input type="checkbox" id="ownpage"> טבלאות בדף נפרד
-              </label>
-
-              <h4>תמונות ורינדורים</h4>
-              <button id="addmany" class="go2">העלאת תמונות</button>
-              <input type="file" id="filepick" multiple accept="image/jpeg,image/png">
-              <div id="imginfo" class="hint">אחת או כמה, או גרור אותן לחלון.</div>
-
-              <h4>גיאומטריה חופשית</h4>
-              <button id="addsel">הוסף את מה שנבחר בסקצ'אפ</button>
-              <button id="clrsel">נקה הכל</button>
-              <div id="siteinfo" class="hint"></div>
-
-              <h4>טייטל בלוק</h4>
-              <input id="address" placeholder="Job address">
-              <div class="row" style="margin-top:6px">
-                <input id="num" placeholder="A-101">
-                <input id="title" placeholder="FLOOR PLAN">
+              <div class="sec" data-k="paper">
+                <h4><span class="ar">&#9656;</span>דף וקנה מידה<span class="tag" id="papertag"></span></h4>
+                <div class="bd">
+                  <select id="size"></select>
+                  <div class="row" style="margin-top:6px">
+                    <button id="land">לרוחב</button>
+                    <button id="port">לאורך</button>
+                  </div>
+                  <select id="scale" style="margin-top:8px"></select>
+                  <div id="fit"></div>
+                  <button id="fitplan" class="go2">התאם את התוכנית לדף</button>
+                  <button id="center">מרכז את התוכנית</button>
+                </div>
               </div>
 
-              <h4>&nbsp;</h4>
-              <button id="fitplan" class="go2">התאם את התוכנית לדף</button>
-              <button id="center">מרכז את התוכנית</button>
-              <button id="rebuild">קרא שוב מהמודל</button>
+              <div class="sec" data-k="marks">
+                <h4><span class="ar">&#9656;</span>מידות והערות<span class="tag" id="markstag"></span></h4>
+                <div class="bd">
+                  <div class="row" id="tools">
+                    <button id="thand" class="tool on" title="בחירה והזזה">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M12 3 L12 21 M3 12 L21 12"/>
+                        <path d="M12 3 L9.5 6 M12 3 L14.5 6"/>
+                        <path d="M12 21 L9.5 18 M12 21 L14.5 18"/>
+                        <path d="M3 12 L6 9.5 M3 12 L6 14.5"/>
+                        <path d="M21 12 L18 9.5 M21 12 L18 14.5"/>
+                      </g></svg>
+                    </button>
+                    <button id="tdim" class="tool" title="קו מידה">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M4 5 L4 19 M20 5 L20 19"/>
+                        <path d="M4 12 L20 12"/>
+                        <path d="M4 12 L7.5 9.5 M4 12 L7.5 14.5"/>
+                        <path d="M20 12 L16.5 9.5 M20 12 L16.5 14.5"/>
+                      </g></svg>
+                    </button>
+                    <button id="tnote" class="tool" title="הערה">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <rect x="8.5" y="4" width="12.5" height="8" rx="1"/>
+                        <path d="M8.5 10 L3 20"/>
+                        <path d="M3 20 L4.6 16.2 M3 20 L6.8 18.4"/>
+                      </g></svg>
+                    </button>
+                    <button id="tundo" class="tool" title="בטל אחרון">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M4 11 A7 7 0 1 1 11 18"/>
+                        <path d="M4 11 L7.5 8 M4 11 L7.5 14"/>
+                      </g></svg>
+                    </button>
+                  </div>
+                  <div id="markinfo" class="hint">בחר כלי ולחץ על הציור.</div>
+                </div>
+              </div>
+
+              <div class="sec" data-k="layers">
+                <h4><span class="ar">&#9656;</span>שכבות<span class="tag" id="laycount"></span></h4>
+                <div class="bd">
+                  <div id="layers"></div>
+                  <label class="chk" style="margin-top:8px">
+                    <input type="checkbox" id="ownpage"> טבלאות בדף נפרד
+                  </label>
+                </div>
+              </div>
+
+              <div class="sec" data-k="images">
+                <h4><span class="ar">&#9656;</span>תמונות ורינדורים<span class="tag" id="imgtag"></span></h4>
+                <div class="bd">
+                  <button id="addmany" class="go2">העלאת תמונות</button>
+                  <input type="file" id="filepick" multiple accept="image/jpeg,image/png">
+                  <div id="imginfo" class="hint">אחת או כמה, או גרור אותן לחלון.</div>
+                </div>
+              </div>
+
+              <div class="sec" data-k="model">
+                <h4><span class="ar">&#9656;</span>מהמודל<span class="tag" id="sitetag"></span></h4>
+                <div class="bd">
+                  <button id="addsel">הוסף את מה שנבחר בסקצ'אפ</button>
+                  <button id="clrsel">נקה גיאומטריה חופשית</button>
+                  <button id="rebuild">קרא שוב מהמודל</button>
+                  <div id="siteinfo" class="hint"></div>
+                </div>
+              </div>
+
+              <div class="sec" data-k="title">
+                <h4><span class="ar">&#9656;</span>טייטל בלוק</h4>
+                <div class="bd">
+                  <input id="address" placeholder="Job address">
+                  <div class="row" style="margin-top:6px">
+                    <input id="num" placeholder="A-101">
+                    <input id="title" placeholder="FLOOR PLAN">
+                  </div>
+                </div>
+              </div>
+
+              <div class="sec" data-k="settings">
+                <h4><span class="ar">&#9656;</span>הגדרות<span class="tag" id="settag"></span></h4>
+                <div class="bd">
+                  <div class="hint" style="margin:0 0 6px">הלוגו שלך, בפינת הטייטל בלוק.</div>
+                  <img id="logoshow" alt="">
+                  <button id="logopick" class="go2">בחר קובץ לוגו</button>
+                  <button id="logoclear">חזור ל-VISUALIZE by Dror</button>
+                  <div id="logoinfo" class="hint"></div>
+                </div>
+              </div>
+
+              <div class="sec" data-k="help">
+                <h4><span class="ar">&#9656;</span>איך זה עובד</h4>
+                <div class="bd">
+                  <div class="hint">גרירה = מזיז את התוכנית על הדף.<br>
+                    גלגלת = זום לאן שהעכבר מצביע.<br>
+                    Shift+גרירה = מזיז את הדף עצמו.<br>
+                    לחיצה על סימון בוחרת, Delete מוחק.<br>
+                    לחיצה כפולה על הערה פותחת אותה לעריכה.</div>
+                </div>
+              </div>
+
               <button id="pdf" class="go">Export PDF</button>
-              <div class="hint">גרירה = מזיז את התוכנית על הדף.<br>
-                גלגלת = זום פנימה והחוצה.<br>
-                Shift+גרירה = מזיז את הדף עצמו.</div>
               <div id="msg"></div>
             </div>
             <div id="curtain">שחרר כאן — כל תמונה תקבל דף</div>
             <div id="stage">
-              <div id="sheetWrap"></div>
-              <div id="zoombar">
-                <button id="zout">&minus;</button>
-                <button id="zfit" class="wide">התאם</button>
-                <button id="zin">+</button>
+              <div id="notebar">
+                <input id="notetext" placeholder="מה לכתוב כאן?">
+                <button id="notearrow" class="tool on" title="ראש חץ בקצה הקו">
+                  <svg viewBox="0 0 24 24"><g class="s">
+                    <rect x="12" y="3" width="9" height="7" rx="1"/>
+                    <path d="M12 8 L4 19"/>
+                    <path d="M4 19 L5.4 15.4 M4 19 L7.6 17.6"/>
+                  </g></svg>
+                </button>
+                <button id="noteok" class="go">הוסף</button>
+                <button id="notecancel">ביטול</button>
               </div>
+              <div id="sheetWrap"></div>
+              <!-- There was a - / fit / + bar pinned to this corner. It sat on
+                   top of the drawing and the user asked for it gone: the wheel
+                   already zooms, and it zooms where he is pointing. -->
             </div>
+            <!-- The page strip sits on the FAR side of the drawing, away from
+                 the knobs and lists, the way it does in Rayon. It is the last
+                 thing in the body, and the page reads right to left, so it
+                 lands on the opposite edge from the controls. -->
+            <div id="strip"></div>
 
           <script>
           var DOC=null, STATE=null, PAGE=null, BOUNDS=null, SCALES=[];
           var URLS={};                // path -> file:/// address, for the sheet
+          var MODE='hand';            // hand | dim | note
+          var PEND=null;              // the first point of a dimension
+          var HOVER=null;             // where the mouse is, in model inches
+          var VIEW=null;              // how to get from the screen to the model
+          var SEL=null;               // which mark is picked, by place in the list
+          var EDIT=null;              // which note's words are open for changing
+          var MDRAG=null;             // a mark being moved right now
+          var GRAB=10;                // how near the mouse has to be, in pixels
           var SF = {};      // scale label -> paper inches per model inch
           var ZOOM = null;  // null = fit the window; otherwise a multiplier
 
@@ -608,9 +827,9 @@ module InteriorPro
           // ---- drawing ---------------------------------------------------
           function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
-          function shapeSVG(s, tp, k){
+          function shapeSVG(s, tp, k, ph){
             var o=[];
-            function P(x,y){ var p=tp(x,y); return (p[0]*k).toFixed(2)+','+((PAGE.height-p[1])*k).toFixed(2); }
+            function P(x,y){ var p=tp(x,y); return (p[0]*k).toFixed(2)+','+((ph-p[1])*k).toFixed(2); }
             var w = ((s.weight||0.012)*k).toFixed(2);
             if(s.type==='line'){
               o.push('<line x1="'+P(s.x1,s.y1).split(',')[0]+'" y1="'+P(s.x1,s.y1).split(',')[1]+
@@ -626,7 +845,7 @@ module InteriorPro
                        '" fill="none" stroke="#000" stroke-width="'+Math.max(w,0.6)+'"/>');
               }
             } else if(s.type==='text'){
-              var p=tp(s.x,s.y), px=p[0]*k, py=(PAGE.height-p[1])*k;
+              var p=tp(s.x,s.y), px=p[0]*k, py=(ph-p[1])*k;
               // text drawn on the plan is in model inches and shrinks with the
               // scale; text put straight on the sheet is already paper inches.
               var hp = s.h * (s.__paper ? 1 : scaleFactor(STATE.scale));
@@ -644,8 +863,8 @@ module InteriorPro
               var all=[s.headers||[]].concat(s.rows||[]);
               var tw=cols.reduce(function(a,b){return a+b;},0);
               function L(x1,y1,x2,y2){
-                o.push('<line x1="'+(x1*k).toFixed(1)+'" y1="'+((PAGE.height-y1)*k).toFixed(1)+
-                       '" x2="'+(x2*k).toFixed(1)+'" y2="'+((PAGE.height-y2)*k).toFixed(1)+
+                o.push('<line x1="'+(x1*k).toFixed(1)+'" y1="'+((ph-y1)*k).toFixed(1)+
+                       '" x2="'+(x2*k).toFixed(1)+'" y2="'+((ph-y2)*k).toFixed(1)+
                        '" stroke="#000" stroke-width="0.7"/>');
               }
               for(var i=0;i<=all.length;i++) L(s.x, s.y-i*rh, s.x+tw, s.y-i*rh);
@@ -657,7 +876,7 @@ module InteriorPro
                 row.forEach(function(cell,ci){
                   var fs=th*k/0.717;
                   if(fs>=1.5&&cell) o.push('<text x="'+((s.x+cx+0.05)*k).toFixed(1)+'" y="'+
-                    ((PAGE.height-(s.y-(ri+1)*rh+rh*0.3))*k).toFixed(1)+
+                    ((ph-(s.y-(ri+1)*rh+rh*0.3))*k).toFixed(1)+
                     '" font-family="Helvetica,Arial" font-size="'+fs.toFixed(1)+
                     '" fill="#000"'+(ri===0?' font-weight="700"':'')+'>'+esc(cell)+'</text>');
                   cx+=cols[ci]||1.2;
@@ -665,7 +884,7 @@ module InteriorPro
               });
             } else if(s.type==='image'){
               var a=tp(s.x,s.y);
-              var ix=(a[0]*k).toFixed(1), iy=((PAGE.height-(s.y+s.h))*k).toFixed(1);
+              var ix=(a[0]*k).toFixed(1), iy=((ph-(s.y+s.h))*k).toFixed(1);
               var iw=(s.w*k).toFixed(1), ih=(s.h*k).toFixed(1);
               var t=URLS[s.path];
               if(t){
@@ -692,44 +911,94 @@ module InteriorPro
             return Math.min((stage.clientWidth-56)/PAGE.width,(stage.clientHeight-56)/PAGE.height);
           }
 
-          function render(){
-            PAGE=activePage();
-            if(!DOC||!PAGE) return;
-            var k=fitK()*(ZOOM||1);
-            var W=PAGE.width*k, H=PAGE.height*k;
+          // ONE routine draws a sheet, whether it fills the window or sits in
+          // the page strip at 180 pixels wide. Two drawing routines would drift
+          // apart the same way the window and the PDF would, and the whole file
+          // is built to stop that happening.
+          //
+          // live = the sheet the user is working on: it remembers how to get
+          // from the screen back to the house, shows the view frame, and paints
+          // what is picked. A thumbnail wants none of that.
+          function sheetSVG(pg, k, live){
+            var W=pg.width*k, H=pg.height*k, ph=pg.height;
             function same(x,y){ return [x,y]; }
-
-            var o=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W.toFixed(0)+'" height="'+H.toFixed(0)+
-                   '" viewBox="0 0 '+W.toFixed(0)+' '+H.toFixed(0)+'" style="display:block">'];
+            var o=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W.toFixed(0)+
+                   '" height="'+H.toFixed(0)+'" viewBox="0 0 '+W.toFixed(0)+' '+
+                   H.toFixed(0)+'" style="display:block">'];
             o.push('<rect width="100%" height="100%" fill="#fff"/>');
 
-            var v=(PAGE.views||[])[0];
+            var v=(pg.views||[])[0];
+            if(live) VIEW=null;
             if(v){
               var sf=scaleFactor(STATE.scale);
               var cx=v.x+v.w/2, cy=v.y+v.h/2;
               var toPaper=function(mx,my){ return [cx+(mx-STATE.origin_x)*sf, cy+(my-STATE.origin_y)*sf]; };
-              o.push('<clipPath id="vclip"><rect x="'+(v.x*k).toFixed(1)+'" y="'+((PAGE.height-v.y-v.h)*k).toFixed(1)+
+              // remembered so a click on the screen can be turned back into a
+              // place in the house
+              if(live) VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper};
+              var cid='vclip'+(live?'':'t'+(pg.name||'').replace(/[^A-Za-z0-9]/g,''));
+              o.push('<clipPath id="'+cid+'"><rect x="'+(v.x*k).toFixed(1)+'" y="'+((ph-v.y-v.h)*k).toFixed(1)+
                      '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+'"/></clipPath>');
-              o.push('<g clip-path="url(#vclip)">');
+              o.push('<g clip-path="url(#'+cid+')">');
               var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
               if(cv) cv.layers.forEach(function(l){
                 if(STATE.hidden.indexOf(l.name)>=0) return;
-                l.shapes.forEach(function(s){ o.push(shapeSVG(s,toPaper,k)); });
+                l.shapes.forEach(function(s){ o.push(shapeSVG(s,toPaper,k,ph)); });
               });
               o.push('</g>');
               // the window itself, so the user can see where the plan may sit
-              o.push('<rect x="'+(v.x*k).toFixed(1)+'" y="'+((PAGE.height-v.y-v.h)*k).toFixed(1)+
+              if(live) o.push('<rect x="'+(v.x*k).toFixed(1)+'" y="'+((ph-v.y-v.h)*k).toFixed(1)+
                      '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+
                      '" fill="none" stroke="#bcd" stroke-width="1" stroke-dasharray="5 4"/>');
             }
 
-            (PAGE.layers||[]).forEach(function(l){
+            (pg.layers||[]).forEach(function(l){
               if(STATE.hidden.indexOf(l.name)>=0) return;
-              l.shapes.forEach(function(s){ s.__paper=true; o.push(shapeSVG(s,same,k)); });
+              l.shapes.forEach(function(s){ s.__paper=true; o.push(shapeSVG(s,same,k,ph)); });
             });
+
+            if(live){
+              // what is picked, drawn over the top. Presentation only - the mark
+              // itself is still the one Ruby built, so the paper cannot drift.
+              if(SEL!==null && marks()[SEL] && VIEW){
+                var sm=marks()[SEL];
+                var dot=function(p){
+                  return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+
+                         '" r="4" fill="#fff" stroke="#1f6feb" stroke-width="2"/>';
+                };
+                if(sm.t==='dim'){
+                  var pa=screenOf(sm.x1,sm.y1), pb=screenOf(sm.x2,sm.y2);
+                  o.push('<line x1="'+pa[0].toFixed(1)+'" y1="'+pa[1].toFixed(1)+
+                         '" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+
+                         '" stroke="#1f6feb" stroke-width="2" opacity=".55"/>');
+                  o.push(dot(pa)); o.push(dot(pb));
+                } else {
+                  var pc=screenOf(sm.x,sm.y);
+                  o.push('<circle cx="'+pc[0].toFixed(1)+'" cy="'+pc[1].toFixed(1)+
+                         '" r="9" fill="none" stroke="#1f6feb" stroke-width="2"/>');
+                  if(sm.kx!==undefined) o.push(dot(screenOf(sm.kx,sm.ky)));
+                  if(sm.lx!==undefined) o.push(dot(screenOf(sm.lx,sm.ly)));
+                }
+              }
+
+              // the dimension being stretched right now, before it is real
+              if(PEND && HOVER && VIEW){
+                var a=VIEW.toPaper(PEND[0],PEND[1]), b=VIEW.toPaper(HOVER[0],HOVER[1]);
+                o.push('<line x1="'+(a[0]*k).toFixed(1)+'" y1="'+((ph-a[1])*k).toFixed(1)+
+                       '" x2="'+(b[0]*k).toFixed(1)+'" y2="'+((ph-b[1])*k).toFixed(1)+
+                       '" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4 3"/>');
+              }
+            }
             o.push('</svg>');
-            $('sheetWrap').innerHTML=o.join('');
+            return o.join('');
+          }
+
+          function render(){
+            PAGE=activePage();
+            if(!DOC||!PAGE) return;
+            $('sheetWrap').innerHTML=sheetSVG(PAGE, fitK()*(ZOOM||1), true);
             hookDrag();
+            if($('strip').className==='on') paintStrip();
           }
 
           function setZoom(z){
@@ -738,13 +1007,197 @@ module InteriorPro
             render();
           }
 
+          // Zoom towards a point on the screen instead of towards a corner.
+          //
+          // Zooming only makes the sheet bigger; the scroll box stays where it
+          // was, so whatever happened to be at the top left stayed put and
+          // everything the user was looking at slid away. Remember which spot
+          // on the SHEET is under the mouse, redraw, then scroll so that same
+          // spot is back under the mouse. Works the same whether the sheet is
+          // centred in the window or scrolled.
+          function zoomAt(cx, cy, z){
+            z = Math.min(Math.max(z, 0.2), 14);
+            var stage = $('stage');
+            var svg = $('sheetWrap').firstChild;
+            if(!svg){ setZoom(z); return; }
+            var r = svg.getBoundingClientRect();
+            if(!r.width || !r.height){ setZoom(z); return; }
+            // 0..1 across the sheet. Off the sheet, hold on to the nearest edge
+            // rather than flinging the page away.
+            var fx = Math.max(0, Math.min(1, (cx - r.left) / r.width));
+            var fy = Math.max(0, Math.min(1, (cy - r.top) / r.height));
+
+            setZoom(z);
+
+            var svg2 = $('sheetWrap').firstChild;
+            if(!svg2) return;
+            var r2 = svg2.getBoundingClientRect();
+            stage.scrollLeft += (r2.left + fx * r2.width)  - cx;
+            stage.scrollTop  += (r2.top  + fy * r2.height) - cy;
+          }
+
+          // ---- from the screen back to the house --------------------------
+          //
+          // render() draws the house onto paper and the paper onto the screen.
+          // To put a dimension where the user clicked, both have to be undone.
+          function atMouse(e){
+            var svg=$('sheetWrap').firstChild;
+            if(!svg||!VIEW||!PAGE) return null;
+            var r=svg.getBoundingClientRect();
+            var px=(e.clientX-r.left)/VIEW.k;                 // paper inches
+            var py=PAGE.height-(e.clientY-r.top)/VIEW.k;
+            return [(px-VIEW.cx)/VIEW.sf+STATE.origin_x,      // model inches
+                    (py-VIEW.cy)/VIEW.sf+STATE.origin_y];
+          }
+
+          function marks(){ return STATE.marks||(STATE.marks=[]); }
+
+          // model inches -> pixels inside the drawing, for hit testing
+          function screenOf(mx,my){
+            var p=VIEW.toPaper(mx,my);
+            return [p[0]*VIEW.k, (PAGE.height-p[1])*VIEW.k];
+          }
+
+          function mouseAt(e){
+            var svg=$('sheetWrap').firstChild;
+            if(!svg) return null;
+            var r=svg.getBoundingClientRect();
+            return [e.clientX-r.left, e.clientY-r.top];
+          }
+
+          function distToSeg(X,Y,a,b){
+            var vx=b[0]-a[0], vy=b[1]-a[1];
+            var L=vx*vx+vy*vy;
+            var t = L ? ((X-a[0])*vx+(Y-a[1])*vy)/L : 0;
+            t=Math.max(0,Math.min(1,t));
+            return Math.hypot(a[0]+vx*t-X, a[1]+vy*t-Y);
+          }
+
+          // What is under the mouse, and which bit of it. The ends of a
+          // dimension and the arrow tip of a note win over the body, so a
+          // careful click adjusts instead of dragging the whole thing.
+          function hitMark(e){
+            if(!VIEW||!PAGE) return null;
+            var p=mouseAt(e); if(!p) return null;
+            var X=p[0], Y=p[1], best=null, bd=GRAB;
+            marks().forEach(function(m,i){
+              if(m.t==='dim'){
+                var a=screenOf(m.x1,m.y1), b=screenOf(m.x2,m.y2);
+                var da=Math.hypot(a[0]-X,a[1]-Y), db=Math.hypot(b[0]-X,b[1]-Y);
+                if(da<bd){ bd=da; best={i:i,part:'a'}; }
+                if(db<bd){ bd=db; best={i:i,part:'b'}; }
+                var ds=distToSeg(X,Y,a,b);
+                if(ds<bd){ bd=ds; best={i:i,part:'all'}; }
+              } else if(m.t==='note'){
+                if(m.lx!==undefined){
+                  var t=screenOf(m.lx,m.ly);
+                  var dt=Math.hypot(t[0]-X,t[1]-Y);
+                  if(dt<bd){ bd=dt; best={i:i,part:'tip'}; }
+                }
+                if(m.kx!==undefined){
+                  var kp=screenOf(m.kx,m.ky);
+                  var dk=Math.hypot(kp[0]-X,kp[1]-Y);
+                  if(dk<bd){ bd=dk; best={i:i,part:'knee'}; }
+                }
+                var c=screenOf(m.x,m.y);
+                var dc=Math.hypot(c[0]-X,c[1]-Y);
+                if(dc<bd+8){ bd=Math.min(bd,dc); best={i:i,part:'all'}; }
+              }
+            });
+            return best;
+          }
+
+          function moveMark(m, part, dx, dy){
+            if(m.t==='dim'){
+              if(part==='a'){ m.x1+=dx; m.y1+=dy; }
+              else if(part==='b'){ m.x2+=dx; m.y2+=dy; }
+              else { m.x1+=dx; m.y1+=dy; m.x2+=dx; m.y2+=dy; }
+            } else {
+              if(part==='tip'){ m.lx+=dx; m.ly+=dy; }
+              else if(part==='knee'){ m.kx+=dx; m.ky+=dy; }
+              else {
+                // moving the words takes the shoulder with them, so the label
+                // never drifts away from its own leader
+                m.x+=dx; m.y+=dy;
+                if(m.kx!==undefined){ m.kx+=dx; m.ky+=dy; }
+              }
+            }
+          }
+
+          function dropMark(){
+            if(SEL===null) return;
+            marks().splice(SEL,1);
+            SEL=null;
+            push(); showMarks();
+          }
+
+          // A head on the end of the leader, or a bare line. SketchUp's own text
+          // tool draws a bare one - the user sent a picture of it and asked for
+          // both. Whatever he chose last is what the next note starts with.
+          function paintArrow(){
+            $('notearrow').className = 'tool' + (STATE.note_arrow===false ? '' : ' on');
+          }
+
+          function undoMark(){
+            if(!marks().length) return;
+            marks().pop();
+            SEL=null;
+            push(); showMarks();
+          }
+
+          function setMode(m){
+            MODE=m; PEND=null; HOVER=null;
+            if(m!=='hand') SEL=null;
+            ['thand','tdim','tnote'].forEach(function(id){
+              $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
+            });
+            var svg=$('sheetWrap').firstChild;
+            if(svg) svg.style.cursor = m==='hand' ? 'default' : 'crosshair';
+            showMarks();
+            render();
+          }
+
+          function showMarks(){
+            var n=marks().length;
+            $('tundo').disabled = !n;
+            var tip={hand:'לחץ על סימון כדי לבחור, Delete מוחק.',
+                     dim:'לחץ בהתחלה ואז בסוף.',
+                     note:'לחץ על מה שההערה מדברת עליו.'}[MODE];
+            if(MODE==='hand'&&SEL!==null) tip='נבחר. Delete מוחק, גרירה מזיזה.';
+            $('markinfo').textContent = tip + (n ? ('  ·  ' + n + ' על הדף') : '');
+            headings();
+          }
+
           // ---- dragging the plan -----------------------------------------
           var DRAG=null;
           function hookDrag(){
             var svg=$('sheetWrap').firstChild;
             if(!svg) return;
-            svg.style.cursor='grab';
+            svg.style.cursor = MODE==='hand' ? 'grab' : 'crosshair';
+
+            svg.onmousemove=function(e){
+              if(MODE==='dim'&&PEND){ HOVER=atMouse(e); render(); return; }
+              if(MODE==='hand'&&!MDRAG&&!DRAG){
+                svg.style.cursor = hitMark(e) ? 'move' : 'grab';
+              }
+            };
+
             svg.onmousedown=function(e){
+              // In the hand tool a mark under the mouse is picked up; empty
+              // paper still drags the plan the way it always did.
+              if(MODE==='hand'&&!e.shiftKey){
+                var h=hitMark(e);
+                if(h){
+                  SEL=h.i;
+                  MDRAG={part:h.part, at:atMouse(e)};
+                  svg.style.cursor='move';
+                  render(); showMarks();
+                  e.preventDefault();
+                  return;
+                }
+                if(SEL!==null){ SEL=null; render(); showMarks(); }
+              }
+              if(MODE!=='hand'&&!e.shiftKey){ e.preventDefault(); return; }
               var stage=$('stage');
               var pan = e.shiftKey || e.button===1 || !(PAGE.views||[])[0];
               DRAG={x:e.clientX,y:e.clientY,ox:STATE.origin_x,oy:STATE.origin_y,
@@ -752,9 +1205,57 @@ module InteriorPro
               svg.style.cursor= pan ? 'move' : 'grabbing';
               e.preventDefault();
             };
+
+            // Two clicks on a note open its words for changing, the way any
+            // drawing program does it. The leader and the box stay where they
+            // are; only the writing changes.
+            svg.ondblclick=function(e){
+              var h=hitMark(e);
+              if(!h) return;
+              var m=marks()[h.i];
+              if(m.t!=='note') return;
+              SEL=h.i;
+              EDIT=h.i;
+              PEND=null;
+              $('notebar').className='on';
+              $('notetext').value=m.text||'';
+              STATE.note_arrow = m.arrow!==false;
+              paintArrow();
+              $('notetext').focus();
+              $('notetext').select();
+              e.preventDefault();
+            };
+
+            svg.onclick=function(e){
+              if(MODE==='hand'||e.shiftKey) return;
+              var p=atMouse(e);
+              if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
+              if(MODE==='dim'){
+                if(!PEND){ PEND=p; HOVER=p; showMarks(); return; }
+                marks().push({t:'dim',x1:PEND[0],y1:PEND[1],x2:p[0],y2:p[1]});
+                PEND=null; HOVER=null;
+                push(); showMarks();
+              } else if(MODE==='note'){
+                PEND=p;
+                $('notebar').className='on';
+                $('notetext').value='';
+                paintArrow();
+                $('notetext').focus();
+              }
+            };
           }
 
           function onMove(e){
+            if(MDRAG){
+              var now=atMouse(e);
+              if(now){
+                moveMark(marks()[SEL], MDRAG.part, now[0]-MDRAG.at[0], now[1]-MDRAG.at[1]);
+                MDRAG.at=now;
+                MDRAG.moved=true;
+                render();
+              }
+              return;
+            }
             if(!DRAG) return;
             var stage=$('stage');
             if(DRAG.pan){
@@ -770,6 +1271,14 @@ module InteriorPro
           }
 
           function onUp(){
+            if(MDRAG){
+              var moved=MDRAG.moved;
+              MDRAG=null;
+              var svg0=$('sheetWrap').firstChild;
+              if(svg0) svg0.style.cursor='move';
+              if(moved) push();
+              return;
+            }
             if(!DRAG) return;
             var moved=!DRAG.pan;
             DRAG=null;
@@ -806,15 +1315,24 @@ module InteriorPro
             $('title').value=STATE.sheet_title||'';
             $('ownpage').checked = STATE.tables_own_page!==false;
             siteDone(STATE.site_count||0, null);
+            if(!STATE.marks) STATE.marks=[];
+            if(STATE.strip){
+              $('strip').className='on';
+              $('stripbtn').textContent='הסתר את הדפים';
+            }
             buildLayers();
+            buildSections();
+            showLogo(p.logo);
             fillPages();
+            showMarks();
             if(first){ fitPlan(); return; }
             showFit();
             render();
           }
 
-          function applyPages(pages){
+          function applyPages(pages, marksLayer){
             DOC.pages=pages;
+            if(marksLayer) putLayer('MODEL', marksLayer);
             if(STATE.active>=pages.length) STATE.active=0;
             fillPages();
             buildLayers();
@@ -822,17 +1340,68 @@ module InteriorPro
             render();
           }
 
+          // Drop a layer Ruby just rebuilt in over the one we were holding.
+          function putLayer(canvasName, lay){
+            var cv=(DOC.canvases||[]).filter(function(c){ return c.name===canvasName; })[0];
+            if(!cv) return;
+            var at=-1;
+            cv.layers.forEach(function(l,i){ if(l.name===lay.name) at=i; });
+            if(at>=0) cv.layers[at]=lay; else cv.layers.push(lay);
+          }
+
           // One list for every sheet in the set - plan, schedules, renders.
           // Click a row to go there, press the x to throw that sheet away.
           // The plan sheet has no x: it is the drawing, not an extra.
+          // ---- the page strip ---------------------------------------------
+          //
+          // Every sheet drawn small, down the far side of the drawing. Same
+          // routine as the big one - see sheetSVG - so a thumbnail can never
+          // show something the sheet does not.
+          function goToPage(i){
+            if(!DOC||!DOC.pages.length) return;
+            STATE.active=Math.max(0, Math.min(DOC.pages.length-1, i));
+            fillPages(); showFit(); render(); push();
+          }
+
+          function paintStrip(){
+            var box=$('strip');
+            if(box.className!=='on'){ box.innerHTML=''; return; }
+            // Drawn at 520 across and shown at 166. shapeSVG throws away any
+            // text under 1.5 pixels, because at that size it is a smudge - so
+            // a thumbnail built at its finished size came out with no words on
+            // it at all (t36 caught this). Draw it big, let the browser shrink
+            // it, and the little sheet says the same things the big one does.
+            var W=520;
+            box.innerHTML='';
+            (DOC.pages||[]).forEach(function(pg,i){
+              var d=document.createElement('div');
+              d.className='thumb'+(i===(STATE.active||0)?' sel':'');
+              d.onclick=function(){ goToPage(i); };
+              d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+
+                          '</div><div class="cap">'+
+                          esc((pg.sheet_number||('#'+(i+1)))+'  '+pg.name)+'</div>';
+              box.appendChild(d);
+            });
+            var sel=box.querySelector('.thumb.sel');
+            if(sel && sel.scrollIntoView) sel.scrollIntoView({block:'nearest'});
+          }
+
+          function toggleStrip(){
+            var box=$('strip');
+            var on = box.className!=='on';
+            box.className = on ? 'on' : '';
+            $('stripbtn').textContent = on ? 'הסתר את הדפים' : 'הצג את כל הדפים';
+            STATE.strip = on;
+            paintStrip();
+            render();                        // the drawing area just changed width
+          }
+
           function fillPages(){
             var box=$('pages'); box.innerHTML='';
             (DOC.pages||[]).forEach(function(p,i){
               var row=document.createElement('div');
               row.className='pg'+(i===(STATE.active||0)?' sel':'');
-              row.onclick=function(){
-                STATE.active=i; fillPages(); showFit(); render(); push();
-              };
+              row.onclick=function(){ $('pages').focus(); goToPage(i); };
               var num=document.createElement('b');
               num.textContent=p.sheet_number||('#'+(i+1));
               row.appendChild(num);
@@ -850,6 +1419,9 @@ module InteriorPro
               }
               box.appendChild(row);
             });
+            var sel=box.querySelector('.pg.sel');
+            if(sel && sel.scrollIntoView) sel.scrollIntoView({block:'nearest'});
+            paintStrip();
           }
 
           function fill(id,list,val){
@@ -858,6 +1430,74 @@ module InteriorPro
               var o=document.createElement('option'); o.value=s; o.textContent=s;
               if(s===val) o.selected=true; el.appendChild(o);
             });
+          }
+
+          // ---- the boxes that open ----------------------------------------
+          //
+          // The side used to be one long column with everything on show at
+          // once. Now every group is a box with a heading you press. Only the
+          // page list starts open; the rest wait until they are wanted.
+          //
+          // Each heading carries a small note of what is inside - how many
+          // layers are switched off, how many marks are on the sheet - because
+          // a setting that is both changed AND out of sight is how a drawing
+          // comes out wrong and nobody can see why.
+          var OPEN_AT_FIRST = {pages:true};
+
+          function sections(){
+            return document.querySelectorAll('#side .sec');
+          }
+
+          function openSection(key, on){
+            var l=sections();
+            for(var i=0;i<l.length;i++){
+              if(l[i].getAttribute('data-k')!==key) continue;
+              l[i].className='sec'+(on?' open':'');
+              var ar=l[i].querySelector('.ar');
+              if(ar) ar.innerHTML = on ? '&#9662;' : '&#9656;';
+            }
+            if(!STATE.open) STATE.open={};
+            STATE.open[key]=!!on;
+          }
+
+          function isOpen(key){
+            var o=STATE.open||{};
+            return o[key]===undefined ? (OPEN_AT_FIRST[key]===true) : !!o[key];
+          }
+
+          function buildSections(){
+            var l=sections();
+            for(var i=0;i<l.length;i++){
+              (function(sec){
+                var key=sec.getAttribute('data-k');
+                sec.querySelector('h4').onclick=function(){
+                  openSection(key, sec.className.indexOf('open')<0);
+                  push();
+                };
+                openSection(key, isOpen(key));
+              })(l[i]);
+            }
+          }
+
+          function tag(id, text){
+            var el=$(id);
+            if(el) el.textContent = text || '';
+          }
+
+          function layerCount(){
+            var off=(STATE.hidden||[]).length;
+            tag('laycount', off ? (off + ' כבויות') : '');
+          }
+
+          // what each heading says about itself when it is shut
+          function headings(){
+            layerCount();
+            var n=marks().length;
+            tag('markstag', n ? (n + ' על הדף') : '');
+            var imgs=(DOC&&DOC.pages||[]).filter(function(p){ return p.kind==='image'; }).length;
+            tag('imgtag', imgs ? (imgs + ' דפים') : '');
+            tag('papertag', (STATE.size||'') + ' · ' + (STATE.scale||''));
+            tag('sitetag', STATE.site_count ? (STATE.site_count + ' קווים') : '');
           }
 
           function buildLayers(){
@@ -876,12 +1516,13 @@ module InteriorPro
               cb.onchange=function(){
                 var i=STATE.hidden.indexOf(n);
                 if(cb.checked){ if(i>=0) STATE.hidden.splice(i,1); } else if(i<0) STATE.hidden.push(n);
-                render(); push();
+                layerCount(); render(); push();
               };
               lab.appendChild(cb);
               lab.appendChild(document.createTextNode(n));
               box.appendChild(lab);
             });
+            layerCount();
           }
 
           function centerPlan(quiet){
@@ -1001,6 +1642,27 @@ module InteriorPro
             DROP.busy=false; setBusy(false);
           }
 
+          // ---- the logo ----------------------------------------------------
+          function showLogo(l){
+            var img=$('logoshow');
+            if(l && l.url && l.there){
+              img.src=l.url; img.className='on';
+              $('logoinfo').textContent=l.name;
+              tag('settag','לוגו');
+              $('logoclear').style.display='';
+            } else {
+              img.removeAttribute('src'); img.className='';
+              $('logoinfo').textContent = l && !l.there
+                ? ('הקובץ לא נמצא: ' + l.name) : '';
+              tag('settag','');
+              $('logoclear').style.display = l ? '' : 'none';
+            }
+          }
+
+          function logoDone(err){
+            $('logoinfo').textContent = err ? ('שגיאה: '+err) : '';
+          }
+
           function imageReport(n, err){
             $('imginfo').textContent = err ? ('שגיאה: '+err)
               : (n ? (n===1 ? 'נוספה תמונה אחת' : ('נוספו '+n+' תמונות'))
@@ -1016,6 +1678,7 @@ module InteriorPro
           function siteReport(sel, r){
             var t = 'נבחרו ' + sel + ' · קווים במודל ' + r.edges +
                     ' · נוספו ' + r.lines + ' · על הדף ' + (r.total||r.lines);
+            if(r.skipped) t += ' · ' + r.skipped + ' דולגו';
             if(!r.edges)      t += '  ⟵ אין קווים במה שבחרת';
             else if(!r.lines) t += '  ⟵ כל הקווים סוננו';
             else if(!r.kept)  t += '  ⟵ גדול מדי לשמירה, יישאר עד סגירת סקצ\'אפ';
@@ -1032,13 +1695,9 @@ module InteriorPro
             $('size').onchange=function(){ STATE.size=this.value; push(); };
             $('scale').onchange=function(){ STATE.scale=this.value; showFit(); render(); push(); };
             $('ownpage').onchange=function(){ STATE.tables_own_page=this.checked; push(); };
-            $('zin').onclick=function(){ setZoom((ZOOM||1)*1.3); };
-            $('zout').onclick=function(){ setZoom(Math.max((ZOOM||1)/1.3,0.2)); };
-            $('zfit').onclick=function(){ setZoom(null); };
             $('stage').addEventListener('wheel',function(e){
               e.preventDefault();
-              var z=(ZOOM||1)*(e.deltaY<0?1.15:1/1.15);
-              setZoom(Math.min(Math.max(z,0.2),14));
+              zoomAt(e.clientX, e.clientY, (ZOOM||1)*(e.deltaY<0?1.15:1/1.15));
             },{passive:false});
             window.addEventListener('mousemove',onMove);
             window.addEventListener('mouseup',onUp);
@@ -1051,6 +1710,90 @@ module InteriorPro
               $('siteinfo').textContent='קורא מהמודל...'; sketchup.add_selection();
             };
             $('clrsel').onclick=function(){ sketchup.clear_selection(); };
+            $('thand').onclick=function(){ setMode('hand'); };
+            $('tdim').onclick=function(){ setMode('dim'); };
+            $('tnote').onclick=function(){ setMode('note'); };
+            $('tundo').onclick=function(){ undoMark(); };
+
+            $('stripbtn').onclick=function(){ toggleStrip(); };
+            $('logopick').onclick=function(){
+              $('logoinfo').textContent='בוחר קובץ...'; sketchup.choose_logo();
+            };
+            $('logoclear').onclick=function(){ sketchup.clear_logo(); };
+
+            // Once he has clicked a page in the list, up and down walk through
+            // the set without going back to the mouse.
+            $('pages').onkeydown=function(e){
+              if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+                e.preventDefault();
+                goToPage((STATE.active||0)+(e.key==='ArrowDown'?1:-1));
+              } else if(e.key==='Home'){ e.preventDefault(); goToPage(0); }
+              else if(e.key==='End'){ e.preventDefault(); goToPage((DOC.pages||[]).length-1); }
+            };
+
+            // Delete removes what is picked. Not while he is typing a note, and
+            // not while the cursor is in the address or sheet-number boxes.
+            window.addEventListener('keydown',function(e){
+              var t=(e.target&&e.target.tagName)||'';
+              if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return;
+              if(e.target && e.target.id==='pages') return;   // the list handles its own keys
+              if(e.key==='Delete'||e.key==='Backspace'){
+                if(SEL!==null){ e.preventDefault(); dropMark(); }
+              } else if(e.key==='Escape'){
+                PEND=null; HOVER=null; SEL=null; render(); showMarks();
+              }
+            });
+
+            $('notearrow').onclick=function(){
+              STATE.note_arrow = (STATE.note_arrow===false);
+              paintArrow();
+              $('notetext').focus();
+            };
+
+            function closeNote(){ $('notebar').className=''; PEND=null; EDIT=null; }
+            function saveNote(){
+              var t=$('notetext').value.trim();
+              if(EDIT!==null && marks()[EDIT]){
+                // changing one that is already there
+                if(t){
+                  marks()[EDIT].text=t;
+                  marks()[EDIT].arrow=(STATE.note_arrow!==false);
+                } else {
+                  marks().splice(EDIT,1);       // emptied it = threw it away
+                  SEL=null;
+                }
+                closeNote();
+                push(); showMarks();
+                return;
+              }
+              if(t&&PEND){
+                // The words go up and to the right of the thing they describe,
+                // with the leader running back to it. About 0.7 of a paper inch
+                // whatever the scale, so it looks the same on every sheet - and
+                // he drags the box wherever he likes afterwards.
+                // The words go up and away from the thing they describe. The
+                // knee sits at the same height as the words, on the side the
+                // thing is on, so the shoulder comes out level - the shape in
+                // the picture he sent. He drags any of the three afterwards.
+                var off=0.7/scaleFactor(STATE.scale);
+                var tx=PEND[0]+off, ty=PEND[1]+off;
+                var toward = PEND[0] < tx ? -1 : 1;
+                marks().push({t:'note', x:tx, y:ty,
+                              kx:tx + toward*off*0.55, ky:ty,
+                              lx:PEND[0], ly:PEND[1], text:t,
+                              arrow: STATE.note_arrow!==false});
+                SEL=marks().length-1;
+              }
+              closeNote();
+              push(); showMarks();
+            }
+            $('noteok').onclick=saveNote;
+            $('notecancel').onclick=function(){ closeNote(); showMarks(); };
+            $('notetext').onkeydown=function(e){
+              if(e.key==='Enter') saveNote();
+              else if(e.key==='Escape'){ closeNote(); showMarks(); }
+            };
+
             $('addmany').onclick=function(){ $('filepick').value=''; $('filepick').click(); };
             $('filepick').onchange=function(){ takeFiles(this.files||[]); };
 

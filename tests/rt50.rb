@@ -106,7 +106,7 @@ ok('no pictures means an empty list, not a crash',
 # the window now has ONE button, and dragging. If a second one ever creeps back,
 # this fails and somebody has to have the conversation again.
 src = File.read('./plan_sheet_dialog.rb', encoding: 'UTF-8')
-section = src[/<h4>תמונות ורינדורים<\/h4>(.*?)<h4>/m, 1].to_s
+section = src[/data-k="images"(.*?)<\/div>\s*<\/div>/m, 1].to_s
 ok('the pictures section is still in the window', !section.empty?)
 buttons = section.scan(/<button id="([a-z]+)"/).flatten
 ok('there is exactly one way to add pictures', buttons == ['addmany'], buttons)
