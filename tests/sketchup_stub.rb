@@ -220,6 +220,10 @@ module Sketchup
     def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
     def get_attribute(d, k, dflt = nil); (@attrs[d] || {}).key?(k) ? @attrs[d][k] : dflt; end
     def delete_attribute(d, k); (@attrs[d] || {}).delete(k); end
+    # The real API hands back a dictionary you can list the keys of. Needed by
+    # anything that has to FIND state rather than be told where it is
+    # (2026-08-15, StateBackup looking for recoverable backups).
+    def attribute_dictionary(d, _create = false); @attrs[d]; end
     # Real signature: (name, disable_ui, next_transparent, transparent) -
     # the transparent flag folds an op into the previous undo step.
     def start_operation(n, _disable_ui = nil, _next_tr = nil, transparent = false)
@@ -228,6 +232,17 @@ module Sketchup
     end
     def commit_operation; @ops << [:commit]; true; end
     def abort_operation; @ops << [:abort]; true; end
+    # save_copy writes the whole model somewhere WITHOUT changing the file
+    # the user is working on - which is the only reason a background backup
+    # can be invisible. The stub writes a marker file so a test can see that
+    # a copy really landed (2026-08-15).
+    attr_reader :copies
+    def save_copy(path)
+      @copies ||= []
+      @copies << path.to_s
+      File.write(path.to_s, "stub skp copy\n")
+      true
+    end
     def add_observer(_o); true; end
     def remove_observer(_o); true; end
     def line_styles; nil; end
@@ -263,7 +278,23 @@ module UI
   end
   def self.messagebox(_m); nil; end
   def self.openpanel(*_a); nil; end
-  def self.start_timer(_t, _r = false); nil; end
+
+  # Timers used to return nil and drop the block on the floor, so anything
+  # that runs on a timer could not be tested at all (2026-08-15, AutoBackup).
+  # They now hand back an id and keep the block, so a suite can fire it.
+  @timers = {}
+  @timer_seq = 0
+  class << self
+    attr_reader :timers
+    def start_timer(secs, repeat = false, &blk)
+      @timer_seq += 1
+      @timers[@timer_seq] = { secs: secs, repeat: repeat, block: blk }
+      @timer_seq
+    end
+    def stop_timer(id); !@timers.delete(id).nil?; end
+    def fire_timer!(id); (@timers[id] || {})[:block]&.call; end
+    def reset_timers!; @timers.clear; end
+  end
 end
 
 module InteriorPro

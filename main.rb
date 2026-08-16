@@ -47,6 +47,8 @@ module InteriorPro
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb
+      state_backup.rb
+      auto_backup.rb
       plan_doc.rb
       plan_generator.rb
       plan_tables.rb
@@ -107,6 +109,21 @@ module InteriorPro
       puts "[InteriorPro] Menu.setup failed: #{e.message}"
       puts e.backtrace.first(8).join("\n")
     end
+    start_auto_backup!
+  end
+
+  # A copy of the whole project, saved beside it every few minutes, with no
+  # button and nothing to remember (2026-08-15). It is started here, on the
+  # same line as the toolbar, because it is not a feature the user turns on -
+  # it is part of the plugin being loaded at all.
+  #
+  # reload! calls it again; AutoBackup.start! stops any previous timer first,
+  # so re-loading a hundred times still leaves exactly one running.
+  def self.start_auto_backup!
+    return unless const_defined?(:AutoBackup, false)
+    InteriorPro::AutoBackup.start!
+  rescue StandardError => e
+    puts "[InteriorPro] auto backup did not start: #{e.class}: #{e.message}"
   end
 
   # Hide duplicate legacy toolbar and show a clean 9-button bar (Ruby Console).
@@ -208,6 +225,7 @@ module InteriorPro
   def self.reload!
     load File.join(PLUGIN_DIR, 'main.rb')
     refresh_toolbars!
+    start_auto_backup!
     puts 'InteriorPro: reloaded. (New menu ITEMS still need a restart.)'
     nil
   end

@@ -596,6 +596,17 @@ module InteriorPro
         Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
       }
 
+      # NO backup menu items, deliberately (user, 2026-08-15): "take them
+      # away, I don't want to complicate things". Backing up is not a feature
+      # he should have to think about - it runs by itself (auto_backup.rb,
+      # state_backup.rb). Recovery is rare enough to be done by hand:
+      #
+      #   InteriorPro::StateBackup.report
+      #   InteriorPro::StateBackup.restore!('plan_draft')
+      #   InteriorPro::PlanEditor.restore_underlay!
+      #
+      # Do not add buttons for these again without asking him.
+
       # One click instead of restarting SketchUp after a code change
       # (2026-08-12). New menu items still need a restart - SketchUp
       # cannot take a menu item away once it is there.

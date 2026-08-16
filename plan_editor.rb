@@ -52,9 +52,18 @@ module InteriorPro
         # Unapplied work (blue walls, un-applied shapes, guides) is parked on
         # the model as a draft (2026-08-07), so closing the editor - or
         # SketchUp - never throws it away. Cleared once it is applied.
+        #
+        # Through StateBackup since 2026-08-15. The user lost a day's tracing
+        # to this single line: the build returned nothing, the window wrote an
+        # EMPTY draft over the good one, and there was no earlier copy of it
+        # anywhere. Now every write keeps the version it replaced.
         dlg.add_action_callback('save_draft') do |_, json|
           begin
-            Sketchup.active_model.set_attribute('InteriorPro', 'plan_draft', json.to_s)
+            if defined?(InteriorPro::StateBackup)
+              InteriorPro::StateBackup.write!('plan_draft', json.to_s)
+            else
+              Sketchup.active_model.set_attribute('InteriorPro', 'plan_draft', json.to_s)
+            end
           rescue StandardError => e
             puts "[PlanEditor] save_draft: #{e.message}"
           end
@@ -670,6 +679,31 @@ module InteriorPro
           end
         end
 
+        # Set a wall's direction against the RED AXIS (2026-08-14, right-click
+        # menu). The window already worked out WHERE the moving end should land
+        # - it speaks the same screen-degrees the drawing label shows, and this
+        # side should not repeat that arithmetic in a second dialect. So the
+        # message carries the aim point itself, and everything else - corner
+        # partners, openings, rebuild, re-join - is stretch_wall!, the same one
+        # door the length box and the corner angles already go through.
+        dlg.add_action_callback('set_wall_aim') do |_, json|
+          begin
+            r = JSON.parse(json)
+            wall = find_wall(r['wall_id'].to_s)
+            aim = [r['ax'].to_f, r['ay'].to_f]
+            keep = r['keep'].nil? ? true : (r['keep'] ? true : false)
+            which = r['fixed'].to_s == 'end' ? :start : :end
+            fx = wall.get_attribute('InteriorPro', which == :start ? 'end_x' : 'start_x').to_f
+            fy = wall.get_attribute('InteriorPro', which == :start ? 'end_y' : 'start_y').to_f
+            len = Math.sqrt((aim[0] - fx)**2 + (aim[1] - fy)**2)
+            stretch_wall!(wall, len, which, keep, aim)
+            push_walls(dlg)
+          rescue StandardError => e
+            puts "[PlanEditor] set_wall_aim: #{e.class}: #{e.message}\n  " +
+                 Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
         # Diagnostics for the selected wall: endpoints + how far every other
         # wall's endpoints are from them (why a corner does / does not follow).
         dlg.add_action_callback('debug_wall') do |_, json|
@@ -1182,8 +1216,60 @@ module InteriorPro
       # The path is remembered on the model so the same underlay comes back
       # next time the editor is opened. A DIFFERENT image clears the saved
       # placement - the old calibration means nothing for a new picture.
+      # The traced image and the calibration that goes with it are WORK. He
+      # loads a photo or a survey, then fits it against one known length -
+      # that measurement is the whole reason the tracing is to scale, and it
+      # cannot be made again by pressing a button.
+      #
+      # Three different paths used to throw it away without a copy: loading a
+      # different image, removing the image, and any re-placement. So all
+      # three now take a snapshot first (2026-08-15). Reading is untouched -
+      # this only ever ADDS a copy beside what is already there.
+      def snapshot_underlay!
+        return false unless defined?(InteriorPro::StateBackup)
+        model = Sketchup.active_model
+        cur = {
+          'path'    => model.get_attribute('InteriorPro', 'underlay_path').to_s,
+          'x'       => model.get_attribute('InteriorPro', 'underlay_x').to_f,
+          'y'       => model.get_attribute('InteriorPro', 'underlay_y').to_f,
+          'scale'   => model.get_attribute('InteriorPro', 'underlay_scale').to_f,
+          'opacity' => model.get_attribute('InteriorPro', 'underlay_opacity').to_f,
+          'locked'  => model.get_attribute('InteriorPro', 'underlay_locked').to_i,
+          'rot'     => model.get_attribute('InteriorPro', 'underlay_rot').to_f
+        }
+        # Nothing worth keeping: no picture and no calibration.
+        return false if cur['path'].empty? && cur['scale'] <= 0.0
+        InteriorPro::StateBackup.write!('underlay_state', JSON.generate(cur))
+      rescue StandardError => e
+        puts "[PlanEditor] snapshot_underlay!: #{e.message}"
+        false
+      end
+
+      # Put a snapshot back. n = 1 is the newest one kept.
+      def restore_underlay!(n = 1)
+        return false unless defined?(InteriorPro::StateBackup)
+        h = InteriorPro::StateBackup.history('underlay_state')
+        idx = n.to_i - 1
+        return false if idx.negative? || idx >= h.length
+        r = JSON.parse(h[idx]['json'].to_s)
+        model = Sketchup.active_model
+        snapshot_underlay!   # so putting the wrong one back is not final
+        model.set_attribute('InteriorPro', 'underlay_path', r['path'].to_s)
+        model.set_attribute('InteriorPro', 'underlay_x', r['x'].to_f)
+        model.set_attribute('InteriorPro', 'underlay_y', r['y'].to_f)
+        model.set_attribute('InteriorPro', 'underlay_scale', r['scale'].to_f)
+        model.set_attribute('InteriorPro', 'underlay_opacity', r['opacity'].to_f)
+        model.set_attribute('InteriorPro', 'underlay_locked', r['locked'].to_i)
+        model.set_attribute('InteriorPro', 'underlay_rot', r['rot'].to_f)
+        true
+      rescue StandardError => e
+        puts "[PlanEditor] restore_underlay!: #{e.message}"
+        false
+      end
+
       def store_underlay(path)
         model = Sketchup.active_model
+        snapshot_underlay!
         old = model.get_attribute('InteriorPro', 'underlay_path').to_s
         if path
           model.set_attribute('InteriorPro', 'underlay_path', path.to_s)
@@ -1204,6 +1290,7 @@ module InteriorPro
       # away (reported 2026-08-01).
       def store_underlay_placement(r)
         model = Sketchup.active_model
+        snapshot_underlay!
         model.set_attribute('InteriorPro', 'underlay_x', r['x'].to_f)
         model.set_attribute('InteriorPro', 'underlay_y', r['y'].to_f)
         model.set_attribute('InteriorPro', 'underlay_scale', r['scale'].to_f)
@@ -1217,6 +1304,7 @@ module InteriorPro
 
       def clear_underlay_placement
         model = Sketchup.active_model
+        snapshot_underlay!   # the calibration is about to be thrown away
         %w[underlay_x underlay_y underlay_scale underlay_opacity underlay_locked
            underlay_rot].each do |k|
           begin; model.delete_attribute('InteriorPro', k); rescue StandardError; end
@@ -4156,9 +4244,34 @@ module InteriorPro
               if (pendingSketches.length) { pendingSketches.pop(); updateStatus(); draw(); }
             }
 
+            // Ruby answers with HOW MANY shapes it actually built.
+            //
+            // This used to throw the drawing away without ever looking at
+            // that number (2026-08-15). The user traced a whole site over a
+            // photo, pressed Apply, the build produced nothing - and this
+            // line cleared the canvas and then saved the empty draft over
+            // the good one. Both the work and its only copy, gone, silently.
+            //
+            // Nothing is cleared now unless the model really took it.
             function sketchesDone(n) {
-              pendingSketches = [];
               applyBusy(false);
+              var asked = pendingSketches.length;
+              if (!n || n <= 0) {
+                // Keep the drawing on screen, keep the draft as it is, and
+                // SAY so. A failure the user cannot see is how work is lost.
+                updateStatus(); draw();
+                // NOTE: no \\n in here. This whole block lives inside a Ruby
+                // heredoc, so a backslash-n would become a real line break in
+                // the JS string and the file would stop parsing.
+                alert('הצורות לא נכנסו למודל. הסירטוט נשאר על המסך ולא נמחק כלום.');
+                return;
+              }
+              if (n < asked) {
+                // Some went in and some did not. Say it out loud rather than
+                // quietly dropping the difference.
+                alert('נכנסו ' + n + ' מתוך ' + asked + ' צורות.');
+              }
+              pendingSketches = [];
               saveDraft(true);
               // applied shapes got new model ids — drop history entries
               // that still point at the old pending objects
@@ -5738,6 +5851,27 @@ module InteriorPro
               return false;
             }
 
+            // Same idea for a DIRECTION rather than a corner. A corner angle
+            // only ever runs 0..180, but the way a wall points runs the whole
+            // way round, so each round angle is mirrored into all four
+            // quarters: 15 also means 165, 195 and 345. Same list, same
+            // tolerance - a direction and a corner must never disagree about
+            // what counts as round.
+            function isRoundBearing(deg) {
+              var d = ((deg % 360) + 360) % 360;
+              for (var i = 0; i < ANGLE_ROUND.length; i++) {
+                var r = ANGLE_ROUND[i];
+                var opts = [r, 180 - r, 180 + r, 360 - r];
+                for (var j = 0; j < opts.length; j++) {
+                  var o = ((opts[j] % 360) + 360) % 360;
+                  var gap = Math.abs(d - o);
+                  if (gap > 180) gap = 360 - gap;      // 359.9 is next to 0
+                  if (gap <= ANGLE_TOL) return true;
+                }
+              }
+              return false;
+            }
+
             // Every place two walls share an end, once each - a corner belongs
             // to a pair, not to a wall, or every angle would be drawn twice.
             function wallCorners(all) {
@@ -5828,11 +5962,12 @@ module InteriorPro
               if (el) el.style.display = 'none';
             }
 
-            function showMenu(px, py) {
+            function showMenu(px, py, extra) {
               var el = document.getElementById('canvasMenu');
               if (!el) return;
               el.innerHTML = '';
-              [[showAngles ? 'הסתר מעלות בפינות' : 'הצג מעלות בפינות', toggleAngles]]
+              (extra || []).concat(
+                [[showAngles ? 'הסתר מעלות בפינות' : 'הצג מעלות בפינות', toggleAngles]])
                 .forEach(function(row) {
                   var b = document.createElement('div');
                   b.className = 'mi';
@@ -5844,6 +5979,67 @@ module InteriorPro
               el.style.left = (r.left + px) + 'px';
               el.style.top = (r.top + py) + 'px';
               el.style.display = 'block';
+            }
+
+            // ---- right-click on a wall: set its angle to the RED axis ----
+            //
+            // He asked for it in one sentence: "if I mark the wall and
+            // right-click, it gives me the option to choose how many degrees
+            // the wall will be." Degrees against the red axis - his choice,
+            // 2026-08-14 - measured the way the drawing label measures them,
+            // so the number he types here and the number he watched while
+            // drawing can never mean two different things.
+            //
+            // The pinned end holds still and the moving end swings - the same
+            // green/red rule as everywhere else in the editor. Of the two ways
+            // a line can point at one bearing (12 o'clock and 6 o'clock are
+            // the same line), it takes the one nearest to how the wall already
+            // points, so asking for 90 tidies a crooked wall instead of
+            // spinning it round.
+            function wallScreenBearing(w) {
+              var fx = movingEnd === 'end' ? { x:w.sx, y:w.sy } : { x:w.ex, y:w.ey };
+              var mv = movingEnd === 'end' ? { x:w.ex, y:w.ey } : { x:w.sx, y:w.sy };
+              return ((Math.atan2(fx.y - mv.y, mv.x - fx.x) * 180 / Math.PI) + 360) % 360;
+            }
+
+            function setWallAxisAngle() {
+              var w = sel && (sel.type === 'wall' ? sel.w
+                            : (sel.type === 'pending' ? pending[sel.i] : null));
+              if (!w) return;
+              var cur = wallScreenBearing(w);
+              var curTxt = (Math.round(cur * 10) / 10) + '';
+              var v = prompt('מעלות מול הציר האדום. 0 = ימינה, 90 = למעלה. הקצה הירוק מסתובב, האדום נשאר.', curTxt);
+              if (v === null) return;
+              var deg = parseFloat(v);
+              if (isNaN(deg)) return;
+              deg = ((deg % 360) + 360) % 360;
+              var fx = movingEnd === 'end' ? { x:w.sx, y:w.sy } : { x:w.ex, y:w.ey };
+              var mv = movingEnd === 'end' ? { x:w.ex, y:w.ey } : { x:w.sx, y:w.sy };
+              var len = Math.hypot(mv.x - fx.x, mv.y - fx.y);
+              if (len < 6) return;
+              // both ends of the same line - keep the nearer one
+              var best = null;
+              [deg, deg + 180].forEach(function(d) {
+                var rad = d * Math.PI / 180;
+                var cand = { x: fx.x + Math.cos(rad) * len, y: fx.y - Math.sin(rad) * len };
+                var dd = Math.hypot(cand.x - mv.x, cand.y - mv.y);
+                if (!best || dd < best.dd) best = { p: cand, dd: dd };
+              });
+              if (!best) return;
+              if (sel.type === 'pending') {
+                histLocal('turn_pending');
+                if (movingEnd === 'end') { w.ex = best.p.x; w.ey = best.p.y; }
+                else { w.sx = best.p.x; w.sy = best.p.y; }
+                updateSelPanel(); updateStatus(); draw();
+                return;
+              }
+              if (!w.id) { alert('הקיר הזה עוד לא עבר Apply to Model'); return; }
+              keepSel = { kind:'wall', id: w.id };
+              histModel('set_wall_aim');
+              sketchup.set_wall_aim(JSON.stringify({
+                wall_id: w.id, ax: best.p.x, ay: best.p.y,
+                fixed: fixedEndName(), keep: keepCorners
+              }));
             }
 
             function endCorners(w, all, b) {
@@ -6667,9 +6863,22 @@ module InteriorPro
                 ctx.beginPath(); ctx.moveTo(sx(startPt.x), sy(startPt.y)); ctx.lineTo(sx(end.x), sy(end.y)); ctx.stroke();
                 ctx.setLineDash([]);
                 var dd = Math.hypot(end.x - startPt.x, end.y - startPt.y);
-                var aDeg = Math.round((Math.atan2(startPt.y - end.y, end.x - startPt.x) * 180 / Math.PI + 360) % 360);
-                ctx.fillStyle = '#1a6ee0'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
-                ctx.fillText(fmtLen(dd) + '  ∠' + aDeg + '°', sx(end.x) + 12, sy(end.y) - 8);
+                // This number used to be Math.round(...) - a whole degree. His
+                // building was drawn at 179.7666 and the screen said a calm
+                // round 180, so he believed it and the whole plan was saved a
+                // quarter of a degree off the axis: two inches of drift over
+                // forty-one feet, four perfect 90 corners, and nothing to see
+                // (measured 2026-08-14, axis_report.txt).
+                //
+                // So it tells the truth to a tenth now, and it goes RED when
+                // the direction is not a round one - the same rule and the same
+                // colour the corner angles already use, so there is one idea to
+                // learn, not two.
+                var aDeg = (Math.atan2(startPt.y - end.y, end.x - startPt.x) * 180 / Math.PI + 360) % 360;
+                var aOk = isRoundBearing(aDeg);
+                ctx.fillStyle = aOk ? '#1a6ee0' : '#e0392b';
+                ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+                ctx.fillText(fmtLen(dd) + '  ∠' + fmtAngle(aDeg), sx(end.x) + 12, sy(end.y) - 8);
                 if (shiftDown && lockDir) {   // locked-direction guide line
                   ctx.strokeStyle = '#c026d3'; ctx.lineWidth = 1;
                   ctx.setLineDash([2,4]);
@@ -7639,6 +7848,20 @@ module InteriorPro
                 var busy = drawing || (curLine && curLine.pts && curLine.pts.length) ||
                            arcPts.length || circC || measA || dragEnd;
                 if (busy) { endChain(); return; }
+                // On a wall the menu grows one row: set this wall's angle to
+                // the red axis (2026-08-14). The click also SELECTS the wall,
+                // so the menu always talks about the wall under the cursor and
+                // never about some earlier selection he cannot see.
+                var pR = { x: mx(ev.offsetX), y: my(ev.offsetY) };
+                var hwR = hitWall(pR);
+                var piR = hwR ? -1 : hitPending(pR);
+                if (hwR || piR >= 0) {
+                  setSel(hwR ? { type:'wall', w:hwR.w } : { type:'pending', i:piR });
+                  updateSelPanel(); draw();
+                  showMenu(ev.offsetX, ev.offsetY,
+                           [['זווית מול הציר האדום…', setWallAxisAngle]]);
+                  return;
+                }
                 showMenu(ev.offsetX, ev.offsetY);
                 return;
               }
@@ -8481,7 +8704,22 @@ module InteriorPro
               histModel('apply_walls');
               sketchup.apply_walls(JSON.stringify(pending));
             }
-            function applyDone(n) { pending = []; applyBusy(false); saveDraft(true); draw(); }
+            // Same rule as sketchesDone (2026-08-15): the blue walls are only
+            // cleared once the model has really taken them. n is how many
+            // walls Ruby built.
+            function applyDone(n) {
+              applyBusy(false);
+              var asked = pending.length;
+              if (!n || n <= 0) {
+                draw();
+                alert('הקירות לא נכנסו למודל. הם נשארו כחולים על המסך ולא נמחק כלום.');
+                return;
+              }
+              if (n < asked) alert('נכנסו ' + n + ' מתוך ' + asked + ' קירות.');
+              pending = [];
+              saveDraft(true);
+              draw();
+            }
             function planDone(ok) {}
 
             // Levels (2026-08-03): the editor works on ONE level at a time.

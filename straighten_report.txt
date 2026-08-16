@@ -1,0 +1,25 @@
+== straighten the building onto the axes ==
+run 2026-08-14 16:53:48 -0700
+
+exterior walls measured: 4
+tilt found: -0.2334 degrees
+turning 14 objects by +0.2334 degrees
+about (1153.00, 565.50)
+
+after the turn:
+id             length    off-axis   cat      note
+--------------------------------------------------------------------------
+34d00419-4db7  491.00"   -0.0000    exterio  on the axis
+23ee86c3-89dc  322.00"   -0.0000    exterio  on the axis
+034d702c-a935  491.00"   +0.0000    exterio  on the axis
+5f7d9bbd-a6de  322.00"   +0.0000    exterio  on the axis
+7460b2b8-041b  312.00"   +0.2337    interio  1.272" adrift over its length
+e06ec688-a2f9  120.00"   -0.0958    interio  0.201" adrift over its length
+
+worst EXTERIOR wall is now 0.0000 degrees off.
+
+STILL NOT ON AN AXIS - and a rotation cannot fix these, because
+they are crooked relative to the exterior walls, not with them:
+  7460b2b8-041b  +0.2337  (interior)
+  e06ec688-a2f9  -0.0958  (interior)
+each of these has to be turned on its own, one at a time.

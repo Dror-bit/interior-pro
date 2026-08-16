@@ -1,0 +1,20 @@
+== wall angle to the axes ==
+measured 2026-08-14 16:42:10 -0700
+
+id             length    bearing    off-axis  cat      drift over its length
+--------------------------------------------------------------------------------------
+34d00419-4db7  491.00"   179.7666   0.2334    exterio  2.000"
+23ee86c3-89dc  322.00"   89.7666    0.2334    exterio  1.312"
+034d702c-a935  491.00"   179.7666   0.2334    exterio  2.000"
+5f7d9bbd-a6de  322.00"   89.7666    0.2334    exterio  1.312"
+7460b2b8-041b  312.00"   90.0003    0.0003    interio  straight on the axis
+e06ec688-a2f9  120.00"   179.6708   0.3292    interio  0.689"
+
+worst wall is 0.3292 degrees off its nearest axis.
+this is the tilt he can see. The corners can still read 90, because 90 is the angle BETWEEN two walls, not to the axis.
+
+corner-to-corner check (pairs sharing an end):
+  34d00419-4 + 23ee86c3-8  corner = 90.0000   (screen shows 90.0)
+  34d00419-4 + 5f7d9bbd-a  corner = 90.0000   (screen shows 90.0)
+  23ee86c3-8 + 034d702c-a  corner = 90.0000   (screen shows 90.0)
+  034d702c-a + 5f7d9bbd-a  corner = 90.0000   (screen shows 90.0)

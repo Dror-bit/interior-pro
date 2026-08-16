@@ -707,8 +707,105 @@ module InteriorPro
       }
     end
 
+    # ---- the axis magnet (2026-08-14) ----------------------------------
+    #
+    # He drew a building at 179.7666 degrees. Every corner was a perfect 90,
+    # the label on screen said a round 180, and nothing anywhere said the
+    # whole plan was a quarter of a degree off the red and green axes. Two
+    # inches of drift over forty-one feet. He only found it much later, by
+    # eye, and the floors he built on top of it inherited it.
+    #
+    # A wall that is very nearly on an axis was meant to be on it. Nobody
+    # draws a wall two tenths of a degree off on purpose - 30, 45 and 60 are
+    # what people mean, and those are nowhere near this window. So it lands
+    # on the axis, at the moment it is built, and the crooked frame never
+    # forms in the first place.
+    #
+    # This sits in build_wall_group because that is the ONE door every wall
+    # comes through: the SketchUp wall tool via create_wall, the 3-click arc
+    # tool (which calls create_wall), and Apply to Model in the 2D editor,
+    # which calls build_wall_group directly. One guard, no gaps.
+    #
+    # The one thing it must not do is break a corner. If a wall's end is
+    # already sitting on another wall's end, moving it would tear that corner
+    # open - so a pinned end is left exactly where it is and the OTHER end
+    # swings instead. With both ends pinned the wall is left completely
+    # alone: the model is already committed to that direction, and one wall
+    # cannot be straightened out of a frame on its own. That is what the
+    # whole-building rotation is for.
+    AXIS_MAGNET_DEG = 1.0 unless const_defined?(:AXIS_MAGNET_DEG, false)
+    AXIS_PIN_TOL    = 1.0 unless const_defined?(:AXIS_PIN_TOL, false)   # inches
+
+    # Signed degrees from the nearest quarter turn, folded into -45..45.
+    def self.off_axis_deg(dx, dy)
+      deg = Math.atan2(dy, dx) * 180.0 / Math::PI
+      o = deg % 90.0
+      o -= 90.0 if o > 45.0
+      o
+    end
+
+    # Is this point already sitting on the end of a wall that exists?
+    def self.end_is_pinned?(pt, model)
+      model.active_entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        t = g.transformation
+        %w[start end].each do |k|
+          x = g.get_attribute('InteriorPro', "#{k}_x")
+          y = g.get_attribute('InteriorPro', "#{k}_y")
+          next unless x && y
+          p = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(t)
+          dx = p.x - pt.x
+          dy = p.y - pt.y
+          return true if Math.sqrt(dx * dx + dy * dy) < AXIS_PIN_TOL
+        end
+      end
+      false
+    rescue StandardError
+      false      # never let the magnet stop a wall from being built
+    end
+
+    # Returns [start, end] - either untouched, or with ONE end swung onto the
+    # nearest axis. Pure enough to test: give it a model of nil and nothing
+    # counts as pinned.
+    def self.apply_axis_magnet(start_pt, end_pt, model = nil)
+      dx = end_pt.x - start_pt.x
+      dy = end_pt.y - start_pt.y
+      len = Math.sqrt(dx * dx + dy * dy)
+      return [start_pt, end_pt] if len < 0.001
+
+      off = off_axis_deg(dx, dy)
+      return [start_pt, end_pt] if off.abs < 1.0e-9        # already exact
+      return [start_pt, end_pt] if off.abs > AXIS_MAGNET_DEG
+
+      rad = -off * Math::PI / 180.0
+      c = Math.cos(rad)
+      s = Math.sin(rad)
+
+      start_pinned = model ? end_is_pinned?(start_pt, model) : false
+      end_pinned   = model ? end_is_pinned?(end_pt,   model) : false
+      return [start_pt, end_pt] if start_pinned && end_pinned
+
+      if end_pinned
+        # swing the START about the pinned end, the other way round
+        vx = start_pt.x - end_pt.x
+        vy = start_pt.y - end_pt.y
+        nsx = end_pt.x + vx * c - vy * s
+        nsy = end_pt.y + vx * s + vy * c
+        [Geom::Point3d.new(nsx, nsy, start_pt.z), end_pt]
+      else
+        nex = start_pt.x + dx * c - dy * s
+        ney = start_pt.y + dx * s + dy * c
+        [start_pt, Geom::Point3d.new(nex, ney, end_pt.z)]
+      end
+    end
+
     def build_wall_group(start_pt, end_pt, attrs, model)
       return nil if start_pt.distance(end_pt) < 0.1
+
+      # Land on the axis before a single number is worked out from these two
+      # points, so the attributes, the geometry and the miters all agree.
+      start_pt, end_pt =
+        InteriorPro::WallTool.apply_axis_magnet(start_pt, end_pt, model)
 
       dx = end_pt.x - start_pt.x
       dy = end_pt.y - start_pt.y

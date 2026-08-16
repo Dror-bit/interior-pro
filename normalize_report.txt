@@ -1,0 +1,18 @@
+== put the rotation inside the groups ==
+run 2026-08-14 17:08:56 -0700
+
+20 objects at the top level, 14 carrying a rotation.
+14 objects re-based, 6 walls had their numbers moved with them.
+
+largest thing that moved: 0.000000"
+nothing moved. The walls sit exactly where they sat.
+
+wall numbers vs where the wall really is:
+worst gap between a wall and its own numbers: 0.000000"
+local XY == world XY again. Floors and roofs will read straight.
+
+no rotated transformations left at the top level.
+
+NEXT: the floors built while the numbers were stale are still at the
+old angle. Delete them and build them again - they will read straight
+numbers now.

@@ -391,7 +391,13 @@ module InteriorPro
         @site_saved = json.bytesize <= SITE_ATTR_MAX
         begin
           if @site_saved
-            Sketchup.active_model.set_attribute(ATTR_DICT, SITE_ATTR, json)
+            # Hand-picked site geometry - backed up like everything else
+            # (2026-08-15, see state_backup.rb).
+            if defined?(InteriorPro::StateBackup)
+              InteriorPro::StateBackup.write!(SITE_ATTR, json)
+            else
+              Sketchup.active_model.set_attribute(ATTR_DICT, SITE_ATTR, json)
+            end
           else
             Sketchup.active_model.delete_attribute(ATTR_DICT, SITE_ATTR)
           end
@@ -511,7 +517,17 @@ module InteriorPro
         clean = st.select { |k, _| keep.include?(k) }
         dropped = st.keys - clean.keys - ['site_count']
         puts "[Sheet] save_state dropped: #{dropped.join(', ')}" unless dropped.empty?
-        Sketchup.active_model.set_attribute(ATTR_DICT, ATTR_STATE, JSON.generate(clean))
+        # Through StateBackup since 2026-08-15. The sheet state holds the
+        # page, the scale, the image list and every hand-drawn dimension and
+        # note - work that cannot be made again by pressing a button. One bad
+        # write used to be enough to lose all of it, exactly as it was for the
+        # 2D editor's draft. Every write now keeps the version it replaced.
+        json = JSON.generate(clean)
+        if defined?(InteriorPro::StateBackup)
+          InteriorPro::StateBackup.write!(ATTR_STATE, json)
+        else
+          Sketchup.active_model.set_attribute(ATTR_DICT, ATTR_STATE, json)
+        end
       rescue StandardError => e
         puts "[Sheet] save_state: #{e.message}"
       end

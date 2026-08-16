@@ -1,0 +1,36 @@
+== what is still crooked ==
+measured 2026-08-14 17:35:21 -0700
+
+what                   type       created    worst off note
+--------------------------------------------------------------------------------------------
+#0                     -          -          0.0000    no long edges to judge by
+InteriorPro_Wall       wall       2026-08-12 0.0000    on the axis
+InteriorPro_Wall       wall       2026-08-12 0.0000    on the axis
+InteriorPro_Wall       wall       2026-08-12 0.0000    on the axis
+InteriorPro_Wall       wall       2026-08-12 0.0000    on the axis
+InteriorPro_Wall       wall       2026-08-12 0.2337    1.272" adrift over 312"
+InteriorPro_Wall       wall       2026-08-12 0.0958    0.201" adrift over 120"
+InteriorPro_Room       room       2026-08-12 0.0000    no long edges to judge by
+InteriorPro_Door       door       2026-08-12 0.0000    no long edges to judge by
+InteriorPro_Door       door       2026-08-12 0.0000    no long edges to judge by
+InteriorPro_Door       door       2026-08-12 0.0000    no long edges to judge by
+InteriorPro_Room       room       2026-08-14 0.0000    no long edges to judge by
+InteriorPro_Room       room       2026-08-14 0.0000    no long edges to judge by
+InteriorPro_Sketch     sketch2d   2026-08-14 0.2334    0.552" adrift over 136"
+InteriorPro_Floor      floor      2026-08-15 0.3292    0.876" adrift over 152"
+InteriorPro_Floor      floor      2026-08-15 0.2334    1.458" adrift over 358"
+InteriorPro_Floor      floor      2026-08-15 0.3292    0.892" adrift over 155"
+InteriorPro_FloorPatc  floor_pat  -          0.0000    on the axis
+InteriorPro_FloorPatc  floor_pat  -          0.2337    0.131" adrift over 32"
+InteriorPro_FloorPatc  floor_pat  -          0.2337    0.131" adrift over 32"
+
+what the floor builder would read RIGHT NOW:
+  34d00419-4db7  line -180.0000 (off -0.0000)   corners -180.0000 (off +0.0000)
+  23ee86c3-89dc  line  -90.0000 (off -0.0000)   corners  -90.0000 (off +0.0000)
+  034d702c-a935  line   -0.0000 (off +0.0000)   corners   -0.0000 (off +0.0000)
+  5f7d9bbd-a6de  line  +90.0000 (off +0.0000)   corners  +90.0000 (off +0.0000)
+  7460b2b8-041b  line  -89.7663 (off +0.2337)   corners  -89.7663 (off +0.2337)
+  e06ec688-a2f9  line   -0.0958 (off -0.0958)   corners   -0.0958 (off -0.0958)
+
+if the wall LINE is straight but its CORNERS are not, the wall
+footprint itself is stale and the floor is right to follow it.
