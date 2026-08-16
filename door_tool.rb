@@ -413,6 +413,15 @@ module InteriorPro
             puts "[DoorTool] molding refresh failed: #{e.message}"
           end
         end
+        # Fill the floor across the new opening (2026-08-15). transparent, so
+        # one Ctrl+Z takes the door and its threshold together.
+        if defined?(InteriorPro::FloorManager)
+          begin
+            InteriorPro::FloorManager.refresh_door_patches!(transparent: true)
+          rescue StandardError => e
+            puts "[DoorTool] floor patch refresh failed: #{e.message}"
+          end
+        end
         true
       rescue => e
         model.abort_operation rescue nil if use_operations

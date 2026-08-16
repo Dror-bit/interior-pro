@@ -148,6 +148,16 @@ module InteriorPro
           puts "[DoorMoveTool] molding refresh failed: #{e.message}"
         end
       end
+      # The threshold under the door has to travel WITH the door (2026-08-15).
+      # It used to sit in the old opening until the next Build Floors, which
+      # is what the user saw: "the floor did not move with the door".
+      if defined?(InteriorPro::FloorManager)
+        begin
+          InteriorPro::FloorManager.refresh_door_patches!
+        rescue StandardError => e
+          puts "[DoorMoveTool] floor patch refresh failed: #{e.message}"
+        end
+      end
       reset_state
       update_status_bar
       view.invalidate

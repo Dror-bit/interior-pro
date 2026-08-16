@@ -260,6 +260,43 @@ module InteriorPro
       patches_in_model.each { |p| p.erase! if p.valid? }
     end
 
+    # ---------- Follow the door (2026-08-15) ----------
+    #
+    # The patch is worked out from the door's position along the wall, and it
+    # was only ever worked out again when the user pressed Build Floors. So a
+    # door that MOVED left its threshold behind, sitting in the old place -
+    # which is exactly what the user saw: "the floor did not move with the
+    # door". Adding a door had the same hole in it, and deleting one left a
+    # patch floating in a wall with no opening.
+    #
+    # This is the door tools' door back into the floor code. It is the SAME
+    # build_door_patches! the floor build already uses - there is no second
+    # way to place a threshold - wrapped in its own operation so it can be
+    # called from a tool that is not already inside one.
+    #
+    # transparent: true folds it into the step the caller just committed, so
+    # one Ctrl+Z takes the door AND its threshold, not the threshold alone.
+    # Same treatment MoldingManager.refresh! already gets.
+    #
+    # A model with no floors gets no operation at all - opening one would put
+    # an empty step in the user's undo list for nothing.
+    def self.refresh_door_patches!(transparent: false)
+      return 0 if floors_in_model.empty?
+      model = Sketchup.active_model
+      model.start_operation('InteriorPro Door Thresholds', true, false, transparent)
+      n = build_door_patches!
+      model.commit_operation
+      n
+    rescue StandardError => e
+      begin
+        model.abort_operation
+      rescue StandardError
+        nil
+      end
+      puts "[Floors] refresh_door_patches! failed: #{e.class}: #{e.message}"
+      0
+    end
+
     def self.build_door_patches!
       model = Sketchup.active_model
       remove_patches!

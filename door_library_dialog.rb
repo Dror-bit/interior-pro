@@ -314,6 +314,15 @@ module InteriorPro
               puts "[DoorLibraryDialog] molding refresh failed: #{e.message}"
             end
           end
+          # A wider or narrower door needs a wider or narrower threshold
+          # (2026-08-15) - it used to keep the old one until Build Floors.
+          if defined?(InteriorPro::FloorManager)
+            begin
+              InteriorPro::FloorManager.refresh_door_patches!
+            rescue StandardError => e
+              puts "[DoorLibraryDialog] floor patch refresh failed: #{e.message}"
+            end
+          end
           remember_session!(door_settings)
           dialog.close
         end

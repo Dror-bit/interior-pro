@@ -27,6 +27,15 @@ module InteriorPro
             puts "[DoorDeleteTool] molding refresh failed: #{e.message}"
           end
         end
+        # The threshold has to go with the door (2026-08-15) - otherwise a
+        # patch is left lying in a wall that no longer has an opening.
+        if defined?(InteriorPro::FloorManager)
+          begin
+            InteriorPro::FloorManager.refresh_door_patches!
+          rescue StandardError => e
+            puts "[DoorDeleteTool] floor patch refresh failed: #{e.message}"
+          end
+        end
       end
     end
 
