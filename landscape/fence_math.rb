@@ -221,6 +221,83 @@ module InteriorPro
           bays: bays }
       end
 
+      # ------------------------------------------------- inside one bay
+      #
+      # Everything above lays out the fence. What follows fills a single bay
+      # with boards, so the tool never has to work out a height of its own.
+
+      DEFAULT_POST_SIZE  = 4.0  unless const_defined?(:DEFAULT_POST_SIZE, false)
+      DEFAULT_BOARD_W    = 5.5  unless const_defined?(:DEFAULT_BOARD_W, false)
+      DEFAULT_BOARD_GAP  = 0.0  unless const_defined?(:DEFAULT_BOARD_GAP, false)
+      DEFAULT_BOARD_T    = 0.75 unless const_defined?(:DEFAULT_BOARD_T, false)
+
+      # A board narrower than this is a splinter, not a board.
+      MIN_BOARD_W = 0.5 unless const_defined?(:MIN_BOARD_W, false)
+
+      # The top of a raked bay at any distance t along the run. On a stepped
+      # bay both ends are equal, so this returns that same level everywhere -
+      # which is why the board builder needs no mode of its own.
+      def self.top_at(bay, t)
+        t0 = bay[:t0].to_f
+        t1 = bay[:t1].to_f
+        return bay[:z_top0].to_f if (t1 - t0).abs < FLAT_TOL
+        f = (t.to_f - t0) / (t1 - t0)
+        f = 0.0 if f < 0.0
+        f = 1.0 if f > 1.0
+        bay[:z_top0].to_f + (bay[:z_top1].to_f - bay[:z_top0].to_f) * f
+      end
+
+      # Same, for the bottom edge.
+      def self.bottom_at(bay, t)
+        t0 = bay[:t0].to_f
+        t1 = bay[:t1].to_f
+        return bay[:z_bottom0].to_f if (t1 - t0).abs < FLAT_TOL
+        f = (t.to_f - t0) / (t1 - t0)
+        f = 0.0 if f < 0.0
+        f = 1.0 if f > 1.0
+        bay[:z_bottom0].to_f + (bay[:z_bottom1].to_f - bay[:z_bottom0].to_f) * f
+      end
+
+      # The boards that fill one bay, as [t_start, t_end] pairs measured along
+      # the run.
+      #
+      # The clear space is what is left between the two posts. Rather than
+      # running full-width boards and trimming whatever is left over - which
+      # leaves a sliver at one end and is the thing that makes a fence look
+      # home-made - the boards are made very slightly narrower so they divide
+      # the bay evenly. Same reasoning as the even bays: one small change
+      # shared by every board beats one ugly board.
+      def self.board_runs(bay, board_w = DEFAULT_BOARD_W,
+                          gap = DEFAULT_BOARD_GAP,
+                          post_size = DEFAULT_POST_SIZE)
+        half  = post_size.to_f / 2.0
+        a     = bay[:t0].to_f + half
+        b     = bay[:t1].to_f - half
+        clear = b - a
+        return [] if clear < MIN_BOARD_W
+
+        w = board_w.to_f
+        g = gap.to_f
+        g = 0.0 if g < 0.0
+        w = MIN_BOARD_W if w < MIN_BOARD_W
+
+        pitch = w + g
+        n = ((clear + g) / pitch).round
+        n = 1 if n < 1
+        # Never make a board WIDER than asked for - a fence with 7" boards
+        # where 5.5" was ordered is wrong in a way nobody notices until it is
+        # built. Rounding up the count only ever makes them narrower.
+        n += 1 while ((clear + g) / n) - g > w && n < 10_000
+        return [] if ((clear + g) / n) - g < MIN_BOARD_W
+
+        actual_pitch = (clear + g) / n
+        bw = actual_pitch - g
+        (0...n).map do |i|
+          t0 = a + i * actual_pitch
+          [t0, t0 + bw]
+        end
+      end
+
       # A one-line summary for the status bar. Reads the layout, decides
       # nothing.
       def self.describe(lay)

@@ -216,5 +216,71 @@ ok('diagonal: posts are on the line',
 ok('diagonal: ground drops to -30 at the end',
    close(dg[:posts].last[:ground_z], -30.0), dg[:posts].last[:ground_z])
 
+# ------------------------------------------------------- inside one bay
+
+flat_bay = lay[:bays][0]                       # level, 80" span, top 72
+ok('top_at both ends of a level bay',
+   close(FM.top_at(flat_bay, flat_bay[:t0]), 72.0) &&
+   close(FM.top_at(flat_bay, flat_bay[:t1]), 72.0))
+
+rk_bay = rk[:bays][0]                          # raked: 72 -> 64 over 80"
+ok('top_at the start of a raked bay', close(FM.top_at(rk_bay, rk_bay[:t0]), 72.0))
+ok('top_at the end of a raked bay',   close(FM.top_at(rk_bay, rk_bay[:t1]), 64.0))
+ok('top_at halfway down a raked bay', close(FM.top_at(rk_bay, 40.0), 68.0), FM.top_at(rk_bay, 40.0))
+ok('top_at is clamped outside the bay',
+   close(FM.top_at(rk_bay, -100.0), 72.0) && close(FM.top_at(rk_bay, 999.0), 64.0))
+ok('bottom_at follows the ground', close(FM.bottom_at(rk_bay, 40.0), -4.0),
+   FM.bottom_at(rk_bay, 40.0))
+
+sp_bay = sp[:bays][1]                          # stepped: level all the way
+ok('top_at is flat across a stepped bay',
+   close(FM.top_at(sp_bay, sp_bay[:t0]), FM.top_at(sp_bay, sp_bay[:t1])))
+
+# ---- the boards inside a bay
+
+br = FM.board_runs(flat_bay, 5.5, 0.0, 4.0)    # clear span 80 - 4 = 76"
+ok('boards are produced', br.length > 0, br.length)
+ok('boards start clear of the first post', close(br.first[0], flat_bay[:t0] + 2.0), br.first)
+ok('boards end clear of the last post',    close(br.last[1],  flat_bay[:t1] - 2.0), br.last)
+ok('no board is wider than asked', br.all? { |b| b[1] - b[0] <= 5.5 + 1e-9 },
+   br.map { |b| (b[1] - b[0]).round(4) }.uniq)
+ok('every board is the same width',
+   br.map { |b| (b[1] - b[0]).round(9) }.uniq.length == 1,
+   br.map { |b| (b[1] - b[0]).round(4) }.uniq)
+ok('boards fill the clear span exactly',
+   close(br.map { |b| b[1] - b[0] }.inject(:+), 76.0),
+   br.map { |b| b[1] - b[0] }.inject(:+))
+ok('boards never overlap', br.each_cons(2).all? { |a, b| a[1] <= b[0] + 1e-9 }, br)
+
+# with a gap between boards (a picket fence)
+pk = FM.board_runs(flat_bay, 3.5, 2.0, 4.0)
+ok('picket: boards are produced', pk.length > 1, pk.length)
+ok('picket: no board wider than 3.5', pk.all? { |b| b[1] - b[0] <= 3.5 + 1e-9 },
+   pk.map { |b| (b[1] - b[0]).round(4) }.uniq)
+ok('picket: the gaps are all 2"',
+   pk.each_cons(2).all? { |a, b| close(b[0] - a[1], 2.0) },
+   pk.each_cons(2).map { |a, b| (b[0] - a[1]).round(4) }.uniq)
+ok('picket: first board clear of the post', close(pk.first[0], flat_bay[:t0] + 2.0))
+ok('picket: last board clear of the post',  close(pk.last[1],  flat_bay[:t1] - 2.0))
+
+# a bay so short the posts eat it
+tiny = { t0: 0.0, t1: 4.2, z_top0: 72.0, z_top1: 72.0, z_bottom0: 0.0, z_bottom1: 0.0 }
+ok('a bay swallowed by its posts gets no boards', FM.board_runs(tiny, 5.5, 0.0, 4.0) == [],
+   FM.board_runs(tiny, 5.5, 0.0, 4.0))
+
+# a silly board width must not hang or explode
+ok('a zero-width board falls back, does not hang',
+   FM.board_runs(flat_bay, 0.0, 0.0, 4.0).length > 0)
+ok('a negative gap is treated as none',
+   FM.board_runs(flat_bay, 5.5, -3.0, 4.0).length == br.length)
+
+# boards on a RAKED bay must each get their own top
+rb = FM.board_runs(rk_bay, 5.5, 0.0, 4.0)
+tops = rb.map { |b| FM.top_at(rk_bay, (b[0] + b[1]) / 2.0) }
+ok('raked: each board is shorter than the one before',
+   tops.each_cons(2).all? { |a, b| b < a }, tops.map { |t| t.round(3) })
+ok('raked: the tallest board is under the first post top',
+   tops.first < 72.0 && tops.first > 64.0, tops.first)
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

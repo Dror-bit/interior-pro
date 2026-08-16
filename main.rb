@@ -56,6 +56,7 @@ module InteriorPro
       plan_sheet_dialog.rb
       plan_editor.rb
       landscape/fence_math.rb
+      landscape/fence_tool.rb
       toolbar.rb
     ]
   end
@@ -213,7 +214,8 @@ module InteriorPro
 
   def self.refresh_toolbars!
     return unless const_defined?(:Toolbar, false)
-    %i[setup_2d_toolbar setup_floors_toolbar setup_roofs_toolbar].each do |m|
+    %i[setup_2d_toolbar setup_floors_toolbar setup_roofs_toolbar
+       setup_landscape_toolbar].each do |m|
       next unless InteriorPro::Toolbar.respond_to?(m)
       begin
         InteriorPro::Toolbar.send(m)

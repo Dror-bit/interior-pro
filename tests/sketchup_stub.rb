@@ -58,7 +58,53 @@ module Sketchup
     def valid?; true; end
     def persistent_id; @pid ||= Sketchup.next_pid; end
   end
-  class Face; end
+  # A face that REMEMBERS its outline, so a test can ask where a solid was
+  # actually built instead of only that something was built (2026-08-15,
+  # rt57 - Landscape Pro's fence). It used to be an empty class, which meant
+  # any tool that calls pushpull could not be run in the cloud at all.
+  #
+  # normal is the real Newell normal of the outline, so the "which way does
+  # this face happen to be facing" branches that every builder has - and that
+  # are exactly the ones that go wrong - run here the same way they run in
+  # SketchUp.
+  class Face
+    attr_reader :points, :pushpulls
+    attr_accessor :material, :back_material
+
+    def initialize(pts = [])
+      @points = Array(pts)
+      @pushpulls = []
+    end
+
+    def valid?; true; end
+
+    def normal
+      n = [0.0, 0.0, 0.0]
+      pts = @points
+      return Geom::Vector3d.new(0, 0, 1) if pts.length < 3
+      pts.each_with_index do |p, i|
+        q = pts[(i + 1) % pts.length]
+        n[0] += (p.y - q.y) * (p.z + q.z)
+        n[1] += (p.z - q.z) * (p.x + q.x)
+        n[2] += (p.x - q.x) * (p.y + q.y)
+      end
+      v = Geom::Vector3d.new(n[0], n[1], n[2])
+      v.length.zero? ? Geom::Vector3d.new(0, 0, 1) : v.normalize
+    end
+
+    # Records the distance instead of making new geometry - which is enough
+    # to prove a builder pushed the right way by the right amount. A test
+    # that needs the resulting solid needs SketchUp, not a stub.
+    def pushpull(d); @pushpulls << d.to_f; true; end
+
+    def all_connected; [self]; end
+
+    # Where the outline sits, for tests that check heights.
+    def z_range
+      zs = @points.map(&:z)
+      zs.empty? ? [0.0, 0.0] : [zs.min, zs.max]
+    end
+  end
 
   class Entities
     include Enumerable
@@ -69,7 +115,7 @@ module Sketchup
     def add_group; g = Group.new; @list << g; g; end
     def add_curve(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     def add_line(a, b); e = Edge.new(a, b); @list << e; e; end
-    def add_face(_pts); f = Face.new; @list << f; f; end
+    def add_face(pts); f = Face.new(pts); @list << f; f; end
     def add_3d_text(*_a); true; end
     def clear!; @list = []; true; end
     def erase_entity(e); @list.delete(e); end
@@ -166,6 +212,11 @@ module Sketchup
     def initialize; @attrs = {}; @entities = Entities.new; @layers = Layers.new; @ops = []; @materials = Materials.new; @selection = Selection.new; @path = ''; @title = ''; end
     def materials; @materials; end
     def selection; @selection; end
+    # SketchUp has BOTH: entities is the top level, active_entities is
+    # whatever group is open for editing. With nothing open they are the same
+    # thing, and the stub never opens a group - but a builder that says
+    # active_entities (most of them do) could not run here without it.
+    def active_entities; @entities; end
     def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
     def get_attribute(d, k, dflt = nil); (@attrs[d] || {}).key?(k) ? @attrs[d][k] : dflt; end
     def delete_attribute(d, k); (@attrs[d] || {}).delete(k); end
@@ -188,6 +239,13 @@ module Sketchup
     def active_model; @model; end
     def reset_model!; @model = Model.new; end
     def send_action(_a); true; end
+    # The status bar and the measurement box. Tools talk to these constantly;
+    # without them a tool cannot be run in the cloud at all (2026-08-15).
+    def set_status_text(*_a); true; end
+    def vcb_label=(_v); _v; end
+    def vcb_value=(_v); _v; end
+    def format_length(v); v.to_s; end
+    def platform; :platform_win; end
   end
 end
 

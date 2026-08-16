@@ -58,6 +58,7 @@ module InteriorPro
       setup_floors_toolbar
       setup_roofs_toolbar
       setup_2d_toolbar
+      setup_landscape_toolbar
 
       toolbar = resolve_toolbar
       return if toolbar.length >= TOOLBAR_ITEM_COUNT
@@ -372,6 +373,36 @@ module InteriorPro
 
       tb.restore
     end
+
+    # ------------------------------------------------------- Landscape Pro
+    #
+    # Everything outside the house lives on its OWN bar (user, 2026-08-15):
+    # fences, walls, patios, pools, lighting, planting. It is a separate
+    # product wearing the same plugin, so nothing here may reach into the
+    # wall / door / window / roof bars, and nothing there needs to know this
+    # exists. One button today - the fence.
+    def self.setup_landscape_toolbar
+      tb = UI::Toolbar.new('Landscape Pro')
+      return if tb.length >= 1
+
+      fence_cmd = UI::Command.new('Fence') {
+        tool = InteriorPro::Landscape::FenceTool.new
+        # Settings first, then the tool - the same order as the Wall button,
+        # which opens the library before it hands you the mouse.
+        Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
+      }
+      fence_cmd.tooltip = 'Fence - two clicks, posts and boards, follows the ground'
+      fence_cmd.status_bar_text = 'Set the fence up, then click its two ends'
+      icon = icon_path('fence_tool')
+      # A missing icon file must not take the whole toolbar down with it.
+      if File.exist?(icon)
+        fence_cmd.small_icon = icon
+        fence_cmd.large_icon = icon
+      end
+      tb.add_item(fence_cmd)
+
+      tb.restore
+    end
   end
 
   module Menu
@@ -556,6 +587,13 @@ module InteriorPro
       # The sheet window (2026-08-12): see the page before it prints.
       menu.add_item('Sheet: Page + PDF') {
         InteriorPro::PlanSheetDialog.show
+      }
+
+      # Landscape Pro (2026-08-15): the outside of the house. Its own bar and
+      # its own menu entry, so it can grow without crowding the wall tools.
+      menu.add_item('Landscape: Fence') {
+        tool = InteriorPro::Landscape::FenceTool.new
+        Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
       }
 
       # One click instead of restarting SketchUp after a code change
