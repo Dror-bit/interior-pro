@@ -55,6 +55,7 @@ module InteriorPro
       plan_pdf.rb
       plan_sheet_dialog.rb
       plan_editor.rb
+      landscape/fence_math.rb
       toolbar.rb
     ]
   end
