@@ -37,11 +37,12 @@ GW = InteriorPro::Landscape::GardenWallTool
 
 def pt(x, y); Geom::Point3d.new(x, y, 0); end
 def fresh(t = 8.0, h = 36.0, m = 'Stucco', cw = 0.0, ch = 0.0, cm = 'Stucco',
-          mode = 'Continuous', unit = 24.0, joint = 0.25)
+          mode = 'Continuous', unit = 24.0, joint = 0.25, nose = 'None',
+          over = 'Both sides')
   Sketchup.reset_model!
   $magnet_calls = 0
   $tags = []
-  GW.new(t, h, m, cw, ch, cm, mode, unit, joint)
+  GW.new(t, h, m, cw, ch, cm, mode, unit, joint, nose, over)
 end
 def cap_of(g)
   g.entities.grep(Sketchup::Group).find { |x| x.name == 'LandscapePro_GardenWallCap' }
@@ -50,10 +51,19 @@ def stones_of(g)
   c = cap_of(g)
   c ? c.entities.grep(Sketchup::Group).sort_by { |x| x.name } : []
 end
-# Where a stone actually sits along a wall drawn down the x axis.
+# Since the bullnose (step 3) a cap piece is its CROSS-SECTION extruded along
+# the wall: the face stands at the piece's start, and how long the piece is
+# comes out of the pushpull, not out of the face.
+def sect(g)
+  g.entities.grep(Sketchup::Face).first
+end
+def run_len(g)
+  sect(g).pushpulls.first.abs
+end
+# Where a stone sits along a wall drawn down the x axis: start .. start+length.
 def x_span(stone)
-  xs = stone.entities.grep(Sketchup::Face).flat_map { |f| f.points.map(&:x) }
-  [xs.min, xs.max]
+  x0 = sect(stone).points.map(&:x).min
+  [x0, x0 + run_len(stone)]
 end
 def walls
   Sketchup.active_model.entities.grep(Sketchup::Group)
@@ -188,11 +198,13 @@ ok('the wall body is still one face - the cap did not land in it',
 cf = cap.entities.grep(Sketchup::Face)
 ok('the cap has its own footprint face', cf.length == 1, cf.length)
 capf = cf.first
-ok('the cap sits ON TOP of the wall, at 36"',
-   capf.points.all? { |p| close(p.z, 36.0, 1e-9) }, capf.points.map(&:z).uniq)
-csigned = capf.pushpulls.first * (capf.normal.z < 0 ? -1.0 : 1.0)
-ok('the cap is 2" thick and goes UP', close(csigned, 2.0, 1e-9),
-   [capf.pushpulls.first, capf.normal.z])
+ok('the cap SITS ON the wall: its section runs 36" to 38"',
+   close(capf.points.map(&:z).min, 36.0, 1e-9) &&
+   close(capf.points.map(&:z).max, 38.0, 1e-9),
+   [capf.points.map(&:z).min, capf.points.map(&:z).max])
+ok('the cap is 2" thick', close(capf.points.map(&:z).max - capf.points.map(&:z).min, 2.0, 1e-9))
+ok('and it was extruded the full 120" of the wall',
+   close(capf.pushpulls.first.abs, 120.0, 1e-9), capf.pushpulls)
 
 # WIDTH, not overhang: a 12" cap on an 8" wall is 12" across, overhanging 2"
 # a side. That is the number he types, so it is the number that must appear.
@@ -228,9 +240,14 @@ ok('a cap narrower than the wall is built, recessed, not refused',
 # On a diagonal the cap width is measured across the run, like the wall.
 t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco')
 g = t.build!(pt(0, 0), pt(100, 100))
-cp = cap_of(g).entities.grep(Sketchup::Face).first.points
-wide = Math.sqrt((cp[0].x - cp[3].x)**2 + (cp[0].y - cp[3].y)**2)
+cp = sect(cap_of(g)).points
+wide = cp.combination(2).map { |q, r|
+  Math.sqrt((q.x - r.x)**2 + (q.y - r.y)**2)
+}.max
 ok('a diagonal cap is still 12" across the run', close(wide, 12.0, 1e-9), wide)
+ok('and it was extruded the whole diagonal',
+   close(sect(cap_of(g)).pushpulls.first.abs, Math.sqrt(100.0**2 + 100.0**2), 1e-6),
+   sect(cap_of(g)).pushpulls)
 
 # ---- the off switch --------------------------------------------------------
 
@@ -328,13 +345,16 @@ ok('split: every stone is its OWN group, so he can grab one',
 ok('split: the cap group itself holds no loose faces that could weld the joints',
    cap.entities.grep(Sketchup::Face).empty?,
    cap.entities.grep(Sketchup::Face).length)
-ok('split: each stone is one face pushed up 2"',
+ok('split: each stone is one section face extruded along the wall',
+   stones.all? { |st| st.entities.grep(Sketchup::Face).length == 1 })
+ok('split: every stone sits on the wall, 36" to 38"',
    stones.all? { |st|
-     fs = st.entities.grep(Sketchup::Face)
-     fs.length == 1 && close(fs.first.pushpulls.first.abs, 2.0, 1e-9)
+     zs = sect(st).points.map(&:z)
+     close(zs.min, 36.0, 1e-9) && close(zs.max, 38.0, 1e-9)
    })
-ok('split: every stone sits on top of the wall at 36"',
-   stones.all? { |st| st.entities.grep(Sketchup::Face).first.points.all? { |p| close(p.z, 36.0, 1e-9) } })
+ok('split: each full stone was extruded exactly 24"',
+   stones[0..-2].all? { |st| close(run_len(st), 24.0, 1e-9) },
+   stones.map { |st| run_len(st).round(3) })
 
 spans = stones.map { |st| x_span(st) }.sort_by(&:first)
 ok('split: the first stone starts at the start of the wall',
@@ -349,12 +369,12 @@ ok('split: the last stone is the short one',
    spans.last[1] - spans.last[0])
 ok('split: every stone is still 12" across, like the cap width he typed',
    stones.all? { |st|
-     ys = st.entities.grep(Sketchup::Face).first.points.map(&:y)
+     ys = sect(st).points.map(&:y)
      close(ys.max - ys.min, 12.0, 1e-9)
    })
 ok('split: every stone is painted in the cap finish',
    stones.all? { |st|
-     m = st.entities.grep(Sketchup::Face).first.material
+     m = sect(st).material
      m && m.name == 'LandscapePro_Stack Stone'
    })
 ok('split: the wall body still wears the WALL finish',
@@ -372,8 +392,8 @@ ok('continuous: no stones, one slab',
    [stones_of(g).length, cap_of(g).entities.grep(Sketchup::Face).length])
 ok('continuous: the slab runs the whole 100"',
    begin
-     xs = cap_of(g).entities.grep(Sketchup::Face).first.points.map(&:x)
-     close(xs.min, 0.0, 1e-9) && close(xs.max, 100.0, 1e-9)
+     f3 = sect(cap_of(g))
+     close(f3.points.map(&:x).min, 0.0, 1e-9) && close(f3.pushpulls.first.abs, 100.0, 1e-9)
    end)
 ok('continuous: the stone length is NOT stored, it did not apply',
    g.get_attribute('LandscapePro', 'cap_unit') == 0.0,
@@ -385,16 +405,233 @@ g = t.build!(pt(0, 0), pt(100, 100))
 st = stones_of(g)
 ok('split: a diagonal wall gets stones too', st.length >= 5, st.length)
 ok('split: each diagonal stone is 24" ALONG the run, not 24" in x',
-   begin
-     f = st.first.entities.grep(Sketchup::Face).first
-     ps = f.points
-     # the longest edge of a stone is its length along the wall
-     longest = ps.each_with_index.map { |q, i|
-       r = ps[(i + 1) % ps.length]
-       Math.sqrt((q.x - r.x)**2 + (q.y - r.y)**2)
-     }.max
-     close(longest, 24.0, 1e-6)
-   end)
+   close(run_len(st.first), 24.0, 1e-6), run_len(st.first))
+
+
+# --------------------------------------------------------------- the bullnose
+#
+# One control, three answers (2026-08-17, his words: "אפשרי לעשות אופציה של
+# סימון וי עם בול נוז או בלי ובצד אחד או שתי צדדים"). ONE SIDE is the RIGHT
+# of the way he draws it; to nose the other face he draws the wall the other
+# way round.
+#
+# A bullnose is a HALF-ROUND: radius = half the cap thickness, always. It eats
+# into the width he typed rather than adding to it, exactly like a real stone.
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Continuous', 24.0, 0.0, 'None')
+sq = t.cap_profile
+ok('no bullnose: the section is a plain four-corner rectangle', sq.length == 4, sq.length)
+ok('no bullnose: 12" across', close(sq.map(&:first).max - sq.map(&:first).min, 12.0, 1e-9))
+ok('no bullnose: 3" tall', close(sq.map(&:last).max - sq.map(&:last).min, 3.0, 1e-9))
+ok('no bullnose: centred on the wall line',
+   close(sq.map(&:first).max, 6.0, 1e-9) && close(sq.map(&:first).min, -6.0, 1e-9), sq)
+ok('bullnose? is false', !t.bullnose?)
+
+# ---- one side --------------------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Continuous', 24.0, 0.0, 'One side')
+one = t.cap_profile
+ok('one side: bullnose? is true', t.bullnose?)
+ok('one side: the section grew corners for the arc', one.length > 4, one.length)
+ok('one side: it is STILL 12" across - the nose ate in, it did not stick out',
+   close(one.map(&:first).max - one.map(&:first).min, 12.0, 1e-9),
+   one.map(&:first).max - one.map(&:first).min)
+ok('one side: still 3" tall', close(one.map(&:last).max - one.map(&:last).min, 3.0, 1e-9))
+
+# Every arc point must sit exactly one radius from the nose centre. That is
+# what makes it a half-round rather than a chamfer that looks like one.
+r = 1.5
+cx = 6.0 - r
+nose_pts = one.select { |(v, _w)| v > cx - 1e-9 }
+ok('one side: the nose is made of at least 8 pieces', nose_pts.length >= 8, nose_pts.length)
+ok('one side: every one of them is exactly 1.5" from the nose centre',
+   nose_pts.all? { |(v, w)| close(Math.sqrt((v - cx)**2 + (w - r)**2), r, 1e-9) },
+   nose_pts.map { |(v, w)| Math.sqrt((v - cx)**2 + (w - r)**2).round(6) }.uniq)
+ok('one side: the nose reaches the full 6" out and no further',
+   close(one.map(&:first).max, 6.0, 1e-9), one.map(&:first).max)
+ok('one side: the nose is at mid-height, 1.5" up',
+   close(one.max_by(&:first)[1], 1.5, 1e-9), one.max_by(&:first))
+
+# The OTHER side is left square.
+ok('one side: the left edge is still a square corner',
+   one.count { |(v, _w)| close(v, -6.0, 1e-9) } == 2,
+   one.select { |(v, _w)| close(v, -6.0, 1e-9) })
+
+# ---- both sides ------------------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Continuous', 24.0, 0.0, 'Both sides')
+both = t.cap_profile
+ok('both sides: more corners again', both.length > one.length, [one.length, both.length])
+ok('both sides: still 12" across', close(both.map(&:first).max - both.map(&:first).min, 12.0, 1e-9))
+ok('both sides: neither edge is a square corner',
+   both.count { |(v, _w)| close(v.abs, 6.0, 1e-9) } == 2,
+   both.select { |(v, _w)| close(v.abs, 6.0, 1e-9) })
+ok('both sides: it is symmetric about the wall line',
+   both.map { |(v, w)| [(-v).round(6), w.round(6)] }.sort ==
+   both.map { |(v, w)| [v.round(6), w.round(6)] }.sort)
+lcx = -6.0 + r
+lnose = both.select { |(v, _w)| v < lcx + 1e-9 }
+ok('both sides: the left nose is a half-round too',
+   lnose.length >= 8 && lnose.all? { |(v, w)| close(Math.sqrt((v - lcx)**2 + (w - r)**2), r, 1e-9) },
+   lnose.length)
+
+# ---- the guard: a nose that cannot fit falls back to a square edge ---------
+#
+# A half-round is radius = half the thickness, full stop. On a 2" wide, 40"
+# tall cap that nose does not fit, and forcing it produced a 1"-radius bump on
+# a 40" slab with the section folded over itself. Square edge instead.
+t = fresh(8.0, 36.0, 'Stucco', 2.0, 40.0, 'Stucco', 'Continuous', 24.0, 0.0, 'Both sides')
+weird = t.cap_profile
+ok('a cap too thin for a half-round falls back to a square edge',
+   weird.length == 4, weird.length)
+ok('and it is still exactly the size he typed',
+   close(weird.map(&:first).max - weird.map(&:first).min, 2.0, 1e-9) &&
+   close(weird.map(&:last).max - weird.map(&:last).min, 40.0, 1e-9),
+   [weird.map(&:first).max - weird.map(&:first).min,
+    weird.map(&:last).max - weird.map(&:last).min])
+
+# The exact boundary: two noses need height <= width, one needs height <= 2x.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 12.0, 'Stucco', 'Continuous', 24.0, 0.0, 'Both sides')
+ok('both noses fit exactly when the cap is as tall as it is wide',
+   t.cap_profile.length > 4, t.cap_profile.length)
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 12.5, 'Stucco', 'Continuous', 24.0, 0.0, 'Both sides')
+ok('a hair taller than that and both go square', t.cap_profile.length == 4, t.cap_profile.length)
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 12.5, 'Stucco', 'Continuous', 24.0, 0.0, 'One side')
+ok('but ONE nose still fits there - it only eats one end',
+   t.cap_profile.length > 4, t.cap_profile.length)
+
+# ---- in the model ----------------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stack Stone', 'Continuous', 24.0, 0.0, 'One side')
+g = t.build!(pt(0, 0), pt(120, 0))
+cf2 = sect(cap_of(g))
+ok('model: the nosed cap is one section face, extruded 120"',
+   !cf2.nil? && close(cf2.pushpulls.first.abs, 120.0, 1e-9), cf2 && cf2.pushpulls)
+ok('model: the section carries the arc points', cf2.points.length > 4, cf2.points.length)
+ok('model: the whole nosed cap is painted', !cf2.material.nil?)
+ok('model: the nose is on the RIGHT of the way he drew it',
+   close(cf2.points.map(&:y).max, 6.0, 1e-9) &&
+   cf2.points.select { |q| close(q.y, 6.0, 1e-9) }.length == 1,
+   cf2.points.select { |q| close(q.y, 6.0, 1e-9) }.length)
+ok('model: and the left edge still has its two square corners',
+   cf2.points.select { |q| close(q.y, -6.0, 1e-9) }.length == 2,
+   cf2.points.select { |q| close(q.y, -6.0, 1e-9) }.length)
+ok('model: the bullnose setting is stored',
+   g.get_attribute('LandscapePro', 'bullnose') == 'One side',
+   g.get_attribute('LandscapePro', 'bullnose'))
+
+# Drawn the other way round, the nose lands on the other face - which is how
+# he flips it, and why there is no left/right control.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Continuous', 24.0, 0.0, 'One side')
+g = t.build!(pt(120, 0), pt(0, 0))
+cf3 = sect(cap_of(g))
+ok('drawing it the other way puts the nose on the other face',
+   cf3.points.select { |q| close(q.y, -6.0, 1e-9) }.length == 1 &&
+   cf3.points.select { |q| close(q.y, 6.0, 1e-9) }.length == 2,
+   [cf3.points.select { |q| close(q.y, -6.0, 1e-9) }.length,
+    cf3.points.select { |q| close(q.y, 6.0, 1e-9) }.length])
+
+# Every stone of a split cap gets the same nose.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Split', 24.0, 0.5, 'Both sides')
+g = t.build!(pt(0, 0), pt(100, 0))
+st2 = stones_of(g)
+ok('split + bullnose: every stone is nosed, not just the first',
+   st2.length > 1 && st2.all? { |x| sect(x).points.length > 4 },
+   st2.map { |x| sect(x).points.length })
+ok('split + bullnose: the stones are still 24" long with 0.5" joints',
+   st2[0..-2].all? { |x| close(run_len(x), 24.0, 1e-9) },
+   st2.map { |x| run_len(x).round(3) })
+
+# No cap, no bullnose - the setting cannot conjure one.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 0.0, 'Stucco', 'Continuous', 24.0, 0.0, 'Both sides')
+ok('no cap means no bullnose, whatever the dropdown says', !t.bullnose?)
+g = t.build!(pt(0, 0), pt(120, 0))
+ok('and none is stored', g.get_attribute('LandscapePro', 'bullnose') == 'None',
+   g.get_attribute('LandscapePro', 'bullnose'))
+
+
+# ------------------------------------------------------------- the overhang
+#
+# He looked at the first build and asked for it (2026-08-17): "שאני בוחר
+# אוברהנג צריכה להיות האפשרות לבחור רק צד אחד יבלוט החוצה, כי לא תמיד ובדרך
+# כלל לא שניהם יבלטו החוצה, הרבה פעמים יושב פלאש עם הקו של החומה."
+#
+# BOTH = centred. ONE = flush with the LEFT face, all the overhang on the
+# right - the same right the bullnose uses, so the shown face gets both.
+
+# 12" cap on an 8" wall = 4" of overhang to place.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0, 'None', 'Both sides')
+ok('both sides: the coping is not slid at all', close(t.cap_shift, 0.0, 1e-9), t.cap_shift)
+g = t.build!(pt(0, 0), pt(120, 0))
+ys = sect(cap_of(g)).points.map(&:y)
+ok('both sides: it hangs over 2" each side of an 8" wall',
+   close(ys.min, -6.0, 1e-9) && close(ys.max, 6.0, 1e-9), [ys.min, ys.max])
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0, 'None', 'One side')
+ok('one side: the coping is slid by half the difference',
+   close(t.cap_shift, 2.0, 1e-9), t.cap_shift)
+g = t.build!(pt(0, 0), pt(120, 0))
+ys = sect(cap_of(g)).points.map(&:y)
+ok('one side: FLUSH with the left face of the wall, at -4"',
+   close(ys.min, -4.0, 1e-9), ys.min)
+ok('one side: and the whole 4" of overhang is on the right',
+   close(ys.max, 8.0, 1e-9), ys.max)
+ok('one side: the coping is still 12" wide, nothing was lost',
+   close(ys.max - ys.min, 12.0, 1e-9), ys.max - ys.min)
+ok('one side: the overhang setting is stored',
+   g.get_attribute('LandscapePro', 'overhang') == 'One side',
+   g.get_attribute('LandscapePro', 'overhang'))
+
+# A cap the same width as the wall is flush either way - no overhang to place.
+t = fresh(8.0, 36.0, 'Stucco', 8.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0, 'None', 'One side')
+ok('a cap as wide as the wall has nothing to slide', close(t.cap_shift, 0.0, 1e-9))
+
+# A cap NARROWER than the wall goes flush left, inset right.
+t = fresh(12.0, 36.0, 'Stucco', 8.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0, 'None', 'One side')
+g = t.build!(pt(0, 0), pt(120, 0))
+ys = sect(cap_of(g)).points.map(&:y)
+ok('a recessed cap on one side is flush left and inset right',
+   close(ys.min, -6.0, 1e-9) && close(ys.max, 2.0, 1e-9), [ys.min, ys.max])
+
+# The overhang and the nose land on the SAME face - the one that shows.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 3.0, 'Stucco', 'Continuous', 24.0, 0.0, 'One side', 'One side')
+g = t.build!(pt(0, 0), pt(120, 0))
+f4 = sect(cap_of(g))
+ok('the nose is on the same face as the overhang - the one that shows',
+   close(f4.points.map(&:y).max, 8.0, 1e-9) &&
+   f4.points.select { |q| close(q.y, 8.0, 1e-9) }.length == 1,
+   [f4.points.map(&:y).max, f4.points.select { |q| close(q.y, 8.0, 1e-9) }.length])
+
+# Split stones follow the shift too.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.5, 'None', 'One side')
+g = t.build!(pt(0, 0), pt(100, 0))
+ok('every stone of a split cap is flush on the same side',
+   stones_of(g).all? { |x| close(sect(x).points.map(&:y).min, -4.0, 1e-9) },
+   stones_of(g).map { |x| sect(x).points.map(&:y).min.round(3) }.uniq)
+
+# ------------------------------------------------- the facet lines come off
+#
+# The first screenshot showed a ribbed nose - SketchUp draws a line on every
+# facet of the arc. Soften+smooth anything that is a facet; leave real
+# corners alone.
+
+up_v   = Geom::Vector3d.new(0, 0, 1)
+side_v = Geom::Vector3d.new(0, 1, 0)
+ok('a 90 degree corner is NOT softened', !GW.soften?(up_v, side_v))
+ok('two faces pointing the same way ARE', GW.soften?(up_v, up_v))
+# One facet of a 12-piece half-round turns 15 degrees.
+a15 = Geom::Vector3d.new(0, Math.sin(15 * Math::PI / 180), Math.cos(15 * Math::PI / 180))
+ok('a 15 degree facet - one piece of the arc - is softened', GW.soften?(up_v, a15))
+a45 = Geom::Vector3d.new(0, Math.sin(45 * Math::PI / 180), Math.cos(45 * Math::PI / 180))
+ok('a 45 degree fold is left alone - that is a chamfer, not a facet', !GW.soften?(up_v, a45))
+ok('a missing normal is not a crash', !GW.soften?(nil, up_v) && !GW.soften?(up_v, nil))
+ok('the arc has enough pieces to read as round', GW::BULLNOSE_SEGMENTS >= 12,
+   GW::BULLNOSE_SEGMENTS)
+# The facet turn must stay under the softening threshold, or the lines come
+# back the day someone changes the segment count.
+ok('every facet turn is under the softening angle',
+   (180.0 / GW::BULLNOSE_SEGMENTS) < GW::SOFTEN_DEGREES,
+   [180.0 / GW::BULLNOSE_SEGMENTS, GW::SOFTEN_DEGREES])
 
 # ------------------------------------------------------------- the mis-clicks
 

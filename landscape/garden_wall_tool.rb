@@ -118,16 +118,68 @@ module InteriorPro
       # drop it rather than leave a crumb standing on the wall.
       MIN_CAP_PIECE = 0.125 unless const_defined?(:MIN_CAP_PIECE, false)
 
+      # THE BULLNOSE (step 3, 2026-08-17). He asked for one control that says
+      # off / one side / two sides ("אפשרי לעשות אופציה של סימון וי עם בול נוז
+      # או בלי, ובצד אחד או שתי צדדים") - so it is ONE dropdown, not a
+      # checkbox plus a side picker. Two controls for one decision is exactly
+      # what his standing UI rule forbids.
+      #
+      # ONE SIDE means the RIGHT-hand side of the way he draws it: start ->
+      # end, right is the side your right hand falls on. To put the nose on
+      # the other face he draws the wall the other way round. That is the same
+      # answer the plugin already gives for wall faces, and it beats adding a
+      # left/right control he then has to think about.
+      #
+      # The radius is NOT a field: a bullnose IS a half-round, so it is always
+      # half the cap thickness. A "radius" smaller than that is an eased edge,
+      # a different detail, and it can have its own option if he asks.
+      BULLNOSE_NONE = 'None'      unless const_defined?(:BULLNOSE_NONE, false)
+      BULLNOSE_ONE  = 'One side'  unless const_defined?(:BULLNOSE_ONE, false)
+      BULLNOSE_BOTH = 'Both sides' unless const_defined?(:BULLNOSE_BOTH, false)
+      BULLNOSE_MODES = [BULLNOSE_NONE, BULLNOSE_ONE, BULLNOSE_BOTH].freeze unless const_defined?(:BULLNOSE_MODES, false)
+
+      # How many straight pieces stand in for each half-round. 8 is smooth at
+      # the sizes a coping actually is, and cheap enough to put on every stone
+      # of a hundred-foot wall.
+      BULLNOSE_SEGMENTS = 12 unless const_defined?(:BULLNOSE_SEGMENTS, false)
+
+      # WHICH SIDE THE CAP HANGS OVER (2026-08-17, after he looked at it: "שאני
+      # בוחר אוברהנג צריכה להיות האפשרות לבחור רק צד אחד יבלוט החוצה, כי לא
+      # תמיד ובדרך כלל לא שניהם יבלטו החוצה, הרבה פעמים יושב פלאש עם הקו של
+      # החומה").
+      #
+      #   BOTH - the coping is centred, so it hangs over equally each side.
+      #   ONE  - it is FLUSH with the left face of the wall and all of the
+      #          overhang lands on the right.
+      #
+      # Right is the same right as the bullnose: the right hand of start ->
+      # end. That is on purpose - the face that shows is the face that gets
+      # both the nose and the overhang, and drawing the wall the other way
+      # flips the two of them together.
+      OVERHANG_BOTH = 'Both sides' unless const_defined?(:OVERHANG_BOTH, false)
+      OVERHANG_ONE  = 'One side'   unless const_defined?(:OVERHANG_ONE, false)
+      OVERHANG_MODES = [OVERHANG_BOTH, OVERHANG_ONE].freeze unless const_defined?(:OVERHANG_MODES, false)
+
+      # SketchUp draws a line on every facet of the half-round, and on a
+      # coping that reads as a ribbed edge instead of a smooth one - he saw it
+      # in the first screenshot. Every edge whose two faces are nearly in line
+      # gets softened and smoothed; a real corner is 90 degrees and is left
+      # alone. At 12 segments a half-round facet turns 15 degrees, so 30 is
+      # comfortably above the arc and far below any corner.
+      SOFTEN_DEGREES = 30.0 unless const_defined?(:SOFTEN_DEGREES, false)
+
       attr_accessor :thickness, :height, :material, :ground_start, :ground_end
       attr_accessor :cap_width, :cap_height, :cap_material
       attr_accessor :cap_mode, :cap_unit, :cap_joint
+      attr_accessor :bullnose, :overhang
 
       def initialize(thickness = DEFAULT_THICKNESS, height = DEFAULT_HEIGHT,
                      material = MATERIALS.first,
                      cap_width = DEFAULT_CAP_WIDTH, cap_height = DEFAULT_CAP_HEIGHT,
                      cap_material = MATERIALS.first,
                      cap_mode = CAP_CONTINUOUS,
-                     cap_unit = DEFAULT_CAP_UNIT, cap_joint = DEFAULT_CAP_JOINT)
+                     cap_unit = DEFAULT_CAP_UNIT, cap_joint = DEFAULT_CAP_JOINT,
+                     bullnose = BULLNOSE_NONE, overhang = OVERHANG_BOTH)
         @thickness    = thickness.to_f
         @height       = height.to_f
         @material     = material.to_s
@@ -137,6 +189,8 @@ module InteriorPro
         @cap_mode     = CAP_MODES.include?(cap_mode.to_s) ? cap_mode.to_s : CAP_CONTINUOUS
         @cap_unit     = cap_unit.to_f
         @cap_joint    = cap_joint.to_f
+        @bullnose     = BULLNOSE_MODES.include?(bullnose.to_s) ? bullnose.to_s : BULLNOSE_NONE
+        @overhang     = OVERHANG_MODES.include?(overhang.to_s) ? overhang.to_s : OVERHANG_BOTH
         @ground_start = 0.0
         @ground_end   = 0.0
         reset
@@ -146,6 +200,89 @@ module InteriorPro
       # into - otherwise it would loop forever laying zero-length stones.
       def split_cap?
         cap? && @cap_mode == CAP_SPLIT && @cap_unit.to_f > 0.0
+      end
+
+      def bullnose?
+        cap? && @bullnose != BULLNOSE_NONE
+      end
+
+      # How far the whole coping is slid sideways off the wall's centre line.
+      # Zero when it hangs over both sides; enough to sit FLUSH with the left
+      # face when he asked for one side, which puts every inch of the overhang
+      # on the right.
+      #
+      # A coping narrower than the wall shifts the other way by the same rule
+      # and ends up flush left, inset right - which is the correct reading of
+      # "flush on one side" for a recessed cap too.
+      def cap_shift
+        return 0.0 unless @overhang == OVERHANG_ONE
+        (@cap_width.to_f - @thickness.to_f) / 2.0
+      end
+
+      # THE CAP'S CROSS-SECTION, as plain [across, up] pairs. Pure, so the
+      # shape of a bullnose can be checked to the thousandth without SketchUp.
+      #
+      # `across` runs from -width/2 (LEFT of the direction he drew) to
+      # +width/2 (RIGHT). `up` runs 0 (sitting on the wall) to height.
+      # Counter-clockwise, so the face it makes has a predictable normal.
+      #
+      # A nosed side is a true half-round of radius height/2: the flat top and
+      # bottom stop one radius short, and the arc bulges out to the full
+      # width. So a bullnose does NOT make the coping wider than the number he
+      # typed - it eats into it, which is what a real stone does.
+      def cap_profile(width = @cap_width, height = @cap_height, nose = @bullnose)
+        w = width.to_f
+        h = height.to_f
+        return [] unless w > 0.0 && h > 0.0
+        r = h / 2.0
+        left  = nose == BULLNOSE_BOTH
+        right = nose == BULLNOSE_BOTH || nose == BULLNOSE_ONE
+
+        # A half-round is a fixed shape: radius = half the thickness. On a cap
+        # too thin for it the nose simply does not fit, and squashing it to
+        # something that does would be a chamfer wearing a bullnose's name.
+        # So it falls back to a square edge instead - one nose needs h <= 2w,
+        # two need h <= w, because each eats h/2 off its own end.
+        #
+        # This is the 2" wide x 40" tall case rt64 pins: without the fallback
+        # the arc came out a 1"-radius bump on a 40" slab and the section
+        # folded over itself.
+        room = left && right ? w : w * 2.0
+        if h > room + 1e-9
+          left = false
+          right = false
+        end
+        left &&= r > 0.0
+        right &&= r > 0.0
+
+        pts = []
+        pts << [-w / 2.0, 0.0] unless left            # bottom-left corner
+        pts << [w / 2.0 - (right ? r : 0.0), 0.0]     # along the bottom
+        if right
+          arc_into(pts, w / 2.0 - r, r, r, -90.0, 90.0)
+        end
+        pts << [w / 2.0, h] unless right              # top-right corner
+        pts << [-w / 2.0 + (left ? r : 0.0), h]       # back along the top
+        if left
+          arc_into(pts, -w / 2.0 + r, r, r, 90.0, 270.0)
+        end
+        # Drop a duplicated closing point if the arc landed back on the start.
+        pts.pop if pts.length > 2 && close_pt?(pts.first, pts.last)
+        pts
+      end
+
+      def close_pt?(a, b)
+        (a[0] - b[0]).abs < 1e-9 && (a[1] - b[1]).abs < 1e-9
+      end
+
+      # Half a circle as straight pieces, appended in order. The first point
+      # is skipped: whoever called us has already put it in.
+      def arc_into(pts, cx, cy, r, from_deg, to_deg)
+        n = BULLNOSE_SEGMENTS
+        (1..n).each do |i|
+          a = (from_deg + (to_deg - from_deg) * i / n.to_f) * Math::PI / 180.0
+          pts << [cx + r * Math.cos(a), cy + r * Math.sin(a)]
+        end
       end
 
       # WHERE EACH STONE STARTS AND ENDS, as plain numbers along the run.
@@ -189,7 +326,8 @@ module InteriorPro
         res = UI.inputbox(
           ['Thickness', 'Height', 'Finish',
            'Cap width (side to side)', 'Cap thickness (0 = no cap)', 'Cap finish',
-           'Cap units', 'Stone length (Split only)', 'Joint gap (Split only)'],
+           'Cap units', 'Stone length (Split only)', 'Joint gap (Split only)',
+           'Bullnose', 'Cap overhang'],
           [Sketchup.format_length(DEFAULT_THICKNESS),
            Sketchup.format_length(DEFAULT_HEIGHT),
            MATERIALS.first,
@@ -198,9 +336,11 @@ module InteriorPro
            MATERIALS.first,
            CAP_CONTINUOUS,
            Sketchup.format_length(DEFAULT_CAP_UNIT),
-           Sketchup.format_length(DEFAULT_CAP_JOINT)],
+           Sketchup.format_length(DEFAULT_CAP_JOINT),
+           BULLNOSE_NONE, OVERHANG_BOTH],
           ['', '', MATERIALS.join('|'), '', '', MATERIALS.join('|'),
-           CAP_MODES.join('|'), '', ''],
+           CAP_MODES.join('|'), '', '', BULLNOSE_MODES.join('|'),
+           OVERHANG_MODES.join('|')],
           'Landscape Pro - Garden Wall'
         )
         return nil unless res
@@ -226,7 +366,7 @@ module InteriorPro
           UI.messagebox('Split cap needs a stone length. Set one, or choose Continuous.')
           return nil
         end
-        new(t, h, res[2], cw, ch, res[5], mode, unit, joint)
+        new(t, h, res[2], cw, ch, res[5], mode, unit, joint, res[9], res[10])
       rescue StandardError => e
         puts "[GardenWall] prompt: #{e.class}: #{e.message}"
         nil
@@ -424,10 +564,12 @@ module InteriorPro
           # One dashed box per stone, so the joints are visible BEFORE he
           # commits - the whole point of choosing a stone length is seeing how
           # it lands, and where the cut one falls.
-          u, = self.class.axes(@p1, @cursor)
+          u, nrm = self.class.axes(@p1, @cursor)
+          shift = cap_shift
           cap_runs(len).each do |(d0, d1)|
             cc = footprint(@p1.offset(u, d0), @p1.offset(u, d1), @cap_width)
             next unless cc
+            cc = cc.map { |c| c.offset(nrm, shift) } unless shift.zero?
             lo = cc.map { |c| c.offset(up, @height) }
             hi = cc.map { |c| c.offset(up, @height + @cap_height) }
             lo.each_with_index do |c, i|
@@ -447,7 +589,8 @@ module InteriorPro
                                Sketchup.format_length(@cap_width),
                                Sketchup.format_length(@cap_height),
                                @cap_material,
-                               split_cap? ? ", #{cap_runs(len).length} stones" : ', continuous')
+                               split_cap? ? ", #{cap_runs(len).length} stones" : ', continuous') +
+                      (bullnose? ? " | bullnose #{@bullnose.downcase}" : '')
                       : ' | no cap'), SB_PROMPT)
       rescue StandardError => e
         puts "[GardenWall] preview: #{e.class}: #{e.message}"
@@ -536,7 +679,11 @@ module InteriorPro
         # without touching the body.
         if cap?
           cap_group = build_cap!(group, a, b)
-          paint!(cap_faces(cap_group), @cap_material) if cap_group
+          # The coping is extruded from a SECTION, so its one starting face
+          # stands on end - none of its faces point down and the skip that
+          # protects the wall's underside would do nothing here anyway. Passed
+          # explicitly so nobody has to work that out again.
+          paint!(cap_faces(cap_group), @cap_material, false) if cap_group
         end
 
         stamp!(group, a, b)
@@ -560,14 +707,15 @@ module InteriorPro
         cap = parent.entities.add_group
         cap.name = CAP_NAME
 
+        _, n = self.class.axes(a, b)
         if split_cap?
           runs.each_with_index do |(d0, d1), i|
             stone = cap.entities.add_group
             stone.name = "#{CAP_UNIT_NAME}_#{i + 1}"
-            slab!(stone.entities, a.offset(u, d0), a.offset(u, d1))
+            slab!(stone.entities, a.offset(u, d0), a.offset(u, d1), u, n)
           end
         else
-          slab!(cap.entities, a, b)
+          slab!(cap.entities, a, b, u, n)
         end
         cap
       rescue StandardError => e
@@ -576,14 +724,58 @@ module InteriorPro
       end
 
       # One piece of coping between two points on the run.
-      def slab!(ents, p0, p1)
-        corners = footprint(p0, p1, @cap_width)
-        return nil unless corners
+      #
+      # Built as its CROSS-SECTION extruded along the wall, not as a plate
+      # pushed upwards. That is the only way a bullnose can exist: the nose is
+      # a shape in the section, and every inch of the stone has the same
+      # section. It also means a plain square cap and a nosed one come out of
+      # exactly one code path, so they cannot drift apart.
+      def slab!(ents, p0, p1, u, n)
+        prof = cap_profile
+        return nil if prof.length < 3
         up = Geom::Vector3d.new(0, 0, 1)
-        f = ents.add_face(corners.map { |c| c.offset(up, @height) })
-        return nil unless f
-        f.pushpull(f.normal.z < 0 ? -@cap_height : @cap_height)
-        f
+        base = p0.offset(up, @height)
+        shift = cap_shift
+        face = ents.add_face(prof.map { |(across, high)|
+          base.offset(n, across + shift).offset(up, high)
+        })
+        return nil unless face
+        len = p0.distance(p1)
+        return nil if len <= 0.0
+        # Extrude ALONG the wall. Which way the section face ended up looking
+        # depends on the direction he drew, so ask it rather than assume - the
+        # same trap as the body, and here it would bury the coping inside the
+        # wall instead of under the ground.
+        face.pushpull(face.normal.dot(u) < 0 ? -len : len)
+        smooth_arc!(ents)
+        face
+      end
+
+      # Take the facet lines off the half-round. Anything where the two faces
+      # meeting at an edge are nearly in line is the arc; a real corner is
+      # 90 degrees and keeps its line.
+      def smooth_arc!(ents)
+        return unless bullnose?
+        ents.grep(Sketchup::Edge).each do |e|
+          fs = e.faces
+          next unless fs.length == 2
+          next unless self.class.soften?(fs[0].normal, fs[1].normal)
+          e.soft = true
+          e.smooth = true
+        end
+      rescue StandardError => e
+        puts "[GardenWall] smooth: #{e.class}: #{e.message}"
+      end
+
+      # Pure, so the rule can be checked without SketchUp: are these two faces
+      # near enough in line that the edge between them is a facet, not a
+      # corner?
+      def self.soften?(a, b)
+        return false if a.nil? || b.nil?
+        d = a.dot(b).to_f
+        d = 1.0 if d > 1.0
+        d = -1.0 if d < -1.0
+        (Math.acos(d) * 180.0 / Math::PI) < SOFTEN_DEGREES
       end
 
       private
@@ -604,11 +796,11 @@ module InteriorPro
         own + nested
       end
 
-      def paint!(faces, name)
+      def paint!(faces, name, skip_down = true)
         mat = self.class.finish_material(name)
         return unless mat
         Array(faces).each do |f|
-          next if f.normal.z < -0.5
+          next if skip_down && f.normal.z < -0.5
           f.material = mat
           f.back_material = nil
         end
@@ -658,6 +850,8 @@ module InteriorPro
         group.set_attribute(DICT, 'cap_mode', cap? ? @cap_mode.to_s : '')
         group.set_attribute(DICT, 'cap_unit', split_cap? ? @cap_unit.to_f : 0.0)
         group.set_attribute(DICT, 'cap_joint', split_cap? ? [@cap_joint.to_f, 0.0].max : 0.0)
+        group.set_attribute(DICT, 'bullnose', cap? ? @bullnose.to_s : BULLNOSE_NONE)
+        group.set_attribute(DICT, 'overhang', cap? ? @overhang.to_s : '')
         # Total height including the coping - what a schedule or an elevation
         # actually wants, and a number nobody should have to add up by hand.
         group.set_attribute(DICT, 'overall_height',
