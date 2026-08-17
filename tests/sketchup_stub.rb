@@ -2,6 +2,14 @@
 # Minimal SketchUp API stand-in - enough to actually RUN the PlanEditor Ruby.
 require_relative 'geom_stub'
 
+# SketchUp defines these at the top level, so tool code says them bare. Without
+# them any tool that writes to the status bar dies with NameError the moment a
+# suite drives its mouse - which is exactly what rt64 hit on the garden wall
+# (2026-08-17). Real values, so a suite could assert on them if it ever cares.
+SB_PROMPT   = 0 unless defined?(SB_PROMPT)
+SB_VCB_LABEL = 1 unless defined?(SB_VCB_LABEL)
+SB_VCB_VALUE = 2 unless defined?(SB_VCB_VALUE)
+
 # SketchUp adds String#to_l (text -> a length in inches). Plain Ruby does not,
 # so any tool that reads a typed length could not be tested without this.
 # Handles: 12, 7.5, 1', 6", 1'6", 1' 6". Anything else raises, exactly like

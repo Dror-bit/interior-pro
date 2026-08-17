@@ -62,6 +62,7 @@ module InteriorPro
       landscape/fence_library.rb
       landscape/fence_library_dialog.rb
       landscape/fence_ref_tool.rb
+      landscape/garden_wall_tool.rb
       toolbar.rb
     ]
   end

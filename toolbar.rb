@@ -383,7 +383,10 @@ module InteriorPro
     # exists. One button today - the fence.
     def self.setup_landscape_toolbar
       tb = UI::Toolbar.new('Landscape Pro')
-      return if tb.length >= 1
+      # Bump this every time a button is added, or the new one silently never
+      # appears: the toolbar survives a restart, so on the next launch it is
+      # already non-empty and the guard returns before adding anything.
+      return if tb.length >= 2
 
       # Named in full on purpose: the button and the menu item must land in the
       # SAME method, so there is only ever one fence flow to fix.
@@ -398,7 +401,36 @@ module InteriorPro
       end
       tb.add_item(fence_cmd)
 
+      # The garden wall (חומה) - a free-standing masonry site wall. Same
+      # one-method rule as the fence: button and menu item both land in
+      # open_garden_wall, so there is only ever one flow to fix.
+      wall_cmd = UI::Command.new('Wall') { InteriorPro::Toolbar.open_garden_wall }
+      wall_cmd.tooltip = 'Garden Wall - set thickness and height, then click its two ends'
+      wall_cmd.status_bar_text = 'Garden wall: pick thickness, height and finish, then click where it starts and ends'
+      wicon = icon_path('garden_wall_tool')
+      if File.exist?(wicon)
+        wall_cmd.small_icon = wicon
+        wall_cmd.large_icon = wicon
+      end
+      tb.add_item(wall_cmd)
+
       tb.restore
+    end
+
+    # The garden wall. Ask for its settings, then hand him the mouse - the
+    # same order as the Wall and Fence buttons: decide what you are drawing,
+    # THEN draw it.
+    def self.open_garden_wall
+      unless defined?(InteriorPro::Landscape::GardenWallTool)
+        UI.messagebox('The garden wall tool did not load. Run InteriorPro.reload!')
+        return
+      end
+      tool = InteriorPro::Landscape::GardenWallTool.prompt!
+      return unless tool
+      Sketchup.active_model.select_tool(tool)
+    rescue StandardError => e
+      puts "[GardenWall] open: #{e.class}: #{e.message}"
+      puts Array(e.backtrace).first(4).join("\n")
     end
 
     # The fence library window, the same order as the Wall button: pick what
@@ -633,6 +665,10 @@ module InteriorPro
       # the button must never drift into two different fence flows.
       menu.add_item('Landscape: Fence') {
         InteriorPro::Toolbar.open_fence_library
+      }
+
+      menu.add_item('Landscape: Garden Wall') {
+        InteriorPro::Toolbar.open_garden_wall
       }
 
       # NO backup menu items, deliberately (user, 2026-08-15): "take them
