@@ -53,6 +53,8 @@ module InteriorPro
       TYPE = 'garden_wall'  unless const_defined?(:TYPE, false)
 
       GROUP_NAME = 'LandscapePro_GardenWall' unless const_defined?(:GROUP_NAME, false)
+      CAP_NAME   = 'LandscapePro_GardenWallCap' unless const_defined?(:CAP_NAME, false)
+      CAP_UNIT_NAME = 'LandscapePro_CapUnit'    unless const_defined?(:CAP_UNIT_NAME, false)
       TAG        = 'LP/Walls'                unless const_defined?(:TAG, false)
 
       GHOST = [120, 120, 120].freeze unless const_defined?(:GHOST, false)
@@ -78,31 +80,127 @@ module InteriorPro
       DEFAULT_THICKNESS = 8.0  unless const_defined?(:DEFAULT_THICKNESS, false)
       DEFAULT_HEIGHT    = 36.0 unless const_defined?(:DEFAULT_HEIGHT, false)
 
+      # THE CAP (step 2, 2026-08-17). He was explicit about how to ask for it:
+      # not an overhang, a WIDTH - "כמה הוא גדול מצד לצד, האם זה פיט אחד או 6"
+      # או 4"". So cap_width is the finished width of the coping, side to
+      # side, and the overhang each side falls out of it: (cap - wall) / 2.
+      # A cap NARROWER than the wall is allowed on purpose - a recessed
+      # coping is a real detail, not a mistake to guard against.
+      #
+      # cap_height 0 (or less) means NO cap. That is the off switch; there is
+      # no separate checkbox, because a checkbox plus a size is two controls
+      # for one decision (his standing UI rule: no duplicate ways to say the
+      # same thing).
+      DEFAULT_CAP_WIDTH  = 12.0 unless const_defined?(:DEFAULT_CAP_WIDTH, false)
+      DEFAULT_CAP_HEIGHT = 2.0  unless const_defined?(:DEFAULT_CAP_HEIGHT, false)
+
+      # A CAP IS EITHER ONE STRIP OR MANY STONES (2026-08-17, his words: "הקאפ
+      # יכול להיות יחידה אחת שרצה אבל הוא גם יכול להיות מפוצל כמו בריקס או
+      # פייברס שיושבים על החומה וכל אחת מהם נפרד מהשני - זה יהיה לנו גם
+      # בקופינג של בריכות"). So the same code has to serve pool coping, which
+      # is what the split mode is really for.
+      #
+      #   CONTINUOUS - one slab the whole length. One face, one pushpull.
+      #   SPLIT      - a stone every (unit + joint), each in its OWN group so
+      #                he can grab one, and so their faces cannot merge into
+      #                one another and lose the joint.
+      #
+      # The last stone is CUT SHORT (he chose this over dividing evenly: "תעשה
+      # את האחרונה נחתכת" - it is what happens on site).
+      CAP_CONTINUOUS = 'Continuous' unless const_defined?(:CAP_CONTINUOUS, false)
+      CAP_SPLIT      = 'Split'      unless const_defined?(:CAP_SPLIT, false)
+      CAP_MODES      = [CAP_CONTINUOUS, CAP_SPLIT].freeze unless const_defined?(:CAP_MODES, false)
+
+      DEFAULT_CAP_UNIT  = 24.0 unless const_defined?(:DEFAULT_CAP_UNIT, false)
+      DEFAULT_CAP_JOINT = 0.25 unless const_defined?(:DEFAULT_CAP_JOINT, false)
+
+      # A stone thinner than this at the end is not a stone, it is a chip -
+      # drop it rather than leave a crumb standing on the wall.
+      MIN_CAP_PIECE = 0.125 unless const_defined?(:MIN_CAP_PIECE, false)
+
       attr_accessor :thickness, :height, :material, :ground_start, :ground_end
+      attr_accessor :cap_width, :cap_height, :cap_material
+      attr_accessor :cap_mode, :cap_unit, :cap_joint
 
       def initialize(thickness = DEFAULT_THICKNESS, height = DEFAULT_HEIGHT,
-                     material = MATERIALS.first)
+                     material = MATERIALS.first,
+                     cap_width = DEFAULT_CAP_WIDTH, cap_height = DEFAULT_CAP_HEIGHT,
+                     cap_material = MATERIALS.first,
+                     cap_mode = CAP_CONTINUOUS,
+                     cap_unit = DEFAULT_CAP_UNIT, cap_joint = DEFAULT_CAP_JOINT)
         @thickness    = thickness.to_f
         @height       = height.to_f
         @material     = material.to_s
+        @cap_width    = cap_width.to_f
+        @cap_height   = cap_height.to_f
+        @cap_material = cap_material.to_s
+        @cap_mode     = CAP_MODES.include?(cap_mode.to_s) ? cap_mode.to_s : CAP_CONTINUOUS
+        @cap_unit     = cap_unit.to_f
+        @cap_joint    = cap_joint.to_f
         @ground_start = 0.0
         @ground_end   = 0.0
         reset
       end
 
+      # Split only counts as split if there is a real stone length to split
+      # into - otherwise it would loop forever laying zero-length stones.
+      def split_cap?
+        cap? && @cap_mode == CAP_SPLIT && @cap_unit.to_f > 0.0
+      end
+
+      # WHERE EACH STONE STARTS AND ENDS, as plain numbers along the run.
+      # Pure, so a test can check the joints and the cut end without SketchUp,
+      # and so the preview and the builder can never lay them differently.
+      #
+      # Stone, joint, stone, joint... and the last stone is whatever is left.
+      def cap_runs(length)
+        len = length.to_f
+        return [] unless len > 0.0
+        return [[0.0, len]] unless split_cap?
+        unit  = @cap_unit.to_f
+        joint = [@cap_joint.to_f, 0.0].max
+        runs  = []
+        d = 0.0
+        # The guard is the run length, not a counter: every pass advances by
+        # at least `unit`, which split_cap? has already proved is positive.
+        while d < len - MIN_CAP_PIECE
+          e = [d + unit, len].min
+          runs << [d, e] if (e - d) >= MIN_CAP_PIECE
+          d = e + joint
+        end
+        runs
+      end
+
+      # Is there a cap at all? One question, one place, so the builder, the
+      # preview and the stamp can never disagree about it.
+      def cap?
+        @cap_height.to_f > 0.0 && @cap_width.to_f > 0.0
+      end
+
       # ------------------------------------------------------------ settings
       #
-      # Step 1 asks with a plain inputbox, the same fallback shape the fence
-      # uses. The proper panel (cap size, cap material, bullnose, the
-      # elevation line) arrives with the features it configures - a dialog
-      # full of fields that do nothing yet is worse than no dialog.
+      # A plain inputbox, the same fallback shape the fence uses. The proper
+      # HTML panel arrives when there are enough fields to need one; a window
+      # full of controls that do nothing yet is worse than no window.
+      #
+      # Cap thickness 0 = no cap, and the field says so, because that is the
+      # only place he would look for the off switch.
       def self.prompt!
         res = UI.inputbox(
-          ['Thickness', 'Height', 'Finish'],
+          ['Thickness', 'Height', 'Finish',
+           'Cap width (side to side)', 'Cap thickness (0 = no cap)', 'Cap finish',
+           'Cap units', 'Stone length (Split only)', 'Joint gap (Split only)'],
           [Sketchup.format_length(DEFAULT_THICKNESS),
            Sketchup.format_length(DEFAULT_HEIGHT),
-           MATERIALS.first],
-          ['', '', MATERIALS.join('|')],
+           MATERIALS.first,
+           Sketchup.format_length(DEFAULT_CAP_WIDTH),
+           Sketchup.format_length(DEFAULT_CAP_HEIGHT),
+           MATERIALS.first,
+           CAP_CONTINUOUS,
+           Sketchup.format_length(DEFAULT_CAP_UNIT),
+           Sketchup.format_length(DEFAULT_CAP_JOINT)],
+          ['', '', MATERIALS.join('|'), '', '', MATERIALS.join('|'),
+           CAP_MODES.join('|'), '', ''],
           'Landscape Pro - Garden Wall'
         )
         return nil unless res
@@ -110,7 +208,25 @@ module InteriorPro
         h = parse_length(res[1])
         return UI.messagebox("Thickness #{res[0].inspect} is not a length.") && nil if t.nil? || t <= 0.0
         return UI.messagebox("Height #{res[1].inspect} is not a length.") && nil if h.nil? || h <= 0.0
-        new(t, h, res[2])
+        # The cap is optional, so a blank or a zero is an answer, not an
+        # error - only nonsense is.
+        cw = parse_length(res[3]) || 0.0
+        ch = parse_length(res[4]) || 0.0
+        cw = 0.0 if cw < 0.0
+        ch = 0.0 if ch < 0.0
+        mode = res[6].to_s
+        unit = parse_length(res[7]) || 0.0
+        joint = parse_length(res[8]) || 0.0
+        unit = 0.0 if unit < 0.0
+        joint = 0.0 if joint < 0.0
+        # Split with no stone length is a contradiction, and it is the one
+        # way a user can ask for an endless row of nothing. Say so instead of
+        # quietly building a continuous cap he did not ask for.
+        if mode == CAP_SPLIT && unit <= 0.0 && ch > 0.0 && cw > 0.0
+          UI.messagebox('Split cap needs a stone length. Set one, or choose Continuous.')
+          return nil
+        end
+        new(t, h, res[2], cw, ch, res[5], mode, unit, joint)
       rescue StandardError => e
         puts "[GardenWall] prompt: #{e.class}: #{e.message}"
         nil
@@ -272,9 +388,10 @@ module InteriorPro
 
       def status
         msg = if @p1.nil?
-                format('Garden wall %s x %s, %s (1/2): click where it starts. Esc = cancel.',
+                format('Garden wall %s x %s, %s%s (1/2): click where it starts. Esc = cancel.',
                        Sketchup.format_length(@thickness),
-                       Sketchup.format_length(@height), @material)
+                       Sketchup.format_length(@height), @material,
+                       cap? ? ", cap #{Sketchup.format_length(@cap_width)}" : ', no cap')
               else
                 'Garden wall (2/2): click where it ends, or type a length.'
               end
@@ -303,11 +420,35 @@ module InteriorPro
           segs << [c.offset(up, @height), d.offset(up, @height)]
           segs << [c, c.offset(up, @height)]
         end
+        if cap?
+          # One dashed box per stone, so the joints are visible BEFORE he
+          # commits - the whole point of choosing a stone length is seeing how
+          # it lands, and where the cut one falls.
+          u, = self.class.axes(@p1, @cursor)
+          cap_runs(len).each do |(d0, d1)|
+            cc = footprint(@p1.offset(u, d0), @p1.offset(u, d1), @cap_width)
+            next unless cc
+            lo = cc.map { |c| c.offset(up, @height) }
+            hi = cc.map { |c| c.offset(up, @height + @cap_height) }
+            lo.each_with_index do |c, i|
+              j = (i + 1) % lo.length
+              segs << [c, lo[j]]
+              segs << [hi[i], hi[j]]
+              segs << [c, hi[i]]
+            end
+          end
+        end
         @ghost = segs
         Sketchup.set_status_text(
-          format("Garden wall | %.2f' long | %s thick | %s high | %s",
+          format("Garden wall | %.2f' long | %s thick | %s high | %s%s",
                  len / 12.0, Sketchup.format_length(@thickness),
-                 Sketchup.format_length(@height), @material), SB_PROMPT)
+                 Sketchup.format_length(@height), @material,
+                 cap? ? format(' | cap %s x %s %s%s',
+                               Sketchup.format_length(@cap_width),
+                               Sketchup.format_length(@cap_height),
+                               @cap_material,
+                               split_cap? ? ", #{cap_runs(len).length} stones" : ', continuous')
+                      : ' | no cap'), SB_PROMPT)
       rescue StandardError => e
         puts "[GardenWall] preview: #{e.class}: #{e.message}"
         @ghost = nil
@@ -384,22 +525,90 @@ module InteriorPro
         # downwards is invisible under the ground and reads as "nothing
         # happened".
         face.pushpull(face.normal.z < 0 ? -@height : @height)
+        body_faces = group.entities.grep(Sketchup::Face)
+        paint!(body_faces, @material)
 
-        paint!(group)
+        # The cap goes in its OWN nested group. Two reasons, both learned the
+        # hard way elsewhere in this plugin: a cap sitting loose in the same
+        # entities would merge its faces into the wall's the moment they touch
+        # (so the wall's finish and the cap's finish fight over the seam), and
+        # a later edit that rebuilds the cap has to be able to erase it
+        # without touching the body.
+        if cap?
+          cap_group = build_cap!(group, a, b)
+          paint!(cap_faces(cap_group), @cap_material) if cap_group
+        end
+
         stamp!(group, a, b)
         group
       end
 
+      # The coping: cap_width across, cap_height tall, sitting ON the top of
+      # the wall and centred on the same line. Always its own group so a later
+      # step can find it and rebuild it without touching the body.
+      #
+      # Continuous = one slab. Split = one nested group per stone, because a
+      # stone he cannot select on its own is not a stone, and because faces
+      # left loose in one group would weld across the joints.
+      def build_cap!(parent, a, b)
+        u, = self.class.axes(a, b)
+        return nil unless u
+        len = a.distance(b)
+        runs = cap_runs(len)
+        return nil if runs.empty?
+
+        cap = parent.entities.add_group
+        cap.name = CAP_NAME
+
+        if split_cap?
+          runs.each_with_index do |(d0, d1), i|
+            stone = cap.entities.add_group
+            stone.name = "#{CAP_UNIT_NAME}_#{i + 1}"
+            slab!(stone.entities, a.offset(u, d0), a.offset(u, d1))
+          end
+        else
+          slab!(cap.entities, a, b)
+        end
+        cap
+      rescue StandardError => e
+        puts "[GardenWall] cap: #{e.class}: #{e.message}"
+        nil
+      end
+
+      # One piece of coping between two points on the run.
+      def slab!(ents, p0, p1)
+        corners = footprint(p0, p1, @cap_width)
+        return nil unless corners
+        up = Geom::Vector3d.new(0, 0, 1)
+        f = ents.add_face(corners.map { |c| c.offset(up, @height) })
+        return nil unless f
+        f.pushpull(f.normal.z < 0 ? -@cap_height : @cap_height)
+        f
+      end
+
       private
 
-      # One finish, every face except the one on the ground. (The top face is
-      # painted too - the cap in step 2 will sit on it, and until then a bare
-      # white top reads as a hole.)
-      def paint!(group)
-        mat = self.class.finish_material(@material)
+      # One finish over a set of faces, skipping whatever points straight down
+      # - the wall's underside is against the ground and the cap's underside
+      # is against the wall. Neither is ever seen, and painting them wastes a
+      # texture on every wall in the model.
+      #
+      # The wall's TOP face is still painted even when a cap covers it: a cap
+      # narrower than the wall leaves a shoulder of it showing.
+      # Every face of the coping, whether it is one slab or fifty stones one
+      # group down.
+      def cap_faces(cap)
+        return [] unless cap
+        own = cap.entities.grep(Sketchup::Face)
+        nested = cap.entities.grep(Sketchup::Group).flat_map { |g| g.entities.grep(Sketchup::Face) }
+        own + nested
+      end
+
+      def paint!(faces, name)
+        mat = self.class.finish_material(name)
         return unless mat
-        group.entities.grep(Sketchup::Face).each do |f|
-          next if f.normal.z < -0.5      # the underside, against the ground
+        Array(faces).each do |f|
+          next if f.normal.z < -0.5
           f.material = mat
           f.back_material = nil
         end
@@ -443,6 +652,16 @@ module InteriorPro
         group.set_attribute(DICT, 'thickness', @thickness.to_f)
         group.set_attribute(DICT, 'height', @height.to_f)
         group.set_attribute(DICT, 'material', @material.to_s)
+        group.set_attribute(DICT, 'cap_width', cap? ? @cap_width.to_f : 0.0)
+        group.set_attribute(DICT, 'cap_height', cap? ? @cap_height.to_f : 0.0)
+        group.set_attribute(DICT, 'cap_material', cap? ? @cap_material.to_s : '')
+        group.set_attribute(DICT, 'cap_mode', cap? ? @cap_mode.to_s : '')
+        group.set_attribute(DICT, 'cap_unit', split_cap? ? @cap_unit.to_f : 0.0)
+        group.set_attribute(DICT, 'cap_joint', split_cap? ? [@cap_joint.to_f, 0.0].max : 0.0)
+        # Total height including the coping - what a schedule or an elevation
+        # actually wants, and a number nobody should have to add up by hand.
+        group.set_attribute(DICT, 'overall_height',
+                            @height.to_f + (cap? ? @cap_height.to_f : 0.0))
         group.set_attribute(DICT, 'start_x', a.x.to_f)
         group.set_attribute(DICT, 'start_y', a.y.to_f)
         group.set_attribute(DICT, 'end_x', b.x.to_f)

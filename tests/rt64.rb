@@ -36,11 +36,24 @@ require './garden_wall_tool'
 GW = InteriorPro::Landscape::GardenWallTool
 
 def pt(x, y); Geom::Point3d.new(x, y, 0); end
-def fresh(t = 8.0, h = 36.0, m = 'Stucco')
+def fresh(t = 8.0, h = 36.0, m = 'Stucco', cw = 0.0, ch = 0.0, cm = 'Stucco',
+          mode = 'Continuous', unit = 24.0, joint = 0.25)
   Sketchup.reset_model!
   $magnet_calls = 0
   $tags = []
-  GW.new(t, h, m)
+  GW.new(t, h, m, cw, ch, cm, mode, unit, joint)
+end
+def cap_of(g)
+  g.entities.grep(Sketchup::Group).find { |x| x.name == 'LandscapePro_GardenWallCap' }
+end
+def stones_of(g)
+  c = cap_of(g)
+  c ? c.entities.grep(Sketchup::Group).sort_by { |x| x.name } : []
+end
+# Where a stone actually sits along a wall drawn down the x axis.
+def x_span(stone)
+  xs = stone.entities.grep(Sketchup::Face).flat_map { |f| f.points.map(&:x) }
+  [xs.min, xs.max]
 end
 def walls
   Sketchup.active_model.entities.grep(Sketchup::Group)
@@ -116,6 +129,7 @@ ok('BOTH ground numbers are stored, ready for terrain',
 
 faces = g.entities.grep(Sketchup::Face)
 ok('one footprint face was drawn', faces.length == 1, faces.length)
+ok('with no cap asked for, no cap group was made', cap_of(g).nil?)
 f = faces.first
 ok('it was pushed exactly once', f.pushpulls.length == 1, f.pushpulls)
 # The sign has to come out positive-upwards WHICHEVER way the face happened
@@ -155,6 +169,233 @@ ok('the same finish is reused, not remade',
 ok('his list is his own, not the house wall list',
    GW::MATERIALS == ['Stucco', 'Stack Stone', 'Block Wall'], GW::MATERIALS)
 
+
+# ------------------------------------------------------------------- the cap
+#
+# His words (2026-08-17): the cap is given as a WIDTH, side to side - "האם זה
+# פיט אחד או 6" או 4"" - not as an overhang. And cap thickness 0 is the off
+# switch; there is no separate checkbox.
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stack Stone')
+ok('cap? is true when both numbers are given', t.cap?)
+g = t.build!(pt(0, 0), pt(120, 0))
+cap = cap_of(g)
+ok('the cap is its own nested group, so it cannot merge into the wall', !cap.nil?)
+ok('the wall body is still one face - the cap did not land in it',
+   g.entities.grep(Sketchup::Face).length == 1,
+   g.entities.grep(Sketchup::Face).length)
+
+cf = cap.entities.grep(Sketchup::Face)
+ok('the cap has its own footprint face', cf.length == 1, cf.length)
+capf = cf.first
+ok('the cap sits ON TOP of the wall, at 36"',
+   capf.points.all? { |p| close(p.z, 36.0, 1e-9) }, capf.points.map(&:z).uniq)
+csigned = capf.pushpulls.first * (capf.normal.z < 0 ? -1.0 : 1.0)
+ok('the cap is 2" thick and goes UP', close(csigned, 2.0, 1e-9),
+   [capf.pushpulls.first, capf.normal.z])
+
+# WIDTH, not overhang: a 12" cap on an 8" wall is 12" across, overhanging 2"
+# a side. That is the number he types, so it is the number that must appear.
+ys = capf.points.map { |p| p.y.round(9) }
+ok('the cap is 12" side to side, exactly what he typed',
+   close(ys.max - ys.min, 12.0, 1e-9), ys.max - ys.min)
+ok('so it overhangs 2" each side of an 8" wall',
+   close(ys.max, 6.0, 1e-9) && close(ys.min, -6.0, 1e-9), [ys.min, ys.max])
+ok('and it is centred on the same line as the wall',
+   close((ys.max + ys.min) / 2.0, 0.0, 1e-9))
+
+ok('cap width stored',    close(g.get_attribute('LandscapePro', 'cap_width'), 12.0))
+ok('cap thickness stored', close(g.get_attribute('LandscapePro', 'cap_height'), 2.0))
+ok('cap finish stored',   g.get_attribute('LandscapePro', 'cap_material') == 'Stack Stone')
+ok('overall height is the wall PLUS the cap, worked out for him',
+   close(g.get_attribute('LandscapePro', 'overall_height'), 38.0),
+   g.get_attribute('LandscapePro', 'overall_height'))
+
+# The cap wears its own finish, not the wall's.
+ok('the cap is painted in the CAP finish',
+   capf.material && capf.material.name == 'LandscapePro_Stack Stone',
+   capf.material && capf.material.name)
+ok('the wall body is still painted in the WALL finish',
+   g.entities.grep(Sketchup::Face).first.material.name == 'LandscapePro_Stucco')
+
+# A cap NARROWER than the wall is a real detail, not an error.
+t = fresh(12.0, 30.0, 'Stucco', 6.0, 3.0, 'Stucco')
+g = t.build!(pt(0, 0), pt(60, 0))
+cys = cap_of(g).entities.grep(Sketchup::Face).first.points.map { |p| p.y.round(9) }
+ok('a cap narrower than the wall is built, recessed, not refused',
+   close(cys.max - cys.min, 6.0, 1e-9), cys.max - cys.min)
+
+# On a diagonal the cap width is measured across the run, like the wall.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco')
+g = t.build!(pt(0, 0), pt(100, 100))
+cp = cap_of(g).entities.grep(Sketchup::Face).first.points
+wide = Math.sqrt((cp[0].x - cp[3].x)**2 + (cp[0].y - cp[3].y)**2)
+ok('a diagonal cap is still 12" across the run', close(wide, 12.0, 1e-9), wide)
+
+# ---- the off switch --------------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 0.0, 'Stucco')
+ok('cap thickness 0 means no cap', !t.cap?)
+g = t.build!(pt(0, 0), pt(120, 0))
+ok('and none is built', cap_of(g).nil?)
+ok('and the stored cap numbers are zeroed, not left lying around',
+   g.get_attribute('LandscapePro', 'cap_width') == 0.0 &&
+   g.get_attribute('LandscapePro', 'cap_height') == 0.0 &&
+   g.get_attribute('LandscapePro', 'cap_material') == '',
+   [g.get_attribute('LandscapePro', 'cap_width'),
+    g.get_attribute('LandscapePro', 'cap_material')])
+ok('overall height is then just the wall',
+   close(g.get_attribute('LandscapePro', 'overall_height'), 36.0))
+
+t = fresh(8.0, 36.0, 'Stucco', 0.0, 2.0, 'Stucco')
+ok('cap width 0 also means no cap', !t.cap?)
+ok('and none is built', cap_of(t.build!(pt(0, 0), pt(120, 0))).nil?)
+
+
+# ------------------------------------------------- the cap split into stones
+#
+# His words (2026-08-17): "הקאפ יכול להיות יחידה אחת שרצה אבל הוא גם יכול
+# להיות מפוצל כמו בריקס או פייברס שיושבים על החומה וכל אחת מהם נפרד מהשני -
+# זה יהיה לנו גם בקופינג של בריכות". And the end: "תעשה את האחרונה נחתכת".
+
+# ---- the layout, as plain numbers -----------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.0)
+ok('split mode is on', t.split_cap?)
+runs = t.cap_runs(120.0)
+ok('120" of wall, 24" stones, no joint -> 5 stones', runs.length == 5, runs.length)
+ok('they start where the last one ended',
+   runs.each_cons(2).all? { |(_, e), (s2, _)| close(e, s2, 1e-9) }, runs)
+ok('and they finish exactly at the end', close(runs.last[1], 120.0, 1e-9), runs.last)
+
+# With a joint the stones are shorter apart than the pitch.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.5)
+runs = t.cap_runs(122.0)
+ok('a joint opens a real gap between stones',
+   runs.each_cons(2).all? { |(_, e), (s2, _)| close(s2 - e, 0.5, 1e-9) }, runs)
+ok('every stone but the last is a full 24"',
+   runs[0..-2].all? { |(d0, d1)| close(d1 - d0, 24.0, 1e-9) },
+   runs.map { |(d0, d1)| (d1 - d0).round(3) })
+
+# THE END: cut short, not shared out. 100" of wall, 24" stones, no joint ->
+# 4 x 24 = 96, and a 4" piece. He chose the cut over four 25" stones.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.0)
+runs = t.cap_runs(100.0)
+ok('100" / 24" -> five pieces, the last one short', runs.length == 5, runs.length)
+ok('the first four are FULL size, not shrunk to fit',
+   runs[0..3].all? { |(d0, d1)| close(d1 - d0, 24.0, 1e-9) },
+   runs.map { |(d0, d1)| (d1 - d0).round(3) })
+ok('and the last one is the 4" offcut', close(runs.last[1] - runs.last[0], 4.0, 1e-9),
+   runs.last[1] - runs.last[0])
+ok('nothing runs off the end of the wall', close(runs.last[1], 100.0, 1e-9), runs.last[1])
+
+# An exact fit leaves no crumb behind.
+runs = t.cap_runs(96.0)
+ok('an exact fit is four whole stones and no chip', runs.length == 4, runs.length)
+ok('all four full size', runs.all? { |(d0, d1)| close(d1 - d0, 24.0, 1e-9) })
+
+# A stone longer than the wall is one cut stone, not zero and not a loop.
+runs = t.cap_runs(10.0)
+ok('a wall shorter than one stone gets one cut stone',
+   runs.length == 1 && close(runs[0][1], 10.0, 1e-9), runs)
+
+# The crumb guard: a sliver at the end is dropped, not left standing.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.0)
+runs = t.cap_runs(96.05)
+ok('a 0.05" crumb at the end is dropped, not built', runs.length == 4, runs.length)
+
+# Continuous is one run, whatever the stone length says.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.25)
+ok('continuous mode is NOT split', !t.split_cap?)
+ok('continuous is one run the whole length',
+   t.cap_runs(120.0) == [[0.0, 120.0]], t.cap_runs(120.0))
+
+# Split with no stone length must not loop forever laying nothing.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 0.0, 0.25)
+ok('split with no stone length falls back to one run, it does not hang',
+   !t.split_cap? && t.cap_runs(120.0) == [[0.0, 120.0]], t.cap_runs(120.0))
+
+# ---- and now in the model --------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stack Stone', 'Split', 24.0, 0.5)
+g = t.build!(pt(0, 0), pt(100, 0))
+cap = cap_of(g)
+ok('split: there is still one cap group', !cap.nil?)
+stones = stones_of(g)
+ok('split: every stone is its OWN group, so he can grab one',
+   stones.length == t.cap_runs(100.0).length && stones.length > 1,
+   [stones.length, t.cap_runs(100.0).length])
+ok('split: the cap group itself holds no loose faces that could weld the joints',
+   cap.entities.grep(Sketchup::Face).empty?,
+   cap.entities.grep(Sketchup::Face).length)
+ok('split: each stone is one face pushed up 2"',
+   stones.all? { |st|
+     fs = st.entities.grep(Sketchup::Face)
+     fs.length == 1 && close(fs.first.pushpulls.first.abs, 2.0, 1e-9)
+   })
+ok('split: every stone sits on top of the wall at 36"',
+   stones.all? { |st| st.entities.grep(Sketchup::Face).first.points.all? { |p| close(p.z, 36.0, 1e-9) } })
+
+spans = stones.map { |st| x_span(st) }.sort_by(&:first)
+ok('split: the first stone starts at the start of the wall',
+   close(spans.first[0], 0.0, 1e-9), spans.first)
+ok('split: the last stone ends at the end of the wall',
+   close(spans.last[1], 100.0, 1e-9), spans.last)
+ok('split: there is a real 0.5" gap between every pair',
+   spans.each_cons(2).all? { |(_, e), (s2, _)| close(s2 - e, 0.5, 1e-9) },
+   spans.map { |a2, b2| [a2.round(2), b2.round(2)] })
+ok('split: the last stone is the short one',
+   (spans.last[1] - spans.last[0]) < 24.0 - 1e-9,
+   spans.last[1] - spans.last[0])
+ok('split: every stone is still 12" across, like the cap width he typed',
+   stones.all? { |st|
+     ys = st.entities.grep(Sketchup::Face).first.points.map(&:y)
+     close(ys.max - ys.min, 12.0, 1e-9)
+   })
+ok('split: every stone is painted in the cap finish',
+   stones.all? { |st|
+     m = st.entities.grep(Sketchup::Face).first.material
+     m && m.name == 'LandscapePro_Stack Stone'
+   })
+ok('split: the wall body still wears the WALL finish',
+   g.entities.grep(Sketchup::Face).first.material.name == 'LandscapePro_Stucco')
+
+ok('split: the mode is stored', g.get_attribute('LandscapePro', 'cap_mode') == 'Split')
+ok('split: the stone length is stored', close(g.get_attribute('LandscapePro', 'cap_unit'), 24.0))
+ok('split: the joint is stored', close(g.get_attribute('LandscapePro', 'cap_joint'), 0.5))
+
+# Continuous, in the model: one slab, no nested stones.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.25)
+g = t.build!(pt(0, 0), pt(100, 0))
+ok('continuous: no stones, one slab',
+   stones_of(g).empty? && cap_of(g).entities.grep(Sketchup::Face).length == 1,
+   [stones_of(g).length, cap_of(g).entities.grep(Sketchup::Face).length])
+ok('continuous: the slab runs the whole 100"',
+   begin
+     xs = cap_of(g).entities.grep(Sketchup::Face).first.points.map(&:x)
+     close(xs.min, 0.0, 1e-9) && close(xs.max, 100.0, 1e-9)
+   end)
+ok('continuous: the stone length is NOT stored, it did not apply',
+   g.get_attribute('LandscapePro', 'cap_unit') == 0.0,
+   g.get_attribute('LandscapePro', 'cap_unit'))
+
+# A split cap on a diagonal still lays its stones along the run.
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Split', 24.0, 0.0)
+g = t.build!(pt(0, 0), pt(100, 100))
+st = stones_of(g)
+ok('split: a diagonal wall gets stones too', st.length >= 5, st.length)
+ok('split: each diagonal stone is 24" ALONG the run, not 24" in x',
+   begin
+     f = st.first.entities.grep(Sketchup::Face).first
+     ps = f.points
+     # the longest edge of a stone is its length along the wall
+     longest = ps.each_with_index.map { |q, i|
+       r = ps[(i + 1) % ps.length]
+       Math.sqrt((q.x - r.x)**2 + (q.y - r.y)**2)
+     }.max
+     close(longest, 24.0, 1e-6)
+   end)
+
 # ------------------------------------------------------------- the mis-clicks
 
 t = fresh
@@ -168,7 +409,7 @@ view = Object.new
 def view.invalidate; true; end
 def view.inputpoint(x, y); Struct.new(:position).new(Geom::Point3d.new(x, y, 0)); end
 
-t = fresh(10.0, 48.0, 'Block Wall')
+t = fresh(10.0, 48.0, 'Block Wall', 14.0, 2.5, 'Stack Stone')
 t.onLButtonDown(0, 0, 0, view)
 ok('one click builds nothing yet', walls.length.zero?, walls.length)
 t.onLButtonDown(0, 200, 0, view)
@@ -182,6 +423,13 @@ ok('the settings he picked are the ones that got built',
    [gw.get_attribute('LandscapePro', 'thickness'),
     gw.get_attribute('LandscapePro', 'height'),
     gw.get_attribute('LandscapePro', 'material')])
+ok('and the cap he picked came through the mouse too',
+   close(gw.get_attribute('LandscapePro', 'cap_width'), 14.0) &&
+   close(gw.get_attribute('LandscapePro', 'cap_height'), 2.5) &&
+   gw.get_attribute('LandscapePro', 'cap_material') == 'Stack Stone' &&
+   !cap_of(gw).nil?,
+   [gw.get_attribute('LandscapePro', 'cap_width'),
+    gw.get_attribute('LandscapePro', 'cap_material')])
 
 ops = Sketchup.active_model.ops
 ok('one wall = one undo step',
