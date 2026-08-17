@@ -122,6 +122,12 @@ bad = FRT.new('/refs/nothing here.skp')
 ok('a missing file reads as nil, not a crash', bad.send(:read_shape!).nil?)
 
 # ------------------------------------------------------------- the layout
+#
+# CUT is shipped OFF (it hung SketchUp on his raw file). The suite turns it
+# ON here to keep the code honest, and OFF again at the end.
+def cut!(on); FRT.send(:remove_const, :USE_CUT); FRT.const_set(:USE_CUT, on); end
+ok('CUT ships OFF', FRT::USE_CUT == false)
+cut!(true)
 
 t = fresh(:y)
 t.instance_variable_set(:@shape, t.send(:read_shape!))
@@ -129,13 +135,32 @@ lay = t.send(:layout_for, 3 * UNIT_ALONG)
 ok('exactly three pitches -> three units, no stretch', lay[:n] == 3 && close(lay[:stretch], 1.0), lay)
 lay = t.send(:layout_for, 240.0)
 ok("240\" -> three units", lay[:n] == 3, lay)
-ok('stretched so three fill 240 exactly', close(lay[:n] * lay[:pitch], 240.0), lay[:n] * lay[:pitch])
+ok('a small stretch (1.7%) is kept - no seam for something nobody would see',
+   lay[:cut] == 0.0 && close(lay[:n] * lay[:pitch], 240.0), lay)
 ok('and the stretch is small', (lay[:stretch] - 1.0).abs < 0.05, lay[:stretch])
 lay = t.send(:layout_for, 400.0)
-ok("400\" -> five units", lay[:n] == 5, lay)
+ok("400\" -> five whole units + a cut stub (400 = 5x78.7 + 6.6 ... no: 5 whole = 393.4, rest 6.6 < quarter -> stretch)",
+   lay[:n] == 5 && lay[:cut] == 0.0, lay)
+# The whole point of cut mode (2026-08-17): a length that would need a big
+# stretch gets whole units at TRUE size and one unit sliced.
+lay = t.send(:layout_for, 300.0)
+ok("300\" -> 4 units squeezed 4.7% - still under the small-stretch line, no seam",
+   lay[:n] == 4 && lay[:cut] == 0.0 && (lay[:stretch] - 0.953).abs < 0.01, lay)
+lay = t.send(:layout_for, 200.0)
+ok("200\" -> would need 15%: instead 2 whole units at TRUE size + one stub cut at 42.6",
+   lay[:whole] == 2 && close(lay[:stretch], 1.0) && close(lay[:cut], 200.0 - 2 * UNIT_ALONG, 1e-6), lay)
+ok('the stub is counted in n', lay[:n] == 3, lay[:n])
 lay = t.send(:layout_for, 30.0)
-ok('shorter than one unit -> one unit, squeezed', lay[:n] == 1 && lay[:stretch] < 1.0, lay)
+ok('shorter than one unit -> no whole units, one stub cut at 30', lay[:whole] == 0 && close(lay[:cut], 30.0), lay)
 ok('a mis-click is refused', t.send(:layout_for, 0.4).nil?)
+# The old behaviour, one line away.
+begin
+  cut!(false)
+  lay = t.send(:layout_for, 200.0)
+  ok('USE_CUT = false: back to whole units, stretched 15%', lay[:cut] == 0.0 && lay[:n] == 3 && (lay[:stretch] - 0.847).abs < 0.01, lay)
+ensure
+  cut!(true)
+end
 
 # ------------------------------------------------------------ building it
 
@@ -348,6 +373,36 @@ z = Geom::Point3d.new(0, 0, 3.0).transform(inst.first.transformation).z
 ok('raw file: HIS z is kept - the plate stays at 3.0, the bolts hang below ground as he drew them',
    close(z, 3.0, 1e-6), z)
 
+# ---------------------------------------------------------- CUT mode build
+
+t = fresh(:y)
+g = build(t, 0, 0, 200, 0)      # 2 whole + one stub cut at 42.6
+inst = instances(g)
+units = inst.select { |i| i.definition.name == 'Component#2' }
+ok('cut: two WHOLE units placed as instances', units.length == 2, units.length)
+ok('cut: none of them is stretched',
+   units.all? { |i| close(Geom::Point3d.new(0, POST_W, 0).transform(i.transformation).x -
+                        Geom::Point3d.new(0, 0, 0).transform(i.transformation).x, POST_W, 1e-6) })
+stub = g.entities.grep(Sketchup::Group).find { |x| x.name.to_s.include?('cut') }
+ok('cut: there is a stub group for the remainder', !stub.nil?, g.entities.grep(Sketchup::Group).map(&:name))
+ok('cut: the stub was exploded to loose faces (so the knife could reach them)',
+   stub && stub.entities.grep(Sketchup::Face).length > 0 && stub.entities.grep(Sketchup::ComponentInstance).empty?,
+   stub && [stub.entities.grep(Sketchup::Face).length, stub.entities.grep(Sketchup::ComponentInstance).length])
+# The stub cannot split a face on the plane (SketchUp's intersect_with does
+# that), so what can be proved here is the erase: no face lies WHOLLY beyond
+# the plane, and the panel-end faces past 200 are gone.
+faces = stub.entities.grep(Sketchup::Face)
+ok('cut: no face lies wholly beyond the cut plane',
+   faces.none? { |f| f.points.all? { |p| p.x > 200.0 + 1e-4 } },
+   faces.select { |f| f.points.all? { |p| p.x > 200.0 + 1e-4 } }.length)
+xs = faces.flat_map { |f| f.points.map(&:x) }
+ok('cut: the stub starts where the second whole unit ended', close(xs.min, 2 * UNIT_ALONG, 0.5), xs.min)
+closer = inst.find { |i| i.definition.name == 'Component#38' }
+cx = Geom::Point3d.new(0, 0, 0).transform(closer.transformation).x
+ok('cut: the closer stands at the very end, 200', close(cx, 200.0, 1e-6), cx)
+ok('cut: his unit definition still has its own faces - the explode was on a copy, not on his library',
+   t.instance_variable_get(:@shape)[:pieces][0][0].entities.grep(Sketchup::ComponentInstance).length == 2)
+
 # ------------------------------------------------------- one undo step
 
 t = fresh(:y)
@@ -360,5 +415,6 @@ ok('one fence = one undo step', ops.count { |o| o[0] == :start } == 1 && ops.cou
 ok('references lists .skp files by name (folder may be empty in the cloud)',
    FRT.references.is_a?(Array))
 
+cut!(false)
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

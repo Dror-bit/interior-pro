@@ -1,6 +1,6 @@
 Landscape Pro - cable railing.skp: read it, then rebuild one bay from its own parts
 
-definition: cable railing#1
+definition: cable railing#3
 overall: 183.875 along (x) x 4.000 across (y) x 43.504 tall (z)
 bounds: min=(0.000, 0.000, 1.500) max=(183.875, 4.000, 45.004)
 

@@ -117,12 +117,13 @@ module Sketchup
     def each(&b); @list.each(&b); end
     def length; @list.length; end
     def grep(k); @list.select { |e| e.is_a?(k) }; end
-    def add_group; g = Group.new; @list << g; g; end
+    def add_group; g = Group.new; g.parent_entities = self; @list << g; g; end
     # An instance of a definition, placed with a transformation - the one call
     # the reference fence tool is made of (2026-08-16).
     def add_instance(defn, tr)
       i = ComponentInstance.new(defn)
       i.transformation = tr
+      i.parent_entities = self
       defn.instances << i if defn.respond_to?(:instances)
       @list << i
       i
@@ -133,6 +134,35 @@ module Sketchup
     def add_3d_text(*_a); true; end
     def clear!; @list = []; true; end
     def erase_entity(e); @list.delete(e); end
+    def erase_entities(list); Array(list).each { |e| @list.delete(e) }; true; end
+    def to_a; @list.dup; end
+    # The stub cannot intersect geometry; the reference fence tool's knife
+    # calls this and then erases whatever lies beyond the plane, which the
+    # stub CAN do. So the intersect is a no-op and the erase is real
+    # (2026-08-17).
+    def intersect_with(*_a); true; end
+    # Explode: the instance's geometry, transformed, becomes ours. Enough for
+    # a suite to see what a cut left behind.
+    def explode_into!(inst)
+      tr = inst.transformation
+      src = inst.respond_to?(:definition) ? inst.definition.entities : inst.entities
+      src.each do |e|
+        if e.is_a?(Face)
+          f = Face.new(e.points.map { |p| p.transform(tr) })
+          f.material = e.material
+          @list << f
+        elsif e.is_a?(Edge)
+          @list << Edge.new(e.a.transform(tr), e.b.transform(tr))
+        elsif e.is_a?(Group) || e.is_a?(ComponentInstance)
+          g = ComponentInstance.new(e.respond_to?(:definition) ? e.definition : nil)
+          g.transformation = tr * e.transformation
+          g.parent_entities = self
+          @list << g
+        end
+      end
+      @list.delete(inst)
+      true
+    end
   end
 
   class BBox
@@ -159,6 +189,14 @@ module Sketchup
     attr_writer :transformation
     def transformation; @transformation ||= Geom::Transformation.new; end
     def persistent_id; @pid ||= Sketchup.next_pid; end
+    attr_accessor :parent_entities
+    def make_unique; self; end
+    def explode
+      return [] unless @parent_entities
+      @parent_entities.explode_into!(self)
+      @valid = false
+      []
+    end
   end
 
   # Behaves like a Group but keeps its edges on a definition, exactly like the

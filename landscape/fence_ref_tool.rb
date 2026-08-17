@@ -35,15 +35,19 @@
 #   * The run of the model may be along X OR along Y - his was along Y. The
 #     tool reads which and turns the unit so its run lies along the fence.
 #
-# LAYING IT ALONG A LINE
+# LAYING IT ALONG A LINE (changed 2026-08-17 - see layout_for)
 #
-#   n = how many whole units fit. The units are then STRETCHED, along the run
-#   only, by the small amount that makes n of them exactly fill the length -
-#   the same "no odd short bay" rule fence_math uses. The stretch is on the
-#   whole unit including its post, and on a 78" unit with a 4" post that is a
-#   post 3% wider at the very most; he saw that and accepted it. If he ever
-#   wants the post kept dead true, the unit is split inside the code, not by
-#   asking him to remodel.
+#   Whole units at their true size, and the remainder is ONE more unit sliced
+#   by a plane at the far end (cut_stub!). A stretch under 6% is kept instead
+#   of a cut, because nobody sees 6% and everybody sees a seam. This replaced
+#   "stretch n units to fit", which was fine on a one-bay unit and awful on
+#   his three-bay cable railing (a 240" fence stretched a 180" unit by a
+#   third). USE_CUT = false is the old behaviour.
+#
+#   Three ways his file can be shaped, and all three are read (shape_of):
+#   UNIT (one big repeating component), PARTS (loose posts + loose parts,
+#   a unit is assembled from the first bay), WHOLE (loose faces present, or
+#   nothing recognised - the whole model is the unit, pitch = post to post).
 #
 # GROUND
 #
@@ -518,23 +522,63 @@ module InteriorPro
       # ----------------------------------------------------------- the layout
       #
       # How many units, and how much each is stretched. Pure numbers.
+      # Two ways to make n units fill a length exactly (2026-08-17):
+      #
+      #   STRETCH  - n whole units, each scaled along the run so they fill.
+      #              Fine when the unit is one bay (a few percent). Ugly when
+      #              his file is three bays wide: a 240" fence stretched a
+      #              180" unit by a third and he saw it at once.
+      #   CUT      - whole units at their true size, and the remainder is ONE
+      #              more unit sliced by a plane at the far end. Nothing is
+      #              stretched, nothing needs recognising - a knife through
+      #              whatever geometry is there. He approved this after the
+      #              stretch was too big to live with (2026-08-17).
+      #
+      # CUT is OFF (2026-08-17, same day it was written): on his raw cable
+      # railing the knife (intersect_with on 20k loose faces, some hidden)
+      # hung SketchUp and popped "visible geometry merged with hidden". The
+      # code stays, tested in rt63, for a model that is NOT raw. Turn it on
+      # only after it has been watched on a small clean file first. A stretch
+      # under SMALL_STRETCH is still preferred to a cut either way.
+      USE_CUT       = false unless const_defined?(:USE_CUT, false)
+      SMALL_STRETCH = 0.06  unless const_defined?(:SMALL_STRETCH, false)
+
       def layout_for(length)
         return nil unless @shape
         ua = @shape[:unit_along].to_f
         return nil if ua <= 0.0 || length < MIN_LEN
+
         n = (length / ua).round
         n = 1 if n < 1
         s = length / (n * ua)
-        # Prefer one more unit slightly squeezed over one fewer badly
-        # stretched - a fence with too few posts reads wrong at once.
-        if s > MAX_STRETCH
-          n += 1
-          s = length / (n * ua)
-        elsif s < MIN_STRETCH && n > 1
-          n -= 1
-          s = length / (n * ua)
+
+        # A stretch nobody would notice: keep it, no seam.
+        if !USE_CUT || (s - 1.0).abs <= SMALL_STRETCH
+          # Prefer one more unit slightly squeezed over one fewer badly
+          # stretched - a fence with too few posts reads wrong at once.
+          if s > MAX_STRETCH
+            n += 1
+            s = length / (n * ua)
+          elsif s < MIN_STRETCH && n > 1
+            n -= 1
+            s = length / (n * ua)
+          end
+          return { n: n, stretch: s, unit: ua, pitch: ua * s, length: length,
+                   whole: n, cut: 0.0 }
         end
-        { n: n, stretch: s, unit: ua, pitch: ua * s, length: length }
+
+        # CUT: as many whole units as fit, then the rest.
+        whole = (length / ua).floor
+        rest  = length - whole * ua
+        # A sliver of a bay is worse than a hair of stretch: under a quarter
+        # of a unit, stretch the whole ones instead of adding a stub.
+        if rest < ua * 0.25 && whole >= 1
+          s = length / (whole * ua)
+          return { n: whole, stretch: s, unit: ua, pitch: ua * s, length: length,
+                   whole: whole, cut: 0.0 }
+        end
+        { n: whole + 1, stretch: 1.0, unit: ua, pitch: ua, length: length,
+          whole: whole, cut: rest }
       end
 
       def refresh_ghost
@@ -546,18 +590,28 @@ module InteriorPro
         u, n = axes(@p1, @cursor)
         h = @shape[:height].to_f
         segs = []
-        (0..lay[:n]).each do |i|
-          base = @p1.offset(u, i * lay[:pitch])
+        # A stroke per post: the whole units at their pitch, then the far end
+        # of the run (which is the closer, whether the last unit is whole or
+        # cut). Never a stroke past the cursor.
+        whole = lay[:whole] || lay[:n]
+        (0..whole).each do |i|
+          d = i * lay[:pitch]
+          next if d > len + 1e-6
+          base = @p1.offset(u, d)
           segs << [base, base.offset(Geom::Vector3d.new(0, 0, 1), h)]
         end
+        endp = @p1.offset(u, len)
+        segs << [endp, endp.offset(Geom::Vector3d.new(0, 0, 1), h)]
         top = @p1.offset(Geom::Vector3d.new(0, 0, 1), h)
         segs << [top, top.offset(u, len)]
-        segs << [@p1, @p1.offset(u, len)]
+        segs << [@p1, endp]
         @ghost = segs
-        Sketchup.set_status_text(
-          format("%s | %.2f' | %d units, stretch %.1f%%",
-                 @ref_name, len / 12.0, lay[:n], (lay[:stretch] - 1.0) * 100.0),
-          SB_PROMPT)
+        msg = if lay[:cut].to_f > 0.0
+                format("%s | %.2f' | %d whole + %.1f\" cut", @ref_name, len / 12.0, whole, lay[:cut])
+              else
+                format("%s | %.2f' | %d units, stretch %.1f%%", @ref_name, len / 12.0, lay[:n], (lay[:stretch] - 1.0) * 100.0)
+              end
+        Sketchup.set_status_text(msg, SB_PROMPT)
       rescue StandardError => e
         puts "[FenceRef] preview: #{e.class}: #{e.message}"
         @ghost = nil
@@ -660,7 +714,11 @@ module InteriorPro
         # A unit may be ONE component (unit mode) or a LIST of his parts
         # (parts mode). Either way every piece keeps its own transformation
         # from his file; only the frame around it is ours.
-        (0...lay[:n]).each do |i|
+        #
+        # lay[:whole] units are placed as they are. If lay[:cut] > 0 there is
+        # one more, the stub, sliced at the far end (see cut_stub!).
+        whole = lay[:whole] || lay[:n]
+        (0...whole).each do |i|
           gz = ground_at(i.to_f / lay[:n])
           @shape[:pieces].each_with_index do |(d, tr), j|
             place_one(ents, d, tr, into_x, lay[:stretch], a, u, n,
@@ -668,14 +726,26 @@ module InteriorPro
           end
         end
 
+        if lay[:cut].to_f > 0.0
+          gz = ground_at(whole.to_f / lay[:n])
+          stub = ents.add_group
+          stub.name = "Unit #{whole + 1} (cut)"
+          @shape[:pieces].each_with_index do |(d, tr), j|
+            place_one(stub.entities, d, tr, into_x, 1.0, a, u, n,
+                      whole * lay[:pitch], gz, "part #{j}")
+          end
+          cut_stub!(stub, a, u, n, whole * lay[:pitch] + lay[:cut], model)
+        end
+
+        # The closer goes at the far end of the LAST unit, whole or cut.
         unless @shape[:closer_pieces].empty?
           gz = ground_at(1.0)
           # into_x already puts the closer where it sits in his model: just
           # past his LAST unit, i.e. at x = (units in model) * unit_along plus
-          # whatever small inset it has. We want it just past OUR last unit
+          # whatever small inset it has. We want it at the end of OUR run
           # instead, so slide it by the difference between the two.
-          along = lay[:n] * lay[:pitch] -
-                  @shape[:unit_count_in_model] * @shape[:unit_along]
+          end_along = whole * lay[:pitch] + lay[:cut].to_f
+          along = end_along - @shape[:unit_count_in_model] * @shape[:unit_along]
           @shape[:closer_pieces].each do |(d, tr)|
             place_one(ents, d, tr, into_x, 1.0, a, u, n, along, gz, 'Closer')
           end
@@ -720,6 +790,70 @@ module InteriorPro
         inst = ents.add_instance(defn, frame * stretch_t * into_x * own_tr)
         inst.name = name
         inst
+      end
+
+      # Slice a placed unit at a plane across the run, keep the near side.
+      #
+      # This is a knife, not a reader: it does not know what a post or a
+      # cable is, so it cannot get that wrong. It explodes the stub group down
+      # to loose geometry (component instances inside are made unique first,
+      # so his library definitions are never edited), intersects it with a
+      # big face on the plane, and erases everything whose far edge is beyond
+      # the plane. What is left is his fence, cut clean.
+      def cut_stub!(stub, a, u, n, along, model)
+        return unless stub && stub.valid?
+        origin = a.offset(u, along)
+        far = lambda do |pt|
+          # signed distance along u from the plane
+          (pt.x - origin.x) * u.x + (pt.y - origin.y) * u.y
+        end
+
+        # Explode everything down to faces and edges, keeping his definitions
+        # untouched by making the instances unique first.
+        3.times do
+          insts = stub.entities.to_a.select { |e| e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group) }
+          break if insts.empty?
+          insts.each do |i|
+            next unless i.valid?
+            i.make_unique if i.respond_to?(:make_unique)
+            i.explode
+          end
+        end
+
+        # A knife: one big face on the cutting plane, in its own group.
+        big = 10_000.0
+        up  = Geom::Vector3d.new(0, 0, 1)
+        knife = model.active_entities.add_group
+        knife.entities.add_face([
+          origin.offset(n, -big).offset(up, -big),
+          origin.offset(n,  big).offset(up, -big),
+          origin.offset(n,  big).offset(up,  big),
+          origin.offset(n, -big).offset(up,  big)
+        ])
+        begin
+          stub.entities.intersect_with(false, stub.transformation, stub.entities,
+                                       stub.transformation, true, knife.entities.to_a)
+        rescue StandardError => e
+          puts "[FenceRef] cut: intersect failed: #{e.message}"
+        ensure
+          knife.erase! if knife.valid?
+        end
+
+        # Anything wholly beyond the plane goes. Faces are judged by their
+        # vertices; edges by their two ends. A tiny tolerance keeps the new
+        # cut faces (which sit exactly on the plane) on the near side.
+        tol = 1e-4
+        gone = []
+        stub.entities.each do |e|
+          pts = if e.is_a?(Sketchup::Face) then e.vertices.map(&:position)
+                elsif e.is_a?(Sketchup::Edge) then [e.start.position, e.end.position]
+                else next
+                end
+          gone << e if pts.all? { |p| far.call(p) > tol }
+        end
+        stub.entities.erase_entities(gone) unless gone.empty?
+      rescue StandardError => e
+        puts "[FenceRef] cut_stub!: #{e.class}: #{e.message}"
       end
 
       def ground_at(f)
