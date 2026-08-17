@@ -78,6 +78,35 @@ module InteriorPro
       end
     end
 
+    # The z a room's own storey sits at. Level 1 is 0, so level-1 behaviour
+    # is byte-for-byte what it always was. Everything that turns the floor
+    # dialog's number into a real height goes through here (2026-08-17).
+    def self.level_base_for(room_lvl)
+      n = room_lvl.to_i
+      return 0.0 unless n > 1 && defined?(InteriorPro::LevelManager)
+      InteriorPro::LevelManager.level_base(n).to_f
+    rescue StandardError
+      0.0
+    end
+
+    # The absolute height an existing floor is really meant to sit at.
+    #
+    # It also HEALS a model that already caught the 2026-08-17 bug: an upper
+    # storey's floor stored at exactly z=0 was never a height anyone chose -
+    # the floors window sent a blank 0 on every Apply - so it reads as "not
+    # set" and falls back to the storey's own base. Without this, a model
+    # that already has the bug would keep it: the window would offer -106
+    # and Apply would write the 0 straight back.
+    def self.stored_floor_level(floor, room_lvl)
+      base = level_base_for(room_lvl)
+      v = floor && floor.valid? ? floor.get_attribute('InteriorPro', 'floor_level') : nil
+      return base if v.nil?
+      return base if room_lvl.to_i > 1 && v.to_f.zero?
+      v.to_f
+    rescue StandardError
+      level_base_for(room_lvl)
+    end
+
     # Real textures (2026-07-18): each floor type maps to a seamless JPG in
     # textures/ (V-Ray reads the SketchUp material directly). Existing
     # texture-less materials in old models are upgraded in place — the known
@@ -133,16 +162,27 @@ module InteriorPro
           pat_attrs['floor_texture'] = texture.to_s
         end
       end
-      # Per-room floor level (2026-07-18, garage at driveway height):
-      # floor TOP surface sits at z = floor_level (inches; 0 = default).
-      pat_attrs['floor_level'] = level.to_f unless level.nil?
-      # Per-level rooms (2026-08-04): a room on an upper building level
-      # defaults its floor TOP to that level's base (level 2 -> 106"),
-      # instead of 0. An explicit floor_level always wins.
+      # Per-room floor level (2026-07-18, garage at driveway height).
+      #
+      # STORED `floor_level` is the ABSOLUTE z of the floor's top surface.
+      # It has to stay absolute: CeilingManager, build_patch!, FloorPattern
+      # and FoundationManager all read it straight as a height.
+      #
+      # The `level:` ARGUMENT, though, is an OFFSET from the room's own
+      # storey - which is exactly what the dialog's "0 = default" has always
+      # meant. It cannot be absolute: floor_dialog sends 0 whenever the user
+      # has typed nothing, and an absolute 0 pinned a level-2 floor to the
+      # ground and killed the level default for good, because that default
+      # only ran when nothing was stored (measured on the user's model,
+      # 2026-08-17: level-2 floor sitting at z=0 instead of 106).
       room_lvl = (room_grp.get_attribute('InteriorPro', 'level') || 1).to_i
-      if pat_attrs['floor_level'].nil? && room_lvl > 1 && defined?(InteriorPro::LevelManager)
-        pat_attrs['floor_level'] = InteriorPro::LevelManager.level_base(room_lvl)
-      end
+      base = level_base_for(room_lvl)
+      # What the OLD floor was really meant to sit at (heals a model that
+      # already caught the bug - see stored_floor_level).
+      pat_attrs['floor_level'] = stored_floor_level(old, room_lvl) if old
+      pat_attrs['floor_level'] = base + level.to_f unless level.nil?
+      # A floor with nothing stored at all sits on its own storey.
+      pat_attrs['floor_level'] = base if pat_attrs['floor_level'].nil?
       lvl = pat_attrs['floor_level'].to_f
       old.erase! if old && old.valid?
 

@@ -58,6 +58,10 @@ module InteriorPro
                      z_max: st['site_z_max'] ? st['site_z_max'].to_f * 12.0 : nil
               )
               self.site_lines = site_lines + fresh
+              # A fresh read starts the rubbing-out over: whatever was taken
+              # off the sheet may well be in this batch again, and putting the
+              # old list back would draw those lines twice.
+              self.site_dropped = []
               save_state(st)
               @doc = nil
               push_all(dlg)
@@ -78,11 +82,72 @@ module InteriorPro
             st['site_pids'] = []
             save_state(st)
             self.site_lines = []
+            self.site_dropped = []
             @doc = nil
             push_all(dlg)
             dlg.execute_script('siteDone(0, null)')
           rescue StandardError => e
             puts "[Sheet] clear_selection: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # Rubbing out ONE line (2026-08-17).
+        #
+        # "Clear the free geometry" throws away the whole back yard. What the
+        # user actually asked for is smaller and sharper: the seam down the
+        # middle of the pool coping gone, and the three lines that cross the
+        # path, and NOTHING else. A cleaner drawing, not an empty one.
+        #
+        # The trick is that no lookup is needed. PlanGeometry.build! writes the
+        # lines onto the SITE layer in the order they sit in the list, one
+        # polyline each, so shape number i on the sheet IS site_lines[i]. The
+        # window sends a number and this takes that number out of the list.
+        #
+        # NOTHING HERE TOUCHES THE MODEL. The seam in the pool coping is a real
+        # edge between two real faces and it stays exactly where it is; only
+        # the drawing loses it. That is the whole point of the feature - the
+        # user said so in the same breath as he asked for it.
+        dlg.add_action_callback('drop_site_line') do |_, json|
+          begin
+            r     = JSON.parse(json.to_s)
+            i     = r['i'].to_i
+            lines = site_lines
+            if i < 0 || i >= lines.length
+              # Out of range is not worth an error message - the sheet was
+              # rebuilt under the mouse. Just say where things stand.
+              dlg.execute_script("siteDropped(#{JSON.generate(lines.length)}, " \
+                                 "#{JSON.generate(site_dropped.length)})")
+            else
+              site_dropped.push(lines[i])
+              self.site_lines = lines[0, i] + lines[(i + 1)..-1]
+              @doc = nil
+              push_all(dlg)
+              dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, " \
+                                 "#{JSON.generate(site_dropped.length)})")
+            end
+          rescue StandardError => e
+            puts "[Sheet] drop_site_line: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # Everything rubbed out comes back at once.
+        #
+        # This window has no general undo, and without this a line taken off by
+        # mistake would mean pressing "add what is selected" again - which
+        # would undo every OTHER rub-out along with it. One button, and the
+        # decision is reversible.
+        dlg.add_action_callback('restore_site_lines') do |_|
+          begin
+            back = site_dropped
+            unless back.empty?
+              self.site_lines   = site_lines + back
+              self.site_dropped = []
+              @doc = nil
+              push_all(dlg)
+            end
+            dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, 0)")
+          rescue StandardError => e
+            puts "[Sheet] restore_site_lines: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
         end
 
@@ -241,6 +306,67 @@ module InteriorPro
           end
         end
 
+        # How big the writing is (2026-08-17).
+        #
+        # Its own way in rather than riding on set_state, because of WHERE the
+        # writing lives. set_state answers with push_pages, which ships the
+        # pages and the hand-drawn marks - everything that sits on paper. But
+        # the dimension numbers, the room names and the door tags are on the
+        # MODEL canvas, which push_pages deliberately leaves alone so the plan
+        # does not flicker every time a control moves. Resizing them and
+        # answering with push_pages would change the PDF and leave the picture
+        # in the window exactly as it was: the user types 130, sees nothing,
+        # and reports it as broken.
+        #
+        # A full push is cheap enough here - nobody drags a text size.
+        dlg.add_action_callback('set_text_scale') do |_, json|
+          begin
+            r  = JSON.parse(json.to_s)
+            st = load_state
+            st['text_scale'] = (st['text_scale'] || {}).merge(r || {})
+            save_state(st)
+            apply_state!(document, st)
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] set_text_scale: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # One label's own settings (2026-08-17).
+        #
+        #   { key: "ROOMS|ROOM 2|1", pct: 150, bold: true }
+        #   { key: "...", clear: true }        - back to whatever its group says
+        #
+        # Full push for the same reason set_text_scale needs one: most labels
+        # live on the MODEL canvas, which push_pages leaves alone.
+        dlg.add_action_callback('set_text_mark') do |_, json|
+          begin
+            r   = JSON.parse(json.to_s)
+            key = r['key'].to_s
+            if key.empty?
+              puts '[Sheet] set_text_mark: no key'
+            else
+              st = load_state
+              m  = (st['text_marks'] || {}).dup
+              if r['clear']
+                m.delete(key)
+              else
+                cur = (m[key] || {}).dup
+                cur['pct']    = r['pct'].to_f if r.key?('pct')
+                cur['bold']   = !!r['bold']   if r.key?('bold')
+                cur['italic'] = !!r['italic'] if r.key?('italic')
+                m[key] = cur
+              end
+              st['text_marks'] = m
+              save_state(st)
+              apply_state!(document, st)
+              push_all(dlg)
+            end
+          rescue StandardError => e
+            puts "[Sheet] set_text_mark: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
         dlg.add_action_callback('export_pdf') do |_, json|
           begin
             st = JSON.parse(json.to_s)
@@ -303,7 +429,8 @@ module InteriorPro
         st = load_state
         payload = {
           doc: d.to_h,
-          state: st.merge('site_count' => site_lines.length),
+          state: st.merge('site_count'   => site_lines.length,
+                          'site_dropped' => site_dropped.length),
           page_sizes: InteriorPro::PlanDoc.page_size_names,
           scales: InteriorPro::PlanDoc.scale_labels,
           images: image_payload(st),
@@ -356,7 +483,15 @@ module InteriorPro
           'hidden' => [], 'tables_own_page' => true,
           'site_pids' => [], 'site_z_max' => nil, 'site_soft' => false,
           'images' => [], 'image_title' => 'RENDERING', 'marks' => [],
-          'note_arrow' => true, 'strip' => false, 'open' => {}, 'logo' => nil }
+          'note_arrow' => true, 'strip' => false, 'open' => {}, 'logo' => nil,
+          # How big the writing is, in per cent. 100 is the drawing exactly as
+          # it always looked, so an old model that has never heard of this
+          # opens unchanged. See PlanCanvas::TEXT_GROUPS.
+          'text_scale' => { 'dims' => 100, 'rooms' => 100,
+                            'tags' => 100, 'tables' => 100 },
+          # One label at a time, keyed by PlanCanvas.text_key. Empty until he
+          # double-clicks something, so an old model is untouched.
+          'text_marks' => {} }
       end
 
       # Settings that are remembered but have no default: where the plan sits,
@@ -406,6 +541,23 @@ module InteriorPro
           @site_saved = false
         end
         @site_lines
+      end
+
+      # What has been rubbed off the sheet since the last read or clear, kept
+      # so "put them back" has something to put back.
+      #
+      # In MEMORY ONLY, on purpose. Rubbing out is a drawing decision about the
+      # sheet in front of him, not a fact about the model, and the moment he
+      # reads the model again he is making that decision over from scratch.
+      # Writing it onto the model would also risk the very thing site_lines is
+      # careful about: a real back yard is thousands of lines, and a big
+      # attribute is swallowed without a word.
+      def site_dropped
+        @site_dropped ||= []
+      end
+
+      def site_dropped=(list)
+        @site_dropped = Array(list)
       end
 
       # ------------------------------------------------------- the pictures
@@ -515,7 +667,7 @@ module InteriorPro
       def save_state(st)
         keep  = default_state.keys + extra_state_keys
         clean = st.select { |k, _| keep.include?(k) }
-        dropped = st.keys - clean.keys - ['site_count']
+        dropped = st.keys - clean.keys - %w[site_count site_dropped]
         puts "[Sheet] save_state dropped: #{dropped.join(', ')}" unless dropped.empty?
         # Through StateBackup since 2026-08-15. The sheet state holds the
         # page, the scale, the image list and every hand-drawn dimension and
@@ -566,6 +718,11 @@ module InteriorPro
             select, input { width:100%; padding:5px 6px; background:#1e1e1e; color:#eee;
                             border:1px solid #555; border-radius:3px; font-size:13px; }
             .row { display:flex; gap:6px; }
+            /* label - box - % on one line, so four sizes fit without scrolling */
+            .tsrow { display:flex; align-items:center; gap:6px; margin-top:6px; }
+            .tsrow > span:first-child { flex:1; font-size:12px; color:#ccc; }
+            .tsrow input { width:64px; flex:none; text-align:center; }
+            .tsrow .pc { color:#888; font-size:12px; }
             button { width:100%; padding:8px; margin-top:6px; background:#4a4a4a;
                      color:#fff; border:1px solid #666; border-radius:3px; cursor:pointer;
                      font-size:13px; }
@@ -647,7 +804,14 @@ module InteriorPro
             button.tool.on { background:#1f6feb; border-color:#1f6feb; }
             button.tool.on svg .s { stroke:#fff; }
             button.tool:disabled { opacity:.35; }
-            #notebar { position:absolute; top:14px; left:50%;
+            /* FIXED, not absolute (2026-08-17).
+               Both bars used to be positioned inside #stage, which is the
+               thing that scrolls. Zoom in far enough to have to scroll and
+               they slid off the top with the paper - the user was left
+               changing a label through a panel he could no longer see.
+               Fixed takes them out of the drawing altogether: they float over
+               the window and stay put however far he scrolls. */
+            #notebar { position:fixed; top:22px; left:50%;
                        transform:translateX(-50%); z-index:20; display:none;
                        background:#2b2b2b; border:1px solid #1f6feb;
                        border-radius:5px; padding:8px; gap:6px; width:380px;
@@ -656,6 +820,25 @@ module InteriorPro
             #notebar input { flex:1; }
             #notebar button { width:auto; margin:0; padding:6px 12px; }
             #notebar button.tool { flex:none; width:36px; padding:5px 0; }
+            /* the same bar, for one piece of writing */
+            #textbar { position:fixed; top:22px; left:50%;
+                       transform:translateX(-50%); z-index:21; display:none;
+                       background:#2b2b2b; border:1px solid #1f6feb;
+                       border-radius:5px; padding:8px; gap:6px; width:400px;
+                       box-shadow:0 6px 24px rgba(0,0,0,.5); }
+            #textbar.on { display:flex; align-items:center; }
+            /* the grip: the bar is dragged by its name, so it can be parked
+               off the label it is changing */
+            #textbar .what { flex:1; color:#cfe4ff; font-size:12px;
+                             white-space:nowrap; overflow:hidden;
+                             text-overflow:ellipsis; cursor:move;
+                             user-select:none; padding:2px 4px;
+                             border-radius:3px; }
+            #textbar .what:hover { background:#37475e; }
+            #textbar input { width:64px; flex:none; text-align:center; }
+            #textbar .pc { color:#888; font-size:12px; }
+            #textbar button { width:auto; margin:0; padding:6px 10px; flex:none; }
+            #textbar button.tool { width:32px; padding:5px 0; color:#eee; }
             #curtain { position:fixed; inset:0; z-index:50; display:none;
                        background:rgba(20,40,70,.82); color:#cfe4ff;
                        align-items:center; justify-content:center; font-size:22px;
@@ -693,6 +876,18 @@ module InteriorPro
                 </div>
               </div>
 
+              <div class="sec" data-k="text">
+                <h4><span class="ar">&#9656;</span>גודל טקסט<span class="tag" id="texttag"></span></h4>
+                <div class="bd">
+                  <div class="tsrow"><span>מידות</span><input id="tsDims" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
+                  <div class="tsrow"><span>שמות חדרים</span><input id="tsRooms" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
+                  <div class="tsrow"><span>תגי דלת/חלון</span><input id="tsTags" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
+                  <div class="tsrow"><span>טבלאות</span><input id="tsTables" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
+                  <button id="tsReset">חזור ל-100%</button>
+                  <div class="hint">100% = הגודל שהיה תמיד. משפיע גם על התצוגה וגם על ה-PDF.</div>
+                </div>
+              </div>
+
               <div class="sec" data-k="marks">
                 <h4><span class="ar">&#9656;</span>מידות והערות<span class="tag" id="markstag"></span></h4>
                 <div class="bd">
@@ -719,6 +914,13 @@ module InteriorPro
                         <rect x="8.5" y="4" width="12.5" height="8" rx="1"/>
                         <path d="M8.5 10 L3 20"/>
                         <path d="M3 20 L4.6 16.2 M3 20 L6.8 18.4"/>
+                      </g></svg>
+                    </button>
+                    <button id="terase" class="tool" title="מחק קו מהתוכנית">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M9.5 19 L20 19"/>
+                        <path d="M14.5 4.5 L20.5 10.5 L11 20 L5 14 Z"/>
+                        <path d="M8 11 L14 17"/>
                       </g></svg>
                     </button>
                     <button id="tundo" class="tool" title="בטל אחרון">
@@ -756,6 +958,7 @@ module InteriorPro
                 <div class="bd">
                   <button id="addsel">הוסף את מה שנבחר בסקצ'אפ</button>
                   <button id="clrsel">נקה גיאומטריה חופשית</button>
+                  <button id="undrop">החזר קווים שנמחקו</button>
                   <button id="rebuild">קרא שוב מהמודל</button>
                   <div id="siteinfo" class="hint"></div>
                 </div>
@@ -811,6 +1014,15 @@ module InteriorPro
                 <button id="noteok" class="go">הוסף</button>
                 <button id="notecancel">ביטול</button>
               </div>
+              <div id="textbar">
+                <span id="txwhat" class="what"></span>
+                <input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים">
+                <span class="pc">%</span>
+                <button id="txbold" class="tool" title="מודגש"><b>B</b></button>
+                <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
+                <button id="txreset">אפס</button>
+                <button id="txdone" class="go">סיים</button>
+              </div>
               <div id="sheetWrap"></div>
               <!-- There was a - / fit / + bar pinned to this corner. It sat on
                    top of the drawing and the user asked for it gone: the wheel
@@ -825,7 +1037,8 @@ module InteriorPro
           <script>
           var DOC=null, STATE=null, PAGE=null, BOUNDS=null, SCALES=[];
           var URLS={};                // path -> file:/// address, for the sheet
-          var MODE='hand';            // hand | dim | note
+          var MODE='hand';            // hand | dim | note | erase
+          var ERA=null;               // which SITE line the rubber is over
           var PEND=null;              // the first point of a dimension
           var HOVER=null;             // where the mouse is, in model inches
           var VIEW=null;              // how to get from the screen to the model
@@ -1014,6 +1227,8 @@ module InteriorPro
             if(!DOC||!PAGE) return;
             $('sheetWrap').innerHTML=sheetSVG(PAGE, fitK()*(ZOOM||1), true);
             hookDrag();
+            paintErase();
+            paintTextPick();
             if($('strip').className==='on') paintStrip();
           }
 
@@ -1123,6 +1338,253 @@ module InteriorPro
             return best;
           }
 
+          // ---- rubbing a line off the sheet ------------------------------
+          //
+          // Only the free geometry - the lines traced off the model by hand.
+          // The walls, doors and windows are drawn from their attributes and
+          // are switched off by their own layer, not one at a time.
+          //
+          // Shape number i on this layer is line number i in Ruby's list; see
+          // the note over drop_site_line. Nothing is looked up by position, so
+          // two lines lying on top of each other cannot be confused.
+          function siteLayer(){
+            if(!DOC||!PAGE||!STATE) return null;
+            if((STATE.hidden||[]).indexOf('SITE')>=0) return null;   // switched off
+            var v=(PAGE.views||[])[0]; if(!v) return null;
+            var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
+            if(!cv) return null;
+            return (cv.layers||[]).filter(function(l){ return l.name==='SITE'; })[0]||null;
+          }
+
+          function hitSite(e){
+            var lay=siteLayer(); if(!lay||!VIEW) return null;
+            var p=mouseAt(e); if(!p) return null;
+            var X=p[0], Y=p[1], best=null, bd=GRAB;
+            (lay.shapes||[]).forEach(function(s,i){
+              var pts=s.points; if(!pts||pts.length<2) return;
+              for(var j=0;j<pts.length-1;j++){
+                var a=screenOf(pts[j][0],pts[j][1]);
+                var b=screenOf(pts[j+1][0],pts[j+1][1]);
+                var d=distToSeg(X,Y,a,b);
+                if(d<bd){ bd=d; best=i; }
+              }
+            });
+            return best;
+          }
+
+          // The line about to go, in red.
+          //
+          // Painted straight onto the drawing as ONE extra element instead of
+          // going through render(). A real back yard is thousands of lines and
+          // rebuilding all of them every time the mouse crosses a new one would
+          // make the rubber feel stuck.
+          //
+          // It sits outside the view frame's clip, so a line running off the
+          // edge of the sheet lights up along its whole length. That is on
+          // purpose: it shows what is about to be deleted, not what is printed.
+          function paintErase(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#erahi');
+            if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(MODE!=='erase'||ERA===null||!VIEW) return;
+            var lay=siteLayer(); if(!lay) return;
+            var s=(lay.shapes||[])[ERA]; if(!s||!s.points) return;
+            var pts=s.points.map(function(q){
+              var t=screenOf(q[0],q[1]);
+              return t[0].toFixed(1)+','+t[1].toFixed(1);
+            }).join(' ');
+            var n=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+            n.setAttribute('id','erahi');
+            n.setAttribute('points',pts);
+            n.setAttribute('fill','none');
+            n.setAttribute('stroke','#e5484d');
+            n.setAttribute('stroke-width','3');
+            n.setAttribute('stroke-linecap','round');
+            svg.appendChild(n);
+          }
+
+          // ---- one label at a time ----------------------------------------
+          //
+          // Double-click any writing on the sheet - a room name, a tag, a
+          // dimension, a note - and set that one. Ruby keeps the choice under
+          // the label's key (PlanCanvas.text_key) so it survives the sheet
+          // being rebuilt from the model.
+          var TSEL=null;   // {key, shape, paper} - the label being changed
+
+          // Where a piece of writing sits on the screen, near enough to click.
+          //
+          // The width is ESTIMATED - half the height per letter is close for
+          // Helvetica, and plan_pdf's real width tables are Ruby's. A box a
+          // little too wide is the right way to be wrong here: it makes small
+          // writing easier to hit, and the worst case is that a click near a
+          // tag opens that tag.
+          function textBox(s, paper){
+            var h = s.h * (paper ? 1 : scaleFactor(STATE.scale));  // paper inches
+            var w = Math.max(String(s.text||'').length * h * 0.55, h * 0.8);
+            var p = paper ? [s.x, s.y] : VIEW.toPaper(s.x, s.y);
+            var cx = p[0], cy = p[1];
+            // Writing put straight on the sheet hangs off its start point;
+            // writing on the plan is centred on it. Same rule as shapeSVG.
+            if(paper){ cx = p[0] + w/2; cy = p[1] + h/2; }
+            return { x:(cx - w/2)*VIEW.k, y:(PAGE.height - cy - h/2)*VIEW.k,
+                     w:w*VIEW.k, h:h*VIEW.k };
+          }
+
+          // Every piece of writing on the sheet right now, with its key.
+          // VIEW is deliberately NOT required here. This also runs straight
+          // after a sheet arrives, to point the open panel at the label that
+          // came back, and at that moment nothing has been drawn yet.
+          function eachText(fn){
+            if(!DOC||!STATE) return;
+            var PG = PAGE || activePage(); if(!PG) return;
+            var hid = STATE.hidden||[];
+            var v=(PG.views||[])[0];
+            if(v){
+              var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
+              if(cv) cv.layers.forEach(function(l){
+                if(hid.indexOf(l.name)>=0) return;
+                (l.shapes||[]).forEach(function(s){
+                  if(s.type==='text'&&s.key) fn(s,false);
+                });
+              });
+            }
+            (PG.layers||[]).forEach(function(l){
+              if(hid.indexOf(l.name)>=0) return;
+              (l.shapes||[]).forEach(function(s){
+                if(s.type==='text'&&s.key) fn(s,true);
+              });
+            });
+          }
+
+          function hitText(e){
+            var p=mouseAt(e); if(!p||!VIEW||!PAGE) return null;
+            var X=p[0], Y=p[1], best=null, ba=Infinity;
+            eachText(function(s,paper){
+              var b=textBox(s,paper);
+              if(X<b.x||X>b.x+b.w||Y<b.y||Y>b.y+b.h) return;
+              var a=b.w*b.h;             // the tightest box wins, not the first
+              if(a<ba){ ba=a; best={key:s.key, shape:s, paper:paper}; }
+            });
+            return best;
+          }
+
+          function textMarks(){ return STATE.text_marks||(STATE.text_marks={}); }
+
+          function openTextBar(hit){
+            TSEL=hit;
+            var m=textMarks()[hit.key]||{};
+            // What it is RIGHT NOW, not what was overridden - so the number in
+            // the box is the number on the sheet and he is never editing blind.
+            var shown = m.pct ? +m.pct
+                      : Math.round((hit.shape.h/(hit.shape.h0||hit.shape.h))*100);
+            $('txsize').value = isFinite(shown)&&shown>0 ? shown : 100;
+            $('txbold').className   = 'tool'+(hit.shape.bold?' on':'');
+            $('txitalic').className = 'tool'+(hit.shape.italic?' on':'');
+            $('txwhat').textContent = String(hit.shape.text||'').slice(0,22);
+            $('textbar').className='on';
+            placeTextBar();
+            paintTextPick();
+            $('txsize').focus();
+            $('txsize').select();
+          }
+
+          // Shutting the note bar, from OUT HERE.
+          //
+          // closeNote() is declared inside the window's load handler, so it
+          // does not exist at this level. Calling it from the drawing's
+          // dblclick threw a ReferenceError that killed the handler on its
+          // first line - two clicks on a label did nothing at all, and the
+          // window looked like the feature had never shipped. That was the
+          // user's "אין לי בכלל את האופציה לבחור את הכיתוב" (2026-08-17).
+          //
+          // Nothing in the console said so: an error inside an event handler
+          // is swallowed by the page. t46 drives the real handler now, which
+          // is the only reason this was found rather than argued about.
+          function hideNoteBar(){
+            $('notebar').className=''; PEND=null; EDIT=null;
+          }
+
+          function closeTextBar(){
+            $('textbar').className='';
+            TSEL=null;
+            paintTextPick();
+          }
+
+          // ---- parking the panel ------------------------------------------
+          //
+          // Fixed keeps it on screen, but the middle of the top is exactly
+          // where a label can be. Dragging it by its name lets him put it
+          // somewhere it is not in the way. Where he puts it is remembered for
+          // as long as the window is open - not written onto the model, since
+          // it says nothing about the drawing.
+          var TBAR=null;    // {x, y} in pixels, or null for "where it starts"
+
+          function placeTextBar(){
+            var el=$('textbar');
+            if(!TBAR){ el.style.left='50%'; el.style.top='22px';
+                       el.style.transform='translateX(-50%)'; return; }
+            el.style.left=TBAR.x+'px';
+            el.style.top=TBAR.y+'px';
+            el.style.transform='none';
+          }
+
+          function dragTextBar(e){
+            var el=$('textbar');
+            var r=el.getBoundingClientRect();
+            var grab={ dx:e.clientX-r.left, dy:e.clientY-r.top, w:r.width, h:r.height };
+            function move(ev){
+              // Kept on screen. A panel dragged off the edge cannot be dragged
+              // back, and closing it is not the same as putting it away.
+              var x=Math.min(Math.max(ev.clientX-grab.dx, 4),
+                             Math.max((window.innerWidth||900)-grab.w-4, 4));
+              var y=Math.min(Math.max(ev.clientY-grab.dy, 4),
+                             Math.max((window.innerHeight||700)-grab.h-4, 4));
+              TBAR={x:x, y:y};
+              placeTextBar();
+              ev.preventDefault();
+            }
+            function up(){
+              window.removeEventListener('mousemove', move);
+              window.removeEventListener('mouseup', up);
+            }
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', up);
+            e.preventDefault();
+          }
+
+          // A blue box round the label being changed. Its own element on top of
+          // the drawing, for the same reason the rubber's red line is - render()
+          // rebuilds the whole sheet and this happens while he is clicking.
+          function paintTextPick(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#txhi');
+            if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(!TSEL||!VIEW||!PAGE) return;
+            var b=textBox(TSEL.shape, TSEL.paper);
+            var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
+            n.setAttribute('id','txhi');
+            n.setAttribute('x',b.x.toFixed(1)); n.setAttribute('y',b.y.toFixed(1));
+            n.setAttribute('width',Math.max(b.w,3).toFixed(1));
+            n.setAttribute('height',Math.max(b.h,3).toFixed(1));
+            n.setAttribute('fill','none');
+            n.setAttribute('stroke','#1f6feb');
+            n.setAttribute('stroke-width','1.5');
+            svg.appendChild(n);
+          }
+
+          function sendTextMark(extra){
+            if(!TSEL) return;
+            var v=parseFloat($('txsize').value);
+            if(!isFinite(v)||v<=0) v=100;
+            v=Math.min(400,Math.max(25,v));
+            $('txsize').value=v;
+            var out={ key:TSEL.key, pct:v,
+                      bold:$('txbold').className.indexOf('on')>=0,
+                      italic:$('txitalic').className.indexOf('on')>=0 };
+            if(extra) for(var k in extra) out[k]=extra[k];
+            sketchup.set_text_mark(JSON.stringify(out));
+          }
+
           function moveMark(m, part, dx, dy){
             if(m.t==='dim'){
               if(part==='a'){ m.x1+=dx; m.y1+=dy; }
@@ -1162,9 +1624,9 @@ module InteriorPro
           }
 
           function setMode(m){
-            MODE=m; PEND=null; HOVER=null;
+            MODE=m; PEND=null; HOVER=null; ERA=null;
             if(m!=='hand') SEL=null;
-            ['thand','tdim','tnote'].forEach(function(id){
+            ['thand','tdim','tnote','terase'].forEach(function(id){
               $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
             });
             var svg=$('sheetWrap').firstChild;
@@ -1178,9 +1640,14 @@ module InteriorPro
             $('tundo').disabled = !n;
             var tip={hand:'לחץ על סימון כדי לבחור, Delete מוחק.',
                      dim:'לחץ בהתחלה ואז בסוף.',
-                     note:'לחץ על מה שההערה מדברת עליו.'}[MODE];
+                     note:'לחץ על מה שההערה מדברת עליו.',
+                     erase:'לחץ על קו כדי למחוק אותו מהתוכנית. המודל לא משתנה.'}[MODE];
             if(MODE==='hand'&&SEL!==null) tip='נבחר. Delete מוחק, גרירה מזיזה.';
-            $('markinfo').textContent = tip + (n ? ('  ·  ' + n + ' על הדף') : '');
+            if(MODE==='erase'&&!siteLayer())
+              tip='אין גיאומטריה חופשית על הדף, או ששכבת SITE כבויה.';
+            // The mark counter belongs to the marks, not to the rubber.
+            $('markinfo').textContent = tip +
+              ((n && MODE!=='erase') ? ('  ·  ' + n + ' על הדף') : '');
             headings();
           }
 
@@ -1192,6 +1659,12 @@ module InteriorPro
             svg.style.cursor = MODE==='hand' ? 'grab' : 'crosshair';
 
             svg.onmousemove=function(e){
+              if(MODE==='erase'){
+                var h3=hitSite(e);
+                if(h3!==ERA){ ERA=h3; paintErase(); }
+                svg.style.cursor = (ERA===null) ? 'crosshair' : 'pointer';
+                return;
+              }
               if(MODE==='dim'&&PEND){ HOVER=atMouse(e); render(); return; }
               if(MODE==='hand'&&!MDRAG&&!DRAG){
                 svg.style.cursor = hitMark(e) ? 'move' : 'grab';
@@ -1227,9 +1700,17 @@ module InteriorPro
             // are; only the writing changes.
             svg.ondblclick=function(e){
               var h=hitMark(e);
-              if(!h) return;
+              // A note's own words come first - two clicks on a note has meant
+              // "change what it says" since 2026-08-14 and that is not being
+              // taken away. Anything else falls through to the size and weight
+              // of whatever writing is under the mouse.
+              if(!h || marks()[h.i].t!=='note'){
+                var ht=hitText(e);
+                if(ht){ hideNoteBar(); openTextBar(ht); e.preventDefault(); }
+                return;
+              }
+              closeTextBar();
               var m=marks()[h.i];
-              if(m.t!=='note') return;
               SEL=h.i;
               EDIT=h.i;
               PEND=null;
@@ -1244,6 +1725,16 @@ module InteriorPro
 
             svg.onclick=function(e){
               if(MODE==='hand'||e.shiftKey) return;
+              if(MODE==='erase'){
+                var hi=hitSite(e);
+                if(hi===null){
+                  $('markinfo').textContent='אין קו מתחת לעכבר. רק גיאומטריה חופשית נמחקת כאן.';
+                  return;
+                }
+                ERA=null; paintErase();
+                sketchup.drop_site_line(JSON.stringify({i:hi}));
+                return;
+              }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
               if(MODE==='dim'){
@@ -1335,7 +1826,18 @@ module InteriorPro
             $('num').value=STATE.sheet_number||'';
             $('title').value=STATE.sheet_title||'';
             $('ownpage').checked = STATE.tables_own_page!==false;
-            siteDone(STATE.site_count||0, null);
+            siteDropped(STATE.site_count||0, STATE.site_dropped||0);
+            showTextScale();
+            // The label that is open for changing is a shape out of the OLD
+            // document, and the one that just came back is a different object
+            // with the same key. Point at the new one, or the blue box would
+            // stay where the label used to be and the next change would be
+            // worked out from a stale size.
+            if(TSEL){
+              var again=null;
+              eachText(function(s){ if(s.key===TSEL.key) again=s; });
+              if(again) TSEL.shape=again; else closeTextBar();
+            }
             if(!STATE.marks) STATE.marks=[];
             if(STATE.strip){
               $('strip').className='on';
@@ -1690,9 +2192,63 @@ module InteriorPro
                    : 'לא נבחר כלום');
           }
 
+          // ---- how big the writing is -------------------------------------
+          //
+          // Ruby owns the sizes. These boxes only say what they are and send a
+          // new number; the picture comes back from the same routine that
+          // writes the PDF, so what he sees is what prints.
+          var TS_FIELDS = { dims:'tsDims', rooms:'tsRooms',
+                            tags:'tsTags', tables:'tsTables' };
+
+          function textScale(){ return STATE.text_scale||(STATE.text_scale={}); }
+
+          function showTextScale(){
+            var ts=textScale(), off=0;
+            for(var k in TS_FIELDS){
+              var v=ts[k]; if(v===undefined||v===null||!(+v>0)) v=100;
+              $(TS_FIELDS[k]).value = +v;
+              if(+v!==100) off++;
+            }
+            // The heading says so when something is not at 100, because the
+            // box is shut most of the time and a shrunken tag three sheets
+            // later is otherwise a mystery.
+            $('texttag').textContent = off ? (off+' שונו') : '';
+            $('tsReset').disabled = !off;
+          }
+
+          function sendTextScale(){
+            var out={};
+            for(var k in TS_FIELDS){
+              var v=parseFloat($(TS_FIELDS[k]).value);
+              if(!isFinite(v)||v<=0) v=100;
+              v=Math.min(400,Math.max(25,v));
+              $(TS_FIELDS[k]).value=v;
+              out[k]=v;
+            }
+            textScale();
+            for(var k2 in out) STATE.text_scale[k2]=out[k2];
+            showTextScale();
+            sketchup.set_text_scale(JSON.stringify(out));
+          }
+
+          function resetTextScale(){
+            for(var k in TS_FIELDS) $(TS_FIELDS[k]).value=100;
+            sendTextScale();
+          }
+
           function siteDone(n, err){
             $('siteinfo').textContent = err ? ('לא נוסף: ' + err)
               : (n ? (n + ' קווים על הדף') : 'אין גיאומטריה חופשית');
+          }
+
+          // After a line is rubbed out, or after they all come back. Says how
+          // many are left AND how many are waiting to be put back, so the
+          // "put them back" button is never a button whose effect is a mystery.
+          function siteDropped(left, dropped){
+            var t = left ? (left + ' קווים על הדף') : 'אין גיאומטריה חופשית';
+            if(dropped) t += '  ·  ' + dropped + ' נמחקו';
+            $('siteinfo').textContent = t;
+            $('undrop').disabled = !dropped;
           }
 
           // Says where it got to, so an empty result is never a mystery.
@@ -1734,7 +2290,39 @@ module InteriorPro
             $('thand').onclick=function(){ setMode('hand'); };
             $('tdim').onclick=function(){ setMode('dim'); };
             $('tnote').onclick=function(){ setMode('note'); };
+            $('terase').onclick=function(){ setMode('erase'); };
             $('tundo').onclick=function(){ undoMark(); };
+            $('undrop').onclick=function(){ sketchup.restore_site_lines(); };
+            for(var tk in TS_FIELDS){
+              // change, not input: typing "1" on the way to "130" would send a
+              // sheet at 25% and a full redraw with it.
+              $(TS_FIELDS[tk]).onchange=function(){ sendTextScale(); };
+            }
+            $('tsReset').onclick=function(){ resetTextScale(); };
+
+            $('txsize').onchange=function(){ sendTextMark(); };
+            $('txsize').onkeydown=function(e){
+              if(e.key==='Enter'){ e.preventDefault(); sendTextMark(); }
+            };
+            $('txbold').onclick=function(){
+              this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              sendTextMark();
+            };
+            $('txitalic').onclick=function(){
+              this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              sendTextMark();
+            };
+            // Back to whatever its group says, rather than back to 100 - the
+            // group is the drawing's own standard and that is what "normal"
+            // means for one label inside it.
+            $('txreset').onclick=function(){
+              if(!TSEL) return;
+              sketchup.set_text_mark(JSON.stringify({key:TSEL.key, clear:true}));
+              closeTextBar();
+            };
+            $('txdone').onclick=function(){ closeTextBar(); };
+            $('txwhat').onmousedown=function(e){ dragTextBar(e); };
+            $('txwhat').title='גרור כדי להזיז את החלונית';
 
             $('stripbtn').onclick=function(){ toggleStrip(); };
             $('logopick').onclick=function(){
@@ -1758,10 +2346,22 @@ module InteriorPro
               var t=(e.target&&e.target.tagName)||'';
               if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return;
               if(e.target && e.target.id==='pages') return;   // the list handles its own keys
+              // The space bar picks the arrow up, the way it does in SketchUp.
+              // Whatever tool he is in, one thump on the widest key on the
+              // keyboard puts him back in select-and-drag - his words, and the
+              // same habit the modelling window gives him.
+              if(e.key===' '||e.code==='Space'||e.key==='Spacebar'){
+                e.preventDefault();
+                closeNote(); closeTextBar();
+                setMode('hand');
+                return;
+              }
               if(e.key==='Delete'||e.key==='Backspace'){
                 if(SEL!==null){ e.preventDefault(); dropMark(); }
               } else if(e.key==='Escape'){
-                PEND=null; HOVER=null; SEL=null; render(); showMarks();
+                PEND=null; HOVER=null; SEL=null; ERA=null;
+                closeTextBar();
+                render(); showMarks();
               }
             });
 
@@ -1771,7 +2371,8 @@ module InteriorPro
               $('notetext').focus();
             };
 
-            function closeNote(){ $('notebar').className=''; PEND=null; EDIT=null; }
+            // One place knows how to shut this bar; see hideNoteBar above.
+            function closeNote(){ hideNoteBar(); }
             function saveNote(){
               var t=$('notetext').value.trim();
               if(EDIT!==null && marks()[EDIT]){

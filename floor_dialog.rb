@@ -33,7 +33,13 @@ module InteriorPro
           'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
           'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
           'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : '',
-          'level'       => fl ? fl.get_attribute('InteriorPro', 'floor_level').to_f : 0,
+          # Shown as an OFFSET from the room's own storey, so "0" always
+          # means "this floor's normal height" on every level (2026-08-17).
+          'level'       => fl ? (InteriorPro::FloorManager.stored_floor_level(
+                                   fl, r.get_attribute('InteriorPro', 'level') || 1
+                                 ) - InteriorPro::FloorManager.level_base_for(
+                                   r.get_attribute('InteriorPro', 'level') || 1
+                                 )).round(3) : 0,
           'drop'        => fl ? (fl.get_attribute('InteriorPro', 'drop_walls') ? true : false) : false
         }
       end
@@ -68,7 +74,13 @@ module InteriorPro
         # commits — split_wall! opens operations of its own.
         sel.each do |rid, cfg|
           next unless cfg['drop_walls'] && !cfg['texture'].to_s.empty?
-          InteriorPro::FloorManager.drop_walls_with_floor!(rid, cfg['level'].to_f)
+          # cfg['level'] is an offset from the storey; set_wall_base! wants a
+          # real height, so add the storey base back on (2026-08-17).
+          room = InteriorPro::FloorManager.find_room(rid)
+          base = InteriorPro::FloorManager.level_base_for(
+            room ? (room.get_attribute('InteriorPro', 'level') || 1) : 1
+          )
+          InteriorPro::FloorManager.drop_walls_with_floor!(rid, base + cfg['level'].to_f)
         end
         show # reopen with fresh state
       end
@@ -224,7 +236,7 @@ module InteriorPro
                   '<label><input type="checkbox" id="pc_' + i + '"' + (r.center ? ' checked' : '') + '> Center</label>' +
                   '</td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
-                  'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height (in); 0 = default, garage e.g. -18" value="' + (r.level || 0) + '"> ' +
+                  'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height in inches, measured from THIS storey. 0 = the storey&#39;s own floor (level 2 = 106&quot;). Garage below the driveway: -18" value="' + (r.level || 0) + '"> ' +
                   '<label title="Split boundary-crossing walls and drop the room-exclusive segments to the floor level; walls shared with another room stay"><input type="checkbox" id="dw_' + i + '"' + (r.drop ? ' checked' : '') + '> Drop walls</label> ' +
                   'Spec <input type="text" id="sp_' + i + '" style="width:130px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
                   'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +

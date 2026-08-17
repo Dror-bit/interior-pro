@@ -312,9 +312,11 @@ module InteriorPro
       own       = st['tables_own_page'] != false
       tables_on = pt.any?(doc) && !hidden.include?(pt::LAYER)
 
+      tbl_zoom = text_pct(st, 'tables') / 100.0
+
       if tables_on && !own
-        pt.place!(p1, doc)
-        shrink_view_for_tables!(p1, doc, hidden)
+        pt.place!(p1, doc, zoom: tbl_zoom)
+        shrink_view_for_tables!(p1, doc, hidden, tbl_zoom)
       end
 
       v = p1.views.first
@@ -334,7 +336,7 @@ module InteriorPro
       if tables_on && own
         last = next_sheet_number(num)
         p2 = doc.add_page('SCHEDULES', size, orient)
-        pt.place!(p2, doc, full: true)
+        pt.place!(p2, doc, full: true, zoom: tbl_zoom)
         pd.build_title_block!(p2, doc, sheet_number: last,
                                        sheet_title: 'SCHEDULES')
         p2.kind = 'schedules'
@@ -354,6 +356,17 @@ module InteriorPro
         pg.ref  = i                 # which picture in the user's list this is
         pg.sheet_number = last
       end
+
+      # LAST, after every page exists.
+      #
+      # doc.pages.clear runs at the top of this method and the pages are built
+      # below it, so a sizing pass at the top would only ever see the canvas -
+      # the title block and the schedules would be named and resized on a set
+      # of pages that is about to be thrown away, and the settings would look
+      # like they did nothing.
+      apply_text_scale!(doc, st)
+      # One label's own settings come after its group's, so they win.
+      apply_text_overrides!(doc, st)
 
       apply_visibility!(doc, hidden)
       doc
@@ -387,6 +400,144 @@ module InteriorPro
     rescue StandardError, NameError => e
       puts "[PlanCanvas] cannot read the dimension text height (#{e.class}), using 5.0"
       5.0
+    end
+
+    # --------------------------------------------------- how big the words are
+    #
+    # (2026-08-17) The user asked to choose the size of the writing on the
+    # sheet. It turns out nothing new has to be measured: every text already
+    # arrives carrying its own height - the Recorder takes it straight off
+    # add_3d_text - and already sits on a NAMED layer, because build sets
+    # rec.layer_name before each group. So the sizes are changed HERE, in one
+    # pass over the finished document, and plan_generator is not touched at
+    # all. The window and the PDF read the same document, so they cannot end
+    # up disagreeing about how big a room name is.
+    #
+    # Sizes are PERCENTAGES, 100 being the drawing as it has always looked.
+    # The user should not have to think in model inches to decide that a tag
+    # is too small.
+    TEXT_GROUPS = {
+      # the numbers on the automatic dimensions AND on the hand-drawn ones,
+      # which are meant to look like the same drawing
+      'dims'  => [LAYERS[:dimensions], MARK_LAYER],
+      # ROOM 2 and its 42 SF
+      'rooms' => [LAYERS[:rooms]],
+      # W101, D103
+      'tags'  => [LAYERS[:doors], LAYERS[:windows]]
+    }.freeze unless const_defined?(:TEXT_GROUPS, false)
+
+    # Small enough to be unreadable and large enough to cover the plan are both
+    # the user's business, but a zero or a minus sign is a typo, not a choice.
+    TEXT_PCT_MIN = 25.0  unless const_defined?(:TEXT_PCT_MIN, false)
+    TEXT_PCT_MAX = 400.0 unless const_defined?(:TEXT_PCT_MAX, false)
+
+    def self.text_pct(st, key)
+      raw = (st['text_scale'] || st[:text_scale] || {})
+      v   = (raw[key] || raw[key.to_sym])
+      return 100.0 if v.nil?
+      v = v.to_f
+      return 100.0 if v <= 0
+      [[v, TEXT_PCT_MIN].max, TEXT_PCT_MAX].min
+    end
+
+    # THE ORIGINAL HEIGHT IS KEPT IN :h0, and every size is worked out from
+    # that, never from the height as it stands.
+    #
+    # layout_pages! runs on every click in the window. Multiplying :h by the
+    # percentage each time would compound: the user types 110 once and then
+    # watches the writing swell every time he touches a control, with no way
+    # back short of closing the window. Deriving from :h0 makes running this
+    # twice the same as running it once.
+    def self.apply_text_scale!(doc, st)
+      want = {}
+      TEXT_GROUPS.each do |key, layers|
+        f = text_pct(st, key) / 100.0
+        layers.each { |name| want[name] = f }
+      end
+      (doc.canvases + doc.pages).each do |holder|
+        holder.layers.each do |lay|
+          name_texts!(lay)
+          f = want[lay.name]
+          next unless f
+          lay.shapes.each do |s|
+            next unless s[:type] == :text
+            s[:h0] = s[:h].to_f unless s.key?(:h0)
+            s[:h]  = s[:h0] * f
+          end
+        end
+      end
+      doc
+    end
+
+    # ------------------------------------------------- a name for every text
+    #
+    # (2026-08-17) The user wants to double-click ONE label and change it -
+    # bigger, bold, later a colour. That needs the override to find its way
+    # back to the same label after the sheet is redrawn, and the automatic
+    # labels are thrown away and rebuilt from the model every single time.
+    # Without a name there is nothing to hang the choice on: he formats W101,
+    # presses "read the model again", and it comes back plain.
+    #
+    # THE NAME IS layer | the words | which one, counting from the top of the
+    # layer among labels with the SAME words.
+    #
+    # This was chosen because it costs plan_generator nothing. The alternative
+    # was to thread an id down through every draw_ method, and this file's
+    # whole design is that the generator does not know the sheet exists.
+    #
+    # WHAT IT CANNOT DO, said out loud rather than discovered later:
+    #   - Rename a room and its label is a new label; the formatting stays
+    #     behind on a name nothing answers to any more.
+    #   - Two dimensions that read the same, say two walls both 12'-0", are
+    #     told apart only by their order down the layer. Add a wall between
+    #     them and the formatting swaps.
+    # Both are recoverable in one click - format it again - and neither can
+    # lose anything but the formatting itself. A sturdier name means teaching
+    # the generator about ids, and that is a bigger change than this earns.
+    def self.text_key(layer_name, text, nth)
+      "#{layer_name}|#{text}|#{nth}"
+    end
+
+    def self.name_texts!(lay)
+      seen = Hash.new(0)
+      lay.shapes.each do |s|
+        next unless s[:type] == :text
+        t = s[:text].to_s
+        seen[t] += 1
+        s[:key] = text_key(lay.name, t, seen[t])
+      end
+      lay
+    end
+
+    # One label's own settings, which beat whatever its group says.
+    #
+    #   st['text_marks'] = { "ROOMS|ROOM 2|1" => { 'pct' => 150, 'bold' => true } }
+    #
+    # 'pct' is a percentage of that label's ORIGINAL height, exactly like the
+    # group numbers, so the two cannot drift into different units. An override
+    # REPLACES its group's percentage rather than multiplying with it: the user
+    # who typed 150 on this label means 150, not 150 of whatever the group
+    # happened to be set to that day.
+    def self.apply_text_overrides!(doc, st)
+      marks = st['text_marks'] || st[:text_marks]
+      return doc unless marks.is_a?(Hash) && !marks.empty?
+      (doc.canvases + doc.pages).each do |holder|
+        holder.layers.each do |lay|
+          lay.shapes.each do |s|
+            next unless s[:type] == :text
+            o = marks[s[:key]]
+            next unless o.is_a?(Hash)
+            s[:h0] = s[:h].to_f unless s.key?(:h0)
+            pct = (o['pct'] || o[:pct]).to_f
+            s[:h] = s[:h0] * ([[pct, TEXT_PCT_MIN].max, TEXT_PCT_MAX].min / 100.0) if pct > 0
+            b = o.key?('bold')   ? o['bold']   : o[:bold]
+            i = o.key?('italic') ? o['italic'] : o[:italic]
+            s[:bold]   = !!b unless b.nil?
+            s[:italic] = !!i unless i.nil?
+          end
+        end
+      end
+      doc
     end
 
     def self.apply_marks!(doc, st)
@@ -563,12 +714,13 @@ module InteriorPro
     end
 
     # The tables live on the right, so the plan window stops short of them.
-    def self.shrink_view_for_tables!(page, doc, hidden = [])
+    def self.shrink_view_for_tables!(page, doc, hidden = [], zoom = 1.0)
       v = page.views.first
       return unless v
       fx, _fy, fw, _fh = page.frame
       pad = 0.25
-      right = fx + fw - pad - InteriorPro::PlanTables.reserved_width(doc, hidden)
+      right = fx + fw - pad -
+              InteriorPro::PlanTables.reserved_width(doc, hidden, zoom)
       v.w = [right - v.x, 1.0].max
     end
 

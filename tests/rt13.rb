@@ -105,9 +105,10 @@ ok('level-2 floor carries level=2', f2 && f2.get_attribute('InteriorPro', 'level
 z_top = f2 && f2.entities.grep(Sketchup::Face).first
 ok('level-2 floor face sits at z=106', z_top && (z_top.pts.first.z - 106.0).abs < 0.01,
    z_top && z_top.pts.first.z)
-# an explicit floor_level always wins over the default
-f2b = FM.build_floor_for_room!(lv2, level: 100.0)
-ok('explicit floor level wins', f2b && f2b.get_attribute('InteriorPro', 'floor_level').to_f == 100.0,
+# The `level:` argument is an OFFSET from the room's own storey (2026-08-17):
+# a level-2 room dropped 18" lands at 106 - 18, not at -18.
+f2b = FM.build_floor_for_room!(lv2, level: -18.0)
+ok('level: is an offset from the storey', f2b && f2b.get_attribute('InteriorPro', 'floor_level').to_f == 88.0,
    f2b && f2b.get_attribute('InteriorPro', 'floor_level'))
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
