@@ -425,9 +425,23 @@ module InteriorPro
         return nil if cands.empty?
         post_def, posts = cands.max_by { |_d, l| l.first[1][1][2] - l.first[1][0][2] }
         posts = posts.sort_by { |(_k, b)| b[0][run_axis] }
-        return nil if posts.length < 2
 
         centre = ->(b) { (b[0][run_axis] + b[1][run_axis]) / 2.0 }
+
+        # DUPLICATE POSTS (2026-08-17, his vinyl fence). That file had two
+        # copies of the same post standing in exactly the same place at x=0.
+        # Left in, the first bay measured 0" wide, parts mode bailed out, and
+        # the whole 198" model became the unit instead of one 96" bay. Two
+        # posts closer than an inch are the SAME post: keep one, drop the rest.
+        kept = []
+        posts.each do |p|
+          last = kept.last
+          next if last && (centre.call(p[1]) - centre.call(last[1])).abs < 1.0
+          kept << p
+        end
+        posts = kept
+        return nil if posts.length < 2
+
         c0 = centre.call(posts[0][1])
         c1 = centre.call(posts[1][1])
         pitch = c1 - c0
@@ -543,6 +557,15 @@ module InteriorPro
       USE_CUT       = false unless const_defined?(:USE_CUT, false)
       SMALL_STRETCH = 0.06  unless const_defined?(:SMALL_STRETCH, false)
 
+      # HIS RULE (2026-08-17): post to post is 8 feet AT MOST. That is a
+      # building rule, not a preference - a bay wider than 96" is wrong even
+      # if it looks fine. So a unit is NEVER stretched past its true size.
+      # The count is rounded UP and every bay is squeezed by the same amount
+      # instead; he chose equal bays over "full bays plus a short last one".
+      # MAX_STRETCH therefore no longer applies on this path.
+      # NEVER_STRETCH = false brings back the old round-to-nearest.
+      NEVER_STRETCH = true unless const_defined?(:NEVER_STRETCH, false)
+
       def layout_for(length)
         return nil unless @shape
         ua = @shape[:unit_along].to_f
@@ -554,9 +577,16 @@ module InteriorPro
 
         # A stretch nobody would notice: keep it, no seam.
         if !USE_CUT || (s - 1.0).abs <= SMALL_STRETCH
-          # Prefer one more unit slightly squeezed over one fewer badly
-          # stretched - a fence with too few posts reads wrong at once.
-          if s > MAX_STRETCH
+          if NEVER_STRETCH
+            # Round UP, always. The tiny epsilon keeps an exact multiple from
+            # becoming one bay too many on floating-point noise: 3 * 78.688
+            # divides to 3.0000000000000004, and ceil would make that 4.
+            n = ((length / ua) - 1e-9).ceil
+            n = 1 if n < 1
+            s = length / (n * ua)
+          elsif s > MAX_STRETCH
+            # Prefer one more unit slightly squeezed over one fewer badly
+            # stretched - a fence with too few posts reads wrong at once.
             n += 1
             s = length / (n * ua)
           elsif s < MIN_STRETCH && n > 1
@@ -574,6 +604,13 @@ module InteriorPro
         # of a unit, stretch the whole ones instead of adding a stub.
         if rest < ua * 0.25 && whole >= 1
           s = length / (whole * ua)
+          # ...but the 8-foot rule beats "avoid a sliver". Stretching the whole
+          # units here is exactly how a 102" run over a 96" unit came out as
+          # ONE 102" bay (caught by rt63, 2026-08-17). Add a bay instead.
+          if NEVER_STRETCH && s > 1.0
+            whole += 1
+            s = length / (whole * ua)
+          end
           return { n: whole, stretch: s, unit: ua, pitch: ua * s, length: length,
                    whole: whole, cut: 0.0 }
         end

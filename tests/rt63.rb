@@ -127,40 +127,68 @@ ok('a missing file reads as nil, not a crash', bad.send(:read_shape!).nil?)
 # ON here to keep the code honest, and OFF again at the end.
 def cut!(on); FRT.send(:remove_const, :USE_CUT); FRT.const_set(:USE_CUT, on); end
 ok('CUT ships OFF', FRT::USE_CUT == false)
-cut!(true)
 
 t = fresh(:y)
 t.instance_variable_set(:@shape, t.send(:read_shape!))
+
+# HIS RULE (2026-08-17): post to post is 8 feet AT MOST, so a unit is NEVER
+# stretched past its true size. The count rounds UP and the bays are squeezed
+# equally - he chose equal bays over "full bays plus a short last one".
+# These run with CUT off, which is how it ships.
+cut!(false)
 lay = t.send(:layout_for, 3 * UNIT_ALONG)
 ok('exactly three pitches -> three units, no stretch', lay[:n] == 3 && close(lay[:stretch], 1.0), lay)
 lay = t.send(:layout_for, 240.0)
-ok("240\" -> three units", lay[:n] == 3, lay)
-ok('a small stretch (1.7%) is kept - no seam for something nobody would see',
-   lay[:cut] == 0.0 && close(lay[:n] * lay[:pitch], 240.0), lay)
-ok('and the stretch is small', (lay[:stretch] - 1.0).abs < 0.05, lay[:stretch])
+ok("240\" -> FOUR units, not three: three would be 80\" bays on a 78.7\" unit",
+   lay[:n] == 4, lay)
+ok('the four units fill the length exactly', lay[:cut] == 0.0 && close(lay[:n] * lay[:pitch], 240.0), lay)
+ok('and they are SQUEEZED, never stretched', lay[:stretch] < 1.0, lay[:stretch])
+ok('so the bay came out under the unit pitch', lay[:pitch] < UNIT_ALONG, lay[:pitch])
 lay = t.send(:layout_for, 400.0)
-ok("400\" -> five whole units + a cut stub (400 = 5x78.7 + 6.6 ... no: 5 whole = 393.4, rest 6.6 < quarter -> stretch)",
-   lay[:n] == 5 && lay[:cut] == 0.0, lay)
-# The whole point of cut mode (2026-08-17): a length that would need a big
-# stretch gets whole units at TRUE size and one unit sliced.
+ok("400\" -> six units (five would stretch the bay to 80\")", lay[:n] == 6 && lay[:cut] == 0.0, lay)
+ok('400 squeezed, not stretched', lay[:stretch] < 1.0, lay[:stretch])
 lay = t.send(:layout_for, 300.0)
-ok("300\" -> 4 units squeezed 4.7% - still under the small-stretch line, no seam",
+ok("300\" -> 4 units squeezed 4.7%",
    lay[:n] == 4 && lay[:cut] == 0.0 && (lay[:stretch] - 0.953).abs < 0.01, lay)
 lay = t.send(:layout_for, 200.0)
-ok("200\" -> would need 15%: instead 2 whole units at TRUE size + one stub cut at 42.6",
-   lay[:whole] == 2 && close(lay[:stretch], 1.0) && close(lay[:cut], 200.0 - 2 * UNIT_ALONG, 1e-6), lay)
-ok('the stub is counted in n', lay[:n] == 3, lay[:n])
+ok("200\" -> 3 units squeezed, none over the unit pitch",
+   lay[:n] == 3 && lay[:stretch] < 1.0 && close(lay[:n] * lay[:pitch], 200.0), lay)
 lay = t.send(:layout_for, 30.0)
-ok('shorter than one unit -> no whole units, one stub cut at 30', lay[:whole] == 0 && close(lay[:cut], 30.0), lay)
+ok('shorter than one unit -> one squeezed unit, not one stretched one',
+   lay[:n] == 1 && close(lay[:pitch], 30.0), lay)
 ok('a mis-click is refused', t.send(:layout_for, 0.4).nil?)
-# The old behaviour, one line away.
+
+# THE RULE ITSELF, swept: whatever the length, a bay never exceeds the unit.
+# On his vinyl the unit IS 96" = 8 feet, so this sweep IS the 8-foot rule.
+overs = (5..600).step(1).map { |l| t.send(:layout_for, l.to_f) }
+                .compact.select { |x| x[:pitch] > UNIT_ALONG + 1e-9 }
+ok('CUT off: no length from 5" to 600" makes a bay wider than the unit',
+   overs.empty?, overs.first(3))
+
+# The old round-to-nearest behaviour, one line away.
 begin
-  cut!(false)
-  lay = t.send(:layout_for, 200.0)
-  ok('USE_CUT = false: back to whole units, stretched 15%', lay[:cut] == 0.0 && lay[:n] == 3 && (lay[:stretch] - 0.847).abs < 0.01, lay)
+  FRT.send(:remove_const, :NEVER_STRETCH); FRT.const_set(:NEVER_STRETCH, false)
+  lay = t.send(:layout_for, 240.0)
+  ok('NEVER_STRETCH = false: back to three units stretched 1.7%',
+     lay[:n] == 3 && (lay[:stretch] - 1.017).abs < 0.01, lay)
 ensure
-  cut!(true)
+  FRT.send(:remove_const, :NEVER_STRETCH); FRT.const_set(:NEVER_STRETCH, true)
 end
+
+# CUT mode's own maths, with the switch held on for the rest of the suite.
+cut!(true)
+lay = t.send(:layout_for, 200.0)
+ok("cut on: 200\" -> 2 whole units at TRUE size + one stub cut at 42.6",
+   lay[:whole] == 2 && close(lay[:stretch], 1.0) && close(lay[:cut], 200.0 - 2 * UNIT_ALONG, 1e-6), lay)
+ok('cut on: the stub is counted in n', lay[:n] == 3, lay[:n])
+lay = t.send(:layout_for, 30.0)
+ok('cut on: shorter than one unit -> no whole units, one stub cut at 30',
+   lay[:whole] == 0 && close(lay[:cut], 30.0), lay)
+# 8 feet still wins over "avoid a sliver": a 102" run on a 96" unit must not
+# come out as ONE 102" bay just because the remainder was small.
+overs = (5..600).step(1).map { |l| t.send(:layout_for, l.to_f) }
+                .compact.select { |x| x[:cut] == 0.0 && x[:pitch] > UNIT_ALONG + 1e-9 }
+ok('cut on: a whole-unit fallback still never stretches a bay', overs.empty?, overs.first(3))
 
 # ------------------------------------------------------------ building it
 
@@ -178,9 +206,9 @@ ok('the axis magnet was called', $magnet_calls == 1, $magnet_calls)
 inst = instances(g)
 units   = inst.select { |i| i.definition.name == 'Component#2' }
 closers = inst.select { |i| i.definition.name == 'Component#38' }
-ok('three units were placed', units.length == 3, units.length)
+ok('FOUR units were placed - 240 over a 78.7 unit rounds UP', units.length == 4, units.length)
 ok('one closer was placed', closers.length == 1, closers.length)
-ok('and NOTHING else - no geometry of our own', inst.length == 4 && g.entities.grep(Sketchup::Face).empty?,
+ok('and NOTHING else - no geometry of our own', inst.length == 5 && g.entities.grep(Sketchup::Face).empty?,
    [inst.length, g.entities.grep(Sketchup::Face).length])
 ok('every unit is an instance of HIS definition, the very same object',
    units.all? { |i| i.definition.equal?(t.instance_variable_get(:@shape)[:pieces][0][0]) })
@@ -189,8 +217,9 @@ ok('every unit is an instance of HIS definition, the very same object',
 origins = units.map { |i| Geom::Point3d.new(0, 0, 0).transform(i.transformation) }
 xs = origins.map(&:x).sort
 ok('the first unit starts at the first click', close(xs[0], 0.0, 1e-6), xs)
-ok('the units are spaced one stretched pitch apart',
-   close(xs[1] - xs[0], 240.0 / 3.0, 1e-6) && close(xs[2] - xs[1], 240.0 / 3.0, 1e-6), xs)
+ok('the units are spaced one squeezed pitch apart, all equal',
+   xs.each_cons(2).all? { |a, b| close(b - a, 240.0 / 4.0, 1e-6) }, xs)
+ok('and that pitch is UNDER the unit - no bay grew', 240.0 / 4.0 < UNIT_ALONG)
 ok('the units sit ON the fence line (y = 0 within a post half-width)',
    origins.all? { |o| o.y.abs < 3.0 }, origins.map(&:y))
 ok('the units sit on the ground', origins.all? { |o| close(o.z, 0.0) }, origins.map(&:z))
@@ -207,12 +236,12 @@ ok('the closer stands at the end of the fence', close(c0.x, 240.0, 1e-6), c0.x)
 ok('the closer is NOT stretched',
    close(Geom::Point3d.new(0, POST_W, 0).transform(c.transformation).x - c0.x, POST_W, 1e-6))
 
-# The unit IS stretched, along the run only: its post is a touch wider.
+# The unit is SQUEEZED, along the run only: its post is a touch narrower.
 u0 = units.min_by { |i| Geom::Point3d.new(0, 0, 0).transform(i.transformation).x }
 pw = Geom::Point3d.new(0, POST_W, 0).transform(u0.transformation).x -
      Geom::Point3d.new(0, 0, 0).transform(u0.transformation).x
-ok('the unit post is stretched by the same factor as the bay',
-   close(pw, POST_W * (240.0 / (3 * UNIT_ALONG)), 1e-6), [pw, POST_W * (240.0 / (3 * UNIT_ALONG))])
+ok('the unit post is squeezed by the same factor as the bay',
+   close(pw, POST_W * (240.0 / (4 * UNIT_ALONG)), 1e-6), [pw, POST_W * (240.0 / (4 * UNIT_ALONG))])
 across = Geom::Point3d.new(POST_W, 0, 0).transform(u0.transformation).y -
          Geom::Point3d.new(0, 0, 0).transform(u0.transformation).y
 ok('but NOT across - the fence is exactly as thick as he made it', close(across.abs, POST_W, 1e-6), across)
@@ -225,7 +254,7 @@ sh = t.instance_variable_get(:@shape)
 ok('an X-running model is read as X', sh[:run_axis] == 0)
 xs = instances(g).select { |i| i.definition.name == 'Component#2' }
                  .map { |i| Geom::Point3d.new(0, 0, 0).transform(i.transformation).x }.sort
-ok('an X-running model lays out identically', xs.length == 3 && close(xs[0], 0.0) && close(xs[1], 80.0), xs)
+ok('an X-running model lays out identically', xs.length == 4 && close(xs[0], 0.0) && close(xs[1], 60.0), xs)
 
 # ---------------------------------------------------- along a diagonal
 
@@ -402,6 +431,89 @@ cx = Geom::Point3d.new(0, 0, 0).transform(closer.transformation).x
 ok('cut: the closer stands at the very end, 200', close(cx, 200.0, 1e-6), cx)
 ok('cut: his unit definition still has its own faces - the explode was on a copy, not on his library',
    t.instance_variable_get(:@shape)[:pieces][0][0].entities.grep(Sketchup::ComponentInstance).length == 2)
+
+# ------------------------------------- HIS VINYL FENCE: duplicate posts
+#
+# Measured from his file by debug_fence_parts.rb (2026-08-17):
+#   198" long, 60" tall, posts 6 x 5.969 x 60 of one definition at
+#   x = -3.001, -3.001, 92.999, 188.999   <-- the first TWO are the same post,
+#   modelled twice in exactly the same place. The reader took the first two
+#   post centres as bay 1, measured 0" of span, gave up on parts mode and made
+#   the whole 198" model the unit. He saw two posts stuck together.
+#   Each bay also has a bottom rail, a top rail and a 22-picket assembly, and
+#   there is one stray picket sitting inside the first post.
+def his_vinyl_fence
+  fence   = Sketchup::ComponentDefinition.new('Vinyl fance')
+  post    = box_def('post#3',  -3.001, -2.988, 0.0, 2.999, 2.988, 60.0)
+  rail_lo = box_def('Group957', 2.499, -0.75, 2.000,  93.499, 0.75,  6.980)
+  rail_hi = box_def('Group963', 2.499, -0.75, 51.020, 93.499, 0.75, 56.000)
+  # The second bay's rails and pickets are their own definitions in his file.
+  rail_lo2 = box_def('Group960', 98.499, -0.75, 2.000,  189.499, 0.75,  6.980)
+  rail_hi2 = box_def('Group966', 98.499, -0.75, 51.020, 189.499, 0.75, 56.000)
+  pickets  = box_def('New Assembly#3', 2.5,  -0.375, 6.75, 98.0,  0.375, 51.187)
+  pickets2 = box_def('New Assembly#4', 98.5, -0.375, 6.75, 194.0, 0.375, 51.187)
+  stray    = box_def('1', 0.0, -0.375, 0.0, 4.0, 0.375, 44.437)
+  id = Geom::Transformation.new
+  # The post, twice in the same place, then at 96 and at 192.
+  fence.entities.add_instance(post, id)
+  fence.entities.add_instance(post, id)
+  fence.entities.add_instance(post, Geom::Transformation.translation(Geom::Vector3d.new(96.0, 0, 0)))
+  fence.entities.add_instance(post, Geom::Transformation.translation(Geom::Vector3d.new(192.0, 0, 0)))
+  [rail_lo, rail_hi, rail_lo2, rail_hi2, pickets, pickets2, stray].each do |d|
+    fence.entities.add_instance(d, id)
+  end
+  fence
+end
+
+Sketchup.reset_model!
+$magnet_calls = 0
+vpath = File.join(REFDIR, 'Vinyl fance.skp')
+File.write(vpath, '')
+Sketchup.active_model.definitions.register!(vpath, his_vinyl_fence)
+t = FRT.new(vpath)
+sh = t.send(:read_shape!)
+ok('vinyl: it was read', !sh.nil?)
+ok('vinyl: PARTS mode - the duplicate post no longer forces whole mode',
+   sh[:mode] == :parts, sh[:mode])
+ok('vinyl: the bay is 96" = 8 feet, not 0 and not the whole 198" model',
+   close(sh[:unit_along], 96.0, 1e-6), sh[:unit_along])
+ok('vinyl: two bays counted in his model, not three (the duplicate was dropped)',
+   sh[:unit_count_in_model] == 2, sh[:unit_count_in_model])
+ok('vinyl: the post leads the unit', sh[:pieces][0][0].name == 'post#3', sh[:pieces][0][0].name)
+ok('vinyl: the unit is post + two rails + pickets + the stray picket',
+   sh[:pieces].map { |(d, _t)| d.name }.sort ==
+     ['1', 'Group957', 'Group963', 'New Assembly#3', 'post#3'],
+   sh[:pieces].map { |(d, _t)| d.name })
+ok('vinyl: the SECOND bay\'s parts are not in the unit',
+   sh[:pieces].none? { |(d, _t)| %w[Group960 Group966 New\ Assembly#4].include?(d.name) })
+ok('vinyl: the closer is a post', sh[:closer_pieces][0][0].name == 'post#3')
+ok('vinyl: 60" tall', close(sh[:height], 60.0, 1e-6), sh[:height])
+
+# The 8-foot rule on his real numbers: no click, however awkward, may put two
+# posts more than 96" apart.
+t.instance_variable_set(:@shape, sh)
+bad = (10..1200).step(1).map { |l| t.send(:layout_for, l.to_f) }
+                .compact.select { |x| x[:pitch] > 96.0 + 1e-9 }
+ok('vinyl: NO fence length from 10" to 100ft puts posts more than 8 feet apart',
+   bad.empty?, bad.first(3))
+
+lay = t.send(:layout_for, 300.0)
+ok('vinyl: a 300" fence gets 4 bays of 75", not 3 of 100"',
+   lay[:n] == 4 && close(lay[:pitch], 75.0, 1e-6), lay)
+
+g = build(t, 0, 0, 300, 0)
+ok('vinyl: a fence was built', !g.nil?)
+vp = instances(g).select { |i| i.definition.name == 'post#3' }
+pxs = vp.map { |i| Geom::Point3d.new(0, 0, 0).transform(i.transformation).x }.sort
+ok('vinyl: 4 bays -> 4 posts + 1 closer', vp.length == 5, vp.length)
+ok('vinyl: the four bays are 75" each',
+   pxs.first(4).each_cons(2).all? { |a, b| close(b - a, 75.0, 1e-6) }, pxs.map { |x| x.round(2) })
+# The closer is deliberately NOT stretched, so its gap is a hair wider than a
+# bay - by the amount the unit's leading post was squeezed. Still under 8ft.
+ok('vinyl: no gap anywhere reaches 8 feet',
+   pxs.each_cons(2).all? { |a, b| (b - a) < 96.0 }, pxs.map { |x| x.round(2) })
+ok('vinyl: no two posts landed on top of each other',
+   pxs.each_cons(2).all? { |a, b| (b - a) > 1.0 }, pxs.map { |x| x.round(2) })
 
 # ------------------------------------------------------- one undo step
 
