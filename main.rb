@@ -59,6 +59,9 @@ module InteriorPro
       plan_editor.rb
       landscape/fence_math.rb
       landscape/fence_tool.rb
+      landscape/fence_library.rb
+      landscape/fence_library_dialog.rb
+      landscape/fence_ref_tool.rb
       toolbar.rb
     ]
   end

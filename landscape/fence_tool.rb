@@ -48,12 +48,22 @@ module InteriorPro
       GHOST = [120, 120, 120].freeze unless const_defined?(:GHOST, false)
       DOT   = [40, 90, 200].freeze   unless const_defined?(:DOT, false)
 
-      WOOD_MATERIAL = 'LandscapePro_Fence_Wood' unless const_defined?(:WOOD_MATERIAL, false)
-      DEFAULT_COLOR = '#A1887F' unless const_defined?(:DEFAULT_COLOR, false)
+      WOOD_MATERIAL  = 'LandscapePro_Fence_Wood' unless const_defined?(:WOOD_MATERIAL, false)
+      GLASS_MATERIAL = 'LandscapePro_Fence_Glass' unless const_defined?(:GLASS_MATERIAL, false)
+      DEFAULT_COLOR  = '#A1887F' unless const_defined?(:DEFAULT_COLOR, false)
+      GLASS_COLOR    = '#BBDEFB' unless const_defined?(:GLASS_COLOR, false)
+      GLASS_ALPHA    = 0.35 unless const_defined?(:GLASS_ALPHA, false)
 
       attr_accessor :height, :max_spacing, :post_size, :board_width,
                     :board_gap, :board_thickness, :ground_start, :ground_end,
-                    :mode, :embed, :gap_below, :color
+                    :mode, :embed, :gap_below, :color,
+                    # The anatomy, added 2026-08-16 after measuring six real
+                    # fences the user had built elsewhere. Every one of these
+                    # defaults to OFF, so a tool made with no library type
+                    # behind it builds precisely the fence this file built
+                    # yesterday - which is what keeps rt57 honest.
+                    :infill, :rail_count, :rail_height, :rail_thickness,
+                    :rail_bottom_z, :post_extra, :cap_size, :cap_height
 
       def initialize
         @height          = InteriorPro::Landscape::FenceMath::DEFAULT_HEIGHT
@@ -68,11 +78,36 @@ module InteriorPro
         @embed           = 0.0
         @gap_below       = 0.0
         @color           = DEFAULT_COLOR
+
+        @infill          = 'boards'
+        @rail_count      = 0
+        @rail_height     = InteriorPro::Landscape::FenceMath::DEFAULT_RAIL_HEIGHT
+        @rail_thickness  = InteriorPro::Landscape::FenceMath::DEFAULT_RAIL_THICKNESS
+        @rail_bottom_z   = 0.0
+        @post_extra      = 0.0
+        @cap_size        = 0.0
+        @cap_height      = 0.0
         reset
       end
 
       def fm
         InteriorPro::Landscape::FenceMath
+      end
+
+      # Everything fence_math needs to know about this fence, in ONE place.
+      # Nothing else in this file may assemble an options hash: when a new
+      # number has to reach the maths it gets wired in here once, and every
+      # caller picks it up for free.
+      def build_opts
+        { height: @height, max_spacing: @max_spacing,
+          z0: @ground_start, z1: @ground_end,
+          mode: @mode, embed: @embed, gap_below: @gap_below,
+          infill: @infill.to_s,
+          board_width: @board_width, board_gap: @board_gap,
+          post_size: @post_size,
+          rail_count: @rail_count, rail_height: @rail_height,
+          rail_bottom_z: @rail_bottom_z, post_extra: @post_extra,
+          cap_size: @cap_size, cap_height: @cap_height }
       end
 
       # ------------------------------------------------------------ settings
@@ -270,10 +305,7 @@ module InteriorPro
       end
 
       def layout_for(a, b)
-        fm.layout(a.x, a.y, b.x, b.y,
-                  height: @height, max_spacing: @max_spacing,
-                  z0: @ground_start, z1: @ground_end,
-                  mode: @mode, embed: @embed, gap_below: @gap_below)
+        fm.layout(a.x, a.y, b.x, b.y, build_opts)
       end
 
       # ------------------------------------------------------------ building
@@ -349,6 +381,16 @@ module InteriorPro
         group.set_attribute(DICT, 'gap_below', @gap_below.to_f)
         group.set_attribute(DICT, 'slope_mode', @mode.to_s)
         group.set_attribute(DICT, 'color', @color.to_s)
+        # The anatomy (2026-08-16). Stored even when it is off, so a fence
+        # built today can still be told apart from one built yesterday.
+        group.set_attribute(DICT, 'infill', @infill.to_s)
+        group.set_attribute(DICT, 'rail_count', @rail_count.to_i)
+        group.set_attribute(DICT, 'rail_height', @rail_height.to_f)
+        group.set_attribute(DICT, 'rail_thickness', @rail_thickness.to_f)
+        group.set_attribute(DICT, 'rail_bottom_z', @rail_bottom_z.to_f)
+        group.set_attribute(DICT, 'post_extra', @post_extra.to_f)
+        group.set_attribute(DICT, 'cap_size', @cap_size.to_f)
+        group.set_attribute(DICT, 'cap_height', @cap_height.to_f)
         group.set_attribute(DICT, 'length_in', lay[:length])
         group.set_attribute(DICT, 'bays', lay[:bays].length)
         group.set_attribute(DICT, 'posts', lay[:posts].length)
@@ -361,6 +403,7 @@ module InteriorPro
         mat  = wood_material(model)
 
         u, n = axes(a, b)
+        @axes = [u, n]
 
         lay[:posts].each { |p| build_post(ents, p, u, n, mat) }
         lay[:bays].each  { |bay| build_bay(ents, bay, a, b, u, n, mat) }
@@ -378,62 +421,119 @@ module InteriorPro
         [u, n]
       end
 
-      def build_post(ents, p, u, n, mat)
-        h = p[:z_top].to_f - p[:z_base].to_f
-        return if h <= 0.0
-        s = @post_size.to_f / 2.0
-        return if s <= 0.0
-        c = Geom::Point3d.new(p[:x], p[:y], p[:z_base])
+      # EVERY part gets its own little group (2026-08-16).
+      #
+      # Before this, the whole fence was loose faces in one bag. Two boards
+      # that touched became one welded solid, and a glass panel touching its
+      # rail would drag the rail's colour with it, because paint! walks
+      # all_connected. Nesting stops both, and it is also how the six real
+      # fences that were measured are put together: post, rail and picket are
+      # each their own object.
+      def solid!(ents, name, pts, dir, amount, mat)
+        amount = amount.to_f
+        return nil if amount <= 0.0
+        grp = ents.add_group
+        grp.name = name
+        face = grp.entities.add_face(pts)
+        return nil unless face
+        # Push whichever way the face happens to have been born facing.
+        face.pushpull(face.normal.dot(dir) >= 0 ? amount : -amount)
+        paint!(face, mat)
+        grp
+      rescue StandardError => e
+        puts "[Fence] #{name}: #{e.message}"
+        nil
+      end
+
+      # An upright square shaft: post or cap. Both are the same box, so both
+      # come out of one place.
+      def build_shaft(ents, name, x, y, z0, z1, size, mat)
+        h = z1.to_f - z0.to_f
+        s = size.to_f / 2.0
+        return if h <= 0.0 || s <= 0.0
+        u, n = @axes
+        c = Geom::Point3d.new(x, y, z0)
         pts = [
           c.offset(u, -s).offset(n, -s),
           c.offset(u,  s).offset(n, -s),
           c.offset(u,  s).offset(n,  s),
           c.offset(u, -s).offset(n,  s)
         ]
-        face = ents.add_face(pts)
-        return unless face
-        # Push UP whichever way the face happens to have been born facing.
-        face.pushpull(face.normal.z >= 0 ? h : -h)
-        paint!(face, mat)
+        solid!(ents, name, pts, Geom::Vector3d.new(0, 0, 1), h, mat)
+      end
+
+      # The post, and its cap if the type has one. Both sizes come from
+      # fence_math, so the cap can never end up floating or buried.
+      def build_post(ents, p, u, n, mat)
+        opts  = build_opts
+        shaft = fm.post_shaft(p, opts)
+        build_shaft(ents, 'Post', p[:x], p[:y], shaft[:z0], shaft[:z1],
+                    @post_size, mat) if shaft
+        cap = fm.post_cap(p, opts)
+        return unless cap
+        build_shaft(ents, 'Post Cap', cap[:x], cap[:y], cap[:z0], cap[:z1],
+                    cap[:size], mat)
       rescue StandardError => e
         puts "[Fence] post #{p[:i]}: #{e.message}"
       end
 
-      # One bay = its boards. Each board is a flat slab standing on edge, its
-      # top taken from fence_math - so on a raked bay every board is a hair
-      # shorter than the one before it, and on a stepped bay they are all
-      # equal, without this code knowing which case it is in.
+      # One bay: its rails first, then whatever fills the space they left.
+      # Neither list is worked out here - fence_math hands both of them over
+      # already measured, which is why a raked bay needs no special case.
       def build_bay(ents, bay, a, b, u, n, mat)
-        runs = fm.board_runs(bay, @board_width, @board_gap, @post_size)
+        opts = build_opts
+
+        fm.bay_rails(bay, opts).each do |r|
+          plank!(ents, "Rail #{r[:kind]}", bay, a, b, n, r,
+                 @rail_thickness, mat)
+        end
+
         th = @board_thickness.to_f
         return if th <= 0.0
-        runs.each do |(t0, t1)|
-          build_board(ents, bay, a, b, u, n, t0, t1, th, mat)
+        # Through fm.infill_kind, so the tool cannot drift from the maths on
+        # what an infill name means - the first version of this line said
+        # 'bars' after fence_math had already renamed it 'spaced', and every
+        # iron fence came out labelled as boards.
+        kind  = fm.infill_kind(@infill)
+        imat  = kind == 'glass' ? glass_material(Sketchup.active_model) : mat
+        name  = case kind
+                when 'glass'      then 'Glass'
+                when 'spaced'     then 'Baluster'
+                when 'horizontal' then 'Slat'
+                else 'Board'
+                end
+        fm.bay_infill(bay, opts).each do |piece|
+          plank!(ents, name, bay, a, b, n, piece, th, imat)
         end
+      rescue StandardError => e
+        puts "[Fence] bay #{bay[:i]}: #{e.message}"
       end
 
-      def build_board(ents, bay, a, b, u, n, t0, t1, th, mat)
+      # One flat slab standing on edge: a board, a baluster, a slat, a rail or
+      # a sheet of glass. It reads its four corners straight off the piece, so
+      # on a raked bay every one of them is a hair different from the last and
+      # this code never learns what a slope is.
+      def plank!(ents, name, _bay, a, b, n, piece, th, mat)
+        t0 = piece[:t0].to_f
+        t1 = piece[:t1].to_f
         x0, y0 = fm.point_at(a.x, a.y, b.x, b.y, t0)
         x1, y1 = fm.point_at(a.x, a.y, b.x, b.y, t1)
-        zb0 = fm.bottom_at(bay, t0)
-        zb1 = fm.bottom_at(bay, t1)
-        zt0 = fm.top_at(bay, t0)
-        zt1 = fm.top_at(bay, t1)
+        zb0 = piece[:z0].to_f
+        zt0 = piece[:z0_top].to_f
+        zb1 = piece[:z1].to_f
+        zt1 = piece[:z1_top].to_f
         return if zt0 - zb0 <= 0.0 || zt1 - zb1 <= 0.0
 
-        half = th / 2.0
+        half = th.to_f / 2.0
         pts = [
           Geom::Point3d.new(x0, y0, zb0).offset(n, -half),
           Geom::Point3d.new(x1, y1, zb1).offset(n, -half),
           Geom::Point3d.new(x1, y1, zt1).offset(n, -half),
           Geom::Point3d.new(x0, y0, zt0).offset(n, -half)
         ]
-        face = ents.add_face(pts)
-        return unless face
-        face.pushpull(face.normal.dot(n) >= 0 ? th : -th)
-        paint!(face, mat)
+        solid!(ents, name, pts, n, th, mat)
       rescue StandardError => e
-        puts "[Fence] board: #{e.message}"
+        puts "[Fence] #{name}: #{e.message}"
       end
 
       # Paint every face of the solid the face belongs to, so a fence is one
@@ -449,11 +549,32 @@ module InteriorPro
         nil
       end
 
+      # Glass gets its own material, and it is see-through. A glass railing
+      # painted the same flat colour as the posts is the reason the first
+      # attempt did not look like glass (2026-08-16).
+      def glass_material(model)
+        mats = model.materials
+        m = mats[GLASS_MATERIAL]
+        return m if m
+        m = mats.add(GLASS_MATERIAL)
+        m.color = Sketchup::Color.new(GLASS_COLOR)
+        m.alpha = GLASS_ALPHA if m.respond_to?(:alpha=)
+        m
+      rescue StandardError => e
+        puts "[Fence] glass material: #{e.message}"
+        nil
+      end
+
+      # The colour is part of the NAME (2026-08-16). Looking a material up by a
+      # fixed name and handing back whatever was found is the trap this project
+      # has fallen into three times: the second fence, in a different colour,
+      # silently came out in the first one's. A per-colour name cannot do that.
       def wood_material(model)
         mats = model.materials
-        m = mats[WOOD_MATERIAL]
+        key  = "#{WOOD_MATERIAL}_#{@color.to_s.delete('#')}"
+        m = mats[key]
         return m if m
-        m = mats.add(WOOD_MATERIAL)
+        m = mats.add(key)
         m.color = Sketchup::Color.new(@color.to_s)
         m
       rescue StandardError => e

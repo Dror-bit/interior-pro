@@ -1,0 +1,20 @@
+fences in model: 0
+
+== what the tool reads out of each reference file ==
+  Glass Railing:
+     mode=unit  runs along X  height=67.74  pitch=32.000  units in model=3
+     unit box: 32.00 along x 0.38 across x 40.35 tall
+     unit pieces (1): 1 x Glass
+     closer: none
+  Modern Wood Fence:
+     could not read a fence out of it
+  Simple iron Fence:
+     could not read a fence out of it
+  Trax Railing:
+     could not read a fence out of it
+  Vinyl fance:
+     could not read a fence out of it
+  cable railing:
+     could not read a fence out of it
+  wood Fence:
+     could not read a fence out of it

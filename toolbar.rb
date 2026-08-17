@@ -385,14 +385,11 @@ module InteriorPro
       tb = UI::Toolbar.new('Landscape Pro')
       return if tb.length >= 1
 
-      fence_cmd = UI::Command.new('Fence') {
-        tool = InteriorPro::Landscape::FenceTool.new
-        # Settings first, then the tool - the same order as the Wall button,
-        # which opens the library before it hands you the mouse.
-        Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
-      }
-      fence_cmd.tooltip = 'Fence - two clicks, posts and boards, follows the ground'
-      fence_cmd.status_bar_text = 'Set the fence up, then click its two ends'
+      # Named in full on purpose: the button and the menu item must land in the
+      # SAME method, so there is only ever one fence flow to fix.
+      fence_cmd = UI::Command.new('Fence') { InteriorPro::Toolbar.open_fence_library }
+      fence_cmd.tooltip = 'Fence - pick a type, then click its two ends'
+      fence_cmd.status_bar_text = 'Pick a fence type, then click where it starts and ends'
       icon = icon_path('fence_tool')
       # A missing icon file must not take the whole toolbar down with it.
       if File.exist?(icon)
@@ -402,6 +399,47 @@ module InteriorPro
       tb.add_item(fence_cmd)
 
       tb.restore
+    end
+
+    # The fence library window, the same order as the Wall button: pick what
+    # you are drawing, THEN get the mouse (2026-08-16).
+    #
+    # The nine-field UI.inputbox that used to open here is still in
+    # fence_tool.rb and is still the fallback, so a broken or missing library
+    # window can never leave the fence tool unreachable.
+    def self.open_fence_library
+      # Since 2026-08-16 a fence is one of HIS models, dropped as a .skp into
+      # landscape/reference, laid along a line. Pick which one, then draw.
+      # The parametric library (FenceLibraryDialog) is still on disk and still
+      # tested; it is only reached from the console now.
+      if defined?(InteriorPro::Landscape::FenceRefTool)
+        refs = InteriorPro::Landscape::FenceRefTool.references
+        if refs.empty?
+          UI.messagebox("No fences yet.\n\nDrop a .skp of a fence into:\n" +
+                        InteriorPro::Landscape::FenceRefTool.reference_dir)
+          return
+        end
+        names = refs.map { |r| r[:name] }
+        pick = if names.length == 1
+                 names.first
+               else
+                 res = UI.inputbox(['Fence'], [names.first], [names.join('|')],
+                                   'Landscape Pro - Fence')
+                 res ? res[0].to_s : nil
+               end
+        return unless pick
+        ref = refs.find { |r| r[:name] == pick }
+        return unless ref
+        Sketchup.active_model.select_tool(InteriorPro::Landscape::FenceRefTool.new(ref[:path]))
+      elsif defined?(InteriorPro::Landscape::FenceLibraryDialog)
+        InteriorPro::Landscape::FenceLibraryDialog.show
+      else
+        tool = InteriorPro::Landscape::FenceTool.new
+        Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
+      end
+    rescue StandardError => e
+      puts "[Fence] open: #{e.class}: #{e.message}"
+      puts Array(e.backtrace).first(4).join("\n")
     end
   end
 
@@ -591,9 +629,10 @@ module InteriorPro
 
       # Landscape Pro (2026-08-15): the outside of the house. Its own bar and
       # its own menu entry, so it can grow without crowding the wall tools.
+      # One way in, shared with the toolbar button (2026-08-16) - the menu and
+      # the button must never drift into two different fence flows.
       menu.add_item('Landscape: Fence') {
-        tool = InteriorPro::Landscape::FenceTool.new
-        Sketchup.active_model.select_tool(tool) if tool.prompt_settings!
+        InteriorPro::Toolbar.open_fence_library
       }
 
       # NO backup menu items, deliberately (user, 2026-08-15): "take them

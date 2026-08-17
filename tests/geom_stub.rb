@@ -80,6 +80,24 @@ module Geom
 
     def self.translation(v); new(Geom::Point3d.new(v.x, v.y, v.z)); end
 
+    # A stretch about a point, in the plane. Z scale is accepted and ignored,
+    # like every other Z in this stub (2026-08-16, the reference fence tool
+    # stretches a unit along the run to make the bays come out even).
+    def self.scaling(pt, sx, sy = nil, _sz = nil)
+      sy = sx if sy.nil?
+      cx = pt ? pt.x : 0.0
+      cy = pt ? pt.y : 0.0
+      new(Point3d.new(cx - sx * cx, cy - sy * cy, 0.0), [sx.to_f, 0.0, 0.0, sy.to_f])
+    end
+
+    # A frame: origin + X direction + Y direction (Z ignored). Model X lands
+    # on xaxis, model Y on yaxis. The real one is 3D; in the plane it is just
+    # a rotation matrix whose columns are the two axes.
+    def self.axes(origin, xaxis, yaxis, _zaxis = nil)
+      new(Point3d.new(origin.x, origin.y, origin.z),
+          [xaxis.x.to_f, yaxis.x.to_f, xaxis.y.to_f, yaxis.y.to_f])
+    end
+
     # self * other: apply `other` first, then self - the SketchUp order.
     def *(o)
       return self unless o.is_a?(Transformation)

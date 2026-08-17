@@ -1,0 +1,110 @@
+Landscape Pro - cable railing.skp: read it, then rebuild one bay from its own parts
+
+definition: cable railing#1
+overall: 183.875 along (x) x 4.000 across (y) x 43.504 tall (z)
+bounds: min=(0.000, 0.000, 1.500) max=(183.875, 4.000, 45.004)
+
+STRUCTURE (what is inside what):
+  1 x [1.dwg#5]
+  1 x [1.dwg#4]
+  4 x [.25#3]
+  1 x [Component#24]
+  1 x [Component#23]
+  8 x [.25#5]
+  2 x [Component#1]
+  1 x [Component#11]
+  26 x [Component#5]
+  1 x [Series 300#2]
+  2 x [1.dwg#15]
+  1 x [400 cap]
+  1 x [1.dwg#13]
+  1 x [Component#17]
+  3 x [Component#14]
+  1 x [Component#7]
+  1 x [1.dwg#2]
+  1 x [1.dwg#7]
+  (5868 loose faces here)
+    inside [.25#5]:
+      1 x [.25#3]
+    inside [Component#7]:
+      1 x [1.dwg#5]
+      1 x [1.dwg#4]
+
+TOP-LEVEL PIECES: 57
+BY KIND (count x  along x across x tall):
+   26 x    28.438 x   0.125 x    0.125   [Component#5]
+        x starts: 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12, 3.12 ...
+        step:     0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00
+        z bottom: 9.94, 12.94, 15.94, 18.94, 21.94, 24.94, 27.94, 30.94, 33.94, 36.94, 39.94
+    8 x     0.500 x   0.438 x    0.188   [.25#5]
+        x starts: 0.28, 0.28, 3.08, 3.08, 180.28, 180.28, 183.08, 183.08
+        step:     0.00, 2.79, 0.01, 177.20, 0.00, 2.79, 0.01
+        z bottom: 3.00, 3.00
+    4 x     0.500 x   0.438 x    0.188   [.25#3]
+        x starts: 60.28, 60.28, 63.08, 63.08
+        step:     0.00, 2.79, 0.01
+        z bottom: 3.00
+    3 x     0.344 x   1.062 x    0.297   [Component#14]
+        x starts: 3.50, 3.50, 59.98
+        step:     0.00, 56.48
+        z bottom: 6.11
+    2 x     3.875 x   3.875 x    0.250   [Component#1]
+        x starts: 0.00, 180.00
+        step:     180.000 (even)
+        z bottom: 2.75, 2.75
+    2 x    57.625 x   2.516 x    0.500   [1.dwg#15]
+        x starts: 3.12, 3.12
+        step:     0.000 (even)
+        z bottom: 43.12
+    1 x     0.125 x   3.000 x    2.875   [400 cap]
+        at x=0.625..0.750  y=0.487..3.483  z=42.129..45.004
+    1 x     0.125 x   3.500 x    1.812   [Component#23]
+        at x=0.625..0.750  y=0.257..3.757  z=43.192..45.004
+    1 x     0.750 x   0.750 x   36.375   [1.dwg#13]
+        at x=31.562..32.312  y=1.632..2.382  z=7.156..43.529
+    1 x     2.375 x   2.375 x   41.281   [Component#11]
+        at x=180.750..183.125  y=0.819..3.194  z=3.000..44.280
+    1 x     2.375 x   2.375 x   41.281   [Component#17]
+        at x=0.750..3.125  y=0.819..3.194  z=3.000..44.284
+    1 x    57.625 x   2.156 x    1.266   [1.dwg#5]
+        at x=63.125..120.750  y=0.932..3.082  z=5.612..6.874
+    1 x    57.625 x   2.375 x    1.828   [1.dwg#4]
+        at x=63.125..120.750  y=0.819..3.194  z=5.500..7.324
+    1 x    57.625 x   2.375 x    1.828   [Component#7]
+        at x=3.125..60.750  y=0.819..3.194  z=5.500..7.324
+    1 x    57.625 x   2.516 x    0.500   [1.dwg#2]
+        at x=3.125..60.750  y=0.751..3.263  z=43.001..43.494
+    1 x    60.000 x   2.688 x    0.750   [Series 300#2]
+        at x=0.750..60.750  y=0.655..3.342  z=43.596..44.346
+    1 x   182.375 x   3.000 x    2.875   [1.dwg#7]
+        at x=0.750..183.125  y=0.487..3.483  z=42.129..45.004
+    1 x   182.375 x   3.500 x    1.812   [Component#24]
+        at x=0.750..183.125  y=0.257..3.757  z=43.192..45.004
+
+THE SPLIT:
+  posts:  1 pieces
+     post at x=180.750..183.125 (centre 181.938)  z=3.000..44.280  [Component#11]
+  post spacing: -
+  panel:  56 pieces (everything that is not a post)
+       1 x [1.dwg#5]
+       1 x [1.dwg#4]
+       4 x [.25#3]
+       1 x [Component#24]
+       1 x [Component#23]
+       8 x [.25#5]
+       2 x [Component#1]
+      26 x [Component#5]
+       1 x [Series 300#2]
+       2 x [1.dwg#15]
+       1 x [400 cap]
+       1 x [1.dwg#13]
+       1 x [Component#17]
+       3 x [Component#14]
+       1 x [Component#7]
+       1 x [1.dwg#2]
+       1 x [1.dwg#7]
+
+ONE BAY: could not find two posts - the split guessed wrong.
+
+PLACED ONE BAY AT THE ORIGIN:
+  nothing placed - no bay found.

@@ -99,6 +99,11 @@ module Sketchup
 
     def all_connected; [self]; end
 
+    # Real faces hand out vertices, and code that measures a loaded model
+    # walks them (2026-08-16, the reference fence reader).
+    Vertex = Struct.new(:position) unless const_defined?(:Vertex, false)
+    def vertices; @points.map { |p| Vertex.new(p) }; end
+
     # Where the outline sits, for tests that check heights.
     def z_range
       zs = @points.map(&:z)
@@ -113,6 +118,15 @@ module Sketchup
     def length; @list.length; end
     def grep(k); @list.select { |e| e.is_a?(k) }; end
     def add_group; g = Group.new; @list << g; g; end
+    # An instance of a definition, placed with a transformation - the one call
+    # the reference fence tool is made of (2026-08-16).
+    def add_instance(defn, tr)
+      i = ComponentInstance.new(defn)
+      i.transformation = tr
+      defn.instances << i if defn.respond_to?(:instances)
+      @list << i
+      i
+    end
     def add_curve(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     def add_line(a, b); e = Edge.new(a, b); @list << e; e; end
     def add_face(pts); f = Face.new(pts); @list << f; f; end
@@ -151,11 +165,67 @@ module Sketchup
   # real one - plan_geometry has to walk both (2026-08-13, rt46).
   class ComponentDefinition
     attr_reader :entities
-    def initialize; @entities = Entities.new; end
+    attr_accessor :name, :path
+    def initialize(name = ''); @entities = Entities.new; @name = name; end
+    # Real definitions know their instances; the reference fence tool never
+    # asks, but a suite counting placements might (2026-08-16).
+    def instances; @instances ||= []; end
+    def bounds
+      b = BoundsBox.new
+      each_point(@entities, Geom::Transformation.new) { |p| b.add(p) }
+      b
+    end
+    def each_point(ents, tr, &blk)
+      ents.grep(Face).each { |f| f.points.each { |p| blk.call(p.transform(tr)) } }
+      ents.each do |e|
+        next unless e.is_a?(Group) || e.is_a?(ComponentInstance)
+        sub = e.respond_to?(:definition) ? e.definition.entities : e.entities
+        each_point(sub, tr * e.transformation, &blk)
+      end
+    end
+  end
+
+  # A box that really has a min and a max, for the few places that measure a
+  # definition instead of a group (2026-08-16).
+  class BoundsBox
+    attr_reader :min, :max
+    def initialize; @min = nil; @max = nil; end
+    def add(p)
+      if @min.nil?
+        @min = Geom::Point3d.new(p.x, p.y, p.z); @max = Geom::Point3d.new(p.x, p.y, p.z)
+      else
+        @min = Geom::Point3d.new([@min.x, p.x].min, [@min.y, p.y].min, [@min.z, p.z].min)
+        @max = Geom::Point3d.new([@max.x, p.x].max, [@max.y, p.y].max, [@max.z, p.z].max)
+      end
+      self
+    end
+    def width;  @min ? @max.x - @min.x : 0.0; end
+    def height; @min ? @max.y - @min.y : 0.0; end
+    def depth;  @min ? @max.z - @min.z : 0.0; end
+    def center; @min ? Geom::Point3d.new((@min.x + @max.x) / 2, (@min.y + @max.y) / 2, (@min.z + @max.z) / 2) : Geom::Point3d.new; end
   end
 
   class ComponentInstance < Group
+    attr_accessor :material
+    def initialize(defn = nil); super(); @definition = defn; end
     def definition; @definition ||= ComponentDefinition.new; end
+  end
+
+  # model.definitions - the reference fence tool loads a .skp through it. In
+  # the cloud there is no SketchUp to parse the file, so a suite REGISTERS a
+  # ready-made definition against a path first, and load hands it back
+  # (2026-08-16). Loading a path nobody registered returns nil, like a bad
+  # file would.
+  class DefinitionList
+    include Enumerable
+    def initialize; @list = []; @by_path = {}; end
+    def each(&b); @list.each(&b); end
+    def length; @list.length; end
+    def add(name = ''); d = ComponentDefinition.new(name); @list << d; d; end
+    def [](name); @list.find { |d| d.name == name }; end
+    def register!(path, defn); @by_path[path.to_s] = defn; @list << defn unless @list.include?(defn); defn; end
+    def load(path); @by_path[path.to_s]; end
+    def purge_unused; true; end
   end
 
   class Selection
@@ -209,8 +279,9 @@ module Sketchup
     # The stub had no #path at all, so plan_sheet_dialog blew up in the cloud on
     # code that is perfectly fine in SketchUp (2026-08-14, rt51).
     attr_accessor :path, :title
-    def initialize; @attrs = {}; @entities = Entities.new; @layers = Layers.new; @ops = []; @materials = Materials.new; @selection = Selection.new; @path = ''; @title = ''; end
+    def initialize; @attrs = {}; @entities = Entities.new; @layers = Layers.new; @ops = []; @materials = Materials.new; @selection = Selection.new; @path = ''; @title = ''; @definitions = DefinitionList.new; end
     def materials; @materials; end
+    def definitions; @definitions; end
     def selection; @selection; end
     # SketchUp has BOTH: entities is the top level, active_entities is
     # whatever group is open for editing. With nothing open they are the same
@@ -247,6 +318,12 @@ module Sketchup
     def remove_observer(_o); true; end
     def line_styles; nil; end
     def respond_to_line_styles?; false; end
+    # Handing the mouse to a tool. The stub had no select_tool at all, so any
+    # window whose job ENDS in "now go draw it" could not be run in the cloud -
+    # the one thing worth proving about such a window (2026-08-16, fence
+    # library). It remembers the tool so a suite can ask which one it got.
+    attr_reader :selected_tool
+    def select_tool(tool); @selected_tool = tool; true; end
   end
 
   @model = Model.new
@@ -270,10 +347,16 @@ module UI
     def initialize(_opts = {}); @callbacks = {}; @scripts = []; end
     def add_action_callback(name, &blk); @callbacks[name] = blk; end
     def execute_script(s); @scripts << s; end
-    def set_html(_h); end
+    def set_html(h); @html = h; end
+    attr_reader :html, :closed
+    # Real HtmlDialogs can be resized after they open - several windows here
+    # do it to escape a size SketchUp remembered (2026-08-16).
+    def set_size(w, h); @size = [w, h]; end
+    attr_reader :size
     def set_on_closed(&_b); end
-    def show; end
-    def close; end
+    def show; @shown = true; end
+    def shown?; @shown == true; end
+    def close; @closed = true; end
     def visible?; true; end
   end
   def self.messagebox(_m); nil; end

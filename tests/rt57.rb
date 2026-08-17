@@ -18,6 +18,23 @@ $fails = 0
 def ok(n, c, x = nil); puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}")); $fails += 1 unless c; end
 def close(a, b, tol = 1e-6); (a - b).abs < tol; end
 
+# Every part of a fence is its own little group since 2026-08-16 (it stops two
+# touching boards welding into one solid, and stops a glass panel dragging its
+# colour onto the rail it leans on). The faces are therefore one level down.
+# Nothing else in this suite changed - every claim below is the same claim.
+def faces_in(e)
+  out = []
+  ents = e.respond_to?(:entities) ? e.entities : e
+  ents.each do |x|
+    if x.is_a?(Sketchup::Face)
+      out << x
+    elsif x.is_a?(Sketchup::Group) || x.is_a?(Sketchup::ComponentInstance)
+      out.concat(faces_in(x))
+    end
+  end
+  out
+end
+
 # ---- the axis magnet spy -------------------------------------------------
 # In SketchUp this lives on WallTool. The fence must CALL it, not copy it.
 $magnet_calls = 0
@@ -117,7 +134,7 @@ ok('the tool CALLED the wall axis magnet', $magnet_calls == 1, $magnet_calls)
 
 # ---- accessibility: real geometry came out ---------------------------------
 
-faces = g.entities.grep(Sketchup::Face)
+faces = faces_in(g)
 ok('faces were actually made', faces.length > 0, faces.length)
 ok('every face was pushed out into a solid',
    faces.all? { |f| f.pushpulls.length == 1 },
@@ -154,7 +171,7 @@ ok('slope: ground_end really stored as -24',
    close(g.get_attribute('LandscapePro', 'ground_end').to_f, -24.0),
    g.get_attribute('LandscapePro', 'ground_end'))
 
-faces = g.entities.grep(Sketchup::Face)
+faces = faces_in(g)
 posts = faces.select { |f| f.points.map(&:z).uniq.length == 1 }
 boards = faces - posts
 
@@ -189,7 +206,7 @@ t.mode = :step
 g = build(t, 0, 0, 240, 0)
 ok('step: stored as step', g.get_attribute('LandscapePro', 'slope_mode') == 'step',
    g.get_attribute('LandscapePro', 'slope_mode'))
-faces = g.entities.grep(Sketchup::Face)
+faces = faces_in(g)
 posts = faces.select { |f| f.points.map(&:z).uniq.length == 1 }
 boards = faces - posts
 tops = boards.map { |f| f.points.map(&:z).max.round(6) }
@@ -201,11 +218,11 @@ ok('step: the top bay is at 72', close(tops.max, 72.0), tops.max)
 # quietly changes a flat fence nobody meant to change.
 t = fresh_tool
 g1 = build(t, 0, 0, 240, 0)
-z1 = g1.entities.grep(Sketchup::Face).map { |f| f.points.map { |p| p.z.round(9) } }.sort
+z1 = faces_in(g1).map { |f| f.points.map { |p| p.z.round(9) } }.sort
 t = fresh_tool
 t.mode = :step
 g2 = build(t, 0, 0, 240, 0)
-z2 = g2.entities.grep(Sketchup::Face).map { |f| f.points.map { |p| p.z.round(9) } }.sort
+z2 = faces_in(g2).map { |f| f.points.map { |p| p.z.round(9) } }.sort
 ok('a LEVEL fence is identical in rake and step', z1 == z2)
 
 # --------------------------------------------------------------- refusals
@@ -235,7 +252,7 @@ ok('diagonal: built', !g.nil?)
 ok('diagonal: length stored is 300',
    close(g.get_attribute('LandscapePro', 'length_in').to_f, 300.0),
    g.get_attribute('LandscapePro', 'length_in'))
-faces = g.entities.grep(Sketchup::Face)
+faces = faces_in(g)
 posts = faces.select { |f| f.points.map(&:z).uniq.length == 1 }
 ok('diagonal: 5 posts', posts.length == 5, posts.length)
 ok('diagonal: posts are square, not stretched',
