@@ -39,6 +39,21 @@ building anything twice.
 
 ## TODO the user asked to come back to (do not lose)
 
+- **The hand-drawn NOTE looks bad** (2026-08-17). He placed one reading
+  "קירות פנים" on his plan, sent a picture, and said: *"עזוב את זה שזה לא
+  נראה טוב ואנחנו צריכים לעבוד על זה."* A boxed label with a leader and an
+  arrow. Parked deliberately, not forgotten. `PlanCanvas.draw_mark_note`.
+- **Colour on the sheet** (2026-08-17). Asked for, not built. There is NO
+  concept of a line colour anywhere in the drawing document: `plan_doc.rb`
+  carries weight and a polygon fill only, the window writes a hard-coded
+  `stroke="#000"` and `plan_pdf.rb` a hard-coded `0 0 0 RG`. Four files have
+  to change together or the preview and the PDF will disagree - which is the
+  one thing that file set exists to prevent. It joins the double-click panel.
+- **The logo is per-MODEL, he wants it per-installation** (2026-08-17). It
+  lives in `sheet_state`, which is a model attribute. `Sketchup.write_default`
+  / `read_default` is the right tool and the plugin does not use it anywhere
+  yet. `text_scale` has the same question open.
+
 - **Corner boards (siding trim): "נראות בסדר אבל יש עוד מה לשפר — למקסם"**
   (2026-08-12). Current state: per-wall width picker (Off/2/3/4), closed 90°
   overlap with the neighbour. Ideas for the polish round: a true single L
@@ -51,6 +66,10 @@ building anything twice.
   straight again, `arc_sag` ignored.
 - `InteriorPro::WallTool::USE_NATIVE_OPENINGS = false` - the older opening
   path.
+- `InteriorPro::WallTool::AUTO_WELD_ENDS = false` - stop join_corners from
+  closing a corner whose two ends missed each other by less than a wall
+  thickness (2026-08-18, `tests/rt70.rb`). With it off, such a corner stays
+  open and keeps its white square cap, as before.
 
 ## Curved walls - how they are stored (2026-08-10)
 

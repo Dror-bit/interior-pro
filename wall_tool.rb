@@ -1580,12 +1580,107 @@ module InteriorPro
         break unless new_group.valid?
         corner = endpoint_pt(data, side)
         other  = find_neighbor_at(corner, new_group, model, allow_centerline_fallback: allow_centerline_fallback)
+        # Nothing found within 0.001"? A neighbour a hair further away is a
+        # corner the user meant and missed - close it and look again.
+        if other.nil? && weld_drifted_end!(new_group, side, model)
+          data = wall_data_world(new_group)
+          break unless data
+          corner = endpoint_pt(data, side)
+          other = find_neighbor_at(corner, new_group, model, allow_centerline_fallback: allow_centerline_fallback)
+        end
         next unless other
         butt_applied = apply_miter(new_group, side, other[:group], other[:side], model)
         next if butt_applied  # If butt joint was applied, skip further processing for this side.
         data = wall_data_world(new_group)
         break unless data
       end
+    end
+
+    # ---------- a corner that was MEANT, but missed by a hair -------------
+    #
+    # find_neighbor_at matches DRAWN ends within 0.001". That is right for
+    # deciding how to cut a miter, and wrong as the only answer to "is there
+    # a neighbour here": an end left 0.3" short is invisible to it, so no
+    # miter is cut and the end keeps its plain square cap. Only the long
+    # faces of a wall are painted, so that cap shows up as a white wedge -
+    # which is exactly what the user reported on 2026-08-17, and what he
+    # asked for here: "אם הם נכנסים אחד לתוך השני ואמורה להיות שם פינה
+    # שיתקן וישלים אותה אוטומטית שהיא תיראה טוב".
+    #
+    # So: no exact neighbour, but one within a wall thickness on the SAME
+    # storey and the SAME anchor side -> pull THIS wall's end onto it and
+    # let the normal miter run. Moves at most one thickness, and only the
+    # wall being joined - never the neighbour, which may be the one the
+    # user carefully lined up over the storey below.
+    #
+    # Deliberately NOT welded:
+    #   - a different storey: a wall below stands on the same footprint by
+    #     definition, and dragging one onto the other is the 2026-08-17 bug
+    #     all over again.
+    #   - a different anchor side: two walls whose thickness sits on
+    #     opposite sides of the line have drawn ends a full thickness apart
+    #     even when the corner is perfect. Welding those BREAKS a good
+    #     corner. (This is what made three of my own measurements wrong
+    #     before I understood it.)
+    #   - further than a thickness: that is a gap that was drawn on purpose.
+    #
+    # Kill switch: InteriorPro::WallTool::AUTO_WELD_ENDS = false
+    AUTO_WELD_ENDS = true unless const_defined?(:AUTO_WELD_ENDS, false)
+
+    def weld_drifted_end!(group, side, model)
+      return false unless AUTO_WELD_ENDS
+      return false unless group&.valid?
+      data = wall_data_world(group)
+      return false unless data
+      mine = endpoint_pt(data, side)
+      my_level = (group.get_attribute('InteriorPro', 'level') || 1).to_i
+      my_anchor = data[:h_anchor]
+      my_th = data[:thickness].to_f
+      return false if my_th <= 0
+
+      best = nil
+      best_d = nil
+      model.active_entities.grep(Sketchup::Group).each do |g|
+        next if g == group
+        next unless g.valid?
+        next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+        next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == my_level
+        od = wall_data_world(g)
+        next unless od
+        next unless od[:h_anchor] == my_anchor
+        limit = [my_th, od[:thickness].to_f].max
+        limit = 1.0 if limit < 1.0
+        [:start, :end].each do |oside|
+          d = mine.distance(endpoint_pt(od, oside))
+          next if d <= 0.001 || d > limit
+          if best_d.nil? || d < best_d
+            best_d = d
+            best = endpoint_pt(od, oside)
+          end
+        end
+      end
+      return false unless best
+
+      # The stored ends are LOCAL to the group; the match was made in world.
+      local = best.transform(group.transformation.inverse)
+      if side == :start
+        group.set_attribute('InteriorPro', 'start_x', local.x.to_f)
+        group.set_attribute('InteriorPro', 'start_y', local.y.to_f)
+      else
+        group.set_attribute('InteriorPro', 'end_x', local.x.to_f)
+        group.set_attribute('InteriorPro', 'end_y', local.y.to_f)
+      end
+      fresh_data = wall_data(group)
+      return false unless fresh_data
+      corners = compute_perpendicular_corners_from_data(fresh_data)
+      return false unless corners
+      save_corners_attr(group, corners)
+      rebuild_wall_geometry(group, corners, fresh_data)
+      puts format('[WallTool] closed a corner that missed by %.3f"', best_d)
+      true
+    rescue StandardError => e
+      puts "[WallTool] weld_drifted_end!: #{e.message}"
+      false
     end
 
     # Two-pass neighbor search:
