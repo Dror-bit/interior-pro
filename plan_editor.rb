@@ -1982,11 +1982,35 @@ module InteriorPro
         # match misses real corners (that is why corners detached).
         th_move = wall.get_attribute('InteriorPro', 'thickness').to_f
         moving_cat = (wall.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+        # ONE LEVEL ONLY (2026-08-17).
+        #
+        # The scan below decides who follows the wall, and it compares
+        # start_x/start_y/end_x/end_y - flat, two-dimensional numbers. A wall on
+        # the floor BELOW stands on the same footprint by definition, so every
+        # one of those tests passed and it was dragged along as though it were a
+        # corner partner.
+        #
+        # What that did to the user is worse than a stray wall moving. He was
+        # trying to line the upstairs wall up OVER the one downstairs - the
+        # ordinary thing you do when walls stack - and the wall he was aiming at
+        # moved every time he moved the one in his hand. He could never land it,
+        # and said so: "אני כן מנסה שהם ישבו אחת על השני והוא לא הושיב לי אותם
+        # אחד על השני ומכאן התחיל כל הבלאגן". It was not a mess he made.
+        #
+        # wall_tool.rb already knew this - see the note over its own neighbour
+        # scan, "Filtering is by the 'level' attribute (NOT base_z)". The 2D
+        # editor filters by level when it READS walls (ghost_walls_payload and
+        # the two scans beside it) but its MOVE never got the same rule.
+        #
+        # By 'level', not by height: a garage sits lower than the house and is
+        # still level 1, and comparing z would part it from its own neighbours.
+        moving_level = (wall.get_attribute('InteriorPro', 'level') || 1).to_i
         connections = []
         model.entities.grep(Sketchup::Group).each do |g|
           next unless keep_corners     # detached: nothing follows the wall
           next if g == wall
           next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+          next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == moving_level
           osx = g.get_attribute('InteriorPro', 'start_x')
           osy = g.get_attribute('InteriorPro', 'start_y')
           oex = g.get_attribute('InteriorPro', 'end_x')
@@ -7347,6 +7371,14 @@ module InteriorPro
 
             function snapPoint(p, from) {
               snapInd = null;
+              // Releasing the direction lock is part of a plain inference. It was
+              // cleared ONLY at the top of chainEnd, so one line drawn with Shift -
+              // or one automatic parallel lock - left it true for the rest of the
+              // session, and the corner ring in draw() (snapInd && !lockedNow) was
+              // never painted again. The point still SNAPPED; you just could not see
+              // where (2026-08-18, tests/t48.js). chainEnd sets it again AFTER it
+              // calls us, so a real lock is untouched.
+              lockedNow = false;
               var r = 14 / scale;
               var bestEnd = null, bestEndD = r, bestMid = null, bestMidD = r;
               // Sketch corners and line ends snap exactly like wall ends do.
@@ -8625,13 +8657,33 @@ module InteriorPro
             // focused contenteditable with one undoable edit turns Ctrl+Z into
             // a 'beforeinput' of type historyUndo. We cancel the text undo and
             // run our own. Clicking the canvas parks the focus there.
+            // ONE Ctrl+Z PER SESSION was the bug (2026-08-17).
+            //
+            // 'historyUndo' only reaches us while the hidden element HAS an
+            // undoable edit of its own. The arming used to be a one-time latch
+            // - dataset.armed was set on the first canvas click and never
+            // cleared - so the editor had exactly one undoable edit for as long
+            // as the window stayed open. Once the browser had spent it, or
+            // cleared the element's little undo stack because the focus went to
+            // a panel and came back, Ctrl+Z stopped reaching this code at all
+            // and the walls stayed where they were. The user: "אני שוב מזיז
+            // קירות ואז לוחץ Z והם לא חוזרים".
+            //
+            // So: no latch. Put a fresh edit in whenever we arm, and TOP IT UP
+            // straight after every undo we handle, so the next Ctrl+Z always
+            // has something to ride in on. Repeated Ctrl+Z is the normal way
+            // anyone undoes a mess, and it has to keep working without a mouse
+            // click in between.
             var hu = document.getElementById('hiddenUndo');
             function armHiddenUndo() {
               if (!hu) return;
               try { hu.focus(); } catch (e) {}
-              if (!hu.dataset.armed) {
-                try { document.execCommand('insertText', false, 'x'); hu.dataset.armed = '1'; } catch (e) {}
-              }
+              try {
+                // Cleared first so the placeholder never grows; the insert is
+                // what creates the undoable edit, setting textContent is not.
+                hu.textContent = '';
+                document.execCommand('insertText', false, 'x');
+              } catch (e) {}
               // A non-empty selection inside the hidden element guarantees the
               // browser raises a 'copy' event on Ctrl+C (some builds skip it
               // when the selection is collapsed). preventDefault stops the
@@ -8648,7 +8700,13 @@ module InteriorPro
             }
             if (hu) {
               hu.addEventListener('beforeinput', function(ev) {
-                if (ev.inputType === 'historyUndo') { ev.preventDefault(); undoAction(); }
+                if (ev.inputType === 'historyUndo') {
+                  ev.preventDefault();
+                  undoAction();
+                  // Reload for the NEXT Ctrl+Z. Without this the second press
+                  // in a row has no edit to ride in on and never arrives.
+                  setTimeout(armHiddenUndo, 0);
+                }
                 else if (ev.inputType === 'historyRedo') { ev.preventDefault(); }
               });
               // Ctrl+C / Ctrl+V ride the same edit pipeline as Ctrl+Z: the raw
