@@ -1,0 +1,17 @@
+InteriorPro fix_wall_ends  2026-08-18 14:58:22 -0700
+PREVIEW ONLY - nothing is changed
+
+34 wall(s), 2 drifted pair(s), 2 corner(s) to weld
+
+corner 1: weld to (244.266,700.665)  (level 1, midpoint)
+    w15  START moves 0.085"  (244.196,700.712) -> (244.266,700.665)
+    w32  START moves 0.085"  (244.337,700.617) -> (244.266,700.665)
+    gap between w15 and w32 now: 0.0"
+
+corner 2: weld to (294.435,775.008)  (level 1, midpoint)
+    w1   END   moves 0.043"  (294.399,775.032) -> (294.435,775.008)
+    w30  END   moves 0.043"  (294.471,774.984) -> (294.435,775.008)
+    gap between w1 and w30 now: 0.0"
+
+To do it, paste this in the Ruby Console:
+  InteriorPro::FixWallEnds.run(apply: true)

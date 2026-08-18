@@ -42,7 +42,13 @@ module Sketchup
     attr_accessor :x, :y, :z
     def initialize(x = 0, y = 0, z = 0); @x = x.to_f; @y = y.to_f; @z = z.to_f; end
     def distance(o); Math.hypot(Math.hypot(@x - o.x, @y - o.y), @z - o.z); end
-    def transform(_t); self; end
+# Was `self` - a lie that would let a wrong local-vs-world fix pass green
+# (2026-08-18C §8). Nothing in the plugin uses Sketchup::Point3d - it uses
+# Geom::Point3d, whose transform in geom_stub.rb is real - but a stub that
+# quietly does nothing is a trap, so it does the real thing now.
+def transform(t)
+  Geom::Point3d.new(@x, @y, @z).transform(t)
+end
     def to_a; [@x, @y, @z]; end
   end
 

@@ -1,0 +1,139 @@
+InteriorPro debug_hex2  2026-08-17 15:27:54 -0700
+
+== WALLS: stored footprint (WORLD) vs the plain square footprint ==
+   stale = the wall was moved/stretched but corners_xy was not redone.
+w0   lvl=1 anc=bottom-left   ident=true   drawn (73.0,243.5) -> (478.0,190.0)
+      world corners: (78.59,247.81) (477.73,195.08) (482.05,189.46) (73.0,243.5)
+      corners_xy off the plain square by up to 4.975"   <<< STALE
+w1   lvl=1 anc=bottom-left   ident=true   drawn (130.1,692.85) -> (73.0,243.5)
+      world corners: (134.91,691.04) (78.59,247.81) (73.0,243.5) (130.1,692.85)
+      corners_xy off the plain square by up to 4.975"   <<< STALE
+w2   lvl=1 anc=bottom-left   ident=true   drawn (367.5,1045.0) -> (130.1,692.85)
+      world corners: (372.75,1043.84) (134.91,691.04) (130.1,692.85) (367.5,1045.0)
+      corners_xy off the plain square by up to 1.969"   <<< STALE
+w3   lvl=1 anc=bottom-left   ident=true   drawn (725.42,881.23) -> (519.76,1032.07)
+      world corners: (718.57,880.06) (512.89,1030.91) (519.76,1032.07) (725.42,881.23)
+      corners_xy off the plain square by up to 4.852"   <<< STALE
+w4   lvl=1 anc=bottom-left   ident=true   drawn (482.14,190.17) -> (533.88,599.89)
+      world corners: (477.18,190.8) (529.07,601.71) (533.88,599.89) (482.14,190.17)
+      corners_xy off the plain square by up to 1.203"   <<< STALE
+w5   lvl=1 anc=bottom-left   ident=true   drawn (533.88,599.89) -> (725.42,881.23)
+      world corners: (529.07,601.71) (718.57,880.06) (725.42,881.23) (533.88,599.89)
+      corners_xy off the plain square by up to 4.827"   <<< STALE
+w6   lvl=1 anc=bottom-left   ident=true   drawn (361.0,1086.0) -> (367.5,1045.0)
+      world corners: (366.27,1084.72) (372.75,1043.84) (367.5,1045.0) (361.0,1086.0)
+      corners_xy off the plain square by up to 2.087"   <<< STALE
+w7   lvl=1 anc=bottom-left   ident=true   drawn (402.5,1142.5) -> (361.0,1086.0)
+      world corners: (405.31,1137.88) (366.27,1084.72) (361.0,1086.0) (402.5,1142.5)
+      corners_xy off the plain square by up to 2.087"   <<< STALE
+w8   lvl=1 anc=bottom-left   ident=true   drawn (470.0,1153.0) -> (402.5,1142.5)
+      world corners: (468.72,1147.74) (405.31,1137.88) (402.5,1142.5) (470.0,1153.0)
+      corners_xy off the plain square by up to 2.078"   <<< STALE
+w9   lvl=1 anc=bottom-left   ident=true   drawn (526.5,1111.5) -> (470.0,1153.0)
+      world corners: (521.85,1108.71) (468.72,1147.74) (470.0,1153.0) (526.5,1111.5)
+      corners_xy off the plain square by up to 2.097"   <<< STALE
+w10  lvl=1 anc=bottom-left   ident=true   drawn (534.79,1053.91) -> (526.5,1111.5)
+      world corners: (529.56,1055.13) (521.85,1108.71) (526.5,1111.5) (534.79,1053.91)
+      corners_xy off the plain square by up to 2.097"   <<< STALE
+w11  lvl=1 anc=bottom-left   ident=true   drawn (519.76,1032.07) -> (534.79,1053.91)
+      world corners: (512.89,1030.91) (529.56,1055.13) (534.79,1053.91) (519.76,1032.07)
+      corners_xy off the plain square by up to 4.852"   <<< STALE
+w12  lvl=1 anc=bottom-left   ident=true   drawn (237.94,853.12) -> (208.11,873.27)
+      world corners: (235.14,848.98) (209.45,866.33) (208.11,873.27) (237.94,853.12)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w13  lvl=1 anc=bottom-left   ident=true   drawn (208.11,873.27) -> (187.96,843.43)
+      world corners: (209.45,866.33) (194.9,844.78) (187.96,843.43) (208.11,873.27)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w14  lvl=1 anc=bottom-left   ident=true   drawn (187.96,843.43) -> (217.8,823.29)
+      world corners: (194.9,844.78) (220.59,827.43) (217.8,823.29) (187.96,843.43)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w15  lvl=1 anc=bottom-left   ident=false  drawn (322.06,977.7) -> (292.22,997.84)
+      world corners: (319.26,973.55) (293.57,990.9) (292.22,997.84) (322.06,977.7)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w16  lvl=1 anc=bottom-left   ident=false  drawn (292.22,997.84) -> (272.08,968.01)
+      world corners: (293.57,990.9) (279.02,969.35) (272.08,968.01) (292.22,997.84)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w17  lvl=1 anc=bottom-left   ident=false  drawn (272.08,968.01) -> (301.91,947.86)
+      world corners: (279.02,969.35) (304.71,952.01) (301.91,947.86) (272.08,968.01)
+      corners_xy off the plain square by up to 5.0"   <<< STALE
+w18  lvl=2 anc=bottom-left   ident=false  drawn (367.5,1045.0) -> (130.1,692.85)
+      world corners: (371.65,1042.21) (134.91,691.04) (130.1,692.85) (367.5,1045.0)
+      corners_xy off the plain square by up to 1.187"   <<< STALE
+w19  lvl=2 anc=bottom-left   ident=false  drawn (360.84,1085.75) -> (367.34,1044.75)
+      world corners: (365.78,1086.53) (372.28,1045.53) (367.34,1044.75) (360.84,1085.75)
+      corners_xy off the plain square by up to 0.0"
+w20  lvl=2 anc=bottom-left   ident=false  drawn (402.5,1142.5) -> (361.0,1086.0)
+      world corners: (405.31,1137.88) (365.03,1083.04) (361.0,1086.0) (402.5,1142.5)
+      corners_xy off the plain square by up to 2.064"   <<< STALE
+w21  lvl=2 anc=bottom-left   ident=false  drawn (470.0,1153.0) -> (402.5,1142.5)
+      world corners: (468.72,1147.74) (405.31,1137.88) (402.5,1142.5) (470.0,1153.0)
+      corners_xy off the plain square by up to 2.078"   <<< STALE
+w22  lvl=2 anc=bottom-left   ident=false  drawn (526.5,1111.5) -> (470.0,1153.0)
+      world corners: (521.85,1108.71) (468.72,1147.74) (470.0,1153.0) (526.5,1111.5)
+      corners_xy off the plain square by up to 2.097"   <<< STALE
+w23  lvl=2 anc=bottom-left   ident=false  drawn (534.79,1053.91) -> (526.5,1111.5)
+      world corners: (529.56,1055.13) (521.85,1108.71) (526.5,1111.5) (534.79,1053.91)
+      corners_xy off the plain square by up to 2.097"   <<< STALE
+w24  lvl=2 anc=bottom-right  ident=false  drawn (515.65,1034.91) -> (530.67,1056.74)
+      world corners: (534.79,1053.91) (519.76,1032.07) (512.89,1030.91) (529.56,1055.13)
+      corners_xy off the plain square by up to 31.751"   <<< STALE
+w25  lvl=2 anc=bottom-left   ident=false  drawn (725.42,881.23) -> (516.4,1034.54)
+      world corners: (718.57,880.06) (512.89,1030.91) (519.76,1032.07) (725.42,881.23)
+      corners_xy off the plain square by up to 4.827"   <<< STALE
+w26  lvl=2 anc=bottom-left   ident=false  drawn (533.88,599.89) -> (725.42,881.23)
+      world corners: (529.07,601.7) (718.57,880.06) (725.42,881.23) (533.88,599.89)
+      corners_xy off the plain square by up to 4.827"   <<< STALE
+w27  lvl=2 anc=bottom-left   ident=false  drawn (514.08,440.42) -> (533.88,599.89)
+      world corners: (509.75,446.07) (529.07,601.7) (533.88,599.89) (514.08,440.42)
+      corners_xy off the plain square by up to 5.069"   <<< STALE
+w28  lvl=2 anc=bottom-left   ident=false  drawn (105.09,496.88) -> (514.08,440.42)
+      world corners: (110.67,501.16) (509.75,446.07) (514.08,440.42) (105.09,496.88)
+      corners_xy off the plain square by up to 5.069"   <<< STALE
+w29  lvl=2 anc=bottom-left   ident=false  drawn (130.1,692.85) -> (105.09,496.88)
+      world corners: (134.91,691.04) (110.67,501.16) (105.09,496.88) (130.1,692.85)
+      corners_xy off the plain square by up to 4.949"   <<< STALE
+
+== DUPLICATE WALL IDS ==
+  id 96a6dfa1-43a5-4a3f-933d-0ae8cbd3e320 used by walls [12, 15]
+  id b5987499-ddab-4638-bb95-855e2f1abc9a used by walls [13, 16]
+  id 354d9a7a-f80c-4a0f-ad51-0ff8d1290775 used by walls [14, 17]
+
+== NEIGHBOUR GAPS (same level, drawn ends within 12") ==
+   gap = closest distance between the two stored WORLD footprints.
+  w0   <-> w1   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w0   <-> w4   lvl=1  drawn-end gap=4.146"  footprint gap=0.714"   <<< OPEN CORNER
+  w1   <-> w2   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w2   <-> w6   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w3   <-> w5   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w3   <-> w11  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w4   <-> w5   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w6   <-> w7   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w7   <-> w8   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w8   <-> w9   lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w9   <-> w10  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w10  <-> w11  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w12  <-> w13  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w13  <-> w14  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w15  <-> w16  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w16  <-> w17  lvl=1  drawn-end gap=0.0"  footprint gap=0.0"
+  w18  <-> w19  lvl=2  drawn-end gap=0.3"  footprint gap=0.3"   <<< OPEN CORNER
+  w18  <-> w29  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w19  <-> w20  lvl=2  drawn-end gap=0.3"  footprint gap=0.3"   <<< OPEN CORNER
+  w20  <-> w21  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w21  <-> w22  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w22  <-> w23  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w23  <-> w24  lvl=2  drawn-end gap=5.0"  footprint gap=0.0"
+  w24  <-> w25  lvl=2  drawn-end gap=0.841"  footprint gap=0.0"
+  w25  <-> w26  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w26  <-> w27  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w27  <-> w28  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+  w28  <-> w29  lvl=2  drawn-end gap=0.0"  footprint gap=0.0"
+
+== FLOORS: is floor_level actually stored? ==
+  floor0  room_lvl=1  floor_level KEY PRESENT=true  value=0.0  top z=0.0  group origin z=0.0
+  floor1  room_lvl=1  floor_level KEY PRESENT=true  value=0.0  top z=0.0  group origin z=0.0
+  floor2  room_lvl=1  floor_level KEY PRESENT=true  value=0.0  top z=0.0  group origin z=0.0
+  floor3  room_lvl=2  floor_level KEY PRESENT=true  value=0.0  top z=0.0  group origin z=0.0
+
+== what the code WOULD put there for a level-2 room ==
+  LevelManager.level_base(2) = 106.0"

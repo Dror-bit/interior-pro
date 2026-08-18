@@ -1,0 +1,121 @@
+InteriorPro debug_hex3  2026-08-17 15:40:29 -0700
+
+== WALL GROUP TRANSFORMATIONS ==
+   A wall the plugin made and lifted should have translation
+   x=0 y=0 and z = its level base. Anything else means the
+   GROUP itself was moved (native SketchUp move / copy).
+
+w0   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w1   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w2   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w3   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w4   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w5   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w6   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w7   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w8   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w9   lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w10  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w11  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w12  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w13  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w14  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(0.0, 0.0, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w15  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(84.114, 124.574, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w16  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(84.114, 124.574, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w17  lvl=1 anc=bottom-left   th=5.0    base_z=nil       T=(84.114, 124.574, 0.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, ceiling_h, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w18  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w19  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w20  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w21  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w22  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w23  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w24  lvl=2 anc=bottom-right  th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w25  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w26  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w27  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w28  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+w29  lvl=2 anc=bottom-left   th=5.0    base_z=106.0     T=(0.0, 0.0, 106.0) rot_or_scale=false
+      xaxis=(1.0,0.0,0.0)  yaxis=(0.0,1.0,0.0)  zaxis=(0.0,0.0,1.0)
+      attr keys: anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type
+
+== FLOORS ==
+  floor0  drop_walls=false floor_level=0.0 level=1
+      attr keys: area_sqft, created_at, drop_walls, floor_level, floor_spec, floor_texture, floor_type, grout_spec, id, level, pattern, pattern_angle, pattern_center, pattern_grout, pattern_grout_color, pattern_ox, pattern_oy, plugin_version, room_id, thickness_in, type, unit_l, unit_w
+  floor1  drop_walls=false floor_level=0.0 level=1
+      attr keys: area_sqft, created_at, drop_walls, floor_level, floor_spec, floor_texture, floor_type, grout_spec, id, level, pattern, pattern_angle, pattern_center, pattern_grout, pattern_grout_color, pattern_ox, pattern_oy, plugin_version, room_id, thickness_in, type, unit_l, unit_w
+  floor2  drop_walls=false floor_level=0.0 level=1
+      attr keys: area_sqft, created_at, drop_walls, floor_level, floor_spec, floor_texture, floor_type, grout_spec, id, level, pattern, pattern_angle, pattern_center, pattern_grout, pattern_grout_color, pattern_ox, pattern_oy, plugin_version, room_id, thickness_in, type, unit_l, unit_w
+  floor3  drop_walls=false floor_level=0.0 level=2
+      attr keys: area_sqft, created_at, drop_walls, floor_level, floor_spec, floor_texture, floor_type, grout_spec, id, level, pattern, pattern_angle, pattern_center, pattern_grout, pattern_grout_color, pattern_ox, pattern_oy, plugin_version, room_id, thickness_in, type, unit_l, unit_w
+
+== ROOMS ==
+  room0  name=Room 1 level=1 id=room-tjvy8n-8309
+  room1  name=Room 2 level=1 id=room-tjxnvy-6023
+  room2  name=Room 3 level=1 id=room-tjxp20-4964
+  room3  name=Room 4 level=2 id=room-tjxp20-1120
+
+== ALL InteriorPro GROUP TYPES IN THE MODEL ==
+  ceiling: 3
+  floor: 4
+  room: 4
+  sketch2d: 45
+  subfloor: 1
+  wall: 30

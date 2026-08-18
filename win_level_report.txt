@@ -1,0 +1,47 @@
+walls at top level: 34
+
+== level 1 : 22 walls ==
+  distinct origins: 9
+    [0.0, 0.0, 0.0]
+    [0.0, 0.0, -21.0]
+    [0.0, -161.687, -21.0]
+    [0.0, -161.687, 0.0]
+    [6.254, -152.411, 0.0]
+    [76.603, -48.256, 0.0]
+    [0.0, 2400.0, 0.0]
+    [0.0, 2400.0, -21.0]
+    [-19.89, 13.43, 0.0]
+  walls with NON-ZERO x or y in transformation: 18  <== THE ANSWER
+    id=6b9a2e7e-fb6b-4286-b34d-f552c1a3293c origin=(0.0, -161.687, -21.0)
+    id=93da66bd-cc49-497e-9ac5-cb448ddc070d origin=(0.0, -161.687, 0.0)
+    id=b5987499-ddab-4638-bb95-855e2f1abc9a origin=(6.254, -152.411, 0.0)
+    id=e825f130-6d31-42c2-9a70-068fbd7e35a7 origin=(0.0, -161.687, 0.0)
+    id=2c7c8ca0-4c4a-49d7-ae80-c1d42670d678 origin=(0.0, -161.687, 0.0)
+    id=025d8a42-b1c5-4f15-8761-7114d081bd8f origin=(0.0, -161.687, 0.0)
+    id=bfea02af-c476-476f-b9b5-b0da4d68f39d origin=(76.603, -48.256, 0.0)
+    id=58ad1f58-3647-43c7-ae4c-ad6d26b9b2d3 origin=(76.603, -48.256, 0.0)
+    id=a42ebfaa-0996-42bc-97b0-eff7bd9422cc origin=(0.0, -161.687, 0.0)
+    id=37c267b2-f31a-4762-bcec-06e848b5d194 origin=(0.0, -161.687, 0.0)
+  walls with ROTATION/SCALE in transformation: 0
+
+== level 2 : 12 walls ==
+  distinct origins: 2
+    [0.0, -161.687, 106.0]
+    [0.0, 0.0, 106.0]
+  walls with NON-ZERO x or y in transformation: 10  <== THE ANSWER
+    id=cfd63fa7-81c6-4571-a043-fd33998dafed origin=(0.0, -161.687, 106.0)
+    id=ba1e17e9-52d5-4b7c-8727-6488421fa9a1 origin=(0.0, -161.687, 106.0)
+    id=2a486197-4ba4-45c9-afe4-db59fd72a999 origin=(0.0, -161.687, 106.0)
+    id=1edd95d9-ee40-46c5-8d0b-4361f25b4c9e origin=(0.0, -161.687, 106.0)
+    id=46262928-09a6-4d94-a930-5ab4b1d42776 origin=(0.0, -161.687, 106.0)
+    id=b5e0f344-5357-4611-b8ca-78091144678a origin=(0.0, -161.687, 106.0)
+    id=5d76370b-221c-4d88-bc0c-c588908bdd1f origin=(0.0, -161.687, 106.0)
+    id=3b9f523f-7d84-4f71-9d3f-25cf0dfe7aa7 origin=(0.0, -161.687, 106.0)
+    id=a4688623-278c-4c1c-be7a-c16f333b53bb origin=(0.0, -161.687, 106.0)
+    id=727e9161-2973-414d-bfdc-0facd180d7bc origin=(0.0, -161.687, 106.0)
+  walls with ROTATION/SCALE in transformation: 0
+
+== windows already placed ==
+  count: 2
+  win id=6daa2154-0000-4f3c-aa00-051cba8a9d77 host=fe4b4d5a-34db-4071-9f92-2f4af477a89dA pos=48.93787532549229 bottom_z=32.0
+  win id=b4174eb6-fd17-4faf-b7e5-a858ece117de host=fe4b4d5a-34db-4071-9f92-2f4af477a89dBB pos=114.83166821162774 bottom_z=32.0

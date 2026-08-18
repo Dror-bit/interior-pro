@@ -436,6 +436,16 @@ module InteriorPro
     # centroid), new loops get new rooms, stale rooms are erased.
     def self.sync_rooms!
       model = Sketchup.active_model
+      # A wall copied with SketchUp's own Copy/Paste carries the original's
+      # id, and everything here works by id. Sync runs after every wall
+      # edit, so this is the one place that sees the model often enough to
+      # heal it, and early enough that the ids below are already unique
+      # (2026-08-18, tests/rt71.rb).
+      begin
+        InteriorPro::WallTool.ensure_unique_ids!(model) if defined?(InteriorPro::WallTool)
+      rescue StandardError => e
+        puts "[Rooms] duplicate id check: #{e.message}"
+      end
       # Per-level rooms (2026-08-04): each level is detected on its own and
       # matched only against its own rooms - levels share x/y, so a level-2
       # room sits right over a level-1 room and must never steal its id.

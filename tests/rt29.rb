@@ -131,8 +131,15 @@ ok('the angle separators are < / and @',
    src.include?('/[<\\/@]\\s*(-?') )
 ok('typing lets those separators through in wall mode',
    src.include?("/^[0-9.'\"<\\/@ -]$/.test(ev.key)"))
+# Was pinned to the raw "aDeg + '\u00b0'" this used to be built from. The label
+# still shows the angle, but it goes through fmtAngle now (which rounds to a
+# tenth of a degree and adds the \u00b0 itself), so the old spelling stopped
+# matching and this went red while the feature was fine - found red on
+# 2026-08-17, before that session touched anything. Pin the BEHAVIOUR: the
+# live label carries an angle mark and a formatted angle.
 ok('the live label shows the angle while drawing',
-   src.include?("'  \u2220' + aDeg + '\u00b0'"))
+   src.include?("'  \u2220' + fmtAngle(aDeg)") &&
+   src.include?("return (r % 1 === 0 ? r : r.toFixed(1)) + '\u00b0';"))
 
 # ---- draw a curved wall directly, with an icon toggle ----
 ok('the wall panel has a straight/arc shape toggle', src.include?('setWallShape('))

@@ -1,0 +1,1038 @@
+========================================================================
+VALI / INSTANT ROOF PROBE  (read only)
+model: 18833 Jumpir Springs Dr, Santa Clarita, CA
+path : C:\Clients\2023\18833 Juniper Spgs Dr Santa clarita, CA 91321\18833 Jumpir Springs Dr, Santa Clarita, CA.skp
+========================================================================
+
+Nothing selected - scanning EVERY top level group/component.
+
+MODEL TOTALS
+  component definitions : 1120
+  faces at top level    : 185
+
+DEFINITIONS, MOST-REPEATED FIRST
+  (a high instance count + a low face count = the component trick)
+
+  definition                         instances   faces   edges nested  size w x d x h (in)
+  ------------------------------------------------------------------------------------------------
+  va_BirdStop                             408       1       5      0  5.1 x 0.0 x 1.9
+  va_picket#1                             244       6      12      0  0.8 x 60.0 x 0.8
+  va_picket                               154       6      12      0  0.8 x 60.0 x 0.8
+  va_BirdStop#2                            25       1      11      0  11.0 x 0.0 x 4.1
+  va_post#1                                20       6      12      0  2.5 x 68.0 x 2.5
+  1                                        16       6      12      0  1.8 x 6.3 x 89.1
+  va_BirdStop#1                            14       1      11      0  11.0 x 0.0 x 4.1
+  va_post                                  12       6      12      0  2.5 x 68.0 x 2.5
+  Group#5                                  10       6      12      0  150.9 x 4.9 x 2.0
+  Group8#1                                 10       1       4      0  44.0 x 0.0 x 75.0
+  Group61#1                                 8       1       4      0  41.2 x 0.0 x 75.0
+  Group#1000                                6     310     841      0  2.0 x 2.0 x 0.4
+  Group#52                                  6      32      92      0  0.2 x 8.0 x 1.1
+  Group#998                                 6     111    1260      0  2.0 x 2.0 x 0.4
+  Group#1001                                6      42     120      0  2.0 x 2.0 x 0.6
+  Group#981                                 6      89     200      0  0.8 x 3.8 x 1.7
+  Group#984                                 6       6      12      0  19.8 x 0.5 x 1.0
+  Group#16                                  6       0       0      2  42.0 x 21.0 x 2.6
+  Group#22                                  6       0       0      4  4.1 x 2.6 x 1.2
+  Group#985                                 6       6      12      0  19.8 x 18.2 x 0.0
+  Group#14                                  6       0       0     16  42.0 x 21.0 x 2.6
+  Group#986                                 6       6      12      0  19.8 x 18.2 x 0.0
+  Group#979                                 6      89     197      0  0.8 x 3.8 x 1.7
+  Group#988                                 6      89     198      0  0.8 x 3.8 x 1.7
+  Group#993                                 6      42     144      0  0.3 x 2.0 x 0.3
+  Group#980                                 6      33     157      0  1.1 x 0.9 x 0.1
+  Group#992                                 6      42     144      0  0.3 x 2.0 x 0.3
+  Group#994                                 6      42     144      0  0.3 x 2.0 x 0.3
+  Group#995                                 6      10      24      0  42.0 x 21.0 x 1.0
+  Group#982                                 6      33     148      0  1.1 x 0.9 x 0.1
+  Group#987                                 6      89     197      0  0.8 x 3.8 x 1.7
+  Group#989                                 6      33     157      0  1.1 x 0.9 x 0.1
+  Group#983                                 6       6      12      0  19.8 x 0.5 x 1.0
+  Group#990                                 6      33     148      0  1.1 x 0.9 x 0.1
+  Group#991                                 6      42     144      0  0.3 x 2.0 x 0.3
+  Group#999                                 6     319    1212      0  2.6 x 2.6 x 0.2
+  VA_Door                                   5      24      56      2  48.0 x 1.2 x 80.0
+  Group#1066                                4     310     841      0  2.0 x 2.0 x 0.4
+  Group#1050                                4      33     149      0  0.5 x 0.5 x 0.1
+  Group#1064                                4     111    1260      0  2.0 x 2.0 x 0.4
+  ... 1080 more definitions
+
+  UNIQUE faces stored in definitions : 143762
+  faces actually DRAWN on screen     : 205049
+  saving from re-use                 : 1.4 x
+
+------------------------------------------------------------------------
+ROOT 0: ComponentInstance  name=VA_Opening
+  size 242.2 x 82.0 x 5.3 in
+    level 1: 0 faces, 7 edges, 7 children here
+      x1     Group10#1                      48.0 x 1.2 x 80.0 in
+      x1     Group11#1                      48.0 x 1.2 x 80.0 in
+      x1     Group12#1                      48.0 x 1.2 x 80.0 in
+      x1     Group13#1                      48.0 x 1.2 x 80.0 in
+      x1     Group14#1                      48.0 x 4.9 x 80.0 in
+      x1     Group16#1                      242.2 x 3.5 x 1.0 in
+      x1     Group3#1                       242.0 x 3.5 x 81.0 in
+      into "Group3#1":
+      level 2: 18 faces, 48 edges, 0 children here
+      into "Group10#1":
+      level 2: 0 faces, 0 edges, 1 children here
+        x1     VA_Door                        48.0 x 1.2 x 80.0 in
+        into "VA_Door":
+        level 3: 24 faces, 56 edges, 2 children here
+          x2     Group8#1                       44.0 x 0.0 x 75.0 in
+          into "Group8#1":
+          level 4: 1 faces, 4 edges, 0 children here
+      into "Group11#1":
+      level 2: 0 faces, 0 edges, 1 children here
+        x1     VA_Door                        48.0 x 1.2 x 80.0 in
+      into "Group12#1":
+      level 2: 0 faces, 0 edges, 1 children here
+        x1     VA_Door                        48.0 x 1.2 x 80.0 in
+
+------------------------------------------------------------------------
+ROOT 1: ComponentInstance  name=VA_Opening#2
+  size 73.5 x 61.5 x 2.5 in
+    level 1: 0 faces, 4 edges, 2 children here
+      x1     Group22#1                      73.5 x 2.5 x 61.5 in
+      x1     VA_Window#1                    72.0 x 1.0 x 60.0 in
+      into "VA_Window#1":
+      level 2: 24 faces, 56 edges, 2 children here
+        x2     Group26#1                      69.0 x 0.0 x 58.0 in
+        into "Group26#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group22#1":
+      level 2: 12 faces, 28 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 2: ComponentInstance  name=VA_Opening#4
+  size 36.5 x 61.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group37#1                      34.5 x 5.1 x 59.0 in
+      x1     Group44#1                      36.5 x 2.0 x 2.0 in
+      x1     VA_Window#3                    30.0 x 3.0 x 56.0 in
+      into "VA_Window#3":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group41#1                      27.0 x 0.0 x 30.0 in
+        x1     Group42#1                      27.0 x 0.0 x 20.5 in
+        x1     Group43#1                      27.0 x 0.0 x 20.5 in
+        into "Group43#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group41#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group42#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group37#1":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group44#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 3: ComponentInstance  name=VA_Opening#4
+  size 36.5 x 61.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group37#1                      34.5 x 5.1 x 59.0 in
+      x1     Group44#1                      36.5 x 2.0 x 2.0 in
+      x1     VA_Window#3                    30.0 x 3.0 x 56.0 in
+      into "VA_Window#3":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group41#1                      27.0 x 0.0 x 30.0 in
+        x1     Group42#1                      27.0 x 0.0 x 20.5 in
+        x1     Group43#1                      27.0 x 0.0 x 20.5 in
+        into "Group43#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group41#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group42#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group37#1":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group44#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 4: ComponentInstance  name=VA_Opening#6
+  size 92.2 x 82.0 x 5.3 in
+    level 1: 0 faces, 7 edges, 4 children here
+      x1     Group63#1                      46.2 x 1.2 x 80.0 in
+      x1     Group64#1                      46.2 x 4.9 x 80.0 in
+      x1     Group66#1                      92.2 x 3.5 x 1.0 in
+      x1     Group56#2                      92.0 x 3.8 x 81.0 in
+      into "Group56#2":
+      level 2: 27 faces, 69 edges, 0 children here
+      into "Group63#1":
+      level 2: 0 faces, 0 edges, 1 children here
+        x1     VA_Door#2                      46.2 x 1.2 x 80.0 in
+        into "VA_Door#2":
+        level 3: 24 faces, 56 edges, 2 children here
+          x2     Group61#1                      41.2 x 0.0 x 75.0 in
+          into "Group61#1":
+          level 4: 1 faces, 4 edges, 0 children here
+      into "Group64#1":
+      level 2: 0 faces, 0 edges, 3 children here
+        x2     VA_Door_Hardware#2             2.1 x 1.8 x 8.0 in
+        x1     VA_Door#2                      46.2 x 1.2 x 80.0 in
+        into "VA_Door_Hardware#2":
+        level 3: 17 faces, 48 edges, 0 children here
+      into "Group66#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 5: Group  name=Group#1
+  size 753.4 x 153.2 x 705.0 in
+    level 1: 0 faces, 12 edges, 3 children here
+      x1     Group70#1                      747.9 x 6.5 x 699.5 in
+      x1     Group66#2                      753.4 x 147.2 x 705.0 in
+      x1     Group67#1                      747.9 x 142.9 x 699.5 in
+      into "Group67#1":
+      level 2: 8 faces, 21 edges, 0 children here
+      into "Group70#1":
+      level 2: 16 faces, 40 edges, 0 children here
+      into "Group66#2":
+      level 2: 0 faces, 0 edges, 828 children here
+        x408   va_BirdStop                    0.8 x 1.7 x 5.1 in
+        x1     Group71#1                      17.6 x 10.5 x 6.2 in
+        x1     Group72#1                      34.1 x 18.7 x 6.2 in
+        x1     Group73#1                      50.6 x 27.0 x 6.2 in
+        x1     Group74#1                      67.1 x 35.2 x 6.2 in
+        x1     Group75#1                      83.6 x 43.5 x 6.2 in
+        x1     Group76#1                      100.1 x 51.7 x 6.2 in
+        x1     Group77#1                      116.6 x 60.0 x 6.2 in
+        x1     Group78#1                      133.1 x 68.2 x 6.2 in
+        x1     Group79#1                      149.6 x 76.5 x 6.2 in
+        x1     Group80#1                      166.1 x 84.7 x 6.2 in
+        x1     Group81#1                      182.6 x 93.0 x 6.2 in
+        ... 409 more kinds
+        into "va_BirdStop":
+        level 3: 1 faces, 5 edges, 0 children here
+        into "Group71#1":
+        level 3: 5 faces, 19 edges, 0 children here
+        into "Group72#1":
+        level 3: 5 faces, 19 edges, 0 children here
+        into "Group73#1":
+        level 3: 5 faces, 19 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 6: ComponentInstance  name=VA_Opening#7
+  size 49.5 x 49.5 x 2.5 in
+    level 1: 0 faces, 4 edges, 2 children here
+      x1     Group491#1                     49.5 x 2.5 x 49.5 in
+      x1     VA_Window_assembly             48.0 x 1.0 x 48.0 in
+      into "VA_Window_assembly":
+      level 2: 0 faces, 0 edges, 2 children here
+        x2     VA_Window#4                    24.0 x 1.0 x 48.0 in
+        into "VA_Window#4":
+        level 3: 24 faces, 56 edges, 2 children here
+          x2     Group495#1                     21.0 x 0.0 x 46.0 in
+          into "Group495#1":
+          level 4: 1 faces, 4 edges, 0 children here
+      into "Group491#1":
+      level 2: 12 faces, 28 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 7: Group  name=Group496#1
+  size 157.9 x 28.9 x 130.8 in
+    level 1: 0 faces, 0 edges, 42 children here
+      x14    va_BirdStop#1                  11.0 x 4.0 x 0.7 in
+      x1     Group501#1                     7.8 x 27.1 x 130.6 in
+      x1     Group502#1                     7.8 x 27.1 x 130.6 in
+      x1     Group503#1                     7.8 x 27.1 x 130.6 in
+      x1     Group504#1                     7.8 x 27.1 x 130.6 in
+      x1     Group505#1                     7.8 x 27.1 x 130.6 in
+      x1     Group506#1                     7.8 x 27.1 x 130.6 in
+      x1     Group507#1                     7.8 x 27.1 x 130.6 in
+      x1     Group508#1                     7.8 x 27.1 x 130.6 in
+      x1     Group509#1                     7.8 x 27.1 x 130.6 in
+      x1     Group510#1                     7.8 x 27.1 x 130.6 in
+      x1     Group511#1                     7.8 x 27.1 x 130.6 in
+      ... 17 more kinds
+      into "va_BirdStop#1":
+      level 2: 1 faces, 11 edges, 0 children here
+      into "Group501#1":
+      level 2: 5 faces, 19 edges, 0 children here
+      into "Group502#1":
+      level 2: 5 faces, 19 edges, 0 children here
+      into "Group503#1":
+      level 2: 5 faces, 19 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 8: ComponentInstance  name=VA_Opening#8
+  size 30.5 x 53.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group528#2                     28.5 x 5.1 x 51.0 in
+      x1     Group535#1                     30.5 x 2.0 x 2.0 in
+      x1     VA_Window#5                    24.0 x 3.0 x 48.0 in
+      into "VA_Window#5":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group532#1                     21.0 x 0.0 x 22.0 in
+        x1     Group533#1                     21.0 x 0.0 x 20.5 in
+        x1     Group534#1                     21.0 x 0.0 x 20.5 in
+        into "Group534#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group532#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group533#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group528#2":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group535#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 9: ComponentInstance  name=VA_Opening#8
+  size 30.5 x 53.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group528#2                     28.5 x 5.1 x 51.0 in
+      x1     Group535#1                     30.5 x 2.0 x 2.0 in
+      x1     VA_Window#5                    24.0 x 3.0 x 48.0 in
+      into "VA_Window#5":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group532#1                     21.0 x 0.0 x 22.0 in
+        x1     Group533#1                     21.0 x 0.0 x 20.5 in
+        x1     Group534#1                     21.0 x 0.0 x 20.5 in
+        into "Group534#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group532#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group533#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group528#2":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group535#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 10: ComponentInstance  name=VA_Opening#8
+  size 30.5 x 53.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group528#2                     28.5 x 5.1 x 51.0 in
+      x1     Group535#1                     30.5 x 2.0 x 2.0 in
+      x1     VA_Window#5                    24.0 x 3.0 x 48.0 in
+      into "VA_Window#5":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group532#1                     21.0 x 0.0 x 22.0 in
+        x1     Group533#1                     21.0 x 0.0 x 20.5 in
+        x1     Group534#1                     21.0 x 0.0 x 20.5 in
+        into "Group534#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group532#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group533#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group528#2":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group535#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 11: ComponentInstance  name=VA_Opening#8
+  size 30.5 x 53.0 x 6.0 in
+    level 1: 0 faces, 6 edges, 3 children here
+      x1     Group528#2                     28.5 x 5.1 x 51.0 in
+      x1     Group535#1                     30.5 x 2.0 x 2.0 in
+      x1     VA_Window#5                    24.0 x 3.0 x 48.0 in
+      into "VA_Window#5":
+      level 2: 40 faces, 102 edges, 3 children here
+        x1     Group532#1                     21.0 x 0.0 x 22.0 in
+        x1     Group533#1                     21.0 x 0.0 x 20.5 in
+        x1     Group534#1                     21.0 x 0.0 x 20.5 in
+        into "Group534#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group532#1":
+        level 3: 1 faces, 4 edges, 0 children here
+        into "Group533#1":
+        level 3: 1 faces, 4 edges, 0 children here
+      into "Group528#2":
+      level 2: 17 faces, 41 edges, 0 children here
+      into "Group535#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 12: Group  name=Group#2
+  size 756.6 x 48.0 x 117.3 in
+    level 1: 0 faces, 0 edges, 4 children here
+      x1     Group536#1                     756.6 x 68.0 x 117.3 in
+      x1     Group539#1                     754.1 x 1.0 x 116.4 in
+      x1     Group540#1                     744.0 x 60.0 x 113.7 in
+      x1     Group538#1                     754.1 x 1.0 x 116.4 in
+      into "Group538#1":
+      level 2: 26 faces, 72 edges, 0 children here
+      into "Group536#1":
+      level 2: 0 faces, 0 edges, 12 children here
+        x12    va_post                        2.8 x 68.0 x 2.8 in
+        into "va_post":
+        level 3: 6 faces, 12 edges, 0 children here
+      into "Group539#1":
+      level 2: 26 faces, 72 edges, 0 children here
+      into "Group540#1":
+      level 2: 0 faces, 0 edges, 154 children here
+        x154   va_picket                      0.9 x 60.0 x 0.9 in
+        into "va_picket":
+        level 3: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 13: Group  name=Group#3
+  size 300.3 x 48.0 x 1199.9 in
+    level 1: 0 faces, 0 edges, 4 children here
+      x1     Group546#1                     299.0 x 1.0 x 1197.4 in
+      x1     Group543#1                     300.3 x 68.0 x 1199.9 in
+      x1     Group545#1                     299.0 x 1.0 x 1197.4 in
+      x1     Group547#1                     295.4 x 60.0 x 1187.3 in
+      into "Group547#1":
+      level 2: 0 faces, 0 edges, 244 children here
+        x244   va_picket#1                    0.8 x 60.0 x 0.8 in
+        into "va_picket#1":
+        level 3: 6 faces, 12 edges, 0 children here
+      into "Group546#1":
+      level 2: 52 faces, 130 edges, 0 children here
+      into "Group543#1":
+      level 2: 0 faces, 0 edges, 20 children here
+        x20    va_post#1                      2.5 x 68.0 x 2.5 in
+        into "va_post#1":
+        level 3: 6 faces, 12 edges, 0 children here
+      into "Group545#1":
+      level 2: 52 faces, 130 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 14: Group  name=Group#4
+  size 87.4 x 26.3 x 275.0 in
+    level 1: 0 faces, 0 edges, 1 children here
+      x1     Group549#1                     87.4 x 26.3 x 275.0 in
+      into "Group549#1":
+      level 2: 0 faces, 0 edges, 75 children here
+        x25    va_BirdStop#2                  1.0 x 4.0 x 11.0 in
+        x1     Group554#1                     86.1 x 24.6 x 7.8 in
+        x1     Group555#1                     86.1 x 24.6 x 7.8 in
+        x1     Group556#1                     86.1 x 24.6 x 7.8 in
+        x1     Group557#1                     86.1 x 24.6 x 7.8 in
+        x1     Group558#1                     86.1 x 24.6 x 7.8 in
+        x1     Group559#1                     86.1 x 24.6 x 7.8 in
+        x1     Group560#1                     86.1 x 24.6 x 7.8 in
+        x1     Group561#1                     86.1 x 24.6 x 7.8 in
+        x1     Group562#1                     86.1 x 24.6 x 7.8 in
+        x1     Group563#1                     86.1 x 24.6 x 7.8 in
+        x1     Group564#1                     86.1 x 24.6 x 7.8 in
+        ... 39 more kinds
+        into "va_BirdStop#2":
+        level 3: 1 faces, 11 edges, 0 children here
+        into "Group554#1":
+        level 3: 5 faces, 19 edges, 0 children here
+        into "Group555#1":
+        level 3: 5 faces, 19 edges, 0 children here
+        into "Group556#1":
+        level 3: 5 faces, 19 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 15: Group  name=Group#5
+  size 150.9 x 4.9 x 2.0 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 16: Group  name=Group#5
+  size 150.9 x 4.9 x 2.0 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 17: Group  name=Group#5
+  size 150.9 x 4.9 x 2.0 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 18: Group  name=Group#5
+  size 150.9 x 4.9 x 2.0 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 19: Group  name=Group#5
+  size 150.9 x 4.9 x 2.0 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 20: Group  name=Group#5
+  size 2.0 x 4.9 x 103.6 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 21: Group  name=Group#5
+  size 2.0 x 4.9 x 103.6 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 22: Group  name=Group#5
+  size 2.0 x 4.9 x 103.6 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 23: Group  name=Group#5
+  size 2.0 x 4.9 x 103.6 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 24: Group  name=Group#5
+  size 2.0 x 4.9 x 103.6 in
+    level 1: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 25: ComponentInstance  name=VA_Opening#6
+  size 92.2 x 82.0 x 5.3 in
+    level 1: 0 faces, 7 edges, 4 children here
+      x1     Group63#1                      46.2 x 1.2 x 80.0 in
+      x1     Group64#1                      46.2 x 4.9 x 80.0 in
+      x1     Group66#1                      92.2 x 3.5 x 1.0 in
+      x1     Group56#2                      92.0 x 3.8 x 81.0 in
+      into "Group56#2":
+      level 2: 27 faces, 69 edges, 0 children here
+      into "Group63#1":
+      level 2: 0 faces, 0 edges, 1 children here
+        x1     VA_Door#2                      46.2 x 1.2 x 80.0 in
+        into "VA_Door#2":
+        level 3: 24 faces, 56 edges, 2 children here
+          x2     Group61#1                      41.2 x 0.0 x 75.0 in
+          into "Group61#1":
+          level 4: 1 faces, 4 edges, 0 children here
+      into "Group64#1":
+      level 2: 0 faces, 0 edges, 3 children here
+        x2     VA_Door_Hardware#2             2.1 x 1.8 x 8.0 in
+        x1     VA_Door#2                      46.2 x 1.2 x 80.0 in
+        into "VA_Door_Hardware#2":
+        level 3: 17 faces, 48 edges, 0 children here
+      into "Group66#1":
+      level 2: 5 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 26: Group  name=pool 1
+  size 273.5 x 130.0 x 276.0 in
+    level 1: 86 faces, 186 edges, 3 children here
+      x2     Group#32                       6.4 x 8.6 x 6.8 in
+      x1     Group#33                       6.4 x 8.6 x 6.8 in
+      into "Group#33":
+      level 2: 10 faces, 24 edges, 0 children here
+      into "Group#32":
+      level 2: 10 faces, 24 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 27: Group  name=Group#7
+  size 172.4 x 36.0 x 193.4 in
+    level 1: 36 faces, 96 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 28: Group  name=Group#16
+  size 2.6 x 21.0 x 36.0 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x1     Group#14                       42.0 x 21.0 x 2.6 in
+      x1     Group#349                      19.8 x 0.5 x 1.0 in
+      into "Group#349":
+      level 2: 6 faces, 12 edges, 0 children here
+      into "Group#14":
+      level 2: 0 faces, 0 edges, 16 children here
+        x1     Group#351                      19.8 x 18.2 x 0.0 in
+        x1     Group#359                      0.3 x 2.0 x 0.3 in
+        x1     Group#354                      1.1 x 0.9 x 0.1 in
+        x1     Group#360                      42.0 x 21.0 x 1.0 in
+        x1     Group#358                      0.3 x 2.0 x 0.3 in
+        x1     Group#357                      0.3 x 2.0 x 0.3 in
+        x1     Group#356                      0.3 x 2.0 x 0.3 in
+        x1     Group#353                      0.8 x 3.8 x 1.7 in
+        x1     Group#355                      1.1 x 0.9 x 0.1 in
+        x1     Group#352                      0.8 x 3.8 x 1.7 in
+        x1     Group#350                      19.8 x 18.2 x 0.0 in
+        x1     Group#348                      19.8 x 0.5 x 1.0 in
+        ... 4 more kinds
+        into "Group#351":
+        level 3: 6 faces, 12 edges, 0 children here
+        into "Group#359":
+        level 3: 42 faces, 144 edges, 0 children here
+        into "Group#354":
+        level 3: 33 faces, 157 edges, 0 children here
+        into "Group#360":
+        level 3: 10 faces, 24 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 29: Group  name=Group#10
+  size 27.3 x 25.6 x 36.0 in
+    level 1: 0 faces, 462 edges, 60 children here
+      x1     Group#399                      2.6 x 11.2 x 2.6 in
+      x1     Group#402                      1.0 x 2.2 x 3.0 in
+      x1     Group#403                      36.0 x 0.9 x 0.9 in
+      x1     Group#404                      4.1 x 2.0 x 0.1 in
+      x1     Group#400                      36.6 x 8.9 x 2.0 in
+      x1     Group#405                      2.7 x 0.2 x 1.3 in
+      x1     Group#406                      0.3 x 0.5 x 0.1 in
+      x1     Group#407                      3.0 x 0.1 x 0.1 in
+      x1     Group#408                      3.0 x 0.1 x 0.1 in
+      x1     Group#409                      3.4 x 0.9 x 0.1 in
+      x1     Group#410                      0.3 x 0.5 x 0.1 in
+      x1     Group#401                      1.0 x 2.2 x 3.0 in
+      ... 48 more kinds
+      into "Group#399":
+      level 2: 7 faces, 15 edges, 0 children here
+      into "Group#402":
+      level 2: 25 faces, 73 edges, 0 children here
+      into "Group#403":
+      level 2: 42 faces, 124 edges, 0 children here
+      into "Group#404":
+      level 2: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 30: Group  name=Group#12
+  size 26.5 x 26.0 x 30.0 in
+    level 1: 0 faces, 26 edges, 14 children here
+      x3     Group#22                       1.8 x 2.6 x 1.2 in
+      x1     Group#372                      0.6 x 0.9 x 0.5 in
+      x1     Group#362                      0.6 x 1.1 x 2.4 in
+      x1     Group#374                      2.7 x 0.2 x 1.3 in
+      x1     Group#394                      10.0 x 9.0 x 1.9 in
+      x1     Group#396                      13.1 x 1.6 x 23.3 in
+      x1     Group#373                      0.6 x 0.8 x 0.4 in
+      x1     Group#361                      0.6 x 1.1 x 2.4 in
+      x1     Group#393                      13.1 x 2.0 x 23.5 in
+      x1     Group#395                      13.1 x 10.5 x 2.4 in
+      x1     Group#397                      10.1 x 10.0 x 22.0 in
+      x1     Group#371                      0.9 x 1.2 x 0.3 in
+      into "Group#371":
+      level 2: 82 faces, 324 edges, 0 children here
+      into "Group#372":
+      level 2: 142 faces, 548 edges, 0 children here
+      into "Group#362":
+      level 2: 48 faces, 118 edges, 0 children here
+      into "Group#374":
+      level 2: 595 faces, 926 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 31: ComponentInstance  name=KNIFE#1
+  size 0.0 x 0.0 x 0.0 in
+    level 1: 0 faces, 1 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 32: Group  name=Group#47
+  size 18.1 x 2.7 x 12.2 in
+    level 1: 0 faces, 0 edges, 4 children here
+      x1     VI-SA3-CM v7                   12.2 x 0.8 x 18.1 in
+      x1     Group#45                       6.3 x 2.0 x 2.0 in
+      x1     Group#46                       2.0 x 0.4 x 2.0 in
+      x1     knifes set                     11.1 x 0.6 x 10.3 in
+      into "knifes set":
+      level 2: 80 faces, 323 edges, 0 children here
+      into "VI-SA3-CM v7":
+      level 2: 7893 faces, 26604 edges, 0 children here
+      into "Group#45":
+      level 2: 223 faces, 408 edges, 0 children here
+      into "Group#46":
+      level 2: 26 faces, 72 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 33: Group  name=Group#50
+  size 21.0 x 21.0 x 20.5 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x1     VI-SA3-k v7                    1.7 x 13.9 x 8.1 in
+      x1     VI-SA3-MB v14                  21.0 x 9.0 x 20.5 in
+      into "VI-SA3-MB v14":
+      level 2: 3241 faces, 5153 edges, 1 children here
+        x1     GA_Spuele_Abfluss              3.9 x 0.8 x 3.9 in
+        into "GA_Spuele_Abfluss":
+        level 3: 0 faces, 0 edges, 3 children here
+          x1     Group#39                       3.1 x 0.6 x 3.1 in
+          x1     Group#37                       3.9 x 0.3 x 3.9 in
+          x1     Group#38                       1.5 x 0.6 x 1.5 in
+          into "Group#38":
+          level 4: 260 faces, 640 edges, 0 children here
+          into "Group#39":
+          level 4: 3065 faces, 5124 edges, 0 children here
+          into "Group#37":
+          level 4: 396 faces, 828 edges, 0 children here
+      into "VI-SA3-k v7":
+      level 2: 8851 faces, 22800 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 34: Group  name=Group#11
+  size 27.3 x 25.6 x 36.0 in
+    level 1: 0 faces, 462 edges, 60 children here
+      x1     Group#399                      2.6 x 11.2 x 2.6 in
+      x1     Group#402                      1.0 x 2.2 x 3.0 in
+      x1     Group#403                      36.0 x 0.9 x 0.9 in
+      x1     Group#404                      4.1 x 2.0 x 0.1 in
+      x1     Group#400                      36.6 x 8.9 x 2.0 in
+      x1     Group#405                      2.7 x 0.2 x 1.3 in
+      x1     Group#406                      0.3 x 0.5 x 0.1 in
+      x1     Group#407                      3.0 x 0.1 x 0.1 in
+      x1     Group#408                      3.0 x 0.1 x 0.1 in
+      x1     Group#409                      3.4 x 0.9 x 0.1 in
+      x1     Group#410                      0.3 x 0.5 x 0.1 in
+      x1     Group#401                      1.0 x 2.2 x 3.0 in
+      ... 48 more kinds
+      into "Group#399":
+      level 2: 7 faces, 15 edges, 0 children here
+      into "Group#402":
+      level 2: 25 faces, 73 edges, 0 children here
+      into "Group#403":
+      level 2: 42 faces, 124 edges, 0 children here
+      into "Group#404":
+      level 2: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 35: ComponentInstance  name=KA_KBZU122TSS_Double_Side_Burner
+  size 30.5 x 26.5 x 12.0 in
+    level 1: 6 faces, 15 edges, 13 children here
+      x2     KNOB                           2.6 x 2.7 x 1.8 in
+      x1     logoplate#1                    4.8 x 1.4 x 0.2 in
+      x1     Group#12                       0.1 x 1.7 x 2.9 in
+      x1     Group#11                       3.5 x 0.9 x 3.5 in
+      x1     Group#9                        3.5 x 0.9 x 3.5 in
+      x1     Group#8                        9.6 x 1.0 x 9.0 in
+      x1     Group#7                        11.5 x 17.6 x 7.8 in
+      x1     Group#6                        0.1 x 1.7 x 2.9 in
+      x1     Group#4                        9.9 x 1.9 x 18.3 in
+      x1     Group#3                        12.0 x 9.1 x 19.5 in
+      x1     Group#2                        12.0 x 7.7 x 3.0 in
+      x1     Group#10                       9.6 x 1.0 x 9.0 in
+      into "KNOB":
+      level 2: 296 faces, 444 edges, 0 children here
+      into "logoplate#1":
+      level 2: 2089 faces, 3139 edges, 0 children here
+      into "Group#12":
+      level 2: 35 faces, 99 edges, 0 children here
+      into "Group#11":
+      level 2: 45 faces, 126 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 36: ComponentInstance  name=Group#53
+  size 23.6 x 25.7 x 18.5 in
+    level 1: 129 faces, 406 edges, 4 children here
+      x3     Group#52                       8.0 x 0.2 x 1.1 in
+      x1     Created By Chris               0.3 x 0.0 x 0.0 in
+      into "Created By Chris":
+      level 2: 35 faces, 1336 edges, 0 children here
+      into "Group#52":
+      level 2: 32 faces, 92 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 37: Group  name=patio cover
+  size 349.4 x 107.1 x 144.0 in
+    level 1: 0 faces, 0 edges, 18 children here
+      x16    1                              1.8 x 6.3 x 89.1 in
+      x1     Group#59                       169.4 x 4.7 x 89.1 in
+      x1     Group#57                       349.4 x 107.1 x 95.1 in
+      into "1":
+      level 2: 6 faces, 12 edges, 0 children here
+      into "Group#57":
+      level 2: 0 faces, 0 edges, 8 children here
+        x3     Group#58                       2.8 x 6.3 x 95.1 in
+        x3     post                           5.0 x 107.1 x 5.0 in
+        x2     Group#56                       349.4 x 6.3 x 3.0 in
+        into "post":
+        level 3: 6 faces, 12 edges, 0 children here
+        into "Group#56":
+        level 3: 11 faces, 20 edges, 0 children here
+        into "Group#58":
+        level 3: 6 faces, 12 edges, 0 children here
+      into "Group#59":
+      level 2: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 38: Group  name=Group#16
+  size 2.6 x 21.0 x 36.0 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x1     Group#14                       42.0 x 21.0 x 2.6 in
+      x1     Group#349                      19.8 x 0.5 x 1.0 in
+      into "Group#349":
+      level 2: 6 faces, 12 edges, 0 children here
+      into "Group#14":
+      level 2: 0 faces, 0 edges, 16 children here
+        x1     Group#351                      19.8 x 18.2 x 0.0 in
+        x1     Group#359                      0.3 x 2.0 x 0.3 in
+        x1     Group#354                      1.1 x 0.9 x 0.1 in
+        x1     Group#360                      42.0 x 21.0 x 1.0 in
+        x1     Group#358                      0.3 x 2.0 x 0.3 in
+        x1     Group#357                      0.3 x 2.0 x 0.3 in
+        x1     Group#356                      0.3 x 2.0 x 0.3 in
+        x1     Group#353                      0.8 x 3.8 x 1.7 in
+        x1     Group#355                      1.1 x 0.9 x 0.1 in
+        x1     Group#352                      0.8 x 3.8 x 1.7 in
+        x1     Group#350                      19.8 x 18.2 x 0.0 in
+        x1     Group#348                      19.8 x 0.5 x 1.0 in
+        ... 4 more kinds
+        into "Group#351":
+        level 3: 6 faces, 12 edges, 0 children here
+        into "Group#359":
+        level 3: 42 faces, 144 edges, 0 children here
+        into "Group#354":
+        level 3: 33 faces, 157 edges, 0 children here
+        into "Group#360":
+        level 3: 10 faces, 24 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 39: Group  name=Group#62
+  size 48.0 x 33.0 x 27.1 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x2     AHT-OD-RF1 (3D)#1              27.1 x 33.0 x 24.0 in
+      into "AHT-OD-RF1 (3D)#1":
+      level 2: 0 faces, 108 edges, 35 children here
+        x1     Group#1                        2.2 x 1.0 x 3.0 in
+        x1     Group#2                        0.2 x 0.2 x 0.1 in
+        x1     Group#3                        0.2 x 0.2 x 0.1 in
+        x1     Group#4                        3.0 x 0.1 x 0.1 in
+        x1     Group#5                        3.4 x 0.9 x 0.1 in
+        x1     Group#6                        0.6 x 0.5 x 0.1 in
+        x1     Group#7                        3.0 x 0.1 x 0.1 in
+        x1     Group#8                        0.5 x 0.5 x 0.1 in
+        x1     Group#9                        0.1 x 0.5 x 0.1 in
+        x1     Group#10                       0.2 x 0.2 x 0.1 in
+        x1     Group#11                       0.6 x 0.5 x 0.1 in
+        x1     Group#12                       0.3 x 0.5 x 0.1 in
+        ... 23 more kinds
+        into "Group#1":
+        level 3: 25 faces, 73 edges, 0 children here
+        into "Group#2":
+        level 3: 17 faces, 159 edges, 0 children here
+        into "Group#3":
+        level 3: 17 faces, 159 edges, 0 children here
+        into "Group#4":
+        level 3: 6 faces, 12 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 40: ComponentInstance  name=drawer#4
+  size 11.7 x 21.7 x 23.3 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x1     Group#341                      14.2 x 4.6 x 20.8 in
+      x1     Group#27                       16.2 x 22.8 x 2.5 in
+      into "Group#27":
+      level 2: 51 faces, 170 edges, 1 children here
+        x1     handle1#4                      7.7 x 1.0 x 1.5 in
+        into "handle1#4":
+        level 3: 2496 faces, 3888 edges, 2 children here
+          x2     No. 10 Screw head, pan , Phill 0.4 x 0.4 x 0.5 in
+          into "No. 10 Screw head, pan , Phill":
+          level 4: 26 faces, 72 edges, 1 children here
+            x1     Screw head#1                   0.3 x 0.1 x 0.3 in
+            into "Screw head#1":
+            level 5: 254 faces, 561 edges, 0 children here
+      into "Group#341":
+      level 2: 7 faces, 22 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 41: Group  name=Group#16
+  size 1.9 x 18.0 x 29.1 in
+    level 1: 0 faces, 0 edges, 2 children here
+      x1     Group#14                       42.0 x 21.0 x 2.6 in
+      x1     Group#349                      19.8 x 0.5 x 1.0 in
+      into "Group#349":
+      level 2: 6 faces, 12 edges, 0 children here
+      into "Group#14":
+      level 2: 0 faces, 0 edges, 16 children here
+        x1     Group#351                      19.8 x 18.2 x 0.0 in
+        x1     Group#359                      0.3 x 2.0 x 0.3 in
+        x1     Group#354                      1.1 x 0.9 x 0.1 in
+        x1     Group#360                      42.0 x 21.0 x 1.0 in
+        x1     Group#358                      0.3 x 2.0 x 0.3 in
+        x1     Group#357                      0.3 x 2.0 x 0.3 in
+        x1     Group#356                      0.3 x 2.0 x 0.3 in
+        x1     Group#353                      0.8 x 3.8 x 1.7 in
+        x1     Group#355                      1.1 x 0.9 x 0.1 in
+        x1     Group#352                      0.8 x 3.8 x 1.7 in
+        x1     Group#350                      19.8 x 18.2 x 0.0 in
+        x1     Group#348                      19.8 x 0.5 x 1.0 in
+        ... 4 more kinds
+        into "Group#351":
+        level 3: 6 faces, 12 edges, 0 children here
+        into "Group#359":
+        level 3: 42 faces, 144 edges, 0 children here
+        into "Group#354":
+        level 3: 33 faces, 157 edges, 0 children here
+        into "Group#360":
+        level 3: 10 faces, 24 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 42: ComponentInstance  name=modern fire pit
+  size 60.0 x 15.0 x 31.1 in
+    level 1: 47 faces, 108 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 43: Group  name=BBQ 2
+  size 222.3 x 54.3 x 226.2 in
+    level 1: 0 faces, 0 edges, 12 children here
+      x3     Group#16                       1.9 x 18.0 x 29.1 in
+      x1     KA_KBZU122TSS_Double_Side_Burn 30.5 x 26.5 x 12.0 in
+      x1     Group#62                       48.0 x 33.0 x 27.1 in
+      x1     Group#7                        172.4 x 36.0 x 193.4 in
+      x1     Group#47                       18.1 x 2.7 x 12.2 in
+      x1     Group#53                       23.6 x 25.7 x 18.5 in
+      x1     Group#10                       27.3 x 25.6 x 36.0 in
+      x1     Group#11                       27.3 x 25.6 x 36.0 in
+      x1     Group#50                       21.0 x 21.0 x 20.5 in
+      x1     Group#12                       26.5 x 26.0 x 30.0 in
+      into "Group#53":
+      level 2: 129 faces, 406 edges, 4 children here
+        x3     Group#52                       8.0 x 0.2 x 1.1 in
+        x1     Created By Chris               0.3 x 0.0 x 0.0 in
+        into "Created By Chris":
+        level 3: 35 faces, 1336 edges, 0 children here
+        into "Group#52":
+        level 3: 32 faces, 92 edges, 0 children here
+      into "KA_KBZU122TSS_Double_Side_Burn":
+      level 2: 6 faces, 15 edges, 13 children here
+        x2     KNOB                           2.6 x 2.7 x 1.8 in
+        x1     logoplate#1                    4.8 x 1.4 x 0.2 in
+        x1     Group#12                       0.1 x 1.7 x 2.9 in
+        x1     Group#11                       3.5 x 0.9 x 3.5 in
+        x1     Group#9                        3.5 x 0.9 x 3.5 in
+        x1     Group#8                        9.6 x 1.0 x 9.0 in
+        x1     Group#7                        11.5 x 17.6 x 7.8 in
+        x1     Group#6                        0.1 x 1.7 x 2.9 in
+        x1     Group#4                        9.9 x 1.9 x 18.3 in
+        x1     Group#3                        12.0 x 9.1 x 19.5 in
+        x1     Group#2                        12.0 x 7.7 x 3.0 in
+        x1     Group#10                       9.6 x 1.0 x 9.0 in
+        into "KNOB":
+        level 3: 296 faces, 444 edges, 0 children here
+        into "logoplate#1":
+        level 3: 2089 faces, 3139 edges, 0 children here
+        into "Group#12":
+        level 3: 35 faces, 99 edges, 0 children here
+        into "Group#11":
+        level 3: 45 faces, 126 edges, 0 children here
+      into "Group#62":
+      level 2: 0 faces, 0 edges, 2 children here
+        x2     AHT-OD-RF1 (3D)#1              27.1 x 33.0 x 24.0 in
+        into "AHT-OD-RF1 (3D)#1":
+        level 3: 0 faces, 108 edges, 35 children here
+          x1     Group#1                        2.2 x 1.0 x 3.0 in
+          x1     Group#2                        0.2 x 0.2 x 0.1 in
+          x1     Group#3                        0.2 x 0.2 x 0.1 in
+          x1     Group#4                        3.0 x 0.1 x 0.1 in
+          x1     Group#5                        3.4 x 0.9 x 0.1 in
+          x1     Group#6                        0.6 x 0.5 x 0.1 in
+          x1     Group#7                        3.0 x 0.1 x 0.1 in
+          x1     Group#8                        0.5 x 0.5 x 0.1 in
+          x1     Group#9                        0.1 x 0.5 x 0.1 in
+          x1     Group#10                       0.2 x 0.2 x 0.1 in
+          x1     Group#11                       0.6 x 0.5 x 0.1 in
+          x1     Group#12                       0.3 x 0.5 x 0.1 in
+          ... 23 more kinds
+          into "Group#1":
+          level 4: 25 faces, 73 edges, 0 children here
+          into "Group#2":
+          level 4: 17 faces, 159 edges, 0 children here
+          into "Group#3":
+          level 4: 17 faces, 159 edges, 0 children here
+          into "Group#4":
+          level 4: 6 faces, 12 edges, 0 children here
+      into "Group#7":
+      level 2: 36 faces, 96 edges, 0 children here
+
+------------------------------------------------------------------------
+ROOT 44: Group  name=Group#64
+  size 288.0 x 48.0 x 240.0 in
+    level 1: 117 faces, 261 edges, 1 children here
+      x1     Group#63                       216.0 x 0.0 x 264.0 in
+      into "Group#63":
+      level 2: 1 faces, 16 edges, 0 children here
+
+------------------------------------------------------------------------
+MATERIALS (is the tile a texture, a colour, or both?)
+  Niraj_Skin                       plain colour  rgb(158,128,115)
+  Niraj_Shoe_Stitching             plain colour  rgb(181,137,92)
+  Niraj_Pant_Shadow                plain colour  rgb(70,74,99)
+  Niraj_Shoe_Sole                  plain colour  rgb(96,73,48)
+  Niraj_Pant                       plain colour  rgb(69,86,117)
+  Niraj_Shirt                      plain colour  rgb(144,153,181)
+  Niraj_Hair_Dark                  plain colour  rgb(109,109,109)
+  Niraj_Hair_Gray                  plain colour  rgb(178,178,178)
+  Drawing 1                        texture Drawing 1.png                2281.6 x 1442.5 in
+  VA_glazing                       plain colour  rgb(211,211,211)
+  VA_hardware                      plain colour  rgb(210,180,140)
+  Color C03                        plain colour  rgb(255,178,101)
+  Color C08                        plain colour  rgb(102,51,0)
+  Roofing Tile Spanish             texture Roofing_Tile_Spanish.jpg     30.0 x 24.7 in
+  Wood Floor                       texture Wood_Floor.jpg               60.0 x 60.0 in
+  Color B02                        plain colour  rgb(255,178,153)
+  Cinder Block                     texture Cinder Block.jpg             18.0 x 8.0 in
+  Color M09                        plain colour  rgb(0,0,0)
+  Color M03                        plain colour  rgb(170,170,170)
+  Grass Dark Green                 texture Grass Dark Green.jpg         36.0 x 39.7 in
+  Color M06                        plain colour  rgb(86,86,86)
+  Color M05                        plain colour  rgb(114,114,114)
+  Color M04                        plain colour  rgb(142,142,142)
+  Groundcover Bark Chips           texture Groundcover_BarkChips.jpg    12.0 x 12.0 in
+  Color H06                        plain colour  rgb(0,204,204)
+  Square Glass Tile 01             texture Square Glass Tile 01.jpg     20.0 x 20.8 in
+  Concrete Tile                    texture Concrete Tile.jpg            60.0 x 60.0 in
+  Encaustic Tile Circular 01       texture Encaustic Tile Circular 01.j 48.0 x 48.0 in
+  Terrazzo Tile Accent             texture Terrazzo Tile Accent.jpg     12.0 x 12.0 in
+  Color B05                        plain colour  rgb(255,63,0)
+  Color C06                        plain colour  rgb(204,102,0)
+  Metal Corrugated Shiny           texture Metal_Corrogated_Shiny.jpg   4.0 x 4.0 in
+  [Translucent_Glass_Gray]1        plain colour  rgb(128,128,128)
+  Color_008                        plain colour  rgb(30,30,30)
+  Material8                        plain colour  rgb(255,0,0)
+  [Color_000]1                     plain colour  rgb(255,255,255)
+  black_mat1                       plain colour  rgb(0,0,0)
+  stainless_steel_1                plain colour  rgb(197,197,197)
+  timble_shelf_mat1                texture WOOD.JPG                     1.0 x 1.0 in
+  led_panel_mat1                   texture V40ICESS.JPG                 1.0 x 1.0 in
+  Color_007                        plain colour  rgb(58,58,58)
+  Color K03                        plain colour  rgb(255,101,255)
+  [Metal_Corrogated_Shiny]3        texture Metal_Corrogated_Shiny.jpg   48.0 x 48.0 in
+  [Metal_Corrogated_Shiny]4        texture Metal_Corrogated_Shiny.jpg   72.0 x 72.0 in
+  Metal_Corrogated_Shiny           texture Metal_Corrogated_Shiny.jpg   48.0 x 48.0 in
+  MyFrontMaterial1                 plain colour  rgb(178,178,178)
+  [Metal_Corrogated_Shiny]11       texture Metal_Corrogated_Shiny.jpg   4.0 x 4.0 in
+  Steel - Satin                    plain colour  rgb(160,160,160)
+  Edelstahl - satiniert            plain colour  rgb(203,203,203)
+  Plastic - Glossy (Black)         plain colour  rgb(25,25,25)
+  Steel - Galvanized (Small)       plain colour  rgb(0,0,0)
+  Opaque(176,176,176)              plain colour  rgb(176,176,176)
+  Rubber - Soft                    plain colour  rgb(39,39,39)
+  Opaque(192,192,192)              plain colour  rgb(192,192,192)
+  Stainless Steel - Satin          plain colour  rgb(203,203,203)
+  ABS (White)                      plain colour  rgb(40,40,40)
+  BE-23150_Stainless Steel         texture silver-brushed-metal-texture 19.7 x 9.8 in
+  <auto>                           plain colour  rgb(255,255,255)
+  0137_Black                       plain colour  rgb(0,0,0)
+  0061_OliveDrab                   plain colour  rgb(107,142,35)
+  Edelstahl_Ohnne Reflektion       texture Edelstahl.jpg                36.7 x 20.6 in
+  [0061_OliveDrab]1                plain colour  rgb(62,103,42)
+  hoelzerner-strukturierter-hinter texture hoelzerner-strukturierter-hi 4.4 x 2.9 in
+  _0061_OliveDrab_                 texture _0061_OliveDrab_.jpg         2.0 x 2.0 in
+  Color_009                        plain colour  rgb(66,66,66)
+  Color_006                        plain colour  rgb(86,86,86)
+  vivandio-FS Glas 01              texture Scheibe_blaues_Licht_Anschla 2.4 x 3.9 in
+  Color M08                        plain colour  rgb(30,30,30)
+  vivandio-FS Glas 02              texture Scheibe_blaues_Licht_Anschla 4.6 x 7.7 in
+  Wood_Cherry_Original             texture Wood_Cherry_Original.jpg     12.0 x 12.0 in
+  [Metal_Corrogated_Shiny]1        texture Metal_Corrogated_Shiny.jpg   4.0 x 4.0 in
+  <CorrogateShiny>8                texture CorrogateShiny.jpg           18.0 x 18.0 in
+  <DarkGray>                       plain colour  rgb(81,81,81)
+  <Charcoal>                       plain colour  rgb(35,35,35)
+  <CorrogateShiny>1                texture CorrogateShiny.jpg           1.0 x 1.0 in
+  <CorrogateShiny>3                texture CorrogateShiny.jpg           4.0 x 4.0 in
+  [Metal_Aluminum_Anodized]10      texture [Metal_Aluminum_Anodized]7_e 54.0 x 54.0 in
+  Metal_Seamed                     texture Metal_Seamed.jpg             18.0 x 18.0 in
+  [Metal_Corrogated_Shiny]2        texture Metal_Corrogated_Shiny.jpg   25.0 x 25.0 in
+  [Color_009]1                     plain colour  rgb(0,0,0)
+  [Metal_Rough]2                   texture Metal_Rough.jpg              8.0 x 8.0 in
+  Metal_Aluminum_Anodized          texture Metal_Aluminum_Anodized.jpg  54.0 x 54.0 in
+  [Metal_Rough]3                   texture Metal_Rough.jpg              8.0 x 8.0 in
+  brushed_aluminum                 texture brushed_aluminum.jpg         12.0 x 12.0 in
+  glass                            texture glass.PNG                    36.0 x 36.9 in
+  mirror                           texture mirror.PNG                   36.0 x 53.3 in
+  particle_board                   texture particle_board.jpg           36.0 x 48.8 in
+  stainless_steel                  texture stainless_steel.jpg          12.0 x 8.4 in
+  ChromeMatte                      texture 04 Chrome.jpg                4.0 x 4.0 in
+  lightgrey                        plain colour  rgb(211,211,211)
+  Material                         plain colour  rgb(63,63,63)
+  Wood Cherry Original             texture Wood_Cherry_Original.jpg     72.0 x 72.0 in
+  Groundcover Gravel 1 inch        texture Groundcover_Gravel_1inch.jpg 18.0 x 18.0 in
+  Pavers Driveway Brick            texture Driveway Brick Paver.jpg     22.0 x 22.0 in
+  Fencing Wood Old                 texture Fencing_Wood_Old.jpg         36.0 x 46.6 in
+  Polished Concrete New            texture Polished Concrete New.jpg    60.0 x 60.0 in
+  Wood Plywood Knots               texture Wood_Plywood_Knots.jpg       66.0 x 66.0 in
+  Color M02                        plain colour  rgb(198,198,198)
+  Material2                        texture Steel Brushed Stainless.jpg  60.0 x 60.0 in
+  Groundcover Rock Crushed 2 inch  texture Groundcover_Rock_Crushed_2in 24.0 x 24.0 in
+  Translucent Glass Gray           plain colour  rgb(128,128,128)
+  Color I07                        plain colour  rgb(0,0,153)
+  Square Glass Tile 02             texture Square Glass Tile 02.jpg     10.0 x 10.0 in
+  Field Square Tile                texture Field Square Tile.jpg        24.0 x 24.0 in
+  Color I03                        plain colour  rgb(101,101,255)
+  Water Pool Light                 texture Water_Pool.jpg               96.0 x 96.0 in
+
+END

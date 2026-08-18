@@ -38,11 +38,15 @@ GW = InteriorPro::Landscape::GardenWallTool
 def pt(x, y); Geom::Point3d.new(x, y, 0); end
 def fresh(t = 8.0, h = 36.0, m = 'Stucco', cw = 0.0, ch = 0.0, cm = 'Stucco',
           mode = 'Continuous', unit = 24.0, joint = 0.25, nose = 'None',
-          over = 'Both sides')
+          over = 'Both sides', line = false)
   Sketchup.reset_model!
   $magnet_calls = 0
   $tags = []
-  GW.new(t, h, m, cw, ch, cm, mode, unit, joint, nose, over)
+  GW.new(t, h, m, cw, ch, cm, mode, unit, joint, nose, over, line)
+end
+def line_of(g)
+  g.entities.grep(Sketchup::Group)
+   .find { |x| x.get_attribute('LandscapePro', 'type') == 'garden_wall_back_line' }
 end
 def cap_of(g)
   g.entities.grep(Sketchup::Group).find { |x| x.name == 'LandscapePro_GardenWallCap' }
@@ -115,7 +119,7 @@ ok('a group is created', !g.nil?)
 ok('there is exactly one garden wall in the model', walls.length == 1, walls.length)
 ok('it carries the Landscape Pro group name',
    g.name == 'LandscapePro_GardenWall', g.name)
-ok('it is tagged LP/Walls', $tags == ['LP/Walls'], $tags)
+ok('it is tagged LP/Walls', $tags.first == 'LP/Walls', $tags)
 
 # THE important one.
 ok('type garden_wall lives under the LandscapePro dictionary',
@@ -632,6 +636,87 @@ ok('the arc has enough pieces to read as round', GW::BULLNOSE_SEGMENTS >= 12,
 ok('every facet turn is under the softening angle',
    (180.0 / GW::BULLNOSE_SEGMENTS) < GW::SOFTEN_DEGREES,
    [180.0 / GW::BULLNOSE_SEGMENTS, GW::SOFTEN_DEGREES])
+
+
+# --------------------------------------------- the elevation line, along the back
+#
+# His words (2026-08-17): "אני גם רוצה שבתור התחלה יהיה קו מקביל לחלק האחורי
+# שלה שזז איתה כשהיא עיגול או יורדת למטה או עולה למעלה, כדי שאני אוכל לקחת את
+# הקו הזה ולייצא איתו אלווישן עד שנכין את המוצר לאלווישן." And when asked
+# where exactly: "לאורך הקצה העליון אבל מתחת לקאפ."
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0,
+          'One side', 'One side', true)
+pts = t.back_line_points(pt(0, 0), pt(120, 0))
+ok('the line has two ends', pts && pts.length == 2, pts && pts.length)
+ok('it runs at the top of the WALL, 36" - under the cap, not on it',
+   pts.all? { |p| close(p.z, 36.0, 1e-9) }, pts.map(&:z))
+ok('it is NOT at the top of the cap (38")', !close(pts[0].z, 38.0, 1e-9))
+ok('it runs along the BACK face - the left, opposite the nose and the overhang',
+   pts.all? { |p| close(p.y, -4.0, 1e-9) }, pts.map(&:y))
+ok('it runs the full length of the wall',
+   close(pts[0].x, 0.0, 1e-9) && close(pts[1].x, 120.0, 1e-9), pts.map(&:x))
+
+# Drawn the other way, the back swaps with the front - same rule as the nose.
+back2 = t.back_line_points(pt(120, 0), pt(0, 0))
+ok('drawn the other way the line moves to the other face',
+   back2.all? { |p| close(p.y, 4.0, 1e-9) }, back2.map(&:y))
+
+# It hugs the wall, not the coping: a wider cap must not move it.
+wide = fresh(8.0, 36.0, 'Stucco', 24.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0,
+             'None', 'Both sides', true).back_line_points(pt(0, 0), pt(120, 0))
+ok('a wider cap does not drag the line out with it',
+   wide.all? { |p| close(p.y, -4.0, 1e-9) }, wide.map(&:y))
+
+# On a diagonal it stays half a thickness off the line he drew.
+dg = t.back_line_points(pt(0, 0), pt(100, 100))
+mid = Geom::Point3d.new((dg[0].x + dg[1].x) / 2.0, (dg[0].y + dg[1].y) / 2.0, 0)
+# distance from the wall's own centre line (0,0)->(100,100)
+off = ((mid.x * 100.0 - mid.y * 100.0) / Math.sqrt(100.0**2 + 100.0**2)).abs
+ok('on a diagonal it sits exactly half a thickness off the centre line',
+   close(off, 4.0, 1e-6), off)
+
+ok('a zero-length wall has no line', t.back_line_points(pt(3, 3), pt(3, 3)).nil?)
+
+# ---- in the model ----------------------------------------------------------
+
+g = t.build!(pt(0, 0), pt(120, 0))
+ln = line_of(g)
+ok('the line is built, in its own group he can click once', !ln.nil?)
+ok('it is one edge, no faces', ln.entities.grep(Sketchup::Edge).length == 1 &&
+                               ln.entities.grep(Sketchup::Face).empty?,
+   [ln.entities.grep(Sketchup::Edge).length, ln.entities.grep(Sketchup::Face).length])
+ok('it has its OWN tag, so every elevation line switches off together',
+   $tags.include?('LP/Wall Elevation Lines'), $tags)
+ok('and that tag is not the wall tag', 'LP/Wall Elevation Lines' != 'LP/Walls')
+e = ln.entities.grep(Sketchup::Edge).first
+ends = [e.start.position, e.end.position]
+ok('the built edge is exactly where the numbers said',
+   ends.all? { |p| close(p.z, 36.0, 1e-9) && close(p.y, -4.0, 1e-9) },
+   ends.map { |p| [p.x.round(2), p.y.round(2), p.z.round(2)] })
+ok('the setting is stored', g.get_attribute('LandscapePro', 'back_line') == true)
+
+# The wall body and the cap are untouched by it.
+ok('the body is still one face', g.entities.grep(Sketchup::Face).length == 1)
+ok('the cap is still there', !cap_of(g).nil?)
+
+# ---- the off switch --------------------------------------------------------
+
+t = fresh(8.0, 36.0, 'Stucco', 12.0, 2.0, 'Stucco', 'Continuous', 24.0, 0.0,
+          'None', 'Both sides', false)
+g = t.build!(pt(0, 0), pt(120, 0))
+ok('turned off, no line is built', line_of(g).nil?)
+ok('and the model is not tagged for elevation lines',
+   !$tags.include?('LP/Wall Elevation Lines'), $tags)
+ok('and the setting says so', g.get_attribute('LandscapePro', 'back_line') == false)
+
+# A wall with no cap still gets its line - it is the top of the WALL.
+t = fresh(8.0, 36.0, 'Stucco', 0.0, 0.0, 'Stucco', 'Continuous', 24.0, 0.0,
+          'None', 'Both sides', true)
+g = t.build!(pt(0, 0), pt(120, 0))
+ok('no cap, still a line, still at the top of the wall',
+   line_of(g) &&
+   line_of(g).entities.grep(Sketchup::Edge).first.start.position.z.round(6) == 36.0)
 
 # ------------------------------------------------------------- the mis-clicks
 

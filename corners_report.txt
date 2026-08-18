@@ -1,0 +1,225 @@
+InteriorPro corner audit  2026-08-17 16:29:48 -0700
+30 wall(s)
+
+== SUMMARY ==
+  NEAR MISS                  56
+  TOUCHING BUT STILL SQUARE  0
+  T-JOINT                    4
+  FREE END                   0
+  JOINED                     0
+
+   All distances below are CENTRELINE to centreline.
+
+   NEAR MISS                 = two ends that should be one point.
+                               THIS is what leaves a white wedge.
+   TOUCHING BUT STILL SQUARE = they meet, but no miter was cut.
+   T-JOINT                   = this end lands mid-way along another wall.
+   FREE END                  = nothing near it at all (may be on purpose).
+
+== EVERY END, WORST FIRST ==
+  w28  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (514.4,442.9)  square=false
+        nearest end: w27 START, centrelines off by 3.56" (drawn ends 0.0")
+  w27  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (511.6,440.7)  square=false
+        nearest end: w28 END, centrelines off by 3.56" (drawn ends 0.0")
+  w16  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (274.1,966.6)  square=false
+        nearest end: w17 START, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w17 at 7% along it, 2.5" away
+  w17  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (273.5,970.1)  square=false
+        nearest end: w16 END, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w16 at 93% along it, 2.5" away
+  w13  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (190.0,842.0)  square=false
+        nearest end: w14 START, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w14 at 7% along it, 2.5" away
+  w14  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (189.4,845.5)  square=false
+        nearest end: w13 END, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w13 at 93% along it, 2.5" away
+  w12  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (206.7,871.2)  square=false
+        nearest end: w13 START, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w13 at 7% along it, 2.5" away
+  w13  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (210.2,871.9)  square=false
+        nearest end: w12 END, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w12 at 93% along it, 2.5" away
+  w15  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (290.8,995.8)  square=false
+        nearest end: w16 START, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w16 at 7% along it, 2.5" away
+  w16  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (294.3,996.4)  square=false
+        nearest end: w15 END, centrelines off by 3.536" (drawn ends 0.0")
+        lands on w15 at 93% along it, 2.5" away
+  w1   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (75.5,243.2)  square=false
+        nearest end: w0 START, centrelines off by 3.527" (drawn ends 0.0")
+  w0   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (73.3,246.0)  square=false
+        nearest end: w1 END, centrelines off by 3.527" (drawn ends 0.0")
+  w28  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (105.4,499.4)  square=false
+        nearest end: w29 END, centrelines off by 3.517" (drawn ends 0.0")
+  w29  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (107.6,496.6)  square=false
+        nearest end: w28 START, centrelines off by 3.517" (drawn ends 0.0")
+  w11  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (517.7,1033.5)  square=false
+        nearest end: w3 END, centrelines off by 3.482" (drawn ends 0.0")
+  w3   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (518.3,1030.1)  square=false
+        nearest end: w11 START, centrelines off by 3.482" (drawn ends 0.0")
+  w5   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (723.4,882.6)  square=false
+        nearest end: w3 START, centrelines off by 3.473" (drawn ends 0.0")
+  w25  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (723.9,879.2)  square=false
+        nearest end: w26 END, centrelines off by 3.473" (drawn ends 0.0")
+  w26  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (723.4,882.6)  square=false
+        nearest end: w25 START, centrelines off by 3.473" (drawn ends 0.0")
+  w3   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (723.9,879.2)  square=false
+        nearest end: w5 END, centrelines off by 3.473" (drawn ends 0.0")
+  w25  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (514.9,1032.5)  square=false
+        nearest end: w24 START, centrelines off by 2.945" (drawn ends 0.841")
+  w24  START  lvl=2 th=5.0   anc=bottom-right  NEAR MISS                  at (517.7,1033.5)  square=false
+        nearest end: w25 END, centrelines off by 2.945" (drawn ends 0.841")
+  w4   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (479.7,190.5)  square=true
+        nearest end: w0 END, centrelines off by 2.398" (drawn ends 4.146")
+  w0   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (478.3,192.5)  square=false
+        nearest end: w4 START, centrelines off by 2.398" (drawn ends 4.146")
+  w22  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (525.0,1109.5)  square=false
+        nearest end: w23 END, centrelines off by 1.934" (drawn ends 0.0")
+        lands on w23 at 97% along it, 0.748" away
+  w9   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (525.0,1109.5)  square=false
+        nearest end: w10 END, centrelines off by 1.934" (drawn ends 0.0")
+        lands on w10 at 97% along it, 0.748" away
+  w10  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (524.0,1111.1)  square=false
+        nearest end: w9 START, centrelines off by 1.934" (drawn ends 0.0")
+        lands on w9 at 3% along it, 0.748" away
+  w23  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (524.0,1111.1)  square=false
+        nearest end: w22 START, centrelines off by 1.934" (drawn ends 0.0")
+        lands on w22 at 3% along it, 0.748" away
+  w7   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (363.0,1084.5)  square=false
+        nearest end: w6 START, centrelines off by 1.926" (drawn ends 0.0")
+        lands on w6 at 4% along it, 0.742" away
+  w6   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (363.5,1086.4)  square=false
+        nearest end: w7 END, centrelines off by 1.926" (drawn ends 0.0")
+        lands on w7 at 97% along it, 0.742" away
+  w9   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (468.5,1151.0)  square=false
+        nearest end: w8 START, centrelines off by 1.919" (drawn ends 0.0")
+        lands on w8 at 3% along it, 0.737" away
+  w8   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (470.4,1150.5)  square=false
+        nearest end: w9 END, centrelines off by 1.919" (drawn ends 0.0")
+        lands on w9 at 97% along it, 0.737" away
+  w21  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (470.4,1150.5)  square=false
+        nearest end: w22 END, centrelines off by 1.919" (drawn ends 0.0")
+        lands on w22 at 97% along it, 0.737" away
+  w22  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (468.5,1151.0)  square=false
+        nearest end: w21 START, centrelines off by 1.919" (drawn ends 0.0")
+        lands on w21 at 3% along it, 0.737" away
+  w8   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (402.9,1140.0)  square=false
+        nearest end: w7 START, centrelines off by 1.908" (drawn ends 0.0")
+        lands on w7 at 3% along it, 0.728" away
+  w20  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (404.5,1141.0)  square=false
+        nearest end: w21 END, centrelines off by 1.908" (drawn ends 0.0")
+        lands on w21 at 97% along it, 0.728" away
+  w21  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (402.9,1140.0)  square=false
+        nearest end: w20 START, centrelines off by 1.908" (drawn ends 0.0")
+        lands on w20 at 3% along it, 0.728" away
+  w7   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (404.5,1141.0)  square=false
+        nearest end: w8 END, centrelines off by 1.908" (drawn ends 0.0")
+        lands on w8 at 97% along it, 0.728" away
+  w2   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (369.6,1043.6)  square=false
+        nearest end: w6 END, centrelines off by 1.832" (drawn ends 0.0")
+  w6   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (370.0,1045.4)  square=false
+        nearest end: w2 START, centrelines off by 1.832" (drawn ends 0.0")
+  w23  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (532.3,1053.5)  square=false
+        nearest end: w24 END, centrelines off by 1.822" (drawn ends 5.0")
+        lands on w24 at 94% along it, 0.664" away
+  w11  END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (532.7,1055.3)  square=false
+        nearest end: w10 START, centrelines off by 1.822" (drawn ends 0.0")
+        lands on w10 at 3% along it, 0.664" away
+  w10  START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (532.3,1053.5)  square=false
+        nearest end: w11 END, centrelines off by 1.822" (drawn ends 0.0")
+        lands on w11 at 94% along it, 0.664" away
+  w24  END    lvl=2 th=5.0   anc=bottom-right  NEAR MISS                  at (532.7,1055.3)  square=false
+        nearest end: w23 START, centrelines off by 1.822" (drawn ends 5.0")
+        lands on w23 at 3% along it, 0.664" away
+  w20  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (363.0,1084.5)  square=true
+        nearest end: w19 START, centrelines off by 1.645" (drawn ends 0.3")
+        lands on w19 at 4% along it, 0.542" away
+  w19  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (363.3,1086.1)  square=true
+        nearest end: w20 END, centrelines off by 1.645" (drawn ends 0.3")
+        lands on w20 at 98% along it, 0.723" away
+  w18  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (369.6,1043.6)  square=true
+        nearest end: w19 END, centrelines off by 1.555" (drawn ends 0.3")
+  w19  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (369.8,1045.1)  square=true
+        nearest end: w18 START, centrelines off by 1.555" (drawn ends 0.3")
+  w27  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (531.4,600.2)  square=false
+        nearest end: w26 START, centrelines off by 1.174" (drawn ends 0.0")
+  w26  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (531.8,601.3)  square=false
+        nearest end: w27 END, centrelines off by 1.174" (drawn ends 0.0")
+  w4   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (531.4,600.2)  square=false
+        nearest end: w5 START, centrelines off by 1.169" (drawn ends 0.0")
+  w5   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (531.8,601.3)  square=false
+        nearest end: w4 END, centrelines off by 1.169" (drawn ends 0.0")
+  w2   END    lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (132.2,691.5)  square=false
+        nearest end: w1 START, centrelines off by 1.156" (drawn ends 0.0")
+  w1   START  lvl=1 th=5.0   anc=bottom-left   NEAR MISS                  at (132.6,692.5)  square=false
+        nearest end: w2 END, centrelines off by 1.156" (drawn ends 0.0")
+  w29  START  lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (132.6,692.5)  square=false
+        nearest end: w18 END, centrelines off by 1.155" (drawn ends 0.0")
+  w18  END    lvl=2 th=5.0   anc=bottom-left   NEAR MISS                  at (132.2,691.5)  square=false
+        nearest end: w29 START, centrelines off by 1.155" (drawn ends 0.0")
+  w14  END    lvl=1 th=5.0   anc=bottom-left   T-JOINT                    at (219.2,825.4)  square=true
+        lands on w2 at 62% along it, 2.695" away
+  w12  START  lvl=1 th=5.0   anc=bottom-left   T-JOINT                    at (236.5,851.1)  square=true
+        lands on w2 at 55% along it, 2.672" away
+  w15  START  lvl=1 th=5.0   anc=bottom-left   T-JOINT                    at (320.7,975.6)  square=true
+        lands on w2 at 20% along it, 2.562" away
+  w17  END    lvl=1 th=5.0   anc=bottom-left   T-JOINT                    at (303.3,949.9)  square=true
+        lands on w2 at 27% along it, 2.584" away
+
+== THE LIST TO FIX (near misses, biggest first) ==
+  w28  END    <->  w27  START   centrelines off by 3.56"   lvl=2
+  w27  START  <->  w28  END     centrelines off by 3.56"   lvl=2
+  w16  END    <->  w17  START   centrelines off by 3.536"   lvl=1
+  w17  START  <->  w16  END     centrelines off by 3.536"   lvl=1
+  w14  START  <->  w13  END     centrelines off by 3.536"   lvl=1
+  w13  END    <->  w14  START   centrelines off by 3.536"   lvl=1
+  w13  START  <->  w12  END     centrelines off by 3.536"   lvl=1
+  w12  END    <->  w13  START   centrelines off by 3.536"   lvl=1
+  w16  START  <->  w15  END     centrelines off by 3.536"   lvl=1
+  w15  END    <->  w16  START   centrelines off by 3.536"   lvl=1
+  w1   END    <->  w0   START   centrelines off by 3.527"   lvl=1
+  w0   START  <->  w1   END     centrelines off by 3.527"   lvl=1
+  w28  START  <->  w29  END     centrelines off by 3.517"   lvl=2
+  w29  END    <->  w28  START   centrelines off by 3.517"   lvl=2
+  w11  START  <->  w3   END     centrelines off by 3.482"   lvl=1
+  w3   END    <->  w11  START   centrelines off by 3.482"   lvl=1
+  w26  END    <->  w25  START   centrelines off by 3.473"   lvl=2
+  w5   END    <->  w3   START   centrelines off by 3.473"   lvl=1
+  w3   START  <->  w5   END     centrelines off by 3.473"   lvl=1
+  w25  START  <->  w26  END     centrelines off by 3.473"   lvl=2
+  w25  END    <->  w24  START   centrelines off by 2.945"   lvl=2
+  w24  START  <->  w25  END     centrelines off by 2.945"   lvl=2
+  w0   END    <->  w4   START   centrelines off by 2.398"   lvl=1
+  w4   START  <->  w0   END     centrelines off by 2.398"   lvl=1
+  w22  START  <->  w23  END     centrelines off by 1.934"   lvl=2
+  w23  END    <->  w22  START   centrelines off by 1.934"   lvl=2
+  w9   START  <->  w10  END     centrelines off by 1.934"   lvl=1
+  w10  END    <->  w9   START   centrelines off by 1.934"   lvl=1
+  w7   END    <->  w6   START   centrelines off by 1.926"   lvl=1
+  w6   START  <->  w7   END     centrelines off by 1.926"   lvl=1
+  w21  START  <->  w22  END     centrelines off by 1.919"   lvl=2
+  w9   END    <->  w8   START   centrelines off by 1.919"   lvl=1
+  w22  END    <->  w21  START   centrelines off by 1.919"   lvl=2
+  w8   START  <->  w9   END     centrelines off by 1.919"   lvl=1
+  w8   END    <->  w7   START   centrelines off by 1.908"   lvl=1
+  w21  END    <->  w20  START   centrelines off by 1.908"   lvl=2
+  w20  START  <->  w21  END     centrelines off by 1.908"   lvl=2
+  w7   START  <->  w8   END     centrelines off by 1.908"   lvl=1
+  w2   START  <->  w6   END     centrelines off by 1.832"   lvl=1
+  w6   END    <->  w2   START   centrelines off by 1.832"   lvl=1
+  w11  END    <->  w10  START   centrelines off by 1.822"   lvl=1
+  w10  START  <->  w11  END     centrelines off by 1.822"   lvl=1
+  w23  START  <->  w24  END     centrelines off by 1.822"   lvl=2
+  w24  END    <->  w23  START   centrelines off by 1.822"   lvl=2
+  w20  END    <->  w19  START   centrelines off by 1.645"   lvl=2
+  w19  START  <->  w20  END     centrelines off by 1.645"   lvl=2
+  w19  END    <->  w18  START   centrelines off by 1.555"   lvl=2
+  w18  START  <->  w19  END     centrelines off by 1.555"   lvl=2
+  w26  START  <->  w27  END     centrelines off by 1.174"   lvl=2
+  w27  END    <->  w26  START   centrelines off by 1.174"   lvl=2
+  w4   END    <->  w5   START   centrelines off by 1.169"   lvl=1
+  w5   START  <->  w4   END     centrelines off by 1.169"   lvl=1
+  w1   START  <->  w2   END     centrelines off by 1.156"   lvl=1
+  w2   END    <->  w1   START   centrelines off by 1.156"   lvl=1
+  w29  START  <->  w18  END     centrelines off by 1.155"   lvl=2
+  w18  END    <->  w29  START   centrelines off by 1.155"   lvl=2

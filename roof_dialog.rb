@@ -69,7 +69,12 @@ module InteriorPro
       end.join
       # The colour picker below tints whatever is chosen here, so one
       # greyscale tile covers every shingle colour (2026-08-10).
-      mat_options = [['color', 'Solid color'], ['shingle', 'Shingles']].map do |v, t|
+      mat_options = [['color',   'Solid color'],
+                     ['shingle', 'Shingles'],
+                     ['barrel',  'Barrel Tile (Spanish S)'],
+                     ['roman',   'Roman Tile (flat pan)'],
+                     ['slate',   'Flat Slate Tile'],
+                     ['seam',    'Standing Seam Metal']].map do |v, t|
         sel = s[:roof_material].to_s == v ? ' selected' : ''
         "<option value=\"#{v}\"#{sel}>#{t}</option>"
       end.join

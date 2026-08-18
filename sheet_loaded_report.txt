@@ -1,0 +1,15 @@
+Interior Pro - sheet window load check
+time: 2026-08-17 14:41:29 -0700
+
+file: C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_sheet_dialog.rb
+  exists, 112380 bytes, written 2026-08-17 14:16:37 -0700
+
+feature                            ON DISK  LOADED  
+------------------------------------------------------
+מחיקת קו בודד                      yes      yes     
+גודל טקסט (4 קבוצות)               yes      yes     
+עיצוב כיתוב בודד (דאבל-קליק)       yes      yes     
+שמירת עיצוב כיתוב                  yes      yes     
+מקש רווח = מצב בחירה               yes      yes     
+
+VERDICT: הכל טעון. אם משהו לא עובד - זה באג אמיתי, לא טעינה

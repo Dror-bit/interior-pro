@@ -137,9 +137,29 @@ module InteriorPro
     # so "shingles in colours" costs one file, not one file per colour.
     # size = the tile's REAL size in inches, [width, height]; the shingle
     # tile is 4 courses of 6" exposure across 4 tabs of 12".
-    ROOF_TEXTURES = {
-      'shingle' => { file: 'roof_shingle.jpg', size: [48.0, 24.0] }
-    }.freeze unless const_defined?(:ROOF_TEXTURES, false)
+    # Every tile texture is GREYSCALE on purpose - surface_material tints it
+    # with the user's colour picker, so one file serves every colour.
+    #
+    # The sizes are not decoration: each is a whole number of tiles wide and
+    # a whole number of courses tall, matching RoofTileMath::SHAPES. That is
+    # what will let the 3D course steps land exactly on the texture's own
+    # tile lines instead of drifting across them. tests/rt73.rb pins it.
+    # A METHOD, NOT A CONSTANT - and this is the whole reason it is one.
+    # `X = {...} unless const_defined?(:X)` is NOT re-read by
+    # InteriorPro.reload!; the old value stays in memory and the new one is
+    # never seen. That cost a round on 2026-08-14 (DEFAULT_STATE) and it bit
+    # again on 2026-08-18: the four tile jpgs were on disk, the menu listed
+    # them, and every roof still came out a flat colour because this table
+    # in memory still had one entry. tests/rt73.rb fails if it goes back.
+    def self.roof_textures
+      {
+        'shingle' => { file: 'roof_shingle.jpg',       size: [48.0, 24.0] },
+        'barrel'  => { file: 'roof_barrel_tile.jpg',   size: [52.0, 42.0] },
+        'roman'   => { file: 'roof_roman_tile.jpg',    size: [52.0, 42.0] },
+        'slate'   => { file: 'roof_flat_slate.jpg',    size: [48.0, 32.0] },
+        'seam'    => { file: 'roof_standing_seam.jpg', size: [48.0, 16.0] }
+      }
+    end
 
     def self.texture_path(fname)
       File.join(File.dirname(__FILE__), 'textures', fname.to_s)
@@ -150,7 +170,7 @@ module InteriorPro
     # the family is unknown or its file is missing, so a bad setting can
     # never leave the roof unbuilt.
     def self.surface_material(model, s)
-      spec = ROOF_TEXTURES[s[:roof_material].to_s]
+      spec = roof_textures[s[:roof_material].to_s]
       return color_material(model, s[:roof_color]) if spec.nil?
       path = texture_path(spec[:file])
       unless File.exist?(path)

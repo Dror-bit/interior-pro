@@ -2386,6 +2386,81 @@ module InteriorPro
       "wall-#{Time.now.to_f}-#{rand(1_000_000)}"
     end
 
+    # ---------- two walls, one identity (2026-08-18) ----------------------
+    #
+    # Copy a wall with SketchUp's own Copy/Paste or Ctrl+Move and the copy
+    # arrives carrying every attribute of the original - including its `id`.
+    # Nothing in the plugin ever checked whether an id was already taken, so
+    # the model ends up with two walls answering to the same name. Found on
+    # the user's model: three pairs (a level-1 wall with an identity
+    # transformation, and its copy translated 84.1", 124.6").
+    #
+    # It matters because the plugin finds walls BY id - find_wall, delete,
+    # move, a room's bounding_wall_ids, a door's host_wall_id. Ask for that
+    # wall and you may get its twin.
+    #
+    # WHO KEEPS THE NAME: the wall that has not been moved (an identity
+    # transformation). SketchUp gives a pasted copy a transformation; the
+    # original keeps none. If that does not single one out, the first found
+    # keeps it - at that point either choice is as good.
+    #
+    # WHAT IS DELIBERATELY LEFT ALONE: a duplicated id that some door or
+    # window still points at through host_wall_id. Both twins answer to that
+    # name, so there is no honest way to tell whose opening it is, and a
+    # wrong guess would orphan a door. Those are reported and skipped, never
+    # renamed behind the user's back.
+    def self.ensure_unique_ids!(model = Sketchup.active_model, wrap_operation: true)
+      walls = model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+      end
+      by_id = {}
+      walls.each do |g|
+        wid = g.get_attribute('InteriorPro', 'id')
+        next if wid.nil? || wid.to_s.empty?
+        (by_id[wid.to_s] ||= []) << g
+      end
+      dups = by_id.select { |_k, v| v.length > 1 }
+      return [0, 0] if dups.empty?
+
+      # Any id an opening still points at is untouchable.
+      hosted = {}
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        h = g.get_attribute('InteriorPro', 'host_wall_id')
+        hosted[h.to_s] = true unless h.nil?
+      end
+
+      renamed = 0
+      skipped = 0
+      model.start_operation('InteriorPro Fix Duplicate Wall Ids', true) if wrap_operation
+      begin
+        tool = new
+        dups.each do |wid, list|
+          if hosted[wid]
+            skipped += list.length
+            puts "[WallTool] duplicate id #{wid} on #{list.length} walls has a door or window on it - left alone"
+            next
+          end
+          keeper = list.find { |g| g.transformation.identity? } || list.first
+          list.each do |g|
+            next if g == keeper
+            g.set_attribute('InteriorPro', 'id', tool.generate_wall_id)
+            renamed += 1
+          end
+        end
+        model.commit_operation if wrap_operation
+      rescue StandardError => e
+        model.abort_operation if wrap_operation
+        puts "[WallTool] ensure_unique_ids!: #{e.message}"
+        return [0, 0]
+      end
+      puts "[WallTool] duplicate wall ids: #{renamed} renamed, #{skipped} left alone"
+      [renamed, skipped]
+    rescue StandardError => e
+      puts "[WallTool] ensure_unique_ids!: #{e.message}"
+      [0, 0]
+    end
+
     def self.read_door_openings(wall)
       raw = wall.get_attribute('InteriorPro', 'door_openings')
       case raw

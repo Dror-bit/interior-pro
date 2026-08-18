@@ -58,8 +58,11 @@ RF.save_settings!(s)
 ok('material comes back to colour', RF.settings[:roof_material] == 'color')
 
 # ---- the texture family --------------------------------------------
-ok('shingle family is registered', RF::ROOF_TEXTURES.key?('shingle'))
-spec = RF::ROOF_TEXTURES['shingle']
+# ROOF_TEXTURES became a METHOD on 2026-08-18 - a constant guarded by
+# `unless const_defined?` is not re-read by InteriorPro.reload!, so four
+# new tile materials silently never reached the model. rt73 pins the shape.
+ok('shingle family is registered', RF.roof_textures.key?('shingle'))
+spec = RF.roof_textures['shingle']
 ok('tile has a real-world size', spec[:size] == [48.0, 24.0], spec[:size])
 ok('tile height is a whole number of 6in courses',
    (spec[:size][1] / 6.0 - (spec[:size][1] / 6.0).round).abs < 1e-9)

@@ -1,0 +1,39 @@
+======================================================================
+ROOF LOOP PROBE  (read only)   2026-08-18 15:04:44 -0700
+======================================================================
+top_level = 2
+walls on that level: 12
+of them EXTERIOR: 12
+
+top_walls hands the roof 12 wall(s)
+
+WALL                                     cat        length   centreline
+----------------------------------------------------------------------------------------------------
+  2a486197-4ba4-45c9-afe4-db59fd72a999   exterior     41.51   (363.47,924.70) -> (369.97,883.70)
+  46262928-09a6-4d94-a930-5ab4b1d42776   exterior    340.36   (531.81,439.61) -> (723.35,720.95)
+  1edd95d9-ee40-46c5-8d0b-4361f25b4c9e   exterior    424.70   (369.57,881.92) -> (132.17,529.77)
+  ba1e17e9-52d5-4b7c-8727-6488421fa9a1   exterior     68.31   (470.38,988.84) -> (402.88,978.34)
+  3b9f523f-7d84-4f71-9d3f-25cf0dfe7aa7   exterior     70.10   (404.51,979.33) -> (363.01,922.83)
+  5d76370b-221c-4d88-bc0c-c588908bdd1f   exterior     58.19   (532.32,891.86) -> (524.03,949.46)
+  b5e0f344-5357-4611-b8ca-78091144678a   exterior    412.87   (105.43,337.67) -> (514.42,281.21)
+  cfd63fa7-81c6-4571-a043-fd33998dafed   exterior     70.10   (525.02,947.80) -> (468.52,989.30)
+  727e9161-2973-414d-bfdc-0facd180d7bc   exterior    160.69   (511.60,279.04) -> (531.40,438.51)
+  a4688623-278c-4c1c-be7a-c16f333b53bb   exterior    197.56   (132.58,530.85) -> (107.57,334.88)
+  bcccd065-d821-4c0b-8173-f44a732dba60   exterior    255.92   (723.94,717.53) -> (517.66,869.01)
+  3b28dc31-a093-4775-af20-3b500dadb9dd   exterior     26.34   (517.13,872.51) -> (532.78,893.70)
+
+centrelines that survived: 12  (needs 3 or more)
+graph: 12 node(s), 12 edge(s)
+
+THE ANSWER IS HERE
+----------------------------------------------------------------------
+every corner has 2 or more walls - no loose ends.
+
+no T junctions in the ring.
+
+trace_faces found 2 closed face(s)
+  face 0   12 corner(s)  signed area     243942.2 sq in  (1694.0 sq ft)
+  face 1   12 corner(s)  signed area    -243942.2 sq in  (-1694.0 sq ft)
+
+the biggest face is 1694.0 sq ft, which is accepted.
+eave_polygon succeeded: 12 corners. The roof should build.

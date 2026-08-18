@@ -1,0 +1,216 @@
+InteriorPro debug_hex  2026-08-17 15:20:03 -0700
+model: 6 Bronco Ln, Bell Canyon, CA 91307
+
+== WALLS (30) ==
+  level 1: 18 wall(s)
+  level 2: 12 wall(s)
+
+w0   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (73.0,243.5) -> (478.0,190.0)  len=408.518
+      corners_xy=[78.587, 247.805, 477.728, 195.079, 482.052, 189.465, 73.0, 243.5]  id=6b9a2e7e-fb6b-4286-b34d-f552c1a3293c
+w1   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (130.101,692.852) -> (73.0,243.5)  len=452.965
+      corners_xy=[134.912, 691.042, 78.587, 247.805, 73.0, 243.5, 130.101, 692.852]  id=376d692a-01ae-4b90-871a-ca0b6e41653c
+w2   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (367.5,1045.0) -> (130.101,692.852)  len=424.696
+      corners_xy=[372.747, 1043.838, 134.912, 691.042, 130.101, 692.852, 367.5, 1045.0]  id=fe4b4d5a-34db-4071-9f92-2f4af477a89d
+w3   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (725.418,881.233) -> (519.765,1032.075)  len=255.041
+      corners_xy=[718.568, 880.057, 512.895, 1030.913, 519.765, 1032.075, 725.418, 881.233]  id=ac89ccf0-f7a7-4dd6-81a8-09a9390dd799
+w4   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (482.142,190.173) -> (533.878,599.888)  len=412.968
+      corners_xy=[477.182, 190.8, 529.068, 601.708, 533.878, 599.888, 482.142, 190.173]  id=856415cf-2de7-4c68-a128-919f65921c61
+w5   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (533.878,599.888) -> (725.418,881.233)  len=340.356
+      corners_xy=[529.068, 601.708, 718.568, 880.057, 725.418, 881.233, 533.878, 599.888]  id=e825f130-6d31-42c2-9a70-068fbd7e35a7
+w6   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (361.0,1086.0) -> (367.5,1045.0)  len=41.512
+      corners_xy=[366.265, 1084.722, 372.747, 1043.838, 367.5, 1045.0, 361.0, 1086.0]  id=207c63ce-d2c8-48c2-897c-f6e51ece57fa
+w7   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (402.5,1142.5) -> (361.0,1086.0)  len=70.103
+      corners_xy=[405.308, 1137.877, 366.265, 1084.722, 361.0, 1086.0, 402.5, 1142.5]  id=37c267b2-f31a-4762-bcec-06e848b5d194
+w8   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (470.0,1153.0) -> (402.5,1142.5)  len=68.312
+      corners_xy=[468.715, 1147.74, 405.308, 1137.877, 402.5, 1142.5, 470.0, 1153.0]  id=93da66bd-cc49-497e-9ac5-cb448ddc070d
+w9   lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (526.5,1111.5) -> (470.0,1153.0)  len=70.103
+      corners_xy=[521.85, 1108.712, 468.715, 1147.74, 470.0, 1153.0, 526.5, 1111.5]  id=a42ebfaa-0996-42bc-97b0-eff7bd9422cc
+w10  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (534.792,1053.905) -> (526.5,1111.5)  len=58.189
+      corners_xy=[529.564, 1055.129, 521.85, 1108.712, 526.5, 1111.5, 534.792, 1053.905]  id=2c7c8ca0-4c4a-49d7-ae80-c1d42670d678
+w11  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (519.765,1032.075) -> (534.792,1053.905)  len=26.503
+      corners_xy=[512.895, 1030.913, 529.564, 1055.129, 534.792, 1053.905, 519.765, 1032.075]  id=025d8a42-b1c5-4f15-8761-7114d081bd8f
+w12  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (237.942,853.123) -> (208.107,873.269)  len=36.0
+      corners_xy=[235.144, 848.979, 209.452, 866.327, 208.107, 873.269, 237.942, 853.123]  id=96a6dfa1-43a5-4a3f-933d-0ae8cbd3e320
+w13  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (208.107,873.269) -> (187.961,843.433)  len=36.0
+      corners_xy=[209.452, 866.327, 194.903, 844.779, 187.961, 843.433, 208.107, 873.269]  id=b5987499-ddab-4638-bb95-855e2f1abc9a
+w14  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=true
+      drawn  (187.961,843.433) -> (217.797,823.288)  len=36.0
+      corners_xy=[194.903, 844.779, 220.595, 827.431, 217.797, 823.288, 187.961, 843.433]  id=354d9a7a-f80c-4a0f-ad51-0ff8d1290775
+w15  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (322.056,977.697) -> (292.221,997.843)  len=36.0
+      corners_xy=[235.144, 848.979, 209.452, 866.327, 208.107, 873.269, 237.942, 853.123]  id=96a6dfa1-43a5-4a3f-933d-0ae8cbd3e320
+w16  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (292.221,997.843) -> (272.075,968.007)  len=36.0
+      corners_xy=[209.452, 866.327, 194.903, 844.779, 187.961, 843.433, 208.107, 873.269]  id=b5987499-ddab-4638-bb95-855e2f1abc9a
+w17  lvl=1 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (272.075,968.007) -> (301.911,947.862)  len=36.0
+      corners_xy=[194.903, 844.779, 220.595, 827.431, 217.797, 823.288, 187.961, 843.433]  id=354d9a7a-f80c-4a0f-ad51-0ff8d1290775
+w18  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (367.5,1045.0) -> (130.101,692.852)  len=424.696
+      corners_xy=[371.646, 1042.205, 134.911, 691.041, 130.101, 692.852, 367.5, 1045.0]  id=1edd95d9-ee40-46c5-8d0b-4361f25b4c9e
+w19  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (360.838,1085.748) -> (367.338,1044.748)  len=41.512
+      corners_xy=[365.776, 1086.531, 372.276, 1045.531, 367.338, 1044.748, 360.838, 1085.748]  id=2a486197-4ba4-45c9-afe4-db59fd72a999
+w20  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (402.5,1142.5) -> (361.0,1086.0)  len=70.103
+      corners_xy=[405.308, 1137.877, 365.03, 1083.04, 361.0, 1086.0, 402.5, 1142.5]  id=3b9f523f-7d84-4f71-9d3f-25cf0dfe7aa7
+w21  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (470.0,1153.0) -> (402.5,1142.5)  len=68.312
+      corners_xy=[468.715, 1147.74, 405.308, 1137.877, 402.5, 1142.5, 470.0, 1153.0]  id=ba1e17e9-52d5-4b7c-8727-6488421fa9a1
+w22  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (526.5,1111.5) -> (470.0,1153.0)  len=70.103
+      corners_xy=[521.85, 1108.712, 468.715, 1147.74, 470.0, 1153.0, 526.5, 1111.5]  id=cfd63fa7-81c6-4571-a043-fd33998dafed
+w23  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (534.792,1053.905) -> (526.5,1111.5)  len=58.189
+      corners_xy=[529.564, 1055.129, 521.85, 1108.712, 526.5, 1111.5, 534.792, 1053.905]  id=5d76370b-221c-4d88-bc0c-c588908bdd1f
+w24  lvl=2 th=5.0    anc=bottom-right  sag=0.0      ident=false
+      drawn  (515.646,1034.91) -> (530.673,1056.74)  len=26.503
+      corners_xy=[534.792, 1053.905, 519.765, 1032.075, 512.895, 1030.913, 529.564, 1055.129]  id=c0bc21d0-6130-471d-98c3-c3a41ca0eb83
+w25  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (725.418,881.233) -> (516.402,1034.541)  len=259.212
+      corners_xy=[718.568, 880.057, 512.895, 1030.913, 519.765, 1032.075, 725.418, 881.233]  id=bd173522-6fe4-48b4-a2f0-729ac6e2662e
+w26  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (533.878,599.888) -> (725.418,881.233)  len=340.356
+      corners_xy=[529.065, 601.703, 718.568, 880.057, 725.418, 881.233, 533.878, 599.888]  id=46262928-09a6-4d94-a930-5ab4b1d42776
+w27  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (514.083,440.419) -> (533.878,599.888)  len=160.693
+      corners_xy=[509.745, 446.065, 529.065, 601.703, 533.878, 599.888, 514.083, 440.419]  id=727e9161-2973-414d-bfdc-0facd180d7bc
+w28  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (105.088,496.879) -> (514.083,440.419)  len=412.873
+      corners_xy=[110.675, 501.155, 509.745, 446.065, 514.083, 440.419, 105.088, 496.879]  id=b5e0f344-5357-4611-b8ca-78091144678a
+w29  lvl=2 th=5.0    anc=bottom-left   sag=0.0      ident=false
+      drawn  (130.101,692.852) -> (105.088,496.879)  len=197.562
+      corners_xy=[134.911, 691.041, 110.675, 501.155, 105.088, 496.879, 130.101, 692.852]  id=a4688623-278c-4c1c-be7a-c16f333b53bb
+
+== CORNERS (endpoint pairs closer than 12") ==
+   gap = distance between the two DRAWN endpoints.
+  w23S <-> w24E  gap=5.0  th 5.0/5.0  anc bottom-left/bottom-right  sag 0.0/0.0  <<< GAP
+  w10S <-> w24E  gap=5.0  th 5.0/5.0  anc bottom-left/bottom-right  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w11E <-> w24E  gap=5.0  th 5.0/5.0  anc bottom-left/bottom-right  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w11S <-> w24S  gap=5.0  th 5.0/5.0  anc bottom-left/bottom-right  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w3E <-> w24S  gap=5.0  th 5.0/5.0  anc bottom-left/bottom-right  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w3E <-> w25E  gap=4.17  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w11S <-> w25E  gap=4.17  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w0E <-> w4S  gap=4.146  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP
+  w24S <-> w25E  gap=0.841  th 5.0/5.0  anc bottom-right/bottom-left  sag 0.0/0.0  <<< GAP
+  w7E <-> w19S  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w18S <-> w19E  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP
+  w19S <-> w20E  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP
+  w6E <-> w19E  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w6S <-> w19S  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w2S <-> w19E  gap=0.3  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  <<< GAP  (DIFFERENT LEVELS)
+  w2E <-> w18E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w4E <-> w5S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w4E <-> w26S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w4E <-> w27E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w5S <-> w26S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w5S <-> w27E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w5E <-> w25S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w5E <-> w26E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w6S <-> w7E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w3E <-> w11S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w6S <-> w20E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w6E <-> w18S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w3S <-> w26E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w7S <-> w8E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w7S <-> w20S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w7S <-> w21E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w2S <-> w18S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w7E <-> w20E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w8S <-> w9E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w3S <-> w25S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w8S <-> w22E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w8E <-> w20S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w8E <-> w21E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w9S <-> w10E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w9S <-> w22S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w9S <-> w23E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w9E <-> w21S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w9E <-> w22E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w10S <-> w11E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w10S <-> w23S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w2S <-> w6E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w10E <-> w22S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w10E <-> w23E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w1S <-> w29S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w1S <-> w18E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w11E <-> w23S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w1S <-> w2E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w12E <-> w13S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w13E <-> w14S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w15E <-> w16S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w16E <-> w17S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w3S <-> w5E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w18E <-> w29S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w8S <-> w21S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w20S <-> w21E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w21S <-> w22E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w22S <-> w23E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w2E <-> w29S  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0  (DIFFERENT LEVELS)
+  w0S <-> w1E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w25S <-> w26E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w26S <-> w27E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w27S <-> w28E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+  w28S <-> w29E  gap=0.0  th 5.0/5.0  anc bottom-left/bottom-left  sag 0.0/0.0
+
+== ROOMS stored in model (4) ==
+  room0  name=Room 1       lvl=1 area=2360.326 pts=13 id=room-tjvy8n-8309
+    boundary: (78.587,247.805) (477.722,195.08) (529.068,601.708) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.265,1084.722) (372.747,1043.838) (371.646,1042.205) (134.912,691.042)
+  room1  name=Room 2       lvl=1 area=5.63 pts=4 id=room-tjxnvy-6023
+    boundary: (220.755,827.323) (235.288,848.882) (209.452,866.327) (194.903,844.779)
+  room2  name=Room 3       lvl=1 area=5.61 pts=4 id=room-tjxp20-4964
+    boundary: (304.777,951.959) (319.311,973.518) (293.566,990.901) (279.017,969.353)
+  room3  name=Room 4       lvl=2 area=1650.119 pts=12 id=room-tjxp20-1120
+    boundary: (372.583,1043.595) (134.911,691.041) (110.675,501.155) (509.745,446.065) (529.065,601.703) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.099,1084.496)
+
+== ROOMS as detected RIGHT NOW from the live walls ==
+  level 1: 3 room(s) detected
+    det0  lvl=1 area=2360.326 pts=13
+      boundary: (78.587,247.805) (477.722,195.08) (529.068,601.708) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.265,1084.722) (372.747,1043.838) (371.646,1042.205) (134.912,691.042)
+    det1  lvl=1 area=5.61 pts=4
+      boundary: (304.777,951.959) (319.311,973.518) (293.566,990.901) (279.017,969.353)
+    det2  lvl=1 area=5.63 pts=4
+      boundary: (220.755,827.323) (235.288,848.882) (209.452,866.327) (194.903,844.779)
+  level 2: 1 room(s) detected
+    det0  lvl=2 area=1650.119 pts=12
+      boundary: (372.583,1043.595) (134.911,691.041) (110.675,501.155) (509.745,446.065) (529.065,601.703) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.099,1084.496)
+
+== FLOORS (4) ==
+  floor0  lvl=1 floor_level=0.0 th=0.75 type=Hardwood room_id=room-tjvy8n-8309 room_found=true
+    top face z=0.0  pts=13
+    outline: (78.587,247.805) (477.722,195.08) (529.068,601.708) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.265,1084.722) (372.747,1043.838) (371.646,1042.205) (134.912,691.042)
+    max distance floor-outline -> room-boundary = 0.0"
+    max distance room-boundary -> floor-outline = 0.0"
+  floor1  lvl=1 floor_level=0.0 th=0.75 type=Hardwood room_id=room-tjxnvy-6023 room_found=true
+    top face z=0.0  pts=4
+    outline: (220.755,827.323) (235.288,848.882) (209.452,866.327) (194.903,844.779)
+    max distance floor-outline -> room-boundary = 0.0"
+    max distance room-boundary -> floor-outline = 0.0"
+  floor2  lvl=1 floor_level=0.0 th=0.75 type=Hardwood room_id=room-tjxp20-4964 room_found=true
+    top face z=0.0  pts=4
+    outline: (304.777,951.959) (319.311,973.518) (293.566,990.901) (279.017,969.353)
+    max distance floor-outline -> room-boundary = 0.0"
+    max distance room-boundary -> floor-outline = 0.0"
+  floor3  lvl=2 floor_level=0.0 th=0.75 type=Hardwood room_id=room-tjxp20-1120 room_found=true
+    top face z=0.0  pts=12
+    outline: (372.583,1043.595) (134.911,691.041) (110.675,501.155) (509.745,446.065) (529.065,601.703) (718.568,880.057) (512.895,1030.913) (529.564,1055.129) (521.85,1108.712) (468.715,1147.74) (405.308,1137.877) (366.099,1084.496)
+    max distance floor-outline -> room-boundary = 0.0"
+    max distance room-boundary -> floor-outline = 0.0"
+
+== LEVELS ==
+  level 1 base = 0.0"
+  level 2 base = 106.0"
