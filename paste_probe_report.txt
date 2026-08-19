@@ -1,0 +1,12 @@
+walls at top level: 34
+
+== DUPLICATE ids RIGHT NOW (before anything healed them) ==
+  duplicate ids: 0   <== THE ANSWER
+
+== who still points at a wall BY id ==
+  duplicate ids that a door / window / room still points at: 0
+
+== VERDICT HINT ==
+  duplicates > 0  -> the paste really does hand out two walls with one name,
+                     and the first 2D edit afterwards can hit the wrong one.
+  duplicates = 0  -> something healed before this ran; tell me what you clicked.

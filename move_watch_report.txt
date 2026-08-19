@@ -1,0 +1,7 @@
+==========================================================================
+MOVE WATCH  2026-08-18 16:57:45 -0700
+==========================================================================
+34 wall(s) before, 34 now
+
+NOTHING MOVED. Either the edit was undone, or it did not touch
+any wall geometry. Take a fresh snapshot and try again.

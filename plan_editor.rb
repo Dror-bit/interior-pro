@@ -1796,10 +1796,23 @@ module InteriorPro
         # Partner walls whose endpoint sits on the moving corner. With
         # keep_corners they FOLLOW the corner (stay attached); otherwise they
         # are only re-squared/re-joined (the corner detaches).
+        # Level guard (2026-08-19). The user builds floor 2 by copying floor 1,
+        # so an upstairs wall usually sits EXACTLY over a downstairs one. This
+        # scan matches on POSITION, and without this line it happily picked up
+        # the wall a storey below and dragged its end along. Caught with
+        # debug_change_watch.rb on his own house: changing wall 1edd95d9
+        # (level 2) moved 207c63ce (level 1) to the same new point.
+        #
+        # By the 'level' attribute, NOT by z - a dropped garage is still level 1
+        # and must keep its corners. Same rule and same wording as
+        # WallTool.find_neighbor_at; this was the last position scan in the
+        # editor that did not have it. tests/rt54.rb.
+        moving_level = (wall.get_attribute('InteriorPro', 'level') || 1).to_i
         partners = []
         model.entities.grep(Sketchup::Group).each do |g|
           next if g == wall
           next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+          next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == moving_level
           [%w[start_x start_y], %w[end_x end_y]].each do |kx, ky|
             px = g.get_attribute('InteriorPro', kx)
             py = g.get_attribute('InteriorPro', ky)

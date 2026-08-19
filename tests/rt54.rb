@@ -160,5 +160,48 @@ PE.send(:stretch_wall!, s2, 60.0, :start, true)
 ok('shortening from the start still moves the start',
    pts(s2) == [60.0, 100.0, 120.0, 100.0], pts(s2))
 
+# ------------------- a wall upstairs must never drag one downstairs with it
+#
+# THE BUG (2026-08-18, caught with debug_change_watch.rb on the user's own
+# house). He builds floor 2 by copying floor 1, so most upstairs walls sit
+# EXACTLY over a downstairs wall. Change an upstairs wall's length and the
+# corner-partner scan in stretch_wall! picks up every wall whose end sits on
+# that corner - including the one a storey below. The report named it:
+#
+#   THE WALL YOU MEANT  id=1edd95d9  level=2
+#   COLLATERAL          id=207c63ce  level=1   end moved to the same new point
+#
+# Every other position scan in the plugin already filters by level
+# (find_neighbor_at, weld_drifted_end!, wall_stretch_tool, move_wall_sideways).
+# This one was the last one that did not.
+Sketchup.reset_model!
+m = Sketchup.active_model
+up   = wall!(m, 'up',   0, 0, 120, 0)
+up_p = wall!(m, 'up_p', 120, 0, 120, 90)
+dn   = wall!(m, 'dn',   0, 0, 120, 0)
+dn_p = wall!(m, 'dn_p', 120, 0, 120, 90)
+[up, up_p].each { |g| g.set_attribute('InteriorPro', 'level', 2) }
+[dn, dn_p].each { |g| g.set_attribute('InteriorPro', 'level', 1) }
+
+PE.send(:stretch_wall!, up, 200.0, :end, true)
+
+ok('the upstairs wall itself stretched', pts(up) == [0.0, 0.0, 200.0, 0.0], pts(up))
+ok('its own upstairs partner followed the corner',
+   pts(up_p)[0, 2] == [200.0, 0.0], pts(up_p))
+ok('>>> THE BUG: the downstairs wall did NOT move',
+   pts(dn) == [0.0, 0.0, 120.0, 0.0], pts(dn))
+ok('    and neither did the downstairs partner',
+   pts(dn_p)[0, 2] == [120.0, 0.0], pts(dn_p))
+
+# A wall with no level attribute at all counts as level 1 - it must still be
+# found by a level-1 wall, or an old model would quietly stop joining.
+Sketchup.reset_model!
+m = Sketchup.active_model
+a = wall!(m, 'a', 0, 0, 120, 0)
+b = wall!(m, 'b', 120, 0, 120, 90)
+PE.send(:stretch_wall!, a, 200.0, :end, true)
+ok('a wall with no level is still level 1 and still follows',
+   pts(b)[0, 2] == [200.0, 0.0], pts(b))
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

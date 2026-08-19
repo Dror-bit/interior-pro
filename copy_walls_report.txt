@@ -1,0 +1,29 @@
+walls at top level: 34
+
+== A. SHARED DEFINITION (SketchUp mirrors the edit itself) ==
+  distinct definitions: 34 for 34 walls
+  definitions used by MORE THAN ONE wall: 0   <== A
+
+== B. DUPLICATE InteriorPro id (our own lookups find two) ==
+  distinct ids: 35
+  ids held by MORE THAN ONE wall: 0   <== B
+  walls with NO id at all: 0
+
+== C. same drawn line on two different levels (position lookups) ==
+  wall lines that exist on more than one level: 7   <== C
+    [470.0, 991.31, 402.5, 980.81] : levels [1, 2] ids ["93da66bd", "ba1e17e9"]
+    [533.88, 438.2, 725.42, 719.55] : levels [1, 2] ids ["e825f130", "46262928"]
+    [526.5, 949.81, 470.0, 991.31] : levels [2, 1] ids ["cfd63fa7", "a42ebfaa"]
+    [534.79, 892.22, 526.5, 949.81] : levels [1, 2] ids ["2c7c8ca0", "5d76370b"]
+    [519.14, 871.03, 534.79, 892.22] : levels [1, 2] ids ["025d8a42", "3b28dc31"]
+    [402.5, 980.81, 361.0, 924.31] : levels [1, 2] ids ["37c267b2", "3b9f523f"]
+    [725.42, 719.55, 519.14, 871.03] : levels [1, 2] ids ["ac89ccf0", "bcccd065"]
+
+== D. other attributes that must be unique per wall ==
+  walls carrying 'openings': 0
+  walls carrying 'doors': 0
+
+== VERDICT HINT ==
+  A>0  -> SketchUp shares the geometry. make_unique on copy.
+  B>0  -> our id lookups find two walls. re-id on copy.
+  C>0 with A=0,B=0 -> something matches by POSITION, not identity.
