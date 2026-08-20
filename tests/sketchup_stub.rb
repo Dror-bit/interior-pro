@@ -218,7 +218,14 @@ end
   class ComponentDefinition
     attr_reader :entities
     attr_accessor :name, :path
-    def initialize(name = ''); @entities = Entities.new; @name = name; end
+    def initialize(name = ''); @entities = Entities.new; @name = name; @attrs = {}; end
+    # Real definitions carry attribute dictionaries, and roof_tile_parts.rb
+    # stamps every piece with its part name and coverage width. Without these
+    # a suite could not run it at all (2026-08-19).
+    def set_attribute(d, k, v); ((@attrs ||= {})[d] ||= {})[k] = v; v; end
+    def get_attribute(d, k, dflt = nil)
+      ((@attrs ||= {})[d] || {}).key?(k) ? @attrs[d][k] : dflt
+    end
     # Real definitions know their instances; the reference fence tool never
     # asks, but a suite counting placements might (2026-08-16).
     def instances; @instances ||= []; end

@@ -1,0 +1,96 @@
+{
+  "_why": "Where a dimension's NUMBER sits. ONE statement of intent, read by BOTH sides: rt81 checks PlanCanvas.dim_label_xy against it and t50 checks the sheet window's dimLabelXY() against it. The two implementations exist because Ruby draws the number and the window has to know where it is before it can let the user grab it - and two copies of one formula drift. This file is what stops that: neither side can move without one of the suites going red.",
+  "_frame": "oa runs ALONG the line (start -> end), oc runs ACROSS it, on the normal (-uy, ux). Both in model inches. No oc on the mark means h * 0.8, which is where every dimension sat before 2026-08-19.",
+  "_default_text_h": 5.0,
+  "_default_off": 0.8,
+  "cases": [
+    { "why": "a plain horizontal dimension, untouched - exactly where it always was",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0 },
+      "xy": [50.0, 4.0] },
+
+    { "why": "pushed further off the line",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "oc": 10.0 },
+      "xy": [50.0, 10.0] },
+
+    { "why": "pushed to the OTHER side of the line",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "oc": -10.0 },
+      "xy": [50.0, -10.0] },
+
+    { "why": "slid along the line, sitting on it",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "oa": 7.0, "oc": 0.0 },
+      "xy": [57.0, 0.0] },
+
+    { "why": "slid along AND off - both at once",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "oa": -12.0, "oc": 6.0 },
+      "xy": [38.0, 6.0] },
+
+    { "why": "THE POINT: the same line drawn the other way puts the number on the other side, because across is measured from the direction he drew",
+      "m": { "t": "dim", "x1": 100.0, "y1": 0.0, "x2": 0.0, "y2": 0.0 },
+      "xy": [50.0, -4.0] },
+
+    { "why": "and along follows the drawn direction too",
+      "m": { "t": "dim", "x1": 100.0, "y1": 0.0, "x2": 0.0, "y2": 0.0, "oa": 7.0, "oc": 0.0 },
+      "xy": [43.0, 0.0] },
+
+    { "why": "a vertical dimension drawn upward - across is to its left",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 0.0, "y2": 100.0 },
+      "xy": [-4.0, 50.0] },
+
+    { "why": "vertical, slid up the line as well",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 0.0, "y2": 100.0, "oa": 7.0 },
+      "xy": [-4.0, 57.0] },
+
+    { "why": "a 45 degree dimension - the offset turns with the line, it is not screen up",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 100.0 },
+      "xy": [47.17157287525381, 52.82842712474619] },
+
+    { "why": "45 degrees, slid 10 along as well",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 100.0, "oa": 10.0 },
+      "xy": [54.242640687119285, 59.89949493661167] },
+
+    { "why": "a mark carrying its own text height gets its own default offset",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "h": 10.0 },
+      "xy": [50.0, 8.0] },
+
+    { "why": "an explicit oc beats the height",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "h": 10.0, "oc": 3.0 },
+      "xy": [50.0, 3.0] },
+
+    { "why": "oc of zero is a real answer, not a missing one - the number sits ON the line",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "oc": 0.0 },
+      "xy": [50.0, 0.0] },
+
+    { "why": "a stray double click has no direction, so the number sits at the point",
+      "m": { "t": "dim", "x1": 20.0, "y1": 30.0, "x2": 20.0, "y2": 30.0 },
+      "xy": [20.0, 30.0] },
+
+    { "why": "a line that does not start at the origin still measures from its own middle",
+      "m": { "t": "dim", "x1": 200.0, "y1": 50.0, "x2": 200.0, "y2": 150.0, "oc": -6.0 },
+      "xy": [206.0, 100.0] },
+
+    { "why": "OFF: the number is measured from the dimension LINE, so standing the dimension off the wall takes the number with it",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "off": 12.0 },
+      "xy": [50.0, 16.0] },
+
+    { "why": "off to the other side takes it the other way",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "off": -12.0 },
+      "xy": [50.0, -8.0] },
+
+    { "why": "off follows the direction he drew, exactly like across does",
+      "m": { "t": "dim", "x1": 100.0, "y1": 0.0, "x2": 0.0, "y2": 0.0, "off": 12.0 },
+      "xy": [50.0, -16.0] },
+
+    { "why": "a vertical dimension stood off the wall",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 0.0, "y2": 100.0, "off": 10.0 },
+      "xy": [-14.0, 50.0] },
+
+    { "why": "off, along and across all at once - they do not fight",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0,
+             "off": 12.0, "oa": 5.0, "oc": -3.0 },
+      "xy": [55.0, 9.0] },
+
+    { "why": "off of zero is the same as no off at all - old drawings",
+      "m": { "t": "dim", "x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0, "off": 0.0 },
+      "xy": [50.0, 4.0] }
+  ]
+}

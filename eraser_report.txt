@@ -1,0 +1,65 @@
+REPORT - the eraser, and the dimension locking onto corners  (2026-08-19)
+
+== test run ==
+129 suites green (81 ruby + 48 js). 0 failed. New: t51. Updated: rt65.
+
+== what he showed me ==
+Two SketchUp screenshots: the eraser passing over a dimension, the dimension
+lit BLUE, and an eraser icon for a cursor.
+And: "אני דוקר שתי נקודות שאגב הלחיצה צריכה להינעל על פינות וקצוות כמו בשאר
+הכלים".
+
+== what was actually wrong ==
+The eraser rubbed out free SITE geometry and NOTHING else. A dimension could
+only be removed by picking it and pressing Delete - and once one-click label
+picking went in, a click that landed on a label selected the label instead of
+the mark, so Delete did nothing. That is the "אני גם לא יכול למחוק את המידות".
+Fixed at the root: the eraser now takes dimensions and notes, which is how he
+was trying to do it in the first place.
+
+== what changed - plan_sheet_dialog.rb only ==
+hitErase()      marks first, then site lines. Marks win: they are the small
+                thing drawn on top and they are what he is aiming at.
+ERA             now {kind:'mark'|'site', i:index} instead of a bare index
+paintErase()    lights up everything the sweep has crossed, in BLUE (#1f6feb)
+                to match the picture he sent - "the eraser is on it", not
+                "it is already gone". Still one node, still never calls
+                render(): a real back yard is thousands of lines.
+ERASWEEP        press, drag across a run of things, let go and they all go -
+                the SketchUp behaviour. One trip to Ruby for the site lines,
+                not one per line.
+eraseSweep()    marks removed highest-index-first so taking one out cannot
+                move the next; the same in Ruby for site lines (.sort.reverse)
+eraserCursor()  the eraser icon itself, inline SVG - he asked for the cursor
+                by name. A missing icon FILE would have failed silently to an
+                arrow, so it is drawn in code.
+drop_site_line  now also accepts {is:[...]}, a whole sweep at once
+
+snapPoint()     THE OTHER REQUEST. A click while drawing a dimension locks
+                onto the nearest CORNER: every end of a line and every vertex
+                of a polyline/polygon on a visible layer, plus the ends of
+                dimensions already drawn so a run of them lines up.
+                Measured in SCREEN PIXELS (12), not model inches, so the pull
+                feels the same at any zoom - the SketchUp behaviour.
+                A hidden layer offers nothing: what he cannot see, he cannot
+                snap to.
+paintSnap()     a green square on the corner it will lock to, shown BEFORE he
+                clicks - a snap he cannot see is a snap he has to trust.
+
+== mutation checks (remove the guard, see red) ==
+eraser ignores marks             -> t51 2 red
+sweep deletes low-index-first    -> t51 1 red
+one trip to Ruby per site line   -> t51 1 red
+no snap at all                   -> t51 5 red
+snap ignores hidden layers       -> t51 1 red
+
+== rt65 was updated, not deleted ==
+Three of its source checks described the OLD eraser word for word. They are
+rewritten to describe the new one, and the behaviour they were standing in for
+is now driven for real by t51.
+
+== untouched ==
+plan_canvas.rb, plan_pdf.rb, plan_doc.rb, plan_generator.rb, wall_tool.rb,
+door_tool.rb, window_tool.rb, roof_manager.rb - zero change this round.
+The model is never touched by the eraser: marks live in the sheet settings and
+siteLayer still names SITE and nothing else.

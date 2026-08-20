@@ -7,6 +7,7 @@ module InteriorPro
     %w[
       arc_math.rb
       roof_tile_math.rb
+      roof_tile_parts.rb
       wall_library.rb
       wall_library_dialog.rb
       wall_tool.rb

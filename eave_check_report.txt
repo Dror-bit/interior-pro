@@ -1,0 +1,31 @@
+== full test run ==
+124 suites green (78 ruby + 46 js). Was 122; rt78 + rt79 added.
+rt51/rt52 pass here - this run is on local disk, not the shared drive.
+
+REPORT - eave tiles on the L plan (headless, sketchup_stub)
+
+roof faces built            : 6
+eave segments               : 6
+rake segments               : 0
+ridge segments              : 2
+hip segments                : 6
+perimeter                   : 4626.4" (385.5 ft)
+tileable planes             : 6
+barrel   ->  353 pieces   z = [92.0]
+roman    ->  353 pieces   z = [92.0]
+slate    ->  383 pieces   z = [92.0]
+seam     ->  285 pieces   z = [92.0]
+shingle  ->    0 pieces   z = -
+color    ->    0 pieces   z = -
+
+expected from the proposal  : ~225 for a 63+59ft house
+eave length covered         : 4589.0" of 4626.4"
+every piece on the top face : AT BAND_TOP
+unique z values             : [92.0]
+slots per eave segment      : [66, 111, 30, 41, 35, 70]
+
+place_eaves! placed         : 353
+instances in the group      : 353
+UNIQUE definitions          : 1
+faces in that definition    : 6
+TOTAL unique faces for eave : 6

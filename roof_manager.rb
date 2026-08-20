@@ -974,12 +974,17 @@ module InteriorPro
       # ---- ridge cap (2026-08-10) --------------------------------------
       # Read off the TOP shell only, so the caps sit on the surface you
       # can actually see rather than inside the slab.
+      # The TOP shell only, read once and shared: the ridge caps sit on it
+      # and so do the tile courses. Sub-groups are not Faces, so taking this
+      # before either of them runs is the same list either way - but reading
+      # it once says out loud that they are talking about the same surface.
+      top_shell = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
+                             : shell_before
       if s[:ridge_cap] && s[:style] != 'flat'
-        cap_faces = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
-                               : shell_before
-        build_ridge_caps!(grp, drop_facet_hips(ridge_lines(cap_faces), poly, wall_ids),
+        build_ridge_caps!(grp, drop_facet_hips(ridge_lines(top_shell), poly, wall_ids),
                           slope, roof_mat)
       end
+
 
       # Fascia + drip edge tuck UNDER the roof edge (user 2026-08-05: the
       # roof sits on them and ends at its own outer arris). Fascia outer
@@ -1002,6 +1007,30 @@ module InteriorPro
                            .map { |rg| [rg.first[0], rg.last[0]] }
         end
       end
+      # ---- eave tiles (2026-08-19, ROOF_TILES_PROPOSAL.md step 4) -------
+      # 3D ONLY WHERE THE SILHOUETTE SHOWS, and on a roof that is the eave.
+      # The field above it is seen against the roof itself, where the texture
+      # already does the work - a 3D step on every course cost 50,652 faces
+      # when it was finally counted, and looked wrong on top of that.
+      # Only the four TILE materials get pieces; shingle and a plain colour
+      # have no tile shape and are left exactly as they were.
+      # Kill switch: InteriorPro::RoofManager::USE_ROOF_TILE_EDGES = false
+      if USE_ROOF_TILE_EDGES && s[:style] != 'flat' &&
+         defined?(InteriorPro::RoofTilePlace) &&
+         InteriorPro::RoofTileMath.shape(s[:roof_material])
+        begin
+          tile_edges = roof_edges(top_shell, poly, wall_ids, zmap,
+                                  gables: gables, band_top: band_top,
+                                  surface: surf)
+          InteriorPro::RoofTilePlace.place_eaves!(
+            grp, InteriorPro::RoofTilePlace.planes_from_faces(top_shell),
+            tile_edges, s[:roof_material], model: model, material: roof_mat
+          )
+        rescue StandardError => e
+          puts "[Roof] eave tiles skipped: #{e.message}"
+        end
+      end
+
       if s[:fascia]
         build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth],
                     gable_flags, gable_spans)
@@ -1401,6 +1430,118 @@ module InteriorPro
         kb = line[2]
         pts.any? { |p| vlen(vsub(ka, p)) < tol || vlen(vsub(kb, p)) < tol }
       end
+    end
+
+    # ---------- ONE place that names the four kinds of roof edge ----------
+    #
+    # (2026-08-19, ROOF_TILES_PROPOSAL.md §3 - step 3 of the hybrid tile roof.)
+    #
+    # Every classifier used below ALREADY EXISTS and is already in production.
+    # This is a thin WRAPPER over them, never a second opinion. A second
+    # classifier that disagrees with the first is exactly the trap that cost
+    # the window a whole round on 2026-08-19: two answers, and no way to tell
+    # which one the geometry actually followed.
+    #
+    #   faces     the TOP shell only - build_roof! already reads it once into
+    #             `top_shell`, and the ridge caps use that same list
+    #   poly      the eave polygon, [[x, y], ...]; edge i runs poly[i]->poly[i+1]
+    #   wall_ids  one wall id per poly edge (may be nil)
+    #   zmap      node [x, y] -> z, from build_hip_/build_framed_geometry!
+    #
+    # opts:
+    #   gables:    indices of the poly edges carrying a gable end
+    #   band_top:  the roof surface height AT the eave - the line a rake rises
+    #              above. The same number build_band! is handed.
+    #   surface:   optional lambda(x, y) -> z for over-framed plans, passed
+    #              straight through to edge_profile_chain
+    #   ridge_tol: level-vs-sloped cut-off, inches
+    #
+    # Returns { eave: [...], rake: [...], ridge: [...], hip: [...] }; each entry
+    #
+    #   { kind: :eave, a: [x, y, z], b: [x, y, z], edge: i, wall_id: id }
+    #
+    # running a -> b, in inches, in the same world space as `poly`. ridge and
+    # hip entries carry no :edge - they are not poly edges.
+    #
+    # The ONE new decision in this method is ridge vs hip, and it is a single
+    # line: a level segment is a ridge, a sloped one is a hip (proposal §3).
+    # A gabled edge is split exactly the way the fascia is already split - the
+    # stretch that rises above band_top is the rake, the rest of the SAME edge
+    # stays a plain eave (2026-08-09, build_band! + gable_spans).
+    # Kill switch (CLAUDE.md convention): turn the 3D eave course off and the
+    # roof goes back to texture-only, without deleting a line.
+    USE_ROOF_TILE_EDGES = true unless const_defined?(:USE_ROOF_TILE_EDGES, false)
+    RIDGE_LEVEL_TOL = 1.0 unless const_defined?(:RIDGE_LEVEL_TOL, false)
+    ROOF_EDGE_MIN_LEN = 0.5 unless const_defined?(:ROOF_EDGE_MIN_LEN, false)
+
+    def self.roof_edges(faces, poly, wall_ids, zmap, opts = {})
+      out = { eave: [], rake: [], ridge: [], hip: [] }
+      return out if poly.nil? || poly.length < 3
+
+      tol = (opts[:ridge_tol] || RIDGE_LEVEL_TOL).to_f
+      drop_facet_hips(ridge_lines(faces || []), poly, wall_ids).each do |line|
+        ka, za, kb, zb, = line
+        kind = (za - zb).abs < tol ? :ridge : :hip
+        out[kind] << { kind: kind, a: [ka[0], ka[1], za], b: [kb[0], kb[1], zb] }
+      end
+
+      gables   = opts[:gables] || []
+      band_top = opts[:band_top]
+      surface  = opts[:surface]
+      n = poly.length
+      n.times do |i|
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        seg = vsub(b, a)
+        len = vlen(seg)
+        next if len < ROOF_EDGE_MIN_LEN
+        d = vnorm(seg)
+        chain = nil
+        if zmap && !zmap.empty?
+          begin
+            chain = edge_profile_chain(poly, i, zmap, surface: surface)
+          rescue StandardError => e
+            puts "[Roof] roof_edges: edge #{i} profile: #{e.message}"
+            chain = nil
+          end
+        end
+        rakes = []
+        if gables.include?(i) && chain && band_top
+          rakes = chain_regions_above(chain, band_top)
+                  .map { |rg| [[rg.first[0], 0.0].max, [rg.last[0], len].min] }
+                  .select { |(t0, t1)| t1 - t0 > ROOF_EDGE_MIN_LEN }
+                  .sort_by(&:first)
+        end
+        add = lambda do |t0, t1, kind|
+          out[kind] << { kind: kind, edge: i,
+                         wall_id: wall_ids && wall_ids[i],
+                         a: [a[0] + d[0] * t0, a[1] + d[1] * t0,
+                             chain_z_at(chain, t0, band_top)],
+                         b: [a[0] + d[0] * t1, a[1] + d[1] * t1,
+                             chain_z_at(chain, t1, band_top)] }
+        end
+        rakes.each { |(t0, t1)| add.call(t0, t1, :rake) }
+        cursor = 0.0
+        rakes.each do |(t0, t1)|
+          add.call(cursor, t0, :eave) if t0 - cursor > ROOF_EDGE_MIN_LEN
+          cursor = t1 if t1 > cursor
+        end
+        add.call(cursor, len, :eave) if len - cursor > ROOF_EDGE_MIN_LEN
+      end
+      out
+    end
+
+    # z along an edge_profile_chain at distance t, linearly interpolated.
+    # `dflt` is what a flat roof gets, where there is no zmap to read.
+    def self.chain_z_at(chain, t, dflt = nil)
+      return dflt if chain.nil? || chain.empty?
+      return chain.first[2] if t <= chain.first[0]
+      return chain.last[2] if t >= chain.last[0]
+      j = chain.index { |c| c[0] >= t }
+      return chain.last[2] if j.nil? || j.zero?
+      t0, _, z0 = chain[j - 1]
+      t1, _, z1 = chain[j]
+      t1 - t0 < 1.0e-6 ? z1 : z0 + (z1 - z0) * (t - t0) / (t1 - t0)
     end
 
     # Lay the caps along one line as pieces that LAP each other. Each

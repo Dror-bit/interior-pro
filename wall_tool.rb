@@ -3563,8 +3563,15 @@ module InteriorPro
       return 0 unless MIRROR_H[wall_h_anchor(wall)]
       cat = (wall.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
 
+      # Level guard (2026-08-19). This picks a neighbour by POSITION and may
+      # then swap that neighbour's body to the other side of its line. The
+      # user builds floor 2 by copying floor 1, so a wall a storey above sits
+      # on the same x/y - and re-seating it would move a wall he never
+      # touched. Same rule as find_neighbor_at: by the 'level' attribute.
+      lvl = (wall.get_attribute('InteriorPro', 'level') || 1).to_i
       walls = model.active_entities.grep(Sketchup::Group).select do |g|
         g.valid? && g != wall && g.get_attribute('InteriorPro', 'type') == 'wall' &&
+          (g.get_attribute('InteriorPro', 'level') || 1).to_i == lvl &&
           (g.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s == cat
       end
       ends = []

@@ -1,0 +1,44 @@
+SHEET MARKS REPORT
+2026-08-19 19:14:56 -0700
+
+== is today's code actually running ==
+  pdf_skip     yes  []
+  drop_plan    yes  false
+  dim_off      yes  0
+  text_marks   yes  {"ROOMS|ROOM 1|1"=>{"pct"=>50, "bold"=>false, "italic"=>fals
+  marks        yes  [{"t"=>"dim", "x1"=>396.28530413170773, "y1"=>237.7676002424
+
+== marks on the sheet: 5 ==
+   0 dim  (396.3, 237.8) -> (396.2, 29.4)   len 208.4"  (17.36 ft)
+        off=nil  oa=nil  oc=nil  h=nil
+   1 dim  (-291.8, 237.7) -> (-288.3, -656.1)   len 893.8"  (74.48 ft)
+        off=nil  oa=nil  oc=nil  h=nil
+   2 dim  (633.7, 285.9) -> (634.1, 45.8)   len 240.1"  (20.01 ft)
+        off=nil  oa=nil  oc=nil  h=nil
+   3 dim  (633.2, 286.4) -> (634.0, 45.8)   len 240.6"  (20.05 ft)
+        off=0  oa=nil  oc=nil  h=nil
+   4 dim  (633.3, 286.6) -> (634.1, 47.3)   len 239.3"  (19.94 ft)
+        off=0  oa=nil  oc=nil  h=nil
+
+== the view ==
+  scale        "1/8\""
+  page size    "ARCH D" "landscape"
+  zoom         10.586011342155011
+  origin       228.37144040111946, -165.79112551589608
+  active page  0
+  scale factor  0.010417  (1 model inch -> 0.010417 paper inches)
+    if k = 40    px/paper-inch : 1 model inch = 0.417 px, and 10 px of grab = 24.0 model inches
+    if k = 60    px/paper-inch : 1 model inch = 0.625 px, and 10 px of grab = 16.0 model inches
+    if k = 80    px/paper-inch : 1 model inch = 0.833 px, and 10 px of grab = 12.0 model inches
+    if k = 120   px/paper-inch : 1 model inch = 1.250 px, and 10 px of grab = 8.0 model inches
+
+== what else the mouse can land on ==
+  free SITE lines saved on the model: 1622
+  hidden layers: ["SCHEDULES", "DIMENSIONS"]
+  text overrides: 4
+
+== the plain reading ==
+  5 dimensions, the shortest 208.4" long.
+  their 'off' values: [nil, 0]
+  (all nil or 0 means every one of them is drawn straight
+   onto the wall - which is what he is complaining about.)

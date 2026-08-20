@@ -169,5 +169,39 @@ ok('barrel is the waviest',
 ok('slate and seam are dead flat',
    RTM.shapes['slate'][:scallop].zero? && RTM.shapes['seam'][:scallop].zero?)
 
+# ---------------------------------------------- how many courses actually wave
+#
+# Added 2026-08-19, when the builder went in and the bill came with it. The
+# wave is only visible in SILHOUETTE, and only the eave course has one - so
+# only the eave course pays for it. Measured on the user's own roof
+# (756" eave, 4:12, barrel): every course wavy = 12,663 faces per plane;
+# bottom course only = 599. Same picture from the ground, 21x the cost.
+b = RTM.shape('barrel')
+ok('by default only the bottom course waves',
+   RTM.scallop_amp(0, b) > 0 && RTM.scallop_amp(1, b).zero?)
+ok('asking for three gets three', RTM.scallop_amp(2, b, 3) > 0 &&
+                                  RTM.scallop_amp(3, b, 3).zero?)
+ok('nil means every course waves', RTM.scallop_amp(99, b, nil) > 0)
+ok('zero means none of them do', RTM.scallop_amp(0, b, 0).zero?)
+ok('a flat material never waves, whatever you ask for',
+   RTM.scallop_amp(0, RTM.shape('slate'), nil).zero?)
+ok('no shape at all is 0, not a crash', RTM.scallop_amp(0, nil).zero?)
+
+# The estimate has to speak the same policy, or it stops predicting the build.
+big = RTM.plane_uv([[0, 0, 0], [756.0, 0, 0], [756.0, 354.0, 118.0], [0, 354.0, 118.0]],
+                   RTM.vnorm(RTM.vcross([756.0, 0, 0], [0, 354.0, 118.0])))
+all_wavy = RTM.estimate(big, 'barrel', scallop_courses: nil)[:faces]
+one_wavy = RTM.estimate(big, 'barrel')[:faces]
+none     = RTM.estimate(big, 'barrel', scallop_courses: 0)[:faces]
+ok('the estimate defaults to the cheap policy', one_wavy < all_wavy / 10, [one_wavy, all_wavy])
+ok('and the user roof lands near what Vali actually built (~2,500 for 4 planes)',
+   one_wavy * 4 > 1_500 && one_wavy * 4 < 4_000, one_wavy * 4)
+ok('every course wavy really is the 50,000 I was wrong about',
+   all_wavy * 4 > 40_000, all_wavy * 4)
+ok('no wave at all is cheapest of the three', none < one_wavy, [none, one_wavy])
+ok('but the course COUNT never changes - only how the butt is drawn',
+   RTM.estimate(big, 'barrel', scallop_courses: nil)[:courses] ==
+   RTM.estimate(big, 'barrel', scallop_courses: 0)[:courses])
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

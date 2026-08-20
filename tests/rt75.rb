@@ -83,6 +83,31 @@ ok('a nil wall gives an empty list, not a crash', WDT.neighbor_walls(nil, M) == 
 bare = M.entities.add_group
 ok('a group that is not a wall gives an empty list', WDT.neighbor_walls(bare, M) == [])
 
+# ---------------------------------------------------------------------------
+# The same rule, in the two other places that MOVE a wall they found by
+# position. Both are checked at the source, because driving them for real
+# needs a live SketchUp: square_mixed_base_corners! rebuilds corner geometry
+# and align_curve_lanes! re-seats a wall's body. A missing guard in either is
+# a wall moving on a floor the user is not even looking at.
+
+fm = File.read('floor_manager.rb', encoding: 'UTF-8')
+sq = fm[/def self\.square_mixed_base_corners!.*?\n    end/m].to_s
+ok('floor_manager: the mixed-base corner scan exists to find', !sq.empty?)
+ok('floor_manager: it still looks for a DIFFERENT base height (the garage)',
+   sq.include?("'base_z'"))
+ok('floor_manager: but only on the SAME storey', sq.include?('.to_i == w_level'))
+
+wtsrc = File.read('wall_tool.rb', encoding: 'UTF-8')
+al = wtsrc[/def self\.align_curve_lanes!.*?\n    end/m].to_s
+ok('wall_tool: the curve-lane scan exists to find', !al.empty?)
+ok('wall_tool: it filters its candidate walls by level', al.include?('.to_i == lvl'))
+
+# And the one that started all this, so a later edit cannot quietly drop it.
+pe = File.read('plan_editor.rb', encoding: 'UTF-8')
+st = pe[/def stretch_wall!.*?\n      end/m].to_s
+ok('plan_editor: the corner-partner scan filters by level',
+   st.include?('.to_i == moving_level'))
+
 # The guard is really in the code, not just in this test's head.
 src = File.read('wall_delete_tool.rb', encoding: 'UTF-8')
 ok('delete_wall! uses the extracted list, not its own copy of the scan',

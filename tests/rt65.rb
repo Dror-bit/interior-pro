@@ -224,11 +224,23 @@ ok('it is wired to its own mode', SRC.include?("$('terase').onclick"))
 ok('and it joins the other tool buttons so only one lights up',
    SRC.include?("['thand','tdim','tnote','terase']"))
 ok('the mode is spelled the same everywhere', SRC.include?("setMode('erase')"))
+# The dimension tool grew a second pending point on 2026-08-19 (three clicks,
+# like every other drawing program), so the reset list grew with it. What this
+# check is really for is that switching tools does not leave the rubber
+# holding something - so it asks for ERA, not for the whole line.
 ok('picking any mode drops whatever the rubber was over',
-   SRC.match?(/MODE=m; PEND=null; HOVER=null; ERA=null;/))
+   SRC.match?(/MODE=m;[^\n]*\bERA=null;/))
+ok('and it drops a half-drawn dimension too, both of its points',
+   SRC.match?(/MODE=m;[^\n]*PEND=null; PEND2=null;/))
 
-ok('clicking sends the number of the line, not a position',
-   SRC.include?('sketchup.drop_site_line(JSON.stringify({i:hi}))'))
+# 2026-08-19: the rubber no longer goes one line at a time. Dragging it across
+# the sheet the way SketchUp does can cross a dozen, and one round trip per line
+# would make it crawl - so the sweep collects and the whole lot goes in ONE
+# message, still by NUMBER and never by position. t51 drives this for real.
+ok('the sweep sends the numbers of the lines, not positions',
+   SRC.include?('sketchup.drop_site_line(JSON.stringify({is:siteGone}))'))
+ok('and Ruby takes them highest first, so removing one cannot move the next',
+   SRC.include?('.sort.reverse'))
 ok('there is a way to put them back', SRC.include?("$('undrop').onclick"))
 ok('and a button for it', SRC.include?('id="undrop"'))
 ok('the window is told how many are left and how many are waiting',
@@ -237,11 +249,17 @@ ok('the put-back button is dead when there is nothing to put back',
    SRC.include?("$('undrop').disabled = !dropped"))
 
 # ---------------------------------------------------------------------------
-# 7. the rubber only touches the free geometry
+# 7. the rubber still never touches the MODEL
 # ---------------------------------------------------------------------------
 # Walls, doors and windows are drawn from their attributes and are switched off
 # by their own layer. Letting the rubber at them would delete from the MODEL,
 # which is the one thing this feature must not do.
+#
+# 2026-08-19 the rubber also takes MARKS - the dimensions and notes the user
+# drew by hand - because that is how he gets rid of a dimension in SketchUp and
+# he asked for it with a picture. Marks live in the sheet settings, not in the
+# model, so the rule above is untouched: siteLayer is still the only way the
+# rubber can reach anything drawn from the model, and it still only names SITE.
 hit = SRC[/function siteLayer\(\).*?\n          \}/m].to_s
 ok('the layer finder exists', !hit.empty?)
 ok("it asks for SITE by name", hit.include?("l.name==='SITE'"))
@@ -260,13 +278,21 @@ ok('a switched-off SITE layer cannot be rubbed out',
 paint = SRC[/function paintErase\(\).*?\n          \}/m].to_s
 ok('the highlight is painted by its own routine', !paint.empty?)
 ok('and it never calls render()', !paint.include?('render()'), paint[0, 160])
-ok('it adds exactly one element', paint.scan(/createElementNS/).length == 1)
+ok('and it never calls push() either - nothing is decided by looking',
+   !paint.include?('push()'), paint[0, 160])
 ok('and takes the old one away first, so they cannot pile up',
    paint.include?("querySelector('#erahi')"))
+# 2026-08-19: a SWEEP lights up everything it has crossed, so the highlight is
+# now a group with one line in it per item instead of a single line. Still one
+# node on the drawing, still added and removed by id.
+ok('everything the sweep has crossed lights up, not just the last thing',
+   paint.include?('ERASWEEP'), paint[0, 200])
 
 move = SRC[/svg\.onmousemove=function\(e\)\{.*?\n            \};/m].to_s
-ok('moving the mouse only repaints when the line under it changes',
-   move.include?('if(h3!==ERA){ ERA=h3; paintErase(); }'), move[0, 240])
+ok('moving the mouse only repaints when what is under it changes',
+   move.include?('} else if(!sameEra(h3,ERA)){'), move[0, 300])
+ok('and the rubber wears its own cursor, which the user asked for by name',
+   move.include?('eraserCursor()'), move[0, 300])
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

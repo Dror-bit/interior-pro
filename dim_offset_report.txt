@@ -1,0 +1,72 @@
+REPORT - the dimension standing off the wall, and moving any label
+2026-08-19
+
+== test run ==
+128 suites green, 0 failed. (rt81 and t50 both grew; no new suite files.)
+
+== the diagnosis, which was the whole problem ==
+What I built first only worked on dimensions HE draws with the מידה tool.
+The ones he was clicking are the dimensions the plugin generates itself onto
+the walls - those are not "marks", so hitMark found nothing and the click fell
+through to the plan pan. That is why "שום דבר לא נבחר".
+They were already reachable, but only by DOUBLE-click and only to change size
+and weight (st['text_marks'], keyed by PlanCanvas.text_key, since 2026-08-17).
+
+== part 1: the dimension stands off the object ==
+plan_canvas.rb
+  dim_line(m)     NEW, pure. The dimension LINE = the two clicked points
+                  pushed across by `off`. Signed, so which side follows the
+                  direction he drew. No off = 0 = exactly where dimensions
+                  have always been drawn.
+  draw_mark_dim   draws the line, the ticks and the number on the OFFSET line,
+                  plus two witness lines from the measured points out to it.
+                  With off = 0 there are no witness lines at all - they would
+                  be zero long - so old drawings are untouched.
+  dim_label_xy    now measured from the dimension line, so the number goes
+                  with it.
+  WITNESS_GAP 0.35, WITNESS_OVER 0.75 (of the tick)
+
+plan_sheet_dialog.rb
+  dimLine()       same arithmetic, for the hit test
+  hitMark         the LINE is now part 'off'; the two clicked points stay
+                  'a'/'b'; the number is 'text'
+  moveMark 'off'  a drag pulls it off the wall - only the sideways part of
+                  the drag counts, and the measured points never move
+  'dim_off'       new setting: how far a NEW dimension is born standing off.
+                  Panel field "מרחק מהאובייקט". With a dimension picked the
+                  field changes THAT one.
+
+== part 2: any label picks up with one click and drags ==
+plan_canvas.rb
+  apply_text_overrides!  now also applies dx/dy.
+                  x0/y0 remember the BUILT position, the way h0 already
+                  remembers the built height. Without it the offset would be
+                  re-applied on every redraw and the label would walk across
+                  the sheet - the plan is rebuilt from the model on every
+                  single change.
+plan_sheet_dialog.rb
+  set_text_mark   accepts dx/dy, MERGED onto what is there, so a drag cannot
+                  wipe the size and the size box cannot snap it back
+  onmousedown     hand mode: hitMark first, then hitText - one click picks any
+                  writing on the sheet
+  TDRAG           the highlight box follows the mouse live; the real move is
+                  sent once on letting go (Ruby draws the writing, so a round
+                  trip per mouse move would crawl)
+  paintTextPick   re-finds the picked label BY KEY after every rebuild - the
+                  shape object is a ghost the moment Ruby answers
+  arrows          nudge the picked label too
+
+== mutation checks (remove the guard, see red) ==
+off ignored in Ruby                  -> rt81 13 red
+dim_line ignores off                 -> rt81 12 red
+dimLine ignores off (window only)    -> t50 8 red, rt81 stays GREEN
+moveMark 'off' takes the along part  -> t50 3 red
+no x0/y0 memory (label walks)        -> rt81 4 red
+dx/dy ignored                        -> rt81 4 red
+
+The third one is the point of dim_label_cases.json: a divergence between the
+Ruby and the window shows up on exactly one side, never on neither.
+
+== untouched ==
+wall_tool.rb, door_tool.rb, window_tool.rb, roof_manager.rb, plan_pdf.rb,
+plan_doc.rb, plan_editor.rb, plan_generator.rb - zero change.

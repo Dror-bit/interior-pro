@@ -593,8 +593,17 @@ module InteriorPro
           partner = nil
           p_side = nil
           p_data = nil
+          w_level = (w.get_attribute('InteriorPro', 'level') || 1).to_i
           all_walls.each do |g|
             next if g == w || !g.valid?
+            # Level guard (2026-08-19). This scan deliberately looks for a
+            # partner at a DIFFERENT base height - that is the whole point, a
+            # dropped garage wall meeting a full-height one. But a wall on the
+            # storey ABOVE also has a different base, and it sits on the same
+            # x/y because the user builds floor 2 by copying floor 1. Without
+            # this line the garage corner was squared against an upstairs
+            # wall. Different base, SAME storey.
+            next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == w_level
             next if (g.get_attribute('InteriorPro', 'base_z').to_f - w_base).abs < 0.01
             gd = wt.wall_data_world(g)
             next unless gd

@@ -350,6 +350,32 @@ module InteriorPro
       index.odd? ? tile_w / 2.0 : 0.0
     end
 
+    # ------------------------------------------------ how wavy is a course
+
+    # The wave is what you see in SILHOUETTE - and only the bottom course has
+    # a silhouette, against the sky at the eave. Every course above it is seen
+    # against the roof itself, where the field texture already draws the wave.
+    #
+    # This is the rule the whole file is built on, applied once more:
+    # BUILD 3D ONLY WHERE THE SILHOUETTE SHOWS.
+    #
+    # It is not a style choice, it is arithmetic. On the user's own roof
+    # (63ft eave, 4:12, barrel tile) a wavy butt on EVERY course costs about
+    # 13,000 faces per plane - roughly 50,000 for the roof, which is the
+    # number I was wrong by 16x about on 2026-08-18 before measuring. On the
+    # bottom course only it is about 600 per plane, i.e. Vali's ~2,500 for the
+    # whole roof - the thing we measured and liked.
+    #
+    #   scallop_courses = 1   the default: the eave course waves, the rest step
+    #   scallop_courses = nil every course waves (what it cost above)
+    #   scallop_courses = 0   nothing waves; plain steps, exactly like Vali
+    def self.scallop_amp(index, shape, scallop_courses = 1)
+      return 0.0 if shape.nil?
+      amp = shape[:scallop].to_f
+      return amp if scallop_courses.nil?
+      index.to_i < scallop_courses.to_i ? amp : 0.0
+    end
+
     # ---------------------------------------------------------- reporting
 
     # How much geometry a plane is about to cost, BEFORE any of it is built.
@@ -361,9 +387,16 @@ module InteriorPro
       res = courses(plane, shape_name, opts)
       segs = [(opts[:segments] || 4).to_i, 2].max
       faces = 0
+      sc = opts.key?(:scallop_courses) ? opts[:scallop_courses] : 1
+      # `rows` = how many courses from the eave get a 3D step at all. The
+      # builder's own policy (RoofManager::TILE_COURSE_ROWS) has to be handed
+      # in here too, or the budget stops describing what is actually built.
+      rows = opts.key?(:rows) ? opts[:rows] : nil
       res[:courses].each do |c|
+        next unless rows.nil? || c[:index] < rows.to_i
+        amp = scallop_amp(c[:index], s, sc)
         c[:spans].each do |(a, b)|
-          n = s[:scallop] > EPS ? ((b - a) / s[:tile_w] * segs).ceil : 1
+          n = amp > EPS ? ((b - a) / s[:tile_w] * segs).ceil : 1
           faces += 2 * n + 3          # top + face strip, plus the two ends
         end
       end

@@ -1,0 +1,45 @@
+REPORT - pages: choose what goes to PDF, and delete any page (2026-08-19)
+
+== test run ==
+126 suites green (79 ruby + 47 js). Was 124; rt80 + t49 added. 0 failed.
+
+== what was already there ==
+PlanPDF.export(doc, path, pages:)   - accepted a subset since it was written.
+                                      Nobody ever passed one. Now export_pdf does.
+the x in the page list              - existed for image + schedules rows only.
+                                      A plan row refused: "אי אפשר למחוק את דף התוכנית".
+
+== what changed ==
+plan_sheet_dialog.rb
+  default_state       + 'pdf_skip' => []      which sheets stay OUT of the print
+                      + 'drop_plan' => false  the plan sheet, thrown away
+  page_key(pg)        stable name per page: plan / schedules / image:N
+                      NOT the sheet number and NOT the position - both shift
+  shift_image_keys    picture N leaves -> every key after it moves down one
+  pages_for_pdf       the ticked sheets. Its own method so rt80 calls the
+                      code that ships, not a copy of it.
+  delete_page         now handles kind 'plan'; refuses only when it would
+                      leave zero pages
+  restore_plan        NEW callback - the one page with no other way back
+  export_pdf          passes pages: to PlanPDF.export, refuses an empty pick
+  JS  pageKey / togglePdf / fillPages rebuilt: a tick + an x on every row,
+      "החזר את דף התוכנית" appears only while it is missing,
+      heading shows "N מתוך M ל-PDF"
+
+plan_canvas.rb
+  layout_pages!       drop_plan skips building the plan sheet
+                      tables forced onto their own sheet when there is no plan
+                      sheet numbering closes up - first sheet built takes A-101
+                      belt+braces: an empty set rebuilds the plan sheet
+
+== mutation checks (remove the guard, see red) ==
+drop_plan ignored            -> 3 red
+shift_image_keys = identity  -> 4 red
+pdf_skip ignored             -> 4 red
+no x on the plan row         -> 2 red
+no checkbox on a row         -> 2 red
+togglePdf does not save      -> 1 red
+
+== untouched ==
+wall_tool.rb, door_tool.rb, window_tool.rb, roof_manager.rb, plan_pdf.rb,
+plan_doc.rb, plan_editor.rb - zero change.

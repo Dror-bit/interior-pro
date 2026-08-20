@@ -1,0 +1,59 @@
+REPORT - moving a dimension's number (2026-08-19)
+
+== test run ==
+128 suites green (80 ruby + 48 js). Was 126; rt81 + t50 added. 0 failed.
+
+== what he asked for ==
+1. "להזיז אותן ימינה ושמאלה ולמטה ולמעלה, תלוי איך אני מצייר אותן לאיזה כיוון"
+2. "מקש ארוך -> מצב סלקט, לבחור מה שהכנסתי ולהזיז"
+
+== what already existed (checked, not assumed) ==
+The space bar already puts the window into select-and-drag (setMode('hand')),
+and hitMark already picks up a dimension's ENDS, the whole dimension, and a
+note with its knee and its tip. So request 2 was already built - except for
+the one thing request 1 is about: the NUMBER was not grabbable at all. It sat
+at h*0.8 across the line, always the same side, untouchable.
+
+== what changed ==
+plan_canvas.rb
+  DIM_LABEL_OFF = 0.8          the offset that was buried in draw_mark_dim
+  dim_label_xy(m, h)   NEW     where the number sits
+       oa  along the line, start -> end   (his right/left)
+       oc  across it, on the normal       (his up/down)
+     Kept in the LINE'S own frame on purpose: the number holds its place when
+     the dimension is later dragged or stretched. A sheet-x/y offset would
+     need re-aiming every time he touched the plan.
+     No oc on the mark = h * 0.8, i.e. every drawing made before today opens
+     looking IDENTICAL. rt81 fails if that stops being true.
+  draw_mark_dim        calls it. The line, the ticks and the rotation are
+                       untouched - only the text position moved.
+
+plan_sheet_dialog.rb
+  payload      + dim_text_h, dim_label_off   Ruby says them, the window does
+                                             not guess them
+  dimLabelXY()         the same formula, because the window has to know where
+                       the number is before it can let him grab it
+  hitMark              new part 'text' - the number, checked after the ends
+                       and before the line (they overlap on a short dimension)
+  moveMark             part 'text' turns a drag in sheet x/y into along+across
+  keydown              arrows nudge the picked dimension's number,
+                       Shift = a whole text height, otherwise a quarter
+  selection paint      a dashed ring round the number, so it looks grabbable
+  tip line             says what the space bar does and what the arrows do
+
+== the drift risk, and what was done about it ==
+Two copies of one formula now exist - Ruby draws the number, the window has to
+find it. tests/dim_label_cases.json holds 16 cases and BOTH suites read it.
+Neither implementation owns the answer.
+
+  flip the normal in Ruby only    -> rt81 17 red, t50 green
+  flip the normal in the JS only  -> rt81 green,  t50 12 red
+  change the default off in Ruby  -> rt81 12 red
+  moveMark stores screen dx/dy    -> t50 3 red
+
+A divergence cannot pass unnoticed in either direction.
+
+== untouched ==
+wall_tool.rb, door_tool.rb, window_tool.rb, roof_manager.rb, plan_pdf.rb,
+plan_doc.rb, plan_editor.rb, plan_generator.rb - zero change.
+Notes (the boxed text marks) - zero change.
