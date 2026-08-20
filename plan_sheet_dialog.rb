@@ -923,7 +923,14 @@ module InteriorPro
             .thumb.sel .sheet { border-color:#1f6feb; }
             .thumb .cap { font-size:11px; color:#aaa; padding:3px 1px 0;
                           direction:ltr; text-align:left; white-space:nowrap;
-                          overflow:hidden; text-overflow:ellipsis; }
+                          overflow:hidden; display:flex; align-items:center;
+                          gap:5px; }
+            .thumb .cap span { overflow:hidden; text-overflow:ellipsis; }
+            .thumb .cap input[type=checkbox] { width:auto; margin:0; flex:none;
+                                               accent-color:#1f6feb; cursor:pointer; }
+            /* a sheet that is staying in the set but out of the print */
+            .thumb.off .sheet { opacity:.35; }
+            .thumb.off .cap span { text-decoration:line-through; opacity:.6; }
             .thumb.sel .cap { color:#9ecbff; }
             .thumb svg { width:100%; height:auto; }
             /* A section is a box you press. Closed it is a raised blue-grey
@@ -1037,7 +1044,7 @@ module InteriorPro
                 <h4><span class="ar">&#9656;</span>דפים<span class="tag" id="pagestag"></span></h4>
                 <div class="bd">
                   <div id="pages" tabindex="0"></div>
-                  <button id="stripbtn">הצג את כל הדפים</button>
+                  <button id="stripbtn">הצג את הדפים ובחר מה יוצא ל-PDF</button>
                 </div>
               </div>
 
@@ -2923,13 +2930,27 @@ module InteriorPro
             // it, and the little sheet says the same things the big one does.
             var W=520;
             box.innerHTML='';
+            var skip=(STATE.pdf_skip||[]);
             (DOC.pages||[]).forEach(function(pg,i){
+              var key=pageKey(pg);
+              var out=skip.indexOf(key)>=0;
               var d=document.createElement('div');
-              d.className='thumb'+(i===(STATE.active||0)?' sel':'');
+              d.className='thumb'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
               d.onclick=function(){ goToPage(i); };
-              d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+
-                          '</div><div class="cap">'+
-                          esc((pg.sheet_number||('#'+(i+1)))+'  '+pg.name)+'</div>';
+              d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+'</div>';
+              // the tick lives HERE now - next to the picture of the sheet, so
+              // he is choosing pages he can see
+              var cap=document.createElement('div');
+              cap.className='cap';
+              var c=document.createElement('input');
+              c.type='checkbox'; c.checked=!out;
+              c.title='לצרף את הדף הזה ל-PDF';
+              c.onclick=function(e){ e.stopPropagation(); togglePdf(key); };
+              cap.appendChild(c);
+              var t=document.createElement('span');
+              t.textContent=(pg.sheet_number||('#'+(i+1)))+'  '+pg.name;
+              cap.appendChild(t);
+              d.appendChild(cap);
               box.appendChild(d);
             });
             var sel=box.querySelector('.thumb.sel');
@@ -2940,7 +2961,7 @@ module InteriorPro
             var box=$('strip');
             var on = box.className!=='on';
             box.className = on ? 'on' : '';
-            $('stripbtn').textContent = on ? 'הסתר את הדפים' : 'הצג את כל הדפים';
+            $('stripbtn').textContent = on ? 'הסתר את הדפים' : 'הצג את הדפים ובחר מה יוצא ל-PDF';
             STATE.strip = on;
             paintStrip();
             render();                        // the drawing area just changed width
@@ -2964,7 +2985,7 @@ module InteriorPro
             var at=s.indexOf(key);
             if(at>=0) s.splice(at,1); else s.push(key);
             STATE.pdf_skip=s;
-            fillPages();
+            fillPages();      // which repaints the strip too
             push();
           }
 
@@ -2979,12 +3000,12 @@ module InteriorPro
               var row=document.createElement('div');
               row.className='pg'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
               row.onclick=function(){ $('pages').focus(); goToPage(i); };
-              // does this sheet go into the PDF
-              var c=document.createElement('input');
-              c.type='checkbox'; c.checked=!out;
-              c.title='לצרף את הדף הזה ל-PDF';
-              c.onclick=function(e){ e.stopPropagation(); togglePdf(key); };
-              row.appendChild(c);
+              // The tick moved to the THUMBNAILS (2026-08-19). The user:
+              // "אני רוצה שהווי יעבור לתמונות של הדפים... כי מרגיש לי שיותר קל
+              // לבחור דפים שרואים בהוצאה ל-PDF." So this list is the x - what
+              // is in the set - and the strip is the tick - what gets printed.
+              // A row still shows struck through when its sheet is out, which
+              // tells him where things stand without being a second control.
               var num=document.createElement('b');
               num.textContent=p.sheet_number||('#'+(i+1));
               row.appendChild(num);

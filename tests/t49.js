@@ -114,10 +114,9 @@ const pgRows = rows.filter(r => (r.className || '').startsWith('pg'));
 ok('one row per sheet', pgRows.length === 4, pgRows.length);
 
 const first = pgRows[0];
-const boxes = first.children.filter(c => c.type === 'checkbox');
-ok('every row opens with a tick', boxes.length === 1, boxes.length);
-ok('and it starts ticked - a fresh model prints everything',
-   boxes[0] && boxes[0].checked === true, boxes[0] && boxes[0].checked);
+ok('THE MOVE: the page list has NO tick on it any more - it is the x list',
+   first.children.filter(c => c.type === 'checkbox').length === 0,
+   first.children.filter(c => c.type === 'checkbox').length);
 
 const xs = r => r.children.filter(c => c.tag === 'button' && c.textContent === '×');
 ok('THE CHANGE: the plan sheet has an x now', xs(pgRows[0]).length === 1,
@@ -143,9 +142,23 @@ ok('a picture row sends its kind and its ref',
 
 // --------------------------------------------------------------- the tick
 
-rows = paint({});
-const box0 = rows.filter(r => (r.className || '').startsWith('pg'))[0]
-                 .children.filter(c => c.type === 'checkbox')[0];
+// the tick is on the THUMBNAILS now, so that is where it is driven from
+function strip(state) {
+  paint(state);
+  nodes.strip.className = 'on';
+  nodes.strip.children.length = 0;
+  sandbox.paintStrip();
+  return nodes.strip.children;
+}
+let thumbs = strip({});
+ok('one thumbnail per sheet', thumbs.length === 4, thumbs.length);
+const cap0 = thumbs[0].children.filter(c => (c.className || '') === 'cap')[0];
+ok('each thumbnail carries the tick', cap0 &&
+   cap0.children.filter(c => c.type === 'checkbox').length === 1,
+   cap0 && cap0.children.length);
+const box0 = cap0.children.filter(c => c.type === 'checkbox')[0];
+ok('and it starts ticked - a fresh model prints everything',
+   box0.checked === true, box0.checked);
 box0.onclick({ stopPropagation() {} });
 ok('un-ticking a sheet writes it into the settings',
    (sandbox.STATE.pdf_skip || []).indexOf('plan') >= 0, sandbox.STATE.pdf_skip);
@@ -157,26 +170,34 @@ ok('and the sheet is still in the list', sandbox.DOC.pages.length === 4);
 
 // ticking it again takes it back out of the skip list
 calls.length = 0;
-const again = nodes.pages.children.filter(r => (r.className || '').startsWith('pg'))[0]
-                   .children.filter(c => c.type === 'checkbox')[0];
+thumbs = strip(sandbox.STATE);
+const again = thumbs[0].children.filter(c => (c.className || '') === 'cap')[0]
+                       .children.filter(c => c.type === 'checkbox')[0];
 again.onclick({ stopPropagation() {} });
 ok('ticking it again puts it back in the print',
    (sandbox.STATE.pdf_skip || []).indexOf('plan') < 0, sandbox.STATE.pdf_skip);
 
 // ------------------------------------------------------- what the list says
 
+thumbs = strip({ pdf_skip: ['plan', 'image:1'] });
+ok('a thumbnail left out of the print is greyed and struck through',
+   thumbs[0].className.indexOf('off') >= 0, thumbs[0].className);
+ok('its tick is empty',
+   thumbs[0].children.filter(c => (c.className || '') === 'cap')[0]
+           .children.filter(c => c.type === 'checkbox')[0].checked === false);
+ok('a thumbnail that IS printing is not marked',
+   thumbs[1].className.indexOf('off') < 0, thumbs[1].className);
+ok('the right picture is the one marked',
+   thumbs[3].className.indexOf('off') >= 0 &&
+   thumbs[2].className.indexOf('off') < 0,
+   [thumbs[2].className, thumbs[3].className]);
+// and the LIST still says so too, so a shut strip is not a blind spot
 rows = paint({ pdf_skip: ['plan', 'image:1'] });
 const marked = rows.filter(r => (r.className || '').startsWith('pg'));
-ok('a sheet left out of the print is greyed and struck through',
-   marked[0].className.indexOf('off') >= 0, marked[0].className);
-ok('its tick is empty',
-   marked[0].children.filter(c => c.type === 'checkbox')[0].checked === false);
-ok('a sheet that IS printing is not marked',
-   marked[1].className.indexOf('off') < 0, marked[1].className);
-ok('the right picture is the one marked',
-   marked[3].className.indexOf('off') >= 0 &&
-   marked[2].className.indexOf('off') < 0,
-   [marked[2].className, marked[3].className]);
+ok('the page list still shows which sheets are out, it just cannot change it',
+   marked[0].className.indexOf('off') >= 0 &&
+   marked[1].className.indexOf('off') < 0,
+   [marked[0].className, marked[1].className]);
 ok('and the heading says how many are printing',
    nodes.pagestag.textContent.indexOf('2') === 0,
    nodes.pagestag.textContent);
