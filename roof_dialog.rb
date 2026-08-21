@@ -71,10 +71,16 @@ module InteriorPro
       # greyscale tile covers every shingle colour (2026-08-10).
       mat_options = [['color',   'Solid color'],
                      ['shingle', 'Shingles'],
-                     ['barrel',  'Barrel Tile (Spanish S)'],
+                     # Barrel Tile was dropped from the menu on 2026-08-21 -
+                     # Spanish Tile below is the shape it was standing in for,
+                     # and two entries for one look is exactly the duplicate
+                     # the UI rules in CLAUDE.md exist to prevent. The shape
+                     # itself is still in RoofTileMath, so nothing that reads
+                     # a saved model breaks.
                      ['roman',   'Roman Tile (flat pan)'],
                      ['slate',   'Flat Slate Tile'],
-                     ['seam',    'Standing Seam Metal']].map do |v, t|
+                     ['seam',    'Standing Seam Metal'],
+                     ['metaltile', 'Spanish Tile']].map do |v, t|
         sel = s[:roof_material].to_s == v ? ' selected' : ''
         "<option value=\"#{v}\"#{sel}>#{t}</option>"
       end.join

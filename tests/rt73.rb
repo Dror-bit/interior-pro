@@ -28,7 +28,15 @@ def ok(n, c, x = nil); puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x
 RTM = InteriorPro::RoofTileMath
 RM  = InteriorPro::RoofManager
 TEX = RM.roof_textures
-NEW = %w[barrel roman slate seam].freeze
+# metaltile joined on 2026-08-21, from the user's Metal Roof Tiles reference.
+# Adding it HERE is the point of this list: every check below - the file is on
+# disk, the two tables name the same file, the painted grid divides by the tile
+# grid, the dialog can reach it - now runs for the new material too, for free.
+# barrel LEFT THE MENU on 2026-08-21 - Spanish Tile is the shape it was
+# standing in for, and the user asked for one entry, not two. The shape is
+# still in RoofTileMath so an old model that names it still builds, which is
+# why it is dropped from this list rather than deleted from the tables.
+NEW = %w[roman slate seam metaltile].freeze
 
 # Textures are NOT copied into tests/, so look in the source root first.
 TEXDIR = ['../textures', './textures'].find { |d| File.directory?(d) }
@@ -93,7 +101,11 @@ NEW.each do |k|
      dlg.include?(RTM.shape(k)[:label]), RTM.shape(k)[:label])
 end
 ok('Solid color is still first in the menu',
-   dlg.index("'color'") < dlg.index("'barrel'"))
+   dlg.index("'color'") < dlg.index("'roman'"))
+ok('Barrel Tile is deliberately NOT in the menu any more',
+   !dlg.include?("['barrel'"), 'barrel still listed')
+ok('...but the shape is still there, so an old model that names it builds',
+   !RTM.shape('barrel').nil?)
 ok('Shingles is still there', dlg.include?("'Shingles'"))
 
 # ------------------------------------------------------- load order

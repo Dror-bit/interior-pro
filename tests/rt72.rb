@@ -159,9 +159,22 @@ ok('an unknown material estimates nothing', RTM.estimate(pl, 'nope')[:faces].zer
 
 # ---------------------------------------------------------------- shapes
 
-ok('four materials are described', RTM.shapes.length == 4, RTM.shapes.keys)
+# FIVE since 2026-08-21: Metal Roof Tiles joined, from the user's second
+# reference. It is deliberately NOT the same thing as 'seam' - standing seam
+# is one unbroken sheet, metal tile is pressed into courses - so both are here
+# and neither replaced the other. (This line said four; it was updated rather
+# than deleted, the rt65 rule.)
+ok('five materials are described', RTM.shapes.length == 5, RTM.shapes.keys)
 ok('every one names its texture',
    RTM.shapes.values.all? { |s| s[:texture].to_s.end_with?('.jpg') })
+ok('and no two share a texture file',
+   RTM.shapes.values.map { |s| s[:texture] }.uniq.length == RTM.shapes.length,
+   RTM.shapes.values.map { |s| s[:texture] })
+ok('ONLY metal tile is pressed into courses - clay is one unbroken pipe',
+   RTM.shapes.keys.select { |k| RTM.run_courses?(k) } == ['metaltile'],
+   RTM.shapes.keys.select { |k| RTM.run_courses?(k) })
+ok('standing seam is left exactly as it was, sheet not tile',
+   !RTM.run_courses?('seam') && RTM.shapes['seam'][:exposure].zero?)
 ok('only slate staggers',
    RTM.shapes.select { |_, s| s[:stagger] }.keys == ['slate'])
 ok('barrel is the waviest',

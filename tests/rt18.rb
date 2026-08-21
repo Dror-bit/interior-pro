@@ -99,25 +99,69 @@ ok('colour path takes no texture', m1.texture.nil?)
 m2 = RF.surface_material(model, { roof_material: 'no_such_thing', roof_color: '#584e4a' })
 ok('unknown family falls back to colour', !m2.nil? && m2.texture.nil?)
 
-# ---- textured path ---------------------------------------------------
+# ---- the colour picker everywhere EXCEPT shingle (2026-08-21) ---------
+#
+# The user asked for the same colour mechanism on every roof: the tile
+# materials carry the pattern in 3D and the real ones get done in Lumion, so a
+# photographed tile under the geometry was two patterns fighting.
+#
+# Then he looked at shingle and its texture was gone - and shingle has no 3D
+# piece to carry anything, so it was a flat colour with nothing on it: "תעשה
+# טקסטורה נכון לעכשיו רק בשינגלס". So the rule is per family now, and this
+# line has said all three things in one day. It is rewritten each time rather
+# than deleted (the rt65 rule), and the texture machinery is still guarded
+# either way: USE_ROOF_TEXTURES still turns it on for EVERYONE, and the block
+# after this one flips that switch and checks every old promise still holds.
+ok('shingle KEEPS its texture - it is the one family that still has one',
+   have_file &&
+   !RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' }).texture.nil?)
+ok('and it is the only one on the list', RF.textured_families == ['shingle'],
+   RF.textured_families)
+ok('a family not on the list takes the colour',
+   RF.surface_material(model, { roof_material: 'slate', roof_color: '#584e4a' }).texture.nil?)
+ok('so does a tile family', have_file &&
+   RF.surface_material(model, { roof_material: 'roman', roof_color: '#584e4a' }).texture.nil?)
+ok('and the colour still names the material',
+   RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
+     .name.include?('584e4a'))
+ok('the colour still tints the greyscale tile',
+   !RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
+      .color.nil?)
+ok('a different colour is still a different material',
+   RF.surface_material(model, { roof_material: 'shingle', roof_color: '#8a2b2b' }).name !=
+   RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' }).name)
+
+# ---- the textured path, still there behind the switch -----------------
 if have_file
+  RF.send(:remove_const, :USE_ROOF_TEXTURES)
+  RF.const_set(:USE_ROOF_TEXTURES, true)
+
   m3 = RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
-  ok('shingle material exists', !m3.nil?)
-  ok('shingle material carries the texture', !m3.texture.nil?)
-  ok('texture is sized in real inches', m3.texture && m3.texture.size == [48.0, 24.0],
-     m3.texture && m3.texture.size)
-  ok('greyscale tile is tinted by the roof colour', !m3.color.nil?)
-  ok('name carries family and colour',
+  ok('switch on: shingle material exists', !m3.nil?)
+  ok('switch on: shingle material carries the texture', !m3.texture.nil?)
+  ok('switch on: texture is sized in real inches',
+     m3.texture && m3.texture.size == [48.0, 24.0], m3.texture && m3.texture.size)
+  ok('switch on: greyscale tile is tinted by the roof colour', !m3.color.nil?)
+  ok('switch on: name carries family and colour',
      m3.name == 'InteriorPro_Roof_shingle_584e4a', m3.name)
 
   # a second colour must NOT reuse the first colour's material
   m4 = RF.surface_material(model, { roof_material: 'shingle', roof_color: '#8a2b2b' })
-  ok('a different colour makes a different material', m4.name != m3.name, m4.name)
-  ok('both are still shingle', m4.name.include?('shingle'))
+  ok('switch on: a different colour makes a different material',
+     m4.name != m3.name, m4.name)
+  ok('switch on: both are still shingle', m4.name.include?('shingle'))
 
   # asking twice for the same thing reuses it
   m5 = RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
-  ok('same request reuses the material', m5.equal?(m3))
+  ok('switch on: same request reuses the material', m5.equal?(m3))
+
+  # Spanish Tile says flat_color on its own shape, so it stays flat even here
+  ok('switch on: Spanish Tile is STILL flat - its own shape says so',
+     RF.surface_material(model, { roof_material: 'metaltile',
+                                 roof_color: '#584e4a' }).texture.nil?)
+
+  RF.send(:remove_const, :USE_ROOF_TEXTURES)
+  RF.const_set(:USE_ROOF_TEXTURES, false)
 else
   ok('texture file is reachable', false, path)
 end
@@ -293,7 +337,10 @@ caps = gc.entities.grep(Sketchup::Group)
    .select { |g| g.get_attribute('InteriorPro', 'part') == 'ridge_cap' }
 ok('the cap is made of separate overlapping pieces', caps.length > 5, caps.length)
 # the arch is faceted: 2 facets per side, top and bottom, + 2 outer
-# edges + 2 ends
+# edges + 2 ends. This cap is built with shape_name nil - the plain arch - and
+# it still uses RIDGE_CAP_SEGMENTS. The half-round section added on 2026-08-21
+# is Roman's alone and has its own count, RoofManager.cap_segments; the two are
+# checked apart on purpose, because "only Roman changes" is the whole point.
 seg_faces = 2 * 2 * RF::RIDGE_CAP_SEGMENTS + 4
 ok('a piece is a closed arched plate', 
    caps[0].entities.grep(Sketchup::Face).length == seg_faces,
@@ -330,6 +377,51 @@ ok('each piece starts one exposure along',
    (xs[1] - xs[0] - RF::RIDGE_CAP_EXPOSURE).abs < 1e-9, xs[0, 3])
 ok('and is longer than that, so it laps the one before',
    RF::RIDGE_CAP_LENGTH > RF::RIDGE_CAP_EXPOSURE)
+
+# ---- the cap rides ON TOP of a 3D tile (2026-08-21) -------------------
+# "הם נכנסים לתוך הרידג' קאפ". The skirt used to be drawn flat on the roof
+# plane, so every Roman run came out through it, worst of all on a hip where
+# the skirt has already tapered to nothing. Now the whole cap lifts by the
+# height of the tile it caps - and a material with no 3D tile lifts by
+# nothing, so everything checked above this line is drawn exactly where it
+# always was.
+require './roof_tile_math'
+require './roof_tile_parts'
+RTM18 = InteriorPro::RoofTileMath
+RTP18 = InteriorPro::RoofTileParts
+ok('a plain material lifts the cap by nothing',
+   RF.cap_lift_for(nil).zero?, RF.cap_lift_for(nil))
+ok('and so does a shingle roof',
+   RF.cap_lift_for('shingle').zero?, RF.cap_lift_for('shingle'))
+ok('roman lifts it by the full height of the tile',
+   (RF.cap_lift_for('roman') - RTP18.run_top_h(RTM18.shape('roman'))).abs < 1e-9,
+   RF.cap_lift_for('roman'))
+ok('which clears the roll instead of cutting through it',
+   RF.cap_lift_for('roman') >= RTP18.run_height(RTM18.shape('roman')))
+# ONLY Roman moved. Spanish was briefly lifted 1.31" and its section quietly
+# turned round; the user went looking and thought both caps had been deleted.
+ok('Spanish Tile is NOT lifted - it is drawn exactly where it was',
+   RF.cap_lift_for('metaltile').zero?, RF.cap_lift_for('metaltile'))
+ok('and it keeps the original parabola section',
+   !RF.cap_round_for('metaltile'))
+ok('so do shingle and plain colour',
+   !RF.cap_round_for('shingle') && !RF.cap_round_for(nil))
+ok('roman is the one that takes the half round',
+   RF.cap_round_for('roman'))
+# THE METAL RIDGE IS ONE PIECE, and keeps its edges. Clay stays a row of
+# lapping pieces, which is how clay is laid.
+ok('the metal ridge is drawn as one continuous strip',
+   RF.cap_continuous_for('seam'))
+ok('and clay is not', !RF.cap_continuous_for('roman') &&
+   !RF.cap_continuous_for('shingle') && !RF.cap_continuous_for(nil))
+# and their sizes never moved either
+ok('shingle keeps the old constants',
+   RF.cap_width_for('shingle') == RF::RIDGE_CAP_WIDTH &&
+     RF.cap_crown_for('shingle') == RF::RIDGE_CAP_CROWN)
+ok('Spanish keeps the size it derived from its own fold',
+   (RF.cap_width_for('metaltile') -
+    RTP18.run_cover_w(RTM18.shape('metaltile')) * RTP18.cap_lap).abs < 1e-9,
+   RF.cap_width_for('metaltile'))
 
 # ---- the lap is EXACT: no gap and no biting in ------------------------
 # Two pieces one exposure apart are flush only when the lift is
@@ -491,6 +583,162 @@ ok('ridge_cap setting round-trips', begin
   RF.save_settings!(st2)
   RF.settings[:ridge_cap] == false
 end, RF.settings[:ridge_cap])
+
+# ---- the metal hip cap ends in a CORNER (2026-08-21, second pass) ----
+#
+# Cut SQUARE, the cap's side corners poked out past the two eave lines that
+# meet at the corner - "תעשה פינה שלא יעבור את ה-90 מעלות של הגג". The low
+# free end of a sloping seam cap is now mitred per point (miter_lo in
+# build_cap_piece!): the centre line still reaches the corner, and each point
+# pulls back up the hip by its own plan offset - on a square corner that lands
+# the cut exactly on both eave lines. Clay is untouched: taper, laps and all.
+Sketchup.reset_model!
+# a hip from the eave corner (0,0) z=100 up to (100,100) z=150, both ends free
+seam_hip = [[0.0, 0.0], 100.0, [100.0, 100.0], 150.0,
+            [[1.0, -0.5], [-1.0, -0.5]]]
+gm = Sketchup.active_model.entities.add_group
+RF.build_ridge_caps!(gm, [seam_hip], nil, nil, 'seam')
+mp = gm.entities.grep(Sketchup::Group)
+ok('the metal hip cap is one continuous piece', mp.length == 1, mp.length)
+mpts = mp.flat_map { |g| g.entities.grep(Sketchup::Face).flat_map(&:pts) }
+ok('nothing passes either eave line at the corner - the 90 degrees holds',
+   mpts.map(&:x).min > -1.0e-6 && mpts.map(&:y).min > -1.0e-6,
+   [mpts.map(&:x).min, mpts.map(&:y).min])
+tip = mpts.min_by { |q| q.x + q.y }
+ok('and the centre of the cap still reaches the corner itself',
+   tip.x.abs < 0.01 && tip.y.abs < 0.01, [tip.x, tip.y])
+Sketchup.reset_model!
+gm2 = Sketchup.active_model.entities.add_group
+RF.build_ridge_caps!(gm2, [seam_hip], nil, nil, 'roman')
+ok('clay on the same hip still lays its lapped pieces exactly as before',
+   gm2.entities.grep(Sketchup::Group).length > 5,
+   gm2.entities.grep(Sketchup::Group).length)
+
+# ---- CLOSED FROM OUTSIDE, and the VALLEY CHANNEL (2026-08-21, 2nd pass) ----
+#
+# The metal cap rides a rib height above the deck; once the ribs stopped short
+# of it, the slot underneath showed - "החלק הזה צריך לסגור מבחוץ שלא יראה
+# חלול". A skirt now drops from the cap's whole bottom rim onto the deck.
+Sketchup.reset_model!
+gsk = Sketchup.active_model.entities.add_group
+RF.build_ridge_caps!(gsk, [seam_hip], nil, nil, 'seam')
+skpts = gsk.entities.grep(Sketchup::Group)
+           .flat_map { |g| g.entities.grep(Sketchup::Face).flat_map(&:pts) }
+sk_low = skpts.select { |q| q.x < 0.5 && q.y < 0.5 }.map(&:z).min
+ok('the skirt reaches the deck at the corner - nothing hollow from outside',
+   (sk_low - 100.0).abs < 0.01, sk_low)
+# And the crease honours a STATED crown: it was the constant, so crown 0
+# still bulged an inch in the middle of the fold - and would have put a hump
+# in the middle of the valley channel below.
+ok('a stated crown of zero really is flat at the crease',
+   RF.cap_crown_for('seam').zero? &&
+     RF.cap_profile_flat([0.0, 1.0], [[1.0, -0.5], [-1.0, -0.5]], 5.0, 0.0)
+       .map { |(_o, _dz, arc)| arc }.max.zero?)
+ok('and clay still arches - its crown is the constant, exactly as before',
+   RF.cap_profile_flat([0.0, 1.0], [[1.0, -0.5], [-1.0, -0.5]], 5.0,
+                       RF::RIDGE_CAP_CROWN)
+     .map { |(_o, _dz, arc)| arc }.max == RF::RIDGE_CAP_CROWN)
+
+# THE VALLEY: "צריך משהו שמכסה פה בוואלי... זה לא מכסה זה יותר מוליך מים."
+# ridge_lines with valleys: true hands back the lines where both planes
+# CLIMB, and the seam lays a flat channel IN each - on the deck, no lift, one
+# piece. Only build_roof! for the seam ever asks for them, so no other
+# material grows one.
+V_A = Sketchup::Face.new
+V_A.pts = [[0.0, 0.0, 100.0], [80.0, 80.0, 140.0], [-100.0, 80.0, 140.0],
+           [-100.0, 0.0, 100.0]].map { |p| Geom::Point3d.new(*p) }
+V_B = Sketchup::Face.new
+V_B.pts = [[0.0, 0.0, 100.0], [80.0, 0.0, 140.0],
+           [80.0, 80.0, 140.0]].map { |p| Geom::Point3d.new(*p) }
+ok('the default line walk still refuses a valley',
+   RF.ridge_lines([V_A, V_B]).empty?)
+VLINES = RF.ridge_lines([V_A, V_B], valleys: true)
+ok('valleys: true finds it', VLINES.length == 1, VLINES.length)
+Sketchup.reset_model!
+gv = Sketchup.active_model.entities.add_group
+RF.build_ridge_caps!(gv, VLINES, nil, nil, 'seam')
+vp = gv.entities.grep(Sketchup::Group)
+ok('the channel is one continuous strip', vp.length == 1, vp.length)
+v_worst = vp.flat_map { |g| g.entities.grep(Sketchup::Face).flat_map(&:pts) }
+            .map do |q|
+  [(q.z - (100.0 + q.y * 0.5)).abs, (q.z - (100.0 + q.x * 0.5)).abs].min
+end.max
+ok('and it lies flat IN the valley on the deck - a water channel, no lift',
+   v_worst < RF::RIDGE_CAP_THICK + 0.01, v_worst)
+
+# ---- EVERY CAP FACE IS PLANAR (2026-08-21, second pass) --------------------
+#
+# Real SketchUp refuses a non-planar loop; this stub accepts anything, which
+# is exactly how a broken build shipped once: a mitred corner end meeting a
+# tucked head bent the side quads ~0.01" out of plane, SketchUp raised, and
+# the two hip caps at the foot of a wing died half drawn - "רידג' קאפ המקביל
+# לאדום ירד". build_cap_piece! now fans a refused loop into triangles, so
+# this rebuilds that exact scene - a ridge running to a peak where two hips
+# tuck under it, seam mitres at both eave feet - and demands what SketchUp
+# demands: not one face out of plane, and no piece missing.
+# From here on add_face behaves like the real one: a non-planar loop RAISES.
+# (This is the last scene in the file, so nothing milder runs after it.)
+module Sketchup
+  class Entities
+    def add_face(pts)
+      if pts.length > 3
+        fa, fb, fc = pts[0], pts[1], pts[2]
+        fu = [fb.x - fa.x, fb.y - fa.y, fb.z - fa.z]
+        fv = [fc.x - fa.x, fc.y - fa.y, fc.z - fa.z]
+        fn = [fu[1] * fv[2] - fu[2] * fv[1], fu[2] * fv[0] - fu[0] * fv[2],
+              fu[0] * fv[1] - fu[1] * fv[0]]
+        fl = Math.sqrt(fn[0]**2 + fn[1]**2 + fn[2]**2)
+        if fl > 1e-12
+          fn = fn.map { |q| q / fl }
+          pts[3..-1].each do |p|
+            d = (p.x - fa.x) * fn[0] + (p.y - fa.y) * fn[1] +
+                (p.z - fa.z) * fn[2]
+            raise ArgumentError, 'Points are not planar' if d.abs > 1.0e-3
+          end
+        end
+      end
+      f = Face.new
+      f.pts = pts
+      @list << f
+      f
+    end
+  end
+end
+PK = [0.0, 0.0]
+PK_LINES = [
+  [PK, 150.0, [0.0, 200.0], 150.0, [[1.0, -0.5], [-1.0, -0.5]]],
+  [[-60.0, -60.0], 108.0, PK, 150.0, [[1.0, -0.5], [-1.0, -0.5]]],
+  [PK, 150.0, [60.0, -60.0], 108.0, [[1.0, -0.5], [-1.0, -0.5]]]
+]
+Sketchup.reset_model!
+gpk = Sketchup.active_model.entities.add_group
+RF.build_ridge_caps!(gpk, PK_LINES, nil, nil, 'seam')
+PK_CAPS = gpk.entities.grep(Sketchup::Group)
+ok('the peak scene builds all three caps - ridge and both hips',
+   PK_CAPS.length == 3, PK_CAPS.length)
+pk_bad = 0
+PK_CAPS.each do |cg|
+  cg.entities.grep(Sketchup::Face).each do |f|
+    next if f.pts.length < 4
+    fa, fb, fc = f.pts[0], f.pts[1], f.pts[2]
+    fu = [fb.x - fa.x, fb.y - fa.y, fb.z - fa.z]
+    fv = [fc.x - fa.x, fc.y - fa.y, fc.z - fa.z]
+    fn = [fu[1] * fv[2] - fu[2] * fv[1], fu[2] * fv[0] - fu[0] * fv[2],
+          fu[0] * fv[1] - fu[1] * fv[0]]
+    fl = Math.sqrt(fn[0]**2 + fn[1]**2 + fn[2]**2)
+    next if fl < 1e-12
+    fn = fn.map { |q| q / fl }
+    f.pts[3..-1].each do |p|
+      d = (p.x - fa.x) * fn[0] + (p.y - fa.y) * fn[1] + (p.z - fa.z) * fn[2]
+      pk_bad += 1 if d.abs > 1.0e-3
+    end
+  end
+end
+ok('and not one face is out of plane - real SketchUp would refuse it',
+   pk_bad.zero?, pk_bad)
+ok('no piece is left half drawn',
+   PK_CAPS.all? { |cg| cg.entities.grep(Sketchup::Face).length >= 20 },
+   PK_CAPS.map { |cg| cg.entities.grep(Sketchup::Face).length })
 
 puts($fails.zero? ? 'ALL OK' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

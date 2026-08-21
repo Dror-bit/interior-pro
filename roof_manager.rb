@@ -157,7 +157,12 @@ module InteriorPro
         'barrel'  => { file: 'roof_barrel_tile.jpg',   size: [52.0, 42.0] },
         'roman'   => { file: 'roof_roman_tile.jpg',    size: [52.0, 42.0] },
         'slate'   => { file: 'roof_flat_slate.jpg',    size: [48.0, 32.0] },
-        'seam'    => { file: 'roof_standing_seam.jpg', size: [48.0, 16.0] }
+        'seam'    => { file: 'roof_standing_seam.jpg', size: [48.0, 16.0] },
+        # 48 x 32 = 3 ribs of 16" across, 2 courses of 16" up. rt73 checks
+        # both of those divide exactly, so the painted grid lands on the 3D one.
+        # 21 x 14 = 3 modules of 7" across, 2 courses of 7" up.
+        # 21 x 28 = 3 modules of 7" across, 2 courses of 14" up.
+        'metaltile' => { file: 'roof_metal_tile.jpg',  size: [21.0, 28.0] }
       }
     end
 
@@ -169,7 +174,46 @@ module InteriorPro
     # family tinted by that same colour. Falls back to the plain colour if
     # the family is unknown or its file is missing, so a bad setting can
     # never leave the roof unbuilt.
+    # EVERY ROOF TAKES THE COLOUR PICKER (2026-08-21, "בכל הגגות תעשה את אותו
+    # המנגנון של הצבע"). The photographed tile textures are still on disk and
+    # still checked by rt73 - they are simply not painted on any more, because
+    # the 3D now carries the pattern and the real materials get done in Lumion.
+    #
+    # Kill switch, CLAUDE.md convention: set this back to true and every
+    # material returns to its texture, tinted by the colour exactly as before.
+    # Spanish Tile stays flat either way - its own shape says so.
+    USE_ROOF_TEXTURES = false unless const_defined?(:USE_ROOF_TEXTURES, false)
+
+    # WHICH FAMILIES STILL GET THEIR PICTURE (2026-08-21, "תעשה טקסטורה נכון
+    # לעכשיו רק בשינגלס").
+    #
+    # USE_ROOF_TEXTURES turned every roof over to the plain colour picker
+    # earlier the same day, because the tile materials carry their pattern in
+    # 3D now and a photographed tile under that is two patterns fighting.
+    # Shingle has no 3D piece at all, so switching it off left it a flat
+    # colour with nothing on it.
+    #
+    # A METHOD and a list, not another constant: a `const_defined?` constant is
+    # not re-read by InteriorPro.reload! and needs a full SketchUp restart, so
+    # adding or removing a family this way is one edit and a reload. The
+    # USE_ROOF_TEXTURES switch still works and still wins - set it true and
+    # EVERY family goes back to its texture, exactly as before.
+    def self.textured_families
+      ['shingle']
+    end
+
+    def self.textured?(name)
+      USE_ROOF_TEXTURES || textured_families.include?(name.to_s)
+    end
+
     def self.surface_material(model, s)
+      # One place answers this, because the deck and the tile instances are
+      # both painted from here and the user asked for both.
+      return color_material(model, s[:roof_color]) unless textured?(s[:roof_material])
+      if defined?(InteriorPro::RoofTileMath) &&
+         InteriorPro::RoofTileMath.flat_color?(s[:roof_material])
+        return color_material(model, s[:roof_color])
+      end
       spec = roof_textures[s[:roof_material].to_s]
       return color_material(model, s[:roof_color]) if spec.nil?
       path = texture_path(spec[:file])
@@ -981,8 +1025,18 @@ module InteriorPro
       top_shell = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
                              : shell_before
       if s[:ridge_cap] && s[:style] != 'flat'
-        build_ridge_caps!(grp, drop_facet_hips(ridge_lines(top_shell), poly, wall_ids),
-                          slope, roof_mat)
+        cap_lines = drop_facet_hips(ridge_lines(top_shell), poly, wall_ids)
+        # THE VALLEY CHANNEL (2026-08-21) - the metal roof only: "צריך משהו
+        # שמכסה פה בוואלי... זה יותר מוליך מים". The same line walk with the
+        # filter flipped hands back the valleys, and build_ridge_caps! lays a
+        # flat strip IN each one - on the deck, no lift - see the `valley`
+        # comment there. No other material grows one.
+        if defined?(InteriorPro::RoofTileMath) &&
+           InteriorPro::RoofTileMath.respond_to?(:seam?) &&
+           InteriorPro::RoofTileMath.seam?(s[:roof_material])
+          cap_lines += ridge_lines(top_shell, valleys: true)
+        end
+        build_ridge_caps!(grp, cap_lines, slope, roof_mat, s[:roof_material])
       end
 
 
@@ -1028,6 +1082,46 @@ module InteriorPro
           )
         rescue StandardError => e
           puts "[Roof] eave tiles skipped: #{e.message}"
+        end
+      end
+
+      # ---- tile RUNS (2026-08-20) --------------------------------------
+      # What replaced the eave course above. The user sent his own reference
+      # (Roman Tiled Roof.skp) and the shape is not a tile per course at all:
+      # it is one half pipe running the whole slope, ridge to eave, with the
+      # flat pan between two pipes left as roof face wearing the texture.
+      #
+      # It is CHEAPER than what it replaces, not dearer. A sweep costs its
+      # cross section and length is free, so the pipe is modelled one inch
+      # long and stretched per run - about ten unique faces for any roof.
+      #
+      # RoofTileMath.runs? keeps this to the round materials: barrel and
+      # roman. Slate and standing seam are not pipes and are untouched.
+      # Kill switch: InteriorPro::RoofManager::USE_ROOF_TILE_RUNS = false
+      if USE_ROOF_TILE_RUNS && s[:style] != 'flat' &&
+         defined?(InteriorPro::RoofTilePlace) &&
+         InteriorPro::RoofTilePlace.respond_to?(:place_runs!) &&
+         InteriorPro::RoofTileMath.runs?(s[:roof_material])
+        begin
+          InteriorPro::RoofTilePlace.place_runs!(
+            grp, InteriorPro::RoofTilePlace.planes_from_faces(top_shell),
+            s[:roof_material], model: model, material: roof_mat
+          )
+        rescue StandardError => e
+          puts "[Roof] tile runs skipped: #{e.message}"
+        end
+        # THE EAVE FRAME. Standing seam only - the border the metal panels die
+        # into, asked for on 2026-08-21 off the user's own photograph. Nothing
+        # else places it, so no other material grows an edge it did not have.
+        begin
+          if InteriorPro::RoofTilePlace.respond_to?(:place_eave_bars!)
+            InteriorPro::RoofTilePlace.place_eave_bars!(
+              grp, InteriorPro::RoofTilePlace.planes_from_faces(top_shell),
+              s[:roof_material], model: model, material: roof_mat
+            )
+          end
+        rescue StandardError => e
+          puts "[Roof] eave bar skipped: #{e.message}"
         end
       end
 
@@ -1319,7 +1413,11 @@ module InteriorPro
     #
     # Returns [ka, za, kb, zb, sides] where sides is one
     # [side(+1/-1), dz-per-inch walking into that face] per plane.
-    def self.ridge_lines(faces, tol = 0.05)
+    # With valleys: true it returns the VALLEYS instead - the same walk, the
+    # same sides, only the last filter flipped: a ridge falls away on both
+    # sides, a valley climbs on both. Added 2026-08-21 for the metal roof's
+    # valley cover; the default is exactly the method it always was.
+    def self.ridge_lines(faces, tol = 0.05, valleys: false)
       edges = Hash.new { |h, k| h[k] = [] }
       faces.each do |f|
         pts = face_points(f)
@@ -1358,7 +1456,11 @@ module InteriorPro
           s ||= vdot(u, vsub(cen, mid)) >= 0.0 ? 1.0 : -1.0
           [s, (grad[0] * u[0] + grad[1] * u[1]) * s]
         end
-        next unless sides.all? { |(_s, dz)| dz < -1.0e-6 } # a valley climbs
+        if valleys
+          next unless sides.all? { |(_s, dz)| dz > 1.0e-6 }  # both sides climb
+        else
+          next unless sides.all? { |(_s, dz)| dz < -1.0e-6 } # a valley climbs
+        end
         next unless sides.map(&:first).uniq.length >= 2    # one plane each side
         out << [ka, za, kb, zb, sides.uniq { |(s, _dz)| s }]
       end
@@ -1470,7 +1572,15 @@ module InteriorPro
     # stays a plain eave (2026-08-09, build_band! + gable_spans).
     # Kill switch (CLAUDE.md convention): turn the 3D eave course off and the
     # roof goes back to texture-only, without deleting a line.
-    USE_ROOF_TILE_EDGES = true unless const_defined?(:USE_ROOF_TILE_EDGES, false)
+    # OFF since 2026-08-20: the user saw the eave course and rejected it.
+    # The whole silhouette-only idea is being replaced by long half-pipe runs
+    # (his own Roman-tile reference), so this stays off until that lands.
+    # Nothing was deleted - flip it back to true to see the old course again.
+    USE_ROOF_TILE_EDGES = false unless const_defined?(:USE_ROOF_TILE_EDGES, false)
+    # The replacement, 2026-08-20: long half-pipe runs, ridge to eave, on the
+    # ROUND materials only (barrel and roman). Off with
+    # InteriorPro::RoofManager::USE_ROOF_TILE_RUNS = false.
+    USE_ROOF_TILE_RUNS = true unless const_defined?(:USE_ROOF_TILE_RUNS, false)
     RIDGE_LEVEL_TOL = 1.0 unless const_defined?(:RIDGE_LEVEL_TOL, false)
     ROOF_EDGE_MIN_LEN = 0.5 unless const_defined?(:ROOF_EDGE_MIN_LEN, false)
 
@@ -1618,24 +1728,40 @@ module InteriorPro
       RIDGE_CAP_THICK * RIDGE_CAP_LENGTH / RIDGE_CAP_EXPOSURE
     end
 
-    def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil)
+    def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil, shape_name = nil)
       return if lines.nil? || lines.empty?
       total_len = lines.sum { |l| vlen(vsub(l[2], l[0])) }
-      one_run = (total_len / RIDGE_CAP_EXPOSURE).ceil > MAX_RIDGE_CAP_PIECES
+      # A metal ridge is drawn as one length whatever its size - see
+      # cap_continuous_for. Everything else still switches to one run only when
+      # the piece count would run away.
+      cap_soft = !cap_continuous_for(shape_name)
+      one_run = cap_continuous_for(shape_name) ||
+                (total_len / RIDGE_CAP_EXPOSURE).ceil > MAX_RIDGE_CAP_PIECES
       if one_run
         puts format('[Roof] ridge cap: %d" of ridge - drawn as one run to stay light',
                     total_len.round)
       end
       js = ridge_junctions(lines)
       runners = junction_runners(lines, js)
-      half = RIDGE_CAP_WIDTH / 2.0
+      cap_w = cap_width_for(shape_name)
+      cap_c = cap_crown_for(shape_name)
+      cap_lift = cap_lift_for(shape_name)
+      cap_round = cap_round_for(shape_name)
+      half = cap_w / 2.0
       lift = cap_head_lift
       lines.each_with_index do |(ka, za, kb, zb, sides), idx|
         len = vlen(vsub(kb, ka))
         next if len < 1.0
         next if sides.length < 2
+        # A VALLEY, NOT A RIDGE (2026-08-21, metal roof only - build_roof!
+        # only ever appends valley lines for the seam). Both its planes CLIMB.
+        # The user: "צריך משהו שמכסה פה בוואלי... זה לא מכסה זה יותר מוליך
+        # מים" - so this is a water CHANNEL, not a raised cap: the same flat
+        # folded strip, but lying flat IN the V on the deck itself - no lift,
+        # no skirt (nothing under it to hide), no corner mitre at its foot.
+        valley = sides.all? { |(_sd, sdz)| sdz > 1.0e-6 }
         d = vnorm(vsub(kb, ka))
-        prof = cap_profile([-d[1], d[0]], sides)
+        prof = cap_profile([-d[1], d[0]], sides, cap_w, cap_c, cap_round)
         tucked = {}
         adj = lambda do |p|
           k = [p[0].round(2), p[1].round(2)]
@@ -1653,7 +1779,10 @@ module InteriorPro
         drop_a = tucked[[ka[0].round(2), ka[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
         drop_b = tucked[[kb[0].round(2), kb[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
         zadj = lambda do |q|
-          v = 0.0
+          # The whole cap rides on top of the tiles - see cap_lift_for.
+          # A valley channel does not: it lies on the deck and the water
+          # runs over it.
+          v = valley ? 0.0 : cap_lift
           v -= drop_a * [0.0, 1.0 - (q - a0) / RIDGE_CAP_LENGTH].max if drop_a > 0.0
           v -= drop_b * [0.0, 1.0 - (b0 - q) / RIDGE_CAP_LENGTH].max if drop_b > 0.0
           v
@@ -1665,8 +1794,14 @@ module InteriorPro
         # Only the BOTTOM of a slope needs trimming: that is the eave
         # corner, where the two planes pinch out. A level ridge ending at
         # a rake is full width right to the edge, so it is cut square.
+        #
+        # CLAY ONLY (2026-08-21). The taper pinched the metal hip cap to a
+        # point that slid down over the eave corner - "אתה רואה שהוא יורד פה".
+        # In the user's reference photo the folded strip stays FULL WIDTH all
+        # the way down the hip and is cut square at the gutter line, so the
+        # metal cap takes no taper at all. Clay keeps it exactly as it was.
         sloping = (za - zb).abs > 1.0
-        taper_lo = sloping && low_free ? RIDGE_CAP_END_TAPER : 0.0
+        taper_lo = sloping && low_free && cap_soft ? RIDGE_CAP_END_TAPER : 0.0
         wscale = lambda do |q|
           next 1.0 if taper_lo <= 0.0
           r = rising ? (q - a0) : (b0 - q)
@@ -1674,6 +1809,11 @@ module InteriorPro
         end
         plen = one_run ? span : RIDGE_CAP_LENGTH
         starts = one_run ? [0.0] : cap_starts(span, plen, RIDGE_CAP_EXPOSURE)
+        # The metal hip cap ends in a CORNER, not a square cut - see the
+        # miter_lo comment in build_cap_piece!. Only the piece that actually
+        # holds the eave corner (the first one, r runs from the low end), and
+        # only on the metal roof - clay keeps its taper and its square ends.
+        miter = !cap_soft && sloping && low_free && !valley ? 1.0 : 0.0
         starts.each_with_index do |r1, i|
           r2 = [r1 + plen, span].min
           next if r2 - r1 < 0.5
@@ -1683,7 +1823,13 @@ module InteriorPro
           q2 = rising ? a0 + r2 : b0 - r2
           h = (one_run || (i.zero? && low_free)) ? 0.0 : lift
           build_cap_piece!(grp, ka, d, za, zb, len, q1, q2, prof, mat,
-                           h, plen, zadj, wscale)
+                           h, plen, zadj, wscale, cap_soft,
+                           i.zero? ? miter : 0.0,
+                           # the skirt that closes the hollow under a LIFTED
+                           # metal cap - see the comment in build_cap_piece!.
+                           # The valley channel lies flat on the deck, so it
+                           # has no hollow and takes none.
+                           cap_soft || valley ? 0.0 : cap_lift)
         end
       end
     rescue StandardError => e
@@ -1695,16 +1841,141 @@ module InteriorPro
     # Each entry is [xy offset, z on the plane there, z added by the arch].
     # The arch is a parabola: nothing at the edges, CROWN in the middle,
     # so the cap lands flush on both planes and still reads as rounded.
-    def self.cap_profile(u, sides)
-      half = RIDGE_CAP_WIDTH / 2.0
+    # THE CAP MATCHES ITS OWN TILE (2026-08-21, "תתאים את הרידג' קאפ לכל טייל
+    # משלו"). A cap sized off a fixed constant sat on a 7" Spanish fold looking
+    # like it came off a different roof. Now it is the tile's own crest, 15%
+    # bigger so it laps rather than balances on top, and a material with no 3D
+    # tile keeps the constants exactly as they were.
+    # THE NUMBERS MOVED (2026-08-21). Both used to be worked out here off the
+    # whole tile - run_cover_w * 1.15 and run_height * 1.15. Once Roman became
+    # a 14" pan and roll that made a 16" cap sitting on an 8" roll, and it no
+    # longer looked like the tile it caps. They now come from RoofTileParts,
+    # which sizes the cap off the ROLL and never taller than it, so the cap and
+    # the run setback can never disagree about the same number.
+    def self.cap_width_for(shape_name)
+      return RIDGE_CAP_WIDTH unless defined?(InteriorPro::RoofTileMath) &&
+                                    InteriorPro::RoofTileMath.runs?(shape_name)
+      s = InteriorPro::RoofTileMath.shape(shape_name)
+      w = InteriorPro::RoofTileParts.cap_w(s)
+      w > 1.0 ? w : RIDGE_CAP_WIDTH
+    rescue StandardError
+      RIDGE_CAP_WIDTH
+    end
+
+    def self.cap_crown_for(shape_name)
+      return RIDGE_CAP_CROWN unless defined?(InteriorPro::RoofTileMath) &&
+                                    InteriorPro::RoofTileMath.runs?(shape_name)
+      s = InteriorPro::RoofTileMath.shape(shape_name)
+      h = InteriorPro::RoofTileParts.cap_crown(s)
+      # A stated crown stands as it is - a flat folded metal ridge states 0,
+      # and 0 must not be read as "no answer" and replaced by the old arch.
+      return h if InteriorPro::RoofTileParts.cap_crown_stated?(s)
+      h > 0.25 ? h : RIDGE_CAP_CROWN
+    rescue StandardError
+      RIDGE_CAP_CROWN
+    end
+
+    # HOW HIGH THE CAP RIDES (2026-08-21, "הם נכנסים לתוך הרידג' קאפ").
+    #
+    # The cap's skirt is drawn ON the roof plane, and a pan-and-roll tile
+    # stands 4" proud of it - so every Roman run came straight out through the
+    # cap, worst of all on a hip where the skirt has already tapered away to
+    # nothing. A real cap is bedded on TOP of the tile ends, so it is lifted by
+    # exactly the height of the tile it is capping.
+    #
+    # ONLY a pan and roll lifts. This briefly lifted Spanish Tile too, by
+    # 1.31", which was never asked for - "תחזיר אותו בדיוק למה שהוא היה רק
+    # בספניש". Everything that is not Roman is drawn exactly where it was.
+    def self.cap_lift_for(shape_name)
+      return 0.0 unless defined?(InteriorPro::RoofTileMath) &&
+                        InteriorPro::RoofTileMath.runs?(shape_name)
+      s = InteriorPro::RoofTileMath.shape(shape_name)
+      return 0.0 unless InteriorPro::RoofTileParts.pan_roll?(s)
+      [InteriorPro::RoofTileParts.run_top_h(s), 0.0].max
+    rescue StandardError
+      0.0
+    end
+
+    # Does this material's cap take the half-round section? The SHAPE says so
+    # in as many words - see RoofTileParts.cap_round?. It used to be inferred
+    # from "is it a pan and roll", which quietly caught standing seam the
+    # moment that grew a pan of its own; a metal roof does not want a round
+    # clay cap. Only Roman says true.
+    # ONE CONTINUOUS STRIP, WITH ITS LINES (2026-08-21). A clay cap is a row of
+    # short pieces lapping each other, which is how clay is actually laid. A
+    # metal ridge is a single folded length of sheet - "הרידג' קאפ לא צריך
+    # להיות בחוליות אלא פס אחד רצוף, וגם שיראו את הקווים, אל תעדן את הצורה".
+    # So the metal roof takes one piece per ridge line and keeps every edge.
+    def self.cap_continuous_for(shape_name)
+      return false unless defined?(InteriorPro::RoofTileMath)
+      InteriorPro::RoofTileParts
+        .seam?(InteriorPro::RoofTileMath.shape(shape_name))
+    rescue StandardError
+      false
+    end
+
+    def self.cap_round_for(shape_name)
+      return false unless defined?(InteriorPro::RoofTileMath)
+      InteriorPro::RoofTileParts
+        .cap_round?(InteriorPro::RoofTileMath.shape(shape_name))
+    rescue StandardError
+      false
+    end
+
+    # How many chords per SIDE of the arch. A METHOD, not a constant, so
+    # reload! actually re-reads it - RIDGE_CAP_SEGMENTS is behind a
+    # const_defined? guard and needs a full restart to change.
+    def self.cap_segments
+      6
+    end
+
+    # A HALF PIPE, BUT ONLY WHERE IT WAS ASKED FOR (2026-08-21).
+    #
+    # `round` false is the ORIGINAL cap, unchanged to the last decimal: a
+    # parabola, two chords a side, apex pinned to the RIDGE_CAP_CROWN constant.
+    # Shingle, plain colour, slate, standing seam and Spanish Tile all come
+    # through here and must come out exactly as they always did - the user
+    # went looking at Spanish and shingle and thought their caps had been
+    # deleted, and a shape he never asked to change is why.
+    #
+    # `round` true is the new one, asked for on Roman: "תעשה את הצורה חצי
+    # צינור". Same curve the tiles use - points spread evenly by ANGLE,
+    # x = half * cos(t), z = crown * sin(t) - and the apex takes the crown it
+    # was handed instead of the constant, which is what made it read as a
+    # folded chevron rather than a pipe.
+    def self.cap_profile(u, sides, width = nil, crown = nil, round = false)
+      width ||= RIDGE_CAP_WIDTH
+      crown ||= RIDGE_CAP_CROWN
+      half = width / 2.0
+      return cap_profile_flat(u, sides, half, crown) unless round
+      seg = [cap_segments, 1].max
+      quarter = Math::PI / 2.0
+      pt = lambda do |side, th|
+        a = half * Math.cos(th)
+        [[u[0] * side[0] * a, u[1] * side[0] * a], side[1] * a,
+         crown * Math.sin(th)]
+      end
+      out = (0...seg).map { |i| pt.call(sides[0], quarter * i / seg) }
+      out << [[0.0, 0.0], 0.0, crown]
+      out + (1..seg).map { |i| pt.call(sides[1], quarter * (seg - i) / seg) }
+    end
+
+    # The original arch, moved word for word out of cap_profile so that the
+    # half pipe above could be added without touching it.
+    def self.cap_profile_flat(u, sides, half, crown)
       seg = [RIDGE_CAP_SEGMENTS, 1].max
       pt = lambda do |side, a|
         k = a / half
         [[u[0] * side[0] * a, u[1] * side[0] * a], side[1] * a,
-         RIDGE_CAP_CROWN * (1.0 - k * k)]
+         crown * (1.0 - k * k)]
       end
       out = (0...seg).map { |i| pt.call(sides[0], half * (seg - i).to_f / seg) }
-      out << [[0.0, 0.0], 0.0, RIDGE_CAP_CROWN]
+      # The CREASE honours the stated crown (2026-08-21, second pass). It was
+      # the constant, so a stated crown of 0 still bulged one inch in the
+      # middle - a bump the user circled in red on the metal ridge, and a hump
+      # in the middle of the valley CHANNEL, where water is supposed to run.
+      # Clay states nothing, gets crown == RIDGE_CAP_CROWN, and does not move.
+      out << [[0.0, 0.0], 0.0, crown]
       out + (1..seg).map { |i| pt.call(sides[1], half * i.to_f / seg) }
     end
 
@@ -1714,21 +1985,41 @@ module InteriorPro
     # cut span, so a piece cut short still lines up with its neighbour.
     def self.build_cap_piece!(grp, ka, d, za, zb, len, q1, q2, prof, mat,
                               head_lift = 0.0, plen = nil, zadj = nil,
-                              wscale = nil)
+                              wscale = nil, soft = true, miter_lo = 0.0,
+                              skirt = 0.0)
       plen = (q2 - q1).abs if plen.nil? || plen <= 0.0
-      sec = lambda do |q|
+      pt = lambda do |q, off, dz, arc|
         px = ka[0] + d[0] * q
         py = ka[1] + d[1] * q
         z = za + (zb - za) * (q / len)
         z += head_lift * [0.0, 1.0 - (q - q1).abs / plen].max if head_lift > 0.0
         z += zadj.call(q) if zadj
         w = wscale ? wscale.call(q) : 1.0
-        prof.map do |(off, dz, arc)|
-          Geom::Point3d.new(px + off[0] * w, py + off[1] * w,
-                            z + (dz + arc) * w)
-        end
+        Geom::Point3d.new(px + off[0] * w, py + off[1] * w,
+                          z + (dz + arc) * w)
       end
-      a = sec.call(q1)
+      sec = lambda do |q|
+        prof.map { |(off, dz, arc)| pt.call(q, off, dz, arc) }
+      end
+      # THE CORNER CUT (2026-08-21, second pass). A hip cap cut SQUARE at its
+      # low end pokes both its side corners out past the two eave lines that
+      # meet there - "תעשה פינה שלא יעבור את ה-90 מעלות של הגג". With
+      # miter_lo on, the q1 end is cut per point instead: the centre line
+      # still reaches the corner, and every point is pulled back up the hip
+      # by miter_lo times its own PLAN offset from the hip line. A hip
+      # bisects a square corner at 45 degrees, so miter_lo of 1.0 lands the
+      # cut exactly on both eave lines.
+      a = if miter_lo > 0.0
+            dir = q2 >= q1 ? 1.0 : -1.0
+            span = (q2 - q1).abs
+            prof.map do |(off, dz, arc)|
+              back = Math.sqrt(off[0] * off[0] + off[1] * off[1]) * miter_lo
+              back = span - 0.5 if back > span - 0.5   # never cross the far end
+              pt.call(q1 + dir * back, off, dz, arc)
+            end
+          else
+            sec.call(q1)
+          end
       b = sec.call(q2)
       up = lambda { |q| Geom::Point3d.new(q.x, q.y, q.z + RIDGE_CAP_THICK) }
       au = a.map { |q| up.call(q) }
@@ -1746,11 +2037,76 @@ module InteriorPro
       polys << [a[m - 1], b[m - 1], bu[m - 1], au[m - 1]]
       polys << (a + au.reverse)
       polys << (b + bu.reverse)
+      # CLOSED FROM OUTSIDE (2026-08-21, second pass). The metal cap rides a
+      # rib height above the deck, and once the ribs stopped short of it the
+      # slot underneath showed from the eave - "החלק הזה צריך לסגור מבחוץ שלא
+      # יראה חלול". A skirt drops from the cap's whole bottom rim - both side
+      # edges and both ends - straight down onto the deck, so there is no
+      # angle left that looks into the hollow. Clay passes skirt = 0 and is
+      # drawn exactly as before.
+      if skirt > 0.05
+        dn = lambda { |p| Geom::Point3d.new(p.x, p.y, p.z - skirt) }
+        polys << [a[0], b[0], dn.call(b[0]), dn.call(a[0])]
+        polys << [a[m - 1], b[m - 1], dn.call(b[m - 1]), dn.call(a[m - 1])]
+        (0...(m - 1)).each do |i|
+          polys << [a[i], a[i + 1], dn.call(a[i + 1]), dn.call(a[i])]
+          polys << [b[i], b[i + 1], dn.call(b[i + 1]), dn.call(b[i])]
+        end
+      end
       polys.each do |pp|
-        f = sub.entities.add_face(pp)
-        next if f.nil? || mat.nil?
-        f.material = mat
-        f.back_material = mat
+        faces = begin
+          [sub.entities.add_face(pp)]
+        rescue ArgumentError
+          # REAL SketchUp REFUSES A NON-PLANAR LOOP (2026-08-21, second
+          # pass) - the stub does not, which is exactly how this shipped
+          # broken: a mitred corner end meeting a tucked head bends the side
+          # quads ~0.01" out of plane, SketchUp raised, and the whole piece
+          # died half drawn - "רידג' קאפ המקביל לאדום ירד". A triangle is
+          # always planar, so a refused loop is fanned into triangles, and
+          # the seams the split invents are softened away - they are not
+          # real folds, whatever the material's own soften rule says.
+          tris = (1...(pp.length - 1)).map do |i|
+            begin
+              sub.entities.add_face([pp[0], pp[i], pp[i + 1]])
+            rescue ArgumentError
+              nil
+            end
+          end.compact
+          begin
+            tris.each do |tf|
+              next unless tf.respond_to?(:edges)
+              tf.edges.each do |e|
+                next unless e.faces.length == 2 &&
+                            e.faces.all? { |ff| tris.include?(ff) }
+                e.soft = true
+                e.smooth = true
+              end
+            end
+          rescue StandardError
+            nil
+          end
+          tris
+        end
+        next if mat.nil?
+        faces.each do |f|
+          next if f.nil?
+          f.material = mat
+          f.back_material = mat
+        end
+      end
+      # NO LINES on the arch either - the same request as the tiles. Only edges
+      # with a face on BOTH sides are softened, so the cap keeps its silhouette
+      # and loses the chord lines across its back.
+      begin
+        if soft
+          sub.entities.grep(Sketchup::Edge).each do |e|
+            next unless e.faces.length == 2
+            e.soft = true
+            e.smooth = true
+          end
+        end
+      rescue StandardError => se
+        puts "[Roof] cap soften: #{se.message}"
       end
       sub
     rescue StandardError => e

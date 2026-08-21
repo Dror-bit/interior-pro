@@ -63,14 +63,151 @@ module InteriorPro
                       label: 'Barrel Tile (Spanish S)' },
         'roman'  => { tile_w: 13.0, exposure: 14.0, relief: 1.0, scallop: 0.45,
                       stagger: false, texture: 'roof_roman_tile.jpg',
-                      label: 'Roman Tile (flat pan)' },
+                      label: 'Roman Tile (flat pan)',
+                      # A PAN AND A ROLL, sized by the user (2026-08-21).
+                      #
+                      # First it was measured off his own ROMAN_TILED_ROOF.skp:
+                      # a 10.63" tile on an 8.27" pitch. He looked at the built
+                      # roof and asked for a fatter roll and less flat pan
+                      # showing between two of them: "תצמצם את הרווחים ביניהם
+                      # נגיד ל-2 ואז חצי העיגול לעשות 8".
+                      #
+                      #   roll 8" + gap 2"  ->  10" between centres
+                      #   the roll overhangs the pan by half itself, so the
+                      #   whole tile is 10 + 4 = 14" wide
+                      #
+                      # Written as fractions of the run pitch because that is
+                      # what run_cover_w / run_height take. run_cover is over
+                      # 1.0 on purpose: the tile is WIDER than its spacing -
+                      # that overhang is what laps the joint.
+                      run_pitch: 10.0, run_cover: 14.0 / 10.0,
+                      # The roll keeps the PROPORTION he has been looking at -
+                      # 2.28" tall on a 4.72" roll - so the bigger roll is the
+                      # same shape, only larger: 0.48 * 8" = 3.84". He left the
+                      # height to us and asked only for whatever is lightest;
+                      # height costs nothing, the segment count does, and that
+                      # is untouched. The wider pitch is the real saving - it
+                      # puts about 17% fewer pieces on the same roof.
+                      run_rise: 3.84 / 14.0,
+                      # THE RIDGE CAP IS STATED, NOT DERIVED (2026-08-21).
+                      # 13" across and 1.42" of arch - his numbers: the crown
+                      # came down 3" off the 4.42" it had, the width went to
+                      # 10" and then to 13" once he saw it: "אני רוצה להרחיב
+                      # אותו ל-13, אבל לא להגביה אותו רק להרחיב." So the arch
+                      # stays exactly where it is and only the span grows.
+                      # Stating them here is the point: the cap stops following
+                      # the tile around, which is what kept changing it behind
+                      # his back. Roman is the ONLY material that names them,
+                      # so nothing else moved.
+                      cap_w: 13.0, cap_crown: 1.42, cap_round: true },
         'slate'  => { tile_w: 12.0, exposure: 8.0,  relief: 0.6, scallop: 0.0,
                       stagger: true,  texture: 'roof_flat_slate.jpg',
                       label: 'Flat Slate Tile' },
+        # STANDING SEAM - given a real 3D shape on 2026-08-21. Until then it
+        # had none at all: `scallop` is the "profile is curved" flag and a
+        # standing seam is not curved, so runs? said no and the roof came out
+        # as a flat coloured surface with nothing on it. `run_seam` is its own
+        # way in - a SQUARE rib, not a round roll.
+        #
+        # The shape, from the drawing the user approved:
+        #   seam a rectangle 2" thick standing 1" proud, centred on the joint
+        #        between two pans - "אני רוצה שזה יהיה רוחב 2 וגובה של 1",
+        #        after seeing the first build at 1" x 1.75"
+        #   gap  26" of flat pan showing BETWEEN two ribs - "תעשה בין
+        #        הבליטות מרווח של 26 אינץ'"
+        # so the pans are 2 + 26 = 28" centre to centre, the panel is 28 + 1 =
+        # 29" across, and the run is 12 faces however wide it gets.
+        #
+        # AND IT KEEPS ITS LINES. Every other piece is softened so its chords
+        # disappear; this one is not, because the user asked for the opposite
+        # here: "אני רוצה שכן יראו את הקווים ואת הפינות - רק בגג הזה". Sharp
+        # arrises are what a folded metal panel looks like.
+        #
+        # THE RIDGE IS A FOLDED PLATE, NOT AN ARCH (2026-08-21). From the
+        # photograph the user sent of a real one: "רידג' אחיד שמקופל לשני
+        # הצדדים של הגג, כל צד בערך 5". So 5" down each slope - a 10" cap -
+        # and a crown of ZERO, which is what makes it a fold instead of a
+        # barrel. It still lifts to the ribs' height so it lands on top of
+        # them, exactly like the flashing in his picture.
+        # THE RIBS STOP UNDER THE CAP (2026-08-21, second pass). setback was 0
+        # - "the cap rides on the rib tops, so they can run right up to the
+        # line" - and the user saw exactly that: the rib ends slide in under
+        # the hovering cap and show. "הברזלים נכנסים לתוך הרידג' קאפ וזה לא
+        # נראה טוב... שזה יחתך איפה שהרידג' מתחיל." The cap covers 5" down
+        # each slope (cap_w 10), so a rib cut 4" short of the line hides its
+        # end a clear inch inside the cap. STATED here, like the cap numbers,
+        # so no other number can move it.
         'seam'   => { tile_w: 16.0, exposure: 0.0,  relief: 1.0, scallop: 0.0,
                       stagger: false, texture: 'roof_standing_seam.jpg',
-                      label: 'Standing Seam Metal' }
+                      label: 'Standing Seam Metal',
+                      run_seam: true,
+                      run_pitch: 28.0, run_cover: 29.0 / 28.0,
+                      run_rise: 1.0 / 29.0,
+                      cap_w: 10.0, cap_crown: 0.0, ridge_setback: 4.0 },
+        # METAL ROOF TILES - the user's second reference (Metal Roof Tiles.skp,
+        # a Trimble parametric component, 2026-08-20). It is NOT standing seam
+        # and 'seam' above is left exactly as it was: standing seam runs in one
+        # unbroken sheet, this one is pressed into TILES, so it has both ribs
+        # across the slope and a step up it every course.
+        #
+        # run_* are this material's own pipe numbers, and they are what makes
+        # it read as pressed metal rather than as clay:
+        #   run_pitch   16" rib spacing, the panel's own module
+        #   run_cover   a wide crest - 85% of the pitch, a narrow valley
+        #   run_rise    and a SHALLOW one; metal is pressed, not moulded
+        #   run_courses the step every course, which clay does not have
+        # SPANISH TILE. Built as pressed metal tile and renamed by the user on
+        # 2026-08-21 once he saw it - the folded sheet with a step every course
+        # is the shape he wanted all along, and Barrel Tile left the menu the
+        # same day because this replaces it.
+        #
+        # Shrunk from a 16" module to 7" at his measurement ("תקטין את הטייל
+        # ל-7 זה כרגע יותר מידי גדול"). tile_w, exposure and run_pitch move
+        # together on purpose: the painted grid and the 3D grid are the same
+        # grid, and rt73 fails if they drift apart. The texture is 3 modules
+        # wide by 2 tall, so its size follows to 21 x 14.
+        # THE COURSE STAYED LONG. "תקטין את הטייל ל-7" is the tile's WIDTH -
+        # a real Spanish tile is about seven inches across and twice that up
+        # the slope. Shrinking BOTH to seven took the piece count from 2,278
+        # to 11,960 on his own roof, over the safety brake, so the roof built
+        # with no tiles at all and looked like they had been deleted.
+        'metaltile' => { tile_w: 7.0, exposure: 14.0, relief: 1.0, scallop: 0.5,
+                         stagger: false, texture: 'roof_metal_tile.jpg',
+                         label: 'Spanish Tile',
+                         # run_cover and run_rise are UNCHANGED from the shape
+                         # he approved. Only the module shrank. run_rise was
+                         # briefly "improved" to 0.34 on the same edit and he
+                         # caught it: he asked for a size and a name, and a
+                         # third change he did not ask for is a bug even when
+                         # the number looks better on paper.
+                         run_pitch: 7.0, run_cover: 0.85, run_rise: 0.22,
+                         run_courses: true,
+                         # PAINT IT FLAT (2026-08-21). The fold now carries the
+                         # whole pattern in 3D, so a photographed tile texture
+                         # under it is two patterns fighting - the user asked
+                         # for the colour picker alone, on the tiles AND on the
+                         # deck beneath them. The texture stays registered and
+                         # on disk so rt73 keeps checking the grid, it is just
+                         # not painted on any more.
+                         flat_color: true }
       }
+    end
+
+    # Is this material pressed into courses, so a run is a row of short pieces
+    # with a step between them rather than one unbroken pipe? Clay is not;
+    # metal tile is. The flag is explicit because `exposure` is set on the clay
+    # materials too - it drives their TEXTURE grid, not their geometry, and
+    # reading it as "make steps" is exactly the mistake that produced the
+    # 50,652-face roof on 2026-08-19.
+    # Does this material want the plain colour instead of its texture?
+    def self.flat_color?(name)
+      s = shape(name)
+      !s.nil? && s[:flat_color] == true
+    end
+
+    def self.run_courses?(name)
+      s = shape(name)
+      !s.nil? && s[:run_courses] == true && s[:exposure].to_f > EPS
     end
 
     # exposure 0 means "this material has no courses at all" - standing seam
@@ -84,6 +221,48 @@ module InteriorPro
     def self.courses?(name)
       s = shape(name)
       !s.nil? && s[:exposure] > EPS
+    end
+
+    # Does this material run as ONE long half-pipe from ridge to eave?
+    #
+    # The user's own reference settled this on 2026-08-20 (Roman Tiled Roof.skp,
+    # material `ceramicrooftile`): a Spanish/Roman roof reads as an unbroken
+    # half round per run over the whole slope, NOT as a tile per course. That
+    # is also why it is cheap - a run's face count is its cross section, so a
+    # 30ft run and a 3ft run cost exactly the same.
+    #
+    # Only the ROUND materials work that way. `scallop` is already the "this
+    # profile is curved" flag, so barrel and roman answer true while flat slate
+    # and standing seam answer false and keep the flat treatment they have.
+    # `run_seam` joins `scallop` here (2026-08-21). Standing seam runs exactly
+    # like the clay pipes - one long piece from ridge to eave, priced by its
+    # cross section - it simply is not ROUND, and scallop only ever meant
+    # "curved". Slate and shingle answer false as before.
+    def self.runs?(name)
+      s = shape(name)
+      return false if s.nil? || s[:tile_w].to_f <= EPS
+      s[:scallop].to_f > EPS || s[:run_seam] == true
+    end
+
+    # A square rib instead of a round roll.
+    def self.seam?(name)
+      s = shape(name)
+      !s.nil? && s[:run_seam] == true
+    end
+
+    # Where the vertical scanline lives. spans_at answers "at height v = c,
+    # which u stretches are inside the plane?" - a COURSE question. A run is
+    # the same question turned 90 degrees: "at u = c, which v stretches are
+    # inside?". Swapping the pair is the whole difference, so there is one
+    # scanline in this file and not two that can disagree.
+    def self.flip_uv(poly)
+      return [] if poly.nil?
+      poly.map { |p| [p[1], p[0]] }
+    end
+
+    # The v spans of the plane at across-slope position u = c, bottom to top.
+    def self.v_spans_at(poly, c, min_len = 0.0)
+      spans_at(flip_uv(poly), c, min_len)
     end
 
     # ------------------------------------------------------------ vectors
