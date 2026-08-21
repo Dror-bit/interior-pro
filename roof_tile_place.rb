@@ -533,12 +533,12 @@ module InteriorPro
                        InteriorPro::RoofTileMath.seam?(shape_name)
       # (the eave_overhang it used to read is gone on purpose - the bar sits
       # flush with the edge now, see the comment below)
+      s0 = InteriorPro::RoofTileMath.shape(shape_name)
+      mid = InteriorPro::RoofTileParts.run_height(s0) / 2.0
       out = []
       (planes || []).each do |pl|
         pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
         next if pu.nil? || pu[:flat]
-        len = pu[:u_span].to_f
-        next if len < 1.0
         # ON THE DECK, FLUSH WITH THE EDGE (2026-08-21, second pass). The bar
         # hung 1.25" past the eave, floating in the air with a 0.25" gap back
         # to the roof - the red line the user marked: "תסגור את החלק בין
@@ -546,11 +546,22 @@ module InteriorPro
         # (v = 0) and its body on the deck, so there is nothing to close - and
         # at a hip corner the two eaves' bars meet at the same corner point
         # instead of two floating ends missing each other.
-        o = InteriorPro::RoofTileMath.unproject([0.0, 0.0],
-                                                pu[:origin], pu[:u], pu[:v])
-        out << { origin: o,
-                 u: [-pu[:v][0], -pu[:v][1], -pu[:v][2]],
-                 v: pu[:u], n: pu[:n], length: len }
+        #
+        # AND ONLY WHERE THE EAVE ACTUALLY IS (2026-08-21, third pass). The
+        # length used to be u_span - the width of the WHOLE plane. Next to a
+        # valley the plane widens higher up, far past the inner corner, so
+        # the bar ran on along the eave line into the house, over nothing:
+        # "הקווים של המסגרת בולטים פנימה לתוך הבית ואסור שזה יקרה." The
+        # outline is asked directly - the same scanline the ribs use, at the
+        # bar's own half height - so the bar covers exactly the stretches
+        # where roof exists, and a split eave simply gets two bars.
+        InteriorPro::RoofTileMath.spans_at(pu[:poly], mid, 1.0).each do |(u1, u2)|
+          o = InteriorPro::RoofTileMath.unproject([u1, 0.0],
+                                                  pu[:origin], pu[:u], pu[:v])
+          out << { origin: o,
+                   u: [-pu[:v][0], -pu[:v][1], -pu[:v][2]],
+                   v: pu[:u], n: pu[:n], length: u2 - u1 }
+        end
       end
       out
     end
@@ -606,6 +617,19 @@ module InteriorPro
               next if n1 < 1.0e-9 || n2 < 1.0e-9
               d1 = [d1[0] / n1, d1[1] / n1]
               d2 = [d2[0] / n2, d2[1] / n2]
+              # ONLY AN OUTER CORNER IS MITRED (2026-08-21, third pass). At
+              # the INNER corner of an L the same slide runs the other way -
+              # it EXTENDED each bar past the corner and the ends poked into
+              # the house: "הקווים של המסגרת בולטים פנימה לתוך הבית ואסור
+              # שזה יקרה". Convex or concave is one dot product: at an outer
+              # corner the OTHER bar runs off toward my roof side (along my
+              # up-slope), at an inner corner it runs away from it. Concave
+              # ends stay square at the corner - the notch between the two
+              # square ends sits inside the building where no one can see it.
+              ina = [-sl[:u][0], -sl[:u][1]]
+              inn = Math.hypot(ina[0], ina[1])
+              next if inn < 1.0e-9
+              next if (d2[0] * ina[0] + d2[1] * ina[1]) / inn < 1.0e-6
               # the mitre plane's plan normal: perpendicular to the bisector
               nm = [d1[0] - d2[0], d1[1] - d2[1]]
               nn = Math.hypot(nm[0], nm[1])

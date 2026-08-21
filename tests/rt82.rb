@@ -521,6 +521,39 @@ ok('their mitre faces coincide point for point - no gap, no overlap',
    CB_SECS)
 ok('and the joint is one straight line on the plan bisector',
    CB_SECS.flatten(1).all? { |(x, y, _z)| (x - y).abs < 1e-6 })
+# ONLY AN OUTER CORNER IS MITRED (2026-08-21, third pass). At the INNER
+# corner of an L the same slide ran the other way - it EXTENDED each bar past
+# the corner and the ends poked into the house: "הקווים של המסגרת בולטים
+# פנימה לתוך הבית ואסור שזה יקרה". A concave end now stays square at the
+# corner. Inner corner at (0,0): plane A's eave along +x, plane B's along -y,
+# the courtyard air at x>0 y<0, the building body at x<0 y>0.
+IC_A = slope_face([[0.0, 0.0, 100.0], [300.0, 0.0, 100.0],
+                   [300.0, 50.0, 125.0], [0.0, 50.0, 125.0]])
+IC_B = slope_face([[0.0, -300.0, 100.0], [0.0, 0.0, 100.0],
+                   [-50.0, 0.0, 125.0], [-50.0, -300.0, 125.0]])
+ICG = Sketchup.active_model.entities.add_group
+IC_MADE = PLACE.place_eave_bars!(ICG, [IC_A, IC_B], 'seam')
+IC_PTS = ICG.entities.grep(Sketchup::Group)
+            .flat_map { |bg| bg.entities.grep(Sketchup::Face)
+                               .flat_map { |f| bar_face_pts(f) } }
+ok('an inner corner still grows both bars', IC_MADE == 2, IC_MADE)
+ok('and neither extends past the corner into the building',
+   IC_PTS.none? { |q| q.x < -0.6 && q.y > 0.6 },
+   IC_PTS.select { |q| q.x < -0.6 && q.y > 0.6 }.map { |q| [q.x.round(2), q.y.round(2)] })
+# THE BAR COVERS THE EAVE, NOT THE PLANE (2026-08-21, third pass). Its length
+# was u_span - the width of the WHOLE plane - and next to a valley the plane
+# widens far past the inner corner higher up, so the bar ran on along the
+# eave line into the house over nothing. Entity Info on the two lines poking
+# into his house read InteriorPro_EaveBar. The outline is asked directly now,
+# with the ribs' own scanline, at the bar's half height.
+VB = slope_face([[0.0, 0.0, 100.0], [300.0, 0.0, 100.0],
+                 [300.0, 50.0, 125.0], [-50.0, 50.0, 125.0]])
+VB_BARS = PLACE.eave_bar_slots([VB], 'seam')
+ok('a valley-cut plane still gets one bar', VB_BARS.length == 1, VB_BARS.length)
+VB_X = VB_BARS.map { |b| [b[:origin][0], b[:origin][0] + b[:v][0] * b[:length]] }
+              .flatten.minmax
+ok('and it stops at the inner corner instead of running into the house',
+   VB_X[0] > -1.0 && (VB_X[1] - 300.0).abs < 1.0, VB_X)
 # A RIB CUT BY A VALLEY STOPS SHORT OF IT (2026-08-21, second pass). Its foot
 # hides under the flat valley channel exactly the way its head hides under
 # the ridge cap - the same stated setback, from the other end. A rib that
