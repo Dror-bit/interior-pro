@@ -399,6 +399,11 @@ module InteriorPro
       !s.nil? && s[:run_seam] == true
     end
 
+    # A FLAT tile - see the slate entry in RoofTileMath.shapes.
+    def self.flat?(s)
+      !s.nil? && s[:run_flat] == true
+    end
+
     def self.seam_w(s)
       2.0 * run_lap(s)
     end
@@ -408,8 +413,13 @@ module InteriorPro
     # want chord lines running down a round clay tile; on folded metal he asked
     # for the exact opposite - "אני רוצה שכן יראו את הקווים ואת הפינות, רק בגג
     # הזה" - and a crisp arris is what makes it read as sheet metal.
+    # A FLAT TILE IS NOT SOFTENED EITHER (2026-08-21c). Softening blends the
+    # shading across an edge that has a face on both sides - and on this piece
+    # the edge between the raised nose and its top face is exactly that. Soften
+    # it and the shadow line at every course disappears, which is the one
+    # feature the whole piece exists to produce.
     def self.soften_run?(s)
-      !seam?(s)
+      !seam?(s) && !flat?(s)
     end
 
     # ------------------------------------------------------- THE EAVE FRAME
@@ -604,6 +614,95 @@ module InteriorPro
         d.set_attribute('InteriorPro', 'coverage_w', pitch)
         d.set_attribute('InteriorPro', 'unit_length', 1.0)
       end
+    end
+
+    # ---------------------------------------------------------- THE FLAT TILE
+    #
+    # 2026-08-21c, from the user's photograph. The question he asked about the
+    # first mockup is the whole design: "האם הם יושבים אחד על השני?"
+    #
+    # They do. Each tile is longer than its exposure. Its NOSE rests on the
+    # HEAD of the tile below; its own head lies flat on the deck under the next
+    # course. So nothing stacks - every head is at deck level, and a roof
+    # twenty courses tall is no thicker at the ridge than at the eave - while
+    # the raised nose casts the shadow line at every course.
+    #
+    #   side view, up the slope ->
+    #
+    #      nose      ramp            field (flat on the deck)
+    #     +----+____                                            course above
+    #     |    |    ---____________________________________
+    #     +----+-------------------------------------------
+    #      ^ lip                                   ^ deck
+    #
+    # Modelled ONE unit long up +Y and stretched per course, the same trick the
+    # runs and the sheet use, so the whole roof carries these six faces once.
+    # nose and ramp are FRACTIONS for that reason - the piece does not know how
+    # long the course it lands on will be.
+    #
+    # Why not reuse `sheet`: the sheet's cross section is a FOLD spanning a
+    # whole pitch, and two neighbours meet at the same height to make one
+    # unbroken surface. A flat tile is the opposite - a separate plate with a
+    # visible joint down each side, and a cut end you can see.
+    def self.flat_nose
+      0.20
+    end
+
+    def self.flat_ramp
+      0.10
+    end
+
+    # Half the gap between two neighbouring columns of tile. The joint is what
+    # makes them read as separate tiles rather than one poured slab.
+    def self.flat_joint
+      0.2
+    end
+
+    def self.flat_tile(model, shape_name)
+      s = shape_of(shape_name)
+      return nil if s.nil? || !flat?(s)
+      w = run_pitch(s) - (2.0 * flat_joint)
+      h = run_height(s)
+      return nil if w <= 1.0e-9 || h <= 1.0e-9
+      name = format('IP_TileFlat_%s_%0.2f_%0.2f_%0.2f_%0.2f',
+                    shape_name, w, h, flat_nose, flat_ramp)
+      fetch_or_build(model, name) do |d|
+        build_flat_tile!(d.entities, w, h)
+        # NOT softened - see soften_run?.
+        d.set_attribute('InteriorPro', 'part', 'tile_flat')
+        d.set_attribute('InteriorPro', 'coverage_w', run_pitch(s))
+        d.set_attribute('InteriorPro', 'unit_length', 1.0)
+      end
+    end
+
+    # Six planar faces: the three bands of the top surface, the nose that shows
+    # the tile's thickness, and the two sides of the raised part. Every one is
+    # written out flat on purpose - the strict add_face harness at the end of
+    # rt18 refuses a face that is even 0.0115" out of plane, and so does real
+    # SketchUp.
+    def self.build_flat_tile!(ents, w, h)
+      half = w / 2.0
+      y1 = flat_nose
+      y2 = flat_nose + flat_ramp
+      pt = lambda { |x, y, z| Geom::Point3d.new(x, y, z) }
+      made = 0
+      # the top surface: raised nose, ramp down, then flat to the head
+      made += 1 if add_face(ents, [pt.call(-half, 0.0, h), pt.call(half, 0.0, h),
+                                   pt.call(half, y1, h), pt.call(-half, y1, h)])
+      made += 1 if add_face(ents, [pt.call(-half, y1, h), pt.call(half, y1, h),
+                                   pt.call(half, y2, 0.0), pt.call(-half, y2, 0.0)])
+      made += 1 if add_face(ents, [pt.call(-half, y2, 0.0), pt.call(half, y2, 0.0),
+                                   pt.call(half, 1.0, 0.0), pt.call(-half, 1.0, 0.0)])
+      # THE NOSE - the shadow line, and the reason the roof is not a floor
+      made += 1 if add_face(ents, [pt.call(-half, 0.0, 0.0), pt.call(half, 0.0, 0.0),
+                                   pt.call(half, 0.0, h), pt.call(-half, 0.0, h)])
+      # the two sides of the raised part, so the tile reads as a plate with a
+      # thickness rather than as a painted stripe
+      [-half, half].each do |x|
+        made += 1 if add_face(ents, [pt.call(x, 0.0, 0.0), pt.call(x, 0.0, h),
+                                     pt.call(x, y1, h), pt.call(x, y2, 0.0)])
+      end
+      made
     end
 
     # ------------------------------------------------- the user's own tiles

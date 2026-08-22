@@ -142,7 +142,7 @@ ok('pieces sit UNDER the crests, not between them',
 ok('a shifted span still lands on the global grid',
    RTM.edge_slots(13.0, 39.0, 13.0).length == 2, RTM.edge_slots(13.0, 39.0, 13.0))
 
-ok('slate staggers every other course',
+ok('a staggered course is offset by half a tile',
    close(RTM.course_phase(0, 12.0, true), 0.0) &&
    close(RTM.course_phase(1, 12.0, true), 6.0))
 ok('barrel never staggers',
@@ -170,13 +170,24 @@ ok('every one names its texture',
 ok('and no two share a texture file',
    RTM.shapes.values.map { |s| s[:texture] }.uniq.length == RTM.shapes.length,
    RTM.shapes.values.map { |s| s[:texture] })
-ok('ONLY metal tile is pressed into courses - clay is one unbroken pipe',
-   RTM.shapes.keys.select { |k| RTM.run_courses?(k) } == ['metaltile'],
+# WAS: only metaltile. Flat tile joined on 2026-08-21c - it is pressed into
+# courses for the same reason metal is, because each tile LAPS the one below
+# rather than running unbroken from ridge to eave. Clay is still the odd one
+# out and that is what this line is really guarding.
+ok('flat tile and metal tile are pressed into courses - clay is one pipe',
+   RTM.shapes.keys.select { |k| RTM.run_courses?(k) }.sort ==
+     %w[metaltile slate],
    RTM.shapes.keys.select { |k| RTM.run_courses?(k) })
 ok('standing seam is left exactly as it was, sheet not tile',
    !RTM.run_courses?('seam') && RTM.shapes['seam'][:exposure].zero?)
-ok('only slate staggers',
-   RTM.shapes.select { |_, s| s[:stagger] }.keys == ['slate'])
+# WAS: only slate staggers. It stopped on 2026-08-21c - the user's photograph
+# of the roof he wants shows the joints running in STRAIGHT columns up the
+# slope, and RoofTileParts.flat_tile lays them that way. `stagger` and
+# course_phase stay (tested just above) so a material can ask for it again;
+# nothing asks today, and this line is what would catch it starting to.
+ok('no material staggers its courses',
+   RTM.shapes.select { |_, s| s[:stagger] }.keys.empty?,
+   RTM.shapes.select { |_, s| s[:stagger] }.keys)
 ok('barrel is the waviest',
    RTM.shapes['barrel'][:scallop] > RTM.shapes['roman'][:scallop])
 ok('slate and seam are dead flat',

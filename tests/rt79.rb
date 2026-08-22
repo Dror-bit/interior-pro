@@ -148,9 +148,16 @@ ok('shingle has no tile shape, so no pieces',
    PLACE.eave_slots(PLANES, EAVE, 'shingle').empty?)
 ok('nor does a plain colour', PLACE.eave_slots(PLANES, EAVE, 'color').empty?)
 
-# slate is a different width, so it must give a different count
+# The spacing follows the material's own tile width, and nothing else.
+# WAS: slate at 12" gives 16 where barrel's 13" gives 15. Slate went to 13" on
+# 2026-08-21c, so the pair that proves the point is now slate against Spanish
+# Tile, which is 7".
 sl = PLACE.eave_slots(PLANES, EAVE, 'slate')
-ok('slate (12") gives 16 pieces, not barrel\'s 15', sl.length == 16, sl.length)
+ok('slate (13") gives 15 pieces, the same as barrel\'s 13"',
+   sl.length == 15, sl.length)
+mt = PLACE.eave_slots(PLANES, EAVE, 'metaltile')
+ok('Spanish Tile (7") is narrower, so it gives more of them',
+   mt.length > sl.length, [mt.length, sl.length])
 
 # ------------------------------------------------------------- the placement
 

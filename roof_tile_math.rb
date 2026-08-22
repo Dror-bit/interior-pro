@@ -100,9 +100,44 @@ module InteriorPro
                       # his back. Roman is the ONLY material that names them,
                       # so nothing else moved.
                       cap_w: 13.0, cap_crown: 1.42, cap_round: true },
-        'slate'  => { tile_w: 12.0, exposure: 8.0,  relief: 0.6, scallop: 0.0,
-                      stagger: true,  texture: 'roof_flat_slate.jpg',
-                      label: 'Flat Slate Tile' },
+        # FLAT TILE - given real geometry on 2026-08-21c, from the user's
+        # photograph of a flat concrete tile roof.
+        #
+        # Until now it had NONE. `scallop` is the "profile is curved" flag and
+        # a flat tile is not curved, so runs? said no, place_runs! returned
+        # nothing, and the roof came out as a smooth coloured deck with the
+        # photograph painted on it - exactly the hole standing seam was in
+        # before 2026-08-21. `run_flat` is its way in: a FLAT plate, not a
+        # roll and not a rib.
+        #
+        # THE TILES SIT ON EACH OTHER, and that is the whole shape. The user
+        # asked the one question that mattered - "האם הם יושבים אחד על השני?"
+        # - after seeing a mockup where each course was a separate slab lying
+        # on the deck, and that mockup read as a tiled FLOOR. On a real roof
+        # the NOSE of every tile rests on the HEAD of the one below it; the
+        # raised nose is what casts the shadow line at every course, and it is
+        # the only thing that makes it read as a roof. See
+        # RoofTileParts.flat_tile - the piece carries its own nose, ramp and
+        # flat field, so nothing stacks: every head lies on the deck.
+        #
+        # 13 x 13 is his approved size, straight columns, 0.7" step. The
+        # texture is 52 x 52 to stay a whole 4 x 4 of them - rt73 fails if the
+        # painted grid and the 3D grid ever drift apart.
+        #
+        # THE CAP IS STATED SO IT CANNOT MOVE. cap_w / cap_crown are written
+        # out at exactly the numbers the old derivation produced (6.0 * 1.15
+        # and 2.28 * 1.15): adding run_* would otherwise have swelled the cap
+        # from 6.9" to 14.95" behind his back, which is the trap cap_crown_
+        # stated? exists to shut. He asked for tiles, not for a new cap.
+        # Its LIFT does follow the tiles - a cap floating 2.28" over a 0.7"
+        # tile would show daylight underneath - see cap_lift_for.
+        'slate'  => { tile_w: 13.0, exposure: 13.0, relief: 0.6, scallop: 0.0,
+                      stagger: false, texture: 'roof_flat_slate.jpg',
+                      label: 'Flat Slate Tile',
+                      run_flat: true, run_courses: true,
+                      run_pitch: 13.0, run_cover: 1.0,
+                      run_rise: 0.7 / 13.0,
+                      cap_w: 6.9, cap_crown: 2.622, ridge_setback: 3.45 },
         # STANDING SEAM - given a real 3D shape on 2026-08-21. Until then it
         # had none at all: `scallop` is the "profile is curved" flag and a
         # standing seam is not curved, so runs? said no and the roof came out
@@ -241,13 +276,22 @@ module InteriorPro
     def self.runs?(name)
       s = shape(name)
       return false if s.nil? || s[:tile_w].to_f <= EPS
-      s[:scallop].to_f > EPS || s[:run_seam] == true
+      s[:scallop].to_f > EPS || s[:run_seam] == true || s[:run_flat] == true
     end
 
     # A square rib instead of a round roll.
     def self.seam?(name)
       s = shape(name)
       !s.nil? && s[:run_seam] == true
+    end
+
+    # A FLAT plate - no roll, no rib, no fold. The third way in to runs?, and
+    # the reason it exists is written on the slate entry above: a flat tile is
+    # a real 3D piece even though nothing about it is curved, and `scallop`
+    # alone can never say so.
+    def self.run_flat?(name)
+      s = shape(name)
+      !s.nil? && s[:run_flat] == true
     end
 
     # Where the vertical scanline lives. spans_at answers "at height v = c,

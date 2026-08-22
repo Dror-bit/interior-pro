@@ -86,6 +86,41 @@ module InteriorPro
       end
     end
 
+    # COURSES ON ONE GRID PER PLANE (2026-08-21c) - the flat tile only.
+    #
+    # course_pieces above spreads its courses EVENLY over the span it is given,
+    # which is right for a pipe: each run is its own object and a sliver at the
+    # top of one is ugly. For a flat tile it is wrong, and rendering the real
+    # output is what showed it. Every column asks the outline for its own span,
+    # and next to a hip that span shortens column by column - so each column
+    # divided a DIFFERENT length into courses, the step came out slightly
+    # different in each, and the course lines broke into a staircase across the
+    # roof. On a real roof - and in the user's photograph - the course lines
+    # run dead straight from one end of a slope to the other.
+    #
+    # So the courses are laid on the PLANE's grid, from its eave: 0, E, 2E ...
+    # A column takes whichever of them fall inside its own span, and the last
+    # one is simply cut short where the hip crosses it, which is exactly what a
+    # roofer does with a tile at a hip.
+    #
+    # Same shape of answer as course_pieces - [[start, length], ...] - so the
+    # caller does not care which one it called.
+    def self.grid_course_pieces(v1, v2, exposure, min_len = 0.0)
+      return [] if exposure.nil? || exposure <= 1.0e-9
+      return [] if (v2 - v1) < min_len || (v2 - v1) <= 1.0e-9
+      out = []
+      k = (v1 / exposure).floor
+      k = 0 if k.negative?
+      while (k * exposure) < v2 - 1.0e-9
+        a = [k * exposure, v1].max
+        b = [(k + 1) * exposure, v2].min
+        out << [a, b - a] if (b - a) >= min_len
+        k += 1
+        break if out.length > 20_000
+      end
+      out
+    end
+
     # THE RIBS FACE EACH OTHER ACROSS THE RIDGE (2026-08-21).
     #
     # Every plane laid its ribs out from its OWN left edge, so the two slopes
@@ -383,7 +418,16 @@ module InteriorPro
             # cover it. The eave end is untouched - it still hangs over.
             v2 = vtop - setback
             next if (v2 - v1) < min_len
-            course_pieces(v1, v2, exposure, overlap, min_len).each do |(a, len)|
+            # The flat tile keeps its courses on the plane's own grid so the
+            # course lines stay straight past a hip - see grid_course_pieces.
+            # Every other material divides its own span, exactly as before.
+            pieces = if InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+                        InteriorPro::RoofTileMath.run_flat?(shape_name)
+                       grid_course_pieces(v1, v2, exposure, min_len)
+                     else
+                       course_pieces(v1, v2, exposure, overlap, min_len)
+                     end
+            pieces.each do |(a, len)|
               v0 = a
               plen = len
               # Only a piece that really starts at the eave hangs past it. One
@@ -486,8 +530,14 @@ module InteriorPro
       model = opts[:model] || Sketchup.active_model
       # HIS tile if the file is there, the generated one if it is not.
       asset = opts.key?(:asset) ? opts[:asset] : InteriorPro::RoofTileParts.asset_tile(model, shape_name)
+      # run_flat is asked FIRST: a flat tile is also pressed into courses, so
+      # it would otherwise fall into the sheet branch and come out as a folded
+      # metal panel.
       defn = if asset
                asset[:defn]
+             elsif InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+                   InteriorPro::RoofTileMath.run_flat?(shape_name)
+               InteriorPro::RoofTileParts.flat_tile(model, shape_name)
              elsif InteriorPro::RoofTileMath.run_courses?(shape_name)
                InteriorPro::RoofTileParts.sheet(model, shape_name)
              else

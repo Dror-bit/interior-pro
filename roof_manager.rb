@@ -156,7 +156,10 @@ module InteriorPro
         'shingle' => { file: 'roof_shingle.jpg',       size: [48.0, 24.0] },
         'barrel'  => { file: 'roof_barrel_tile.jpg',   size: [52.0, 42.0] },
         'roman'   => { file: 'roof_roman_tile.jpg',    size: [52.0, 42.0] },
-        'slate'   => { file: 'roof_flat_slate.jpg',    size: [48.0, 32.0] },
+        # 52 x 52 since 2026-08-21c: a whole 4 x 4 of the 13" flat tile. It was
+        # 48 x 32, a 4 x 4 of the old 12 x 8 tile - the painted grid and the 3D
+        # grid are ONE grid, and rt73 fails the moment they drift apart.
+        'slate'   => { file: 'roof_flat_slate.jpg',    size: [52.0, 52.0] },
         'seam'    => { file: 'roof_standing_seam.jpg', size: [48.0, 16.0] },
         # 48 x 32 = 3 ribs of 16" across, 2 courses of 16" up. rt73 checks
         # both of those divide exactly, so the painted grid lands on the 3D one.
@@ -1069,9 +1072,15 @@ module InteriorPro
       # Only the four TILE materials get pieces; shingle and a plain colour
       # have no tile shape and are left exactly as they were.
       # Kill switch: InteriorPro::RoofManager::USE_ROOF_TILE_EDGES = false
+      # NOT THE FLAT TILE (2026-08-21c). Its own bottom course IS the eave -
+      # the piece hangs over the edge and carries its own nose - so the old
+      # separate eave bar would sit 1.2" tall in among 0.7" tiles and show as
+      # a doubled edge. Every other material still gets exactly what it did.
       if USE_ROOF_TILE_EDGES && s[:style] != 'flat' &&
          defined?(InteriorPro::RoofTilePlace) &&
-         InteriorPro::RoofTileMath.shape(s[:roof_material])
+         InteriorPro::RoofTileMath.shape(s[:roof_material]) &&
+         !(InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+           InteriorPro::RoofTileMath.run_flat?(s[:roof_material]))
         begin
           tile_edges = roof_edges(top_shell, poly, wall_ids, zmap,
                                   gables: gables, band_top: band_top,

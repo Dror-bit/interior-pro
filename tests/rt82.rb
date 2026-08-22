@@ -80,7 +80,17 @@ HIP_PLANES = PLACE.planes_from_faces([StubFace.new(HIP_FACE, NRM)])
 
 ok('barrel runs as pipes', RTM.runs?('barrel'))
 ok('roman runs as pipes', RTM.runs?('roman'))
-ok('flat slate does NOT - it is not a pipe', !RTM.runs?('slate'))
+# WAS: flat slate does NOT - it is not a pipe. It was not a pipe and it still
+# is not, and that was exactly the bug (2026-08-21c): `scallop` only ever meant
+# "the profile is curved", so the flat tile got no 3D at all and the roof came
+# out as a smooth coloured deck with a photograph painted on it - the same hole
+# standing seam fell into. It gets in through run_flat, as a flat PLATE.
+ok('flat tile DOES run - through run_flat, not scallop',
+   RTM.runs?('slate') && RTM.run_flat?('slate'))
+ok('and it is the only flat one', !RTM.run_flat?('roman') &&
+   !RTM.run_flat?('seam') && !RTM.run_flat?('metaltile') && !RTM.run_flat?(nil))
+ok('a flat tile is not a seam and a seam is not flat',
+   !RTM.seam?('slate') && !RTM.run_flat?('seam'))
 # WAS: standing seam does NOT either. It does now (2026-08-21). `scallop` only
 # ever meant "the profile is curved", and a standing seam is not curved - so it
 # had no 3D at all and the metal roof was a flat coloured surface. It gets in
@@ -221,7 +231,16 @@ ok('no sliver survives at the tip - every run clears the minimum',
 
 # ----------------------------------------------------------- what gets no run
 
-ok('slate gets no runs at all', PLACE.run_slots(PLANES, 'slate').empty?)
+# WAS: slate gets no runs at all - see the note at the top of the file.
+# It is pressed into courses, so a 200" x ~100" plane gives a GRID of them:
+# a column every 13" across, a course every 13" up.
+SLATE_SLOTS = PLACE.run_slots(PLANES, 'slate')
+ok('flat tile gets a grid of pieces, not one run per column',
+   SLATE_SLOTS.length > 100, SLATE_SLOTS.length)
+ok('every flat tile piece is about one course long',
+   SLATE_SLOTS.all? { |s| s[:length] > 3.0 && s[:length] < 20.0 },
+   [SLATE_SLOTS.map { |s| s[:length] }.min,
+    SLATE_SLOTS.map { |s| s[:length] }.max])
 # WAS: standing seam gets none either - see the note at the top of the file.
 # 200" of eave at a 16" pitch is 12 whole panels.
 SEAM_SLOTS = PLACE.run_slots(PLANES, 'seam')
