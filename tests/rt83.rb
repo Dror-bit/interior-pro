@@ -78,8 +78,21 @@ ok('the piece builds', !D.nil?)
 # names them `pts` - they are two different classes, do not mix them up)
 FACES = D.entities.grep(Sketchup::Face)
 def fpts(f); f.points; end
-ok('six faces: three bands of top, the nose, and two sides',
-   FACES.length == 6, FACES.length)
+# A WEDGE since the third pass - "אני מעדיף שצורת הרעף תהיה יותר משולשית":
+# one sloping top from the nose down to nothing at the head, the nose, and
+# two side triangles. The stepped plate (nose + ramp + flat field, six faces)
+# is what this replaced.
+ok('four faces: the sloping top, the nose, and two side triangles',
+   FACES.length == 4, FACES.length)
+side = FACES.select { |f| fpts(f).map { |p| p.x.to_f }.uniq.length == 1 }
+ok('the two sides really are triangles',
+   side.length == 2 && side.all? { |f| fpts(f).length == 3 },
+   side.map { |f| fpts(f).length })
+top = FACES.find { |f| fpts(f).length == 4 && fpts(f).any? { |p| p.z.to_f > 1e-6 } && fpts(f).map { |p| p.x.to_f }.uniq.length == 2 && !fpts(f).all? { |p| p.y.to_f.abs < 1e-6 } }
+ok('the top is ONE straight slope - nose height at the front, zero at the head',
+   !top.nil? &&
+   fpts(top).select { |p| p.y.to_f < 1e-6 }.all? { |p| (p.z.to_f - 0.7).abs < 1e-9 } &&
+   fpts(top).select { |p| p.y.to_f > 0.5 }.all? { |p| p.z.to_f.abs < 1e-9 })
 
 # CACHED. One definition for the whole roof is the entire cost argument.
 before = D.entities.length
@@ -163,8 +176,10 @@ ok('the tile is narrower than its pitch - there is a joint each side',
 
 ok('cap_w is still 6.9 - exactly what the old derivation gave',
    close(RTP.cap_w(S), 6.9, 1e-9), RTP.cap_w(S))
-ok('cap_crown is still 2.622, ditto',
-   close(RTP.cap_crown(S), 2.622, 1e-9), RTP.cap_crown(S))
+# 1.0 is the user's own number, in two steps: "מקסימום 2" (from the derived
+# 2.622), then "תוריד את הגובה שלו ב-1 אחד נוסף".
+ok('cap_crown is 1.0 - his number, twice corrected',
+   close(RTP.cap_crown(S), 1.0, 1e-9), RTP.cap_crown(S))
 ok('both are STATED, so changing the tile can never move them again',
    S.key?(:cap_w) && RTP.cap_crown_stated?(S))
 ok('the cap is not round - that was not asked for and did not change',
@@ -173,10 +188,19 @@ ok('the cap is not round - that was not asked for and did not change',
 # over a 0.7" tile would show daylight underneath it.
 ok('the cap now rides at tile height, not at the old 2.28"',
    close(RTP.run_top_h(S), H, 1e-9), RTP.run_top_h(S))
-ok('the runs stop under the cap', close(RTP.ridge_setback(S), 3.45, 1e-9),
-   RTP.ridge_setback(S))
-ok('...which is half the cap, so the cut end hides beneath it',
-   close(RTP.ridge_setback(S), RTP.cap_w(S) / 2.0, 0.01))
+# WAS: the runs stop half a cap short of the ridge, like the clay pipes do.
+# That is right for a piece that cannot be cut. These can: the boundary tiles
+# are clipped on the line and built where they lie, so pulling them back as
+# well would only re-open the gap the cutting closed. Measured on the user's
+# own roof before the cut existed, the bare wedge at a hip reached 9.2" - an
+# 18" ridge cap to hide it, which is why widening the cap was the wrong answer.
+ok('the tiles are cut on the line, not set back from it',
+   close(RTP.ridge_setback(S), 0.0, 1e-9), RTP.ridge_setback(S))
+ok('...and it is STATED, so no derivation can put one back',
+   S.key?(:ridge_setback))
+ok("the clay pipes keep theirs - they cannot be cut",
+   RTP.ridge_setback(RTM.shape('roman')) > 1.0,
+   RTP.ridge_setback(RTM.shape('roman')))
 
 # nobody else's cap moved
 ok("roman's stated cap is untouched",
@@ -257,12 +281,191 @@ ok('every piece is about one course long',
    SLOTS.all? { |s| s[:length] > 3.0 && s[:length] < 20.0 },
    [SLOTS.map { |s| s[:length] }.min.round(2),
     SLOTS.map { |s| s[:length] }.max.round(2)])
-# The bottom course hangs over the eave like a real tile; the ones above it
-# start where the course below ended and must NOT grow a nose out of nothing.
+# CUT AT THE EAVE. WAS: the bottom course hangs past it, the 1.25" every other
+# material uses. The user saw it built and it read as a row of loose teeth with
+# daylight between them - "תראה שהטייל לא נגמר באיב, הוא צריך להיחתך שמה" -
+# because a flat tile, unlike a clay pipe, is a separate plate with a joint
+# down each side and nothing under its nose.
 low = SLOTS.select { |s| close(s[:origin][2].to_f, 100.0, 1.5) }
-ok('the bottom course hangs past the eave',
-   low.any? { |s| s[:length] > RTM.shape('slate')[:exposure].to_f },
+ok('the bottom course is CUT at the eave, not hung over it',
+   !low.empty? &&
+   low.all? { |s| s[:length] <= RTM.shape('slate')[:exposure].to_f + 1e-6 },
    low.map { |s| s[:length].round(2) }.uniq)
+ok('...and it still reaches the eave line exactly',
+   low.all? { |s| close(s[:origin][2].to_f, 100.0, 1e-6) },
+   low.map { |s| s[:origin][2].round(3) }.uniq)
+
+# ------------------------------------- NO TILE CROSSES A HIP OR A VALLEY
+#
+# v_spans_at cuts the tile's CENTRE LINE, and a tile is 12.6" wide, so against
+# a diagonal one whole side used to hang past the line into the neighbouring
+# plane and run through its tiles. flat_slots now measures the span at BOTH
+# edges of the tile as it is drawn and takes the tightest. On a TRIANGLE -
+# every edge above the eave is a hip - not one corner of one tile may sit
+# outside the outline.
+HIP_FACE = [[0.0, 0.0, 100.0], [200.0, 0.0, 100.0], [100.0, 90.0, 130.0]].freeze
+HIP_PL = PLACE.planes_from_faces([StubFace.new(HIP_FACE, NRM)])
+HIP_PU = RTM.plane_uv(HIP_PL[0][:points], HIP_PL[0][:n])
+HIP_SLOTS = PLACE.run_slots(HIP_PL, 'slate')
+ok('a hip face still gets tiles', HIP_SLOTS.length > 20, HIP_SLOTS.length)
+
+def inside?(poly, pt)
+  x, y = pt
+  hit = false
+  n = poly.length
+  n.times do |i|
+    ax, ay = poly[i]
+    bx, by = poly[(i + 1) % n]
+    next if (ay > y) == (by > y)
+    xx = ax + (y - ay) * (bx - ax) / (by - ay)
+    hit = !hit if x < xx
+  end
+  hit
+end
+
+HALF = (RTP.run_pitch(RTM.shape('slate')) / 2.0) - RTP.flat_joint
+
+# A tile is either WHOLE - and then its plain rectangle has to be inside - or
+# CUT, and then it carries the clipped footprint it was actually built from.
+# Both are checked against the same outline: nothing may cross the hip.
+def corners(s, pu, half)
+  return s[:cut] if s[:cut]
+  d = [s[:origin][0] - pu[:origin][0], s[:origin][1] - pu[:origin][1],
+       s[:origin][2] - pu[:origin][2]]
+  u = d[0] * pu[:u][0] + d[1] * pu[:u][1] + d[2] * pu[:u][2]
+  v = d[0] * pu[:v][0] + d[1] * pu[:v][1] + d[2] * pu[:v][2]
+  [[u - half, v], [u + half, v],
+   [u + half, v + s[:length]], [u - half, v + s[:length]]]
+end
+
+# nudge each corner a hair toward the polygon's centroid before asking - a
+# vertex sitting EXACTLY on the outline (or exactly on its corner, which a
+# tile at the eave-rake corner legitimately does) is inside, not outside.
+HCX = HIP_PU[:poly].sum { |p| p[0] } / HIP_PU[:poly].length
+HCY = HIP_PU[:poly].sum { |p| p[1] } / HIP_PU[:poly].length
+out = 0
+HIP_SLOTS.each do |s|
+  corners(s, HIP_PU, HALF).each do |(x, y)|
+    dx = HCX - x
+    dy = HCY - y
+    l = Math.hypot(dx, dy)
+    l = 1.0 if l < 1.0e-9
+    next if inside?(HIP_PU[:poly], [x + (dx / l * 5.0e-3), y + (dy / l * 5.0e-3)])
+    out += 1
+  end
+end
+ok('not one tile corner crosses the hip line', out.zero?, out)
+ok('the hip really did cut some of them',
+   HIP_SLOTS.count { |s| s[:cut] } > 5,
+   HIP_SLOTS.count { |s| s[:cut] })
+ok('a cut tile keeps its nose on the course line, it only loses material',
+   HIP_SLOTS.select { |s| s[:cut] }
+            .all? { |s| RTM.poly_area(s[:cut]).abs <= (2 * HALF * s[:length]) + 0.01 })
+# The middle of a big plane is never cut - the field stays instances, which is
+# the whole cost argument.
+ok('the field is NOT cut - only the boundary pays',
+   SLOTS.count { |s| s[:cut] }.to_f / SLOTS.length < 0.35,
+   [SLOTS.count { |s| s[:cut] }, SLOTS.length])
+
+# ----------------------- A PLANE UNDER ANOTHER ROOF GETS NO TILES
+#
+# Where one wing's roof runs in under another, the buried continuation is its
+# own face in the shell. It was always built; the flat texture kept it
+# invisible, and real tiles poked out through the covering roof - seen
+# through the open gable end on the user's house. A face whose middle sits in
+# plan under a higher plane is dropped whole.
+UNDER = StubFace.new([[40.0, 10.0, 95.0], [160.0, 10.0, 95.0],
+                      [160.0, 60.0, 111.7], [40.0, 60.0, 111.7]], NRM)
+both = PLACE.planes_from_faces([StubFace.new(FACE, NRM), UNDER])
+ok('the buried plane is seen by the frame machinery', both.length == 2,
+   both.length)
+covered = PLACE.run_slots(both, 'slate')
+ok('...but gets NO tiles - only the covering plane is tiled',
+   covered.length == SLOTS.length, [covered.length, SLOTS.length])
+# side by side, nobody covers anybody - both tile as before
+BESIDE = StubFace.new([[300.0, 0.0, 100.0], [500.0, 0.0, 100.0],
+                       [500.0, 90.0, 130.0], [300.0, 90.0, 130.0]], NRM)
+pair = PLACE.planes_from_faces([StubFace.new(FACE, NRM), BESIDE])
+ok('two planes side by side both keep their tiles',
+   PLACE.run_slots(pair, 'slate').length == 2 * SLOTS.length,
+   [PLACE.run_slots(pair, 'slate').length, SLOTS.length])
+
+# ------------------- THE GABLE CASE: A PLANE PARTLY UNDER ANOTHER
+#
+# A hip junction splits the shell on the valley, so a buried tongue is its
+# own face and drop_covered_planes erases it whole. A GABLE junction splits
+# nothing: the main slope stays ONE face whose far end runs in under the
+# wing's roof - "אם אני משנה את הגג לגיבל היא חוזרת". The face stays (its
+# middle is in daylight) and the TILES are cut instead, on the line where the
+# two planes intersect in 3D - cover_clips. Q here crosses above P exactly
+# like a wing roof: above it below y=50.77, under it above.
+QF = StubFace.new([[60.0, 20.0, 140.0], [140.0, 20.0, 140.0],
+                   [140.0, 90.0, 87.5], [60.0, 90.0, 87.5]], [0.0, 0.75, 1.0])
+GP = PLACE.planes_from_faces([StubFace.new(FACE, NRM), QF])
+ok('crossing planes BOTH survive the buried-plane filter', GP.length == 2 &&
+   PLACE.drop_covered_planes(GP).length == 2, PLACE.drop_covered_planes(GP).length)
+G_SLOTS = PLACE.run_slots(GP, 'slate')
+gpu = RTM.plane_uv(GP[0][:points], GP[0][:n])
+g_bad = 0
+g_daylight = 0
+G_SLOTS.each do |s|
+  next unless s[:n][1] < 0 # P's tiles only
+  pts_uv = if s[:cut]
+             s[:cut]
+           else
+             d = [s[:origin][0] - gpu[:origin][0], s[:origin][1] - gpu[:origin][1],
+                  s[:origin][2] - gpu[:origin][2]]
+             u = (d[0] * gpu[:u][0]) + (d[1] * gpu[:u][1]) + (d[2] * gpu[:u][2])
+             v = (d[0] * gpu[:v][0]) + (d[1] * gpu[:v][1]) + (d[2] * gpu[:v][2])
+             [[u - HALF, v], [u + HALF, v],
+              [u + HALF, v + s[:length]], [u - HALF, v + s[:length]]]
+           end
+  pts_uv.each do |q2|
+    w = RTM.unproject(q2, gpu[:origin], gpu[:u], gpu[:v])
+    inq = w[0] > 60.05 && w[0] < 139.95 && w[1] > 20.05 && w[1] < 89.95
+    zq = 140.0 - ((w[1] - 20.0) * 0.75)
+    if inq && zq > w[2] + 0.6
+      g_bad += 1
+    elsif inq
+      g_daylight += 1
+    end
+  end
+end
+ok('not one tile point is buried under the crossing plane', g_bad.zero?, g_bad)
+ok('...and the daylight part under its footprint is still tiled',
+   g_daylight.positive?, g_daylight)
+
+# --------------------------------- THE VALLEY PULL-BACK (fourth pass)
+#
+# Tiles used to be cut exactly ON the valley line from both sides and the
+# bare meeting read as a ragged seam. Now roof_manager hands the valley lines
+# in (opts[:valleys]) and every tile near one stops HALF A CHANNEL short of
+# it - so the flat strip lands on cleared deck and the tiles butt its edge.
+# The valley here runs up the plane's left edge: from [0,0,100] to [0,90,130],
+# both endpoints ON the plane, which is how flat_slots knows it is hers.
+VSB = RTP.cap_w(S) / 2.0
+V_SLOTS = PLACE.run_slots(PLANES, 'slate',
+                          valleys: [[[0.0, 0.0], 100.0, [0.0, 90.0], 130.0, []]])
+ok('with a valley the plane still fills with tiles', V_SLOTS.length > 100,
+   V_SLOTS.length)
+min_u = V_SLOTS.map do |s|
+  if s[:cut]
+    s[:cut].map { |p| p[0] }.min
+  else
+    d = [s[:origin][0] - PU[:origin][0], s[:origin][1] - PU[:origin][1],
+         s[:origin][2] - PU[:origin][2]]
+    (d[0] * PU[:u][0] + d[1] * PU[:u][1] + d[2] * PU[:u][2]) - HALF
+  end
+end.min
+ok('every tile stops half a channel short of the valley line',
+   min_u >= VSB - 1.0e-3, [min_u.round(3), VSB])
+ok('...and the first tile BUTTS the channel edge, no extra gap',
+   min_u <= VSB + 0.6, [min_u.round(3), VSB])
+# a valley belonging to some OTHER plane changes nothing here
+FAR = PLACE.run_slots(PLANES, 'slate',
+                      valleys: [[[500.0, 500.0], 0.0, [500.0, 590.0], 30.0, []]])
+ok("a valley on another plane is ignored - not this plane's business",
+   FAR.length == SLOTS.length, [FAR.length, SLOTS.length])
 
 Sketchup.reset_model!
 model = Sketchup.active_model
@@ -271,9 +474,100 @@ made = PLACE.place_runs!(grp, PLACE.planes_from_faces([StubFace.new(FACE, NRM)])
                          'slate', model: model)
 ok('they are actually placed', made > 100, made)
 inst = grp.entities.grep(Sketchup::ComponentInstance)
-ok('one instance each, all of ONE definition',
-   inst.length == made && inst.map { |i| i.definition.name }.uniq.length == 1,
+# NOT grep(Group): in the stub ComponentInstance IS a Group, so that would
+# count the whole field as well. The cut tiles are the ones that say so.
+cutg = grp.entities.grep(Sketchup::Group).reject { |g| g.is_a?(Sketchup::ComponentInstance) }
+ok('the field is instances of ONE definition',
+   !inst.empty? && inst.map { |i| i.definition.name }.uniq.length == 1,
    inst.map { |i| i.definition.name }.uniq)
+# The boundary tiles are groups, not instances - they are each a different
+# shape, so they cannot share a definition. Everything is one or the other.
+ok('the boundary tiles are their own groups',
+   !cutg.empty? && inst.length + cutg.length == made,
+   [inst.length, cutg.length, made])
+# A CUT TILE IS THE SAME WEDGE, CLIPPED (fifth pass, his words): "הצורה של
+# הרעף צריכה להמשיך לתוך הפינה ולעשות אינטרסקט עם הרעף שהיא נפגשת איתו - זה
+# כבר לא צריך להיות שטוח, כי שינינו את צורת הרעף." The top keeps the wedge's
+# own slope over its COURSE window, the boundary cuts through the thickness,
+# and each perimeter edge that stands off the deck gets its vertical cut
+# face. The flat single-face patch (fourth pass) is what this replaced - it
+# also needed a float to dodge z-fighting; a wedge touches the deck only
+# along a LINE, so it needs none.
+ok('a cut tile is a clipped wedge - a top plus its cut faces',
+   cutg.all? { |g| g.entities.grep(Sketchup::Face).length.between?(2, 8) },
+   cutg.map { |g| g.entities.grep(Sketchup::Face).length }.uniq)
+# Every vertex sits BETWEEN the deck and one tile height above it - the
+# residual of the plane equation (z = 100 + y/3) is 0 on the deck and about
+# h*sqrt(10)/3 at full thickness.
+H_R = RTP.run_height(S) * Math.sqrt(10.0) / 3.0
+cut_bad = 0
+risen = 0
+cutg.each do |g|
+  g.entities.grep(Sketchup::Face).each do |f|
+    f.points.each do |p|
+      r = p.z.to_f - (100.0 + (p.y.to_f / 3.0))
+      cut_bad += 1 if r < -1.0e-3 || r > H_R + 1.0e-3
+      risen += 1 if r > 0.01
+    end
+  end
+end
+ok('a cut wedge stays between the deck and one tile height', cut_bad.zero?,
+   cut_bad)
+ok('...and it really rises off the deck - it is not the old flat plate',
+   risen.positive?, risen)
+
+# ------------------------- EVERY CUT FACE PASSES REAL SKETCHUP'S RULES
+#
+# The lesson of this whole feature, learned the hard way TWICE now (§0 of the
+# 2026-08-21b handoff, and again today): the test stub's add_face accepts what
+# real SketchUp refuses. The first cut-tile build passed every test here and
+# died on the user's machine - a tile corner ON the eave line makes clip_left
+# emit the corner twice, SketchUp raises on the duplicate, the rescue ate the
+# error, and every hip and valley grew a bare stripe where its cut tiles
+# should have been. So every face of every cut tile is now held to the real
+# rules: no two adjacent points closer than 1e-4, at least 3 points, planar.
+dup_bad = 0
+plan_bad = 0
+thin_bad = 0
+cutg.each do |g|
+  g.entities.grep(Sketchup::Face).each do |f|
+    pts = f.points
+    thin_bad += 1 if pts.length < 3
+    pts.each_with_index do |p, i|
+      q = pts[(i + 1) % pts.length]
+      d = Math.sqrt(((p.x - q.x)**2) + ((p.y - q.y)**2) + ((p.z - q.z)**2))
+      dup_bad += 1 if d < 1.0e-4
+    end
+    next if pts.length < 4
+    a, b, c2 = pts[0], pts[1], pts[2]
+    u = [b.x - a.x, b.y - a.y, b.z - a.z]
+    v = [c2.x - a.x, c2.y - a.y, c2.z - a.z]
+    n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2],
+         u[0] * v[1] - u[1] * v[0]]
+    l = Math.sqrt(n[0]**2 + n[1]**2 + n[2]**2)
+    next if l < 1e-12
+    n = n.map { |q| q / l }
+    pts[3..-1].each do |p|
+      dd = (p.x - a.x) * n[0] + (p.y - a.y) * n[1] + (p.z - a.z) * n[2]
+      plan_bad += 1 if dd.abs > 1.0e-3
+    end
+  end
+end
+ok('no cut face carries a duplicated point - real SketchUp raises on one',
+   dup_bad.zero?, dup_bad)
+ok('no cut face is out of plane', plan_bad.zero?, plan_bad)
+ok('no cut face is degenerate', thin_bad.zero?, thin_bad)
+
+# The synthetic worst case, pinned by name: a tile whose corner lies EXACTLY
+# on the clip line. This is the shape that killed the first build.
+sq = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]
+tri = RTM.clip_to_poly([[0.0, 0.0], [20.0, 0.0], [0.0, 20.0]], sq)
+dups = tri.each_index.count do |i|
+  j = (i + 1) % tri.length
+  Math.hypot(tri[i][0] - tri[j][0], tri[i][1] - tri[j][1]) < 1.0e-4
+end
+ok('a corner exactly on the clip line does not come back doubled',
+   tri.length >= 3 && dups.zero?, tri)
 ok('and that definition is the FLAT tile, not the folded metal sheet',
    inst.first.definition.name.include?('IP_TileFlat'),
    inst.first.definition.name)

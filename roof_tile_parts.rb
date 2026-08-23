@@ -627,31 +627,14 @@ module InteriorPro
     # twenty courses tall is no thicker at the ridge than at the eave - while
     # the raised nose casts the shadow line at every course.
     #
-    #   side view, up the slope ->
-    #
-    #      nose      ramp            field (flat on the deck)
-    #     +----+____                                            course above
-    #     |    |    ---____________________________________
-    #     +----+-------------------------------------------
-    #      ^ lip                                   ^ deck
-    #
+    # A WEDGE since the third pass - the drawing lives at build_flat_tile!.
     # Modelled ONE unit long up +Y and stretched per course, the same trick the
-    # runs and the sheet use, so the whole roof carries these six faces once.
-    # nose and ramp are FRACTIONS for that reason - the piece does not know how
-    # long the course it lands on will be.
+    # runs and the sheet use, so the whole roof carries these four faces once.
     #
     # Why not reuse `sheet`: the sheet's cross section is a FOLD spanning a
     # whole pitch, and two neighbours meet at the same height to make one
     # unbroken surface. A flat tile is the opposite - a separate plate with a
     # visible joint down each side, and a cut end you can see.
-    def self.flat_nose
-      0.20
-    end
-
-    def self.flat_ramp
-      0.10
-    end
-
     # Half the gap between two neighbouring columns of tile. The joint is what
     # makes them read as separate tiles rather than one poured slab.
     def self.flat_joint
@@ -664,8 +647,11 @@ module InteriorPro
       w = run_pitch(s) - (2.0 * flat_joint)
       h = run_height(s)
       return nil if w <= 1.0e-9 || h <= 1.0e-9
-      name = format('IP_TileFlat_%s_%0.2f_%0.2f_%0.2f_%0.2f',
-                    shape_name, w, h, flat_nose, flat_ramp)
+      # 'Wedge' is IN the name on purpose: the first build was a stepped plate
+      # (nose, ramp, flat field) under the same sizes, and a definition whose
+      # name does not move when its SHAPE moves is exactly the reload trap
+      # this file already documents twice. Old name: IP_TileFlat_...
+      name = format('IP_TileFlatWedge_%s_%0.2f_%0.2f', shape_name, w, h)
       fetch_or_build(model, name) do |d|
         build_flat_tile!(d.entities, w, h)
         # NOT softened - see soften_run?.
@@ -675,34 +661,126 @@ module InteriorPro
       end
     end
 
-    # Six planar faces: the three bands of the top surface, the nose that shows
-    # the tile's thickness, and the two sides of the raised part. Every one is
-    # written out flat on purpose - the strict add_face harness at the end of
-    # rt18 refuses a face that is even 0.0115" out of plane, and so does real
-    # SketchUp.
+    # A WEDGE, four planar faces (2026-08-21c, third pass - his words:
+    # "אני מעדיף שצורת הרעף תהיה יותר משולשית כמו בתמונה").
+    #
+    # The first build was a stepped plate - a raised nose, a short ramp, then
+    # flat to the head. From the side that reads as a step sitting on the
+    # roof; in his photograph each course reads as a thin TRIANGLE - the top
+    # surface is ONE straight slope from the thick nose down to nothing at
+    # the head, which is also exactly what makes the next course look like it
+    # is resting on this one.
+    #
+    #   side view, up the slope ->
+    #
+    #     +\___
+    #     |     -----_____
+    #     +-------------------   <- deck; the head ends at zero, so nothing
+    #      ^ nose, h tall           stacks course over course
+    #
+    # Four faces: the sloping top, the nose, and two side triangles. All
+    # written out planar - the strict add_face harness at the end of rt18
+    # refuses a bent face, and so does real SketchUp.
     def self.build_flat_tile!(ents, w, h)
       half = w / 2.0
-      y1 = flat_nose
-      y2 = flat_nose + flat_ramp
       pt = lambda { |x, y, z| Geom::Point3d.new(x, y, z) }
       made = 0
-      # the top surface: raised nose, ramp down, then flat to the head
+      # the top: one plane, nose height down to zero at the head
       made += 1 if add_face(ents, [pt.call(-half, 0.0, h), pt.call(half, 0.0, h),
-                                   pt.call(half, y1, h), pt.call(-half, y1, h)])
-      made += 1 if add_face(ents, [pt.call(-half, y1, h), pt.call(half, y1, h),
-                                   pt.call(half, y2, 0.0), pt.call(-half, y2, 0.0)])
-      made += 1 if add_face(ents, [pt.call(-half, y2, 0.0), pt.call(half, y2, 0.0),
                                    pt.call(half, 1.0, 0.0), pt.call(-half, 1.0, 0.0)])
       # THE NOSE - the shadow line, and the reason the roof is not a floor
       made += 1 if add_face(ents, [pt.call(-half, 0.0, 0.0), pt.call(half, 0.0, 0.0),
                                    pt.call(half, 0.0, h), pt.call(-half, 0.0, h)])
-      # the two sides of the raised part, so the tile reads as a plate with a
-      # thickness rather than as a painted stripe
+      # the two side triangles, so the wedge reads as a solid tile
       [-half, half].each do |x|
         made += 1 if add_face(ents, [pt.call(x, 0.0, 0.0), pt.call(x, 0.0, h),
-                                     pt.call(x, y1, h), pt.call(x, y2, 0.0)])
+                                     pt.call(x, 1.0, 0.0)])
       end
       made
+    end
+
+    # A TILE CUT ON THE LINE (2026-08-21c, second pass).
+    #
+    # The whole tile above is an instance, and an instance cannot be cut. At a
+    # hip or a valley that left two bad choices, and the user saw both: let the
+    # tile hang over the line and it runs through the next plane's tiles -
+    # "המפגשים של הטיילים בוואלי אחד עם השני לא נראים טוב" - or drop it and
+    # leave bare deck. Measured on his roof the bare wedge reached 9.2", which
+    # would need an 18" ridge cap to hide. So the boundary tiles are built as
+    # real geometry from their clipped footprint: "שייחתכו במדויק".
+    #
+    # It is only the boundary. The field stays instances of the one definition,
+    # so the cost is a few hundred small groups along the hips and valleys,
+    # the same order as the eave bars.
+    #
+    # `poly` is the clipped footprint in the PLANE's own u/v. The caller hands
+    # in a block that turns (u, v, height above the plane) into a world point,
+    # so nothing here knows which way the roof faces.
+    # A CUT TILE IS THE SAME WEDGE, CLIPPED (2026-08-21c, fifth pass).
+    #
+    # His words, after three rounds of flat patches: "הצורה של הרעף צריכה
+    # להמשיך לתוך הפינה ולעשות אינטרסקט עם הרעף שהיא נפגשת איתו - זה כבר לא
+    # צריך להיות שטוח, כי שינינו את צורת הרעף." The tile keeps its wedge -
+    # nose height at its course line, nothing at its head - and the boundary
+    # simply cuts through it, showing the wedge's own thickness on the cut.
+    # Two wedges meeting at a valley intersect along it, each ending in its
+    # cut face, which is exactly what cut tiles on a real roof do.
+    #
+    # It also ends the z-fighting the flat plate had: the wedge touches the
+    # deck only along its head LINE, so there is no coplanar face for the
+    # deck to fight with, and no float is needed.
+    #
+    # The slope is taken over the COURSE (cv0..cv0+exposure), not over the
+    # piece, so a clipped tile keeps exactly its neighbours' slope.
+    #
+    # Faces: the top (z is linear in v, so one plane however the footprint is
+    # shaped) and a vertical face down each perimeter edge that stands off
+    # the deck. All planar by construction; the strict checks in rt83 hold
+    # every one to real SketchUp's rules.
+    def self.build_flat_cut!(ents, poly, cv0, clen, h, mat = nil)
+      return 0 if poly.nil? || poly.length < 3 || clen <= 1.0e-9
+      zt = lambda do |v|
+        f = 1.0 - ((v - cv0) / clen)
+        f = 0.0 if f.negative?
+        f = 1.0 if f > 1.0
+        h * f
+      end
+      made = 0
+      made += 1 if cut_face!(ents, poly.map { |(u, v)| yield(u, v, zt.call(v)) },
+                             mat)
+      n = poly.length
+      n.times do |i|
+        u1, v1 = poly[i]
+        u2, v2 = poly[(i + 1) % n]
+        z1 = zt.call(v1)
+        z2 = zt.call(v2)
+        next if z1 < 1.0e-4 && z2 < 1.0e-4
+        pts = [yield(u1, v1, 0.0), yield(u2, v2, 0.0)]
+        pts << yield(u2, v2, z2) if z2 >= 1.0e-4
+        pts << yield(u1, v1, z1) if z1 >= 1.0e-4
+        next if pts.length < 3
+        made += 1 if cut_face!(ents, pts, mat)
+      end
+      made
+    rescue StandardError => e
+      puts "[RoofTiles] cut tile: #{e.message}"
+      made || 0
+    end
+
+    def self.cut_face!(ents, pts, mat)
+      f = ents.add_face(pts)
+      return false if f.nil?
+      unless mat.nil?
+        begin
+          f.material = mat
+          f.back_material = mat
+        rescue StandardError
+          nil
+        end
+      end
+      true
+    rescue StandardError
+      false
     end
 
     # ------------------------------------------------- the user's own tiles

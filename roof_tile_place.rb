@@ -86,6 +86,144 @@ module InteriorPro
       end
     end
 
+    # The top of the stretch of roof that contains height `v_at`, at across-
+    # slope position `u`. nil means there is no roof there at that height -
+    # which is a real answer, not a failure: it is how a tile finds out that
+    # one of its edges has walked off a hip or into a valley.
+    def self.span_top_at(poly, u, v_at)
+      InteriorPro::RoofTileMath.v_spans_at(poly, u, 0.0).each do |(lo, hi)|
+        return hi if v_at >= lo - 1.0e-6 && v_at < hi + 1.0e-6
+      end
+      nil
+    end
+
+    # The valley lines, turned into clip lines in ONE plane's own u/v.
+    #
+    # Each entry that comes back is [a', b', seg]: the line to clip against
+    # (already pushed `setback` INTO the plane, so clip_left keeps the tile
+    # side and the cleared strip is exactly one channel edge wide) and the
+    # original segment, used only to ask "is this tile anywhere near it".
+    # A line whose endpoints do not lie on this plane belongs to some other
+    # valley and is dropped.
+    def self.flat_valley_clips(pu, valleys, setback)
+      return [] if valleys.nil? || valleys.empty? || setback <= 1.0e-9
+      pc = [pu[:poly].sum { |p| p[0] } / pu[:poly].length,
+            pu[:poly].sum { |p| p[1] } / pu[:poly].length]
+      out = []
+      valleys.each do |(ka, za, kb, zb, _sides)|
+        a2 = world_to_uv(pu, [ka[0], ka[1], za])
+        b2 = world_to_uv(pu, [kb[0], kb[1], zb])
+        next if a2.nil? || b2.nil?
+        # orient a -> b so the plane's inside is on the LEFT, then push the
+        # line left by the setback - clip_left keeps the left side.
+        cr = ((b2[0] - a2[0]) * (pc[1] - a2[1])) -
+             ((b2[1] - a2[1]) * (pc[0] - a2[0]))
+        a2, b2 = b2, a2 if cr.negative?
+        dx = b2[0] - a2[0]
+        dy = b2[1] - a2[1]
+        ln = Math.hypot(dx, dy)
+        next if ln < 1.0
+        nx = -dy / ln
+        ny = dx / ln
+        out << [[a2[0] + (nx * setback), a2[1] + (ny * setback)],
+                [b2[0] + (nx * setback), b2[1] + (ny * setback)], [a2, b2]]
+      end
+      out
+    end
+
+    # WHERE ANOTHER ROOF PLANE PASSES OVERHEAD, THE TILES STOP (2026-08-21c).
+    #
+    # drop_covered_planes handles a face that is buried WHOLE - the hip case,
+    # where the shell's valley intersection splits the buried tongue into its
+    # own face. A GABLE junction makes no valley, so nothing splits: the main
+    # slope stays ONE face whose far end runs in under the wing's roof, its
+    # centre sits in daylight, and the whole face - buried tongue included -
+    # was tiled. Seen through the wing's open gable end: "אם אני משנה את הגג
+    # לגיבל היא חוזרת".
+    #
+    # A face cannot be half-erased, but tiles can be cut - and the boundary
+    # of the buried region is simply where the two PLANES intersect in 3D.
+    # For each plane Q that might cover P, this returns Q's plan footprint
+    # plus that intersection line mapped into P's own u/v; the tile loop
+    # clips any tile whose middle lies under Q's footprint against it,
+    # keeping the daylight side. Outside Q's footprint nothing changes, so
+    # the slope's open stretches keep every tile they had.
+    def self.cover_clips(pl, pu, planes)
+      out = []
+      np = pl[:n]
+      (planes || []).each do |q|
+        next if q.equal?(pl)
+        nq = q[:n]
+        next if nq[2].abs < 0.2
+        qplan = q[:points].map { |p| [p[0], p[1]] }
+        d = [(np[1] * nq[2]) - (np[2] * nq[1]),
+             (np[2] * nq[0]) - (np[0] * nq[2]),
+             (np[0] * nq[1]) - (np[1] * nq[0])]
+        dl = Math.sqrt((d[0]**2) + (d[1]**2) + (d[2]**2))
+        if dl < 1.0e-6
+          # parallel planes never meet: a tile under Q is either wholly in
+          # daylight or wholly buried - the tile loop decides by height.
+          out << { plan: qplan, q: q, line: nil }
+          next
+        end
+        d = d.map { |x| x / dl }
+        p0 = pl[:points][0]
+        q0 = q[:points][0]
+        o = pu[:origin]
+        l0 = solve3(np, (np[0] * p0[0]) + (np[1] * p0[1]) + (np[2] * p0[2]),
+                    nq, (nq[0] * q0[0]) + (nq[1] * q0[1]) + (nq[2] * q0[2]),
+                    d, (d[0] * o[0]) + (d[1] * o[1]) + (d[2] * o[2]))
+        next if l0.nil?
+        a2 = world_to_uv(pu, l0)
+        b2 = world_to_uv(pu, [l0[0] + (d[0] * 100.0), l0[1] + (d[1] * 100.0),
+                              l0[2] + (d[2] * 100.0)])
+        next if a2.nil? || b2.nil?
+        # orient so clip_left keeps the DAYLIGHT side: probe a step to the
+        # left of the line, lift it back to world on P, and ask which plane
+        # is higher there.
+        dx = b2[0] - a2[0]
+        dy = b2[1] - a2[1]
+        ln = Math.hypot(dx, dy)
+        next if ln < 1.0e-6
+        m = [((a2[0] + b2[0]) / 2.0) - (dy / ln * 2.0),
+             ((a2[1] + b2[1]) / 2.0) + (dx / ln * 2.0)]
+        w = InteriorPro::RoofTileMath.unproject(m, pu[:origin], pu[:u], pu[:v])
+        zq = z_on_plane(q, w[0], w[1])
+        a2, b2 = b2, a2 if !zq.nil? && zq > w[2] + 1.0e-6
+        out << { plan: qplan, q: q, line: [a2, b2] }
+      end
+      out
+    end
+
+    # Cramer's rule for the one 3x3 system cover_clips needs.
+    def self.solve3(r1, b1, r2, b2, r3, b3)
+      det = (r1[0] * ((r2[1] * r3[2]) - (r2[2] * r3[1]))) -
+            (r1[1] * ((r2[0] * r3[2]) - (r2[2] * r3[0]))) +
+            (r1[2] * ((r2[0] * r3[1]) - (r2[1] * r3[0])))
+      return nil if det.abs < 1.0e-9
+      dx = (b1 * ((r2[1] * r3[2]) - (r2[2] * r3[1]))) -
+           (r1[1] * ((b2 * r3[2]) - (r2[2] * b3))) +
+           (r1[2] * ((b2 * r3[1]) - (r2[1] * b3)))
+      dy = (r1[0] * ((b2 * r3[2]) - (r2[2] * b3))) -
+           (b1 * ((r2[0] * r3[2]) - (r2[2] * r3[0]))) +
+           (r1[2] * ((r2[0] * b3) - (b2 * r3[0])))
+      dz = (r1[0] * ((r2[1] * b3) - (b2 * r3[1]))) -
+           (r1[1] * ((r2[0] * b3) - (b2 * r3[0]))) +
+           (b1 * ((r2[0] * r3[1]) - (r2[1] * r3[0])))
+      [dx / det, dy / det, dz / det]
+    end
+
+    # A world point in one plane's u/v - or nil if it does not LIE on that
+    # plane, which is how a valley line finds the two planes it belongs to.
+    def self.world_to_uv(pu, w)
+      o = pu[:origin]
+      d = [w[0] - o[0], w[1] - o[1], w[2] - o[2]]
+      off = (d[0] * pu[:n][0]) + (d[1] * pu[:n][1]) + (d[2] * pu[:n][2])
+      return nil if off.abs > 0.75
+      [(d[0] * pu[:u][0]) + (d[1] * pu[:u][1]) + (d[2] * pu[:u][2]),
+       (d[0] * pu[:v][0]) + (d[1] * pu[:v][1]) + (d[2] * pu[:v][2])]
+    end
+
     # THE FLAT TILE LAYS ITSELF OUT COURSE BY COURSE (2026-08-21c).
     #
     # Every other layout here walks the COLUMNS on the outside and cuts each
@@ -120,50 +258,143 @@ module InteriorPro
       exposure = (opts[:exposure] || s[:exposure]).to_f
       return [] if pitch <= 1.0e-9 || exposure <= 1.0e-9
       min_len = (opts[:min_len] || min_run_len).to_f
-      overhang = if opts.key?(:overhang)
-                   opts[:overhang].to_f
-                 else
-                   InteriorPro::RoofTileParts.eave_overhang
-                 end
+      # CUT AT THE EAVE, NOT HUNG OVER IT (2026-08-21c, second pass).
+      # eave_overhang is 1.25" and every other material uses it, because a clay
+      # pipe hanging past the edge reads as a real tile. A flat tile does not:
+      # each one is a separate plate with a joint down each side, so 1.25" of
+      # them past the deck came out as a row of loose teeth with daylight
+      # between them and nothing underneath - "תראה שהטייל לא נגמר באיב, הוא
+      # צריך להיחתך שמה". Zero here means the bottom course ends exactly on
+      # the eave line. The default is stated, not inherited, so nothing else
+      # moved.
+      overhang = (opts[:overhang] || 0.0).to_f
       setback = if opts.key?(:setback)
                   opts[:setback].to_f
                 else
                   InteriorPro::RoofTileParts.ridge_setback(s)
                 end
       stagger = s[:stagger] == true
+      # HALF THE TILE AS IT IS DRAWN - the number the span is measured with
+      # below. flat_tile builds the plate one joint in from the pitch on each
+      # side, so this is its real half width and not half the spacing.
+      half_w = (pitch / 2.0) - InteriorPro::RoofTileParts.flat_joint
       out = []
       (planes || []).each do |pl|
         pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
         next if pu.nil? || pu[:flat]
         next if pu[:u_span].to_f < pitch
-        top = pu[:v_span].to_f
+        # NOT `top`: the inner loop below has its own `top` for the tile's own
+        # cut, and a block shares this scope - naming both the same silently
+        # rewrote the loop bound with the first tile's cut and the plane came
+        # out with a single course on it.
+        v_max = pu[:v_span].to_f
+        # THE VALLEY PULL-BACK (2026-08-21c, fourth pass). The tiles were cut
+        # exactly ON the valley line from both sides, and the bare meeting
+        # read as a ragged seam - "אני לא מבין למה אתה לא מסדר את הפינות
+        # במפגש שלהם בוואלי". Now the valley carries the same flat channel
+        # the metal roof has, and each tile stops HALF A CHANNEL short of the
+        # line, so it butts the channel's edge exactly - same idea as the
+        # seam's ribs, done by moving each tile's own clip line instead of
+        # its foot, because a valley cuts these tiles on their SIDE.
+        #
+        # From this plane's side of the roof a valley is just one more
+        # outline edge, and a hip is too - only roof_manager can tell them
+        # apart, which is why the lines arrive from outside (opts[:valleys],
+        # from ridge_lines(valleys: true)) instead of being guessed here.
+        vclips = flat_valley_clips(pu, opts[:valleys],
+                                   InteriorPro::RoofTileParts.cap_w(s) / 2.0)
+        cclips = cover_clips(pl, pu, planes)
         # The columns are the same list every course; only the phase moves.
         cols = sheet_slots(pu[:u_span].to_f, pitch)
         k = 0
-        while (k * exposure) < top
+        while (k * exposure) < v_max
           phase = InteriorPro::RoofTileMath.course_phase(k, pitch, stagger)
+          a = k * exposure
+          b = (k + 1) * exposure
           cols.each do |c0|
             c = c0 + phase
-            InteriorPro::RoofTileMath.v_spans_at(pu[:poly], c, 0.0).each do |(v1, vtop)|
-              # Stop short of the ridge and the hip, so the cut end lands under
-              # the cap - the same rule, and the same number, as the runs.
-              v2 = vtop - setback
-              a = [k * exposure, v1].max
-              b = [(k + 1) * exposure, v2].min
-              next if (b - a) < min_len
-              v0 = a
-              plen = b - a
-              # Only a tile that really starts at the eave hangs past it. One
-              # that starts mid-slope was cut by a valley or a dormer and must
-              # not grow a nose out of nothing.
-              if a < 0.5
-                v0 = a - overhang
-                plen += overhang
-              end
-              o = InteriorPro::RoofTileMath.unproject([c, v0], pu[:origin],
-                                                      pu[:u], pu[:v])
-              out << { origin: o, u: pu[:u], v: pu[:v], n: pu[:n], length: plen }
+            # THE OUTLINE IS THE ONLY THING THAT CUTS (2026-08-21c, fifth
+            # pass, and this line is where two rounds of valley trouble
+            # lived). The tile used to be truncated FIRST at the height
+            # v_spans_at gave for its CENTRE line - a HORIZONTAL cut - and
+            # only then clipped on the outline. Against a diagonal the
+            # diagonal never got to cut what the horizontal cut had already
+            # thrown away, and the valley line wore a staircase of bare
+            # wedges, up to half a tile wide. Measured with plain Ruby on an
+            # L-roof: 6.2" of bare deck at the worst point; 0.0 after this.
+            #
+            # So the tile is its FULL course rectangle, and the outline cuts
+            # it - horizontal at a ridge, diagonal at a hip or a valley,
+            # vertical at a rake, all the same clip.
+            rect = [[c - half_w, a], [c + half_w, a],
+                    [c + half_w, b], [c - half_w, b]]
+            poly = InteriorPro::RoofTileMath.clip_to_poly(rect, pu[:poly])
+            next if poly.length < 3
+            # ...and pulled back off any valley when the channel is wanted -
+            # see vclips above. The cut line is INFINITE, so only a tile
+            # actually near the segment is clipped by it.
+            vclips.each do |(va2, vb2, seg)|
+              cx = poly.sum { |p| p[0] } / poly.length
+              cy = poly.sum { |p| p[1] } / poly.length
+              next if InteriorPro::RoofTileMath.seg_dist(seg[0], seg[1],
+                                                         [cx, cy]) > pitch + exposure
+              poly = InteriorPro::RoofTileMath.clean_poly(
+                InteriorPro::RoofTileMath.clip_left(poly, va2, vb2)
+              )
+              break if poly.length < 3
             end
+            next if poly.length < 3
+            # ...and cut where another roof plane passes overhead - see
+            # cover_clips. The gate is ANY buried point, not the middle: a
+            # tile straddling the covering plane's edge with only one corner
+            # in the dark was slipping through on the centre test, and that
+            # corner is the strip right at the open gable wall - exactly
+            # where the user is looking.
+            cclips.each do |cc|
+              buried = poly.any? do |q2|
+                w = InteriorPro::RoofTileMath.unproject(q2, pu[:origin],
+                                                        pu[:u], pu[:v])
+                next false unless InteriorPro::RoofTileMath.poly_contains?(
+                  cc[:plan], [w[0], w[1]]
+                )
+                zq = z_on_plane(cc[:q], w[0], w[1])
+                !zq.nil? && zq > w[2] + 0.05
+              end
+              next unless buried
+              if cc[:line].nil?
+                poly = []
+              else
+                poly = InteriorPro::RoofTileMath.clean_poly(
+                  InteriorPro::RoofTileMath.clip_left(poly, cc[:line][0],
+                                                      cc[:line][1])
+                )
+              end
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            cut_area = InteriorPro::RoofTileMath.poly_area(poly).abs
+            # A dropped sliver is a notch of bare deck ON the line, and the
+            # line is exactly where the user is looking. clean_poly already
+            # refuses true degenerates.
+            next if cut_area < 1.0
+            whole = cut_area >= (2.0 * half_w * (b - a)) - 0.01
+            # A CUT tile carries its footprint and is built where it lies as
+            # the same wedge, clipped - see build_flat_cut!.
+            unless whole
+              out << { origin: InteriorPro::RoofTileMath.unproject(
+                         [c, a], pu[:origin], pu[:u], pu[:v]
+                       ),
+                       u: pu[:u], v: pu[:v], n: pu[:n], length: b - a,
+                       cut: poly, pu_origin: pu[:origin], v0: a,
+                       # the COURSE window, so the cut wedge keeps exactly
+                       # its neighbours' slope
+                       cv0: a, clen: exposure }
+              next
+            end
+            o = InteriorPro::RoofTileMath.unproject([c, a - overhang],
+                                                    pu[:origin], pu[:u], pu[:v])
+            out << { origin: o, u: pu[:u], v: pu[:v], n: pu[:n],
+                     length: (b - a) + overhang }
           end
           k += 1
           break if k > 10_000
@@ -378,8 +609,53 @@ module InteriorPro
     # uses, so a run and an eave piece can never disagree about the pitch.
     #
     # Returns [{ origin: [x, y, z], u:, v:, n:, length: }, ...].
+    # A PLANE HIDING UNDER ANOTHER ROOF GETS NO TILES (2026-08-21c).
+    #
+    # Where one wing's roof runs in under another - the shell intersects on
+    # the valleys, so the buried continuation is its own face - that face has
+    # always been built and painted, and the flat texture kept it invisible.
+    # Real 3D tiles do not stay invisible: they filled the hidden strip and
+    # poked out through the covering roof, in plain view through the open
+    # gable end - "הגג ממשיך מתחת לגג השני ולא נחתך".
+    #
+    # A face is covered when its own middle sits in PLAN inside another
+    # plane's outline AND that plane passes above it there. The shell's
+    # intersection is what splits faces on the meeting lines, so a covered
+    # face is covered as a WHOLE - one point answers for all of it.
+    def self.drop_covered_planes(planes)
+      list = planes || []
+      return list if list.length < 2
+      # SAMPLED, NOT JUST THE CENTRE (2026-08-21c, gable pass). Two planes
+      # that CROSS - each one's far lobe under the other - can both have
+      # their centres in the buried lobe, and the centre-only test threw
+      # both away and left a bare roof. A face goes only when the centre AND
+      # the midpoint toward every corner are all covered: that is a face
+      # with no daylight on it anywhere that matters. A partly-covered face
+      # stays, and cover_clips trims its tiles at the meeting line instead.
+      list.reject do |pl|
+        pts = pl[:points]
+        cx = pts.sum { |p| p[0] } / pts.length
+        cy = pts.sum { |p| p[1] } / pts.length
+        cz = pts.sum { |p| p[2] } / pts.length
+        samples = [[cx, cy, cz]] + pts.map do |p|
+          [(cx + p[0]) / 2.0, (cy + p[1]) / 2.0, (cz + p[2]) / 2.0]
+        end
+        samples.all? do |(sx, sy, sz)|
+          list.any? do |q|
+            next false if q.equal?(pl)
+            next false unless InteriorPro::RoofTileMath.poly_contains?(
+              q[:points].map { |p| [p[0], p[1]] }, [sx, sy]
+            )
+            zq = z_on_plane(q, sx, sy)
+            !zq.nil? && zq > sz + 0.1
+          end
+        end
+      end
+    end
+
     def self.run_slots(planes, shape_name, opts = {})
       return [] unless InteriorPro::RoofTileMath.runs?(shape_name)
+      planes = drop_covered_planes(planes)
       # The flat tile has its own layout - courses on the outside so they can
       # stagger. Everything below this line is untouched by it.
       if InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
@@ -598,7 +874,14 @@ module InteriorPro
       tag = opts[:tag] || field_tag
       mat = opts[:material]
       made = 0
+      cut = 0
       slots.each do |s|
+        # A tile that a hip or a valley cut is not the shared definition any
+        # more - it is built where it lies. See build_cut_tile!.
+        if s[:cut]
+          cut += 1 if build_cut_tile!(grp, s, shape_name, mat, tag)
+          next
+        end
         tr = asset ? asset_transform_for(s, asset) : run_transform_for(s)
         next if tr.nil?
         inst = grp.entities.add_instance(defn, tr)
@@ -611,8 +894,46 @@ module InteriorPro
         InteriorPro.assign_tag(inst, tag)
         made += 1
       end
-      puts "[RoofTiles] runs: #{made} instances of #{defn.name}"
-      made
+      puts "[RoofTiles] runs: #{made} instances of #{defn.name}" \
+           "#{cut.positive? ? " + #{cut} cut on a hip or valley" : ''}"
+      made + cut
+    end
+
+    # One tile that a boundary cut, built as its own little group from the
+    # clipped footprint the slot is carrying. Only the edge of the roof pays
+    # for this; the field is still instances of one definition.
+    def self.build_cut_tile!(grp, s, shape_name, mat, tag)
+      sh = InteriorPro::RoofTileMath.shape(shape_name)
+      return false if sh.nil?
+      h = InteriorPro::RoofTileParts.run_height(sh)
+      o = s[:pu_origin]
+      u = s[:u]
+      v = s[:v]
+      n = s[:n]
+      sub = grp.entities.add_group
+      sub.name = 'InteriorPro_FlatTileCut'
+      sub.set_attribute('InteriorPro', 'part', 'tile_flat_cut')
+      made = InteriorPro::RoofTileParts.build_flat_cut!(
+        sub.entities, s[:cut], (s[:cv0] || s[:v0]).to_f,
+        (s[:clen] || s[:length]).to_f, h, mat
+      ) do |uu, vv, zz|
+        p = InteriorPro::RoofTileMath.unproject([uu, vv], o, u, v)
+        Geom::Point3d.new(p[0] + (n[0] * zz), p[1] + (n[1] * zz),
+                          p[2] + (n[2] * zz))
+      end
+      if made.zero?
+        begin
+          sub.erase!
+        rescue StandardError
+          nil
+        end
+        return false
+      end
+      InteriorPro.assign_tag(sub, tag)
+      true
+    rescue StandardError => e
+      puts "[RoofTiles] cut tile: #{e.message}"
+      false
     end
 
     # ---------------------------------------------------------- THE EAVE BAR

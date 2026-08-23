@@ -144,7 +144,15 @@ module InteriorPro
                       run_flat: true, run_courses: true,
                       run_pitch: 13.0, run_cover: 1.0,
                       run_rise: 0.7 / 13.0,
-                      cap_w: 6.9, cap_crown: 2.622, ridge_setback: 3.45 },
+                      # SETBACK 0: the boundary tiles are CUT on the line now, so pulling
+                      # them back as well would only re-open the gap the cutting
+                      # closed. Stated, so nothing derives one.
+                      # crown 1.0 is HIS number, set in two steps: "מקסימום
+                      # 2" brought it from the derived 2.622 to 2.0, and then
+                      # "תוריד את הגובה שלו ב-1 אחד נוסף" - the cap also
+                      # rides a tile height (0.7) above the deck, so the
+                      # crown alone under-states what the eye sees.
+                      cap_w: 6.9, cap_crown: 1.0, ridge_setback: 0.0 },
         # STANDING SEAM - given a real 3D shape on 2026-08-21. Until then it
         # had none at all: `scallop` is the "profile is curved" flag and a
         # standing seam is not curved, so runs? said no and the roof came out
@@ -414,6 +422,146 @@ module InteriorPro
         flat: fr[:flat], pitch: fr[:pitch],
         u_span: poly.map { |p| p[0] }.max,
         v_span: poly.map { |p| p[1] }.max }
+    end
+
+    # ------------------------------------------------------------ clipping
+    #
+    # Added 2026-08-21c for the flat tile. A tile at a hip or a valley has to
+    # be CUT on the line - "שייחתכו במדויק" - and an instance cannot be cut,
+    # so the boundary tiles are built as their own little groups from the
+    # clipped footprint. Everything here is plain 2D polygon work in a plane's
+    # own u/v; no SketchUp, and nothing else in the plugin calls it yet.
+    def self.poly_area(poly)
+      return 0.0 if poly.nil? || poly.length < 3
+      a = 0.0
+      n = poly.length
+      n.times do |i|
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        a += (x1 * y2) - (x2 * y1)
+      end
+      a / 2.0
+    end
+
+    def self.poly_ccw(poly)
+      poly_area(poly).negative? ? poly.reverse : poly
+    end
+
+    # Keep the part of `poly` on the LEFT of the directed line a -> b.
+    def self.clip_left(poly, a, b)
+      return [] if poly.nil? || poly.length < 3
+      out = []
+      n = poly.length
+      n.times do |i|
+        cur = poly[i]
+        nxt = poly[(i + 1) % n]
+        dc = ((b[0] - a[0]) * (cur[1] - a[1])) - ((b[1] - a[1]) * (cur[0] - a[0]))
+        dn = ((b[0] - a[0]) * (nxt[1] - a[1])) - ((b[1] - a[1]) * (nxt[0] - a[0]))
+        out << cur if dc >= -1.0e-9
+        next unless (dc > 0) != (dn > 0)
+        t = dc / (dc - dn)
+        out << [cur[0] + ((nxt[0] - cur[0]) * t), cur[1] + ((nxt[1] - cur[1]) * t)]
+      end
+      out
+    end
+
+    # Cut `rect` down to the part of it inside `region`.
+    #
+    # ONLY THE EDGES THAT ACTUALLY REACH IT are used, and that is the whole
+    # trick: clipping by every edge of the region is the textbook algorithm and
+    # it is only correct for a CONVEX region, while a roof plane with a dormer
+    # or a light well punched out of it is not convex. An edge that runs
+    # nowhere near this tile cannot be the one cutting it, so leaving it out
+    # keeps the answer exact for the cases that matter - a hip, a valley, a
+    # rake, the side of a dormer - and stops a far-away concave edge from
+    # eating a tile in the middle of the roof.
+    def self.clip_to_poly(rect, region, reach = nil)
+      return [] if rect.nil? || rect.length < 3 || region.nil? || region.length < 3
+      cx = rect.map { |p| p[0] }.sum / rect.length.to_f
+      cy = rect.map { |p| p[1] }.sum / rect.length.to_f
+      r = reach || (rect.map { |p| Math.hypot(p[0] - cx, p[1] - cy) }.max + 0.01)
+      rr = poly_ccw(region)
+      out = rect
+      n = rr.length
+      n.times do |i|
+        a = rr[i]
+        b = rr[(i + 1) % n]
+        next if Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.0e-9
+        next if seg_dist(a, b, [cx, cy]) > r
+        out = clip_left(out, a, b)
+        return [] if out.length < 3
+      end
+      out = clean_poly(out)
+      return [] if out.empty?
+      # AND THE RESULT MUST ACTUALLY LIE INSIDE (2026-08-21c, fifth pass).
+      # The reach filter above skips edges far from the tile - which also
+      # means a tile floating entirely OUTSIDE the region, far from every
+      # edge, sails through unclipped and comes back whole. One did: a full
+      # phantom column of tiles off the rake of a hip plane, found by the
+      # plain-Ruby measurement. The centroid test costs one point-in-polygon
+      # and closes that door for good.
+      ox = out.sum { |p| p[0] } / out.length
+      oy = out.sum { |p| p[1] } / out.length
+      poly_contains?(rr, [ox, oy]) ? out : []
+    end
+
+    # Plain ray-cast point-in-polygon, boundary points counted by the same
+    # half-open rule the scanline uses.
+    def self.poly_contains?(poly, pt)
+      x, y = pt
+      hit = false
+      n = poly.length
+      n.times do |i|
+        ax, ay = poly[i]
+        bx, by = poly[(i + 1) % n]
+        next if (ay > y) == (by > y)
+        xx = ax + ((y - ay) * (bx - ax) / (by - ay))
+        hit = !hit if x < xx
+      end
+      hit
+    end
+
+    # Keep the slice of `poly` between two heights. Used to split a cut tile
+    # into its nose, its ramp and its flat field - three planar faces, because
+    # one face over the whole thing would be bent and SketchUp refuses those.
+    def self.clip_band(poly, va, vb)
+      out = clip_left(poly, [0.0, va], [1.0, va])
+      return [] if out.length < 3
+      clean_poly(clip_left(out, [1.0, vb], [0.0, vb]))
+    end
+
+    # EVERY CLIPPED POLYGON GOES THROUGH HERE, and skipping it is what put the
+    # bare stripes on the user's roof (2026-08-21c, the hard way). When a tile
+    # corner lies exactly ON the clip line - and at the eave line every tile
+    # does - clip_left keeps the corner AND emits the intersection point, which
+    # is the same point again. The test stub's add_face swallowed the
+    # duplicate; real SketchUp raises, the whole cut tile died, and every hip,
+    # valley and rake grew a bare stripe of deck where its cut tiles should
+    # be. §0 of the 2026-08-21b handoff, learned twice now: geometry that only
+    # passed the lenient stub has not passed anything.
+    def self.clean_poly(poly, tol = 1.0e-3)
+      return [] if poly.nil? || poly.length < 3
+      out = []
+      poly.each do |p|
+        out << [p[0], p[1]] if out.empty? ||
+                               Math.hypot(p[0] - out[-1][0], p[1] - out[-1][1]) > tol
+      end
+      out.pop while out.length > 2 &&
+                    Math.hypot(out[0][0] - out[-1][0],
+                               out[0][1] - out[-1][1]) <= tol
+      return [] if out.length < 3 || poly_area(out).abs < 0.25
+      out
+    end
+
+    def self.seg_dist(p, q, x)
+      dx = q[0] - p[0]
+      dy = q[1] - p[1]
+      ll = (dx * dx) + (dy * dy)
+      return Math.hypot(x[0] - p[0], x[1] - p[1]) if ll < 1.0e-12
+      t = (((x[0] - p[0]) * dx) + ((x[1] - p[1]) * dy)) / ll
+      t = 0.0 if t < 0.0
+      t = 1.0 if t > 1.0
+      Math.hypot(x[0] - (p[0] + (dx * t)), x[1] - (p[1] + (dy * t)))
     end
 
     # ----------------------------------------------------------- scanline

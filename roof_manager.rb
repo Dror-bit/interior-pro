@@ -1027,6 +1027,13 @@ module InteriorPro
       # it once says out loud that they are talking about the same surface.
       top_shell = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
                              : shell_before
+      # A SHELL FACE BURIED UNDER ANOTHER ROOF FACE IS ERASED (2026-08-21c).
+      # Where one wing's roof runs in under another, the intersection leaves
+      # the buried continuation as its own face. First its TILES were
+      # suppressed and the user corrected the aim: the piece itself goes -
+      # "אנחנו הסרנו אותה בעבר... עדיף שהיא לא תהיה שם". You can see it
+      # through the open gable end, and open gables are a stated feature.
+      top_shell = drop_buried_faces!(top_shell)
       if s[:ridge_cap] && s[:style] != 'flat'
         cap_lines = drop_facet_hips(ridge_lines(top_shell), poly, wall_ids)
         # THE VALLEY CHANNEL (2026-08-21) - the metal roof only: "צריך משהו
@@ -1034,6 +1041,10 @@ module InteriorPro
         # filter flipped hands back the valleys, and build_ridge_caps! lays a
         # flat strip IN each one - on the deck, no lift - see the `valley`
         # comment there. No other material grows one.
+        # (The flat tile briefly grew one too, plus a pull-back, 2026-08-21c.
+        # The user replaced both with the real answer: its tiles are WEDGES
+        # now, and a wedge cut on the valley line meets the opposite wedge in
+        # a clean intersection - nothing to cover. See build_flat_cut!.)
         if defined?(InteriorPro::RoofTileMath) &&
            InteriorPro::RoofTileMath.respond_to?(:seam?) &&
            InteriorPro::RoofTileMath.seam?(s[:roof_material])
@@ -1737,6 +1748,78 @@ module InteriorPro
       RIDGE_CAP_THICK * RIDGE_CAP_LENGTH / RIDGE_CAP_EXPOSURE
     end
 
+    # The face-level half of the buried-plane rule (see build_roof!): a face
+    # whose own middle sits in PLAN inside another shell face's outline while
+    # that face passes ABOVE it there is not roof anyone can see - it is the
+    # continuation of one wing's plane under another wing's roof. It is
+    # erased, and the survivors are returned so everything downstream (cap
+    # lines, tiles, edges) never hears about it. RoofTilePlace has the same
+    # test for the planes it is handed directly, so both doors are closed.
+    def self.drop_buried_faces!(faces)
+      list = (faces || []).select do |f|
+        !f.respond_to?(:valid?) || f.valid?
+      end
+      return list if list.length < 2
+      info = list.map do |f|
+        pts = if f.respond_to?(:vertices)
+                f.vertices.map(&:position)
+              elsif f.respond_to?(:points)
+                f.points
+              else
+                f.pts
+              end
+        pts = pts.map { |p| [p.x.to_f, p.y.to_f, p.z.to_f] }
+        n = f.normal
+        { plan: pts.map { |p| [p[0], p[1]] },
+          cx: pts.sum { |p| p[0] } / pts.length,
+          cy: pts.sum { |p| p[1] } / pts.length,
+          cz: pts.sum { |p| p[2] } / pts.length,
+          p0: pts[0], n: [n.x.to_f, n.y.to_f, n.z.to_f] }
+      rescue StandardError
+        nil
+      end
+      buried = []
+      list.each_index do |i|
+        ci = info[i]
+        next if ci.nil?
+        # SAMPLED, NOT JUST THE CENTRE - same reason as the twin test in
+        # RoofTilePlace.drop_covered_planes: two crossing planes can both
+        # have their centres in each other's buried lobe, and erasing both
+        # leaves a bare roof. Erased only when there is no daylight at the
+        # centre NOR at the midpoint toward any corner.
+        samples = [[ci[:cx], ci[:cy], ci[:cz]]] + ci[:plan].each_index.map do |k|
+          [(ci[:cx] + ci[:plan][k][0]) / 2.0,
+           (ci[:cy] + ci[:plan][k][1]) / 2.0, nil]
+        end
+        cover = samples.all? do |(sx, sy, sz0)|
+          # a midpoint's own height on THIS plane
+          sz = sz0 || (ci[:p0][2] -
+               (((ci[:n][0] * (sx - ci[:p0][0])) +
+                 (ci[:n][1] * (sy - ci[:p0][1]))) / ci[:n][2]))
+          list.each_index.any? do |j|
+            next false if j == i
+            qi = info[j]
+            # only a real roof plane can bury one - not a slab edge
+            next false if qi.nil? || qi[:n][2].abs < 0.2
+            next false unless InteriorPro::RoofTileMath.poly_contains?(
+              qi[:plan], [sx, sy]
+            )
+            zq = qi[:p0][2] -
+                 (((qi[:n][0] * (sx - qi[:p0][0])) +
+                   (qi[:n][1] * (sy - qi[:p0][1]))) / qi[:n][2])
+            zq > sz + 0.1
+          end
+        end
+        buried << list[i] if cover
+      end
+      buried.each do |f|
+        f.erase!
+      rescue StandardError
+        nil
+      end
+      list - buried
+    end
+
     def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil, shape_name = nil)
       return if lines.nil? || lines.empty?
       total_len = lines.sum { |l| vlen(vsub(l[2], l[0])) }
@@ -1758,6 +1841,10 @@ module InteriorPro
       cap_round = cap_round_for(shape_name)
       half = cap_w / 2.0
       lift = cap_head_lift
+      # Once, outside the loop - it depends on the material, not on the line.
+      cap_flat = defined?(InteriorPro::RoofTileMath) &&
+                 InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+                 InteriorPro::RoofTileMath.run_flat?(shape_name)
       lines.each_with_index do |(ka, za, kb, zb, sides), idx|
         len = vlen(vsub(kb, ka))
         next if len < 1.0
@@ -1770,7 +1857,12 @@ module InteriorPro
         # no skirt (nothing under it to hide), no corner mitre at its foot.
         valley = sides.all? { |(_sd, sdz)| sdz > 1.0e-6 }
         d = vnorm(vsub(kb, ka))
-        prof = cap_profile([-d[1], d[0]], sides, cap_w, cap_c, cap_round)
+        # A valley strip is FLAT whatever the material's cap says. The seam's
+        # crown is 0 so it never noticed; the flat tile's cap states 2.622",
+        # and an ARCH in the bottom of a V would shed water sideways instead
+        # of carrying it.
+        prof = cap_profile([-d[1], d[0]], sides, cap_w,
+                           valley ? 0.0 : cap_c, valley ? false : cap_round)
         tucked = {}
         adj = lambda do |p|
           k = [p[0].round(2), p[1].round(2)]
@@ -1791,7 +1883,11 @@ module InteriorPro
           # The whole cap rides on top of the tiles - see cap_lift_for.
           # A valley channel does not: it lies on the deck and the water
           # runs over it.
-          v = valley ? 0.0 : cap_lift
+          # The flat tile's valley strip floats the same fifth of an inch its
+          # cut tiles do, for the same reason: ON the deck it is coplanar
+          # with it, SketchUp draws the deck instead, and the "channel" shows
+          # as a bare stripe. The seam's stays exactly where it was approved.
+          v = valley ? (cap_flat ? 0.2 : 0.0) : cap_lift
           v -= drop_a * [0.0, 1.0 - (q - a0) / RIDGE_CAP_LENGTH].max if drop_a > 0.0
           v -= drop_b * [0.0, 1.0 - (b0 - q) / RIDGE_CAP_LENGTH].max if drop_b > 0.0
           v
@@ -1810,7 +1906,13 @@ module InteriorPro
         # the way down the hip and is cut square at the gutter line, so the
         # metal cap takes no taper at all. Clay keeps it exactly as it was.
         sloping = (za - zb).abs > 1.0
-        taper_lo = sloping && low_free && cap_soft ? RIDGE_CAP_END_TAPER : 0.0
+        # THE FLAT TILE TAKES THE METAL END, NOT THE CLAY ONE (2026-08-21c).
+        # cap_soft is true for it - its cap is segmented and softened like
+        # clay's - so it inherited the clay taper, and the user photographed
+        # the result: the same pencil point sliding out over the eave corner
+        # that the metal cap had before its fix. Square width to the line,
+        # corner-mitred first piece, and a skirt closing the hollow under it.
+        taper_lo = sloping && low_free && cap_soft && !cap_flat ? RIDGE_CAP_END_TAPER : 0.0
         wscale = lambda do |q|
           next 1.0 if taper_lo <= 0.0
           r = rising ? (q - a0) : (b0 - q)
@@ -1822,7 +1924,7 @@ module InteriorPro
         # miter_lo comment in build_cap_piece!. Only the piece that actually
         # holds the eave corner (the first one, r runs from the low end), and
         # only on the metal roof - clay keeps its taper and its square ends.
-        miter = !cap_soft && sloping && low_free && !valley ? 1.0 : 0.0
+        miter = (!cap_soft || cap_flat) && sloping && low_free && !valley ? 1.0 : 0.0
         starts.each_with_index do |r1, i|
           r2 = [r1 + plen, span].min
           next if r2 - r1 < 0.5
@@ -1838,7 +1940,10 @@ module InteriorPro
                            # metal cap - see the comment in build_cap_piece!.
                            # The valley channel lies flat on the deck, so it
                            # has no hollow and takes none.
-                           cap_soft || valley ? 0.0 : cap_lift)
+                           # The flat tile's cap is lifted a tile height too,
+                           # so it takes the same skirt - the dark slot the
+                           # user saw each side of the hip was this hollow.
+                           (cap_soft && !cap_flat) || valley ? 0.0 : cap_lift)
         end
       end
     rescue StandardError => e
