@@ -120,9 +120,16 @@ module InteriorPro
         # RoofTileParts.flat_tile - the piece carries its own nose, ramp and
         # flat field, so nothing stacks: every head lies on the deck.
         #
-        # 13 x 13 is his approved size, straight columns, 0.7" step. The
-        # texture is 52 x 52 to stay a whole 4 x 4 of them - rt73 fails if the
-        # painted grid and the 3D grid ever drift apart.
+        # 13 x 13 is his approved size, 0.7" step. The texture is 52 x 52 to
+        # stay a whole 4 x 4 of them - rt73 fails if the painted grid and the
+        # 3D grid ever drift apart.
+        #
+        # STAGGERED, half a tile on every other course. It was built straight
+        # first, off his photograph, and he looked at the result and asked for
+        # the broken bond instead: "אני רוצה שזה יהיה סטאגרן". `stagger` and
+        # course_phase had been sitting here unused since the texture grid was
+        # written; RoofTilePlace.flat_slots is what finally reads them, and it
+        # walks the COURSES on the outside so it can.
         #
         # THE CAP IS STATED SO IT CANNOT MOVE. cap_w / cap_crown are written
         # out at exactly the numbers the old derivation produced (6.0 * 1.15
@@ -132,7 +139,7 @@ module InteriorPro
         # Its LIFT does follow the tiles - a cap floating 2.28" over a 0.7"
         # tile would show daylight underneath - see cap_lift_for.
         'slate'  => { tile_w: 13.0, exposure: 13.0, relief: 0.6, scallop: 0.0,
-                      stagger: false, texture: 'roof_flat_slate.jpg',
+                      stagger: true, texture: 'roof_flat_slate.jpg',
                       label: 'Flat Slate Tile',
                       run_flat: true, run_courses: true,
                       run_pitch: 13.0, run_cover: 1.0,

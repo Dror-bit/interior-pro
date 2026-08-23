@@ -180,13 +180,13 @@ ok('flat tile and metal tile are pressed into courses - clay is one pipe',
    RTM.shapes.keys.select { |k| RTM.run_courses?(k) })
 ok('standing seam is left exactly as it was, sheet not tile',
    !RTM.run_courses?('seam') && RTM.shapes['seam'][:exposure].zero?)
-# WAS: only slate staggers. It stopped on 2026-08-21c - the user's photograph
-# of the roof he wants shows the joints running in STRAIGHT columns up the
-# slope, and RoofTileParts.flat_tile lays them that way. `stagger` and
-# course_phase stay (tested just above) so a material can ask for it again;
-# nothing asks today, and this line is what would catch it starting to.
-ok('no material staggers its courses',
-   RTM.shapes.select { |_, s| s[:stagger] }.keys.empty?,
+# Only the flat tile staggers, and as of 2026-08-21c the flag finally DOES
+# something: RoofTilePlace.flat_slots reads course_phase and shifts every other
+# course half a tile. Until then `stagger` was a description with no builder
+# behind it, which is why the first flat-tile build came out in straight
+# columns and the user had to ask for the broken bond by name.
+ok('only the flat tile staggers',
+   RTM.shapes.select { |_, s| s[:stagger] }.keys == ['slate'],
    RTM.shapes.select { |_, s| s[:stagger] }.keys)
 ok('barrel is the waviest',
    RTM.shapes['barrel'][:scallop] > RTM.shapes['roman'][:scallop])

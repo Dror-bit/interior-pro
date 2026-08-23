@@ -86,37 +86,88 @@ module InteriorPro
       end
     end
 
-    # COURSES ON ONE GRID PER PLANE (2026-08-21c) - the flat tile only.
+    # THE FLAT TILE LAYS ITSELF OUT COURSE BY COURSE (2026-08-21c).
     #
-    # course_pieces above spreads its courses EVENLY over the span it is given,
-    # which is right for a pipe: each run is its own object and a sliver at the
-    # top of one is ugly. For a flat tile it is wrong, and rendering the real
-    # output is what showed it. Every column asks the outline for its own span,
-    # and next to a hip that span shortens column by column - so each column
-    # divided a DIFFERENT length into courses, the step came out slightly
-    # different in each, and the course lines broke into a staircase across the
-    # roof. On a real roof - and in the user's photograph - the course lines
-    # run dead straight from one end of a slope to the other.
+    # Every other layout here walks the COLUMNS on the outside and cuts each
+    # one into courses on the inside. That cannot stagger: the shift is half a
+    # tile ACROSS the slope and it depends on which COURSE you are in, so the
+    # course has to be the outer loop. The user asked for it after seeing the
+    # straight version - "אני רוצה שזה יהיה סטאגרן" - and course_phase, which
+    # has been sitting in RoofTileMath unused since the texture grid was
+    # written, is exactly the number it needs.
     #
-    # So the courses are laid on the PLANE's grid, from its eave: 0, E, 2E ...
-    # A column takes whichever of them fall inside its own span, and the last
-    # one is simply cut short where the hip crosses it, which is exactly what a
-    # roofer does with a tile at a hip.
+    # Two other things fall out of walking courses first, and both were real
+    # defects in the straight version, found by rendering the actual output:
     #
-    # Same shape of answer as course_pieces - [[start, length], ...] - so the
-    # caller does not care which one it called.
-    def self.grid_course_pieces(v1, v2, exposure, min_len = 0.0)
-      return [] if exposure.nil? || exposure <= 1.0e-9
-      return [] if (v2 - v1) < min_len || (v2 - v1) <= 1.0e-9
+    #   COURSE LINES STAY STRAIGHT. course_pieces spreads its courses EVENLY
+    #   over whatever span it is handed, which is right for a pipe. Here every
+    #   column asked the outline for its own span, and next to a hip that span
+    #   shortens column by column - so each column divided a DIFFERENT length,
+    #   the step came out slightly different in each, and the course lines
+    #   broke into a staircase. Now the courses ARE the grid: 0, E, 2E ... from
+    #   the plane's eave, the same for every column on the plane.
+    #
+    #   A TILE AT A HIP IS CUT, not dropped. The course band is clipped to the
+    #   span the outline gives at that column, which is what a roofer does with
+    #   a tile at a hip - and it is why the last piece in a column is short.
+    #
+    # Returns exactly what run_slots returns, so place_runs! cannot tell which
+    # of the two built the list.
+    def self.flat_slots(planes, shape_name, opts = {})
+      s = InteriorPro::RoofTileMath.shape(shape_name)
+      return [] if s.nil?
+      pitch = (opts[:pitch] || InteriorPro::RoofTileParts.run_pitch(s)).to_f
+      exposure = (opts[:exposure] || s[:exposure]).to_f
+      return [] if pitch <= 1.0e-9 || exposure <= 1.0e-9
+      min_len = (opts[:min_len] || min_run_len).to_f
+      overhang = if opts.key?(:overhang)
+                   opts[:overhang].to_f
+                 else
+                   InteriorPro::RoofTileParts.eave_overhang
+                 end
+      setback = if opts.key?(:setback)
+                  opts[:setback].to_f
+                else
+                  InteriorPro::RoofTileParts.ridge_setback(s)
+                end
+      stagger = s[:stagger] == true
       out = []
-      k = (v1 / exposure).floor
-      k = 0 if k.negative?
-      while (k * exposure) < v2 - 1.0e-9
-        a = [k * exposure, v1].max
-        b = [(k + 1) * exposure, v2].min
-        out << [a, b - a] if (b - a) >= min_len
-        k += 1
-        break if out.length > 20_000
+      (planes || []).each do |pl|
+        pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
+        next if pu.nil? || pu[:flat]
+        next if pu[:u_span].to_f < pitch
+        top = pu[:v_span].to_f
+        # The columns are the same list every course; only the phase moves.
+        cols = sheet_slots(pu[:u_span].to_f, pitch)
+        k = 0
+        while (k * exposure) < top
+          phase = InteriorPro::RoofTileMath.course_phase(k, pitch, stagger)
+          cols.each do |c0|
+            c = c0 + phase
+            InteriorPro::RoofTileMath.v_spans_at(pu[:poly], c, 0.0).each do |(v1, vtop)|
+              # Stop short of the ridge and the hip, so the cut end lands under
+              # the cap - the same rule, and the same number, as the runs.
+              v2 = vtop - setback
+              a = [k * exposure, v1].max
+              b = [(k + 1) * exposure, v2].min
+              next if (b - a) < min_len
+              v0 = a
+              plen = b - a
+              # Only a tile that really starts at the eave hangs past it. One
+              # that starts mid-slope was cut by a valley or a dormer and must
+              # not grow a nose out of nothing.
+              if a < 0.5
+                v0 = a - overhang
+                plen += overhang
+              end
+              o = InteriorPro::RoofTileMath.unproject([c, v0], pu[:origin],
+                                                      pu[:u], pu[:v])
+              out << { origin: o, u: pu[:u], v: pu[:v], n: pu[:n], length: plen }
+            end
+          end
+          k += 1
+          break if k > 10_000
+        end
       end
       out
     end
@@ -329,6 +380,12 @@ module InteriorPro
     # Returns [{ origin: [x, y, z], u:, v:, n:, length: }, ...].
     def self.run_slots(planes, shape_name, opts = {})
       return [] unless InteriorPro::RoofTileMath.runs?(shape_name)
+      # The flat tile has its own layout - courses on the outside so they can
+      # stagger. Everything below this line is untouched by it.
+      if InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+         InteriorPro::RoofTileMath.run_flat?(shape_name)
+        return flat_slots(planes, shape_name, opts)
+      end
       s = InteriorPro::RoofTileMath.shape(shape_name)
       # The RUN pitch, not the material's tile pitch. The pipe is allowed to be
       # finer than the tile the texture draws, and it is (2026-08-21): six inch
@@ -418,16 +475,7 @@ module InteriorPro
             # cover it. The eave end is untouched - it still hangs over.
             v2 = vtop - setback
             next if (v2 - v1) < min_len
-            # The flat tile keeps its courses on the plane's own grid so the
-            # course lines stay straight past a hip - see grid_course_pieces.
-            # Every other material divides its own span, exactly as before.
-            pieces = if InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
-                        InteriorPro::RoofTileMath.run_flat?(shape_name)
-                       grid_course_pieces(v1, v2, exposure, min_len)
-                     else
-                       course_pieces(v1, v2, exposure, overlap, min_len)
-                     end
-            pieces.each do |(a, len)|
+            course_pieces(v1, v2, exposure, overlap, min_len).each do |(a, len)|
               v0 = a
               plen = len
               # Only a piece that really starts at the eave hangs past it. One

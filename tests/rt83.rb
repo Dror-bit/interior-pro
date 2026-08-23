@@ -49,8 +49,11 @@ ok('the flat tile is described', !S.nil?)
 ok('it is 13 x 13 - the size the user approved off his photograph',
    close(S[:tile_w].to_f, 13.0) && close(S[:exposure].to_f, 13.0),
    [S[:tile_w], S[:exposure]])
-ok('STRAIGHT COLUMNS - the joints line up up the slope, as in his photo',
-   S[:stagger] != true, S[:stagger])
+# STAGGERED. Built straight first, off the photograph; the user looked at it
+# and asked for the broken bond by name - "אני רוצה שזה יהיה סטאגרן". The flag
+# was already here and had never had a builder behind it, which is exactly why
+# the first build ignored it. Measured on the real layout further down.
+ok('every other course is shifted half a tile', S[:stagger] == true, S[:stagger])
 ok('it is still dead flat - nothing about it is curved',
    S[:scallop].to_f.zero?)
 ok('and it gets its 3D through run_flat, not through scallop',
@@ -214,9 +217,42 @@ SLOTS  = PLACE.run_slots(PLANES, 'slate')
 
 ok('a 200" x 95" plane gets a GRID of tiles, not one run per column',
    SLOTS.length > 100, SLOTS.length)
-# 200" of eave at a 13" pitch, one column past each end -> 16 columns.
-cols = SLOTS.map { |s| s[:origin][0].round(3) }.uniq.length
-ok('the columns are spaced at the tile pitch', cols >= 14 && cols <= 18, cols)
+
+# ------------------------------------------------ THE STAGGER, MEASURED
+#
+# Back-project every slot into the plane's own u/v so the layout can be read
+# directly: which course it is in, and where across the slope it sits.
+PU = RTM.plane_uv(PLANES[0][:points], PLANES[0][:n])
+E  = S[:exposure].to_f
+P  = RTP.run_pitch(S)
+rows = Hash.new { |h, k| h[k] = [] }
+SLOTS.each do |s|
+  d = [s[:origin][0] - PU[:origin][0], s[:origin][1] - PU[:origin][1],
+       s[:origin][2] - PU[:origin][2]]
+  u = d[0] * PU[:u][0] + d[1] * PU[:u][1] + d[2] * PU[:u][2]
+  v = d[0] * PU[:v][0] + d[1] * PU[:v][1] + d[2] * PU[:v][2]
+  # the eave course starts at -overhang; round it back onto its own course
+  k = ((v + RTP.eave_overhang) / E).round
+  rows[k] << u
+end
+ok('the courses land on the plane grid, one per exposure',
+   rows.keys.sort == (0...rows.keys.length).to_a, rows.keys.sort)
+
+# Every column in one course is a whole pitch from the next - no drift.
+gaps = rows[0].sort.each_cons(2).map { |a, b| (b - a).round(4) }.uniq
+ok('inside one course the columns are exactly one pitch apart',
+   gaps.length == 1 && close(gaps[0], P, 1e-6), gaps)
+
+# ...and course 1 is offset from course 0 by HALF a pitch. This is the whole
+# ask. Compare the two courses' offsets modulo the pitch.
+off0 = rows[0].min % P
+off1 = rows[1].min % P
+ok('course 1 is shifted half a tile against course 0',
+   close(((off1 - off0) % P), P / 2.0, 1e-6), [off0, off1, P])
+ok('course 2 is back in line with course 0',
+   close(((rows[2].min % P) - off0) % P, 0.0, 1e-6),
+   [rows[2].min % P, off0])
+
 ok('every piece is about one course long',
    SLOTS.all? { |s| s[:length] > 3.0 && s[:length] < 20.0 },
    [SLOTS.map { |s| s[:length] }.min.round(2),
