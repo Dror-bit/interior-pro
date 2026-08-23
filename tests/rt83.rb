@@ -435,6 +435,41 @@ ok('not one tile point is buried under the crossing plane', g_bad.zero?, g_bad)
 ok('...and the daylight part under its footprint is still tiled',
    g_daylight.positive?, g_daylight)
 
+# THE KNIFE (2026-08-21c, "זה עדיין קיים בגייבל"): tiles were cut but the
+# DECK tongue itself stayed - a face cannot be half-erased. So roof_manager
+# draws the planes' 3D intersection line onto the shell first; SketchUp
+# splits the face along it and the buried half then erases like any buried
+# face. The stub cannot split, so the SEGMENT is what gets pinned: exactly
+# one, landing exactly on the junction, on BOTH planes, bounded by the
+# covering plane's footprint.
+require './roof_manager'
+RM2 = InteriorPro::RoofManager
+seg_ci = { plan: [[0.0, 0.0], [200.0, 0.0], [200.0, 90.0], [0.0, 90.0]],
+           cx: 100.0, cy: 45.0, cz: 115.0,
+           p0: [0.0, 0.0, 100.0], n: [0.0, -1.0 / 3.0, 1.0] }
+seg_qi = { plan: [[60.0, 20.0], [140.0, 20.0], [140.0, 90.0], [60.0, 90.0]],
+           cx: 100.0, cy: 55.0, cz: 113.75,
+           p0: [60.0, 20.0, 140.0], n: [0.0, 0.75, 1.0] }
+SEGS = RM2.buried_split_segments(seg_ci, seg_qi)
+ok('the knife finds exactly one junction segment', SEGS.length == 1,
+   SEGS.length)
+if SEGS.length == 1
+  sa, sb = SEGS[0]
+  ok('...landing exactly on the meeting line, y = 50.77',
+     close(sa[1], 660.0 / 13.0, 0.01) && close(sb[1], 660.0 / 13.0, 0.01),
+     [sa[1].round(3), sb[1].round(3)])
+  ok('...bounded by the covering footprint, x = 60 to 140',
+     close([sa[0], sb[0]].min, 60.0, 0.01) &&
+     close([sa[0], sb[0]].max, 140.0, 0.01), [sa[0], sb[0]])
+  ok('...with both endpoints ON both planes - SketchUp can cut with it',
+     [sa, sb].all? do |w|
+       close(w[2], 100.0 + (w[1] / 3.0), 1e-6) &&
+       close(w[2], 140.0 - ((w[1] - 20.0) * 0.75), 1e-6)
+     end)
+end
+ok('parallel planes get no knife - nothing to cut along',
+   RM2.buried_split_segments(seg_ci, seg_ci.merge(p0: [0.0, 0.0, 110.0])).empty?)
+
 # --------------------------------- THE VALLEY PULL-BACK (fourth pass)
 #
 # Tiles used to be cut exactly ON the valley line from both sides and the

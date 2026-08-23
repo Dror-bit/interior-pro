@@ -1033,7 +1033,7 @@ module InteriorPro
       # suppressed and the user corrected the aim: the piece itself goes -
       # "אנחנו הסרנו אותה בעבר... עדיף שהיא לא תהיה שם". You can see it
       # through the open gable end, and open gables are a stated feature.
-      top_shell = drop_buried_faces!(top_shell)
+      top_shell = drop_buried_faces!(top_shell, grp.entities)
       if s[:ridge_cap] && s[:style] != 'flat'
         cap_lines = drop_facet_hips(ridge_lines(top_shell), poly, wall_ids)
         # THE VALLEY CHANNEL (2026-08-21) - the metal roof only: "צריך משהו
@@ -1755,28 +1755,119 @@ module InteriorPro
     # erased, and the survivors are returned so everything downstream (cap
     # lines, tiles, edges) never hears about it. RoofTilePlace has the same
     # test for the planes it is handed directly, so both doors are closed.
-    def self.drop_buried_faces!(faces)
+    # Where a face is only PARTLY buried - the gable junction, which makes
+    # no valley and so splits nothing - the intersection line of the two
+    # PLANES is drawn onto the shell first. SketchUp splits both faces along
+    # it, the buried half becomes its own face, and the erase pass below
+    # takes it like any other buried face. "זה עדיין קיים בגייבל" was this
+    # exact face: tiles clipped, deck tongue still there.
+    def self.buried_split_segments(ci, qi)
+      return [] unless defined?(InteriorPro::RoofTilePlace)
+      np = ci[:n]
+      nq = qi[:n]
+      dv = [(np[1] * nq[2]) - (np[2] * nq[1]),
+            (np[2] * nq[0]) - (np[0] * nq[2]),
+            (np[0] * nq[1]) - (np[1] * nq[0])]
+      dl = Math.sqrt((dv[0]**2) + (dv[1]**2) + (dv[2]**2))
+      return [] if dl < 1.0e-6
+      dv = dv.map { |x| x / dl }
+      return [] if Math.hypot(dv[0], dv[1]) < 1.0e-6
+      p0 = ci[:p0]
+      q0 = qi[:p0]
+      l0 = InteriorPro::RoofTilePlace.solve3(
+        np, (np[0] * p0[0]) + (np[1] * p0[1]) + (np[2] * p0[2]),
+        nq, (nq[0] * q0[0]) + (nq[1] * q0[1]) + (nq[2] * q0[2]),
+        dv, (dv[0] * p0[0]) + (dv[1] * p0[1]) + (dv[2] * p0[2])
+      )
+      return [] if l0.nil?
+      # every place the line's PLAN path crosses either outline, then keep
+      # the stretches whose middle is inside BOTH - that is exactly where
+      # the junction lives on the roof.
+      ts = [-10_000.0, 10_000.0]
+      [ci[:plan], qi[:plan]].each do |poly|
+        n = poly.length
+        n.times do |i2|
+          ax, ay = poly[i2]
+          bx, by = poly[(i2 + 1) % n]
+          ex = bx - ax
+          ey = by - ay
+          den = (dv[0] * ey) - (dv[1] * ex)
+          next if den.abs < 1.0e-9
+          s = (((ax - l0[0]) * ey) - ((ay - l0[1]) * ex)) / den
+          u2 = (((ax - l0[0]) * dv[1]) - ((ay - l0[1]) * dv[0])) / den
+          ts << s if u2 >= -1.0e-6 && u2 <= 1.0 + 1.0e-6
+        end
+      end
+      out = []
+      ts.sort.each_cons(2) do |t1, t2|
+        next if (t2 - t1) < 1.0
+        tm = (t1 + t2) / 2.0
+        m = [l0[0] + (dv[0] * tm), l0[1] + (dv[1] * tm)]
+        next unless InteriorPro::RoofTileMath.poly_contains?(ci[:plan], m)
+        next unless InteriorPro::RoofTileMath.poly_contains?(qi[:plan], m)
+        out << [[l0[0] + (dv[0] * t1), l0[1] + (dv[1] * t1), l0[2] + (dv[2] * t1)],
+                [l0[0] + (dv[0] * t2), l0[1] + (dv[1] * t2), l0[2] + (dv[2] * t2)]]
+      end
+      out
+    end
+
+    def self.face_cover_info(f)
+      pts = if f.respond_to?(:vertices)
+              f.vertices.map(&:position)
+            elsif f.respond_to?(:points)
+              f.points
+            else
+              f.pts
+            end
+      pts = pts.map { |p| [p.x.to_f, p.y.to_f, p.z.to_f] }
+      n = f.normal
+      { plan: pts.map { |p| [p[0], p[1]] },
+        cx: pts.sum { |p| p[0] } / pts.length,
+        cy: pts.sum { |p| p[1] } / pts.length,
+        cz: pts.sum { |p| p[2] } / pts.length,
+        p0: pts[0], n: [n.x.to_f, n.y.to_f, n.z.to_f] }
+    rescue StandardError
+      nil
+    end
+
+    def self.drop_buried_faces!(faces, ents = nil)
       list = (faces || []).select do |f|
         !f.respond_to?(:valid?) || f.valid?
       end
       return list if list.length < 2
-      info = list.map do |f|
-        pts = if f.respond_to?(:vertices)
-                f.vertices.map(&:position)
-              elsif f.respond_to?(:points)
-                f.points
-              else
-                f.pts
-              end
-        pts = pts.map { |p| [p.x.to_f, p.y.to_f, p.z.to_f] }
-        n = f.normal
-        { plan: pts.map { |p| [p[0], p[1]] },
-          cx: pts.sum { |p| p[0] } / pts.length,
-          cy: pts.sum { |p| p[1] } / pts.length,
-          cz: pts.sum { |p| p[2] } / pts.length,
-          p0: pts[0], n: [n.x.to_f, n.y.to_f, n.z.to_f] }
-      rescue StandardError
-        nil
+      info = list.map { |f| face_cover_info(f) }
+      # FIRST, THE KNIFE (gable pass): draw the planes' intersection lines
+      # onto the shell wherever two of these faces overlap in plan. SketchUp
+      # splits the faces along them, a partly-buried tongue becomes a whole
+      # buried face, and the erase pass below takes it. In the pure test
+      # stub add_line splits nothing, so this is exercised in SketchUp and
+      # the segment MATHS is what rt83 pins.
+      if ents && ents.respond_to?(:add_line)
+        added = []
+        list.each_index do |i|
+          ((i + 1)...list.length).each do |j|
+            ci = info[i]
+            qi = info[j]
+            next if ci.nil? || qi.nil?
+            next if ci[:n][2].abs < 0.2 || qi[:n][2].abs < 0.2
+            buried_split_segments(ci, qi).each do |(w1, w2)|
+              e = ents.add_line(Geom::Point3d.new(w1[0], w1[1], w1[2]),
+                                Geom::Point3d.new(w2[0], w2[1], w2[2]))
+              added << e unless e.nil?
+            rescue StandardError
+              nil
+            end
+          end
+        end
+        added.each do |e|
+          next unless e.respond_to?(:faces)
+          e.faces.each do |f|
+            next unless f.respond_to?(:normal) && f.normal.z > 0.2
+            list << f unless list.include?(f)
+          end
+        end
+        list = list.select { |f| !f.respond_to?(:valid?) || f.valid? }
+        info = list.map { |f| face_cover_info(f) }
       end
       buried = []
       list.each_index do |i|
