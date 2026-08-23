@@ -470,6 +470,64 @@ end
 ok('parallel planes get no knife - nothing to cut along',
    RM2.buried_split_segments(seg_ci, seg_ci.merge(p0: [0.0, 0.0, 110.0])).empty?)
 
+# --------------------------------- THE UNDERSIDE TWIN (2026-08-23)
+#
+# The knife was never what was left. Measured in the user's own gable model:
+# the buried TOP face was already erased, and the only face in the roof group
+# with no twin was the one 0.5" below it - the underside of the slab, which
+# drop_buried_faces! never sees because it is handed the top shell alone.
+# That underside is the deck he kept seeing through the open gable.
+#
+# It cannot simply be fed to the same test: every underside face is covered
+# by its own top skin, and the test flagged ALL SEVEN of his as buried. So an
+# underside face is erased for exactly one reason - the face above it went.
+class TwinFace
+  attr_reader :points, :normal
+  def initialize(pts, n)
+    @points = pts.map { |p| Geom::Point3d.new(p[0], p[1], p[2]) }
+    @normal = Geom::Vector3d.new(n[0], n[1], n[2])
+    @gone = false
+  end
+  def valid?; !@gone; end
+  def erase!; @gone = true; end
+  def gone?; @gone; end
+end
+
+# a square deck tongue, and the underside half an inch below it
+def twin_square(cx, cy, z, nz = 1.0)
+  TwinFace.new([[cx - 10, cy - 10, z], [cx + 10, cy - 10, z],
+                [cx + 10, cy + 10, z], [cx - 10, cy + 10, z]], [0.0, 0.0, nz])
+end
+
+gone_top   = RM2.face_cover_info(twin_square(100.0, 50.0, 120.0))
+under_hit  = twin_square(100.0, 50.0, 119.5)       # the tongue's own underside
+under_far  = twin_square(400.0, 50.0, 119.5)       # a different part of the roof
+under_edge = twin_square(100.0, 50.0, 119.5, -1.0) # slab edge - faces the other way
+under_over = twin_square(100.0, 50.0, 120.5)       # above the erased face, not below
+twins_hit = RM2.drop_buried_twins!(
+  [gone_top], [under_hit, under_far, under_edge, under_over]
+)
+ok('the underside twin of an erased top face is erased too',
+   twins_hit == 1, twins_hit)
+ok('...and it is the one directly below it', under_hit.gone?)
+ok('a face elsewhere on the roof is left alone', !under_far.gone?)
+ok('the slab edge sharing its centre is left alone - opposite normal',
+   !under_edge.gone?)
+ok('a face ABOVE the erased one is left alone', !under_over.gone?)
+
+# THE REGRESSION THIS PASS EXISTS NOT TO BECOME: running the cover test over
+# the underside would erase the whole ceiling. Nothing goes without a top
+# face having gone first.
+ok('no erased top face means no underside is touched',
+   RM2.drop_buried_twins!([], [twin_square(100.0, 50.0, 119.5)]).zero?)
+ok('and with no underside handed in, the pass does nothing',
+   RM2.drop_buried_twins!([gone_top], nil).zero?)
+# The old two-argument call still means "top shell only" - every other caller
+# and every earlier suite is untouched.
+ok('drop_buried_faces! still accepts the old two arguments',
+   RM2.method(:drop_buried_faces!).arity == -2,
+   RM2.method(:drop_buried_faces!).arity)
+
 # --------------------------------- THE VALLEY PULL-BACK (fourth pass)
 #
 # Tiles used to be cut exactly ON the valley line from both sides and the

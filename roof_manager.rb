@@ -1033,7 +1033,11 @@ module InteriorPro
       # suppressed and the user corrected the aim: the piece itself goes -
       # "אנחנו הסרנו אותה בעבר... עדיף שהיא לא תהיה שם". You can see it
       # through the open gable end, and open gables are a stated feature.
-      top_shell = drop_buried_faces!(top_shell, grp.entities)
+      # ...and the slab's UNDERSIDE twin of anything erased goes with it, or
+      # the deck is still there to see through the open gable. See
+      # drop_buried_twins! for why the underside cannot be tested directly.
+      top_shell = drop_buried_faces!(top_shell, grp.entities,
+                                     dz > 0.001 ? shell_before : nil)
       if s[:ridge_cap] && s[:style] != 'flat'
         cap_lines = drop_facet_hips(ridge_lines(top_shell), poly, wall_ids)
         # THE VALLEY CHANNEL (2026-08-21) - the metal roof only: "צריך משהו
@@ -1830,7 +1834,51 @@ module InteriorPro
       nil
     end
 
-    def self.drop_buried_faces!(faces, ents = nil)
+    # THE SLAB HAS TWO SKINS, AND ONLY THE TOP ONE IS TESTED (2026-08-23).
+    # Erasing the top face of a buried tongue leaves its UNDERSIDE hanging
+    # there, and through an open gable that underside IS the deck the user
+    # kept seeing - "זה עדיין קיים בגייבל". The knife was never the problem:
+    # measured in his own model, the buried top face was already gone and the
+    # bottom one, f2, was the only face in the group with no twin.
+    #
+    # The underside CANNOT be run through the cover test above. Every
+    # underside face is covered by its own top skin half an inch higher, so
+    # the test calls the whole ceiling buried - measured the same day, it
+    # flagged all seven. So nothing new is decided here: an underside face is
+    # erased only because the face directly ABOVE it was already erased.
+    # Matched in plan (same centre within an inch), same plane direction, and
+    # strictly lower - a slab edge sharing a centre with its own top face has
+    # the opposite normal and is left alone.
+    #
+    # Known gap: where the knife SPLITS a top face, the erased half has no
+    # matching whole underside face and this pass finds nothing. His roofs
+    # erase the tongue whole, so that case is still open.
+    def self.drop_buried_twins!(gone_info, under)
+      return 0 if under.nil?
+      gone = (gone_info || []).compact
+      return 0 if gone.empty?
+      hit = 0
+      Array(under).each do |f|
+        next if f.respond_to?(:valid?) && !f.valid?
+        ui = face_cover_info(f)
+        next if ui.nil?
+        next unless gone.any? do |gi|
+          (gi[:cx] - ui[:cx]).abs < 1.0 &&
+            (gi[:cy] - ui[:cy]).abs < 1.0 &&
+            (gi[:n][2] - ui[:n][2]).abs < 0.01 &&
+            ui[:cz] < gi[:cz] - 0.05
+        end
+        begin
+          f.erase!
+          hit += 1
+        rescue StandardError
+          nil
+        end
+      end
+      hit
+    end
+
+    def self.drop_buried_faces!(faces, ents = nil, under = nil)
       list = (faces || []).select do |f|
         !f.respond_to?(:valid?) || f.valid?
       end
@@ -1870,6 +1918,7 @@ module InteriorPro
         info = list.map { |f| face_cover_info(f) }
       end
       buried = []
+      buried_info = []
       list.each_index do |i|
         ci = info[i]
         next if ci.nil?
@@ -1901,13 +1950,17 @@ module InteriorPro
             zq > sz + 0.1
           end
         end
-        buried << list[i] if cover
+        if cover
+          buried << list[i]
+          buried_info << ci
+        end
       end
       buried.each do |f|
         f.erase!
       rescue StandardError
         nil
       end
+      drop_buried_twins!(buried_info, under)
       list - buried
     end
 
