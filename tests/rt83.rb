@@ -528,6 +528,57 @@ ok('drop_buried_faces! still accepts the old two arguments',
    RM2.method(:drop_buried_faces!).arity == -2,
    RM2.method(:drop_buried_faces!).arity)
 
+# --------------------------------- THE ORPHAN EDGES (2026-08-23)
+#
+# "שני קווים דקים על השיפוע" - erasing the tongue's faces left their rim
+# edges behind with NO faces at all, and SketchUp draws a faceless edge as
+# a bare line, always. Measured in the user's model: the two visible lines
+# were two free 344" edges (deck top + underside, 0.5" apart, faces=0).
+# The rule: only an edge left holding NOTHING is erased; an edge with a
+# surviving face is a real boundary and is kept.
+class OrphanEdge
+  attr_reader :faces
+  def initialize(faces)
+    @faces = faces
+    @gone = false
+  end
+  def valid?; !@gone; end
+  def erase!; @gone = true; end
+  def gone?; @gone; end
+end
+live_face = Object.new
+e_bare = OrphanEdge.new([])          # the pencil line - nothing holds it
+e_held = OrphanEdge.new([live_face]) # still a boundary of a real face
+orphans_hit = RM2.drop_orphan_edges!([e_bare, e_held, e_bare])
+ok('a faceless edge is erased - the visible pencil line', e_bare.gone?)
+ok('an edge still holding a face is kept', !e_held.gone?)
+ok('an already-erased edge is not counted twice', orphans_hit == 1,
+   orphans_hit)
+ok('and no edges at all is fine', RM2.drop_orphan_edges!(nil).zero?)
+
+# drop_buried_twins! hands the twin's edges to the sweep: an erased twin
+# with #edges lands them in the doomed list BEFORE the face goes.
+class TwinFaceE < TwinFace
+  def initialize(pts, n, edges)
+    super(pts, n)
+    @edges = edges
+  end
+  attr_reader :edges
+end
+twin_rim = OrphanEdge.new([])
+twin_e = TwinFaceE.new(
+  [[90, 40, 119.5], [110, 40, 119.5], [110, 60, 119.5], [90, 60, 119.5]],
+  [0.0, 0.0, 1.0], [twin_rim]
+)
+doomed = []
+RM2.drop_buried_twins!([gone_top], [twin_e], doomed)
+ok('the erased twin\'s edges are collected for the orphan sweep',
+   doomed.include?(twin_rim))
+ok('...and the twin itself was erased', twin_e.gone?)
+ok('the two-argument twin call still works - no doomed list, no sweep',
+   RM2.drop_buried_twins!([gone_top],
+                          [twin_square(100.0, 50.0, 119.5)]) == 1)
+
 # --------------------------------- THE VALLEY PULL-BACK (fourth pass)
 #
 # Tiles used to be cut exactly ON the valley line from both sides and the

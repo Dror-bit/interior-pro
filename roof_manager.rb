@@ -1853,7 +1853,7 @@ module InteriorPro
     # Known gap: where the knife SPLITS a top face, the erased half has no
     # matching whole underside face and this pass finds nothing. His roofs
     # erase the tongue whole, so that case is still open.
-    def self.drop_buried_twins!(gone_info, under)
+    def self.drop_buried_twins!(gone_info, under, doomed_edges = nil)
       return 0 if under.nil?
       gone = (gone_info || []).compact
       return 0 if gone.empty?
@@ -1868,6 +1868,7 @@ module InteriorPro
             (gi[:n][2] - ui[:n][2]).abs < 0.01 &&
             ui[:cz] < gi[:cz] - 0.05
         end
+        doomed_edges.concat(f.edges) if doomed_edges && f.respond_to?(:edges)
         begin
           f.erase!
           hit += 1
@@ -1955,13 +1956,43 @@ module InteriorPro
           buried_info << ci
         end
       end
+      doomed_edges = []
+      buried.each do |f|
+        doomed_edges.concat(f.edges) if f.respond_to?(:edges)
+      end
       buried.each do |f|
         f.erase!
       rescue StandardError
         nil
       end
-      drop_buried_twins!(buried_info, under)
+      drop_buried_twins!(buried_info, under, doomed_edges)
+      drop_orphan_edges!(doomed_edges)
       list - buried
+    end
+
+    # THE ORPHAN EDGES (2026-08-23, the two thin lines on the main slope).
+    # Erasing a face does not erase its edges - each edge stays behind
+    # wherever no other face holds it, and SketchUp draws a faceless edge
+    # as a bare line, always. Measured in the user's gable model: the two
+    # visible lines were two 344" free edges (deck top + underside, 0.5"
+    # apart, faces=0) - the rim of the erased tongue along the junction.
+    # Hiding the 4 coplanar knife edges did nothing; hiding these two made
+    # the lines vanish. Only edges of the faces this pass itself erased are
+    # swept, and only those left holding nothing - an edge with a surviving
+    # face is a real boundary and is kept.
+    def self.drop_orphan_edges!(edges)
+      n = 0
+      (edges || []).each do |e|
+        next if e.respond_to?(:valid?) && !e.valid?
+        next unless e.respond_to?(:faces) && e.faces.empty?
+        begin
+          e.erase!
+          n += 1
+        rescue StandardError
+          nil
+        end
+      end
+      n
     end
 
     def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil, shape_name = nil)
