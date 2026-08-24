@@ -523,9 +523,21 @@ InteriorPro::RoofDialog.show
 dlg = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
 ok('roof dialog registers its callbacks',
    dlg && dlg.callbacks.key?('apply_roof') && dlg.callbacks.key?('remove_roof'))
+# CLICK MARKS SURVIVE AN ORDINARY APPLY (2026-08-26).
+# Switching TO Hip still wipes them - that is the 2026-08-05C rule and it
+# stays. Pressing Apply again while ALREADY on Hip must not: marking a gable
+# end never moves the radio off Hip, so before today every tile change,
+# colour change or pitch change threw the user's gables away and handed him
+# back a plain hip ("הוא מחזיר לי את הגג לצורה המקורית שלו").
+ok('this block starts on a hip', RF.settings[:style] == 'hip', RF.settings[:style])
 Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_wall_ids', %w[e1])
 dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
-ok('dialog Apply in Hip mode clears click marks (2026-08-05C)',
+ok('Apply while ALREADY on Hip keeps the click marks',
+   RF.gable_wall_ids == %w[e1], RF.gable_wall_ids)
+dlg.callbacks['apply_roof'].call(nil, 'gable', '8', 'true', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
+ok('...and so does an Apply on Gable', RF.gable_wall_ids == %w[e1], RF.gable_wall_ids)
+dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
+ok('SWITCHING back to Hip clears them (2026-08-05C, still true)',
    RF.gable_wall_ids.empty?, RF.gable_wall_ids)
 s = RF.settings
 ok('dialog apply saves pitch/overhang/fascia depth/drip/colors',

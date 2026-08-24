@@ -26,9 +26,21 @@ module InteriorPro
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
                                                 soffit, scol, sslope|
-        # Apply in Hip mode = a clean full hip: clear click marks (user
+        # SWITCHING to Hip = a clean full hip: the click marks go (user
         # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
-        if style.to_s == 'hip'
+        #
+        # ONLY on the switch, though (2026-08-26). Before today this ran on
+        # EVERY Apply while the radio sat on Hip - so building a hip,
+        # clicking three ends into gables and then changing nothing but the
+        # TILE threw the three gables away and handed back the plain hip.
+        # The user: "אני רוצה להחליף סוג של רעפים... הוא מחזיר לי את הגג
+        # לצורה המקורית שלו ולא שומר שינויים." Marking a gable does not
+        # move the radio off Hip - the marks are a separate thing entirely -
+        # so "the radio says hip" was never the question worth asking. The
+        # question is whether this Apply CHANGED the style, and that is what
+        # is asked now. Switch away to Gable and back to Hip and the old
+        # clean-slate behaviour is still there, unchanged.
+        if style.to_s == 'hip' && RoofManager.settings[:style].to_s != 'hip'
           m = Sketchup.active_model
           m.set_attribute('InteriorPro', 'roof_gable_wall_ids', [])
           m.set_attribute('InteriorPro', 'roof_gable_click_xy', [])
