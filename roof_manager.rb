@@ -24,7 +24,15 @@ module InteriorPro
     # exterior face out to the fascia, so with no overhang there is
     # nothing to close and it is not built at all.
     SOFFIT_THICK = 0.75 unless const_defined?(:SOFFIT_THICK, false)
-    SOFFIT_STYLES = %w[none boxed].freeze unless const_defined?(:SOFFIT_STYLES, false)
+    # 'wood' and 'stucco' (2026-08-25) are the SAME board as 'boxed' - the
+    # plate, the square gable corner and the rake twin are all shared, so
+    # there is no second geometry path to keep in step. They differ only in
+    # what the board is painted, which is what this project does everywhere
+    # else too (USE_ROOF_TEXTURES = false: the colour is picked here, the
+    # real material is done in Lumion). See soffit_colors.
+    # DOCUMENTATION ONLY - nothing branches on this list, so the usual
+    # const_defined? reload trap cannot bite here.
+    SOFFIT_STYLES = %w[none boxed wood stucco].freeze unless const_defined?(:SOFFIT_STYLES, false)
     # ...until 2026-08-10. A zero-thickness sheet has no edge to look at,
     # and worse: the gable wall rises to exactly the same plane, so the
     # wall showed THROUGH the shingles along the rake. The slab is now
@@ -95,6 +103,7 @@ module InteriorPro
         fascia_depth: g.call('roof_fascia_depth', DEFAULT_FASCIA_DEPTH).to_f,
         drip: g.call('roof_drip', true) == true,
         soffit: g.call('roof_soffit', 'none').to_s,
+        soffit_color: g.call('roof_soffit_color', '').to_s,
         roof_color: g.call('roof_color', DEFAULT_ROOF_COLOR).to_s,
         fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s,
         roof_material: g.call('roof_material', 'color').to_s,
@@ -113,6 +122,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_fascia_depth', s[:fascia_depth])
       m.set_attribute('InteriorPro', 'roof_drip', s[:drip])
       m.set_attribute('InteriorPro', 'roof_soffit', s[:soffit])
+      m.set_attribute('InteriorPro', 'roof_soffit_color', s[:soffit_color])
       m.set_attribute('InteriorPro', 'roof_color', s[:roof_color])
       m.set_attribute('InteriorPro', 'roof_fascia_color', s[:fascia_color])
       m.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
@@ -874,7 +884,7 @@ module InteriorPro
                          fascia: nil, fascia_depth: nil, drip: nil,
                          roof_color: nil, fascia_color: nil,
                          roof_material: nil, thickness: nil, ridge_cap: nil,
-                         gable_walls: nil, soffit: nil)
+                         gable_walls: nil, soffit: nil, soffit_color: nil)
       model = Sketchup.active_model
       s = settings
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
@@ -885,6 +895,7 @@ module InteriorPro
       s[:fascia_depth] = fascia_depth.to_f if fascia_depth && fascia_depth.to_f > 0.01
       s[:drip] = (drip == true) unless drip.nil?
       s[:soffit] = soffit.to_s if soffit
+      s[:soffit_color] = soffit_color.to_s if soffit_color
       s[:roof_color] = roof_color.to_s if roof_color
       s[:fascia_color] = fascia_color.to_s if fascia_color
       s[:roof_material] = roof_material.to_s if roof_material
@@ -1181,6 +1192,27 @@ module InteriorPro
       if s[:drip]
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
                     gable_flags, gable_spans)
+        # ...and the same thin strip climbing the gable rakes (user
+        # 2026-08-24). build_band! skips a gabled edge entirely, so without
+        # this the drip stopped dead at the corner. It rides on the rake
+        # fascia's outer face when there is one, and on the poly line itself
+        # when the fascia is switched off, so it never floats in mid air.
+        # Same chain/runs machinery as the rake fascia - no new geometry.
+        d_in = s[:fascia] ? FASCIA_THICK : 0.0
+        if zmap && framed
+          owners = framed_line_owners(framed)
+          gables.each do |i|
+            key = line_key(poly, i)
+            cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
+            build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH, cover: cov,
+                              surface: surf, k_in: d_in, k_out: d_in + DRIP_THICK)
+          end
+        elsif zmap
+          gables.each do |i|
+            build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH,
+                              k_in: d_in, k_out: d_in + DRIP_THICK)
+          end
+        end
       end
       # The soffit closes the eave from below. It skips the gable rakes for
       # the same reason the fascia does - there the roof edge climbs, so
@@ -1227,8 +1259,17 @@ module InteriorPro
         end
         # ...and then the general rule, over every face the soffit just
         # added: flush boards do not get a line between them.
-        soften_flush_seams!(grp.entities.grep(Sketchup::Face)
-                               .reject { |f| had[f.object_id] })
+        fresh = grp.entities.grep(Sketchup::Face).reject { |f| had[f.object_id] }
+        soften_flush_seams!(fresh)
+        # WHAT THE BOARD IS PAINTED (2026-08-25). 'boxed' is a painted board
+        # and keeps taking the fascia colour off the fallback below, exactly
+        # as it did - soffit_color returns nil for it and nothing here runs.
+        # 'wood' and 'stucco' are the same board with a different finish, so
+        # they carry their own colour.
+        paint = soffit_paint(model, s)
+        if paint
+          fresh.each { |f| paint_soffit_face!(f, paint[:mat], paint[:size]) }
+        end
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
@@ -2963,12 +3004,20 @@ module InteriorPro
       chain
     end
 
+    # k_in / k_out are the board's two faces, measured OUTWARD from the poly
+    # line (2026-08-25). The defaults 0..FASCIA_THICK are exactly where the
+    # rake fascia has always stood, so every existing call is unchanged. The
+    # gable DRIP passes FASCIA_THICK..FASCIA_THICK+DRIP_THICK, which lands its
+    # thin strip on the fascia's outer face - the same place the flat eave
+    # drip sits relative to the flat fascia.
     def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil,
-                               surface: nil)
+                               surface: nil, k_in: 0.0, k_out: FASCIA_THICK)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
-      out = [d[1] * FASCIA_THICK, -d[0] * FASCIA_THICK] # outward for CCW
+      nrm = [d[1], -d[0]]                              # outward for CCW
+      ins = [nrm[0] * k_in, nrm[1] * k_in]
+      out = [nrm[0] * (k_out - k_in), nrm[1] * (k_out - k_in)]
       chain = edge_profile_chain(poly, i, zmap, full: full, surface: surface)
       return if chain.nil?
       # full profile (framed path, 2026-08-05B): the rake runs the WHOLE
@@ -2991,10 +3040,10 @@ module InteriorPro
           za = z1 + (z2 - z1) * fa
           zb = z1 + (z2 - z1) * fb
           inner = [
-            Geom::Point3d.new(q1[0], q1[1], za),
-            Geom::Point3d.new(q2[0], q2[1], zb),
-            Geom::Point3d.new(q2[0], q2[1], zb - depth),
-            Geom::Point3d.new(q1[0], q1[1], za - depth)
+            Geom::Point3d.new(q1[0] + ins[0], q1[1] + ins[1], za),
+            Geom::Point3d.new(q2[0] + ins[0], q2[1] + ins[1], zb),
+            Geom::Point3d.new(q2[0] + ins[0], q2[1] + ins[1], zb - depth),
+            Geom::Point3d.new(q1[0] + ins[0], q1[1] + ins[1], za - depth)
           ]
           outer = inner.map { |p| Geom::Point3d.new(p.x + out[0], p.y + out[1], p.z) }
           grp.entities.add_face(inner)
@@ -4119,6 +4168,147 @@ module InteriorPro
       return nil if k_out - k_in < 0.5
       z_bot = band_top.to_f - fascia_depth.to_f
       { k_in: k_in, k_out: k_out, z_bot: z_bot, z_top: z_bot + SOFFIT_THICK }
+    end
+
+    # The soffit's default colour, per style (2026-08-25). nil = leave the
+    # board to the trim colour, which is what a painted boxed soffit is and
+    # what every roof built before this date did - so 'boxed' is untouched.
+    #
+    # A METHOD, NOT A CONSTANT, for the reason spelled out over roof_textures:
+    # `X = {...} unless const_defined?(:X)` is not re-read by
+    # InteriorPro.reload!, and that has already cost this project two rounds.
+    def self.soffit_colors
+      {
+        'boxed'  => nil,        # painted board - follows the fascia
+        'wood'   => '#8b5a2b',  # stained fir
+        'stucco' => '#efeae1'   # off white, same family as a stucco wall
+      }
+    end
+
+    # nil = follow the fascia. A soffit_color set by hand always wins, so a
+    # wood soffit can be re-stained without inventing a new style.
+    def self.soffit_color(s)
+      c = s[:soffit_color].to_s.strip
+      return c if c.start_with?('#')
+      soffit_colors[s[:soffit].to_s]
+    end
+
+    # THE SOFFIT WEARS A PICTURE, NOT A COLOUR (2026-08-25, user: "יש רק
+    # צבע זה לא טקסטורה"). The roof SURFACE went to the colour picker on
+    # 2026-08-21 because its tiles carry their pattern in 3D - two patterns
+    # fighting. The soffit has no 3D pattern at all (the user chose a plain
+    # board over modelled planks, same call the shingle got), so here the
+    # texture IS the pattern and there is nothing for it to fight.
+    #
+    # size = the tile's real width in inches. soffit_wood.jpg is one square
+    # of about 17 boards, so 72" puts a board at a touch over 4" - a normal
+    # tongue and groove soffit board. Change the number here and nowhere else.
+    #
+    # A METHOD, NOT A CONSTANT - InteriorPro.reload! does not re-read a
+    # `unless const_defined?` constant, the trap documented over roof_textures.
+    def self.soffit_textures
+      {
+        'wood'   => { file: 'soffit_wood.jpg', size: 72.0 },
+        'stucco' => { file: 'stucco.jpg',      size: 48.0 }
+      }
+    end
+
+    # What the board is actually painted with. In order:
+    #   1. a soffit_color picked by hand wins - it is an explicit override
+    #   2. the style's texture, if its file is on disk
+    #   3. the style's default colour
+    #   4. nil -> the trim colour, which is what 'boxed' and 'none' get
+    # A missing file can only ever cost the picture, never the roof.
+    # Returns { mat:, size: } - size is the texture's tile width in inches
+    # when a picture won, and nil when a flat colour did. The caller needs
+    # BOTH: a colour has no direction, a picture has to be turned to line up
+    # with the fascia. One method answers it so the two cannot drift apart.
+    def self.soffit_paint(model, s)
+      hand = s[:soffit_color].to_s.strip
+      return { mat: color_material(model, hand), size: nil } if hand.start_with?('#')
+      spec = soffit_textures[s[:soffit].to_s]
+      if spec
+        p = texture_path(spec[:file])
+        if File.exist?(p)
+          name = "InteriorPro_Soffit_#{s[:soffit]}"
+          m = model.materials[name]
+          return { mat: m, size: spec[:size] } if m
+          m = model.materials.add(name)
+          begin
+            m.texture = p
+            m.texture.size = spec[:size] if m.texture
+            return { mat: m, size: spec[:size] }
+          rescue StandardError => e
+            puts "[Roof] soffit texture #{spec[:file]}: #{e.message}"
+          end
+        else
+          puts "[Roof] soffit texture missing: #{p} - falling back to colour"
+        end
+      end
+      c = soffit_color(s)
+      c ? { mat: color_material(model, c), size: nil } : nil
+    end
+
+    # THE PLANKS RUN ALONG THE FASCIA (2026-08-25, user: "אני רוצה שזה תמיד
+    # ילך לאורך הפשייה"). Left to itself SketchUp lays a texture out on the
+    # world axes, so on any eave that is not dead square to red/green the
+    # boards crossed it on a diagonal.
+    #
+    # No edge index has to be threaded through the four builders to fix it:
+    # every soffit piece is a long board, so its own LONGEST edge already
+    # points along the fascia. On a rake that same rule points it up the
+    # slope, which is where the boards go there too.
+    # Known small case: the little square box return at a gable corner is as
+    # wide as it is long, so which way it reads is a coin toss. It is one
+    # overhang across and hidden in the corner.
+    #
+    # PURE, pinned by rt84. 3D on purpose - a rake board is sloped, and a
+    # direction that is not IN the face's plane cannot orient its texture.
+    def self.ring_longest_dir(ring)
+      return nil if ring.nil? || ring.length < 2
+      best = nil
+      bl = 0.0
+      n = ring.length
+      n.times do |i|
+        a = ring[i]
+        b = ring[(i + 1) % n]
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        dz = b[2] - a[2]
+        l = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        next if l <= bl
+        bl = l
+        best = [dx / l, dy / l, dz / l]
+      end
+      bl > 1.0e-6 ? best : nil
+    end
+
+    # position_material with TWO pairs sets origin, rotation and scale in one
+    # go, which is exactly the three things a lined-up board needs.
+    # DEFENSIVE BY INTENT: the cloud stub has no position_material and a face
+    # can refuse one, so every path ends with the face painted - at worst on
+    # the world axes, the way it looked before this.
+    def self.paint_soffit_face!(face, mat, size)
+      done = false
+      if size && face.respond_to?(:position_material) && face.respond_to?(:vertices)
+        begin
+          ring = face.vertices.map { |v| [v.position.x, v.position.y, v.position.z] }
+          d = ring_longest_dir(ring)
+          if d
+            o = face.vertices.first.position
+            u = Geom::Point3d.new(o.x + d[0] * size, o.y + d[1] * size, o.z + d[2] * size)
+            pts = [o, Geom::Point3d.new(0, 0, 0), u, Geom::Point3d.new(1, 0, 0)]
+            done = face.position_material(mat, pts, true) ? true : false
+            face.position_material(mat, pts, false)
+          end
+        rescue StandardError => e
+          puts "[Roof] soffit texture alignment: #{e.message}"
+          done = false
+        end
+      end
+      return if done
+      face.material = mat
+      face.back_material = mat
     end
 
     def self.add_prism!(ents, quad, z_top, z_bot)

@@ -75,10 +75,80 @@ ok('with no fascia the board runs out to the roof edge', close(nf[:k_out], 0.0),
 ok('with no fascia it still hangs at the same height', close(nf[:z_bot], BAND_TOP - FD), nf)
 
 # -------------------------------------------------------- 5. default is none
-ok("'none' and 'boxed' are the styles we have", RM::SOFFIT_STYLES == %w[none boxed],
+ok('the four styles we have', RM::SOFFIT_STYLES == %w[none boxed wood stucco],
    RM::SOFFIT_STYLES)
 ok('default stays none - old roofs must not change',
    RM.settings[:soffit] == 'none', RM.settings[:soffit])
+
+# ------------------------------------------------- the finish colour, 2026-08-25
+# 'wood' and 'stucco' are the SAME board as 'boxed'. The only thing that may
+# differ is the paint, so this is the whole of the new behaviour - and the
+# first line of it is that BOXED DID NOT CHANGE.
+ok('boxed follows the fascia, exactly as before',
+   RM.soffit_color(soffit: 'boxed', soffit_color: '').nil?,
+   RM.soffit_color(soffit: 'boxed', soffit_color: ''))
+ok('wood is stained, not left on the trim colour',
+   RM.soffit_color(soffit: 'wood', soffit_color: '') == '#8b5a2b')
+ok('stucco is off white',
+   RM.soffit_color(soffit: 'stucco', soffit_color: '') == '#efeae1')
+ok('a hand-picked colour beats the style default',
+   RM.soffit_color(soffit: 'wood', soffit_color: '#123456') == '#123456')
+ok('...and a blank or junk setting falls back to the style',
+   RM.soffit_color(soffit: 'wood', soffit_color: '   ') == '#8b5a2b' &&
+   RM.soffit_color(soffit: 'wood', soffit_color: 'blue') == '#8b5a2b')
+ok('an unknown style paints nothing rather than raising',
+   RM.soffit_color(soffit: 'martian', soffit_color: '').nil?)
+ok('none is not a finish either', RM.soffit_color(soffit: 'none', soffit_color: '').nil?)
+
+# ------------------------------------------------- the finish TEXTURE, 2026-08-25
+# The soffit is the one part of the roof that still wears a picture: it has
+# no 3D pattern to fight with (the user chose a plain board over modelled
+# planks), so the texture IS the pattern. rt43/rt73 guard the roof's own
+# jpgs the same way - a table that names a file nobody shipped is a silent
+# fall back to a flat colour, and nobody notices until it is on screen.
+tx = RM.soffit_textures
+ok('wood and stucco are the two textured finishes',
+   tx.keys.sort == %w[stucco wood], tx.keys)
+ok('boxed is NOT textured - it is a painted board', tx['boxed'].nil?)
+# texture_path is relative to the FILE, and run_all.sh copies the sources
+# into tests/ - so in the cloud it points at tests/textures while the jpgs
+# live in the plugin root. Look in both; either one proves the file shipped.
+def tex_here(f)
+  [RM.texture_path(f), File.join('..', 'textures', f)].find { |p| File.exist?(p) }
+end
+# --------------------------------------------- which way the boards run
+# The user's rule: "תמיד ילך לאורך הפשייה". A soffit piece is a long board,
+# so its longest edge IS the fascia direction - that is the whole trick, and
+# it is the reason no edge index has to be carried through the builders.
+sq = [[0, 0, 0], [40, 0, 0], [40, 12, 0], [0, 12, 0]]
+d = RM.ring_longest_dir(sq)
+ok('a flat eave board points along its long side', close(d[0], 1.0) && close(d[1], 0.0), d)
+diag = [[0, 0, 0], [30, 40, 0], [30 - 7.2, 40 + 9.6, 0], [-7.2, 9.6, 0]]
+dd = RM.ring_longest_dir(diag)
+ok('a wing at an angle points along ITS own eave, not along red',
+   close(dd[0], 0.6) && close(dd[1], 0.8), dd)
+rake = [[0, 0, 96], [30, 0, 96 + 40], [30, 12, 96 + 40], [0, 12, 96]]
+dr = RM.ring_longest_dir(rake)
+ok('a rake board points UP THE SLOPE - a flat direction is not in its plane',
+   close(dr[2], 0.8) && close(dr[0], 0.6), dr)
+ok('the direction is a unit vector',
+   close(Math.sqrt(dr[0]**2 + dr[1]**2 + dr[2]**2), 1.0), dr)
+ok('a degenerate ring asks for no alignment at all',
+   RM.ring_longest_dir([[1, 1, 1], [1, 1, 1]]).nil? &&
+   RM.ring_longest_dir([[0, 0, 0]]).nil? && RM.ring_longest_dir(nil).nil?)
+
+tx.each do |style, spec|
+  ok("#{style}: #{spec[:file]} is really on disk", !tex_here(spec[:file]).nil?,
+     RM.texture_path(spec[:file]))
+  ok("#{style}: the tile has a real size in inches",
+     spec[:size].is_a?(Float) && spec[:size] > 1.0, spec[:size])
+end
+ok('soffit_color survives a save/load round trip',
+   begin
+     RM.save_settings!(RM.settings.merge(soffit: 'wood', soffit_color: '#abcdef'))
+     RM.settings[:soffit_color] == '#abcdef' && RM.settings[:soffit] == 'wood'
+   end, RM.settings[:soffit_color])
+RM.save_settings!(RM.settings.merge(soffit: 'none', soffit_color: ''))
 
 # ------------------------------------------------------------ deep eaves too
 d = RM.soffit_band(36.0, 12.0, true, 78.0)
