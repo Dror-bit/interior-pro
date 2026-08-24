@@ -141,6 +141,65 @@ module InteriorPro
       s
     end
 
+    # ---------- a roof carries its OWN settings (2026-08-26) -------------
+    #
+    # STEP 1 of "Edit Roof". Until today one set of settings lived on the
+    # MODEL, which is the real reason there can only ever be one roof:
+    # every Apply rebuilt THE roof from THE settings. A roof that remembers
+    # its own is what lets a second one exist at all, and what lets a click
+    # on this roof reopen this roof's panel with its own numbers in it.
+    #
+    # NOTHING READS THESE YET. This step only writes them, so the model
+    # builds and looks exactly as it did - that is the point of doing it on
+    # its own: it can go in, be tested, and be committed without any risk
+    # of changing a roof the user is looking at.
+    #
+    # One attribute per key, never one packed hash: a SketchUp attribute
+    # dictionary stores strings, numbers, booleans and arrays and does NOT
+    # store a hash.
+    #
+    # A METHOD, not a constant, for the reason spelled out over
+    # roof_textures: `X = {...} unless const_defined?(:X)` is not re-read by
+    # InteriorPro.reload!, and that has already cost this project rounds.
+    def self.roof_setting_keys
+      %i[style pitch overhang fascia fascia_depth drip soffit soffit_color
+         soffit_slope roof_color fascia_color roof_material thickness
+         ridge_cap gable_walls]
+    end
+
+    # Stamp one roof group with the settings it was built from.
+    def self.save_roof_settings!(grp, s)
+      return nil unless grp && grp.valid? && s
+      roof_setting_keys.each do |k|
+        grp.set_attribute('InteriorPro', "set_#{k}", s[k])
+      end
+      grp
+    rescue StandardError => e
+      puts "[Roof] save_roof_settings!: #{e.message}"
+      nil
+    end
+
+    # Read one roof's own settings back.
+    #
+    # THE FALLBACK IS THE WHOLE ANSWER TO OLD MODELS: any key the group
+    # does not carry comes from the model, which is where every roof built
+    # before today got all of them. So an old roof reopened tomorrow reads
+    # exactly what it reads now, and nothing has to be migrated or rebuilt.
+    # nil is the "not carried" mark - false is a real saved value and must
+    # survive, which is why this tests nil and not truthiness.
+    def self.roof_settings(grp)
+      s = settings
+      return s unless grp && grp.valid?
+      roof_setting_keys.each do |k|
+        v = grp.get_attribute('InteriorPro', "set_#{k}")
+        s[k] = v unless v.nil?
+      end
+      s
+    rescue StandardError => e
+      puts "[Roof] roof_settings: #{e.message}"
+      settings
+    end
+
     # ---------- materials ----------
 
     def self.hex_to_color(hex)
@@ -1377,6 +1436,11 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'eave_z', z0)
       grp.set_attribute('InteriorPro', 'ridge_z', ridge)
       grp.set_attribute('InteriorPro', 'footprint_xy', poly.flatten)
+      # ...and the full settings this roof was built from, so it can be
+      # rebuilt from itself later (2026-08-26, step 1 of Edit Roof). The
+      # single-value attributes above stay exactly where they are - other
+      # code and older models read them by those names.
+      save_roof_settings!(grp, s)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
       model.commit_operation
