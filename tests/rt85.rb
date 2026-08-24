@@ -342,8 +342,8 @@ ok('the lower roof builds at all', !low_r.nil?)
 fx = low_r.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
 ok('it stops at the divider, not at the back of the storey',
    fx.map { |p| p[1] }.max < 150.0, fx.map { |p| p[1] }.max)
-ok('...tucked one half thickness INTO the wall, the hidden side',
-   (fx.map { |p| p[1] }.max - 143.0).abs < 0.5, fx.map { |p| p[1] }.max)
+ok('...ONE INCH inside the wall exposed face, so no stub pokes out',
+   (fx.map { |p| p[1] }.max - 138.0).abs < 0.5, fx.map { |p| p[1] }.max)
 ok('...with its eaves still pushed out on its own three sides',
    fx.map { |p| p[1] }.min < -14.0 &&
    (fx.map { |p| p[0] }.min - -15.0).abs < 0.01 &&
@@ -360,6 +360,51 @@ zmax_out     = zs5.select { |p| p.y < 20 }.map(&:z).max
 ok('the cut roof RISES toward the upper wall', zmax_at_wall > zmax_out + 30.0,
    [zmax_at_wall, zmax_out])
 ok('...but stays below the upper storey top', zmax_at_wall < 192.0, zmax_at_wall)
+
+# THE EAVE END CAP (2026-08-26B, the user's red circle): where a normal
+# eave dies against the upper wall, its open cross section - the part of
+# it standing outside that wall - is closed by a vertical plate in the
+# abut plane, from the wall line out to the fascia's inner face, fascia
+# bottom up to the roof underside.
+low_cap = RF.build_roof!(level: 1, soffit: 'spanish', soffit_slope: true)
+caps = low_cap.entities.grep(Sketchup::Face).select do |f|
+  f.pts.all? { |p| (p.y - 138.0).abs < 0.05 } && f.pts.map(&:z).max > 89.0
+end
+ok('the eave gets an end cap at BOTH corners against the wall',
+   caps.length == 2, caps.length)
+ok('...spanning the overhang zone outside the wall face',
+   caps.all? { |f| (f.pts.map(&:z).min - 82.0).abs < 0.5 &&
+                   (f.pts.map(&:z).max - 96.0).abs < 0.5 },
+   caps.map { |f| f.pts.map(&:z).minmax })
+# the cap is a piece of the fascia: its colour, and with a SLOPED soffit
+# its bottom climbs with the board - a parallel band, not a hanging plate
+# (user 2026-08-26B). Rise here = 0.5 * (12 - 0.75) = 5.625 at the wall.
+ok('the cap wears the fascia colour', caps.all?(&:material), caps.length)
+ok('...and its bottom climbs with the sloped soffit',
+   caps.all? { |f| f.pts.any? { |p| (p.z - 87.625).abs < 0.3 } },
+   caps.map { |f| f.pts.map(&:z).sort })
+
+# THE CORNER LOOKOUT GOES WITH A SLOPED SOFFIT (2026-08-26B, the user's
+# second red circle: "בפינה נשארה שארית כזאת - תוריד אותה"). The eave
+# tails tilt up toward the wall; the horizontal lookout nearest each rake
+# corner stays put and shows as a stray stub, so it is culled - ONLY when
+# the slope is on. Level soffits keep the approved look untouched.
+Sketchup.reset_model!
+m5b = Sketchup.active_model
+make_wall(m5b, 'gS', [0, 0], [240, 0], 1)
+make_wall(m5b, 'gE', [240, 0], [240, 120], 1)
+make_wall(m5b, 'gN', [240, 120], [0, 120], 1)
+make_wall(m5b, 'gW', [0, 120], [0, 0], 1)
+flat_n = RF.build_roof!(style: 'gable', pitch: 4, overhang: 12,
+                        soffit: 'spanish', soffit_slope: false,
+                        thickness: 0.0, ridge_cap: false)
+              .entities.grep(Sketchup::Face).length
+slop_n = RF.build_roof!(soffit_slope: true).entities.grep(Sketchup::Face).length
+# 4 corner lookouts of 16 faces (64) plus the 4 corner steps and 4 skirts
+# (8) = 72. A round that ALSO capped the gable corners was reverted the
+# same day - it put back the very shape this cull removes.
+ok('sloped soffit culls the corner lookouts and the corner closures',
+   flat_n - slop_n == 72, [flat_n, slop_n])
 
 # an L-shaped exposed part: the upper house only covers part of the width
 Sketchup.reset_model!
@@ -378,9 +423,9 @@ low_l = RF.build_roof!(level: 1)
 ok('an L-shaped exposed part still builds', !low_l.nil?)
 fxl = low_l.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
 ok('...as an L: six corners', fxl.length == 6, fxl.length)
-ok('...cut on BOTH dividers',
-   fxl.any? { |p| (p[1] - 143.0).abs < 0.5 } &&
-   fxl.any? { |p| (p[0] - 247.0).abs < 0.5 }, fxl)
+ok('...cut on BOTH dividers, an inch inside each wall face',
+   fxl.any? { |p| (p[1] - 138.0).abs < 0.5 } &&
+   fxl.any? { |p| (p[0] - 252.0).abs < 0.5 }, fxl)
 
 # nothing above -> nothing changes: the plain full loop, as always
 Sketchup.reset_model!

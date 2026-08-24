@@ -537,9 +537,21 @@ module InteriorPro
 
       poly  = best[:node_ids].map { |i| nodes[i] }
       edata = best[:edge_ids].map { |i| edges[i] }
+      # An abut edge ends ONE INCH INSIDE the upper wall, measured from the
+      # wall's face on the exposed side (2026-08-26B, off the user's photo).
+      # The first cut sat on the FAR face, so the whole eave - fascia, drip,
+      # soffit, tails - ran a wall thickness past the wall's outside and
+      # stuck out beside it as an open stub ("הוא פתוח בפשייה... כרגע הוא
+      # מסתיים בחלק הפנימי של הקיר"). One inch in is enough to swallow the
+      # end cuts AND the band corners (the fascia's own offset pulls a
+      # corner back out by up to FASCIA_THICK), while never poking through:
+      # eave_rail pushes by th/2 + oh, so oh = tuck - th lands the edge at
+      # tuck inside the exposed face. Clamped for a very thin wall.
       oh_for = lambda do |edge|
         id = edge && edge[:wall] ? edge[:wall].get_attribute('InteriorPro', 'id') : nil
-        d_ids.include?(id) ? 0.0 : overhang
+        next overhang unless d_ids.include?(id)
+        th = edge ? edge[:th].to_f : 0.0
+        [1.0, th / 2.0].min - th
       end
       out = outer_offset(poly, edata, overhang, oh_for)
       return nil unless out
@@ -553,6 +565,79 @@ module InteriorPro
     rescue StandardError => e
       puts "[Roof] exposed_polygon: #{e.message}"
       nil
+    end
+
+    # THE EAVE END CAP (2026-08-26B, the user's red circle). An eave that
+    # dies against the upper wall stops mid-air for the part of it that
+    # stands OUTSIDE that wall - the overhang. There its whole cross
+    # section was open: soffit below, deck above, fascia in front, and a
+    # hole between them looking straight into the eave ("אתה רואה
+    # שהאיבס פתוח"). A real eave gets a closure board there, and so does
+    # this one: a vertical plate in the abut plane, one per corner where a
+    # normal eave meets an abut edge.
+    #
+    # It spans the neighbour eave's own soffit width - from the wall line
+    # (-overhang) out to the fascia's inner face - and climbs from the
+    # fascia's bottom line up to the roof underside, which near that
+    # corner is the NEIGHBOUR'S plane: band_top - slope*k. Behind the
+    # upper wall's side face the plate runs on INSIDE the wall body
+    # (the abut line is tucked one inch into it), so nothing shows or
+    # fights there; outside it, it is exactly the board that was missing.
+    # `trim_mat` (2026-08-26B) - the cap IS a piece of the fascia and wears
+    # its colour ("זה צריך להיות בצבע הפשייה כי זה חלק ממנו"). Its BOTTOM
+    # edge follows the soffit: level with a level one, climbing with a
+    # sloped one - the same fascia band turned up the slope, not a plate
+    # hanging under it ("הצורה הזאת מתאימה לפשייה ישר, זה פשייה באלכסון").
+    # Generalised on 2026-08-26B from the abut-only version: `cap_flags`
+    # marks the edges whose corners get the closure - the abut edges, and
+    # with a sloped soffit the gable rakes too.
+    def self.build_end_caps!(grp, poly, cap_flags, s, band_top, slope,
+                             trim_mat = nil)
+      oh = s[:overhang].to_f
+      return if oh < 1.0
+      k_lo = -oh
+      z_bot = band_top.to_f - s[:fascia_depth].to_f
+      # how much the soffit lifts its inner edge: 0.0 flat, soffit_rise's
+      # own answer when sloped. The cap's bottom copies it point for point.
+      sb = soffit_band(oh, s[:fascia_depth], s[:fascia], band_top)
+      rise = s[:soffit].to_s == 'none' ? 0.0 : soffit_rise(sb, slope, s[:soffit_slope])
+      # kc = where the soffit meets the fascia's inner face. The cap runs
+      # PAST it, out to k = 0 - the fascia's OUTER plane - or a
+      # fascia-thick slit stays open beside the fascia's own mitered end
+      # (user 2026-08-26B: "עדיין יש רווח קטן"). From kc to 0 the bottom
+      # holds the fascia's own bottom line, so over that last strip the
+      # cap is simply the fascia's profile carried on to the wall.
+      kc = sb ? sb[:k_out].to_f : -FASCIA_THICK
+      bot_lo = rise.abs < 1.0e-9 ? z_bot : z_bot + rise
+      n = poly.length
+      n.times do |i|
+        next unless cap_flags[i]
+        # the two corners of this capped edge, each shared with a neighbour
+        [[(i - 1) % n, poly[i]], [(i + 1) % n, poly[(i + 1) % n]]].each do |j, c|
+          next if cap_flags[j] # capped on both sides - no hole between them
+          a = poly[j]
+          b = poly[(j + 1) % n]
+          dx = b[0] - a[0]
+          dy = b[1] - a[1]
+          len = Math.sqrt(dx * dx + dy * dy)
+          next if len < 1.0e-6
+          nrm = [dy / len, -dx / len] # outward for CCW
+          at = lambda do |k, z|
+            [c[0] + nrm[0] * k, c[1] + nrm[1] * k, z]
+          end
+          f = add_ring!(grp, [at.call(k_lo, bot_lo),
+                              at.call(kc, z_bot),
+                              at.call(0.0, z_bot),
+                              at.call(0.0, band_top),
+                              at.call(k_lo, band_top - slope * k_lo)])
+          if f && trim_mat
+            f.material = trim_mat
+            f.back_material = trim_mat
+          end
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] build_abut_caps!: #{e.message}"
     end
 
     # Mirror of RoomManager.inner_boundary, offset to the OTHER side:
@@ -1602,11 +1687,13 @@ module InteriorPro
               key = line_key(poly, i)
               cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
-                                 cover: cov, surface: surf)
+                                 cover: cov, surface: surf,
+                                 sloped: s[:soffit_slope] == true)
             end
           else
             gables.each do |i|
-              build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang])
+              build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
+                                 sloped: s[:soffit_slope] == true)
             end
           end
         end
@@ -1636,6 +1723,9 @@ module InteriorPro
           build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top - drop,
                             gable_flags, spec, s[:soffit_slope] ? slope : 0.0)
           # ...and up the gable rakes (user 2026-08-25: "וגם איפה שיש גיבל").
+          # With a SLOPED soffit the lowest lookout is culled - see `clear`
+          # over build_rake_beams!.
+          lk_clear = s[:soffit_slope] ? spec[:h].to_f + 0.02 : 0.02
           if zmap && !gables.empty?
             if framed
               owners = framed_line_owners(framed)
@@ -1643,12 +1733,13 @@ module InteriorPro
                 key = line_key(poly, i)
                 cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
                 build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
-                                  drop: drop, cover: cov, surface: surf)
+                                  drop: drop, cover: cov, surface: surf,
+                                  clear: lk_clear)
               end
             else
               gables.each do |i|
                 build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
-                                  drop: drop)
+                                  drop: drop, clear: lk_clear)
               end
             end
           end
@@ -1680,6 +1771,23 @@ module InteriorPro
         elsif paint
           tail_faces.each { |f| paint_soffit_face!(f, paint[:mat], paint[:size]) }
         end
+      end
+      # Close the open eave ends against the upper wall (2026-08-26B, the
+      # user's red circle). Deliberately AFTER the soffit block, so these
+      # faces are not in board_faces/tail_faces and fall through to the
+      # trim colour with the fascia they sit against.
+      #
+      # ABUT EDGES ONLY. A round that also capped the GABLE corners was
+      # tried and REVERTED the same day: it put back exactly the shape the
+      # user had just had removed ("רק הרסת, החזרת את הצורה שהורדנו
+      # מקודם"). The gable-corner height mismatch is still open - see the
+      # handoff. Do not cap a gable corner to fix it.
+      if abut_ids.any? && s[:style] != 'flat'
+        cap_flags = Array.new(poly.length, false)
+        wall_ids.each_with_index do |id2, i2|
+          cap_flags[i2] = true if abut_ids.include?(id2)
+        end
+        build_end_caps!(grp, poly, cap_flags, s, band_top, slope, trim_mat)
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
@@ -3745,8 +3853,14 @@ module InteriorPro
     # ACROSS its width it is LEVEL: a gable roof's height depends only on
     # the distance from the ridge, so moving inward off the rake does not
     # change z. It slopes only ALONG the rake.
+    # `sloped:` (2026-08-26B) - the eave board is tilted. The corner
+    # closures below (the step and the outer skirt) were drawn for a LEVEL
+    # board; under a tilted one they no longer meet anything and poke out
+    # of the corner as a small stub (the user's second round: "זה עדיין שם
+    # רק יותר קטן"). With sloped: true they are simply not built - the
+    # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
-                                cover: nil, surface: nil)
+                                cover: nil, surface: nil, sloped: false)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
@@ -3813,7 +3927,7 @@ module InteriorPro
                 add_ring!(grp, [bot[k], bot[j], top[j], top[k]])
               end
             end
-            next unless level
+            next if !level || sloped
             # the square step where the return meets the rake
             step_t = head ? sb : sa
             z_step = za + grad * (step_t - ra)
@@ -4978,8 +5092,15 @@ module InteriorPro
     # level belong to the flat edge and already have their tails; runs
     # buried under another roof are skipped by the same cover test the rake
     # board uses.
+    # `clear` (2026-08-26B): how far above the eave line a lookout must sit
+    # to be built. 0.02 - the old "not a plain eave stretch" test - for a
+    # LEVEL soffit, where the corner lookout is part of the approved look.
+    # One beam height for a SLOPED soffit: there the eave tails tilt up
+    # toward the wall, the horizontal corner lookout stays put, and what
+    # shows is a stray stub under the line at the corner (user: "בפינה
+    # נשארה שארית כזאת - תוריד אותה").
     def self.build_rake_beams!(grp, poly, i, zmap, k_in, k_out, spec,
-                               drop: 0.0, cover: nil, surface: nil)
+                               drop: 0.0, cover: nil, surface: nil, clear: 0.02)
       half = spec[:w] / 2.0
       ko = spec[:out] || k_out
       a = poly[i]
@@ -4997,7 +5118,7 @@ module InteriorPro
       beam_centers(len, spec[:spacing], spec[:w], margin).each do |t|
         z = chain_z_at(chain, t)
         next if z.nil?
-        next if z < zmin + 0.02 # a plain eave stretch, not a rake
+        next if z < zmin + clear # a plain eave stretch / too low in the corner
         if cover
           c = cover.call(a[0] + d[0] * t, a[1] + d[1] * t)
           next unless c.nil? || z > c + 0.05
