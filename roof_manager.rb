@@ -45,13 +45,6 @@ module InteriorPro
     ROOF_CURVE_TOL = 1.5 unless const_defined?(:ROOF_CURVE_TOL, false)
 
 
-    # One-diagnosis switch for the soffit builder. OFF by default; flip it
-    # from the console with RoofManager.debug_soffit = true when a corner
-    # comes out wrong, and off again after. Temporary by intent.
-    class << self
-      attr_accessor :debug_soffit
-    end
-
     # ---------- lookup ----------
 
     def self.roofs
@@ -3307,10 +3300,6 @@ module InteriorPro
             [q1[0] + (q2[0] - q1[0]) * f, q1[1] + (q2[1] - q1[1]) * f]
           end
           segs = rake_soffit_segments(ra, rb, len, oh)
-          if @debug_soffit
-            puts format('[soffit] edge%d len=%.2f run=%.2f..%.2f za=%.2f zb=%.2f segs=%s',
-                        i, len, ra, rb, za, zb, segs.inspect)
-          end
           segs.each do |sa, sb, level|
             # A sliver shorter than SketchUp's own 1/1000" tolerance has
             # two ends it treats as ONE point, and the face it would make
