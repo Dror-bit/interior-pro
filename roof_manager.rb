@@ -200,6 +200,85 @@ module InteriorPro
       settings
     end
 
+    # ---------- a roof carries its OWN walls and gables (2026-08-26) -----
+    #
+    # STEP 2 of "Edit Roof", and the same idea as step 1 one level down.
+    # Settings say WHAT a roof is; these two say WHICH BUILDING it is. A
+    # second roof over the ADU is a different set of walls, and its gable
+    # ends are its own - the model-wide mark list cannot tell two roofs
+    # apart, so with two roofs it would gable both or neither.
+    #
+    # STILL NOTHING READS THESE AT BUILD TIME. Step 3 is where a rebuild
+    # starts using them; this step only writes them down, so today's roof
+    # is untouched and this can be committed on its own.
+    #
+    # The three go on together because they are one answer: the walls this
+    # roof sits on, which of them gable, and where the user clicked on each.
+    def self.save_roof_marks!(grp, wall_ids)
+      return nil unless grp && grp.valid?
+      # compact: a poly edge with no wall behind it (an eave crossing a
+      # corner). uniq: a CURVED wall reaches the roof as a run of facets
+      # that all share one id, exactly as facet_hip_points sees it.
+      own = (wall_ids || []).compact.uniq
+      all = gable_wall_ids
+      pts = gable_click_points
+      mine = all & own
+      # the click point travels WITH its id - the two lists are parallel,
+      # and a mark saved before click points existed has the [1e9, 1e9]
+      # sentinel, which every reader downstream already knows.
+      clicks = mine.map { |id| pts[all.index(id)] || [1e9, 1e9] }
+      grp.set_attribute('InteriorPro', 'set_walls', own)
+      grp.set_attribute('InteriorPro', 'set_gables', mine)
+      grp.set_attribute('InteriorPro', 'set_gable_xy', clicks.flatten)
+      grp
+    rescue StandardError => e
+      puts "[Roof] save_roof_marks!: #{e.message}"
+      nil
+    end
+
+    # The walls one roof sits on. EMPTY means "not carried" - an old roof,
+    # or one built before this step - and empty is also the honest answer:
+    # we do not know, so the caller falls back to top_walls exactly as
+    # build_roof! does today.
+    def self.roof_wall_ids(grp)
+      return [] unless grp && grp.valid?
+      v = grp.get_attribute('InteriorPro', 'set_walls')
+      v.nil? ? [] : v.to_a
+    rescue StandardError
+      []
+    end
+
+    # ...and its gable marks. Here the fallback is the MODEL's list, not an
+    # empty one: an old roof really was built from the model-wide marks, so
+    # that list IS its own. Same reasoning as roof_settings.
+    def self.roof_gable_ids(grp)
+      return gable_wall_ids unless grp && grp.valid?
+      v = grp.get_attribute('InteriorPro', 'set_gables')
+      v.nil? ? gable_wall_ids : v.to_a
+    rescue StandardError
+      gable_wall_ids
+    end
+
+    def self.roof_gable_points(grp)
+      return gable_click_points unless grp && grp.valid?
+      v = grp.get_attribute('InteriorPro', 'set_gable_xy')
+      return gable_click_points if v.nil?
+      v.to_a.each_slice(2).to_a
+    rescue StandardError
+      gable_click_points
+    end
+
+    # Which roof owns a wall - the lookup Edit Roof and the Gable tool both
+    # need once there is more than one roof (a click on a wall has to
+    # rebuild ITS roof and leave the others alone). nil = no roof claims it,
+    # which is what every roof built before step 2 answers.
+    def self.roof_of_wall_id(id)
+      return nil if id.nil?
+      roofs.find { |r| roof_wall_ids(r).include?(id) }
+    rescue StandardError
+      nil
+    end
+
     # ---------- materials ----------
 
     def self.hex_to_color(hex)
@@ -1441,6 +1520,9 @@ module InteriorPro
       # single-value attributes above stay exactly where they are - other
       # code and older models read them by those names.
       save_roof_settings!(grp, s)
+      # ...and WHICH building it is: its walls, its gable ends, and where
+      # each of those was clicked (2026-08-26, step 2 of Edit Roof).
+      save_roof_marks!(grp, wall_ids)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
       model.commit_operation

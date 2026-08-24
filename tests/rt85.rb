@@ -168,5 +168,76 @@ ok('and there is still exactly ONE roof - step 3 is what changes that',
 ok('the rebuilt roof carries the stamp as well',
    RF.roof_settings(r2)[:soffit] == 'boxed', RF.roof_settings(r2)[:soffit])
 
+# ==================================================================== STEP 2
+# WHICH BUILDING THIS ROOF IS: its walls, its gable ends, and the click
+# point on each. Settings say what a roof is; these say which one it is.
+# A second roof over the ADU is a different set of walls, and the
+# model-wide mark list cannot tell two roofs apart - it would gable both
+# or neither. Still nothing reads these at build time; step 3 does that.
+Sketchup.reset_model!
+m3 = Sketchup.active_model
+a_box(m3, 'x')
+r3 = RF.build_roof!(style: 'hip', pitch: 6, overhang: 24, fascia: true,
+                    drip: false, thickness: 0.0, ridge_cap: false)
+own = RF.roof_wall_ids(r3)
+ok('the roof writes down the walls it sits on',
+   own.sort == %w[xE xN xS xW], own)
+ok('no id is written twice', own.uniq.length == own.length, own)
+ok('with nothing marked it claims no gables', RF.roof_gable_ids(r3).empty?,
+   RF.roof_gable_ids(r3))
+
+# mark two ends and rebuild
+Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_wall_ids', %w[xS xN])
+Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_click_xy',
+                                    [150.0, 0.0, 150.0, 200.0])
+r4 = RF.build_roof!
+ok('the roof writes down its own gable ends',
+   RF.roof_gable_ids(r4).sort == %w[xN xS], RF.roof_gable_ids(r4))
+ok('...and the click point saved with each one',
+   RF.roof_gable_points(r4).length == 2 &&
+   RF.roof_gable_points(r4).all? { |p| p.length == 2 },
+   RF.roof_gable_points(r4))
+# the point has to travel WITH its id, not with its position in the list
+i_s = RF.roof_gable_ids(r4).index('xS')
+ok('each click point stays with ITS wall',
+   RF.roof_gable_points(r4)[i_s] == [150.0, 0.0],
+   [RF.roof_gable_ids(r4), RF.roof_gable_points(r4)])
+
+# A MARK ON SOMEBODY ELSE'S WALL IS NOT THIS ROOF'S. This is the whole
+# reason the marks move onto the group: with two buildings in one model
+# the model-wide list holds both, and each roof must take only its own.
+Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_wall_ids',
+                                    %w[xS someone_elses_wall])
+Sketchup.active_model.set_attribute('InteriorPro', 'roof_gable_click_xy',
+                                    [150.0, 0.0, 9.0, 9.0])
+r5 = RF.build_roof!
+ok('a mark on a wall this roof does not own is left out',
+   RF.roof_gable_ids(r5) == %w[xS], RF.roof_gable_ids(r5))
+ok('...and so is its click point',
+   RF.roof_gable_points(r5) == [[150.0, 0.0]], RF.roof_gable_points(r5))
+
+# ---------------------------------------------- who owns this wall
+ok('a wall finds its roof', RF.roof_of_wall_id('xS') == r5,
+   RF.roof_of_wall_id('xS'))
+ok('a wall no roof covers finds none', RF.roof_of_wall_id('nobody').nil?)
+ok('nil finds none', RF.roof_of_wall_id(nil).nil?)
+
+# ------------------------------------------------- old roofs, again
+old2 = m3.entities.add_group
+old2.set_attribute('InteriorPro', 'type', 'roof')
+ok('an unstamped roof claims no walls', RF.roof_wall_ids(old2).empty?,
+   RF.roof_wall_ids(old2))
+ok('...but still reads the MODEL gable marks, as it always did',
+   RF.roof_gable_ids(old2) == RF.gable_wall_ids, RF.roof_gable_ids(old2))
+ok('...and the model click points with them',
+   RF.roof_gable_points(old2) == RF.gable_click_points,
+   RF.roof_gable_points(old2))
+ok('no group at all is safe too',
+   RF.roof_wall_ids(nil).empty? && RF.roof_gable_ids(nil) == RF.gable_wall_ids)
+
+# ------------------------------------------------------ still one roof
+ok('step 2 has still not made a second roof - that is step 3',
+   RF.roofs.length == 2, RF.roofs.length) # r5 + the bare old2 stub
+
 puts($fails.zero? ? 'ALL PASS' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
