@@ -75,7 +75,7 @@ ok('with no fascia the board runs out to the roof edge', close(nf[:k_out], 0.0),
 ok('with no fascia it still hangs at the same height', close(nf[:z_bot], BAND_TOP - FD), nf)
 
 # -------------------------------------------------------- 5. default is none
-ok('the four styles we have', RM::SOFFIT_STYLES == %w[none boxed wood stucco],
+ok('the styles we have', RM::SOFFIT_STYLES == %w[none boxed wood stucco beams],
    RM::SOFFIT_STYLES)
 ok('default stays none - old roofs must not change',
    RM.settings[:soffit] == 'none', RM.settings[:soffit])
@@ -96,6 +96,51 @@ ok('a hand-picked colour beats the style default',
 ok('...and a blank or junk setting falls back to the style',
    RM.soffit_color(soffit: 'wood', soffit_color: '   ') == '#8b5a2b' &&
    RM.soffit_color(soffit: 'wood', soffit_color: 'blue') == '#8b5a2b')
+# ============================================================ EXPOSED BEAMS
+# 2026-08-25, the user's own numbers: a 2x4 (1.5" x 3.5") every 18".
+sp = RM.beam_spec
+ok('a real 2x4, on 18" centres',
+   close(sp[:w], 1.5) && close(sp[:h], 3.5) && close(sp[:spacing], 18.0), sp)
+
+# THE MARGIN IS THE WALL, NOT A GAP (user 2026-08-25: a tail "יוצא מהפשייה
+# ולא נוגע בקיר... נשאר באוויר"). poly is the wall line pushed out by the
+# overhang, so the wall corner is one overhang back along each edge - and a
+# tail beyond that touches nothing. The caller passes overhang + half a beam.
+MG = 12.0 + 0.75
+c = RM.beam_centers(240.0, 18.0, 1.5, MG)
+ok('a 20 foot eave with a 12" overhang takes 12 tails', c.length == 12, c.length)
+ok('NO tail reaches past the wall corner at either end',
+   c.first >= MG - 1e-9 && c.last <= 240.0 - MG + 1e-9, [c.first, c.last])
+ok('every tail is fully backed by wall, not just its centre',
+   c.first - 0.75 >= 12.0 - 1e-9 && c.last + 0.75 <= 240.0 - 12.0 + 1e-9,
+   [c.first - 0.75, c.last + 0.75])
+ok('the spacing between them is the spacing asked for',
+   c.each_cons(2).all? { |a2, b2| close(b2 - a2, 18.0) }, c)
+ok('the run is centred - the two end gaps match',
+   close(c.first, 240.0 - c.last), [c.first, 240.0 - c.last])
+ok('with no overhang at all it falls back to clearing one beam width',
+   close(RM.beam_centers(240.0, 18.0, 1.5, 0.0).first, 1.5 + (237.0 - 234.0) / 2.0),
+   RM.beam_centers(240.0, 18.0, 1.5, 0.0).first)
+ok('an eave shorter than its own two margins gets none',
+   RM.beam_centers(20.0, 18.0, 1.5, MG).empty?,
+   RM.beam_centers(20.0, 18.0, 1.5, MG))
+ok('a spacing narrower than the beam is refused, not overlapped',
+   RM.beam_centers(240.0, 1.0, 1.5, MG).empty?)
+
+# the plan shape of one tail: across the eave, not along it
+q = RM.beam_quad([0.0, 0.0], [1.0, 0.0], [0.0, -1.0], 50.0, 0.75, -24.0, -0.75)
+xs = q.map { |p| p[0] }
+ys = q.map { |p| p[1] }
+ok('the tail is one beam wide along the eave',
+   close(xs.max - xs.min, 1.5), xs)
+ok('...and runs the whole overhang across it',
+   close(ys.max - ys.min, 23.25), ys)
+ok('...centred on its own station', close((xs.max + xs.min) / 2.0, 50.0), xs)
+# the same beam on an eave running the other way must still stick INWARD
+q2 = RM.beam_quad([0.0, 0.0], [0.0, 1.0], [1.0, 0.0], 50.0, 0.75, -24.0, -0.75)
+ok('the outward normal decides the side, not the world axes',
+   q2.map { |p| p[0] }.max <= 0.0 + 1e-9, q2)
+
 ok('an unknown style paints nothing rather than raising',
    RM.soffit_color(soffit: 'martian', soffit_color: '').nil?)
 ok('none is not a finish either', RM.soffit_color(soffit: 'none', soffit_color: '').nil?)
@@ -107,8 +152,16 @@ ok('none is not a finish either', RM.soffit_color(soffit: 'none', soffit_color: 
 # jpgs the same way - a table that names a file nobody shipped is a silent
 # fall back to a flat colour, and nobody notices until it is on screen.
 tx = RM.soffit_textures
-ok('wood and stucco are the two textured finishes',
+ok('wood and stucco are the textured finishes',
    tx.keys.sort == %w[stucco wood], tx.keys)
+# THE TAILS MATCH THE FASCIA (user 2026-08-25: "בצבע של הפשייה"). Both
+# tables have to stay quiet about 'beams' for that: a texture or a default
+# colour here would paint them and they would stop following the picker.
+ok('beams are not textured - they take the trim colour', tx['beams'].nil?)
+ok('...and have no colour of their own either',
+   RM.soffit_color(soffit: 'beams', soffit_color: '').nil?)
+ok('a colour picked by hand still overrides them',
+   RM.soffit_color(soffit: 'beams', soffit_color: '#333333') == '#333333')
 ok('boxed is NOT textured - it is a painted board', tx['boxed'].nil?)
 # texture_path is relative to the FILE, and run_all.sh copies the sources
 # into tests/ - so in the cloud it points at tests/textures while the jpgs

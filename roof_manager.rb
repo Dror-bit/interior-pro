@@ -32,7 +32,10 @@ module InteriorPro
     # real material is done in Lumion). See soffit_colors.
     # DOCUMENTATION ONLY - nothing branches on this list, so the usual
     # const_defined? reload trap cannot bite here.
-    SOFFIT_STYLES = %w[none boxed wood stucco].freeze unless const_defined?(:SOFFIT_STYLES, false)
+    # 'beams' (2026-08-25) is the one that is NOT the same board: there is
+    # no board at all. Rafter tails cross the eave every 18" and the roof
+    # deck is what you see between them.
+    SOFFIT_STYLES = %w[none boxed wood stucco beams].freeze unless const_defined?(:SOFFIT_STYLES, false)
     # ...until 2026-08-10. A zero-thickness sheet has no edge to look at,
     # and worse: the gable wall rises to exactly the same plane, so the
     # wall showed THROUGH the shingles along the rake. The slab is now
@@ -1221,7 +1224,13 @@ module InteriorPro
         had = {}
         grp.entities.grep(Sketchup::Face).each { |f| had[f.object_id] = true }
         sb = soffit_band(s[:overhang], s[:fascia_depth], s[:fascia], band_top)
-        if sb
+        # 'beams' is the one style with NO board. It borrows the board's own
+        # k range so the tails start and stop exactly where the board would
+        # have, and everything below - the square gable corner, the rake
+        # twin, the seam softening - is board work and is skipped.
+        beams = s[:soffit].to_s == 'beams'
+        build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top, gable_flags) if sb && beams
+        if sb && !beams
           # square_flags = the gable edges: where the flat board meets a
           # rake it runs straight on across the corner square and ends in
           # a rectangle, no 45 degree diagonal (user 2026-08-24).
@@ -1231,7 +1240,7 @@ module InteriorPro
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
         # (user 2026-08-24: "צריך להיות גם באיב של הגייבל").
-        if sb && zmap && !gables.empty?
+        if sb && !beams && zmap && !gables.empty?
           if framed
             owners = framed_line_owners(framed)
             gables.each do |i|
@@ -1253,7 +1262,7 @@ module InteriorPro
         # Softening BEFORE the gable boards went in did not hold: adding a
         # face on the same line splits that edge, and the new halves come
         # back hard.
-        if sb
+        if sb && !beams
           soften_seams!(grp, band_corner_seams(poly, sb[:k_in], sb[:k_out],
                                                sb[:z_bot], sb[:z_top]))
         end
@@ -4181,6 +4190,10 @@ module InteriorPro
       {
         'boxed'  => nil,        # painted board - follows the fascia
         'wood'   => '#8b5a2b',  # stained fir
+        # 'beams' is deliberately NOT here (user 2026-08-25: "הקרשים צריכים
+        # להיות בצבע של הפשייה"). nil drops the tails through to the trim
+        # colour at the end of build_roof!, which IS the fascia colour - so
+        # the two always match, even after the picker changes.
         'stucco' => '#efeae1'   # off white, same family as a stucco wall
       }
     end
@@ -4309,6 +4322,83 @@ module InteriorPro
       return if done
       face.material = mat
       face.back_material = mat
+    end
+
+    # EXPOSED RAFTER TAILS (2026-08-25, the user's numbers: 2x4 every 18").
+    # Real 2x4: 1.5" across, 3.5" deep. A METHOD, not constants - the
+    # reload! trap documented over roof_textures.
+    def self.beam_spec
+      { w: 1.5, h: 3.5, spacing: 18.0 }
+    end
+
+    # Where the beams sit along one eave, in inches from that edge's start.
+    # PURE, pinned by rt84.
+    #
+    # `margin` is dead ground at BOTH ends, and it is not decoration - it is
+    # where the wall stops. `poly` is the wall line pushed OUT by the
+    # overhang, so at an outside corner the last overhang of each edge hangs
+    # over thin air: the wall corner is that far back along the edge. A tail
+    # placed there comes out of the fascia and touches nothing, which is
+    # what the user saw on 2026-08-25: "יוצא מהפשייה ולא נוגע בקיר... נשאר
+    # באוויר". So the caller passes overhang + half a beam and the last tail
+    # lands exactly on the wall corner, never past it.
+    # What is left over is shared evenly between the two ends, so the run
+    # reads as centred instead of crowding one corner.
+    def self.beam_centers(len, spacing, width, margin)
+      l = len.to_f
+      sp = spacing.to_f
+      w = width.to_f
+      mg = margin.to_f
+      return [] if sp < w || w <= 0.0
+      mg = w if mg < w
+      usable = l - 2.0 * mg
+      return [] if usable < 0.0
+      n = (usable / sp).floor + 1
+      start = mg + (usable - (n - 1) * sp) / 2.0
+      (0...n).map { |i| start + i * sp }
+    end
+
+    # The four plan corners of one beam. PURE, pinned by rt84.
+    # a = the edge's start, d = along the edge, nrm = outward from it.
+    def self.beam_quad(a, d, nrm, t, half, k_in, k_out)
+      at = lambda do |tt, k|
+        [a[0] + d[0] * tt + nrm[0] * k, a[1] + d[1] * tt + nrm[1] * k]
+      end
+      [at.call(t - half, k_in), at.call(t + half, k_in),
+       at.call(t + half, k_out), at.call(t - half, k_out)]
+    end
+
+    # The tails themselves. They run the same k range the flat board would
+    # have covered - back at the wall, out to the fascia - and hang from the
+    # slab underside, so nothing pokes through the deck: going inward the
+    # roof only climbs away from them.
+    # GABLED EDGES ARE SKIPPED, exactly as the fascia and the flat band skip
+    # them. A rake wants sloped lookouts, which is its own round.
+    def self.build_eave_beams!(grp, poly, k_in, k_out, band_top, skip_flags)
+      spec = beam_spec
+      half = spec[:w] / 2.0
+      z_top = band_top.to_f
+      z_bot = z_top - spec[:h]
+      poly.each_index do |i|
+        next if skip_flags && skip_flags[i]
+        a = poly[i]
+        b = poly[(i + 1) % poly.length]
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        len = Math.sqrt(dx * dx + dy * dy)
+        next if len < 1.0e-6
+        d = [dx / len, dy / len]
+        nrm = [d[1], -d[0]] # outward for CCW
+        # k_in IS -overhang (soffit_band builds it that way), so the wall
+        # corner sits that far in from each end of this edge.
+        margin = -k_in.to_f + half
+        beam_centers(len, spec[:spacing], spec[:w], margin).each do |t|
+          add_prism!(grp.entities, beam_quad(a, d, nrm, t, half, k_in, k_out),
+                     z_top, z_bot)
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] build_eave_beams!: #{e.message}"
     end
 
     def self.add_prism!(ents, quad, z_top, z_bot)

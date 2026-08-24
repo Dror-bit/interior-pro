@@ -24,7 +24,8 @@ module InteriorPro
       )
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol,
-                                                rmat, thick, rcap|
+                                                rmat, thick, rcap,
+                                                soffit, scol|
         # Apply in Hip mode = a clean full hip: clear click marks (user
         # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
         if style.to_s == 'hip'
@@ -43,7 +44,12 @@ module InteriorPro
           fascia_color: fcol.to_s,
           roof_material: rmat.nil? ? nil : rmat.to_s,
           thickness: thick.nil? ? nil : thick.to_f,
-          ridge_cap: rcap.nil? ? nil : truthy(rcap)
+          ridge_cap: rcap.nil? ? nil : truthy(rcap),
+          soffit: soffit.nil? ? nil : soffit.to_s,
+          # '' on purpose, not nil: an empty string is the way to CLEAR a
+          # colour that was picked before and go back to the texture. nil
+          # would leave the old override in the model for ever.
+          soffit_color: scol.nil? ? nil : scol.to_s
         )
       end
       dlg.add_action_callback('remove_roof') { |_| RoofManager.remove_all! }
@@ -84,6 +90,25 @@ module InteriorPro
         sel = s[:roof_material].to_s == v ? ' selected' : ''
         "<option value=\"#{v}\"#{sel}>#{t}</option>"
       end.join
+      soffit_options = [['none',   'None'],
+                        ['boxed',  'Boxed (painted)'],
+                        ['wood',   'Wood'],
+                        ['stucco', 'Stucco'],
+                        ['beams',  'Exposed beams']].map do |v, t|
+        sel = s[:soffit].to_s == v ? ' selected' : ''
+        "<option value=\"#{v}\"#{sel}>#{t}</option>"
+      end.join
+      # A colour input ALWAYS has a value, so "leave it to the texture"
+      # cannot be one of its values - it has to be a flag beside it. The
+      # flag starts on only if a colour really was saved last time; picking
+      # one turns it on, and until then the swatch just previews the style's
+      # own default. No second checkbox: the UI rules in CLAUDE.md say a
+      # control that an existing one already covers does not get built.
+      soffit_picked = s[:soffit_color].to_s.start_with?('#')
+      soffit_col = soffit_picked ? s[:soffit_color].to_s
+                   : (RoofManager.soffit_colors[s[:soffit].to_s] || s[:fascia_color].to_s)
+      soffit_defs = RoofManager.soffit_colors.reject { |_, v| v.nil? }
+                               .map { |k, v| "\"#{k}\":\"#{v}\"" }.join(',')
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -115,6 +140,9 @@ module InteriorPro
           <div class="row"><label><input type="checkbox" id="fascia"#{s[:fascia] ? ' checked' : ''}> Fascia board</label>
             <input type="number" id="fasciaDepth" step="0.25" min="1" value="#{s[:fascia_depth]}"> in</div>
           <div class="row"><label><input type="checkbox" id="drip"#{s[:drip] ? ' checked' : ''}> Metal drip edge</label></div>
+          <div class="row"><label>Soffit</label>
+            <select id="soffit" onchange="soffitChanged()">#{soffit_options}</select>
+            <input type="color" id="soffitColor" value="#{soffit_col}" oninput="soffitPicked()"></div>
 
           <div class="section-title">Surface</div>
           <div class="row"><label>Roof material</label>
@@ -139,6 +167,15 @@ module InteriorPro
             function eavesChanged() {
               document.getElementById('overhang').disabled = !document.getElementById('eaves').checked;
             }
+            var SOFFIT_DEF = {#{soffit_defs}};
+            var soffitPickedFlag = #{soffit_picked ? 'true' : 'false'};
+            function soffitPicked() { soffitPickedFlag = true; }
+            function soffitChanged() {
+              var v = document.getElementById('soffit').value;
+              var c = document.getElementById('soffitColor');
+              c.disabled = (v === 'none');
+              if (!soffitPickedFlag && SOFFIT_DEF[v]) { c.value = SOFFIT_DEF[v]; }
+            }
             function applyRoof() {
               sketchup.apply_roof(
                 document.querySelector('input[name=style]:checked').value,
@@ -152,10 +189,13 @@ module InteriorPro
                 document.getElementById('fasciaColor').value,
                 document.getElementById('roofMat').value,
                 document.getElementById('thickness').value,
-                document.getElementById('ridgeCap').checked);
+                document.getElementById('ridgeCap').checked,
+                document.getElementById('soffit').value,
+                soffitPickedFlag ? document.getElementById('soffitColor').value : '');
             }
             styleChanged();
             eavesChanged();
+            soffitChanged();
           </script>
         </body></html>
       HTML

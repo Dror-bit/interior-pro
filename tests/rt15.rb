@@ -426,10 +426,12 @@ ok('ridge reaches the gable ends at the right height',
    (rg.get_attribute('InteriorPro', 'ridge_z') - gz).abs < 0.05,
    [rg.get_attribute('InteriorPro', 'ridge_z'), gz])
 # 2 surfaces + fascia/drip on the 2 sloped eaves (24) + rake boards on the
-# 2 gable ends (2 ends x 2 segments x 6 faces = 24)
+# 2 gable ends (2 ends x 2 segments x 6 faces = 24) + the rake DRIP on the
+# same 2 ends (another 24, added 2026-08-25 - the drip used to stop dead at
+# the gable corner because build_band! skips a gabled edge)
 band_faces = rg.entities.grep(Sketchup::Face).length
-ok('gable roof: surfaces + bands + rakes = 50 faces (no triangles)',
-   band_faces == 50, band_faces)
+ok('gable roof: surfaces + bands + rakes + rake drip = 74 faces (no triangles)',
+   band_faces == 74, band_faces)
 tris = rg.entities.grep(Sketchup::Face).select do |f|
   xs3 = f.pts.map(&:x)
   f.pts.length == 3 && (xs3.max - xs3.min).abs < 0.01
@@ -438,6 +440,15 @@ ok('no white triangles at the gable ends (2026-08-05B)',
    tris.length == 0, tris.length)
 rake_top = rg.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).max
 ok('rake boards climb to the ridge', (rake_top - gz).abs < 0.05, rake_top)
+# THE GABLE DRIP (2026-08-25). The eave poly runs x = -15..255; the rake
+# fascia stands FASCIA_THICK (0.75") outside that line, and the drip rides
+# on its outer face, DRIP_THICK (0.1") thinner still. So the gable ends are
+# the outermost thing on the roof and reach exactly -15.85 / 255.85. If the
+# drip were skipped again this reads -15.75 / 255.75.
+gx = rg.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:x)
+ok('the drip carries on up the gable rake, 0.1" past the fascia',
+   (gx.min + 15.85).abs < 0.01 && (gx.max - 255.85).abs < 0.01,
+   [gx.min, gx.max])
 
 # ---- per-wall gable marking (the Gable Ends tool path) -------------------
 Sketchup.reset_model!
@@ -454,9 +465,9 @@ rm1 = RF.roofs.first
 ok('roof rebuilt with ONE gable end (3 sloped faces)', top_faces(rm1).length == 3,
    top_faces(rm1).length)
 ok('marking works even in Hip style', RF.settings[:style] == 'hip')
-# 3 surfaces + fascia 3x6 + drip 3x6 + rake 2x6
-ok('one gable end = 51 faces (no triangle)',
-   rm1.entities.grep(Sketchup::Face).length == 51,
+# 3 surfaces + fascia 3x6 + drip 3x6 + rake 2x6 + rake drip 2x6 (2026-08-25)
+ok('one gable end = 63 faces (no triangle)',
+   rm1.entities.grep(Sketchup::Face).length == 63,
    rm1.entities.grep(Sketchup::Face).length)
 RF.toggle_gable_wall!(w1)
 ok('second click un-marks', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
@@ -522,6 +533,69 @@ ok('dialog apply saves pitch/overhang/fascia depth/drip/colors',
    s[:fascia_depth] == 7.25 && s[:drip] == false &&
    s[:roof_color] == '#336699' && s[:fascia_color] == '#eeeeee', s)
 ok('dialog apply rebuilt a single roof', RF.roofs.length == 1, RF.roofs.length)
+
+# ---- the soffit reached the panel (2026-08-25) ---------------------------
+# It was console-only until now (user: "איפה אני משנה את החומר"). The two new
+# arguments go on the END of the call on purpose: the line above still calls
+# apply_roof with the old twelve and must keep working, which is the same
+# thing an old saved model does.
+dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25',
+                                 'false', '#336699', '#eeeeee', 'color', '0',
+                                 'false', 'wood', '')
+s2 = RF.settings
+ok('the panel sets the soffit style', s2[:soffit] == 'wood', s2[:soffit])
+ok('an untouched swatch leaves the texture alone', s2[:soffit_color] == '',
+   s2[:soffit_color])
+dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25',
+                                 'false', '#336699', '#eeeeee', 'color', '0',
+                                 'false', 'wood', '#101010')
+ok('a picked colour reaches the model', RF.settings[:soffit_color] == '#101010',
+   RF.settings[:soffit_color])
+dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'true', '18', 'true', '7.25',
+                                 'false', '#336699', '#eeeeee', 'color', '0',
+                                 'false', 'wood', '')
+ok('...and an empty one CLEARS it, back to the texture',
+   RF.settings[:soffit_color] == '', RF.settings[:soffit_color])
+html = InteriorPro::RoofDialog.build_html(RF.settings)
+ok('the panel really draws the control', html.include?('id="soffit"') &&
+   html.include?('id="soffitColor"'))
+ok('all four styles are offered', %w[none boxed wood stucco]
+   .all? { |v| html.include?("value=\"#{v}\"") })
+RF.build_roof!(soffit: 'none', soffit_color: '')
+
+# ---- exposed beams: tails INSTEAD of a board (2026-08-25) ----------------
+# The whole risk in this style is that it builds the board as well as the
+# tails, or grows tails up a gable rake. Both show up as a face count.
+Sketchup.reset_model!
+m = Sketchup.active_model
+make_wall(m, 'b1', [0, 0], [240, 0])
+make_wall(m, 'b2', [240, 0], [240, 120])
+make_wall(m, 'b3', [240, 120], [0, 120])
+make_wall(m, 'b4', [0, 120], [0, 0])
+r_bare = RF.build_roof!(style: 'gable', soffit: 'none')
+bare = r_bare.entities.grep(Sketchup::Face).length
+bare_low = r_bare.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).min
+rb2 = RF.build_roof!(style: 'gable', soffit: 'beams')
+# 270" eaves, 12" overhang: the wall corner is 12" in from each end, so
+# 244.5" of usable run at 18" centres = 14 tails an eave, 6 faces a tail,
+# on the 2 NON-gable edges only. It was 15 until 2026-08-25, when the extra
+# one turned out to be the tail hanging in the corner with no wall behind it.
+ok('beams: 2 eaves x 14 tails x 6 faces on top of the bare roof',
+   rb2.entities.grep(Sketchup::Face).length == bare + 168,
+   [rb2.entities.grep(Sketchup::Face).length, bare])
+ok('beams: the gable ends get none - a rake wants lookouts, its own round',
+   rb2.entities.grep(Sketchup::Face)
+      .count { |f| f.pts.map(&:x).min < -14.0 } ==
+   RF.build_roof!(style: 'gable', soffit: 'none').entities.grep(Sketchup::Face)
+      .count { |f| f.pts.map(&:x).min < -14.0 })
+# The tails hang from the slab underside, so the fascia is still the lowest
+# thing on the roof. A tail poking out below it would be the first sign the
+# z was taken from the wrong line.
+tz = RF.build_roof!(style: 'gable', soffit: 'beams')
+       .entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).min
+ok('beams: nothing hangs below the fascia', (tz - bare_low).abs < 0.001,
+   [tz, bare_low])
+RF.build_roof!(style: 'hip', soffit: 'none')
 dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'false', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
 ok('unchecking eaves in the dialog = overhang 0', RF.settings[:overhang] == 0.0, RF.settings[:overhang])
 dlg.callbacks['remove_roof'].call(nil)
