@@ -456,5 +456,47 @@ ok('...and the top pitch went where it was aimed',
    RF.roofs.reject { |r| r == lo9 }.map { |r| RF.roof_settings(r)[:pitch] } == [9.0],
    RF.roofs.map { |r| RF.roof_settings(r)[:pitch] })
 
+# ==================================================================== STEP 5
+# THE STOREY PICKER (user: "איך אני בוחר קומה ראשונה או שניה או שניהם?").
+# A 16th argument on apply_roof: a storey number, 'all', or nothing -
+# and nothing is the top storey, which is every call made before today.
+html_p = InteriorPro::RoofDialog.build_html(RF.settings)
+ok('two storeys -> the picker is drawn', html_p.include?('id="roofLevel"'))
+ok('...All storeys preselected (user 2026-08-26)',
+   html_p.include?('<option value="all" selected>'))
+ok('...with an all-storeys choice', html_p.include?('value="all"'))
+html_e = InteriorPro::RoofDialog.build_html(RF.settings, edit: true)
+ok('the EDIT panel has no picker - its roof knows its storey',
+   !html_e.include?('id="roofLevel"'))
+
+# storey 1 by number
+dlg2.callbacks['apply_roof'].call(nil, 'hip', '4', 'true', '12', 'true', '8',
+                                  'true', '#111111', '#eeeeee', 'color', '0',
+                                  'false', 'none', '', 'false', '1')
+ok('picking storey 1 rebuilds the LOWER roof alone',
+   RF.roofs.length == 2 &&
+   RF.roofs.count { |r| r.get_attribute('InteriorPro', 'level') == 1 } == 1,
+   RF.roofs.map { |r| r.get_attribute('InteriorPro', 'level') })
+
+# 'all' = one roof per storey
+RF.roofs.each(&:erase!)
+dlg2.callbacks['apply_roof'].call(nil, 'hip', '4', 'true', '12', 'true', '8',
+                                  'true', '#111111', '#eeeeee', 'color', '0',
+                                  'false', 'none', '', 'false', 'all')
+ok("'all' builds one roof per storey from nothing",
+   RF.roofs.map { |r| r.get_attribute('InteriorPro', 'level') }.sort == [1, 2],
+   RF.roofs.map { |r| r.get_attribute('InteriorPro', 'level') })
+lower_all = RF.roofs.find { |r| r.get_attribute('InteriorPro', 'level') == 1 }
+fx_all = lower_all.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
+ok('...and the lower one is still cut at the storey above',
+   fx_all.map { |p| p[1] }.max < 150.0, fx_all.map { |p| p[1] }.max)
+
+# a model with ONE storey draws no picker at all
+Sketchup.reset_model!
+m9 = Sketchup.active_model
+a_box(m9, 'h')
+ok('one storey -> no picker row',
+   !InteriorPro::RoofDialog.build_html(RF.settings).include?('id="roofLevel"'))
+
 puts($fails.zero? ? 'ALL PASS' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

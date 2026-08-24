@@ -72,6 +72,14 @@ module InteriorPro
       lvls.empty? ? 1 : lvls.max
     end
 
+    # Every storey that actually has walls, lowest first (2026-08-26,
+    # step 5 of Edit Roof - the storey picker in the roof panel).
+    def self.wall_levels
+      InteriorPro::LevelManager.all_walls.map do |w|
+        (w.get_attribute('InteriorPro', 'level') || 1).to_i
+      end.uniq.sort
+    end
+
     # The walls a roof sits on: exterior walls of ONE level (all of its
     # walls if none is marked exterior). Split out of top_walls on
     # 2026-08-26 (step 3 of Edit Roof) so a roof can be built over the

@@ -24,14 +24,18 @@ module InteriorPro
       dlg = UI::HtmlDialog.new(
         dialog_title: @target ? 'Interior Pro - Edit Roof' : 'Interior Pro - Roof',
         preferences_key: 'InteriorPro_Roof',
-        width: 340, height: 640, resizable: true,
+        # 820 tall (2026-08-26): the panel grew a storey row, a soffit row
+        # and a slope row, and the user scrolls for the Apply button
+        # ("שכל החלון של הגגות יהיה פתוח ולא רק חלק ממנו"). Tall enough
+        # for every row and both buttons with nothing folded away.
+        width: 340, height: 820, resizable: true,
         min_width: 300, min_height: 380,
-        max_width: 560, max_height: 1000
+        max_width: 560, max_height: 1100
       )
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
-                                                soffit, scol, sslope|
+                                                soffit, scol, sslope, rlevel|
         # Which roof this Apply belongs to: the one the Edit tool clicked,
         # or none (the plain Roof button). Checked NOW, not at show time -
         # the roof the panel opened on may have been rebuilt or removed
@@ -72,7 +76,7 @@ module InteriorPro
             m.set_attribute('InteriorPro', 'roof_gable_click_xy', [])
           end
         end
-        built = RoofManager.build_roof!(
+        kw = {
           style: style.to_s,
           pitch: pitch.to_f > 0.01 ? pitch.to_f : nil,
           overhang: truthy(eaves) ? overhang.to_f : 0.0,
@@ -92,12 +96,27 @@ module InteriorPro
           # LAST on purpose, same reason the two above are: a saved model
           # or an old console line that calls apply_roof with 14 arguments
           # still lands, and sslope simply arrives nil.
-          soffit_slope: sslope.nil? ? nil : truthy(sslope),
-          # editing rebuilds THE CLICKED ROOF; the plain panel scopes
-          # itself to the top storey so other storeys' roofs survive it
-          replace: tgt,
-          level: tgt ? nil : RoofManager.top_level
-        )
+          soffit_slope: sslope.nil? ? nil : truthy(sslope)
+        }
+        # WHERE the roof goes (2026-08-26, step 5 - the storey picker,
+        # user: "איך אני בוחר קומה ראשונה או שניה או שניהם?"):
+        #   editing        - the clicked roof, wherever it lives;
+        #   a storey number - that storey alone;
+        #   'all'          - one roof per storey that has walls, top first;
+        #   nothing (an old call with 15 arguments) - the top storey,
+        #   which is everything the plain panel ever built.
+        built =
+          if tgt
+            RoofManager.build_roof!(**kw, replace: tgt)
+          elsif rlevel.to_s == 'all'
+            RoofManager.wall_levels.reverse.map do |lv|
+              RoofManager.build_roof!(**kw, level: lv)
+            end.compact.last
+          elsif rlevel.to_s =~ /\A\d+\z/
+            RoofManager.build_roof!(**kw, level: rlevel.to_i)
+          else
+            RoofManager.build_roof!(**kw, level: RoofManager.top_level)
+          end
         # the rebuild made a NEW group - keep editing that one, so a
         # second Apply from the same open panel still hits this roof
         @target = built if tgt && built
@@ -116,9 +135,10 @@ module InteriorPro
         end
       end
       dlg.set_html(build_html(@target ? RoofManager.roof_settings(@target)
-                                      : RoofManager.settings))
+                                      : RoofManager.settings,
+                              edit: !@target.nil?))
       begin
-        dlg.set_size(340, 640)
+        dlg.set_size(340, 820)
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError => e
         puts "[Roof] dialog size: #{e.message}"
@@ -131,7 +151,27 @@ module InteriorPro
       v == true || v.to_s == 'true'
     end
 
-    def self.build_html(s)
+    # `edit:` - the panel opened on one clicked roof: that roof already
+    # knows its storey, so the storey row is not drawn at all.
+    def self.build_html(s, edit: false)
+      # The storey picker (2026-08-26, step 5). Only when there is a
+      # choice to make: two storeys or more, and not in edit mode. One
+      # storey = the row is not drawn and Apply behaves exactly as ever.
+      lvls = RoofManager.wall_levels
+      level_row = ''
+      if !edit && lvls.length > 1
+        top = lvls.max
+        opts = lvls.reverse.map do |lv|
+          label = lv == top ? "Storey #{lv} (top)" : "Storey #{lv}"
+          "<option value=\"#{lv}\">#{label}</option>"
+        end.join
+        # All storeys is the default (user 2026-08-26) - with two storeys
+        # in the model, one Apply roofs the whole building.
+        opts += '<option value="all" selected>All storeys (one roof each)</option>'
+        level_row = '<div class="section-title">Storey</div>' \
+                    "<div class=\"row\"><label>Build over</label>" \
+                    "<select id=\"roofLevel\">#{opts}</select></div>"
+      end
       pitch_options = (2..12).map do |p|
         sel = (s[:pitch].round - p).zero? ? ' selected' : ''
         "<option value=\"#{p}\"#{sel}>#{p}:12</option>"
@@ -187,6 +227,7 @@ module InteriorPro
                    background: #37474f; color: #fff; font-size: 14px; cursor: pointer; }
           button.secondary { background: #9e9e9e; }
         </style></head><body>
+          #{level_row}
           <div class="section-title">Roof Type</div>
           <div class="row">
             <label><input type="radio" name="style" value="hip"#{%w[flat gable].include?(s[:style]) ? '' : ' checked'} onchange="styleChanged()"> Hip</label>
@@ -258,7 +299,9 @@ module InteriorPro
                 document.getElementById('ridgeCap').checked,
                 document.getElementById('soffit').value,
                 soffitPickedFlag ? document.getElementById('soffitColor').value : '',
-                document.getElementById('soffitSlope').checked);
+                document.getElementById('soffitSlope').checked,
+                (function () { var lv = document.getElementById('roofLevel');
+                               return lv ? lv.value : ''; })());
             }
             styleChanged();
             eavesChanged();
