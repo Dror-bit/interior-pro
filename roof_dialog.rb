@@ -5,18 +5,24 @@
 module InteriorPro
   module RoofDialog
 
-    def self.show
+    # `roof` (2026-08-26, step 4 of Edit Roof): open the panel FOR THAT
+    # ROOF - its own settings fill the controls, and Apply rebuilds it
+    # alone via build_roof!(replace:). With no roof this is the plain
+    # panel it always was, except that Apply now scopes itself to the top
+    # storey, so a lower roof built with level: survives it.
+    def self.show(roof = nil)
       if @dialog
         begin; @dialog.close; rescue StandardError; end
         @dialog = nil
       end
+      @target = roof && roof.respond_to?(:valid?) && roof.valid? ? roof : nil
       # preferences_key makes SketchUp remember the last size, and once a
       # window has been maximised it comes back maximised forever - which
       # is what happened after the panel grew three rows (2026-08-10).
       # min/max box it in, and set_size below forces the small side panel
       # every time it opens, whatever is remembered.
       dlg = UI::HtmlDialog.new(
-        dialog_title: 'Interior Pro - Roof',
+        dialog_title: @target ? 'Interior Pro - Edit Roof' : 'Interior Pro - Roof',
         preferences_key: 'InteriorPro_Roof',
         width: 340, height: 640, resizable: true,
         min_width: 300, min_height: 380,
@@ -26,6 +32,11 @@ module InteriorPro
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
                                                 soffit, scol, sslope|
+        # Which roof this Apply belongs to: the one the Edit tool clicked,
+        # or none (the plain Roof button). Checked NOW, not at show time -
+        # the roof the panel opened on may have been rebuilt or removed
+        # while the panel sat open.
+        tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
         # SWITCHING to Hip = a clean full hip: the click marks go (user
         # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
         #
@@ -40,12 +51,28 @@ module InteriorPro
         # question is whether this Apply CHANGED the style, and that is what
         # is asked now. Switch away to Gable and back to Hip and the old
         # clean-slate behaviour is still there, unchanged.
-        if style.to_s == 'hip' && RoofManager.settings[:style].to_s != 'hip'
+        #
+        # With a target roof the comparison is against ITS style, and only
+        # ITS OWN walls' marks are dropped - the other roofs' gables are
+        # not this panel's to clear (step 4).
+        cur = (tgt ? RoofManager.roof_settings(tgt) : RoofManager.settings)[:style].to_s
+        if style.to_s == 'hip' && cur != 'hip'
           m = Sketchup.active_model
-          m.set_attribute('InteriorPro', 'roof_gable_wall_ids', [])
-          m.set_attribute('InteriorPro', 'roof_gable_click_xy', [])
+          if tgt
+            own = RoofManager.roof_wall_ids(tgt)
+            ids = RoofManager.gable_wall_ids
+            pts = RoofManager.gable_click_points
+            keep = (0...ids.length).reject { |i| own.include?(ids[i]) }
+            m.set_attribute('InteriorPro', 'roof_gable_wall_ids',
+                            keep.map { |i| ids[i] })
+            m.set_attribute('InteriorPro', 'roof_gable_click_xy',
+                            keep.flat_map { |i| pts[i] || [1e9, 1e9] })
+          else
+            m.set_attribute('InteriorPro', 'roof_gable_wall_ids', [])
+            m.set_attribute('InteriorPro', 'roof_gable_click_xy', [])
+          end
         end
-        RoofManager.build_roof!(
+        built = RoofManager.build_roof!(
           style: style.to_s,
           pitch: pitch.to_f > 0.01 ? pitch.to_f : nil,
           overhang: truthy(eaves) ? overhang.to_f : 0.0,
@@ -65,11 +92,31 @@ module InteriorPro
           # LAST on purpose, same reason the two above are: a saved model
           # or an old console line that calls apply_roof with 14 arguments
           # still lands, and sslope simply arrives nil.
-          soffit_slope: sslope.nil? ? nil : truthy(sslope)
+          soffit_slope: sslope.nil? ? nil : truthy(sslope),
+          # editing rebuilds THE CLICKED ROOF; the plain panel scopes
+          # itself to the top storey so other storeys' roofs survive it
+          replace: tgt,
+          level: tgt ? nil : RoofManager.top_level
         )
+        # the rebuild made a NEW group - keep editing that one, so a
+        # second Apply from the same open panel still hits this roof
+        @target = built if tgt && built
       end
-      dlg.add_action_callback('remove_roof') { |_| RoofManager.remove_all! }
-      dlg.set_html(build_html(RoofManager.settings))
+      # Remove: the clicked roof alone from the Edit panel, everything from
+      # the plain one - exactly the scope the panel itself has.
+      dlg.add_action_callback('remove_roof') do |_|
+        t = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
+        if t
+          Sketchup.active_model.start_operation('InteriorPro Remove Roof', true)
+          t.erase!
+          Sketchup.active_model.commit_operation
+          @target = nil
+        else
+          RoofManager.remove_all!
+        end
+      end
+      dlg.set_html(build_html(@target ? RoofManager.roof_settings(@target)
+                                      : RoofManager.settings))
       begin
         dlg.set_size(340, 640)
         dlg.center if dlg.respond_to?(:center)

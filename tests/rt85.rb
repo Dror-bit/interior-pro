@@ -392,5 +392,69 @@ ok('a storey with nothing above keeps its full loop',
    (fx7.map { |p| p[1] }.min - -15.0).abs < 0.01 &&
    (fx7.map { |p| p[1] }.max - 215.0).abs < 0.01, fx7.map { |p| p[1] }.minmax)
 
+# ==================================================================== STEP 4
+# THE EDIT PANEL. RoofDialog.show(roof) opens the panel ON that roof: its
+# own settings fill the controls, Apply rebuilds it alone (and keeps
+# following the new group, so a second Apply from the same panel works),
+# and Remove erases it alone. The plain panel keeps its old life, except
+# that its Apply now scopes to the top storey - a lower roof survives it.
+require './roof_dialog'
+Sketchup.reset_model!
+m8 = Sketchup.active_model
+make_wall(m8, 'fS', [0, 0], [400, 0], 1)
+make_wall(m8, 'fE', [400, 0], [400, 240], 1)
+make_wall(m8, 'fN', [400, 240], [0, 240], 1)
+make_wall(m8, 'fW', [0, 240], [0, 0], 1)
+make_wall(m8, 'gS', [0, 140], [400, 140], 2, 96.0)
+make_wall(m8, 'gE', [400, 140], [400, 240], 2, 96.0)
+make_wall(m8, 'gN', [400, 240], [0, 240], 2, 96.0)
+make_wall(m8, 'gW', [0, 240], [0, 140], 2, 96.0)
+up8 = RF.build_roof!(style: 'gable', pitch: 8, thickness: 0.0, ridge_cap: false)
+lo8 = RF.build_roof!(level: 1, style: 'hip', pitch: 4, thickness: 0.0,
+                     ridge_cap: false)
+
+InteriorPro::RoofDialog.show(lo8)
+dlg = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
+html = InteriorPro::RoofDialog.build_html(RF.roof_settings(lo8))
+ok('the edit panel opens with THE ROOF pitch, not the model one',
+   html.include?('<option value="4" selected>'), html[/<option value="4"[^>]*>/])
+# Apply from the edit panel: pitch 5, everything else as the panel showed
+dlg.callbacks['apply_roof'].call(nil, 'hip', '5', 'true', '12', 'true', '8',
+                                 'true', '#111111', '#eeeeee', 'color', '0',
+                                 'false', 'none', '', 'false')
+ok('edit Apply rebuilt the low roof alone',
+   RF.roofs.length == 2 && up8.valid? && !lo8.valid?,
+   [RF.roofs.length, up8.valid?, lo8.valid?])
+lo8b = RF.roofs.find { |r| r != up8 }
+ok('...with the new pitch on it', RF.roof_settings(lo8b)[:pitch] == 5.0,
+   RF.roof_settings(lo8b)[:pitch])
+ok('...and the upper roof still has its own',
+   RF.roof_settings(up8)[:pitch] == 8.0, RF.roof_settings(up8)[:pitch])
+# the panel follows the new group: a SECOND Apply must hit it again
+dlg.callbacks['apply_roof'].call(nil, 'hip', '6', 'true', '12', 'true', '8',
+                                 'true', '#111111', '#eeeeee', 'color', '0',
+                                 'false', 'none', '', 'false')
+ok('a second Apply from the same open panel still edits the same roof',
+   RF.roofs.length == 2 && up8.valid? && !lo8b.valid?, RF.roofs.length)
+# Remove from the edit panel: this roof only
+dlg.callbacks['remove_roof'].call(nil)
+ok('edit Remove erases the edited roof alone',
+   RF.roofs == [up8], RF.roofs.length)
+
+# the PLAIN panel: its Apply is scoped to the top storey now
+lo9 = RF.build_roof!(level: 1, style: 'hip', pitch: 4, thickness: 0.0,
+                     ridge_cap: false)
+InteriorPro::RoofDialog.show
+dlg2 = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
+dlg2.callbacks['apply_roof'].call(nil, 'gable', '9', 'true', '12', 'true', '8',
+                                  'true', '#111111', '#eeeeee', 'color', '0',
+                                  'false', 'none', '', 'false')
+ok('the plain panel Apply rebuilds the TOP roof and spares the lower one',
+   RF.roofs.length == 2 && lo9.valid? && !up8.valid?,
+   [RF.roofs.length, lo9.valid?])
+ok('...and the top pitch went where it was aimed',
+   RF.roofs.reject { |r| r == lo9 }.map { |r| RF.roof_settings(r)[:pitch] } == [9.0],
+   RF.roofs.map { |r| RF.roof_settings(r)[:pitch] })
+
 puts($fails.zero? ? 'ALL PASS' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

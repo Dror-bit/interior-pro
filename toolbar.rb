@@ -328,6 +328,19 @@ module InteriorPro
       roof_cmd.large_icon = icon_path('roof_tool')
       tb.add_item(roof_cmd)
 
+      # Edit Roof (2026-08-26): click a roof, get ITS OWN panel. The
+      # guard above still holds - in a running session a populated bar is
+      # skipped whole, and a fresh SketchUp start builds all three - so
+      # the new button shows up on the next restart, never duplicated.
+      redit_cmd = UI::Command.new('Edit Roof') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofEditTool.new)
+      }
+      redit_cmd.tooltip = 'Edit Roof - click a roof to edit it'
+      redit_cmd.status_bar_text = 'Click a roof to open its settings and rebuild just it'
+      redit_cmd.small_icon = icon_path('roof_edit')
+      redit_cmd.large_icon = icon_path('roof_edit')
+      tb.add_item(redit_cmd)
+
       # Per-wall gable ends (2026-08-05): click walls to choose WHERE the
       # gables go, like Revit's Defines Slope.
       gable_cmd = UI::Command.new('Gable Ends') {
@@ -638,6 +651,9 @@ module InteriorPro
       }
       menu.add_item('Roof: Build / Update') {
         InteriorPro::RoofDialog.show
+      }
+      menu.add_item('Roof: Edit (click a roof)') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofEditTool.new)
       }
       menu.add_item('Roof: Gable Ends (click walls)') {
         Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
