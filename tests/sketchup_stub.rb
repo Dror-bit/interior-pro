@@ -144,7 +144,20 @@ end
     end
     def add_curve(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     def add_line(a, b); e = Edge.new(a, b); @list << e; e; end
-    def add_face(pts); f = Face.new(pts); @list << f; f; end
+    # Real SketchUp REFUSES a face with a repeated point - "Duplicate
+    # points in array" - and a builder that swallows that raise loses
+    # every face after it. The stub used to accept them silently, so
+    # rt84 passed green while the user's gable soffit was not being
+    # built at all (2026-08-24). It refuses them now, like the real one.
+    def add_face(pts)
+      # ...and it works to 1/1000", so two points a ten-thousandth apart
+      # are the SAME point to it, however different they look in Ruby.
+      key = Array(pts).map { |p| [p.x.round(3), p.y.round(3), p.z.round(3)] }
+      raise ArgumentError, 'Duplicate points in array' if key.uniq.length < key.length
+      f = Face.new(pts)
+      @list << f
+      f
+    end
     def add_3d_text(*_a); true; end
     def clear!; @list = []; true; end
     def erase_entity(e); @list.delete(e); end

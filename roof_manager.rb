@@ -19,6 +19,12 @@ module InteriorPro
     FASCIA_THICK = 0.75 unless const_defined?(:FASCIA_THICK, false)
     DRIP_THICK   = 0.1  unless const_defined?(:DRIP_THICK, false)
     DRIP_DEPTH   = 2.0  unless const_defined?(:DRIP_DEPTH, false)
+    # The boxed soffit board: the flat plate that closes the eave from
+    # underneath (2026-08-24). OUTSIDE ONLY - it spans from the wall's
+    # exterior face out to the fascia, so with no overhang there is
+    # nothing to close and it is not built at all.
+    SOFFIT_THICK = 0.75 unless const_defined?(:SOFFIT_THICK, false)
+    SOFFIT_STYLES = %w[none boxed].freeze unless const_defined?(:SOFFIT_STYLES, false)
     # ...until 2026-08-10. A zero-thickness sheet has no edge to look at,
     # and worse: the gable wall rises to exactly the same plane, so the
     # wall showed THROUGH the shingles along the rake. The slab is now
@@ -38,6 +44,13 @@ module InteriorPro
     # SIDING_CURVE_TOL).
     ROOF_CURVE_TOL = 1.5 unless const_defined?(:ROOF_CURVE_TOL, false)
 
+
+    # One-diagnosis switch for the soffit builder. OFF by default; flip it
+    # from the console with RoofManager.debug_soffit = true when a corner
+    # comes out wrong, and off again after. Temporary by intent.
+    class << self
+      attr_accessor :debug_soffit
+    end
 
     # ---------- lookup ----------
 
@@ -88,6 +101,7 @@ module InteriorPro
         fascia: g.call('roof_fascia', true) == true,
         fascia_depth: g.call('roof_fascia_depth', DEFAULT_FASCIA_DEPTH).to_f,
         drip: g.call('roof_drip', true) == true,
+        soffit: g.call('roof_soffit', 'none').to_s,
         roof_color: g.call('roof_color', DEFAULT_ROOF_COLOR).to_s,
         fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s,
         roof_material: g.call('roof_material', 'color').to_s,
@@ -105,6 +119,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_fascia', s[:fascia])
       m.set_attribute('InteriorPro', 'roof_fascia_depth', s[:fascia_depth])
       m.set_attribute('InteriorPro', 'roof_drip', s[:drip])
+      m.set_attribute('InteriorPro', 'roof_soffit', s[:soffit])
       m.set_attribute('InteriorPro', 'roof_color', s[:roof_color])
       m.set_attribute('InteriorPro', 'roof_fascia_color', s[:fascia_color])
       m.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
@@ -866,7 +881,7 @@ module InteriorPro
                          fascia: nil, fascia_depth: nil, drip: nil,
                          roof_color: nil, fascia_color: nil,
                          roof_material: nil, thickness: nil, ridge_cap: nil,
-                         gable_walls: nil)
+                         gable_walls: nil, soffit: nil)
       model = Sketchup.active_model
       s = settings
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
@@ -876,6 +891,7 @@ module InteriorPro
       s[:fascia] = (fascia == true) unless fascia.nil?
       s[:fascia_depth] = fascia_depth.to_f if fascia_depth && fascia_depth.to_f > 0.01
       s[:drip] = (drip == true) unless drip.nil?
+      s[:soffit] = soffit.to_s if soffit
       s[:roof_color] = roof_color.to_s if roof_color
       s[:fascia_color] = fascia_color.to_s if fascia_color
       s[:roof_material] = roof_material.to_s if roof_material
@@ -1173,6 +1189,54 @@ module InteriorPro
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
                     gable_flags, gable_spans)
       end
+      # The soffit closes the eave from below. It skips the gable rakes for
+      # the same reason the fascia does - there the roof edge climbs, so
+      # there is no horizontal underside to board over.
+      if s[:soffit] != 'none'
+        had = {}
+        grp.entities.grep(Sketchup::Face).each { |f| had[f.object_id] = true }
+        sb = soffit_band(s[:overhang], s[:fascia_depth], s[:fascia], band_top)
+        if sb
+          # square_flags = the gable edges: where the flat board meets a
+          # rake it runs straight on across the corner square and ends in
+          # a rectangle, no 45 degree diagonal (user 2026-08-24).
+          build_band!(grp, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
+                      gable_flags, gable_spans, gable_flags)
+        end
+        # ...and the same board climbing the gable rakes, so the overhang
+        # is closed all the way round and not only on the flat eaves
+        # (user 2026-08-24: "צריך להיות גם באיב של הגייבל").
+        if sb && zmap && !gables.empty?
+          if framed
+            owners = framed_line_owners(framed)
+            gables.each do |i|
+              key = line_key(poly, i)
+              cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
+              build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
+                                 cover: cov, surface: surf)
+            end
+          else
+            gables.each do |i|
+              build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang])
+            end
+          end
+        end
+        # LAST, after every soffit face exists. Every corner of the band is
+        # mitered, and on a board you look straight up at, that miter reads
+        # as a diagonal scratch across the ceiling (user 2026-08-24). It is
+        # a joint between two flush boards, so it is softened away.
+        # Softening BEFORE the gable boards went in did not hold: adding a
+        # face on the same line splits that edge, and the new halves come
+        # back hard.
+        if sb
+          soften_seams!(grp, band_corner_seams(poly, sb[:k_in], sb[:k_out],
+                                               sb[:z_bot], sb[:z_top]))
+        end
+        # ...and then the general rule, over every face the soffit just
+        # added: flush boards do not get a line between them.
+        soften_flush_seams!(grp.entities.grep(Sketchup::Face)
+                               .reject { |f| had[f.object_id] })
+      end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
       # the roof edge), painted with each wall's own sides. They live in
@@ -1198,6 +1262,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'overhang_in', s[:overhang])
       grp.set_attribute('InteriorPro', 'thickness_in', 0.0)
       grp.set_attribute('InteriorPro', 'fascia', s[:fascia])
+      grp.set_attribute('InteriorPro', 'soffit', s[:soffit])
       grp.set_attribute('InteriorPro', 'drip_edge', s[:drip])
       grp.set_attribute('InteriorPro', 'gable_edges', gables) unless gables.empty?
       grp.set_attribute('InteriorPro', 'eave_z', z0)
@@ -2951,6 +3016,358 @@ module InteriorPro
       puts "[Roof] build_rake_board!: #{e.message}"
     end
 
+    # How far the INNER edge of a rake soffit is pulled along the rake at
+    # each end (2026-08-24). PURE, pinned by tests/rt84.rb.
+    #
+    # WHY: at a gable corner the flat eave soffit already covers half of
+    # the corner square - offset_polygon miters that corner, so the eave
+    # board ends on a 45 degree diagonal. A plain rectangular rake soffit
+    # would lie ON TOP of that triangle, two coplanar faces in one group,
+    # which is exactly the buried-face mess of the 2026-08-21 sessions.
+    # Pulling the inner edge forward by the overhang cuts the same 45
+    # degree diagonal, so the two boards meet on one seam.
+    # Positive = forward along the rake (start end), negative = back (far
+    # end), 0 in the middle of the edge.
+    def self.rake_soffit_miter(t, len, overhang)
+      oh = overhang.to_f
+      return oh if t <= NODE_TOL
+      return -oh if t >= len.to_f - NODE_TOL
+      0.0
+    end
+
+    # The four corners of one rake-soffit board, underside. PURE, pinned by
+    # tests/rt84.rb - and pinned there because the first version of this was
+    # NOT PLANAR and SketchUp threw the whole board away (2026-08-24,
+    # measured in the user's console: "build_rake_soffit!: Points are not
+    # planar", 0 faces built).
+    #
+    # THE TRAP: the mitered inner corners are pulled ALONG the rake, and the
+    # rake CLIMBS. Leaving them at the outer corner's height tilted them out
+    # of the board's own plane. Every point moved by m along the rake must
+    # rise by m * the rake's gradient with it.
+    # ACROSS its width the board stays level: a gable roof's height depends
+    # only on the distance from the ridge, so going inward off the rake does
+    # not change z.
+    def self.rake_soffit_quad(q1, q2, za, zb, d, inw, m1, m2)
+      span = vlen(vsub(q2, q1))
+      grad = span < 1.0e-6 ? 0.0 : (zb - za) / span
+      [[q1[0], q1[1], za],
+       [q2[0], q2[1], zb],
+       [q2[0] + inw[0] + d[0] * m2, q2[1] + inw[1] + d[1] * m2, zb + grad * m2],
+       [q1[0] + inw[0] + d[0] * m1, q1[1] + inw[1] + d[1] * m1, za + grad * m1]]
+    end
+
+    # THE BOX RETURN (user 2026-08-24: "הקובייה צריכה להיסגר לא ב-45 מעלות
+    # אלא ב-90"). PURE, pinned by tests/rt84.rb.
+    #
+    # Cutting the two soffits into each other on the corner diagonal left
+    # the box closing at 45 degrees, which is not how a boxed eave is
+    # built. A real one RETURNS: at the corner the rake soffit stays LEVEL
+    # with the flat eave soffit for one overhang, and only then steps up
+    # square onto the rake. The step face is perpendicular to the rake -
+    # that is the 90 degree closure, and the level piece under it is the
+    # little box itself.
+    #
+    # Splits one run into pieces [t_from, t_to, level?]. `level?` means
+    # hold the corner's own height right across the piece.
+    def self.rake_soffit_segments(ra, rb, len, overhang)
+      oh = overhang.to_f
+      segs = []
+      a = ra.to_f
+      b = rb.to_f
+      # a return needs its own overhang PLUS something left to slope
+      roomy = (b - a) > oh + 0.5
+      head = roomy && a <= NODE_TOL                 # the run starts at a corner
+      tail = roomy && b >= len.to_f - NODE_TOL      # ...or ends at one
+      if head && tail && (b - a) <= 2 * oh + 0.5    # no room for both returns
+        head = false
+        tail = false
+      end
+      if head
+        segs << [a, a + oh, true]
+        a += oh
+      end
+      if tail
+        b -= oh
+      end
+      segs << [a, b, false] if b - a > 1.0e-6
+      segs << [b, b + oh, true] if tail
+      segs
+    end
+
+    # Drop points that repeat their neighbour. PURE, pinned by rt84.
+    #
+    # WHY IT EXISTS: a 45 degree miter eaten over a piece exactly one
+    # overhang long collapses the quad's two inner corners onto the same
+    # point - the plan shape really is a TRIANGLE there. Handing SketchUp
+    # four points, two of them identical, raises, the rescue swallows it,
+    # and the WHOLE rake soffit of that edge is never built. Measured
+    # 2026-08-24 in the cloud stub after the user reported the gable soffit
+    # had vanished completely.
+    def self.dedupe_ring(pts, tol = 0.001)
+      out = []
+      pts.each do |p|
+        q = out.last
+        next if q && (p[0] - q[0]).abs < tol && (p[1] - q[1]).abs < tol &&
+                (p[2] - q[2]).abs < tol
+        out << p
+      end
+      f = out.first
+      l = out.last
+      if out.length > 1 && (f[0] - l[0]).abs < tol && (f[1] - l[1]).abs < tol &&
+         (f[2] - l[2]).abs < tol
+        out.pop
+      end
+      out
+    end
+
+    # The OUTER face of the box return (2026-08-24, the user's yellow
+    # triangle). PURE, pinned by rt84.
+    #
+    # The return is level but the rake board above it climbs, so along the
+    # outside of the little box a triangle opens up between the two: zero
+    # at the corner, and (rise - one board) high where the step is. The
+    # corner end is not the corner itself but the point where the climbing
+    # board finally clears the top of the return - before that they touch.
+    def self.rake_return_skirt(p_cross, p_step, z_flat, z_rake)
+      lo = z_flat.to_f + SOFFIT_THICK
+      return nil if z_rake.to_f - lo < 0.01
+      [[p_cross[0], p_cross[1], lo],
+       [p_step[0], p_step[1], lo],
+       [p_step[0], p_step[1], z_rake.to_f]]
+    end
+
+    # Where along the return the rake board clears the top of it - the apex
+    # of that triangle. Pure. Never leaves the return.
+    def self.rake_skirt_cross(t_corner, t_step, grad)
+      g = grad.abs
+      return t_step if g < 1.0e-9
+      step = SOFFIT_THICK / g
+      dir = t_step >= t_corner ? 1.0 : -1.0
+      t = t_corner + dir * step
+      dir.positive? ? [t, t_step].min : [t, t_step].max
+    end
+
+    # Every mitered corner of a band, as the seam line it draws: from the
+    # outer corner straight in to the offset one, at both faces of the
+    # board. PURE, pinned by rt84.
+    def self.band_corner_seams(poly, k_in, k_out, z_bot, z_top)
+      inner = k_in.abs < 1e-9 ? poly : offset_polygon(poly, k_in)
+      outer = k_out.abs < 1e-9 ? poly : offset_polygon(poly, k_out)
+      return [] if inner.nil? || outer.nil?
+      seams = []
+      poly.length.times do |i|
+        [z_bot, z_top].each do |z|
+          seams << [[outer[i][0], outer[i][1], z], [inner[i][0], inner[i][1], z]]
+        end
+      end
+      seams
+    end
+
+    # Hide a seam between two faces that are flush - the user does not want
+    # to see a line where the boards simply meet (2026-08-24, the diagonal
+    # across the corner). Soft + smooth is how the rest of this file does
+    # it. Silently does nothing in the cloud stub, which builds no edges.
+    # Matching by ENDPOINTS is not enough: every face added on the same
+    # line splits that edge, and the halves no longer start and end where
+    # the seam does. So an edge counts if it simply LIES ON the seam.
+    def self.on_segment?(x, p, q, tol)
+      v = [q[0] - p[0], q[1] - p[1], q[2] - p[2]]
+      l2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2]
+      return false if l2 < 1.0e-9
+      w = [x[0] - p[0], x[1] - p[1], x[2] - p[2]]
+      t = (w[0] * v[0] + w[1] * v[1] + w[2] * v[2]) / l2
+      return false if t < -0.001 || t > 1.001
+      dx = w[0] - v[0] * t
+      dy = w[1] - v[1] * t
+      dz = w[2] - v[2] * t
+      Math.sqrt(dx * dx + dy * dy + dz * dz) < tol
+    end
+
+    # ONE RULE instead of chasing seams one at a time (2026-08-24, after
+    # three rounds of the user pointing at another diagonal): inside the
+    # soffit, an edge with a face on each side and BOTH FACES IN THE SAME
+    # PLANE is a joint between two boards that are flush. It is not a
+    # corner, there is nothing there to see, and it is softened.
+    #
+    # Scoped deliberately to the faces this build just added - the roof
+    # deck and the tiles have flush seams of their own and are none of
+    # this method's business.
+    def self.soften_flush_seams!(faces)
+      mine = {}
+      faces.each { |f| mine[f.object_id] = true if f.respond_to?(:edges) }
+      return if mine.empty?
+      seen = {}
+      faces.each do |f|
+        next unless f.respond_to?(:edges)
+        f.edges.each do |e|
+          next if seen[e.object_id]
+          seen[e.object_id] = true
+          pair = e.faces.select { |x| mine[x.object_id] }
+          next unless pair.length == 2
+          n1 = pair[0].normal
+          n2 = pair[1].normal
+          next if (n1.x * n2.x + n1.y * n2.y + n1.z * n2.z).abs < 0.9999
+          e.soft = true
+          e.smooth = true
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] soften_flush_seams!: #{e.message}"
+    end
+
+    def self.soften_seams!(grp, seams, tol = 0.01)
+      return if seams.nil? || seams.empty?
+      grp.entities.grep(Sketchup::Edge).each do |e|
+        a = e.start.position
+        b = e.end.position
+        pa = [a.x.to_f, a.y.to_f, a.z.to_f]
+        pb = [b.x.to_f, b.y.to_f, b.z.to_f]
+        seams.each do |(p, q)|
+          next unless on_segment?(pa, p, q, tol) && on_segment?(pb, p, q, tol)
+          e.soft = true
+          e.smooth = true
+          break
+        end
+      end
+    rescue StandardError => e
+      puts "[Roof] soften_seams!: #{e.message}"
+    end
+
+    # Add one face, but ONLY if it is a face. SketchUp raises "Duplicate
+    # points in array" on ANY repeat, and inside build_rake_soffit! one
+    # raise costs the whole edge - the user saw the gable soffit disappear
+    # twice this way (2026-08-24). So every ring goes through here, sides
+    # and step included, not just the ones thought likely to collapse.
+    def self.add_ring!(grp, pts)
+      return nil if pts.nil?
+      ring = dedupe_ring(pts)
+      return nil if ring.length < 3
+      # a repeat that is not adjacent is a pinched ring, not a face
+      return nil if ring.uniq.length < ring.length
+      grp.entities.add_face(ring.map { |p| Geom::Point3d.new(p[0], p[1], p[2]) })
+    rescue StandardError => e
+      puts "[Roof] soffit face skipped: #{e.message}"
+      nil
+    end
+
+    # The square face that shuts the box where the level return steps up
+    # onto the rake. Vertical, PERPENDICULAR to the rake, spanning the
+    # whole width of the soffit. Returns nil when the step is too small to
+    # leave anything open (a shallow pitch closes itself).
+    def self.rake_soffit_step(q, inw, z_flat, z_rake)
+      lo = z_flat.to_f + SOFFIT_THICK
+      hi = z_rake.to_f
+      return nil if hi - lo < 0.01
+      [[q[0], q[1], lo],
+       [q[0] + inw[0], q[1] + inw[1], lo],
+       [q[0] + inw[0], q[1] + inw[1], hi],
+       [q[0], q[1], hi]]
+    end
+
+    # The rake soffit: the board that closes the gable overhang from
+    # underneath, the sloped twin of the flat eave soffit (2026-08-24).
+    # It hangs from the bottom of the rake board (same `depth` the rake
+    # board uses) and runs inward by the overhang to the gable wall face.
+    # ACROSS its width it is LEVEL: a gable roof's height depends only on
+    # the distance from the ridge, so moving inward off the rake does not
+    # change z. It slopes only ALONG the rake.
+    def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
+                                cover: nil, surface: nil)
+      oh = overhang.to_f
+      return if oh < 1.0
+      a = poly[i]
+      b = poly[(i + 1) % poly.length]
+      d = vnorm(vsub(b, a))
+      len = vlen(vsub(b, a))
+      # The rake board stands OUTSIDE the poly line (build_rake_board!
+      # pushes it outward by FASCIA_THICK), so the soffit runs right up to
+      # that line and meets its inner face - no inset, no gap under it.
+      inw = [-d[1] * oh, d[0] * oh] # inward for CCW - the rake board goes the other way
+      chain = edge_profile_chain(poly, i, zmap, surface: surface)
+      return if chain.nil?
+      seams = []
+      zmin = chain.map { |c| c[2] }.min
+      chain.each_cons(2) do |(t1, p1, z1), (t2, p2, z2)|
+        next if z1 < zmin + 0.02 && z2 < zmin + 0.02 # a plain eave, not a rake
+        next if t2 - t1 < 1.0e-6
+        runs = cover ? rake_visible_runs(t1, t2, z1, z2, p1, p2, cover) : [[t1, t2]]
+        runs.each do |ra, rb|
+          span = rb - ra
+          next if span < 0.5
+          fa = (ra - t1) / (t2 - t1)
+          fb = (rb - t1) / (t2 - t1)
+          q1 = [p1[0] + (p2[0] - p1[0]) * fa, p1[1] + (p2[1] - p1[1]) * fa]
+          q2 = [p1[0] + (p2[0] - p1[0]) * fb, p1[1] + (p2[1] - p1[1]) * fb]
+          za = z1 + (z2 - z1) * fa - depth.to_f
+          zb = z1 + (z2 - z1) * fb - depth.to_f
+          grad = span < 1.0e-6 ? 0.0 : (zb - za) / span
+          pt_at = lambda do |t|
+            f = (t - ra) / span
+            [q1[0] + (q2[0] - q1[0]) * f, q1[1] + (q2[1] - q1[1]) * f]
+          end
+          segs = rake_soffit_segments(ra, rb, len, oh)
+          if @debug_soffit
+            puts format('[soffit] edge%d len=%.2f run=%.2f..%.2f za=%.2f zb=%.2f segs=%s',
+                        i, len, ra, rb, za, zb, segs.inspect)
+          end
+          segs.each do |sa, sb, level|
+            # A sliver shorter than SketchUp's own 1/1000" tolerance has
+            # two ends it treats as ONE point, and the face it would make
+            # raises "Duplicate points in array" (2026-08-24).
+            next if sb - sa < 0.01
+            p_a = pt_at.call(sa)
+            p_b = pt_at.call(sb)
+            # a level RETURN holds the corner's height right across itself;
+            # the sloped piece follows the rake as usual
+            head = sa <= ra + 1.0e-6
+            corner_t = head ? sa : sb
+            z_a = level ? za + grad * (corner_t - ra) : za + grad * (sa - ra)
+            z_b = level ? z_a : za + grad * (sb - ra)
+            # THE BOX IS THE EAVE BOARD'S NOW (2026-08-24). The level
+            # return used to be built here as a mitered triangle, and the
+            # flat eave board's own mitered corner filled the other half -
+            # the 45 degree joint between them is the line the user asked
+            # to be rid of. Instead the eave band is cut SQUARE at a gable
+            # corner (build_band!'s square_flags) and owns the whole corner
+            # square, so this builder skips the level piece and only closes
+            # it: the step at its far end, and the skirt on its outside.
+            unless level
+              ring = dedupe_ring(rake_soffit_quad(p_a, p_b, z_a, z_b, d, inw, 0.0, 0.0))
+              next if ring.length < 3
+              bot = ring
+              top = ring.map { |p| [p[0], p[1], p[2] + SOFFIT_THICK] }
+              add_ring!(grp, bot)
+              add_ring!(grp, top)
+              bot.length.times do |k|
+                j = (k + 1) % bot.length
+                add_ring!(grp, [bot[k], bot[j], top[j], top[k]])
+              end
+            end
+            next unless level
+            # the square step where the return meets the rake
+            step_t = head ? sb : sa
+            z_step = za + grad * (step_t - ra)
+            p_step = pt_at.call(step_t)
+            add_ring!(grp, rake_soffit_step(p_step, inw, z_a, z_step))
+            # ...and the outer face of the little box, under the climbing
+            # rake board - the user's yellow triangle
+            p_cross = pt_at.call(rake_skirt_cross(corner_t, step_t, grad))
+            add_ring!(grp, rake_return_skirt(p_cross, p_step, z_a, z_step))
+            # That triangle's long side lies exactly along the bottom of
+            # the rake fascia, in the same plane. The user wants the two
+            # read as ONE board, not as a board with a diagonal drawn
+            # across it (2026-08-24) - so the joint between them goes.
+            seams << [[p_cross[0], p_cross[1], z_a + SOFFIT_THICK],
+                      [p_step[0], p_step[1], z_step]]
+          end
+        end
+      end
+      soften_seams!(grp, seams)
+    rescue StandardError => e
+      puts "[Roof] build_rake_soffit!: #{e.message}"
+    end
+
     # ---------- gable only on the mother span of a long wall ----------
 
     # Distance from origin along dirv to the nearest polygon boundary
@@ -3596,14 +4013,62 @@ module InteriorPro
       [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]
     end
 
+    # One edge of `poly`, pushed sideways by k - the same offset
+    # offset_polygon uses (right = outward for CCW). Returns [point, dir].
+    # PURE.
+    def self.offset_line(poly, i, k)
+      n = poly.length
+      d = vnorm(vsub(poly[(i + 1) % n], poly[i]))
+      [vadd(poly[i], vmul([d[1], -d[0]], k)), d]
+    end
+
+    # Where two such lines cross, or nil when they are parallel. PURE.
+    def self.line_cross(l1, l2)
+      p1, d1 = l1
+      p2, d2 = l2
+      den = vcross(d1, d2)
+      return nil if den.abs < 1e-9
+      t = vcross(vsub(p2, p1), d2) / den
+      vadd(p1, vmul(d1, t))
+    end
+
+    # THE SQUARE END (2026-08-24). PURE, pinned by tests/rt84.rb.
+    #
+    # A mitered corner ends the band on the 45 degree line from its inner
+    # corner to its outer one, and the neighbour fills the other half of
+    # the corner square - that diagonal is exactly the line the user kept
+    # seeing across his soffit. A square end instead runs the band ACROSS
+    # the whole corner square and cuts it off flat, perpendicular to
+    # itself, on the neighbour's own OUTER line.
+    #
+    # `k_cut` is the neighbour's INNER FACE, the line the band has to reach
+    # so nothing is left open under it. At a gable that neighbour is the
+    # rake board, and build_rake_board! stands it OUTSIDE the poly line -
+    # so k_cut is 0, the poly line itself. Cutting at the soffit's own
+    # k_out instead left a FASCIA_THICK gap the user could see straight
+    # through (2026-08-24).
+    def self.band_square_corner(poly, edge, other, k_in, k_cut)
+      line_cross(offset_line(poly, edge, k_in), offset_line(poly, other, k_cut))
+    end
+
     # skip_flags[i]  - drop the fascia/drip on this whole edge (gable rake)
     # skip_spans[i]  - drop it only on these t ranges along the edge, and
     #                  keep the rest (2026-08-09). A marked wall can run
     #                  past its own gable onto a wing, where the roof is a
     #                  plain eave that still needs its fascia - flagging
     #                  the whole edge erased it.
+    # square_flags[i] - the corner where THIS band meets edge i is cut
+    #                   SQUARE instead of mitered, and the band runs on to
+    #                   the far side of that edge's own outer line, so the
+    #                   whole corner square belongs to this band (the boxed
+    #                   soffit, user 2026-08-24: "מרובע בקצה במקום האלכסון
+    #                   פלוס החתיכה שמשלימה אותה"). Only the soffit passes
+    #                   it - the fascia and the drip stay mitered.
+    # square_k       - the line to cut on, as an offset of the NEIGHBOUR's
+    #                   edge. 0 = the poly line itself, which is where the
+    #                   rake board's inner face stands.
     def self.build_band!(grp, poly, k_in, k_out, z_top, z_bot, skip_flags = nil,
-                         skip_spans = nil)
+                         skip_spans = nil, square_flags = nil, square_k = 0.0)
       inner = k_in.abs < 1e-9 ? poly : offset_polygon(poly, k_in)
       outer = offset_polygon(poly, k_out)
       return if inner.nil? || outer.nil?
@@ -3625,11 +4090,46 @@ module InteriorPro
           next
         end
         next if skip_flags && skip_flags[i] # no fascia/drip on gable rakes
-        quad = [inner[i], inner[j], outer[j], outer[i]]
+        a_in = inner[i]
+        b_in = inner[j]
+        a_out = outer[i]
+        b_out = outer[j]
+        if square_flags
+          prev = (i - 1) % n
+          if square_flags[prev]
+            a_in = band_square_corner(poly, i, prev, k_in, square_k) || a_in
+            a_out = band_square_corner(poly, i, prev, k_out, square_k) || a_out
+          end
+          if square_flags[j]
+            b_in = band_square_corner(poly, i, j, k_in, square_k) || b_in
+            b_out = band_square_corner(poly, i, j, k_out, square_k) || b_out
+          end
+        end
+        quad = [a_in, b_in, b_out, a_out]
         add_prism!(grp.entities, quad, z_top, z_bot)
       end
     rescue StandardError => e
       puts "[Roof] build_band!: #{e.message}"
+    end
+
+    # ---------- soffit: the flat plate under the eave (2026-08-24) -------
+    #
+    # PURE - no SketchUp API, so tests/rt84.rb can measure it directly.
+    #
+    # `poly` is already the EAVE outline: the wall's exterior face pushed
+    # out by the overhang. So the plate runs from offset -overhang (back at
+    # the wall) out to the INNER face of the fascia, and its underside sits
+    # on the fascia's own bottom line - one flush edge, no lip.
+    # Returns nil when there is nothing to close: no overhang, or an
+    # overhang too shallow to fit a board between wall and fascia.
+    def self.soffit_band(overhang, fascia_depth, fascia, band_top)
+      oh = overhang.to_f
+      return nil if oh < 1.0
+      k_out = fascia ? -FASCIA_THICK : 0.0
+      k_in  = -oh
+      return nil if k_out - k_in < 0.5
+      z_bot = band_top.to_f - fascia_depth.to_f
+      { k_in: k_in, k_out: k_out, z_bot: z_bot, z_top: z_bot + SOFFIT_THICK }
     end
 
     def self.add_prism!(ents, quad, z_top, z_bot)
