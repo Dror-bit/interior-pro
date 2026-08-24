@@ -35,7 +35,7 @@ module InteriorPro
     # 'beams' (2026-08-25) is the one that is NOT the same board: there is
     # no board at all. Rafter tails cross the eave every 18" and the roof
     # deck is what you see between them.
-    SOFFIT_STYLES = %w[none boxed wood stucco beams].freeze unless const_defined?(:SOFFIT_STYLES, false)
+    SOFFIT_STYLES = %w[none boxed wood stucco beams spanish].freeze unless const_defined?(:SOFFIT_STYLES, false)
     # ...until 2026-08-10. A zero-thickness sheet has no edge to look at,
     # and worse: the gable wall rises to exactly the same plane, so the
     # wall showed THROUGH the shingles along the rake. The slab is now
@@ -1228,9 +1228,17 @@ module InteriorPro
         # k range so the tails start and stop exactly where the board would
         # have, and everything below - the square gable corner, the rake
         # twin, the seam softening - is board work and is skipped.
-        beams = s[:soffit].to_s == 'beams'
-        build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top, gable_flags) if sb && beams
-        if sb && !beams
+        # Two independent questions, and keeping them apart is the whole
+        # shape of this block:
+        #   board?  every style except 'beams' lays the flat plate.
+        #   tails?  'beams' and 'spanish' hang timber under the eave.
+        # 'spanish' answers YES to both - a stucco board with dark tails
+        # under it - which is why neither can be `style == ...` any more.
+        style = s[:soffit].to_s
+        beams = style == 'beams'
+        tails = beams || style == 'spanish'
+        board = !beams
+        if sb && board
           # square_flags = the gable edges: where the flat board meets a
           # rake it runs straight on across the corner square and ends in
           # a rectangle, no 45 degree diagonal (user 2026-08-24).
@@ -1240,7 +1248,7 @@ module InteriorPro
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
         # (user 2026-08-24: "צריך להיות גם באיב של הגייבל").
-        if sb && !beams && zmap && !gables.empty?
+        if sb && board && zmap && !gables.empty?
           if framed
             owners = framed_line_owners(framed)
             gables.each do |i|
@@ -1262,14 +1270,48 @@ module InteriorPro
         # Softening BEFORE the gable boards went in did not hold: adding a
         # face on the same line splits that edge, and the new halves come
         # back hard.
-        if sb && !beams
+        if sb && board
           soften_seams!(grp, band_corner_seams(poly, sb[:k_in], sb[:k_out],
                                                sb[:z_bot], sb[:z_top]))
         end
+        # Everything the BOARD added, before a single tail exists - the two
+        # get different paint and this is the only moment they can be told
+        # apart without hunting for them afterwards.
+        board_faces = grp.entities.grep(Sketchup::Face).reject { |f| had[f.object_id] }
+        board_faces.each { |f| had[f.object_id] = true }
+
+        # THE TAILS. 'beams' hangs them straight off the slab underside;
+        # 'spanish' hangs them one fascia depth lower, under the stucco
+        # board, which is what makes them show against it.
+        if sb && tails
+          spec = beam_spec(style)
+          drop = beams ? 0.0 : s[:fascia_depth].to_f
+          build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top - drop,
+                            gable_flags, spec)
+          # ...and up the gable rakes (user 2026-08-25: "וגם איפה שיש גיבל").
+          if zmap && !gables.empty?
+            if framed
+              owners = framed_line_owners(framed)
+              gables.each do |i|
+                key = line_key(poly, i)
+                cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
+                build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
+                                  drop: drop, cover: cov, surface: surf)
+              end
+            else
+              gables.each do |i|
+                build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
+                                  drop: drop)
+              end
+            end
+          end
+        end
+        tail_faces = grp.entities.grep(Sketchup::Face).reject { |f| had[f.object_id] }
+
         # ...and then the general rule, over every face the soffit just
         # added: flush boards do not get a line between them.
-        fresh = grp.entities.grep(Sketchup::Face).reject { |f| had[f.object_id] }
-        soften_flush_seams!(fresh)
+        soften_flush_seams!(board_faces + tail_faces)
+
         # WHAT THE BOARD IS PAINTED (2026-08-25). 'boxed' is a painted board
         # and keeps taking the fascia colour off the fallback below, exactly
         # as it did - soffit_color returns nil for it and nothing here runs.
@@ -1277,7 +1319,19 @@ module InteriorPro
         # they carry their own colour.
         paint = soffit_paint(model, s)
         if paint
-          fresh.each { |f| paint_soffit_face!(f, paint[:mat], paint[:size]) }
+          board_faces.each { |f| paint_soffit_face!(f, paint[:mat], paint[:size]) }
+        end
+        # The tails answer separately: dark timber where the style says so,
+        # otherwise they fall through to the trim colour like 'beams' does.
+        bc = beam_colors[style]
+        if bc
+          bmat = color_material(model, bc)
+          tail_faces.each do |f|
+            f.material = bmat
+            f.back_material = bmat
+          end
+        elsif paint
+          tail_faces.each { |f| paint_soffit_face!(f, paint[:mat], paint[:size]) }
         end
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
@@ -4194,7 +4248,10 @@ module InteriorPro
         # להיות בצבע של הפשייה"). nil drops the tails through to the trim
         # colour at the end of build_roof!, which IS the fascia colour - so
         # the two always match, even after the picker changes.
-        'stucco' => '#efeae1'   # off white, same family as a stucco wall
+        'stucco' => '#efeae1',  # off white, same family as a stucco wall
+        # the Spanish BOARD is a stucco board, so it falls back the same way
+        # when the jpg is missing. The tails are painted from beam_colors.
+        'spanish' => '#efeae1'
       }
     end
 
@@ -4222,7 +4279,10 @@ module InteriorPro
     def self.soffit_textures
       {
         'wood'   => { file: 'soffit_wood.jpg', size: 72.0 },
-        'stucco' => { file: 'stucco.jpg',      size: 48.0 }
+        'stucco' => { file: 'stucco.jpg',      size: 48.0 },
+        # the Spanish board IS a stucco board - the timber is the tails
+        # hanging under it, and they are painted separately (beam_colors)
+        'spanish' => { file: 'stucco.jpg',     size: 48.0 }
       }
     end
 
@@ -4327,8 +4387,75 @@ module InteriorPro
     # EXPOSED RAFTER TAILS (2026-08-25, the user's numbers: 2x4 every 18").
     # Real 2x4: 1.5" across, 3.5" deep. A METHOD, not constants - the
     # reload! trap documented over roof_textures.
-    def self.beam_spec
-      { w: 1.5, h: 3.5, spacing: 18.0 }
+    # `out` is where the beam STOPS, measured outward from the poly line -
+    # which is the fascia's outer face. -1.0 means it dies an inch short of
+    # it, deliberately: the user is putting gutters on that face later and a
+    # tail poking through would be in the way (2026-08-25). Nothing is lost -
+    # the beam hangs BELOW the fascia, so its end is in full view anyway.
+    # `tail` shapes that end. nil = a plain square cut.
+    #   run   - how much of the beam the curve eats, back from the end
+    #   end_h - how much height is left at the very end
+    def self.beam_spec(style = 'beams')
+      if style.to_s == 'spanish'
+        return { w: 4.0, h: 6.0, spacing: 24.0, out: -1.0,
+                 tail: { run: 5.0, end_h: 2.0, steps: 10 } }
+      end
+      { w: 1.5, h: 3.5, spacing: 18.0, out: nil, tail: nil }
+    end
+
+    # The side profile of one beam as [k, z] pairs, k measured outward from
+    # the poly line. PURE, pinned by rt84.
+    #
+    # THE OGEE (user 2026-08-25: "יותר מעוגל באמצע", drawn over the stepped
+    # version he was shown). Not two steps and not a straight chamfer: the
+    # bottom edge leaves the full-height point FLAT, steepens through the
+    # middle and arrives FLAT again at the end. That is smoothstep exactly -
+    # zero slope at both ends - so the curve needs no tangents passed in and
+    # cannot kink where it meets the square part of the beam.
+    def self.beam_profile(k_in, k_out, z_top, height, tail = nil)
+      ki = k_in.to_f
+      ko = k_out.to_f
+      zt = z_top.to_f
+      zb = zt - height.to_f
+      return [[ki, zt], [ko, zt], [ko, zb], [ki, zb]] if tail.nil?
+      run = tail[:run].to_f
+      full = ko - run                 # where the curve starts
+      return [[ki, zt], [ko, zt], [ko, zb], [ki, zb]] if run <= 0.0 || full <= ki
+      ze = zt - tail[:end_h].to_f     # height left at the very end
+      steps = [(tail[:steps] || 10).to_i, 2].max
+      pts = [[ki, zt], [ko, zt], [ko, ze]]
+      (1..steps).each do |i|
+        f = 1.0 - i.to_f / steps
+        sm = f * f * (3.0 - 2.0 * f)
+        pts << [full + run * f, zb + (ze - zb) * sm]
+      end
+      pts << [ki, zb]
+      pts
+    end
+
+    # One beam solid: the profile swept across the beam's width.
+    # A rectangular profile gives the same six faces add_prism! gave.
+    def self.add_beam!(ents, a, d, nrm, t, half, profile)
+      at = lambda do |tt, k, z|
+        Geom::Point3d.new(a[0] + d[0] * tt + nrm[0] * k,
+                          a[1] + d[1] * tt + nrm[1] * k, z)
+      end
+      s1 = profile.map { |k, z| at.call(t - half, k, z) }
+      s2 = profile.map { |k, z| at.call(t + half, k, z) }
+      ents.add_face(s1)
+      ents.add_face(s2)
+      len = profile.length
+      len.times do |i|
+        j = (i + 1) % len
+        ents.add_face([s1[i], s1[j], s2[j], s2[i]])
+      end
+    end
+
+    # The tails' own paint. 'beams' is not here on purpose - it takes the
+    # trim colour, which is the fascia's (user 2026-08-25). The Spanish ones
+    # are dark timber under pale stucco, and that contrast IS the style.
+    def self.beam_colors
+      { 'spanish' => '#4e342e' }
     end
 
     # Where the beams sit along one eave, in inches from that edge's start.
@@ -4374,11 +4501,10 @@ module InteriorPro
     # roof only climbs away from them.
     # GABLED EDGES ARE SKIPPED, exactly as the fascia and the flat band skip
     # them. A rake wants sloped lookouts, which is its own round.
-    def self.build_eave_beams!(grp, poly, k_in, k_out, band_top, skip_flags)
-      spec = beam_spec
+    def self.build_eave_beams!(grp, poly, k_in, k_out, z_top, skip_flags, spec)
       half = spec[:w] / 2.0
-      z_top = band_top.to_f
-      z_bot = z_top - spec[:h]
+      ko = spec[:out] || k_out
+      profile = beam_profile(k_in, ko, z_top, spec[:h], spec[:tail])
       poly.each_index do |i|
         next if skip_flags && skip_flags[i]
         a = poly[i]
@@ -4393,12 +4519,59 @@ module InteriorPro
         # corner sits that far in from each end of this edge.
         margin = -k_in.to_f + half
         beam_centers(len, spec[:spacing], spec[:w], margin).each do |t|
-          add_prism!(grp.entities, beam_quad(a, d, nrm, t, half, k_in, k_out),
-                     z_top, z_bot)
+          add_beam!(grp.entities, a, d, nrm, t, half, profile)
         end
       end
     rescue StandardError => e
       puts "[Roof] build_eave_beams!: #{e.message}"
+    end
+
+    # THE LOOKOUTS: the same tails, climbing a gable rake (2026-08-25).
+    #
+    # They stay HORIZONTAL, and that is not a shortcut. A gable roof's
+    # height depends only on the distance from the ridge, and moving in off
+    # the rake moves parallel to the ridge - so the deck above a lookout is
+    # dead level, exactly the reason rake_soffit_quad holds one z across the
+    # board's width. What changes from one lookout to the next is where the
+    # rake has climbed to, and chain_z_at reads that off the profile.
+    #
+    # Everything else is the eave rule unchanged: 2x4 on 18" centres, the
+    # last one stopping on the wall corner. Runs that are still at eave
+    # level belong to the flat edge and already have their tails; runs
+    # buried under another roof are skipped by the same cover test the rake
+    # board uses.
+    def self.build_rake_beams!(grp, poly, i, zmap, k_in, k_out, spec,
+                               drop: 0.0, cover: nil, surface: nil)
+      half = spec[:w] / 2.0
+      ko = spec[:out] || k_out
+      a = poly[i]
+      b = poly[(i + 1) % poly.length]
+      dx = b[0] - a[0]
+      dy = b[1] - a[1]
+      len = Math.sqrt(dx * dx + dy * dy)
+      return if len < 1.0e-6
+      d = [dx / len, dy / len]
+      nrm = [d[1], -d[0]] # outward for CCW
+      chain = edge_profile_chain(poly, i, zmap, surface: surface)
+      return if chain.nil?
+      zmin = chain.map { |c| c[2] }.min
+      margin = -k_in.to_f + half
+      beam_centers(len, spec[:spacing], spec[:w], margin).each do |t|
+        z = chain_z_at(chain, t)
+        next if z.nil?
+        next if z < zmin + 0.02 # a plain eave stretch, not a rake
+        if cover
+          c = cover.call(a[0] + d[0] * t, a[1] + d[1] * t)
+          next unless c.nil? || z > c + 0.05
+        end
+        # `drop` is how far the beam hangs under the roof edge: nothing for
+        # bare tails, one fascia depth for the Spanish ones, which sit under
+        # the stucco board rather than up against the deck.
+        add_beam!(grp.entities, a, d, nrm, t, half,
+                  beam_profile(k_in, ko, z - drop.to_f, spec[:h], spec[:tail]))
+      end
+    rescue StandardError => e
+      puts "[Roof] build_rake_beams!: #{e.message}"
     end
 
     def self.add_prism!(ents, quad, z_top, z_bot)

@@ -94,7 +94,8 @@ module InteriorPro
                         ['boxed',  'Boxed (painted)'],
                         ['wood',   'Wood'],
                         ['stucco', 'Stucco'],
-                        ['beams',  'Exposed beams']].map do |v, t|
+                        ['beams',  'Exposed beams'],
+                        ['spanish', 'Spanish (stucco + tails)']].map do |v, t|
         sel = s[:soffit].to_s == v ? ' selected' : ''
         "<option value=\"#{v}\"#{sel}>#{t}</option>"
       end.join

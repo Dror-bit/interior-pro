@@ -75,7 +75,8 @@ ok('with no fascia the board runs out to the roof edge', close(nf[:k_out], 0.0),
 ok('with no fascia it still hangs at the same height', close(nf[:z_bot], BAND_TOP - FD), nf)
 
 # -------------------------------------------------------- 5. default is none
-ok('the styles we have', RM::SOFFIT_STYLES == %w[none boxed wood stucco beams],
+ok('the styles we have',
+   RM::SOFFIT_STYLES == %w[none boxed wood stucco beams spanish],
    RM::SOFFIT_STYLES)
 ok('default stays none - old roofs must not change',
    RM.settings[:soffit] == 'none', RM.settings[:soffit])
@@ -101,6 +102,19 @@ ok('...and a blank or junk setting falls back to the style',
 sp = RM.beam_spec
 ok('a real 2x4, on 18" centres',
    close(sp[:w], 1.5) && close(sp[:h], 3.5) && close(sp[:spacing], 18.0), sp)
+ok('a bare tail is cut square and stops where it is told', sp[:tail].nil? && sp[:out].nil?)
+
+# ---------------------------------------------- the Spanish tails, 2026-08-25
+sn = RM.beam_spec('spanish')
+ok('spanish: a 4x6 on 24" centres',
+   close(sn[:w], 4.0) && close(sn[:h], 6.0) && close(sn[:spacing], 24.0), sn)
+# THE GUTTER RULE. The user stopped the build to say it: "אל תעשה שהקרש
+# יבלוט מעבר לפשייה... כי אני ארצה לשים שם גאטרס". k is measured outward
+# from the poly line, which IS the fascia's outer face, so a NEGATIVE out
+# is the only thing that keeps that face clear.
+ok('spanish: the tail dies an inch INSIDE the fascia face, for the gutter',
+   close(sn[:out], -1.0), sn[:out])
+ok('spanish: and it is shaped, not cut square', !sn[:tail].nil?)
 
 # THE MARGIN IS THE WALL, NOT A GAP (user 2026-08-25: a tail "יוצא מהפשייה
 # ולא נוגע בקיר... נשאר באוויר"). poly is the wall line pushed out by the
@@ -127,6 +141,44 @@ ok('an eave shorter than its own two margins gets none',
 ok('a spacing narrower than the beam is refused, not overlapped',
    RM.beam_centers(240.0, 1.0, 1.5, MG).empty?)
 
+# ------------------------------------------------------ THE OGEE PROFILE
+# The user drew it over the stepped version: "יותר מעוגל באמצע". Flat where
+# it leaves the full-height beam, steep in the middle, flat again at the end.
+SQ = RM.beam_profile(-12.0, -1.0, 84.0, 6.0)
+ok('no tail asked for -> a plain rectangle, the four corners and no more',
+   SQ.length == 4, SQ)
+ok('...spanning the whole beam, top to bottom',
+   close(SQ.map { |k, _| k }.min, -12.0) && close(SQ.map { |k, _| k }.max, -1.0) &&
+   close(SQ.map { |_, z| z }.max, 84.0) && close(SQ.map { |_, z| z }.min, 78.0), SQ)
+
+OG = RM.beam_profile(-12.0, -1.0, 84.0, 6.0, { run: 5.0, end_h: 2.0, steps: 10 })
+ok('the ogee never leaves the beam envelope',
+   OG.map { |k, _| k }.min >= -12.0 - 1e-9 && OG.map { |k, _| k }.max <= -1.0 + 1e-9 &&
+   OG.map { |_, z| z }.min >= 78.0 - 1e-9 && OG.map { |_, z| z }.max <= 84.0 + 1e-9, OG)
+ok('the top edge is unbroken - the curve only eats the underside',
+   OG.count { |_, z| close(z, 84.0) } == 2, OG)
+ok('2" of height is left at the very end',
+   OG.any? { |k, z| close(k, -1.0) && close(z, 82.0) }, OG)
+ok('the beam is still full height where the curve starts, 5" back',
+   OG.any? { |k, z| close(k, -6.0) && close(z, 78.0) }, OG)
+# the shape itself: walking outward along the underside, z only ever rises
+und = OG.drop(2).map { |k, z| [k, z] }.sort_by { |k, _| k }
+ok('the underside is monotonic - one sweep up, no wobble and no step back',
+   und.each_cons(2).all? { |(_, z1), (_, z2)| z2 >= z1 - 1e-9 }, und)
+# flat at both ends, steep in the middle: compare the first and last slice
+# of the curve against the middle one
+cur = OG.select { |k, _| k >= -6.0 - 1e-9 }.sort_by { |k, _| k }
+slope = cur.each_cons(2).map { |(k1, z1), (k2, z2)| (z2 - z1) / (k2 - k1) }
+mid = slope[slope.length / 2]
+ok('flat where it meets the beam, flat at the end, steep in between',
+   mid > slope.first * 2.0 && mid > slope.last * 2.0,
+   [slope.first.round(3), mid.round(3), slope.last.round(3)])
+ok('no two profile points land on each other (SketchUp raises on that)',
+   OG.each_cons(2).all? { |(k1, z1), (k2, z2)| (k1 - k2).abs > 1e-6 || (z1 - z2).abs > 1e-6 })
+# a tail longer than the beam must not fold the profile inside out
+ok('a curve longer than the beam falls back to a square cut',
+   RM.beam_profile(-4.0, -1.0, 84.0, 6.0, { run: 50.0, end_h: 2.0 }).length == 4)
+
 # the plan shape of one tail: across the eave, not along it
 q = RM.beam_quad([0.0, 0.0], [1.0, 0.0], [0.0, -1.0], 50.0, 0.75, -24.0, -0.75)
 xs = q.map { |p| p[0] }
@@ -141,6 +193,28 @@ q2 = RM.beam_quad([0.0, 0.0], [0.0, 1.0], [1.0, 0.0], 50.0, 0.75, -24.0, -0.75)
 ok('the outward normal decides the side, not the world axes',
    q2.map { |p| p[0] }.max <= 0.0 + 1e-9, q2)
 
+# ---- the lookouts read their height off the rake profile ----------------
+# A gable rake climbs, so every lookout sits at its own height, and that is
+# the ONLY new number in build_rake_beams! - the rest is the eave rule.
+# It reads it with chain_z_at, which was already in the file for the gable
+# walls: no second reader of the same profile, the mistake rt78 exists to
+# catch on the edge classifiers.
+CH = [[0.0, [0.0, 0.0], 92.0], [75.0, [0.0, 75.0], 117.0],
+      [150.0, [0.0, 150.0], 92.0]]
+ok('halfway up the first leg is halfway up its climb',
+   close(RM.chain_z_at(CH, 37.5), 104.5), RM.chain_z_at(CH, 37.5))
+ok('the apex itself', close(RM.chain_z_at(CH, 75.0), 117.0))
+ok('the far leg comes back down', close(RM.chain_z_at(CH, 112.5), 104.5),
+   RM.chain_z_at(CH, 112.5))
+ok('both ends land on the eave', close(RM.chain_z_at(CH, 0.0), 92.0) &&
+   close(RM.chain_z_at(CH, 150.0), 92.0))
+# It CLAMPS past the ends rather than refusing. Fine here: a lookout station
+# is always between the two margins, so it can never ask off the edge.
+ok('past the ends it holds the end height', close(RM.chain_z_at(CH, 151.0), 92.0) &&
+   close(RM.chain_z_at(CH, -1.0), 92.0))
+ok('no chain at all falls back to the default it is given',
+   RM.chain_z_at(nil, 0.0).nil? && close(RM.chain_z_at(nil, 0.0, 84.0), 84.0))
+
 ok('an unknown style paints nothing rather than raising',
    RM.soffit_color(soffit: 'martian', soffit_color: '').nil?)
 ok('none is not a finish either', RM.soffit_color(soffit: 'none', soffit_color: '').nil?)
@@ -152,8 +226,10 @@ ok('none is not a finish either', RM.soffit_color(soffit: 'none', soffit_color: 
 # jpgs the same way - a table that names a file nobody shipped is a silent
 # fall back to a flat colour, and nobody notices until it is on screen.
 tx = RM.soffit_textures
-ok('wood and stucco are the textured finishes',
-   tx.keys.sort == %w[stucco wood], tx.keys)
+ok('wood, stucco and spanish are the textured finishes',
+   tx.keys.sort == %w[spanish stucco wood], tx.keys)
+ok('the spanish BOARD is stucco - the timber is the tails under it',
+   tx['spanish'][:file] == 'stucco.jpg', tx['spanish'])
 # THE TAILS MATCH THE FASCIA (user 2026-08-25: "בצבע של הפשייה"). Both
 # tables have to stay quiet about 'beams' for that: a texture or a default
 # colour here would paint them and they would stop following the picker.

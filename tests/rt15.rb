@@ -580,14 +580,20 @@ rb2 = RF.build_roof!(style: 'gable', soffit: 'beams')
 # 244.5" of usable run at 18" centres = 14 tails an eave, 6 faces a tail,
 # on the 2 NON-gable edges only. It was 15 until 2026-08-25, when the extra
 # one turned out to be the tail hanging in the corner with no wall behind it.
-ok('beams: 2 eaves x 14 tails x 6 faces on top of the bare roof',
-   rb2.entities.grep(Sketchup::Face).length == bare + 168,
+# ...plus the LOOKOUTS up the two gable rakes (2026-08-25): 150" ends, the
+# wall corner 12" in from each, 124.5" of run at 18" centres = 7 a rake.
+# 28 tails + 14 lookouts = 42, six faces each.
+ok('beams: 28 eave tails + 14 gable lookouts, 6 faces each',
+   rb2.entities.grep(Sketchup::Face).length == bare + 252,
    [rb2.entities.grep(Sketchup::Face).length, bare])
-ok('beams: the gable ends get none - a rake wants lookouts, its own round',
-   rb2.entities.grep(Sketchup::Face)
-      .count { |f| f.pts.map(&:x).min < -14.0 } ==
-   RF.build_roof!(style: 'gable', soffit: 'none').entities.grep(Sketchup::Face)
-      .count { |f| f.pts.map(&:x).min < -14.0 })
+# Each lookout sits at the height the rake has climbed to, so no two share
+# a top - that is the whole difference from a flat eave, and a bug that put
+# them all on one line would still pass the count above.
+tops = rb2.entities.grep(Sketchup::Face)
+          .select { |f| f.pts.map(&:x).max > 250.0 && f.pts.map(&:z).max < 130.0 }
+          .map { |f| f.pts.map(&:z).max.round(2) }.uniq
+ok('beams: the gable lookouts climb - more than one height on that end',
+   tops.length > 3, tops)
 # The tails hang from the slab underside, so the fascia is still the lowest
 # thing on the roof. A tail poking out below it would be the first sign the
 # z was taken from the wrong line.
@@ -595,6 +601,38 @@ tz = RF.build_roof!(style: 'gable', soffit: 'beams')
        .entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).min
 ok('beams: nothing hangs below the fascia', (tz - bare_low).abs < 0.001,
    [tz, bare_low])
+# ---- spanish: a stucco board AND dark tails under it (2026-08-25) --------
+# The risk here is that the two halves get muddled - the board painted like
+# timber, or the tails taking the board's stucco. They are painted from two
+# separate lists on purpose, so the count of each material is the test.
+rsp = RF.build_roof!(style: 'gable', soffit: 'spanish')
+rst = RF.build_roof!(style: 'gable', soffit: 'stucco')
+mats = rsp.entities.grep(Sketchup::Face)
+          .map { |f| f.material && f.material.name }.compact.tally
+board_only = rst.entities.grep(Sketchup::Face)
+                .map { |f| f.material && f.material.name }.compact.tally
+ok('spanish: the board is exactly the stucco board, no more and no less',
+   mats['InteriorPro_Soffit_spanish'] == board_only['InteriorPro_Soffit_stucco'],
+   [mats['InteriorPro_Soffit_spanish'], board_only['InteriorPro_Soffit_stucco']])
+ok('spanish: the tails are dark timber, not the board material',
+   mats['InteriorPro_Roof_4e342e'].to_i > 100, mats)
+ok('spanish: the board leaves nothing for the trim colour to catch',
+   mats['InteriorPro_Roof_ffffff'] == board_only['InteriorPro_Roof_ffffff'],
+   [mats['InteriorPro_Roof_ffffff'], board_only['InteriorPro_Roof_ffffff']])
+# THE GUTTER RULE, end to end (user 2026-08-25: "אני ארצה לשים שם גאטרס").
+# The eave poly runs x = -15..255 and the fascia IS that line, so no TAIL
+# may reach it. Measured on the tails only - the drip edge legitimately
+# stands 0.1" proud of it and always has.
+tx2 = rsp.entities.grep(Sketchup::Face)
+        .select { |f| f.material && f.material.name == 'InteriorPro_Roof_4e342e' }
+        .flat_map(&:pts).map(&:x)
+ok('spanish: no tail reaches the fascia face - the gutter still fits',
+   tx2.max <= 255.0 - 0.999 && tx2.min >= -15.0 + 0.999, [tx2.min, tx2.max])
+# ...and the tails hang BELOW the board, which is what makes them show
+ok('spanish: the tails hang below the stucco board',
+   rsp.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).min <
+   rst.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).min - 1.0)
+
 RF.build_roof!(style: 'hip', soffit: 'none')
 dlg.callbacks['apply_roof'].call(nil, 'hip', '8', 'false', '18', 'true', '7.25', 'false', '#336699', '#eeeeee')
 ok('unchecking eaves in the dialog = overhang 0', RF.settings[:overhang] == 0.0, RF.settings[:overhang])
