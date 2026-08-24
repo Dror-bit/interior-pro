@@ -235,9 +235,162 @@ ok('...and the model click points with them',
 ok('no group at all is safe too',
    RF.roof_wall_ids(nil).empty? && RF.roof_gable_ids(nil) == RF.gable_wall_ids)
 
-# ------------------------------------------------------ still one roof
-ok('step 2 has still not made a second roof - that is step 3',
-   RF.roofs.length == 2, RF.roofs.length) # r5 + the bare old2 stub
+# ==================================================================== STEP 3
+# A REBUILD REPLACES ONLY WHAT IT IS REBUILDING. The one line that erased
+# every roof on every build is what kept this plugin at one roof; now it
+# erases the named roof (`replace:`) or the storey's (`level:`), and the
+# plain no-argument call still clears everything, as every old caller and
+# console line expects.
+Sketchup.reset_model!
+m4 = Sketchup.active_model
+# storey 1: the big box. storey 2: a smaller box on top of it.
+make_wall(m4, 'aS', [0, 0], [400, 0], 1)
+make_wall(m4, 'aE', [400, 0], [400, 240], 1)
+make_wall(m4, 'aN', [400, 240], [0, 240], 1)
+make_wall(m4, 'aW', [0, 240], [0, 0], 1)
+make_wall(m4, 'bS', [60, 40], [300, 40], 2, 96.0)
+make_wall(m4, 'bE', [300, 40], [300, 200], 2, 96.0)
+make_wall(m4, 'bN', [300, 200], [60, 200], 2, 96.0)
+make_wall(m4, 'bW', [60, 200], [60, 40], 2, 96.0)
+
+top = RF.build_roof!(style: 'gable', pitch: 8, thickness: 0.0, ridge_cap: false)
+ok('the default build still lands on the TOP storey',
+   top.get_attribute('InteriorPro', 'level') == 2 &&
+   RF.roof_wall_ids(top).sort == %w[bE bN bS bW],
+   [top.get_attribute('InteriorPro', 'level'), RF.roof_wall_ids(top)])
+
+low = RF.build_roof!(level: 1, style: 'hip', pitch: 4, thickness: 0.0,
+                     ridge_cap: false)
+ok('level: builds over the LOWER storey walls',
+   RF.roof_wall_ids(low).sort == %w[aE aN aS aW], RF.roof_wall_ids(low))
+ok('its eave starts at that storey wall top',
+   (low.get_attribute('InteriorPro', 'eave_z').to_f - 96.0).abs < 0.01,
+   low.get_attribute('InteriorPro', 'eave_z'))
+ok('TWO ROOFS NOW STAND - the upper one survived',
+   RF.roofs.length == 2 && top.valid?, RF.roofs.length)
+
+low2 = RF.build_roof!(level: 1, pitch: 5)
+ok('rebuilding a storey replaces ITS roof only',
+   RF.roofs.length == 2 && top.valid? && !low.valid?, RF.roofs.length)
+ok('...keeping that roof own style from its stamp',
+   RF.roof_settings(low2)[:style] == 'hip' && RF.roof_settings(low2)[:pitch] == 5.0,
+   RF.roof_settings(low2).values_at(:style, :pitch))
+
+# replace: = Edit Roof's Apply. Its settings are the base, keywords override.
+top2 = RF.build_roof!(replace: top, roof_material: 'seam')
+ok('replace: rebuilds the named roof only',
+   RF.roofs.length == 2 && low2.valid? && !top.valid?, RF.roofs.length)
+ok('...on its own storey without being told',
+   top2.get_attribute('InteriorPro', 'level') == 2,
+   top2.get_attribute('InteriorPro', 'level'))
+ok('...from its OWN settings plus the override',
+   RF.roof_settings(top2)[:style] == 'gable' &&
+   RF.roof_settings(top2)[:pitch] == 8.0 &&
+   RF.roof_settings(top2)[:roof_material] == 'seam',
+   RF.roof_settings(top2).values_at(:style, :pitch, :roof_material))
+ok('a dead group as replace: is just a plain build, not a crash',
+   !RF.build_roof!(replace: top).nil?, RF.roofs.length)
+RF.roofs.each { |r| r.erase! } # the line above rebuilt everything; clean up
+
+# --------------------------------------- the gable click follows its roof
+r_top = RF.build_roof!(style: 'hip', thickness: 0.0, ridge_cap: false)
+r_low = RF.build_roof!(level: 1, style: 'hip', thickness: 0.0, ridge_cap: false)
+wS = m4.entities.grep(Sketchup::Group).find do |g|
+  g.get_attribute('InteriorPro', 'id') == 'aS'
+end
+RF.toggle_gable_wall!(wS, [200.0, 0.0])
+ok('a gable click rebuilds the roof that OWNS the wall',
+   RF.roofs.length == 2 && r_top.valid? && !r_low.valid?,
+   [RF.roofs.length, r_top.valid?])
+r_low2 = RF.roofs.find { |r| r != r_top }
+ok('...and that roof carries the new mark',
+   RF.roof_gable_ids(r_low2) == %w[aS], RF.roof_gable_ids(r_low2))
+ok('...while the other roof carries none',
+   RF.roof_gable_ids(r_top).empty?, RF.roof_gable_ids(r_top))
+
+# ------------------------------------------- the old call still means ALL
+plain = RF.build_roof!
+ok('a plain build_roof! still clears the board and leaves one roof',
+   RF.roofs.length == 1 && plain.valid?, RF.roofs.length)
+
+# ==================================================================== STEP 3b
+# THE LOWER ROOF STOPS WHERE THE HOUSE ABOVE STANDS (2026-08-26, user:
+# "הוא בנה על כל הקומה כולל בתוך הבית"). The upper wall that crosses the
+# storey (the divider) cuts the loop: the roof gets no overhang there
+# (it tucks into the wall body), no fascia/soffit, and rises AWAY from
+# the wall like a shed. Upper walls merely stacked on the storey's own
+# walls change nothing - only a crossing wall divides.
+Sketchup.reset_model!
+m5 = Sketchup.active_model
+make_wall(m5, 'cS', [0, 0], [400, 0], 1)
+make_wall(m5, 'cE', [400, 0], [400, 240], 1)
+make_wall(m5, 'cN', [400, 240], [0, 240], 1)
+make_wall(m5, 'cW', [0, 240], [0, 0], 1)
+# the upper house on the back part, stacked on E/N/W, crossing at y=140
+make_wall(m5, 'uS', [0, 140], [400, 140], 2, 96.0)
+make_wall(m5, 'uE', [400, 140], [400, 240], 2, 96.0)
+make_wall(m5, 'uN', [400, 240], [0, 240], 2, 96.0)
+make_wall(m5, 'uW', [0, 240], [0, 140], 2, 96.0)
+
+up_r = RF.build_roof!(style: 'hip', pitch: 6, overhang: 12, thickness: 0.0,
+                      ridge_cap: false)
+ok('the top roof is untouched by any of this',
+   RF.roof_wall_ids(up_r).sort == %w[uE uN uS uW], RF.roof_wall_ids(up_r))
+
+low_r = RF.build_roof!(level: 1)
+ok('the lower roof builds at all', !low_r.nil?)
+fx = low_r.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
+ok('it stops at the divider, not at the back of the storey',
+   fx.map { |p| p[1] }.max < 150.0, fx.map { |p| p[1] }.max)
+ok('...tucked one half thickness INTO the wall, the hidden side',
+   (fx.map { |p| p[1] }.max - 143.0).abs < 0.5, fx.map { |p| p[1] }.max)
+ok('...with its eaves still pushed out on its own three sides',
+   fx.map { |p| p[1] }.min < -14.0 &&
+   (fx.map { |p| p[0] }.min - -15.0).abs < 0.01 &&
+   (fx.map { |p| p[0] }.max - 415.0).abs < 0.01, fx)
+ok('the divider wall is NOT one of this roof walls',
+   !RF.roof_wall_ids(low_r).include?('uS'), RF.roof_wall_ids(low_r))
+ok('so a click on the divider finds the roof ABOVE',
+   RF.roof_of_wall_id('uS') == up_r)
+ok('both roofs stand', RF.roofs.length == 2 && up_r.valid?, RF.roofs.length)
+# the shed: highest along the wall, never above the upper storey walls
+zs5 = low_r.entities.grep(Sketchup::Face).flat_map(&:pts)
+zmax_at_wall = zs5.select { |p| p.y > 130 }.map(&:z).max
+zmax_out     = zs5.select { |p| p.y < 20 }.map(&:z).max
+ok('the cut roof RISES toward the upper wall', zmax_at_wall > zmax_out + 30.0,
+   [zmax_at_wall, zmax_out])
+ok('...but stays below the upper storey top', zmax_at_wall < 192.0, zmax_at_wall)
+
+# an L-shaped exposed part: the upper house only covers part of the width
+Sketchup.reset_model!
+m6 = Sketchup.active_model
+make_wall(m6, 'dS', [0, 0], [400, 0], 1)
+make_wall(m6, 'dE', [400, 0], [400, 240], 1)
+make_wall(m6, 'dN', [400, 240], [0, 240], 1)
+make_wall(m6, 'dW', [0, 240], [0, 0], 1)
+make_wall(m6, 'vS', [0, 140], [250, 140], 2, 96.0)
+make_wall(m6, 'vE', [250, 140], [250, 240], 2, 96.0)
+make_wall(m6, 'vN', [250, 240], [0, 240], 2, 96.0)
+make_wall(m6, 'vW', [0, 240], [0, 140], 2, 96.0)
+RF.build_roof!(style: 'hip', pitch: 6, overhang: 12, thickness: 0.0,
+               ridge_cap: false)
+low_l = RF.build_roof!(level: 1)
+ok('an L-shaped exposed part still builds', !low_l.nil?)
+fxl = low_l.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
+ok('...as an L: six corners', fxl.length == 6, fxl.length)
+ok('...cut on BOTH dividers',
+   fxl.any? { |p| (p[1] - 143.0).abs < 0.5 } &&
+   fxl.any? { |p| (p[0] - 247.0).abs < 0.5 }, fxl)
+
+# nothing above -> nothing changes: the plain full loop, as always
+Sketchup.reset_model!
+m7 = Sketchup.active_model
+a_box(m7, 'e')
+solo = RF.build_roof!(style: 'hip', overhang: 12, thickness: 0.0, ridge_cap: false)
+fx7 = solo.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
+ok('a storey with nothing above keeps its full loop',
+   (fx7.map { |p| p[1] }.min - -15.0).abs < 0.01 &&
+   (fx7.map { |p| p[1] }.max - 215.0).abs < 0.01, fx7.map { |p| p[1] }.minmax)
 
 puts($fails.zero? ? 'ALL PASS' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

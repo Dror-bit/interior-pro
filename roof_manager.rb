@@ -72,14 +72,20 @@ module InteriorPro
       lvls.empty? ? 1 : lvls.max
     end
 
-    # The walls the roof sits on: exterior walls of the top level
-    # (all of its walls if none is marked exterior).
-    def self.top_walls
-      ws = InteriorPro::LevelManager.walls_of_level(top_level)
+    # The walls a roof sits on: exterior walls of ONE level (all of its
+    # walls if none is marked exterior). Split out of top_walls on
+    # 2026-08-26 (step 3 of Edit Roof) so a roof can be built over the
+    # LOWER storey too - same selection, any level.
+    def self.walls_of(lvl)
+      ws = InteriorPro::LevelManager.walls_of_level(lvl.to_i)
       ext = ws.select do |w|
         (w.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior'
       end
       ext.empty? ? ws : ext
+    end
+
+    def self.top_walls
+      walls_of(top_level)
     end
 
     # Where the roof underside starts: the highest wall top (base_z + height).
@@ -439,6 +445,108 @@ module InteriorPro
       { pts: pts, wall_ids: ids }
     end
 
+    # How close (x, y) is to the nearest edge of pts. PURE, pinned by rt86.
+    def self.dist_to_edges(pts, x, y)
+      best = 1.0e12
+      n = pts.length
+      n.times do |i|
+        a = pts[i]
+        b = pts[(i + 1) % n]
+        vx = b[0] - a[0]
+        vy = b[1] - a[1]
+        l2 = vx * vx + vy * vy
+        t = l2 < 1.0e-9 ? 0.0 : ((x - a[0]) * vx + (y - a[1]) * vy) / l2
+        t = t.clamp(0.0, 1.0)
+        dx = x - (a[0] + vx * t)
+        dy = y - (a[1] + vy * t)
+        d = Math.sqrt(dx * dx + dy * dy)
+        best = d if d < best
+      end
+      best
+    end
+
+    # ---------- the EXPOSED part of a lower storey (2026-08-26) ----------
+    #
+    # The roof over storey L must not run on under the storey above it
+    # (user, off his two-storey model: "הוא בנה על כל הקומה כולל בתוך
+    # הבית"). This finds the part of L's footprint that is actually open
+    # to the sky, as a loop the rest of build_roof! can use unchanged.
+    #
+    # HOW: not polygon boolean - the room machinery. The upper walls that
+    # CROSS this storey's interior (the "dividers") are dropped into the
+    # same wall graph the storey's own walls make, the graph is traced
+    # into faces exactly the way rooms are found, and the face that is not
+    # under the upper footprint is the exposed part. Upper walls that just
+    # STACK on the storey's own walls sit on the loop line itself, add
+    # nothing but degenerate edges, and are filtered out up front.
+    #
+    # Returns { pts:, wall_ids:, abut_ids: } - the same loop eave_polygon
+    # returns, plus the ids of the divider walls. An edge that belongs to a
+    # divider is an ABUT edge: it gets NO overhang here (the roof runs to
+    # the wall, k = its half thickness, i.e. the wall's far face - the
+    # tuck-in is hidden inside the wall body), and the caller gives it no
+    # fascia, no soffit and a zero skeleton speed, so the roof rises away
+    # from it and dies vertically against the upper wall.
+    #
+    # nil = nothing to cut (no divider crosses this storey, or no face is
+    # open to the sky). The caller then behaves exactly as before today.
+    def self.exposed_polygon(walls, upper_walls, overhang)
+      rm = InteriorPro::RoomManager
+      segs = walls.map { |w| rm.centerline(w) }.compact
+      return nil if segs.length < 3
+      up = upper_walls.length >= 3 ? eave_polygon(upper_walls, 0.0) : nil
+      return nil unless up
+      base = eave_polygon(walls, 0.0)
+      return nil unless base
+
+      # the dividers: upper walls whose middle stands INSIDE this storey,
+      # clear of its own boundary line (a stacked wall sits ON it).
+      dividers = upper_walls.select do |w|
+        sg = rm.centerline(w)
+        next false unless sg
+        mx = (sg[:s].x + sg[:e].x) / 2.0
+        my = (sg[:s].y + sg[:e].y) / 2.0
+        point_in_poly?(base[:pts], mx, my) &&
+          dist_to_edges(base[:pts], mx, my) > sg[:th].to_f / 2.0 + 1.0
+      end
+      return nil if dividers.empty?
+      d_ids = dividers.map { |w| w.get_attribute('InteriorPro', 'id') }.compact
+
+      nodes, edges = rm.build_graph(segs + dividers.map { |w| rm.centerline(w) }.compact)
+      faces = rm.trace_faces(nodes, edges)
+      best = nil
+      best_area = 144.0
+      faces.each do |f|
+        poly = f[:node_ids].map { |i| nodes[i] }
+        sa = rm.signed_area(poly)
+        next if sa <= best_area
+        c = rm.centroid(poly)
+        next if point_in_poly?(up[:pts], c.x.to_f, c.y.to_f) # under the house
+        best = f
+        best_area = sa
+      end
+      return nil unless best
+
+      poly  = best[:node_ids].map { |i| nodes[i] }
+      edata = best[:edge_ids].map { |i| edges[i] }
+      oh_for = lambda do |edge|
+        id = edge && edge[:wall] ? edge[:wall].get_attribute('InteriorPro', 'id') : nil
+        d_ids.include?(id) ? 0.0 : overhang
+      end
+      out = outer_offset(poly, edata, overhang, oh_for)
+      return nil unless out
+      pts = out.map { |p| [p[0].x.to_f, p[0].y.to_f] }
+      ids = out.map { |p| p[1] }
+      if polygon_area(pts) < 0
+        pts.reverse!
+        ids = ids.reverse.rotate(1)
+      end
+      { pts: pts, wall_ids: ids, abut_ids: d_ids }
+    rescue StandardError => e
+      puts "[Roof] exposed_polygon: #{e.message}"
+      nil
+    end
+
     # Mirror of RoomManager.inner_boundary, offset to the OTHER side:
     # each loop edge moves outward by half its wall thickness + overhang.
     # Returns [[point, wall_id_of_the_edge_starting_here], ...].
@@ -450,7 +558,11 @@ module InteriorPro
     # pieces. Every one of those pieces carries the SAME wall id, so the roof
     # downstream (fascia, gable marks, cells) still knows which wall it is
     # standing on. A straight wall runs the identical code it always did.
-    def self.outer_offset(poly, loop_edges, overhang)
+    # `oh_for` (2026-08-26): per-edge overhang - a lambda given the loop
+    # edge, answering the overhang for THAT edge. exposed_polygon uses it
+    # to give an abut edge no overhang at all. nil = one overhang for all,
+    # which is every caller before today.
+    def self.outer_offset(poly, loop_edges, overhang, oh_for = nil)
       n = poly.length
       rails = []
       n.times do |i|
@@ -458,7 +570,8 @@ module InteriorPro
         q = poly[(i + 1) % n]
         ref = Geom::Vector3d.new(q.x - p.x, q.y - p.y, 0)
         return nil if ref.length < 0.01
-        r = eave_rail(loop_edges[i], ref, p, overhang)
+        oh = oh_for ? oh_for.call(loop_edges[i]) : overhang
+        r = eave_rail(loop_edges[i], ref, p, oh)
         return nil unless r
         rails << r
       end
@@ -1032,9 +1145,17 @@ module InteriorPro
                          roof_color: nil, fascia_color: nil,
                          roof_material: nil, thickness: nil, ridge_cap: nil,
                          gable_walls: nil, soffit: nil, soffit_color: nil,
-                         soffit_slope: nil)
+                         soffit_slope: nil, level: nil, replace: nil)
       model = Sketchup.active_model
-      s = settings
+      # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
+      # its settings are the starting point (keywords below still override,
+      # which is exactly what an Edit panel's Apply is), its level picks
+      # the walls, and IT ALONE is erased. Everything else stands.
+      # `level` - build over that storey's walls instead of the top one.
+      # With neither, this is byte-for-byte the call it was yesterday.
+      replace = nil unless replace.respond_to?(:valid?) && replace.valid? &&
+                           replace.get_attribute('InteriorPro', 'type') == 'roof'
+      s = replace ? roof_settings(replace) : settings
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
       s[:style] = style.to_s if style
       s[:pitch] = pitch.to_f if pitch
@@ -1052,8 +1173,31 @@ module InteriorPro
       s[:ridge_cap] = (ridge_cap == true) unless ridge_cap.nil?
       slope = s[:pitch] / 12.0
 
-      walls = top_walls
-      ep = walls.length >= 3 ? eave_polygon(walls, s[:overhang]) : nil
+      # Which storey this roof covers: asked for > the replaced roof's own >
+      # the top one, which is all there was before today.
+      lvl = (level || (replace && replace.get_attribute('InteriorPro', 'level')) ||
+             top_level).to_i
+      walls = walls_of(lvl)
+      # A storey with another storey above it only gets a roof over the
+      # part that is open to the sky (2026-08-26, user: "הוא בנה על כל
+      # הקומה כולל בתוך הבית"). When the storey above crosses this one,
+      # the loop is cut there; when nothing crosses (top storey, or a
+      # detached building above), this is nil and everything below runs on
+      # the plain full loop exactly as before.
+      abut_ids = []
+      ep = nil
+      uppers = InteriorPro::LevelManager.all_walls.select do |w|
+        (w.get_attribute('InteriorPro', 'level') || 1).to_i > lvl &&
+          (w.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior'
+      end
+      if walls.length >= 3 && !uppers.empty?
+        ep = exposed_polygon(walls, uppers, s[:overhang])
+        if ep
+          abut_ids = ep[:abut_ids]
+          puts "[Roof] level #{lvl}: cut at #{abut_ids.length} upper wall(s)"
+        end
+      end
+      ep ||= walls.length >= 3 ? eave_polygon(walls, s[:overhang]) : nil
       if ep.nil?
         UI.messagebox('No closed loop of exterior walls to roof yet')
         return nil
@@ -1079,6 +1223,9 @@ module InteriorPro
         dead = marked.reject { |id2| loop_ids.include?(id2) }
         puts "[Roof] ignoring #{dead.length} stale/off-loop gable mark(s)" unless dead.empty?
         marked -= dead
+        # an abut edge is the upper wall's - a gable mark on that WALL
+        # belongs to the roof above, never to the cut line down here
+        marked -= abut_ids
         # A CURVED wall never gables (2026-08-12B). toggle_gable_wall! refuses
         # to mark one, but a wall can be marked first and BENT afterwards, and
         # the Gable style picks its own ends with no marks at all. A bowed wall
@@ -1095,15 +1242,21 @@ module InteriorPro
         # Over-framing first (2026-08-05, the user's mock): a marked wall
         # gables its WHOLE wing, volumes intersect on valleys. The strip-
         # gable skeleton stays as fallback for non-rectilinear plans.
-        framed = framed_plan(poly, wall_ids, marked, s[:style]) if want_gable
+        # ...but never with an abut edge in the loop: the over-framing
+        # knows nothing about a roof that dies against a wall, while the
+        # skeleton fallback handles it as one more zero-speed edge.
+        framed = framed_plan(poly, wall_ids, marked, s[:style]) if want_gable && abut_ids.empty?
         if framed
           gables = framed[:edges]
         else
           puts '[Roof] plan not decomposable - strip-gable fallback' if want_gable
           if gables.empty? && s[:style] == 'gable'
             gables = pick_gable_edges(poly)
-            # ...but never onto a bowed wall's facets.
-            gables = gables.reject { |i| bowed.include?(wall_ids[i]) }
+            # ...but never onto a bowed wall's facets, and never onto the
+            # cut line under the storey above.
+            gables = gables.reject do |i|
+              bowed.include?(wall_ids[i]) || abut_ids.include?(wall_ids[i])
+            end
           end
           unless gables.empty?
             # A marked wall that runs past its own roof section (a wing
@@ -1118,6 +1271,16 @@ module InteriorPro
             poly, wall_ids, gables = split_gable_edges(poly, wall_ids, gables, clicks_by_edge)
             speeds = Array.new(poly.length, 1.0)
             gables.each { |i| speeds[i] = 0.0 }
+          end
+          # the abut edges run at speed 0, like a gable: the roof rises
+          # AWAY from the upper wall and is cut vertically against it.
+          # Recomputed from wall_ids HERE because split_gable_edges may
+          # just have renumbered every edge.
+          unless abut_ids.empty?
+            speeds ||= Array.new(poly.length, 1.0)
+            wall_ids.each_with_index do |id2, i|
+              speeds[i] = 0.0 if abut_ids.include?(id2)
+            end
           end
           arcs = straight_skeleton(poly, speeds)
           if arcs.nil?
@@ -1134,10 +1297,26 @@ module InteriorPro
 
       save_settings!(s)
       z0 = eave_z(walls)
-      lvl = top_level
 
       model.start_operation('InteriorPro Roof', true)
-      roofs.each { |r| r.erase! if r.valid? } # rebuild replaces, never stacks
+      # WHO GETS ERASED is the whole of step 3 (2026-08-26). A rebuild
+      # replaces, never stacks - but now it replaces only what it is
+      # rebuilding: the named roof, or the roofs of this storey. The plain
+      # no-argument call still clears everything, exactly as it always
+      # did - every existing caller and every old console line keeps its
+      # meaning, and a second roof only ever exists once somebody builds
+      # one with `level:`/`replace:` and it stops being erased by rebuilds
+      # that are not its own.
+      doomed = if replace
+                 [replace]
+               elsif level
+                 roofs.select do |r|
+                   (r.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+                 end
+               else
+                 roofs
+               end
+      doomed.each { |r| r.erase! if r.valid? }
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Roof'
       InteriorPro.assign_tag(grp, 'IP/Roofs')
@@ -1145,6 +1324,16 @@ module InteriorPro
       trim_mat = color_material(model, s[:fascia_color]) # fascia + drip + underside
       gable_flags = Array.new(poly.length, false)
       gables.each { |i| gable_flags[i] = true }
+      # An abut edge is flagged like a gable for everything the flags SKIP
+      # (fascia, drip, soffit, beams - none of them belong on a line buried
+      # in the upper wall) - but it is NOT in `gables`, so nothing a gable
+      # BUILDS (rake boards, rake soffits, gable wall tops) grows there.
+      # The upper wall itself closes that side.
+      unless abut_ids.empty?
+        wall_ids.each_with_index do |id2, i|
+          gable_flags[i] = true if abut_ids.include?(id2)
+        end
+      end
       zmap = nil
       if s[:style] == 'flat'
         ridge = build_flat_geometry!(grp, poly, z0, roof_mat, trim_mat)
@@ -1522,7 +1711,9 @@ module InteriorPro
       save_roof_settings!(grp, s)
       # ...and WHICH building it is: its walls, its gable ends, and where
       # each of those was clicked (2026-08-26, step 2 of Edit Roof).
-      save_roof_marks!(grp, wall_ids)
+      # ...minus the abut edges: the divider is the UPPER wall's, and a
+      # gable click on it must find the roof above, not this one.
+      save_roof_marks!(grp, wall_ids - abut_ids)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
       model.commit_operation
@@ -2824,7 +3015,14 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_gable_wall_ids', ids)
       m.set_attribute('InteriorPro', 'roof_gable_click_xy', pts.flatten)
       puts "[Roof] wall #{id}: #{on ? 'GABLE end' : 'hip end'} (#{ids.length} marked)"
-      build_roof! unless roofs.empty?
+      unless roofs.empty?
+        # Rebuild the roof that OWNS this wall, and only it (2026-08-26,
+        # step 3) - a gable click on the ADU must not flatten the house.
+        # A roof from an older model claims no walls, finds no owner, and
+        # takes the old whole-model rebuild, exactly as before.
+        own = roof_of_wall_id(id)
+        own ? build_roof!(replace: own) : build_roof!
+      end
       true
     end
 
