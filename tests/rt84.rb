@@ -74,6 +74,76 @@ nf = RM.soffit_band(OH, FD, false, BAND_TOP)
 ok('with no fascia the board runs out to the roof edge', close(nf[:k_out], 0.0), nf)
 ok('with no fascia it still hangs at the same height', close(nf[:z_bot], BAND_TOP - FD), nf)
 
+# ------------------------------------------- THE SLOPED SOFFIT (2026-08-26)
+# The same board laid PARALLEL TO THE ROOF instead of dead level, on the
+# eave (pitch) sides only. One number does the whole job: how much higher
+# the inner edge (at the wall) sits than the outer one (at the fascia).
+# The outer edge never moves, so the fascia and the drip are untouched and
+# 0.0 is byte-for-byte the flat board that was here before.
+SLOPE = 0.5 # 6:12
+ok('off = 0, which IS the old flat board',
+   close(RM.soffit_rise(b, SLOPE, false), 0.0), RM.soffit_rise(b, SLOPE, false))
+ok('on = the deck''s own climb across the board',
+   close(RM.soffit_rise(b, SLOPE, true), SLOPE * (b[:k_out] - b[:k_in])),
+   RM.soffit_rise(b, SLOPE, true))
+ok('a flat roof cannot tilt it', close(RM.soffit_rise(b, 0.0, true), 0.0))
+ok('no band, no rise', close(RM.soffit_rise(nil, SLOPE, true), 0.0))
+ok('a steeper pitch lifts it further',
+   RM.soffit_rise(b, 1.0, true) > RM.soffit_rise(b, SLOPE, true))
+# PARALLEL means exactly this: at the wall the board has climbed as much as
+# the roof surface has between the fascia and the wall.
+deck_at_wall  = BAND_TOP - SLOPE * b[:k_in]
+deck_at_edge  = BAND_TOP - SLOPE * b[:k_out]
+ok('the board copies the deck, inch for inch',
+   close(RM.soffit_rise(b, SLOPE, true), deck_at_wall - deck_at_edge),
+   [RM.soffit_rise(b, SLOPE, true), deck_at_wall - deck_at_edge])
+ok('it never rises above the roof edge it hangs from',
+   b[:z_top] + RM.soffit_rise(b, SLOPE, true) < deck_at_wall)
+# and the flag survives a save/load round trip
+ok('soffit_slope round trips', begin
+     RM.save_settings!(RM.settings.merge(soffit_slope: true))
+     on = RM.settings[:soffit_slope]
+     RM.save_settings!(RM.settings.merge(soffit_slope: false))
+     on == true && RM.settings[:soffit_slope] == false
+   end, RM.settings[:soffit_slope])
+ok('and defaults OFF, so every roof built before today is unchanged',
+   RM.settings[:soffit_slope] == false, RM.settings[:soffit_slope])
+
+# ------------------------------------ THE TIMBER CLIMBS TOO (2026-08-26)
+# The board went parallel to the roof; the beams under it have to go with
+# it or they hang off the plate. tilt_profile shears them - straight up,
+# never sideways - about the board's own outer edge.
+PROF = RM.beam_profile(-18.0, -0.75, 87.0, 6.0, nil)
+FLAT = RM.tilt_profile(PROF, 0.0, -0.75)
+TILT = RM.tilt_profile(PROF, SLOPE, -0.75)
+ok('tilt 0 hands the profile straight back', FLAT == PROF, FLAT)
+ok('nothing moves sideways - k is untouched',
+   TILT.map(&:first) == PROF.map(&:first), TILT.map(&:first))
+ok('the pivot end does not move at all',
+   PROF.each_index.all? { |i| PROF[i][0] != -0.75 || close(TILT[i][1], PROF[i][1]) }, TILT)
+ok('the inner end climbs by exactly the board''s own rise',
+   PROF.each_index.all? do |i|
+     PROF[i][0] != -18.0 ||
+       close(TILT[i][1] - PROF[i][1], SLOPE * (-0.75 - -18.0))
+   end, TILT)
+ok('the beam keeps its full height, measured plumb',
+   close(TILT.map(&:last).max - TILT.map(&:last).min,
+         PROF.map(&:last).max - PROF.map(&:last).min +
+         SLOPE * (PROF.map(&:first).max - PROF.map(&:first).min)),
+   [TILT.map(&:last).minmax, PROF.map(&:last).minmax])
+# ...and the same shear on a tail: the ogee is carried along whole, so the
+# end stays PLUMB instead of leaning over.
+OGEE = RM.beam_profile(-24.0, -1.0, 84.0, 6.0, { run: 5.0, end_h: 2.0, steps: 10 })
+OG_T = RM.tilt_profile(OGEE, SLOPE, -0.75)
+ok('a tail keeps every point it had', OG_T.length == OGEE.length, OG_T.length)
+ok('the two points at the very end stay plumb over each other',
+   begin
+     ends = OG_T.select { |k, _| close(k, -1.0) }
+     ends.length >= 2 && ends.map(&:first).uniq.length == 1
+   end, OG_T.select { |k, _| close(k, -1.0) })
+ok('and a steeper roof lifts the tail further',
+   RM.tilt_profile(OGEE, 1.0, -0.75)[0][1] > OG_T[0][1])
+
 # -------------------------------------------------------- 5. default is none
 ok('the styles we have',
    RM::SOFFIT_STYLES == %w[none boxed wood stucco beams spanish],

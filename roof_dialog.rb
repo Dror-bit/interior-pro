@@ -25,7 +25,7 @@ module InteriorPro
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
-                                                soffit, scol|
+                                                soffit, scol, sslope|
         # Apply in Hip mode = a clean full hip: clear click marks (user
         # decision 2026-08-05C). Toggle-clicks afterwards re-add gables.
         if style.to_s == 'hip'
@@ -49,7 +49,11 @@ module InteriorPro
           # '' on purpose, not nil: an empty string is the way to CLEAR a
           # colour that was picked before and go back to the texture. nil
           # would leave the old override in the model for ever.
-          soffit_color: scol.nil? ? nil : scol.to_s
+          soffit_color: scol.nil? ? nil : scol.to_s,
+          # LAST on purpose, same reason the two above are: a saved model
+          # or an old console line that calls apply_roof with 14 arguments
+          # still lands, and sslope simply arrives nil.
+          soffit_slope: sslope.nil? ? nil : truthy(sslope)
         )
       end
       dlg.add_action_callback('remove_roof') { |_| RoofManager.remove_all! }
@@ -144,6 +148,7 @@ module InteriorPro
           <div class="row"><label>Soffit</label>
             <select id="soffit" onchange="soffitChanged()">#{soffit_options}</select>
             <input type="color" id="soffitColor" value="#{soffit_col}" oninput="soffitPicked()"></div>
+          <div class="row sub"><label><input type="checkbox" id="soffitSlope"#{s[:soffit_slope] ? ' checked' : ''}> Sloped (follows the roof)</label></div>
 
           <div class="section-title">Surface</div>
           <div class="row"><label>Roof material</label>
@@ -175,6 +180,7 @@ module InteriorPro
               var v = document.getElementById('soffit').value;
               var c = document.getElementById('soffitColor');
               c.disabled = (v === 'none');
+              document.getElementById('soffitSlope').disabled = (v === 'none');
               if (!soffitPickedFlag && SOFFIT_DEF[v]) { c.value = SOFFIT_DEF[v]; }
             }
             function applyRoof() {
@@ -192,7 +198,8 @@ module InteriorPro
                 document.getElementById('thickness').value,
                 document.getElementById('ridgeCap').checked,
                 document.getElementById('soffit').value,
-                soffitPickedFlag ? document.getElementById('soffitColor').value : '');
+                soffitPickedFlag ? document.getElementById('soffitColor').value : '',
+                document.getElementById('soffitSlope').checked);
             }
             styleChanged();
             eavesChanged();

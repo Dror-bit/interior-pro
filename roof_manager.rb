@@ -107,6 +107,11 @@ module InteriorPro
         drip: g.call('roof_drip', true) == true,
         soffit: g.call('roof_soffit', 'none').to_s,
         soffit_color: g.call('roof_soffit_color', '').to_s,
+        # false = the flat board every roof built before 2026-08-26 had.
+        # true = the SAME board tilted parallel to the roof, on the eave
+        # (pitch) sides only - the user asked for the gable rake to be
+        # left exactly as it is (2026-08-26: "לא בגיבל אלא רק בפיטש").
+        soffit_slope: g.call('roof_soffit_slope', false) == true,
         roof_color: g.call('roof_color', DEFAULT_ROOF_COLOR).to_s,
         fascia_color: g.call('roof_fascia_color', DEFAULT_FASCIA_COLOR).to_s,
         roof_material: g.call('roof_material', 'color').to_s,
@@ -126,6 +131,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_drip', s[:drip])
       m.set_attribute('InteriorPro', 'roof_soffit', s[:soffit])
       m.set_attribute('InteriorPro', 'roof_soffit_color', s[:soffit_color])
+      m.set_attribute('InteriorPro', 'roof_soffit_slope', s[:soffit_slope])
       m.set_attribute('InteriorPro', 'roof_color', s[:roof_color])
       m.set_attribute('InteriorPro', 'roof_fascia_color', s[:fascia_color])
       m.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
@@ -887,7 +893,8 @@ module InteriorPro
                          fascia: nil, fascia_depth: nil, drip: nil,
                          roof_color: nil, fascia_color: nil,
                          roof_material: nil, thickness: nil, ridge_cap: nil,
-                         gable_walls: nil, soffit: nil, soffit_color: nil)
+                         gable_walls: nil, soffit: nil, soffit_color: nil,
+                         soffit_slope: nil)
       model = Sketchup.active_model
       s = settings
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
@@ -899,6 +906,7 @@ module InteriorPro
       s[:drip] = (drip == true) unless drip.nil?
       s[:soffit] = soffit.to_s if soffit
       s[:soffit_color] = soffit_color.to_s if soffit_color
+      s[:soffit_slope] = (soffit_slope == true) unless soffit_slope.nil?
       s[:roof_color] = roof_color.to_s if roof_color
       s[:fascia_color] = fascia_color.to_s if fascia_color
       s[:roof_material] = roof_material.to_s if roof_material
@@ -1235,6 +1243,10 @@ module InteriorPro
         # 'spanish' answers YES to both - a stucco board with dark tails
         # under it - which is why neither can be `style == ...` any more.
         style = s[:soffit].to_s
+        # How far the board's inner edge is lifted so it lies parallel to
+        # the roof (2026-08-26). 0.0 when the option is off, and 0.0 IS the
+        # old flat board - so the whole feature is this one number.
+        rise = soffit_rise(sb, slope, s[:soffit_slope])
         beams = style == 'beams'
         tails = beams || style == 'spanish'
         board = !beams
@@ -1243,7 +1255,7 @@ module InteriorPro
           # rake it runs straight on across the corner square and ends in
           # a rectangle, no 45 degree diagonal (user 2026-08-24).
           build_band!(grp, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
-                      gable_flags, gable_spans, gable_flags)
+                      gable_flags, gable_spans, gable_flags, 0.0, rise)
         end
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
@@ -1272,7 +1284,7 @@ module InteriorPro
         # back hard.
         if sb && board
           soften_seams!(grp, band_corner_seams(poly, sb[:k_in], sb[:k_out],
-                                               sb[:z_bot], sb[:z_top]))
+                                               sb[:z_bot], sb[:z_top], rise))
         end
         # Everything the BOARD added, before a single tail exists - the two
         # get different paint and this is the only moment they can be told
@@ -1287,7 +1299,7 @@ module InteriorPro
           spec = beam_spec(style)
           drop = beams ? 0.0 : s[:fascia_depth].to_f
           build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top - drop,
-                            gable_flags, spec)
+                            gable_flags, spec, s[:soffit_slope] ? slope : 0.0)
           # ...and up the gable rakes (user 2026-08-25: "וגם איפה שיש גיבל").
           if zmap && !gables.empty?
             if framed
@@ -3256,14 +3268,18 @@ module InteriorPro
     # Every mitered corner of a band, as the seam line it draws: from the
     # outer corner straight in to the offset one, at both faces of the
     # board. PURE, pinned by rt84.
-    def self.band_corner_seams(poly, k_in, k_out, z_bot, z_top)
+    # `rise` (2026-08-26) is build_band!'s own: the inner end of every seam
+    # is lifted by it, exactly as the board is, so a sloped soffit's miters
+    # are found and softened just like a level one's. 0.0 = unchanged.
+    def self.band_corner_seams(poly, k_in, k_out, z_bot, z_top, rise = 0.0)
       inner = k_in.abs < 1e-9 ? poly : offset_polygon(poly, k_in)
       outer = k_out.abs < 1e-9 ? poly : offset_polygon(poly, k_out)
       return [] if inner.nil? || outer.nil?
+      r = rise.to_f
       seams = []
       poly.length.times do |i|
         [z_bot, z_top].each do |z|
-          seams << [[outer[i][0], outer[i][1], z], [inner[i][0], inner[i][1], z]]
+          seams << [[outer[i][0], outer[i][1], z], [inner[i][0], inner[i][1], z + r]]
         end
       end
       seams
@@ -4168,12 +4184,26 @@ module InteriorPro
     # square_k       - the line to cut on, as an offset of the NEIGHBOUR's
     #                   edge. 0 = the poly line itself, which is where the
     #                   rake board's inner face stands.
+    # rise           - lift the two INNER corners of every quad by this much
+    #                   and leave the outer two where they are, so the band
+    #                   comes out tilted instead of level (the sloped soffit,
+    #                   2026-08-26). Every point this builder makes sits on
+    #                   either the k_in offset line or the k_out one - the
+    #                   square corner above is a crossing WITH one of those
+    #                   two lines, so it keeps its own k - which is why one
+    #                   number per side is enough and no point needs its
+    #                   height worked out from its coordinates. 0.0 = the
+    #                   level band every caller had before.
     def self.build_band!(grp, poly, k_in, k_out, z_top, z_bot, skip_flags = nil,
-                         skip_spans = nil, square_flags = nil, square_k = 0.0)
+                         skip_spans = nil, square_flags = nil, square_k = 0.0,
+                         rise = 0.0)
       inner = k_in.abs < 1e-9 ? poly : offset_polygon(poly, k_in)
       outer = offset_polygon(poly, k_out)
       return if inner.nil? || outer.nil?
       n = poly.length
+      # quad order below is [inner_a, inner_b, outer_b, outer_a] in BOTH
+      # branches, so one lift array serves them both.
+      lift = rise.to_f.abs < 1.0e-9 ? nil : [rise.to_f, rise.to_f, 0.0, 0.0]
       n.times do |i|
         j = (i + 1) % n
         spans = skip_spans && skip_spans[i]
@@ -4186,7 +4216,7 @@ module InteriorPro
             fb = tb / len
             quad = [lerp2(inner[i], inner[j], fa), lerp2(inner[i], inner[j], fb),
                     lerp2(outer[i], outer[j], fb), lerp2(outer[i], outer[j], fa)]
-            add_prism!(grp.entities, quad, z_top, z_bot)
+            add_prism!(grp.entities, quad, z_top, z_bot, lift)
           end
           next
         end
@@ -4207,7 +4237,7 @@ module InteriorPro
           end
         end
         quad = [a_in, b_in, b_out, a_out]
-        add_prism!(grp.entities, quad, z_top, z_bot)
+        add_prism!(grp.entities, quad, z_top, z_bot, lift)
       end
     rescue StandardError => e
       puts "[Roof] build_band!: #{e.message}"
@@ -4231,6 +4261,28 @@ module InteriorPro
       return nil if k_out - k_in < 0.5
       z_bot = band_top.to_f - fascia_depth.to_f
       { k_in: k_in, k_out: k_out, z_bot: z_bot, z_top: z_bot + SOFFIT_THICK }
+    end
+
+    # THE SLOPED SOFFIT (2026-08-26). PURE, pinned by tests/rt84.rb.
+    #
+    # How much HIGHER the board's inner edge (at the wall) sits than its
+    # outer edge (at the fascia), when the board is laid parallel to the
+    # roof instead of dead level.
+    #
+    # The roof surface at outward offset k is band_top - slope*k, so over
+    # the board's own width - from k_in back at the wall out to k_out at
+    # the fascia - the deck climbs by slope * (k_out - k_in). The board
+    # copies that exactly, which is what "parallel to the roof" means. The
+    # OUTER edge does not move at all: it stays on the fascia's bottom
+    # line, so the fascia, the drip and the flat version all still meet
+    # the board at the same place and nothing outside this file changes.
+    #
+    # Returns 0.0 for a flat roof or when the option is off - and 0.0 is
+    # exactly the old flat board, so one number covers both cases.
+    def self.soffit_rise(band, slope, sloped)
+      return 0.0 unless sloped && band
+      r = slope.to_f * (band[:k_out].to_f - band[:k_in].to_f)
+      r > 0.0 ? r : 0.0
     end
 
     # The soffit's default colour, per style (2026-08-25). nil = leave the
@@ -4433,6 +4485,30 @@ module InteriorPro
       pts
     end
 
+    # TILT ONE BEAM UP THE ROOF (2026-08-26). PURE, pinned by rt84.
+    #
+    # The sloped soffit laid the board parallel to the roof; this does the
+    # same to the timber, so the two stay one thing (user 2026-08-26:
+    # "הקורות גם הספניש וגם האקספוזביים").
+    #
+    # It is a SHEAR, not a rotation: every point is pushed straight UP by
+    # how far the deck above it has climbed, and nothing moves sideways.
+    # Two things fall out of that, and both are wanted -
+    #   * the ends stay PLUMB, which is how a rafter tail is really cut, so
+    #     the ogee end keeps its drawn shape instead of leaning over;
+    #   * the beam keeps its height measured vertically, so `h` in
+    #     beam_spec still means exactly what it said yesterday.
+    # `k_ref` is the end that does NOT move: the outer one, down at the
+    # fascia - the same end the board pivots about, which is why the two
+    # never drift apart. tilt 0.0 hands the profile straight back, and that
+    # is every beam built before today.
+    def self.tilt_profile(profile, tilt, k_ref)
+      t = tilt.to_f
+      return profile if profile.nil? || t.abs < 1.0e-9
+      kr = k_ref.to_f
+      profile.map { |k, z| [k, z - t * (k.to_f - kr)] }
+    end
+
     # One beam solid: the profile swept across the beam's width.
     # A rectangular profile gives the same six faces add_prism! gave.
     def self.add_beam!(ents, a, d, nrm, t, half, profile)
@@ -4501,10 +4577,20 @@ module InteriorPro
     # roof only climbs away from them.
     # GABLED EDGES ARE SKIPPED, exactly as the fascia and the flat band skip
     # them. A rake wants sloped lookouts, which is its own round.
-    def self.build_eave_beams!(grp, poly, k_in, k_out, z_top, skip_flags, spec)
+    # `tilt` (2026-08-26) is the roof's slope when the sloped soffit is on,
+    # and 0.0 when it is off. It shears the beam up the roof; see
+    # tilt_profile. The beams and the board are given the SAME pivot, so
+    # they climb together and the timber stays flat against the plate.
+    def self.build_eave_beams!(grp, poly, k_in, k_out, z_top, skip_flags, spec,
+                               tilt = 0.0)
       half = spec[:w] / 2.0
       ko = spec[:out] || k_out
-      profile = beam_profile(k_in, ko, z_top, spec[:h], spec[:tail])
+      # pivot on k_out, the BOARD's outer edge, not on the beam's own ko -
+      # the Spanish tail stops an inch short of it for the gutters, and
+      # pivoting there would let the timber drift off the plate it is
+      # supposed to be nailed flat against.
+      profile = tilt_profile(beam_profile(k_in, ko, z_top, spec[:h], spec[:tail]),
+                             tilt, k_out)
       poly.each_index do |i|
         next if skip_flags && skip_flags[i]
         a = poly[i]
@@ -4574,9 +4660,14 @@ module InteriorPro
       puts "[Roof] build_rake_beams!: #{e.message}"
     end
 
-    def self.add_prism!(ents, quad, z_top, z_bot)
-      top = quad.map { |p| Geom::Point3d.new(p[0], p[1], z_top) }
-      bot = quad.map { |p| Geom::Point3d.new(p[0], p[1], z_bot) }
+    # `lift` (2026-08-26) raises SOME corners and not others, which is the
+    # only thing that turns this flat box into a tilted one. It is an array
+    # the same length as `quad`, one dz per corner - nil, or all zeros, is
+    # the level box every caller had before.
+    def self.add_prism!(ents, quad, z_top, z_bot, lift = nil)
+      dz = lambda { |i| lift ? lift[i].to_f : 0.0 }
+      top = quad.each_with_index.map { |p, i| Geom::Point3d.new(p[0], p[1], z_top + dz.call(i)) }
+      bot = quad.each_with_index.map { |p, i| Geom::Point3d.new(p[0], p[1], z_bot + dz.call(i)) }
       ents.add_face(top)
       ents.add_face(bot)
       4.times do |i|
