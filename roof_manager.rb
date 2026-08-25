@@ -4930,32 +4930,11 @@ module InteriorPro
     # so the metal reads as one folded sheet and not a chain of strips.
     # PURE.
     def self.offset_path_left(path, t)
-      n = path.length
-      return [] if n < 2
-      seg = (0...n - 1).map do |i|
-        dx = path[i + 1][0] - path[i][0]
-        dy = path[i + 1][1] - path[i][1]
-        len = Math.sqrt(dx * dx + dy * dy)
-        len < 1.0e-9 ? nil : [-dy / len, dx / len]
-      end
-      return [] if seg.compact.empty?
-      (0...n).map do |i|
-        a = (i.zero? ? seg[0] : seg[i - 1]) || seg.compact.first
-        b = (i == n - 1 ? seg[n - 2] : seg[i]) || a
-        mx = a[0] + b[0]
-        my = a[1] + b[1]
-        ml = Math.sqrt(mx * mx + my * my)
-        if ml < 1.0e-9
-          nx = a[0]
-          ny = a[1]
-          s = t.to_f
-        else
-          nx = mx / ml
-          ny = my / ml
-          dot = nx * a[0] + ny * a[1]
-          s = t.to_f / (dot < 0.35 ? 0.35 : dot)
-        end
-        [path[i][0] + nx * s, path[i][1] + ny * s]
+      nrm = path_left_normals(path)
+      return [] if nrm.length != path.length
+      path.each_with_index.map do |p, i|
+        nx, ny, sc = nrm[i]
+        [p[0] + nx * t.to_f * sc, p[1] + ny * t.to_f * sc]
       end
     end
 
@@ -5098,6 +5077,169 @@ module InteriorPro
       end
     rescue StandardError => e
       puts "[Roof] build_profile_band!: #{e.message}"
+    end
+
+    # ================= THE DOWNSPOUT (2026-08-29) ======================
+    #
+    # Step 1 of 3: the SHAPE, the PATH and the PLACES. Nothing calls any
+    # of it yet - the same way the gutter went in on 2026-08-28.
+    #
+    # The user asked for them AUTOMATIC, with a click to take one off
+    # later ("אוטומטי ולחיצה אם אני רוצה להוריד אותם"). This step is only
+    # the automatic half's maths.
+    #
+    # EVERYTHING HERE IS IN THE SAME FRAME THE GUTTER USES: k outward from
+    # the eave line, z relative to band_top. The whole pipe lives in ONE
+    # vertical plane - the one square to its eave - so its centre line is
+    # a plain 2D path, and the only 3D left is which way that plane faces.
+
+    DS_WIDTH  = 3.0 unless const_defined?(:DS_WIDTH, false)   # along the eave
+    DS_DEPTH  = 2.0 unless const_defined?(:DS_DEPTH, false)   # out from the wall
+    DS_KICK   = 6.0 unless const_defined?(:DS_KICK, false)    # the boot at the bottom
+    DS_INSET  = 6.0 unless const_defined?(:DS_INSET, false)   # back from the corner
+
+    # The pipe's cross section as [along-the-eave, across] pairs, closed.
+    # Round when the gutter is round and rectangular otherwise - the pair
+    # a real house comes in, and one control fewer (the standing UI rule).
+    # PURE.
+    def self.downspout_profile(gutter_profile, width = DS_WIDTH, depth = DS_DEPTH)
+      hw = width.to_f / 2.0
+      hd = depth.to_f / 2.0
+      return [] if hw <= 0.0 || hd <= 0.0
+      if gutter_profile.to_s == 'round'
+        steps = 16
+        (0...steps).map do |i|
+          a = 2.0 * Math::PI * i / steps
+          [hw * Math.cos(a), hw * Math.sin(a)]
+        end
+      else
+        [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
+      end
+    end
+
+    # The centre line, from inside the gutter down to the boot. PURE.
+    #
+    # z_top   - where it starts, up inside the gutter trough
+    # z_turn  - where the elbow begins. The caller hands this in already
+    #           clear of the soffit board, because a pipe that starts its
+    #           45 degrees too high runs straight through it.
+    # k_start - out at the gutter, k_wall - in at the wall face, both
+    #           centre line. z_ground - the ground.
+    # Returns nil when there is not enough wall to come down.
+    def self.downspout_path(z_top, z_turn, k_start, k_wall, z_ground)
+      zt = z_top.to_f
+      zn = [z_turn.to_f, zt - 1.0].min
+      ks = k_start.to_f
+      kw = k_wall.to_f
+      zg = z_ground.to_f
+      travel = ks - kw
+      z_in = zn - (travel > 1.0 ? travel : 0.0)      # 45 degrees, so run = drop
+      return nil if z_in <= zg + 3.0 * DS_KICK
+      path = [[ks, zt], [ks, zn]]
+      path << [kw, z_in] if travel > 1.0
+      path << [kw, zg + 2.0 * DS_KICK]
+      path << [kw + DS_KICK, zg + DS_KICK]
+      path
+    end
+
+    # The mitered LEFT normal at every point of a path: [nx, ny, scale].
+    # offset_path_left is this plus one multiply, and the tube sweep needs
+    # the normals themselves. PURE.
+    def self.path_left_normals(path)
+      n = path.length
+      return [] if n < 2
+      seg = (0...n - 1).map do |i|
+        dx = path[i + 1][0] - path[i][0]
+        dy = path[i + 1][1] - path[i][1]
+        len = Math.sqrt(dx * dx + dy * dy)
+        len < 1.0e-9 ? nil : [-dy / len, dx / len]
+      end
+      return [] if seg.compact.empty?
+      (0...n).map do |i|
+        a = (i.zero? ? seg[0] : seg[i - 1]) || seg.compact.first
+        b = (i == n - 1 ? seg[n - 2] : seg[i]) || a
+        mx = a[0] + b[0]
+        my = a[1] + b[1]
+        ml = Math.sqrt(mx * mx + my * my)
+        next [a[0], a[1], 1.0] if ml < 1.0e-9
+        nx = mx / ml
+        ny = my / ml
+        dot = nx * a[0] + ny * a[1]
+        [nx, ny, 1.0 / (dot < 0.35 ? 0.35 : dot)]
+      end
+    end
+
+    # One ring of points per path point: [along-the-eave, k, z]. The
+    # across-the-path half of the profile is turned onto the path's own
+    # mitered normal, so a bend meets itself cleanly instead of leaving a
+    # notch - exactly what the gutter's own metal does. PURE.
+    def self.tube_rings(path, profile)
+      return [] if path.nil? || profile.nil? || path.length < 2 || profile.length < 3
+      nrm = path_left_normals(path)
+      return [] if nrm.length != path.length
+      path.each_with_index.map do |c, i|
+        nx, ny, sc = nrm[i]
+        profile.map { |(a, b)| [a, c[0] + nx * b * sc, c[1] + ny * b * sc] }
+      end
+    end
+
+    # WHERE THEY GO. One at every building corner that has gutter on at
+    # least one of its two edges, set back DS_INSET along a gutter edge.
+    # A gable house gets one per corner; so does a hip, whose gutter runs
+    # right round and has no ends of its own. Returns [[x, y], edge].
+    # PURE.
+    def self.downspout_spots(poly, skip_flags = nil, inset = DS_INSET)
+      n = poly.length
+      return [] if n < 3
+      out = []
+      n.times do |v|
+        prev = (v - 1) % n
+        on_prev = !(skip_flags && skip_flags[prev])
+        on_this = !(skip_flags && skip_flags[v])
+        next unless on_prev || on_this
+        e = on_this ? v : prev
+        j = (e + 1) % n
+        len = vlen(vsub(poly[j], poly[e]))
+        next if len < inset * 2.0
+        d = vnorm(vsub(poly[j], poly[e]))
+        p = on_this ? vadd(poly[e], vmul(d, inset)) : vsub(poly[j], vmul(d, inset))
+        out << [p, e]
+      end
+      out
+    end
+
+    # Build one pipe. `at` is where it stands in plan, `edge` which eave
+    # it hangs on - that edge gives both the along direction and which way
+    # is out, so the whole ring maths above lands in the world.
+    def self.build_tube!(grp, poly, edge, at, rings)
+      return if grp.nil? || rings.nil? || rings.length < 2
+      n = poly.length
+      i = edge % n
+      j = (i + 1) % n
+      d = vnorm(vsub(poly[j], poly[i]))
+      right = [d[1], -d[0]]                       # outward, as offset_polygon
+      world = lambda do |ring|
+        ring.map do |(a, k, z)|
+          Geom::Point3d.new(at[0] + d[0] * a + right[0] * k,
+                            at[1] + d[1] * a + right[1] * k, z)
+        end
+      end
+      prev = world.call(rings.first)
+      ents = grp.entities
+      ents.add_face(prev)
+      (1...rings.length).each do |r|
+        cur = world.call(rings[r])
+        m = prev.length
+        m.times do |q|
+          s = (q + 1) % m
+          next if prev[q].distance(prev[s]) < 1.0e-4 || cur[q].distance(cur[s]) < 1.0e-4
+          ents.add_face([prev[q], prev[s], cur[s], cur[q]])
+        end
+        prev = cur
+      end
+      ents.add_face(prev.reverse)
+    rescue StandardError => e
+      puts "[Roof] build_tube!: #{e.message}"
     end
 
     # ---------- soffit: the flat plate under the eave (2026-08-24) -------
