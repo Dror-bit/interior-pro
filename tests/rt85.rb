@@ -377,11 +377,13 @@ ok('...spanning the overhang zone outside the wall face',
                    (f.pts.map(&:z).max - 96.0).abs < 0.5 },
    caps.map { |f| f.pts.map(&:z).minmax })
 # the cap is a piece of the fascia: its colour, and with a SLOPED soffit
-# its bottom climbs with the board - a parallel band, not a hanging plate
-# (user 2026-08-26B). Rise here = 0.5 * (12 - 0.75) = 5.625 at the wall.
+# its bottom climbs with the board - a tilted band, not a hanging plate
+# (user 2026-08-26B). Rise here = 0.5 * 12 = 6.0 at the wall: measured
+# from the ROOF EDGE, not from the fascia's inner face (2026-08-27, so
+# the board meets the rake soffit at the gable corner).
 ok('the cap wears the fascia colour', caps.all?(&:material), caps.length)
 ok('...and its bottom climbs with the sloped soffit',
-   caps.all? { |f| f.pts.any? { |p| (p.z - 87.625).abs < 0.3 } },
+   caps.all? { |f| f.pts.any? { |p| (p.z - 88.0).abs < 0.3 } },
    caps.map { |f| f.pts.map(&:z).sort })
 
 # THE CORNER LOOKOUT GOES WITH A SLOPED SOFFIT (2026-08-26B, the user's

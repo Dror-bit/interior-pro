@@ -4735,19 +4735,33 @@ module InteriorPro
     # outer edge (at the fascia), when the board is laid parallel to the
     # roof instead of dead level.
     #
-    # The roof surface at outward offset k is band_top - slope*k, so over
-    # the board's own width - from k_in back at the wall out to k_out at
-    # the fascia - the deck climbs by slope * (k_out - k_in). The board
-    # copies that exactly, which is what "parallel to the roof" means. The
-    # OUTER edge does not move at all: it stays on the fascia's bottom
-    # line, so the fascia, the drip and the flat version all still meet
-    # the board at the same place and nothing outside this file changes.
+    # The roof surface at outward offset k is band_top - slope*k. The board
+    # is pinned at BOTH its edges, and the two pins are what this number is:
+    #
+    #   OUTER, at k_out: the fascia's bottom line, z_bot. It does not move -
+    #   the fascia, the drip and the flat version all still meet the board
+    #   exactly where they always did.
+    #   INNER, at k_in: one fascia depth under the deck, which is where the
+    #   RAKE soffit already sits. So the rise is slope * (0 - k_in), measured
+    #   from the roof edge itself, NOT from k_out.
+    #
+    # WHY NOT k_out (2026-08-27). Until today the rise was
+    # slope * (k_out - k_in) - the deck's climb across the board's own width -
+    # which reads as "parallel to the roof" and is one fascia thickness short.
+    # The rake soffit has no such offset: it hangs a fascia depth under the
+    # deck measured at the poly line. So at every gable corner the two boards
+    # missed each other by slope * FASCIA_THICK - measured 87.75 against
+    # 88.00 on a 4:12 with an 18" overhang, and the user marked all four
+    # corners in red. Raising the inner edge closes it and leaves the fascia
+    # untouched; the price is a board 4% steeper than the deck, which at
+    # 1/40 of a degree nobody can see. Pinned by tests/rt84.rb, which now
+    # asserts the two boards MEET rather than that the board is parallel.
     #
     # Returns 0.0 for a flat roof or when the option is off - and 0.0 is
     # exactly the old flat board, so one number covers both cases.
     def self.soffit_rise(band, slope, sloped)
       return 0.0 unless sloped && band
-      r = slope.to_f * (band[:k_out].to_f - band[:k_in].to_f)
+      r = slope.to_f * (0.0 - band[:k_in].to_f)
       r > 0.0 ? r : 0.0
     end
 

@@ -75,28 +75,44 @@ ok('with no fascia the board runs out to the roof edge', close(nf[:k_out], 0.0),
 ok('with no fascia it still hangs at the same height', close(nf[:z_bot], BAND_TOP - FD), nf)
 
 # ------------------------------------------- THE SLOPED SOFFIT (2026-08-26)
-# The same board laid PARALLEL TO THE ROOF instead of dead level, on the
-# eave (pitch) sides only. One number does the whole job: how much higher
-# the inner edge (at the wall) sits than the outer one (at the fascia).
-# The outer edge never moves, so the fascia and the drip are untouched and
-# 0.0 is byte-for-byte the flat board that was here before.
+# The same board tilted instead of dead level, on the eave (pitch) sides
+# only. One number does the whole job: how much higher the inner edge (at
+# the wall) sits than the outer one (at the fascia). The outer edge never
+# moves, so the fascia and the drip are untouched and 0.0 is byte-for-byte
+# the flat board that was here before.
+#
+# WHAT THE NUMBER IS PINNED TO CHANGED ON 2026-08-27. It used to be the
+# deck's climb across the board's own width, slope * (k_out - k_in) - which
+# reads as "parallel to the roof". It is now measured from the ROOF EDGE,
+# slope * (0 - k_in), one fascia thickness more. The reason is the corner:
+# the rake soffit hangs a fascia depth under the deck measured at the poly
+# line, so under the old rule the two boards missed each other by
+# slope * FASCIA_THICK at every gable corner (the user marked all four in
+# red). The suite below now pins that they MEET.
 SLOPE = 0.5 # 6:12
 ok('off = 0, which IS the old flat board',
    close(RM.soffit_rise(b, SLOPE, false), 0.0), RM.soffit_rise(b, SLOPE, false))
-ok('on = the deck''s own climb across the board',
-   close(RM.soffit_rise(b, SLOPE, true), SLOPE * (b[:k_out] - b[:k_in])),
+ok('on = the deck''s climb from the roof edge in to the wall',
+   close(RM.soffit_rise(b, SLOPE, true), SLOPE * (0.0 - b[:k_in])),
    RM.soffit_rise(b, SLOPE, true))
 ok('a flat roof cannot tilt it', close(RM.soffit_rise(b, 0.0, true), 0.0))
 ok('no band, no rise', close(RM.soffit_rise(nil, SLOPE, true), 0.0))
 ok('a steeper pitch lifts it further',
    RM.soffit_rise(b, 1.0, true) > RM.soffit_rise(b, SLOPE, true))
-# PARALLEL means exactly this: at the wall the board has climbed as much as
-# the roof surface has between the fascia and the wall.
-deck_at_wall  = BAND_TOP - SLOPE * b[:k_in]
-deck_at_edge  = BAND_TOP - SLOPE * b[:k_out]
-ok('the board copies the deck, inch for inch',
-   close(RM.soffit_rise(b, SLOPE, true), deck_at_wall - deck_at_edge),
-   [RM.soffit_rise(b, SLOPE, true), deck_at_wall - deck_at_edge])
+# THE CORNER (2026-08-27). This is the whole point of the number: the flat
+# board's inner edge must land on the same line the rake soffit sits on -
+# one fascia depth under the deck, at the wall face.
+deck_at_wall = BAND_TOP - SLOPE * b[:k_in]
+rake_soffit_at_wall = deck_at_wall - FD
+ok('the flat board meets the rake soffit, to the inch',
+   close(b[:z_bot] + RM.soffit_rise(b, SLOPE, true), rake_soffit_at_wall),
+   [b[:z_bot] + RM.soffit_rise(b, SLOPE, true), rake_soffit_at_wall])
+ok('...and the outer edge has not budged off the fascia',
+   close(b[:z_bot], BAND_TOP - FD), b[:z_bot])
+ok('the old parallel rule is exactly one fascia thickness short',
+   close(RM.soffit_rise(b, SLOPE, true) - SLOPE * (b[:k_out] - b[:k_in]),
+         SLOPE * RM::FASCIA_THICK),
+   RM.soffit_rise(b, SLOPE, true) - SLOPE * (b[:k_out] - b[:k_in]))
 ok('it never rises above the roof edge it hangs from',
    b[:z_top] + RM.soffit_rise(b, SLOPE, true) < deck_at_wall)
 # and the flag survives a save/load round trip
