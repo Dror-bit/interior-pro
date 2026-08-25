@@ -115,6 +115,29 @@ ok('k: its front lip still reaches the full width',
    close(kp.map { |k, _z| k }.max, W), kp.map { |k, _z| k }.max)
 ok('k: and it is NOT the box', kp != RM.gutter_path('box', W, H))
 
+# THE FRONT IS A CURVE, NOT A STAIR. The first K-style was nine straight
+# steps and the user said so the moment he saw it (2026-08-28: "נטו כמו
+# מדרגות"). Sampled finely, no single joint in the ogee turns hard - the
+# stair version turned 60 degrees at its sharpest, this one 22, and the
+# only joint near that is where the top lip stands up.
+turn = lambda do |pts|
+  (1...pts.length - 1).map do |i|
+    a = [pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]
+    b = [pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]]
+    la = Math.hypot(a[0], a[1])
+    lb = Math.hypot(b[0], b[1])
+    next 0.0 if la < 1e-9 || lb < 1e-9
+    c = (a[0] * b[0] + a[1] * b[1]) / (la * lb)
+    c = 1.0 if c > 1.0
+    c = -1.0 if c < -1.0
+    Math.acos(c) * 180.0 / Math::PI
+  end
+end
+front = kp[2..-2]                      # drop the two square back corners
+ok('k: the front is sampled as a real curve', front.length >= 15, front.length)
+ok('k: no joint in the ogee reads as a step',
+   turn.call(front).max <= 30.0, turn.call(front).max.round(2))
+
 # ================================================== 6. EAVES ONLY ==========
 # A 100 x 60 rectangle, counter-clockwise. Outward is to the RIGHT of the
 # direction of travel, so edge 0 (y = 0, heading +x) grows into -y.
@@ -122,9 +145,9 @@ POLY = [[0.0, 0.0], [100.0, 0.0], [100.0, 60.0], [0.0, 60.0]]
 GABLE = [false, true, false, true]   # the two short ends are gable rakes
 ZREF  = 87.0
 
-def build(section, flags, sq = nil)
+def build(section, flags, sq = nil, cap = nil)
   g = Sketchup.active_model.entities.add_group
-  RM.build_profile_band!(g, POLY, section, ZREF, flags, nil, sq, 0.0)
+  RM.build_profile_band!(g, POLY, section, ZREF, flags, nil, sq, 0.0, cap)
   g.entities.grep(Sketchup::Face)
 end
 
@@ -157,6 +180,33 @@ ok('square corner: nothing runs out past the building corner',
    sq_pts.reject { |p| p.x >= -1e-6 && p.x <= 100.0 + 1e-6 }.first)
 ok('the mitered version DOES run out past it - so the flag is doing work',
    pts.any? { |p| p.x > 100.0 + 1e-6 || p.x < -1e-6 })
+
+# ============================================ 8. THE END CAP =============
+# Looking down the open end of a gutter is the first thing the user said
+# about it (2026-08-28: "לשים מכסה בקצה שלו"). A run that ends against a
+# rake gets a plate the shape of its own outer silhouette, shut straight
+# across the mouth. A run that carries on round an ordinary corner does
+# not - there is nothing there to close.
+# The K profile, because its silhouette is 24 points - impossible to
+# confuse with a 4 point side quad the way the box's would be.
+KSEC = secs['k']
+CAP  = RM.gutter_outer_len('k', W, H)
+plain_k = build(KSEC, GABLE)
+capped  = build(KSEC, GABLE, GABLE, CAP)
+ok('the outer silhouette is most of the section',
+   CAP >= 4 && CAP < KSEC.length, [CAP, KSEC.length])
+ok('capping adds exactly one plate per run end - two ends, two runs',
+   capped.length == plain_k.length + 4,
+   [capped.length, plain_k.length])
+plates = capped.select { |f| f.points.length == CAP }
+ok('and each plate really is the outer silhouette', plates.length == 4,
+   plates.length)
+ok('a plate stands in the end plane, not across the run',
+   plates.all? { |f| f.points.map { |p| p.y.round(3) }.uniq.length > 1 &&
+                     f.points.map { |p| p.x.round(3) }.uniq.length == 1 },
+   plates.first && plates.first.points.map { |p| [p.x.round(2), p.y.round(2)] })
+ok('no cap where two eaves would meet at a plain corner',
+   build(KSEC, nil, nil, CAP).select { |f| f.points.length == CAP }.empty?)
 
 # ---------------------------------------------------------- rubbish in, nil out
 ok('a zero width gutter is no gutter', RM.gutter_section('box', 0.0, H).nil?)

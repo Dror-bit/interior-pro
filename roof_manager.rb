@@ -131,6 +131,11 @@ module InteriorPro
         roof_material: g.call('roof_material', 'color').to_s,
         thickness: g.call('roof_thickness', DEFAULT_ROOF_THICKNESS).to_f,
         ridge_cap: g.call('roof_ridge_cap', true) == true,
+        # THE GUTTER (2026-08-28). Default OFF, so no roof anyone has
+        # already built grows one behind his back.
+        gutter: g.call('roof_gutter', false) == true,
+        gutter_profile: g.call('roof_gutter_profile', 'k').to_s,
+        gutter_width: g.call('roof_gutter_width', DEFAULT_GUTTER_WIDTH).to_f,
         gable_walls: g.call('roof_gable_walls', true) == true
       }
     end
@@ -151,6 +156,9 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_material', s[:roof_material])
       m.set_attribute('InteriorPro', 'roof_thickness', s[:thickness])
       m.set_attribute('InteriorPro', 'roof_ridge_cap', s[:ridge_cap])
+      m.set_attribute('InteriorPro', 'roof_gutter', s[:gutter])
+      m.set_attribute('InteriorPro', 'roof_gutter_profile', s[:gutter_profile])
+      m.set_attribute('InteriorPro', 'roof_gutter_width', s[:gutter_width])
       m.set_attribute('InteriorPro', 'roof_gable_walls', s[:gable_walls])
       s
     end
@@ -178,7 +186,7 @@ module InteriorPro
     def self.roof_setting_keys
       %i[style pitch overhang fascia fascia_depth drip soffit soffit_color
          soffit_slope roof_color fascia_color roof_material thickness
-         ridge_cap gable_walls]
+         ridge_cap gutter gutter_profile gutter_width gable_walls]
     end
 
     # Stamp one roof group with the settings it was built from.
@@ -1238,7 +1246,8 @@ module InteriorPro
                          roof_color: nil, fascia_color: nil,
                          roof_material: nil, thickness: nil, ridge_cap: nil,
                          gable_walls: nil, soffit: nil, soffit_color: nil,
-                         soffit_slope: nil, level: nil, replace: nil)
+                         soffit_slope: nil, gutter: nil, gutter_profile: nil,
+                         gutter_width: nil, level: nil, replace: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
       # its settings are the starting point (keywords below still override,
@@ -1264,6 +1273,9 @@ module InteriorPro
       s[:roof_material] = roof_material.to_s if roof_material
       s[:thickness] = thickness.to_f unless thickness.nil?
       s[:ridge_cap] = (ridge_cap == true) unless ridge_cap.nil?
+      s[:gutter] = (gutter == true) unless gutter.nil?
+      s[:gutter_profile] = gutter_profile.to_s if gutter_profile
+      s[:gutter_width] = gutter_width.to_f if gutter_width && gutter_width.to_f > 0.5
       slope = s[:pitch] / 12.0
 
       # Which storey this roof covers: asked for > the replaced roof's own >
@@ -1649,6 +1661,32 @@ module InteriorPro
             build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH,
                               k_in: d_in, k_out: d_in + DRIP_THICK)
           end
+        end
+      end
+      # ---------- THE GUTTER (2026-08-28) -------------------------------
+      # It hangs on the fascia's OUTER face, k = 0 - which is the whole
+      # reason the fascia was left free (2026-08-25). Nothing already on
+      # the roof moves: the fascia, the drip and the soffit all live at
+      # k <= DRIP_THICK and the gutter starts there and grows outward.
+      #
+      # EAVES ONLY, the user's own answer on 2026-08-28 ("רק באיב"):
+      # gable_flags / gable_spans keep it off every rake exactly as they
+      # keep the fascia off, and handing the SAME flags again as
+      # square_flags cuts the run off flat on the rake board's outer face
+      # instead of letting it run out past the building corner on a 45
+      # degree diagonal - the diagonal that came off the soffit on
+      # 2026-08-24.
+      if s[:gutter]
+        gw = s[:gutter_width].to_f
+        gh = gw * GUTTER_H_RATIO
+        gsec = gutter_section(s[:gutter_profile], gw, gh)
+        if gsec
+          had_edges = grp.entities.grep(Sketchup::Edge).map(&:object_id)
+          build_profile_band!(grp, poly, gsec, band_top, gable_flags,
+                              gable_spans, gable_flags,
+                              s[:fascia] ? FASCIA_THICK : 0.0,
+                              gutter_outer_len(s[:gutter_profile], gw, gh))
+          soften_shallow_edges!(grp.entities, had_edges)
         end
       end
       # The soffit closes the eave from below. It skips the gable rakes for
@@ -4797,6 +4835,10 @@ module InteriorPro
     DEFAULT_GUTTER_WIDTH  = 5.0 unless const_defined?(:DEFAULT_GUTTER_WIDTH, false)
     DEFAULT_GUTTER_HEIGHT = 4.5 unless const_defined?(:DEFAULT_GUTTER_HEIGHT, false)
     GUTTER_PROFILES = %w[k round box] unless const_defined?(:GUTTER_PROFILES, false)
+    # ONE number in the panel, not two (the user's standing UI rule: fewer
+    # controls). Height follows width - a 5" gutter is 4.5" deep, which is
+    # what a 5" K-style actually measures.
+    GUTTER_H_RATIO = 0.9 unless const_defined?(:GUTTER_H_RATIO, false)
 
     # The OUTER line of the trough: back-top, down the back, along the
     # bottom, up the front, front-top. OPEN on purpose - the metal's inner
@@ -4827,16 +4869,35 @@ module InteriorPro
         end
         [[0.0, -d]] + arc + [[w, -d]]
       when 'k'
-        # The American ogee, read off a 5" K-style section: fractions of
-        # w across, of h up from the bottom.
+        # The American ogee. It was a stair of straight steps at first and
+        # the user said so on sight (2026-08-28: "נטו כמו מדרגות") - the
+        # front is a CURVE, one convex roll into one concave one, and it
+        # is sampled fine enough that nothing reads as a facet. Fractions
+        # of w across and of h down from the top rim.
         return [] if h <= 0.0
-        [[0.00, 0.00], [0.00, -1.00],
-         [0.42, -1.00], [0.58, -0.86], [0.58, -0.64],
-         [0.80, -0.50], [0.80, -0.28],
-         [1.00, -0.14], [1.00, 0.00]].map { |fk, fz| [fk * w, fz * h - d] }
+        front = bezier_pts([0.42, 1.00], [0.66, 1.00], [0.52, 0.70], [0.70, 0.60], 10) +
+                bezier_pts([0.70, 0.60], [0.88, 0.50], [0.82, 0.20], [1.00, 0.13], 10)[1..-1]
+        ([[0.00, 0.00], [0.00, 1.00]] + front + [[1.00, 0.00]])
+          .map { |fk, fz| [fk * w, -fz * h - d] }
       else # 'box'
         return [] if h <= 0.0
         [[0.0, -d], [0.0, -d - h], [w, -d - h], [w, -d]]
+      end
+    end
+
+    # A cubic Bezier as `steps` + 1 points, ends included. PURE - it is
+    # here so a profile can be a real curve without pulling in anything
+    # from outside this file.
+    def self.bezier_pts(p0, p1, p2, p3, steps)
+      (0..steps).map do |i|
+        t = i.to_f / steps
+        u = 1.0 - t
+        a = u * u * u
+        b = 3.0 * u * u * t
+        c = 3.0 * u * t * t
+        e = t * t * t
+        [a * p0[0] + b * p1[0] + c * p2[0] + e * p3[0],
+         a * p0[1] + b * p1[1] + c * p2[1] + e * p3[1]]
       end
     end
 
@@ -4890,6 +4951,14 @@ module InteriorPro
       out + inn.reverse
     end
 
+    # How many LEADING points of gutter_section are the outer silhouette -
+    # the run's end cap is that outline closed straight across the mouth,
+    # which is what a real gutter's end cap is (user 2026-08-28: "לשים
+    # מכסה בקצה שלו"). PURE.
+    def self.gutter_outer_len(profile, width, height, drop = GUTTER_DROP)
+      gutter_path(profile, width, height, drop).length
+    end
+
     def self.section_point(p, z)
       Geom::Point3d.new(p[0], p[1], z)
     end
@@ -4897,15 +4966,48 @@ module InteriorPro
     # One swept length: the two end caps and one quad per section side.
     # Every quad has two sides parallel to the eave edge - the same reason
     # add_prism!'s four are planar however the corner miters.
-    def self.add_profile_prism!(ents, a, b)
+    # cap_a / cap_b: close that end of the run with a solid plate - the
+    # outer silhouette shut straight across the trough mouth - on top of
+    # the thin metal ring the section itself draws. Without it you look
+    # straight down the open end of the gutter.
+    def self.add_profile_prism!(ents, a, b, cap_a = nil, cap_b = nil)
       m = a.length
       ents.add_face(a)
       ents.add_face(b.reverse)
+      ents.add_face(a[0...cap_a]) if cap_a && cap_a >= 3
+      ents.add_face(b[0...cap_b].reverse) if cap_b && cap_b >= 3
       m.times do |i|
         j = (i + 1) % m
         next if a[i].distance(a[j]) < 1.0e-4 || b[i].distance(b[j]) < 1.0e-4
         ents.add_face([a[i], a[j], b[j], b[i]])
       end
+    end
+
+    # SOFTEN THE CURVE (user 2026-08-28: "להוריד את הקווים שיהיה יותר
+    # נקי"). A sampled curve is a fan of flat strips, and SketchUp draws
+    # the seam between every pair of them. Softened AND smoothed, the
+    # strips shade as one surface and the seams disappear - the corners
+    # stay, because they turn far more than the limit.
+    #
+    # `before` is the set of edge object_ids that existed before the new
+    # geometry went in, so nothing already on the roof is touched.
+    def self.soften_shallow_edges!(ents, before, max_deg = 35.0)
+      ents.grep(Sketchup::Edge).each do |e|
+        next if before.include?(e.object_id)
+        fs = e.faces
+        next unless fs.length == 2
+        ang = fs[0].normal.angle_between(fs[1].normal) * 180.0 / Math::PI
+        # 0 degrees counts: the end cap plate lands coplanar with the
+        # thin ring the section draws and SketchUp splits them apart. That
+        # seam is exactly a line the user does not want to see.
+        next if ang > max_deg
+        e.soft = true
+        e.smooth = true
+      end
+      true
+    rescue StandardError => e
+      puts "[Roof] soften: #{e.message}"
+      false
     end
 
     # Sweep a closed cross section around `poly`, mitering at every
@@ -4918,7 +5020,8 @@ module InteriorPro
     # very thing the user made us take off the soffit (2026-08-24).
     def self.build_profile_band!(grp, poly, section, z_ref,
                                  skip_flags = nil, skip_spans = nil,
-                                 square_flags = nil, square_k = 0.0)
+                                 square_flags = nil, square_k = 0.0,
+                                 cap_len = nil)
       return if grp.nil? || poly.nil? || section.nil? || section.length < 3
       rings = {}
       section.each do |(k, _z)|
@@ -4931,7 +5034,10 @@ module InteriorPro
       n = poly.length
       n.times do |i|
         j = (i + 1) % n
-        next if skip_flags && skip_flags[i]
+        # spans BEFORE flags, exactly as build_band! orders them: a gable
+        # edge is flagged AND spanned, and the spans are the finer answer
+        # (2026-08-09) - a marked wall running past its own gable onto a
+        # wing still needs its run there.
         spans = skip_spans && skip_spans[i]
         if spans
           len = vlen(vsub(poly[j], poly[i]))
@@ -4946,6 +5052,7 @@ module InteriorPro
           end
           next
         end
+        next if skip_flags && skip_flags[i]
         prev = (i - 1) % n
         sq_a = square_flags && square_flags[prev]
         sq_b = square_flags && square_flags[j]
@@ -4959,7 +5066,12 @@ module InteriorPro
           p = band_square_corner(poly, i, j, k, square_k) || p if sq_b
           section_point(p, z_ref + z)
         end
-        add_profile_prism!(grp.entities, a, b)
+        # A run ENDS where its neighbour has no gutter - at a rake, or at
+        # an abut edge. That is the end that gets the cap; two eaves
+        # meeting at an ordinary corner run straight through and get none.
+        add_profile_prism!(grp.entities, a, b,
+                           (skip_flags && skip_flags[prev]) ? cap_len : nil,
+                           (skip_flags && skip_flags[j]) ? cap_len : nil)
       end
     rescue StandardError => e
       puts "[Roof] build_profile_band!: #{e.message}"
