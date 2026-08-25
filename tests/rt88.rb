@@ -261,5 +261,70 @@ d2.callbacks['apply_roof'].call(nil, *OLD)
 ok('AN OLD CALL LEAVES THE COLOUR ALONE TOO',
    RF.settings[:gutter_color] == GUTTER_C, RF.settings[:gutter_color])
 
+# ================================================ 9. DOWNSPOUTS ==========
+# Automatic, one per corner, each in its own group so a click can name it
+# later. They can only exist where there is a gutter - no gutter, no pipe.
+def spouts(r)
+  r.entities.grep(Sketchup::Group)
+   .select { |g| g.get_attribute('InteriorPro', 'type') == 'downspout' }
+end
+
+no_g = roof(gutter: false)
+ok('NO GUTTER, NO DOWNSPOUT - nothing grows on an old roof',
+   spouts(no_g).empty?, spouts(no_g).length)
+
+with = roof(gutter: true, gutter_profile: 'k', gutter_width: 5.0)
+ok('a gutter brings four pipes, one per corner', spouts(with).length == 4,
+   spouts(with).length)
+ok('...each one its own group with a key on it',
+   spouts(with).all? { |g| !g.get_attribute('InteriorPro', 'ds_key').to_s.empty? },
+   spouts(with).map { |g| g.get_attribute('InteriorPro', 'ds_key') })
+ok('...and all four keys are different',
+   spouts(with).map { |g| g.get_attribute('InteriorPro', 'ds_key') }.uniq.length == 4)
+ok('every pipe hangs on an EAVE, never on a rake',
+   spouts(with).all? { |g| [0, 2].include?(g.get_attribute('InteriorPro', 'ds_edge').to_i) },
+   spouts(with).map { |g| g.get_attribute('InteriorPro', 'ds_edge') })
+
+# THE PIPE STANDS ON THE WALL, not off the end of it (2026-08-29). The
+# box is 300 x 200 on centre lines 6" thick, so the exterior faces are
+# x = -3..303 and y = -3..203. Every pipe has to be inside that, out to
+# its own gap and depth - not one overhang further along, in mid air.
+plan = spouts(with).map do |g|
+  ps = g.entities.grep(Sketchup::Face).flat_map(&:points)
+  [(ps.map(&:x).min + ps.map(&:x).max) / 2.0,
+   (ps.map(&:y).min + ps.map(&:y).max) / 2.0]
+end
+ok('every pipe comes down ON the wall, never off its end',
+   plan.all? { |x, _y| x >= -3.0 - 1e-6 && x <= 303.0 + 1e-6 },
+   plan)
+ok('...and DS_INSET in from the corner of the wall',
+   plan.all? { |x, _y| [(x + 3.0).abs, (303.0 - x).abs].min.round(3) ==
+                       RF::DS_INSET.round(3) },
+   plan.map { |x, _y| [(x + 3.0).abs, (303.0 - x).abs].min })
+
+dp = spouts(with).flat_map { |g| g.entities.grep(Sketchup::Face) }.flat_map(&:points)
+ok('a pipe comes all the way down to the ground', dp.map(&:z).min < 20.0,
+   dp.map(&:z).min)
+ok('...and never below it', dp.map(&:z).min >= 0.0, dp.map(&:z).min)
+ok('...and never up through the roof',
+   dp.map(&:z).max <= 96.0 - 18.0 * (4.0 / 12.0) + 1e-6, dp.map(&:z).max)
+
+off = roof(gutter: true, downspouts: false)
+ok('the switch turns them off and leaves the gutter alone',
+   spouts(off).empty? && !gutter_faces(off, sig(roof(gutter: false))).empty?,
+   spouts(off).length)
+
+# the panel
+InteriorPro::RoofDialog.show
+d3 = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
+h3 = InteriorPro::RoofDialog.build_html(RF.settings)
+ok('there is a downspout switch on the panel', h3.include?('id="downspouts"'))
+d3.callbacks['apply_roof'].call(nil, *OLD, 'true', 'k', '5', '#3b3b3b', 'false')
+ok('the panel can switch them off', RF.settings[:downspouts] == false,
+   RF.settings[:downspouts])
+d3.callbacks['apply_roof'].call(nil, *OLD)
+ok('AN OLD CALL LEAVES THEM ALONE TOO', RF.settings[:downspouts] == false,
+   RF.settings[:downspouts])
+
 puts($fails.zero? ? 'ALL OK' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

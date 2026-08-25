@@ -40,7 +40,7 @@ module InteriorPro
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
                                                 soffit, scol, sslope, rlevel,
-                                                gutt, gprof, gwidth, gcol|
+                                                gutt, gprof, gwidth, gcol, dspout|
         # Which roof this Apply belongs to: the one the Edit tool clicked,
         # or none (the plain Roof button). Checked NOW, not at show time -
         # the roof the panel opened on may have been rebuilt or removed
@@ -112,7 +112,8 @@ module InteriorPro
           # how a picked colour is CLEARED and the gutter goes back to
           # following the fascia. nil is the older-call case and means
           # leave whatever is saved.
-          gutter_color: gcol.nil? ? nil : gcol.to_s
+          gutter_color: gcol.nil? ? nil : gcol.to_s,
+          downspouts: dspout.nil? ? nil : truthy(dspout)
         }
         # WHERE the roof goes (2026-08-26, step 5 - the storey picker,
         # user: "איך אני בוחר קומה ראשונה או שניה או שניהם?"):
@@ -275,6 +276,7 @@ module InteriorPro
           <div class="row sub"><label>Gutter size</label>
             <input type="number" id="gutterWidth" step="0.5" min="3" max="9" value="#{s[:gutter_width]}"> in
             <input type="color" id="gutterColor" value="#{gutter_col}" oninput="gutterPicked()"></div>
+          <div class="row sub"><label><input type="checkbox" id="downspouts"#{s[:downspouts] ? ' checked' : ''}> Downspouts (one per corner)</label></div>
           <div class="row"><label>Soffit</label>
             <select id="soffit" onchange="soffitChanged()">#{soffit_options}</select>
             <input type="color" id="soffitColor" value="#{soffit_col}" oninput="soffitPicked()"></div>
@@ -306,6 +308,7 @@ module InteriorPro
               document.getElementById('gutterProfile').disabled = !on;
               document.getElementById('gutterWidth').disabled = !on;
               document.getElementById('gutterColor').disabled = !on;
+              document.getElementById('downspouts').disabled = !on;
             }
             var SOFFIT_DEF = {#{soffit_defs}};
             var soffitPickedFlag = #{soffit_picked ? 'true' : 'false'};
@@ -339,7 +342,8 @@ module InteriorPro
                 document.getElementById('gutter').checked,
                 document.getElementById('gutterProfile').value,
                 document.getElementById('gutterWidth').value,
-                gutterPickedFlag ? document.getElementById('gutterColor').value : '');
+                gutterPickedFlag ? document.getElementById('gutterColor').value : '',
+                document.getElementById('downspouts').checked);
             }
             styleChanged();
             eavesChanged();

@@ -141,6 +141,10 @@ module InteriorPro
         # live beside it, not in it. Until he picks one the gutter is
         # painted by the trim pass with everything else.
         gutter_color: g.call('roof_gutter_color', '').to_s,
+        # ON by default, but it can only ever show up where there is a
+        # gutter to hang off - so no roof already in the model grows one.
+        # The user asked for them automatic (2026-08-29).
+        downspouts: g.call('roof_downspouts', true) == true,
         gable_walls: g.call('roof_gable_walls', true) == true
       }
     end
@@ -165,6 +169,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_gutter_profile', s[:gutter_profile])
       m.set_attribute('InteriorPro', 'roof_gutter_width', s[:gutter_width])
       m.set_attribute('InteriorPro', 'roof_gutter_color', s[:gutter_color])
+      m.set_attribute('InteriorPro', 'roof_downspouts', s[:downspouts])
       m.set_attribute('InteriorPro', 'roof_gable_walls', s[:gable_walls])
       s
     end
@@ -193,7 +198,7 @@ module InteriorPro
       %i[style pitch overhang fascia fascia_depth drip soffit soffit_color
          soffit_slope roof_color fascia_color roof_material thickness
          ridge_cap gutter gutter_profile gutter_width gutter_color
-         gable_walls]
+         downspouts gable_walls]
     end
 
     # Stamp one roof group with the settings it was built from.
@@ -1255,7 +1260,7 @@ module InteriorPro
                          gable_walls: nil, soffit: nil, soffit_color: nil,
                          soffit_slope: nil, gutter: nil, gutter_profile: nil,
                          gutter_width: nil, gutter_color: nil,
-                         level: nil, replace: nil)
+                         downspouts: nil, level: nil, replace: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
       # its settings are the starting point (keywords below still override,
@@ -1266,6 +1271,9 @@ module InteriorPro
       replace = nil unless replace.respond_to?(:valid?) && replace.valid? &&
                            replace.get_attribute('InteriorPro', 'type') == 'roof'
       s = replace ? roof_settings(replace) : settings
+      # WHICH DOWNSPOUTS HE HAS TAKEN OFF (2026-08-29). Read here, before
+      # the old group is erased - afterwards there is nothing left to ask.
+      ds_off = skip_downspouts(replace)
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
       s[:style] = style.to_s if style
       s[:pitch] = pitch.to_f if pitch
@@ -1285,6 +1293,7 @@ module InteriorPro
       s[:gutter_profile] = gutter_profile.to_s if gutter_profile
       s[:gutter_width] = gutter_width.to_f if gutter_width && gutter_width.to_f > 0.5
       s[:gutter_color] = gutter_color.to_s unless gutter_color.nil?
+      s[:downspouts] = (downspouts == true) unless downspouts.nil?
       slope = s[:pitch] / 12.0
 
       # Which storey this roof covers: asked for > the replaced roof's own >
@@ -1702,12 +1711,37 @@ module InteriorPro
           # paints them the fascia colour - which is what every gutter
           # built before this line looked like, so nothing changes for
           # anyone who never opens the picker.
-          if s[:gutter_color].to_s.start_with?('#')
-            gmat = color_material(model, s[:gutter_color])
+          gmat = s[:gutter_color].to_s.start_with?('#') ?
+                 color_material(model, s[:gutter_color]) : nil
+          if gmat
             grp.entities.grep(Sketchup::Face).each do |f|
               next if had_faces.include?(f.object_id)
               f.material = gmat
               f.back_material = gmat
+            end
+          end
+
+          # ---------- THE DOWNSPOUTS (2026-08-29) ---------------------
+          # Automatic, one per building corner (downspout_spots), and
+          # each one is its OWN GROUP inside the roof - which is what
+          # makes the click-to-remove step possible at all: something has
+          # to be clickable, and something has to be nameable so a
+          # rebuild knows not to put it back.
+          if s[:downspouts]
+            z_bot = band_top + gsec.map { |(_k, z)| z }.min
+            z_turn = [z_bot - 2.0, band_top - s[:fascia_depth].to_f - 1.0].min
+            ground = walls.map { |w| w.get_attribute('InteriorPro', 'base_z').to_f }.min
+            dpath = downspout_path(z_bot + 1.0, z_turn,
+                                   gutter_outlet_k(s[:gutter_profile], gw, gh),
+                                   -s[:overhang].to_f + DS_GAP + DS_DEPTH / 2.0,
+                                   ground)
+            dprof = downspout_profile(s[:gutter_profile])
+            drings = dpath ? tube_rings(dpath, dprof) : nil
+            dinner = dpath ? tube_rings(dpath, offset_closed_left(dprof, DS_WALL)) : nil
+            if drings && !drings.empty?
+              build_downspouts!(grp, poly, gable_flags, drings,
+                                gmat || trim_mat, ds_off, dinner,
+                                s[:overhang].to_f)
             end
           end
         end
@@ -1883,6 +1917,7 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'overhang_in', s[:overhang])
       grp.set_attribute('InteriorPro', 'thickness_in', 0.0)
       grp.set_attribute('InteriorPro', 'fascia', s[:fascia])
+      grp.set_attribute('InteriorPro', 'downspouts_off', ds_off) unless ds_off.empty?
       grp.set_attribute('InteriorPro', 'soffit', s[:soffit])
       grp.set_attribute('InteriorPro', 'drip_edge', s[:drip])
       grp.set_attribute('InteriorPro', 'gable_edges', gables) unless gables.empty?
@@ -5096,6 +5131,10 @@ module InteriorPro
     DS_WIDTH  = 3.0 unless const_defined?(:DS_WIDTH, false)   # along the eave
     DS_DEPTH  = 2.0 unless const_defined?(:DS_DEPTH, false)   # out from the wall
     DS_KICK   = 6.0 unless const_defined?(:DS_KICK, false)    # the boot at the bottom
+    DS_WALL   = 0.12 unless const_defined?(:DS_WALL, false)   # the metal itself
+    # It is BRACKETED off the wall, not glued to it (user 2026-08-29:
+    # "רבע או חצי אינצ מרווח ממנו לקיר").
+    DS_GAP    = 0.375 unless const_defined?(:DS_GAP, false)
     DS_INSET  = 6.0 unless const_defined?(:DS_INSET, false)   # back from the corner
 
     # The pipe's cross section as [along-the-eave, across] pairs, closed.
@@ -5169,6 +5208,34 @@ module InteriorPro
       end
     end
 
+    # The same left offset, for a loop that closes on itself: the ends
+    # get their real neighbours instead of a one sided guess, so all four
+    # corners of a pipe are mitered alike. On a counter-clockwise loop
+    # LEFT is INWARD, which is what makes this the pipe's inner wall.
+    # PURE.
+    def self.offset_closed_left(loop, t)
+      n = loop.length
+      return [] if n < 3
+      padded = [loop[n - 1]] + loop + [loop[0]]
+      off = offset_path_left(padded, t)
+      return [] if off.length != padded.length
+      off[1..n]
+    end
+
+    # WHERE THE HOLE GOES. Straight down out of the FLAT BOTTOM of the
+    # trough - not through its front wall, which is where a pipe centred
+    # on the gutter's mid width ends up on a K-style, because that shape's
+    # bottom is only its first 42% (user 2026-08-29: "צריך להיות מחובר
+    # מהלמטה של הגאטרס"). PURE.
+    def self.gutter_outlet_k(profile, width, height, drop = GUTTER_DROP)
+      path = gutter_path(profile, width, height, drop)
+      return width.to_f / 2.0 if path.empty?
+      zlo = path.map { |(_k, z)| z }.min
+      flat = path.select { |(_k, z)| z <= zlo + 0.05 }.map { |(k, _z)| k }
+      return width.to_f / 2.0 if flat.empty?
+      (flat.min + flat.max) / 2.0
+    end
+
     # One ring of points per path point: [along-the-eave, k, z]. The
     # across-the-path half of the profile is turned onto the path's own
     # mitered normal, so a bend meets itself cleanly instead of leaving a
@@ -5184,13 +5251,22 @@ module InteriorPro
     end
 
     # WHERE THEY GO. One at every building corner that has gutter on at
-    # least one of its two edges, set back DS_INSET along a gutter edge.
-    # A gable house gets one per corner; so does a hip, whose gutter runs
-    # right round and has no ends of its own. Returns [[x, y], edge].
-    # PURE.
-    def self.downspout_spots(poly, skip_flags = nil, inset = DS_INSET)
+    # least one of its two edges. A gable house gets one per corner; so
+    # does a hip, whose gutter runs right round and has no ends of its
+    # own. Returns [[x, y], edge]. PURE.
+    #
+    # `overhang` IS NOT OPTIONAL DECORATION (2026-08-29). `poly` is the
+    # EAVE outline, and its corner stands one overhang further out along
+    # the edge than the WALL corner does. Set back only DS_INSET from the
+    # poly corner and the pipe ends up a whole overhang PAST the end of
+    # the wall, hanging in the air beside the building - which is exactly
+    # what the user photographed: "זה עדיין לא יושב על הקיר". The set
+    # back is measured from the WALL corner, so overhang comes first.
+    def self.downspout_spots(poly, skip_flags = nil, overhang = 0.0,
+                             inset = DS_INSET)
       n = poly.length
       return [] if n < 3
+      back = overhang.to_f + inset.to_f
       out = []
       n.times do |v|
         prev = (v - 1) % n
@@ -5200,44 +5276,110 @@ module InteriorPro
         e = on_this ? v : prev
         j = (e + 1) % n
         len = vlen(vsub(poly[j], poly[e]))
-        next if len < inset * 2.0
+        next if len < back * 2.0
         d = vnorm(vsub(poly[j], poly[e]))
-        p = on_this ? vadd(poly[e], vmul(d, inset)) : vsub(poly[j], vmul(d, inset))
+        p = on_this ? vadd(poly[e], vmul(d, back)) : vsub(poly[j], vmul(d, back))
         out << [p, e]
       end
       out
     end
 
+    # One group per pipe, stamped with WHERE it stands so a click can
+    # name it later and a rebuild can leave it out. `skip` is the set of
+    # keys already taken off - step 3's half of the click.
+    def self.downspout_key(at)
+      format('%.1f,%.1f', at[0].to_f, at[1].to_f)
+    end
+
+    # Which downspouts this roof has had taken off it. Stored on the roof
+    # group, so a rebuild of THAT roof puts back exactly what was there.
+    def self.skip_downspouts(grp)
+      return [] unless grp && grp.respond_to?(:valid?) && grp.valid?
+      Array(grp.get_attribute('InteriorPro', 'downspouts_off')).map(&:to_s)
+    rescue StandardError
+      []
+    end
+
+    def self.build_downspouts!(grp, poly, skip_flags, rings, mat, skip = [],
+                               inner = nil, overhang = 0.0)
+      made = 0
+      downspout_spots(poly, skip_flags, overhang).each do |(at, edge)|
+        key = downspout_key(at)
+        next if skip.include?(key)
+        sub = grp.entities.add_group
+        sub.name = 'InteriorPro_Downspout'
+        build_tube!(sub, poly, edge, at, rings, inner)
+        sub.set_attribute('InteriorPro', 'type', 'downspout')
+        sub.set_attribute('InteriorPro', 'ds_key', key)
+        sub.set_attribute('InteriorPro', 'ds_edge', edge)
+        if mat
+          sub.entities.grep(Sketchup::Face).each do |f|
+            f.material = mat
+            f.back_material = mat
+          end
+        end
+        soften_shallow_edges!(sub.entities, [])
+        made += 1
+      end
+      made
+    rescue StandardError => e
+      puts "[Roof] build_downspouts!: #{e.message}"
+      made
+    end
+
     # Build one pipe. `at` is where it stands in plan, `edge` which eave
     # it hangs on - that edge gives both the along direction and which way
     # is out, so the whole ring maths above lands in the world.
-    def self.build_tube!(grp, poly, edge, at, rings)
+    # A HOLLOW pipe (user 2026-08-29: "הם צריכים להיות חלולים"). Two
+    # swept skins - the outer one and the inner one - and at each end a
+    # ring of metal made the way SketchUp makes any face with a hole in
+    # it: lay the outer face, lay the inner one on top of it, erase the
+    # inner. What is left is the metal, and you can see straight down the
+    # pipe. A solid stick with a lid on it is what this replaces.
+    def self.build_tube!(grp, poly, edge, at, rings, inner = nil)
       return if grp.nil? || rings.nil? || rings.length < 2
       n = poly.length
       i = edge % n
       j = (i + 1) % n
       d = vnorm(vsub(poly[j], poly[i]))
       right = [d[1], -d[0]]                       # outward, as offset_polygon
+      ents = grp.entities
       world = lambda do |ring|
         ring.map do |(a, k, z)|
           Geom::Point3d.new(at[0] + d[0] * a + right[0] * k,
                             at[1] + d[1] * a + right[1] * k, z)
         end
       end
-      prev = world.call(rings.first)
-      ents = grp.entities
-      ents.add_face(prev)
-      (1...rings.length).each do |r|
-        cur = world.call(rings[r])
-        m = prev.length
-        m.times do |q|
-          s = (q + 1) % m
-          next if prev[q].distance(prev[s]) < 1.0e-4 || cur[q].distance(cur[s]) < 1.0e-4
-          ents.add_face([prev[q], prev[s], cur[s], cur[q]])
+      skin = lambda do |set|
+        prev = world.call(set.first)
+        (1...set.length).each do |r|
+          cur = world.call(set[r])
+          m = prev.length
+          m.times do |q|
+            t = (q + 1) % m
+            next if prev[q].distance(prev[t]) < 1.0e-4 || cur[q].distance(cur[t]) < 1.0e-4
+            ents.add_face([prev[q], prev[t], cur[t], cur[q]])
+          end
+          prev = cur
         end
-        prev = cur
       end
-      ents.add_face(prev.reverse)
+      cap = lambda do |out_ring, in_ring, flip|
+        o = world.call(out_ring)
+        f = ents.add_face(flip ? o.reverse : o)
+        return f unless in_ring
+        hole = ents.add_face(world.call(in_ring))
+        ents.erase_entity(hole) if hole
+        f
+      end
+      skin.call(rings)
+      if inner && inner.length == rings.length
+        skin.call(inner)
+        cap.call(rings.first, inner.first, false)
+        cap.call(rings.last, inner.last, true)
+      else
+        cap.call(rings.first, nil, false)
+        cap.call(rings.last, nil, true)
+      end
     rescue StandardError => e
       puts "[Roof] build_tube!: #{e.message}"
     end
