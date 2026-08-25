@@ -3200,6 +3200,38 @@ module InteriorPro
       d[0].abs > d[1].abs ? [:h, a[1].round(2)] : [:v, a[0].round(2)]
     end
 
+    # HOW FAR A GABLE END REACHES (2026-08-27). PURE, pinned by rt86.
+    #
+    # A gable end closes a whole BODY, not one wall. On the user's house the
+    # main body is gabled south, but only its eastern half has a south wall -
+    # west of that the house runs on as a wing. The end plane there was left
+    # wide open (his photos, 26.08: you could see the inside through it).
+    #
+    # Returns [t_lo, t_hi] along poly edge i: the span of the framed piece
+    # that OWNS this end line, measured in the edge's own parameter. The
+    # marked wall's own edge is [0, len]; this is usually wider on one side.
+    #
+    # WHY NOT `full: true` (tried first, 2026-08-27, and it broke rt17): the
+    # end-plane LINE is infinite and picks up zmap nodes from anywhere else
+    # on the same line, so the wall shot out past the building into mid air -
+    # exactly the bug 2026-08-09 fixed by clipping to the poly edge. The rect
+    # is the fix that keeps both: wider than the wall, never wider than the
+    # body.
+    #
+    # nil when there is no framed plan or nothing owns the line - then every
+    # caller falls back to the poly edge, byte for byte as before.
+    def self.framed_edge_span(framed, poly, i, owners = nil)
+      return nil unless framed
+      own = (owners || framed_line_owners(framed))[line_key(poly, i)]
+      return nil if own.nil?
+      rect = own == :main ? framed[:main] : (framed[:wings][own] || {})[:rect]
+      return nil unless rect
+      a = poly[i]
+      d = vnorm(vsub(poly[(i + 1) % poly.length], a))
+      x0, y0, x1, y1 = rect
+      ts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map { |c| vdot(vsub(c, a), d) }
+      [ts.min, ts.max]
+    end
     # gable-end LINE -> which framed piece owns it (:main or wing index),
     # for framed_cover_z exclusion. Key: [:h|:v, coord.round(2)].
     def self.framed_line_owners(framed)
@@ -3267,7 +3299,8 @@ module InteriorPro
         # clipped to THIS poly edge, and following the TRUE roof
         # silhouette (2026-08-09 - it used to run the whole end-plane
         # line and bridge straight over the wing roof, in mid-air).
-        chain = edge_profile_chain(poly, i, zmap, surface: surf)
+        chain = edge_profile_chain(poly, i, zmap, surface: surf,
+                                   reach: framed_edge_span(framed, poly, i, owners))
         next if chain.nil?
         cov = if framed
                 lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
@@ -3483,7 +3516,8 @@ module InteriorPro
     # 2026-08-05B); otherwise clipped to this edge with interpolated z at
     # the ends. Returns nil when no usable profile. Shared by the rake
     # boards and the real gable walls (2026-08-08).
-    def self.edge_profile_chain(poly, i, zmap, full: false, surface: nil)
+    def self.edge_profile_chain(poly, i, zmap, full: false, surface: nil,
+                                reach: nil)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
@@ -3523,7 +3557,9 @@ module InteriorPro
         end
       end
       unless full
-        # clip the profile to THIS poly edge, interpolating z at the ends
+        # Clip the profile to this poly edge, interpolating z at the ends -
+        # or to `reach`, the whole body the end closes (2026-08-27).
+        lo, hi = reach || [0.0, len]
         zat = lambda do |t|
           return chain.first[2] if t <= chain.first[0]
           return chain.last[2] if t >= chain.last[0]
@@ -3532,8 +3568,10 @@ module InteriorPro
           t1, _, z1 = chain[j]
           t1 - t0 < 1.0e-6 ? z1 : z0 + (z1 - z0) * (t - t0) / (t1 - t0)
         end
-        inner_pts = chain.select { |t, _, _| t > NODE_TOL && t < len - NODE_TOL }
-        chain = [[0.0, a, zat.call(0.0)]] + inner_pts + [[len, b, zat.call(len)]]
+        inner_pts = chain.select { |t, _, _| t > lo + NODE_TOL && t < hi - NODE_TOL }
+        at = lambda { |t| [a[0] + d[0] * t, a[1] + d[1] * t] }
+        chain = [[lo, at.call(lo), zat.call(lo)]] + inner_pts +
+                [[hi, at.call(hi), zat.call(hi)]]
         return nil if chain.length < 2
       end
       chain

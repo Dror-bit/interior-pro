@@ -210,8 +210,27 @@ south = t10.find { |g| g.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:y).
 north = (t10 - [south]).first
 sx = south.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:x)
 sz = south.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z)
-ok('the south wall STOPS at the building outline (x=-652.11), it does not ' \
-   'hang over the wing roof', (sx.min - -652.11).abs < 1.0, sx.min)
+# HOW FAR WEST THE SOUTH WALL GOES - rewritten 2026-08-27.
+#
+# It used to stop dead at the building outline, x = -652.11, because on
+# 2026-08-09 the profile was clipped to the marked wall's own poly edge.
+# That left the end plane WIDE OPEN above the wing roof - the user's
+# photos of 26.08, where you could see the inside of the house through
+# the gap - and it is the bug framed_edge_span fixes.
+#
+# The wall now runs the whole width of the body it closes, and stops
+# where the wing roof rises to meet the main roof: the wing's own ridge,
+# x = -976.65, the midpoint of that wing rect. West of there the two
+# roofs are the same plane and there is nothing to close.
+#
+# THE 2026-08-09 RULE STILL HOLDS, and it was never "stop at the
+# outline" - it was NEVER IN MID AIR. The wall lands on the wing roof
+# and dies into it; it does not sail past the building.
+ok('the south wall runs to where the wing roof meets the main roof ' \
+   '(the wing ridge, x = -976.65), not just to the marked wall',
+   (sx.min - -976.65).abs < 1.5, sx.min)
+ok('...and never past the building itself - no mid-air wall (2026-08-09)',
+   sx.min > -1301.25, sx.min)
 ok('and still reaches the east corner', (sx.max - 0.0).abs < 0.5, sx.max)
 ok('its west edge is the tall wall face against the wing (z up to ~308)',
    (sz.max - 310.94).abs < 1.0, sz.max)
