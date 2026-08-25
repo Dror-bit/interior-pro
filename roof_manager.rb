@@ -1604,17 +1604,22 @@ module InteriorPro
         build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth],
                     gable_flags, gable_spans)
         # rake boards: the fascia climbing the sloped edges of a gable end.
-        # One per gabled POLY EDGE, clipped to that edge (2026-08-09) - the
-        # z profile still comes from the whole end-plane line, so an apex
-        # outside the edge still makes the board climb, but the board never
-        # leaves the building outline.
+        # One per gabled poly edge, but running the whole BODY that edge
+        # closes (framed_edge_span, 2026-08-27) - the wall under it does the
+        # same, so the two always end together. Before that it was clipped to
+        # the poly edge (2026-08-09) and stopped dead at the marked wall,
+        # leaving the end plane open above a wing. The 2026-08-09 rule it was
+        # written for still holds and is what the span protects: never in
+        # mid air. The board is clipped again by `cover`, so it stops where a
+        # wing roof rises to meet this one.
         if zmap && framed
           owners = framed_line_owners(framed)
           gables.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
             build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
-                              cover: cov, surface: surf)
+                              cover: cov, surface: surf,
+                              reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
           gables.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
@@ -1636,7 +1641,8 @@ module InteriorPro
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
             build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH, cover: cov,
-                              surface: surf, k_in: d_in, k_out: d_in + DRIP_THICK)
+                              surface: surf, k_in: d_in, k_out: d_in + DRIP_THICK,
+                              reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
           gables.each do |i|
@@ -1688,7 +1694,8 @@ module InteriorPro
               cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
                                  cover: cov, surface: surf,
-                                 sloped: s[:soffit_slope] == true)
+                                 sloped: s[:soffit_slope] == true,
+                                 reach: framed_edge_span(framed, poly, i, owners))
             end
           else
             gables.each do |i|
@@ -1734,7 +1741,8 @@ module InteriorPro
                 cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
                 build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
                                   drop: drop, cover: cov, surface: surf,
-                                  clear: lk_clear)
+                                  clear: lk_clear,
+                                  reach: framed_edge_span(framed, poly, i, owners))
               end
             else
               gables.each do |i|
@@ -3584,14 +3592,20 @@ module InteriorPro
     # thin strip on the fascia's outer face - the same place the flat eave
     # drip sits relative to the flat fascia.
     def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil,
-                               surface: nil, k_in: 0.0, k_out: FASCIA_THICK)
+                               surface: nil, k_in: 0.0, k_out: FASCIA_THICK,
+                               reach: nil)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
       nrm = [d[1], -d[0]]                              # outward for CCW
       ins = [nrm[0] * k_in, nrm[1] * k_in]
       out = [nrm[0] * (k_out - k_in), nrm[1] * (k_out - k_in)]
-      chain = edge_profile_chain(poly, i, zmap, full: full, surface: surface)
+      # `reach` (2026-08-27): the gable end closes a BODY, so the board runs
+      # the body's whole width and not just the marked wall's poly edge - the
+      # same span build_gable_wall_tops! uses, so wall and fascia always end
+      # on the same line. nil = the poly edge, exactly as before.
+      chain = edge_profile_chain(poly, i, zmap, full: full, surface: surface,
+                                 reach: reach)
       return if chain.nil?
       # full profile (framed path, 2026-08-05B): the rake runs the WHOLE
       # gable-end plane - over covering wings too - eave to apex to eave.
@@ -3692,8 +3706,13 @@ module InteriorPro
       b = rb.to_f
       # a return needs its own overhang PLUS something left to slope
       roomy = (b - a) > oh + 0.5
-      head = roomy && a <= NODE_TOL                 # the run starts at a corner
-      tail = roomy && b >= len.to_f - NODE_TOL      # ...or ends at one
+      # A CORNER IS A POINT, not a side (2026-08-27). Until the eave learned
+      # to run past the marked wall, t could never be negative, so "t <= 0"
+      # and "t == 0" were the same test. With `reach` the board starts at
+      # negative t out over a wing, and the loose test put a level return
+      # there - a box in the middle of nothing.
+      head = roomy && a.abs <= NODE_TOL             # the run starts AT a corner
+      tail = roomy && (b - len.to_f).abs <= NODE_TOL # ...or ends at one
       if head && tail && (b - a) <= 2 * oh + 0.5    # no room for both returns
         head = false
         tail = false
@@ -3898,7 +3917,8 @@ module InteriorPro
     # רק יותר קטן"). With sloped: true they are simply not built - the
     # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
-                                cover: nil, surface: nil, sloped: false)
+                                cover: nil, surface: nil, sloped: false,
+                                reach: nil)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
@@ -3909,7 +3929,9 @@ module InteriorPro
       # pushes it outward by FASCIA_THICK), so the soffit runs right up to
       # that line and meets its inner face - no inset, no gap under it.
       inw = [-d[1] * oh, d[0] * oh] # inward for CCW - the rake board goes the other way
-      chain = edge_profile_chain(poly, i, zmap, surface: surface)
+      # `reach` (2026-08-27): the eave closes the same BODY the wall and the
+      # fascia now close, so all three end on one line. nil = the poly edge.
+      chain = edge_profile_chain(poly, i, zmap, surface: surface, reach: reach)
       return if chain.nil?
       seams = []
       zmin = chain.map { |c| c[2] }.min
@@ -5152,7 +5174,8 @@ module InteriorPro
     # shows is a stray stub under the line at the corner (user: "בפינה
     # נשארה שארית כזאת - תוריד אותה").
     def self.build_rake_beams!(grp, poly, i, zmap, k_in, k_out, spec,
-                               drop: 0.0, cover: nil, surface: nil, clear: 0.02)
+                               drop: 0.0, cover: nil, surface: nil, clear: 0.02,
+                               reach: nil)
       half = spec[:w] / 2.0
       ko = spec[:out] || k_out
       a = poly[i]
@@ -5163,7 +5186,8 @@ module InteriorPro
       return if len < 1.0e-6
       d = [dx / len, dy / len]
       nrm = [d[1], -d[0]] # outward for CCW
-      chain = edge_profile_chain(poly, i, zmap, surface: surface)
+      # same span as the board they hang under (2026-08-27)
+      chain = edge_profile_chain(poly, i, zmap, surface: surface, reach: reach)
       return if chain.nil?
       zmin = chain.map { |c| c[2] }.min
       margin = -k_in.to_f + half

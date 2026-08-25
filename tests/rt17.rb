@@ -238,14 +238,21 @@ nx = north.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:x)
 ok('the clean north end keeps its full triangle',
    (nx.min - -1289.25).abs < 1.5 && (nx.max - 0.0).abs < 0.5, nx.minmax)
 
-# the rake must live on the same span as the wall - never in mid-air
+# The rake lives on the same span as the wall - and since 2026-08-27 that
+# span is the whole BODY, so the fascia reaches the wing ridge with it
+# (x = -976.65) instead of stopping at the marked wall. Wall and fascia
+# share framed_edge_span precisely so they can never end on different
+# lines - the user asked for the wall "full, including the fascia".
+# Still never in mid-air: `cover` stops it dead on the wing roof.
 rk = r10.entities.grep(Sketchup::Face).select do |f|
   ys = f.pts.map(&:y)
   ys.min > -25 && ys.max < 5 && f.pts.map(&:z).max - f.pts.map(&:z).min > 2.0
 end
 rkx = rk.flat_map(&:pts).map(&:x)
-ok('the south rake stays inside the outline too (no floating fascia)',
-   (rkx.min - -652.9).abs < 1.5, rkx.min)
+ok('the south rake ends exactly where the wall does, on the wing ridge',
+   (rkx.min - -976.65).abs < 1.5, rkx.min)
+ok('...and never past the building - no floating fascia (2026-08-09)',
+   rkx.min > -1301.25, rkx.min)
 allf = t10.flat_map { |g| g.entities.grep(Sketchup::Face) }
 ok('every gable-wall face is painted on BOTH sides (white-triangle bug)',
    allf.all? { |f| f.material && f.back_material }, allf.count { |f| !f.material || !f.back_material })

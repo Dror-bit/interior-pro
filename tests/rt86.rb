@@ -170,5 +170,75 @@ covered = [-430.0, -400.0, -350.0, -300.0, -280.0].all? do |x|
 end
 ok('every x across the old hole is inside a wall face now', covered)
 
+
+# ============================================ 3. and the fascia with it
+# The user, straight after seeing the wall close: "you forgot the fascia".
+# The rake board takes the SAME framed_edge_span, so the two can never end
+# on different lines again.
+# the roof trim only - the ridge caps live in their own subgroups and
+# cross this line at the apex, so they are left out by name.
+trim = []
+walk_trim = lambda do |ents|
+  ents.each do |e|
+    case e
+    when Sketchup::Face then trim << e
+    when Sketchup::Group
+      next if e.get_attribute("InteriorPro", "part") == "ridge_cap"
+      walk_trim.call(e.entities)
+    end
+  end
+end
+walk_trim.call(r.entities)
+rake = trim.select do |f|
+  ys = f.pts.map(&:y)
+  ys.min > -15.5 && ys.max < -14.4 &&
+    f.pts.map(&:z).max - f.pts.map(&:z).min > 2.0
+end
+rkx = rake.flat_map(&:pts).map(&:x)
+ok('the gable fascia runs to the wing ridge too, not to the marked wall',
+   close(rkx.min, -439.5, 1.5), rkx.min)
+ok('...ending on the very same line as the wall under it',
+   close(rkx.min, sx.min, 1.5), [rkx.min, sx.min])
+ok('...and never past the building - no floating fascia', rkx.min > -614.11, rkx.min)
+ok('the fascia still climbs to the main ridge',
+   close(rake.flat_map(&:pts).map(&:z).max, 206.77, 0.5),
+   rake.flat_map(&:pts).map(&:z).max)
+
+# ================================================ 4. and the eave with it
+# "now just add the eaves and we are done" - the user, 2026-08-27. The rake
+# soffit board (and the lookouts under a beams/spanish soffit) take the same
+# framed_edge_span, so wall, fascia and eave all die into the wing roof on
+# one line instead of three.
+board = walk(r.entities, []).select do |f|
+  n = f.normal
+  n.z.abs > 0.9 && f.pts.map(&:y).min > -15.0 && f.pts.map(&:y).max < -2.0 &&
+    f.pts.map(&:x).max - f.pts.map(&:x).min > 50.0
+end
+bx = board.flat_map(&:pts).map(&:x)
+ok('the gable eave is boarded over the old hole too (was -253)',
+   close(bx.min, -439.5, 1.5), bx.min)
+ok('...on the same line as the wall and the fascia',
+   close(bx.min, sx.min, 1.5), [bx.min, sx.min])
+ok('...and never past the building', bx.min > -614.11, bx.min)
+ok('the board is in TWO runs now, one each side of the main ridge',
+   board.length >= 4, board.length)
+
+# A CORNER IS A POINT (2026-08-27): the level "box return" belongs at t = 0
+# and t = len, the real corners of the flat eave band. Once the board can
+# start at negative t, "t <= 0" is true all the way out over the wing, and
+# a return would be built in the middle of nowhere.
+SEG_LEN = 300.0
+ok('a run starting at the corner still gets its return',
+   RF.rake_soffit_segments(0.0, 200.0, SEG_LEN, 12.0).first[2] == true,
+   RF.rake_soffit_segments(0.0, 200.0, SEG_LEN, 12.0))
+ok('a run starting OUT over a wing does not',
+   RF.rake_soffit_segments(-120.0, 200.0, SEG_LEN, 12.0).first[2] == false,
+   RF.rake_soffit_segments(-120.0, 200.0, SEG_LEN, 12.0))
+ok('a run ending at the far corner still gets its return',
+   RF.rake_soffit_segments(50.0, SEG_LEN, SEG_LEN, 12.0).last[2] == true,
+   RF.rake_soffit_segments(50.0, SEG_LEN, SEG_LEN, 12.0))
+ok('a run ending past it does not',
+   RF.rake_soffit_segments(50.0, SEG_LEN + 90.0, SEG_LEN, 12.0).last[2] == false,
+   RF.rake_soffit_segments(50.0, SEG_LEN + 90.0, SEG_LEN, 12.0))
 puts($fails.zero? ? 'ALL PASS' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
