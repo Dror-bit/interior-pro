@@ -352,6 +352,20 @@ module InteriorPro
       gable_cmd.large_icon = icon_path('roof_gable')
       tb.add_item(gable_cmd)
 
+      # Downspouts (2026-08-29): they come up automatically, one per
+      # corner, and this is how one comes off - and back on. Same story
+      # as Edit Roof above: the length guard skips a populated bar whole,
+      # so this shows up on the next SketchUp restart, never twice.
+      dspout_cmd = UI::Command.new('Downspout') {
+        Sketchup.active_model.select_tool(InteriorPro::DownspoutTool.new)
+      }
+      dspout_cmd.tooltip = 'Downspout - click one to remove it, click the roof to bring it back'
+      dspout_cmd.status_bar_text =
+        'Click a downspout to remove it for good; click the roof where one was to restore it'
+      dspout_cmd.small_icon = icon_path('downspout')
+      dspout_cmd.large_icon = icon_path('downspout')
+      tb.add_item(dspout_cmd)
+
       tb.restore
     end
 
@@ -657,6 +671,9 @@ module InteriorPro
       }
       menu.add_item('Roof: Gable Ends (click walls)') {
         Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
+      }
+      menu.add_item('Roof: Downspout (click one to remove)') {
+        Sketchup.active_model.select_tool(InteriorPro::DownspoutTool.new)
       }
       menu.add_item('Roof: Remove') {
         InteriorPro::RoofManager.remove_all!

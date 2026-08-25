@@ -5300,6 +5300,55 @@ module InteriorPro
       []
     end
 
+    # ---------- taking one off, and putting it back (2026-08-29) --------
+    #
+    # Erasing a pipe by hand does not stick: the roof lays them out from
+    # the corners on every rebuild. What sticks is a KEY on the roof
+    # group, and the key IS the plan point - "x,y" to one decimal - so a
+    # click near where one used to be can find it again with no second
+    # list to keep in step.
+
+    def self.key_point(key)
+      a = key.to_s.split(',')
+      return nil unless a.length == 2
+      [a[0].to_f, a[1].to_f]
+    end
+
+    # The taken-off pipe nearest this point in plan, or nil past `tol`.
+    # PURE.
+    def self.nearest_off_key(keys, x, y, tol)
+      best = nil
+      bd = tol.to_f
+      Array(keys).each do |k|
+        p = key_point(k)
+        next unless p
+        d = Math.hypot(p[0] - x.to_f, p[1] - y.to_f)
+        next if d > bd
+        bd = d
+        best = k
+      end
+      best
+    end
+
+    # PURE: the new off-list after this click. `on` true puts one back.
+    def self.toggled_off_list(off, key, on)
+      list = Array(off).map(&:to_s)
+      on ? (list - [key.to_s]) : (list | [key.to_s])
+    end
+
+    # Take one off / put one back, and rebuild THAT roof alone. The list
+    # is written before the rebuild because build_roof! reads it off the
+    # roof it is replacing, first thing.
+    def self.toggle_downspout!(roof, key, on: false)
+      return nil unless roof && roof.respond_to?(:valid?) && roof.valid?
+      roof.set_attribute('InteriorPro', 'downspouts_off',
+                         toggled_off_list(skip_downspouts(roof), key, on))
+      build_roof!(replace: roof)
+    rescue StandardError => e
+      puts "[Roof] toggle_downspout!: #{e.message}"
+      nil
+    end
+
     def self.build_downspouts!(grp, poly, skip_flags, rings, mat, skip = [],
                                inner = nil, overhang = 0.0)
       made = 0

@@ -326,5 +326,32 @@ d3.callbacks['apply_roof'].call(nil, *OLD)
 ok('AN OLD CALL LEAVES THEM ALONE TOO', RF.settings[:downspouts] == false,
    RF.settings[:downspouts])
 
+# ====================== 10. THE CLICK THAT TAKES ONE OFF =================
+# The user asked for them automatic "ולחיצה אם אני רוצה להוריד אותם".
+# The claim that matters is that it STICKS: a rebuild lays the pipes out
+# from the corners every time, so a pipe erased by hand comes straight
+# back. Only the key on the roof group survives that.
+live = roof(gutter: true, gutter_profile: 'k', gutter_width: 5.0,
+            downspouts: true)
+ok('four to start with', spouts(live).length == 4, spouts(live).length)
+
+gone = spouts(live).first.get_attribute('InteriorPro', 'ds_key')
+live = RF.toggle_downspout!(live, gone, on: false)
+ok('the click takes one off', spouts(live).length == 3, spouts(live).length)
+ok('...the right one', spouts(live).none? { |g|
+     g.get_attribute('InteriorPro', 'ds_key') == gone },
+   spouts(live).map { |g| g.get_attribute('InteriorPro', 'ds_key') })
+
+live = RF.build_roof!(replace: live)
+ok('AND IT STAYS OFF through a plain rebuild', spouts(live).length == 3,
+   spouts(live).length)
+ok('...because the roof carries the key',
+   RF.skip_downspouts(live) == [gone], RF.skip_downspouts(live))
+
+live = RF.toggle_downspout!(live, gone, on: true)
+ok('a second click puts it back', spouts(live).length == 4, spouts(live).length)
+ok('...and the roof carries nothing any more',
+   RF.skip_downspouts(live).empty?, RF.skip_downspouts(live))
+
 puts($fails.zero? ? 'ALL OK' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

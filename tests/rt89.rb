@@ -249,5 +249,37 @@ ok('box: the middle IS the bottom, so it stays in the middle',
    close(RM.gutter_outlet_k('box', GW, GH), GW / 2.0),
    RM.gutter_outlet_k('box', GW, GH))
 
+# ========================== 9. TAKING ONE OFF, AND PUTTING IT BACK =======
+# Erasing a pipe by hand does not stick - the roof lays them out from the
+# corners again on every rebuild. The KEY on the roof group is what
+# sticks, and the key IS the plan point, so a click near where one used
+# to be finds it with no second list to keep in step.
+k1 = RM.downspout_key([12.34, -56.78])
+ok('a key is the plan point', RM.key_point(k1).map { |v| v.round(1) } == [12.3, -56.8],
+   [k1, RM.key_point(k1)])
+ok('a key made from a spot reads back as that spot',
+   RM.key_point(RM.downspout_key(gab.first[0])).each_with_index
+     .all? { |v, i| close(v, gab.first[0][i].round(1), 0.06) },
+   [RM.downspout_key(gab.first[0]), gab.first[0]])
+ok('rubbish is not a key', RM.key_point('nonsense').nil?)
+
+KEYS = gab.map { |p, _e| RM.downspout_key(p) }
+near = RM.key_point(KEYS[1])
+ok('a click on a taken-off pipe finds it',
+   RM.nearest_off_key(KEYS, near[0] + 3.0, near[1] - 2.0, 48.0) == KEYS[1],
+   RM.nearest_off_key(KEYS, near[0] + 3.0, near[1] - 2.0, 48.0))
+ok('a click nowhere near one finds nothing',
+   RM.nearest_off_key(KEYS, near[0] + 500.0, near[1], 48.0).nil?)
+ok('and it picks the NEAREST, not just any',
+   RM.nearest_off_key(KEYS, near[0], near[1], 1000.0) == KEYS[1])
+
+ok('taking one off adds it once', RM.toggled_off_list([], KEYS[0], false) == [KEYS[0]])
+ok('...and twice is still once',
+   RM.toggled_off_list([KEYS[0]], KEYS[0], false) == [KEYS[0]])
+ok('putting it back takes it out',
+   RM.toggled_off_list([KEYS[0], KEYS[1]], KEYS[0], true) == [KEYS[1]])
+ok('...and putting back one that was never off changes nothing',
+   RM.toggled_off_list([KEYS[1]], KEYS[0], true) == [KEYS[1]])
+
 puts($fails.zero? ? 'ALL OK' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
