@@ -4769,6 +4769,202 @@ module InteriorPro
       puts "[Roof] build_band!: #{e.message}"
     end
 
+    # ================= THE GUTTER (2026-08-28) =========================
+    #
+    # Step 1 of 4: the SHAPE and the SWEEP. Nothing calls either yet, so
+    # this cannot change a single roof the user has already built.
+    #
+    # WHERE IT SITS. `poly` is the eave outline and k is measured OUTWARD
+    # from it, exactly as build_band! uses it: the fascia is
+    # -FASCIA_THICK..0.0, so k = 0 IS the fascia's outer face. The gutter
+    # hangs on that face and grows outward, k >= 0 - which is why it can
+    # never reach back over the soffit or into the wall. The fascia is
+    # left free for it deliberately (2026-08-25).
+    #
+    # WHY NOT build_band!. That one sweeps a RECTANGLE - add_prism!, four
+    # corners. A gutter is a trough: hollow, and on two of the three
+    # profiles curved. build_profile_band! sweeps an arbitrary closed
+    # cross section the same way, through the same offset_polygon, so the
+    # corners miter themselves exactly as the fascia's already do.
+    #
+    # EAVES ONLY (user 2026-08-28: "רק באיב"). The sweep takes the same
+    # skip_flags / skip_spans build_band! takes, so handing it the roof's
+    # gable_flags leaves every rake bare - no new rule to get wrong.
+
+    GUTTER_DROP  = 0.5  unless const_defined?(:GUTTER_DROP, false)
+    GUTTER_WALL  = 0.15 unless const_defined?(:GUTTER_WALL, false)
+    GUTTER_LIP   = 0.35 unless const_defined?(:GUTTER_LIP, false)
+    DEFAULT_GUTTER_WIDTH  = 5.0 unless const_defined?(:DEFAULT_GUTTER_WIDTH, false)
+    DEFAULT_GUTTER_HEIGHT = 4.5 unless const_defined?(:DEFAULT_GUTTER_HEIGHT, false)
+    GUTTER_PROFILES = %w[k round box] unless const_defined?(:GUTTER_PROFILES, false)
+
+    # The OUTER line of the trough: back-top, down the back, along the
+    # bottom, up the front, front-top. OPEN on purpose - the metal's inner
+    # line is this same path walked back one wall thickness in
+    # (gutter_section). PURE.
+    #
+    # 'round' is a true half pipe, so its depth is the lip plus width/2
+    # and `height` is not used for it.
+    def self.gutter_path(profile, width, height, drop = GUTTER_DROP)
+      w = width.to_f
+      h = height.to_f
+      d = drop.to_f
+      return [] if w <= 0.0
+      case profile.to_s
+      when 'round'
+        # A half pipe with a straight LIP at each end, which is how a real
+        # half round gutter is rolled - and what keeps its top rim dead
+        # level. A bare semicircle does not: the inner line is stepped off
+        # the SEGMENT, and the first segment of a sampled arc is already
+        # tilted half a step, so the inner rim came out 0.015" ABOVE the
+        # outer one and the gutter poked up past the roof edge.
+        r = w / 2.0
+        lip = GUTTER_LIP
+        steps = 16
+        arc = (0..steps).map do |i|
+          a = Math::PI + (Math::PI * i / steps)
+          [r + r * Math.cos(a), -d - lip + r * Math.sin(a)]
+        end
+        [[0.0, -d]] + arc + [[w, -d]]
+      when 'k'
+        # The American ogee, read off a 5" K-style section: fractions of
+        # w across, of h up from the bottom.
+        return [] if h <= 0.0
+        [[0.00, 0.00], [0.00, -1.00],
+         [0.42, -1.00], [0.58, -0.86], [0.58, -0.64],
+         [0.80, -0.50], [0.80, -0.28],
+         [1.00, -0.14], [1.00, 0.00]].map { |fk, fz| [fk * w, fz * h - d] }
+      else # 'box'
+        return [] if h <= 0.0
+        [[0.0, -d], [0.0, -d - h], [w, -d - h], [w, -d]]
+      end
+    end
+
+    # Step every point of a path one wall thickness to its LEFT, which
+    # along these paths is INTO the trough. A corner keeps its sharp
+    # meeting point - the bisector, lengthened by 1/cos of the half angle -
+    # so the metal reads as one folded sheet and not a chain of strips.
+    # PURE.
+    def self.offset_path_left(path, t)
+      n = path.length
+      return [] if n < 2
+      seg = (0...n - 1).map do |i|
+        dx = path[i + 1][0] - path[i][0]
+        dy = path[i + 1][1] - path[i][1]
+        len = Math.sqrt(dx * dx + dy * dy)
+        len < 1.0e-9 ? nil : [-dy / len, dx / len]
+      end
+      return [] if seg.compact.empty?
+      (0...n).map do |i|
+        a = (i.zero? ? seg[0] : seg[i - 1]) || seg.compact.first
+        b = (i == n - 1 ? seg[n - 2] : seg[i]) || a
+        mx = a[0] + b[0]
+        my = a[1] + b[1]
+        ml = Math.sqrt(mx * mx + my * my)
+        if ml < 1.0e-9
+          nx = a[0]
+          ny = a[1]
+          s = t.to_f
+        else
+          nx = mx / ml
+          ny = my / ml
+          dot = nx * a[0] + ny * a[1]
+          s = t.to_f / (dot < 0.35 ? 0.35 : dot)
+        end
+        [path[i][0] + nx * s, path[i][1] + ny * s]
+      end
+    end
+
+    # The CLOSED cross section: the outer line plus the inner one walked
+    # back. The trough is HOLLOW - this loop is the folded metal only,
+    # which is why a 5" gutter reads as a gutter from above and not as a
+    # solid block. PURE. Returns nil when the numbers make no shape.
+    def self.gutter_section(profile = 'box', width = DEFAULT_GUTTER_WIDTH,
+                            height = DEFAULT_GUTTER_HEIGHT,
+                            wall = GUTTER_WALL, drop = GUTTER_DROP)
+      out = gutter_path(profile, width, height, drop)
+      return nil if out.length < 2
+      return nil if wall.to_f <= 0.0 || wall.to_f * 3.0 >= width.to_f
+      inn = offset_path_left(out, wall)
+      return nil if inn.length != out.length
+      out + inn.reverse
+    end
+
+    def self.section_point(p, z)
+      Geom::Point3d.new(p[0], p[1], z)
+    end
+
+    # One swept length: the two end caps and one quad per section side.
+    # Every quad has two sides parallel to the eave edge - the same reason
+    # add_prism!'s four are planar however the corner miters.
+    def self.add_profile_prism!(ents, a, b)
+      m = a.length
+      ents.add_face(a)
+      ents.add_face(b.reverse)
+      m.times do |i|
+        j = (i + 1) % m
+        next if a[i].distance(a[j]) < 1.0e-4 || b[i].distance(b[j]) < 1.0e-4
+        ents.add_face([a[i], a[j], b[j], b[i]])
+      end
+    end
+
+    # Sweep a closed cross section around `poly`, mitering at every
+    # corner. `section` is [[k, z], ...] with k outward from poly and z
+    # relative to `z_ref`. skip_flags / skip_spans behave exactly as
+    # build_band!'s - which is how the gutter stays off the gable rakes -
+    # and so do square_flags / square_k: where the run meets a rake it is
+    # cut off FLAT on the rake board's own line instead of running out
+    # past the building corner on a 45 degree miter. That diagonal is the
+    # very thing the user made us take off the soffit (2026-08-24).
+    def self.build_profile_band!(grp, poly, section, z_ref,
+                                 skip_flags = nil, skip_spans = nil,
+                                 square_flags = nil, square_k = 0.0)
+      return if grp.nil? || poly.nil? || section.nil? || section.length < 3
+      rings = {}
+      section.each do |(k, _z)|
+        key = k.to_f.round(6)
+        next if rings.key?(key)
+        rings[key] = key.abs < 1.0e-9 ? poly : offset_polygon(poly, key)
+        return if rings[key].nil?
+      end
+      ring = lambda { |k| rings[k.to_f.round(6)] }
+      n = poly.length
+      n.times do |i|
+        j = (i + 1) % n
+        next if skip_flags && skip_flags[i]
+        spans = skip_spans && skip_spans[i]
+        if spans
+          len = vlen(vsub(poly[j], poly[i]))
+          next if len < 1.0e-6
+          complement_spans(spans, len).each do |(ta, tb)|
+            next if tb - ta < 0.5
+            fa = ta / len
+            fb = tb / len
+            a = section.map { |(k, z)| section_point(lerp2(ring.call(k)[i], ring.call(k)[j], fa), z_ref + z) }
+            b = section.map { |(k, z)| section_point(lerp2(ring.call(k)[i], ring.call(k)[j], fb), z_ref + z) }
+            add_profile_prism!(grp.entities, a, b)
+          end
+          next
+        end
+        prev = (i - 1) % n
+        sq_a = square_flags && square_flags[prev]
+        sq_b = square_flags && square_flags[j]
+        a = section.map do |(k, z)|
+          p = ring.call(k)[i]
+          p = band_square_corner(poly, i, prev, k, square_k) || p if sq_a
+          section_point(p, z_ref + z)
+        end
+        b = section.map do |(k, z)|
+          p = ring.call(k)[j]
+          p = band_square_corner(poly, i, j, k, square_k) || p if sq_b
+          section_point(p, z_ref + z)
+        end
+        add_profile_prism!(grp.entities, a, b)
+      end
+    rescue StandardError => e
+      puts "[Roof] build_profile_band!: #{e.message}"
+    end
+
     # ---------- soffit: the flat plate under the eave (2026-08-24) -------
     #
     # PURE - no SketchUp API, so tests/rt84.rb can measure it directly.
