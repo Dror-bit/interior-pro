@@ -136,6 +136,11 @@ module InteriorPro
         gutter: g.call('roof_gutter', false) == true,
         gutter_profile: g.call('roof_gutter_profile', 'k').to_s,
         gutter_width: g.call('roof_gutter_width', DEFAULT_GUTTER_WIDTH).to_f,
+        # '' = FOLLOW THE FASCIA, the same trick soffit_color uses: a
+        # colour input always holds a colour, so "no choice made" has to
+        # live beside it, not in it. Until he picks one the gutter is
+        # painted by the trim pass with everything else.
+        gutter_color: g.call('roof_gutter_color', '').to_s,
         gable_walls: g.call('roof_gable_walls', true) == true
       }
     end
@@ -159,6 +164,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'roof_gutter', s[:gutter])
       m.set_attribute('InteriorPro', 'roof_gutter_profile', s[:gutter_profile])
       m.set_attribute('InteriorPro', 'roof_gutter_width', s[:gutter_width])
+      m.set_attribute('InteriorPro', 'roof_gutter_color', s[:gutter_color])
       m.set_attribute('InteriorPro', 'roof_gable_walls', s[:gable_walls])
       s
     end
@@ -186,7 +192,8 @@ module InteriorPro
     def self.roof_setting_keys
       %i[style pitch overhang fascia fascia_depth drip soffit soffit_color
          soffit_slope roof_color fascia_color roof_material thickness
-         ridge_cap gutter gutter_profile gutter_width gable_walls]
+         ridge_cap gutter gutter_profile gutter_width gutter_color
+         gable_walls]
     end
 
     # Stamp one roof group with the settings it was built from.
@@ -1247,7 +1254,8 @@ module InteriorPro
                          roof_material: nil, thickness: nil, ridge_cap: nil,
                          gable_walls: nil, soffit: nil, soffit_color: nil,
                          soffit_slope: nil, gutter: nil, gutter_profile: nil,
-                         gutter_width: nil, level: nil, replace: nil)
+                         gutter_width: nil, gutter_color: nil,
+                         level: nil, replace: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
       # its settings are the starting point (keywords below still override,
@@ -1276,6 +1284,7 @@ module InteriorPro
       s[:gutter] = (gutter == true) unless gutter.nil?
       s[:gutter_profile] = gutter_profile.to_s if gutter_profile
       s[:gutter_width] = gutter_width.to_f if gutter_width && gutter_width.to_f > 0.5
+      s[:gutter_color] = gutter_color.to_s unless gutter_color.nil?
       slope = s[:pitch] / 12.0
 
       # Which storey this roof covers: asked for > the replaced roof's own >
@@ -1682,11 +1691,25 @@ module InteriorPro
         gsec = gutter_section(s[:gutter_profile], gw, gh)
         if gsec
           had_edges = grp.entities.grep(Sketchup::Edge).map(&:object_id)
+          had_faces = grp.entities.grep(Sketchup::Face).map(&:object_id)
           build_profile_band!(grp, poly, gsec, band_top, gable_flags,
                               gable_spans, gable_flags,
                               s[:fascia] ? FASCIA_THICK : 0.0,
                               gutter_outer_len(s[:gutter_profile], gw, gh))
           soften_shallow_edges!(grp.entities, had_edges)
+          # Its own colour, but only if he picked one. With '' the faces
+          # are left bare and the trim pass at the end of this method
+          # paints them the fascia colour - which is what every gutter
+          # built before this line looked like, so nothing changes for
+          # anyone who never opens the picker.
+          if s[:gutter_color].to_s.start_with?('#')
+            gmat = color_material(model, s[:gutter_color])
+            grp.entities.grep(Sketchup::Face).each do |f|
+              next if had_faces.include?(f.object_id)
+              f.material = gmat
+              f.back_material = gmat
+            end
+          end
         end
       end
       # The soffit closes the eave from below. It skips the gable rakes for

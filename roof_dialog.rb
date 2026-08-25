@@ -28,14 +28,19 @@ module InteriorPro
         # and a slope row, and the user scrolls for the Apply button
         # ("שכל החלון של הגגות יהיה פתוח ולא רק חלק ממנו"). Tall enough
         # for every row and both buttons with nothing folded away.
-        width: 340, height: 820, resizable: true,
+        # 760 (2026-08-28): the Trim section grew two gutter rows, and the
+        # Colors section went away - every colour now stands beside the
+        # thing it paints (user: "כל הצבעים תחלק אותם ליד כל העמודות שהם
+        # שייכים אליהם"), which is three rows saved.
+        width: 340, height: 760, resizable: true,
         min_width: 300, min_height: 380,
         max_width: 560, max_height: 1100
       )
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
-                                                soffit, scol, sslope, rlevel|
+                                                soffit, scol, sslope, rlevel,
+                                                gutt, gprof, gwidth, gcol|
         # Which roof this Apply belongs to: the one the Edit tool clicked,
         # or none (the plain Roof button). Checked NOW, not at show time -
         # the roof the panel opened on may have been rebuilt or removed
@@ -96,7 +101,18 @@ module InteriorPro
           # LAST on purpose, same reason the two above are: a saved model
           # or an old console line that calls apply_roof with 14 arguments
           # still lands, and sslope simply arrives nil.
-          soffit_slope: sslope.nil? ? nil : truthy(sslope)
+          soffit_slope: sslope.nil? ? nil : truthy(sslope),
+          # THE GUTTER (2026-08-28), appended for the same reason - nil
+          # from a shorter call means "leave it alone", NOT "switch it
+          # off", which is why this is not a bare truthy().
+          gutter: gutt.nil? ? nil : truthy(gutt),
+          gutter_profile: gprof.nil? || gprof.to_s.empty? ? nil : gprof.to_s,
+          gutter_width: gwidth.nil? ? nil : gwidth.to_f,
+          # '' on purpose, exactly like soffit_color: an empty string is
+          # how a picked colour is CLEARED and the gutter goes back to
+          # following the fascia. nil is the older-call case and means
+          # leave whatever is saved.
+          gutter_color: gcol.nil? ? nil : gcol.to_s
         }
         # WHERE the roof goes (2026-08-26, step 5 - the storey picker,
         # user: "איך אני בוחר קומה ראשונה או שניה או שניהם?"):
@@ -138,7 +154,7 @@ module InteriorPro
                                       : RoofManager.settings,
                               edit: !@target.nil?))
       begin
-        dlg.set_size(340, 820)
+        dlg.set_size(340, 760)
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError => e
         puts "[Roof] dialog size: #{e.message}"
@@ -208,6 +224,14 @@ module InteriorPro
       # one turns it on, and until then the swatch just previews the style's
       # own default. No second checkbox: the UI rules in CLAUDE.md say a
       # control that an existing one already covers does not get built.
+      gutter_options = [['k',     'K-Style (ogee)'],
+                        ['round', 'Half round'],
+                        ['box',   'Square']].map do |v, t|
+        sel = s[:gutter_profile].to_s == v ? ' selected' : ''
+        "<option value=\"#{v}\"#{sel}>#{t}</option>"
+      end.join
+      gutter_picked = s[:gutter_color].to_s.start_with?('#')
+      gutter_col = gutter_picked ? s[:gutter_color].to_s : s[:fascia_color].to_s
       soffit_picked = s[:soffit_color].to_s.start_with?('#')
       soffit_col = soffit_picked ? s[:soffit_color].to_s
                    : (RoofManager.soffit_colors[s[:soffit].to_s] || s[:fascia_color].to_s)
@@ -243,8 +267,14 @@ module InteriorPro
 
           <div class="section-title">Trim</div>
           <div class="row"><label><input type="checkbox" id="fascia"#{s[:fascia] ? ' checked' : ''}> Fascia board</label>
-            <input type="number" id="fasciaDepth" step="0.25" min="1" value="#{s[:fascia_depth]}"> in</div>
+            <input type="number" id="fasciaDepth" step="0.25" min="1" value="#{s[:fascia_depth]}"> in
+            <input type="color" id="fasciaColor" value="#{s[:fascia_color]}"></div>
           <div class="row"><label><input type="checkbox" id="drip"#{s[:drip] ? ' checked' : ''}> Metal drip edge</label></div>
+          <div class="row"><label><input type="checkbox" id="gutter"#{s[:gutter] ? ' checked' : ''} onchange="gutterChanged()"> Gutter (eaves only)</label>
+            <select id="gutterProfile" style="width:112px">#{gutter_options}</select></div>
+          <div class="row sub"><label>Gutter size</label>
+            <input type="number" id="gutterWidth" step="0.5" min="3" max="9" value="#{s[:gutter_width]}"> in
+            <input type="color" id="gutterColor" value="#{gutter_col}" oninput="gutterPicked()"></div>
           <div class="row"><label>Soffit</label>
             <select id="soffit" onchange="soffitChanged()">#{soffit_options}</select>
             <input type="color" id="soffitColor" value="#{soffit_col}" oninput="soffitPicked()"></div>
@@ -252,16 +282,12 @@ module InteriorPro
 
           <div class="section-title">Surface</div>
           <div class="row"><label>Roof material</label>
-            <select id="roofMat">#{mat_options}</select></div>
+            <select id="roofMat" style="width:112px">#{mat_options}</select>
+            <input type="color" id="roofColor" value="#{s[:roof_color]}"></div>
           <div class="row"><label>Roof thickness</label>
             <input type="number" id="thickness" step="0.25" min="0" value="#{s[:thickness]}"> in</div>
           <div class="row"><label><input type="checkbox" id="ridgeCap"#{s[:ridge_cap] ? ' checked' : ''}> Ridge cap</label></div>
 
-          <div class="section-title">Colors</div>
-          <div class="row"><label>Roof color</label>
-            <input type="color" id="roofColor" value="#{s[:roof_color]}"></div>
-          <div class="row"><label>Fascia color</label>
-            <input type="color" id="fasciaColor" value="#{s[:fascia_color]}"></div>
 
           <button onclick="applyRoof()">Apply - Build Roof</button>
           <button class="secondary" onclick="sketchup.remove_roof()">Remove Roof</button>
@@ -272,6 +298,14 @@ module InteriorPro
             }
             function eavesChanged() {
               document.getElementById('overhang').disabled = !document.getElementById('eaves').checked;
+            }
+            var gutterPickedFlag = #{gutter_picked ? 'true' : 'false'};
+            function gutterPicked() { gutterPickedFlag = true; }
+            function gutterChanged() {
+              var on = document.getElementById('gutter').checked;
+              document.getElementById('gutterProfile').disabled = !on;
+              document.getElementById('gutterWidth').disabled = !on;
+              document.getElementById('gutterColor').disabled = !on;
             }
             var SOFFIT_DEF = {#{soffit_defs}};
             var soffitPickedFlag = #{soffit_picked ? 'true' : 'false'};
@@ -301,10 +335,15 @@ module InteriorPro
                 soffitPickedFlag ? document.getElementById('soffitColor').value : '',
                 document.getElementById('soffitSlope').checked,
                 (function () { var lv = document.getElementById('roofLevel');
-                               return lv ? lv.value : ''; })());
+                               return lv ? lv.value : ''; })(),
+                document.getElementById('gutter').checked,
+                document.getElementById('gutterProfile').value,
+                document.getElementById('gutterWidth').value,
+                gutterPickedFlag ? document.getElementById('gutterColor').value : '');
             }
             styleChanged();
             eavesChanged();
+            gutterChanged();
             soffitChanged();
           </script>
         </body></html>

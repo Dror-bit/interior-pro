@@ -46,6 +46,7 @@ end
 require './room_manager'
 require './level_manager'
 require './roof_manager'
+require './roof_dialog'
 
 $fails = 0
 def ok(n, c, x = nil)
@@ -170,6 +171,95 @@ ok('...its width', close(got[:gutter_width], 6.0), got[:gutter_width])
 ok('a 6" gutter really is wider than a 5" one',
    pts(r).map(&:y).max > pts(gutt).map(&:y).max,
    [pts(r).map(&:y).max, pts(gutt).map(&:y).max])
+
+# ================================================ 7. THE PANEL ============
+# Step 3: the three controls. The one that matters is the LAST claim -
+# every older call into apply_roof arrives with the three new arguments
+# missing, and a missing argument must mean "leave it alone", never
+# "switch it off". Get that wrong and any old console line, or a saved
+# panel, silently strips the gutter off the user's house.
+a_box
+InteriorPro::RoofDialog.show
+dlg = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
+ok('the panel opens', !dlg.nil? && dlg.callbacks.key?('apply_roof'))
+
+html = InteriorPro::RoofDialog.build_html(RF.settings)
+ok('there is a gutter switch on the panel', html.include?('id="gutter"'), nil)
+ok('...a shape picker with all three', html.include?('id="gutterProfile"') &&
+   html.include?('value="k"') && html.include?('value="round"') &&
+   html.include?('value="box"'))
+ok('...and one size box, not two', html.scan('id="gutterWidth"').length == 1)
+ok('...and a colour of its own', html.include?('id="gutterColor"'))
+
+OLD = ['hip', '4', 'true', '18', 'true', '8', 'true', '#336699', '#eeeeee',
+       'color', '0', 'true', 'none', '', 'false', ''].freeze
+
+# One model from here on: Sketchup.reset_model! would wipe the saved
+# settings with it, and what is being tested IS what survives.
+dlg.callbacks['apply_roof'].call(nil, *OLD, 'true', 'round', '6')
+ok('Apply with the switch on builds the gutter', RF.settings[:gutter] == true,
+   RF.settings[:gutter])
+ok('...with the shape it was given', RF.settings[:gutter_profile] == 'round',
+   RF.settings[:gutter_profile])
+ok('...and the size', close(RF.settings[:gutter_width], 6.0),
+   RF.settings[:gutter_width])
+
+dlg.callbacks['apply_roof'].call(nil, *OLD)
+ok('AN OLD CALL LEAVES THE GUTTER ALONE - it does not strip it off',
+   RF.settings[:gutter] == true, RF.settings[:gutter])
+ok('...and does not reset its shape either',
+   RF.settings[:gutter_profile] == 'round', RF.settings[:gutter_profile])
+
+dlg.callbacks['apply_roof'].call(nil, *OLD, 'false', 'round', '6')
+ok('but the switch itself really turns it off', RF.settings[:gutter] == false,
+   RF.settings[:gutter])
+
+# ================================================= 8. ITS OWN COLOUR ======
+# Default is '' - FOLLOW THE FASCIA. Every gutter built before the picker
+# existed was painted by the trim pass with the fascia and the drip, and
+# that has to stay true for anyone who never opens it.
+FASCIA_C = '#eeeeee'
+GUTTER_C = '#3b3b3b'
+
+def gutter_faces(r, plain_sig)
+  r.entities.grep(Sketchup::Face).reject do |f|
+    plain_sig.include?(f.points.map { |p| [p.x.round(3), p.y.round(3), p.z.round(3)] }.sort)
+  end
+end
+
+base_sig = sig(roof(gutter: false, fascia_color: FASCIA_C))
+r1 = roof(gutter: true, gutter_profile: 'box', gutter_width: 5.0,
+          fascia_color: FASCIA_C, gutter_color: '')
+g1 = gutter_faces(r1, base_sig)
+ok('no colour picked -> the gutter is painted with the fascia', 
+   !g1.empty? && g1.all? { |f| f.material && f.material.name.include?('eeeeee') },
+   g1.map { |f| f.material && f.material.name }.uniq)
+
+r2 = roof(gutter: true, gutter_profile: 'box', gutter_width: 5.0,
+          fascia_color: FASCIA_C, gutter_color: GUTTER_C)
+g2 = gutter_faces(r2, base_sig)
+ok('a picked colour lands on the gutter',
+   !g2.empty? && g2.all? { |f| f.material && f.material.name.include?('3b3b3b') },
+   g2.map { |f| f.material && f.material.name }.uniq)
+rest = r2.entities.grep(Sketchup::Face) - g2
+ok('...and on NOTHING else - the fascia keeps its own',
+   rest.none? { |f| f.material && f.material.name.include?('3b3b3b') })
+
+r3 = roof(gutter: true, gutter_profile: 'box', gutter_width: 5.0,
+          fascia_color: FASCIA_C, gutter_color: '')
+ok('clearing it sends the gutter back to the fascia',
+   gutter_faces(r3, base_sig).all? { |f| f.material && f.material.name.include?('eeeeee') })
+ok('the roof carries the colour it was built with',
+   RF.roof_settings(r2)[:gutter_color] == GUTTER_C, RF.roof_settings(r2)[:gutter_color])
+
+InteriorPro::RoofDialog.show
+d2 = InteriorPro::RoofDialog.instance_variable_get(:@dialog)
+d2.callbacks['apply_roof'].call(nil, *OLD, 'true', 'box', '5', GUTTER_C)
+ok('the panel saves the picked colour', RF.settings[:gutter_color] == GUTTER_C,
+   RF.settings[:gutter_color])
+d2.callbacks['apply_roof'].call(nil, *OLD)
+ok('AN OLD CALL LEAVES THE COLOUR ALONE TOO',
+   RF.settings[:gutter_color] == GUTTER_C, RF.settings[:gutter_color])
 
 puts($fails.zero? ? 'ALL OK' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
