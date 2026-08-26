@@ -241,54 +241,74 @@ end
 
 # 2. it still REACHES both ends - a fix that ate the corner would pass
 #    every test above and leave a hole.
-side = boxes.select { |bx| (bx[:x][1] - bx[:x][0]).abs < 1.0 }  # the two rakes
-high = boxes.reject { |bx| (bx[:x][1] - bx[:x][0]).abs < 1.0 }
+# MITRED since later the same day (2026-08-26): the butt rule this block
+# first pinned ("give up the START corner to the neighbour") left a
+# vertical seam on the FLAT of the wall, one thickness from the corner -
+# the user's second round of red arrows. Now every wall's OUTER face
+# runs all the way to BOTH corners, the INNER face stops a
+# neighbour-thickness short, and the end is cut on the diagonal - so the
+# seam lies on the corner arris. The mitred solid carries real thickness
+# even in the stub (it is built face by face, not push-pulled), so the
+# rakes are 5 in. wide boxes here, not planes.
+TH = 5.0
+side = boxes.select { |bx| (bx[:x][1] - bx[:x][0]).abs < 40.0 } # the two rakes
+high = boxes.reject { |bx| (bx[:x][1] - bx[:x][0]).abs < 40.0 }
 ok('two of them are the rakes', side.length == 2, side.length)
 ok('...and one is the high wall', high.length == 1, high.length)
-# Each one gives up ONE end - the corner square it shares with its
-# neighbour, so exactly one wall builds each corner. It may lose a wall
-# thickness (5) at one end and NOT MORE, and nothing at the other.
-TH = 5.0
-def owns_all_but_a_corner(lo3, hi3, want_lo, want_hi)
-  a = (lo3 - want_lo).abs
-  b = (want_hi - hi3).abs
-  a < 0.6 && b < TH + 0.6 || b < 0.6 && a < TH + 0.6
-end
+ok('...and a rake now has real thickness, even in the stub',
+   side.all? { |bx| close(bx[:x][1] - bx[:x][0], TH, 0.1) },
+   side.map { |bx| bx[:x][1] - bx[:x][0] })
 side.each_with_index do |bx, i|
-  ok("rake #{i} runs the depth of the building bar one corner",
-     owns_all_but_a_corner(bx[:y][0], bx[:y][1], YLO, YHI), bx[:y])
+  ok("rake #{i} reaches the high corner - no butt gap",
+     (bx[:y][1] - YHI).abs < 0.6, bx[:y])
 end
 hb = high.first
-ok('the high wall runs the width of the building bar one corner',
-   hb && owns_all_but_a_corner(hb[:x][0], hb[:x][1], XLO, XHI), hb && hb[:x])
+ok('the high wall reaches BOTH corners on its outer face',
+   hb && (hb[:x][0] - XLO).abs < 0.6 && (hb[:x][1] - XHI).abs < 0.6,
+   hb && hb[:x])
 
-# ...and THE POINT of giving up an end: no two raised walls may sit in
-# the same piece of plan. Two prisms in one corner square showed as a
-# double line down the corner - the user's red arrows, 2026-08-26.
-# The stub does not push-pull, so a raised wall reaches the test as the
-# PLANE of its outer face. Give it its thickness back, inward, or the
-# overlap this is looking for cannot exist in the numbers.
-CX = (XLO + XHI) / 2.0
-CY = (YLO + YHI) / 2.0
-def solid(bx)
-  x = bx[:x].dup
-  y = bx[:y].dup
-  if (x[1] - x[0]).abs < 1.0
-    x = x[0] < CX ? [x[0], x[1] + TH] : [x[0] - TH, x[1]]
+# ...and the mitre must not put two walls on the same piece of plan.
+# Each footprint is a convex trapezoid (outer face long, inner face
+# short); hull + separating-axis says how deeply any two interpenetrate.
+# Touching on the shared diagonal is 0 - that IS the mitre.
+def hull(pts)
+  ps = pts.map { |p| [p.x.round(4), p.y.round(4)] }.uniq.sort
+  return ps if ps.length < 3
+  cr = ->(o, a2, b2) { (a2[0] - o[0]) * (b2[1] - o[1]) - (a2[1] - o[1]) * (b2[0] - o[0]) }
+  lower = []
+  ps.each do |p|
+    lower.pop while lower.length >= 2 && cr.call(lower[-2], lower[-1], p) <= 0
+    lower << p
   end
-  if (y[1] - y[0]).abs < 1.0
-    y = y[0] < CY ? [y[0], y[1] + TH] : [y[0] - TH, y[1]]
+  upper = []
+  ps.reverse.each do |p|
+    upper.pop while upper.length >= 2 && cr.call(upper[-2], upper[-1], p) <= 0
+    upper << p
   end
-  { x: x, y: y }
+  lower[0...-1] + upper[0...-1]
 end
 
-def plan_overlap(p1, p2)
-  ox = [p1[:x][1], p2[:x][1]].min - [p1[:x][0], p2[:x][0]].max
-  oy = [p1[:y][1], p2[:y][1]].min - [p1[:y][0], p2[:y][0]].max
-  (ox > 0.05 && oy > 0.05) ? [ox, oy] : nil
+def overlap_depth(h1, h2)
+  axes = (h1.zip(h1.rotate) + h2.zip(h2.rotate))
+         .map { |a2, b2| [-(b2[1] - a2[1]), b2[0] - a2[0]] }
+  best = 1.0e9
+  axes.each do |ax|
+    l = Math.sqrt(ax[0]**2 + ax[1]**2)
+    next if l < 1.0e-9
+    nx = ax[0] / l
+    ny = ax[1] / l
+    p1 = h1.map { |p| nx * p[0] + ny * p[1] }.minmax
+    p2 = h2.map { |p| nx * p[0] + ny * p[1] }.minmax
+    ov = [p1[1], p2[1]].min - [p1[0], p2[0]].max
+    return 0.0 if ov <= 1.0e-6
+    best = [best, ov].min
+  end
+  best
 end
-clashes = boxes.map { |bx| solid(bx) }.combination(2)
-               .map { |p1, p2| plan_overlap(p1, p2) }.compact
+
+hulls = tops.map { |g| hull(g.entities.grep(Sketchup::Face).flat_map(&:pts)) }
+clashes = hulls.combination(2).map { |h1, h2| overlap_depth(h1, h2) }
+               .select { |v| v > 0.05 }
 ok('no two raised walls overlap in plan', clashes.empty?, clashes)
 
 # 3. the shape that made the stub visible: the high wall is a full-height

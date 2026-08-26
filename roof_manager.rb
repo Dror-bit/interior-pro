@@ -3653,21 +3653,40 @@ module InteriorPro
         # roof's underside along the wall's own line - the same plane
         # equation build_hip_geometry! raised the roof with - and a wall
         # can then only ever meet the roof it actually touches.
-        # ONE WALL PER CORNER (2026-08-26). Two walls that meet own the
-        # same little square of plan, and on a shed BOTH of them are
-        # raised - so both built a prism there, one inside the other, and
-        # the seam showed as a double line down the corner (the user's
-        # red arrows). Every raised wall gives up its START end to its
-        # neighbour: exactly one of the two builds the corner, so there
-        # is no overlap and no gap either. A plain gable has no adjacent
-        # gable edges at all, so nothing there moves.
+        # MITRED CORNERS (2026-08-26, replaced the butt joint from earlier
+        # the same day). Where the PREVIOUS or NEXT poly edge is also a
+        # raised gable edge - a shed corner - the two raised walls used to
+        # meet in a BUTT: one ran through the corner, the other started a
+        # wall thickness later, and the seam stood as a vertical line on
+        # the FLAT of the wall (the user's red arrows, round two). Now
+        # they meet the way the walls below them do: each wall's OUTER
+        # face runs all the way to the corner, its INNER face stops one
+        # neighbour-thickness short, and the end is cut on the diagonal
+        # between the two. Both walls cut onto the SAME diagonal plane,
+        # so the only visible lines are on the corner arris itself -
+        # where a corner draws a line anyway. A plain gable has no
+        # adjacent raised edges, so nothing there changes; the framed
+        # path is untouched (rt17, rt86).
+        pth = nth = 0.0
         unless framed
-          prev = (i - 1) % poly.length
-          if gables.include?(prev)
-            pw = wall_by_id(wall_ids[prev])
-            pt2 = pw ? pw.get_attribute('InteriorPro', 'thickness').to_f : 0.0
-            lo += pt2 if pt2 > 0.1
+          [[(i - 1) % poly.length, :p], [(i + 1) % poly.length, :n]].each do |j, side|
+            next unless gables.include?(j)
+            nb = wall_by_id(wall_ids[j])
+            v = nb ? nb.get_attribute('InteriorPro', 'thickness').to_f : 0.0
+            next unless v > 0.1
+            side == :p ? pth = v : nth = v
           end
+        end
+        if pth > 0.0 || nth > 0.0
+          built = build_gable_top_mitred!(grp, poly, i, cells, z0, slope,
+                                          overhang, th, zbase,
+                                          [lo, hi], [lo + pth, hi - nth],
+                                          names)
+          next if built
+          # could not build the mitred solid: fall back to the butt rule
+          # (give the START corner to the neighbour) so the corner is
+          # still built exactly once.
+          lo += pth
         end
         prof_src = framed ? nil
                           : wall_line_profile(poly, i, cells, z0, slope,
@@ -3749,8 +3768,12 @@ module InteriorPro
     # inboard of the roof edge, which is where the prism is drawn. t is
     # measured along the edge from poly[i], between lo and hi.
     # nil when there is no roof surface to read.
+    # `inboard:` (2026-08-26) samples a DIFFERENT line than the wall's
+    # outer one - the mitred builder reads the INNER face's line with it
+    # (inboard: overhang + thickness), which is what bevels the shed's
+    # high wall under the deck instead of leaving it flat-topped.
     def self.wall_line_profile(poly, i, cells, z0, slope, overhang, lo, hi,
-                               step = 6.0)
+                               step = 6.0, inboard: nil)
       return nil if cells.nil? || cells.empty? || poly.nil?
       n = poly.length
       a = poly[i]
@@ -3758,6 +3781,7 @@ module InteriorPro
       len = vlen(vsub(b, a))
       d = vnorm(vsub(b, a))
       inw = [-d[1], d[0]]
+      inb = (inboard || overhang).to_f
       lo = [lo.to_f, 0.0].max
       hi = [hi.to_f, len].min
       return nil if hi - lo < 0.5
@@ -3769,8 +3793,8 @@ module InteriorPro
       end
       ts << hi
       out = ts.map do |tt|
-        x = a[0] + d[0] * tt + inw[0] * overhang.to_f
-        y = a[1] + d[1] * tt + inw[1] * overhang.to_f
+        x = a[0] + d[0] * tt + inw[0] * inb
+        y = a[1] + d[1] * tt + inw[1] * inb
         z = roof_under_z(poly, cells, z0, slope, overhang, x, y)
         z.nil? ? nil : [tt, z]
       end.compact
@@ -3943,6 +3967,150 @@ module InteriorPro
       paint_gable_top!(sub, d, inw, names)
     rescue StandardError => e
       puts "[Roof] build_gable_top_prism!: #{e.message}"
+    end
+
+    # A raised wall with MITRED ends (2026-08-26), built face by face
+    # instead of push-pulled, for a shed corner where the neighbour edge
+    # is raised too. Two jobs in one:
+    # 1. THE MITRE. out_span is the wall's full span - the outer face
+    #    reaches the corner. in_span is pulled in by the neighbour's
+    #    thickness at each raised corner - the inner face stops short.
+    #    The end face leans across the diagonal between the two, and the
+    #    neighbour's end face lands on the SAME diagonal, so the seam
+    #    sits on the corner arris.
+    # 2. THE BEVEL. The top is sampled off the roof underside TWICE -
+    #    once on the outer line, once on the inner line. A wall square to
+    #    the fall (the shed's high wall) gets a top that drops across its
+    #    own thickness and tucks under the deck, instead of a flat top
+    #    poking through it.
+    # Returns true when at least one solid was built.
+    def self.build_gable_top_mitred!(grp, poly, i, cells, z0, slope,
+                                     overhang, th, zbase, out_span, in_span,
+                                     names)
+      a = poly[i]
+      b = poly[(i + 1) % poly.length]
+      d = vnorm(vsub(b, a))
+      inw = [-d[1], d[0]]
+      oprof = wall_line_profile(poly, i, cells, z0, slope, overhang,
+                                out_span[0], out_span[1])
+      return false if oprof.nil?
+      built = false
+      chain_regions_above(oprof.map { |t, z| [t, nil, z] }, zbase).each do |op|
+        ip = wall_line_profile(poly, i, cells, z0, slope, overhang,
+                               [op.first[0], in_span[0]].max,
+                               [op.last[0], in_span[1]].min,
+                               inboard: overhang.to_f + th)
+        next if ip.nil?
+        ip = chain_regions_above(ip.map { |t, z| [t, nil, z] }, zbase)
+             .max_by { |r| r.last[0] - r.first[0] }
+        next if ip.nil? || ip.length < 2
+        built = true if add_mitred_wall_solid!(grp, a, d, inw, overhang, th,
+                                               zbase, op, ip, names)
+      end
+      built
+    rescue StandardError => e
+      puts "[Roof] build_gable_top_mitred!: #{e.message}"
+      false
+    end
+
+    # The solid itself: bottom, outer face, inner face, two end cuts and
+    # a triangulated top strip between the two sampled top lines. op/ip =
+    # [[t, z], ...] along the edge for the outer and the inner face.
+    def self.add_mitred_wall_solid!(grp, a, d, inw, overhang, th, zbase,
+                                    op, ip, names)
+      return false if op.length < 2 || ip.length < 2
+      return false if op.last[0] - op.first[0] < 0.5
+      return false if op.map { |_t, z| z }.max < zbase + 0.1
+      o_at = lambda do |t|
+        [a[0] + d[0] * t + inw[0] * overhang.to_f,
+         a[1] + d[1] * t + inw[1] * overhang.to_f]
+      end
+      i_at = lambda do |t|
+        [a[0] + d[0] * t + inw[0] * (overhang.to_f + th),
+         a[1] + d[1] * t + inw[1] * (overhang.to_f + th)]
+      end
+      p3 = lambda { |at, t, z| q = at.call(t); Geom::Point3d.new(q[0], q[1], z) }
+      op3 = op.map { |t, z| p3.call(o_at, t, z) }
+      ip3 = ip.map { |t, z| p3.call(i_at, t, z) }
+      obl = p3.call(o_at, op.first[0], zbase)
+      obh = p3.call(o_at, op.last[0], zbase)
+      ibl = p3.call(i_at, ip.first[0], zbase)
+      ibh = p3.call(i_at, ip.last[0], zbase)
+      sub = grp.entities.add_group
+      sub.name = 'InteriorPro_GableWall'
+      sub.set_attribute('InteriorPro', 'part', 'gable_wall_top')
+      face = lambda do |pts|
+        clean = []
+        pts.each { |p| clean << p if clean.empty? || vlen3(p, clean.last) > 0.01 }
+        clean.pop while clean.length > 1 && vlen3(clean.first, clean.last) < 0.01
+        next nil if clean.length < 3
+        begin
+          sub.entities.add_face(clean)
+        rescue StandardError
+          nil
+        end
+      end
+      face.call([obl] + op3 + [obh])              # outer face
+      face.call([ibl] + ip3 + [ibh])              # inner face
+      face.call([obl, obh, ibh, ibl])             # bottom
+      face.call([obl, op3.first, ip3.first, ibl]) # start cut (the diagonal)
+      face.call([obh, op3.last, ip3.last, ibh])   # end cut (the diagonal)
+      add_top_strip!(sub, op, ip, o_at, i_at, p3)
+      soften_coplanar_edges!(sub)
+      paint_gable_top!(sub, d, inw, names)
+      true
+    rescue StandardError => e
+      puts "[Roof] add_mitred_wall_solid!: #{e.message}"
+      false
+    end
+
+    # The top surface between the outer and the inner top line, as
+    # triangles - two sampled lines need not be parallel or equal-length,
+    # and a triangle is always planar. The internal edges are softened
+    # afterwards by soften_coplanar_edges!.
+    def self.add_top_strip!(sub, op, ip, o_at, i_at, p3)
+      oi = 0
+      ii = 0
+      while oi < op.length - 1 || ii < ip.length - 1
+        adv_o = oi < op.length - 1 &&
+                (ii >= ip.length - 1 || op[oi + 1][0] <= ip[ii + 1][0])
+        tri = if adv_o
+                [p3.call(o_at, *op[oi]), p3.call(o_at, *op[oi + 1]),
+                 p3.call(i_at, *ip[ii])]
+              else
+                [p3.call(o_at, *op[oi]), p3.call(i_at, *ip[ii + 1]),
+                 p3.call(i_at, *ip[ii])]
+              end
+        ok = vlen3(tri[0], tri[1]) > 0.01 && vlen3(tri[1], tri[2]) > 0.01 &&
+             vlen3(tri[2], tri[0]) > 0.01
+        begin
+          sub.entities.add_face(tri) if ok
+        rescue StandardError
+          nil
+        end
+        adv_o ? oi += 1 : ii += 1
+      end
+    end
+
+    # 3D distance between two Point3d, without relying on Point3d#-
+    # (the test stub's vector algebra is thinner than the real API's).
+    def self.vlen3(p, q)
+      Math.sqrt((p.x - q.x)**2 + (p.y - q.y)**2 + (p.z - q.z)**2)
+    end
+
+    # Hide the seams INSIDE one solid - the triangulated top's diagonals
+    # and any collinear break - while every real arris stays sharp. The
+    # test stub has no edges, so this is a no-op there.
+    def self.soften_coplanar_edges!(sub)
+      sub.entities.grep(Sketchup::Edge).each do |e|
+        fs = e.faces
+        next unless fs.length == 2
+        next unless fs[0].normal.angle_between(fs[1].normal) < 0.03
+        e.soft = true
+        e.smooth = true
+      end
+    rescue StandardError
+      nil
     end
 
     # Exterior side gets the wall's exterior material, interior side the
