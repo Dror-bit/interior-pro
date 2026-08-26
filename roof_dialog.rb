@@ -262,10 +262,14 @@ module InteriorPro
           #{level_row}
           <div class="section-title">Roof Type</div>
           <div class="row">
-            <label><input type="radio" name="style" value="hip"#{%w[flat gable].include?(s[:style]) ? '' : ' checked'} onchange="styleChanged()"> Hip</label>
+            <label><input type="radio" name="style" value="hip"#{%w[flat gable shed].include?(s[:style]) ? '' : ' checked'} onchange="styleChanged()"> Hip</label>
             <label><input type="radio" name="style" value="gable"#{s[:style] == 'gable' ? ' checked' : ''} onchange="styleChanged()"> Gable</label>
             <label><input type="radio" name="style" value="flat"#{s[:style] == 'flat' ? ' checked' : ''} onchange="styleChanged()"> Flat</label>
+            <label><input type="radio" name="style" value="shed"#{s[:style] == 'shed' ? ' checked' : ''} onchange="styleChanged()"> Shed</label>
           </div>
+          <div class="row sub" id="shedHint" style="display:none;color:#78909c;font-size:12px">
+            Pick the low wall with the Shed Roof button; with none picked the
+            longest wall is used.</div>
           <div class="row"><label>Pitch (rise : 12)</label>
             <select id="pitch">#{pitch_options}</select></div>
           <div class="row sub"><label>Max over storey above</label>
@@ -304,8 +308,10 @@ module InteriorPro
           <button class="secondary" onclick="sketchup.remove_roof()">Remove Roof</button>
           <script>
             function styleChanged() {
-              var flat = document.querySelector('input[name=style]:checked').value === 'flat';
-              document.getElementById('pitch').disabled = flat;
+              var v = document.querySelector('input[name=style]:checked').value;
+              document.getElementById('pitch').disabled = (v === 'flat');
+              document.getElementById('shedHint').style.display =
+                (v === 'shed') ? 'block' : 'none';
             }
             function eavesChanged() {
               document.getElementById('overhang').disabled = !document.getElementById('eaves').checked;

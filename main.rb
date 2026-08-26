@@ -47,6 +47,7 @@ module InteriorPro
       roof_manager.rb
       roof_dialog.rb
       roof_gable_tool.rb
+      roof_shed_tool.rb
       roof_edit_tool.rb
       downspout_tool.rb
       molding_library.rb

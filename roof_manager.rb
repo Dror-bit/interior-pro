@@ -1444,6 +1444,16 @@ module InteriorPro
           puts "[Roof] #{dropped.length} gable mark(s) ignored - the wall is curved" unless dropped.empty?
         end
         gables = (0...poly.length).select { |i| wall_ids[i] && marked.include?(wall_ids[i]) }
+        # ---------- SHED: one plane, one eave (2026-08-26) ------------
+        # A shed roof is the gable machinery with the marks INVERTED:
+        # every edge but the low one runs at speed 0 and is cut vertical,
+        # so rakes, gable wall tops and fascia-on-the-eave-only all come
+        # out right with no new geometry code. shed_low_edge picks the
+        # edge the user marked, or the longest edge when he marked none.
+        if s[:style] == 'shed'
+          low = shed_low_edge(poly, wall_ids, shed_wall_ids & loop_ids, abut_ids)
+          gables = low.nil? ? [] : ((0...poly.length).to_a - [low])
+        end
         want_gable = !gables.empty? || s[:style] == 'gable'
         # Over-framing first (2026-08-05, the user's mock): a marked wall
         # gables its WHOLE wing, volumes intersect on valleys. The strip-
@@ -1451,7 +1461,8 @@ module InteriorPro
         # ...but never with an abut edge in the loop: the over-framing
         # knows nothing about a roof that dies against a wall, while the
         # skeleton fallback handles it as one more zero-speed edge.
-        framed = framed_plan(poly, wall_ids, marked, s[:style]) if want_gable && abut_ids.empty?
+        framed = framed_plan(poly, wall_ids, marked, s[:style]) \
+                 if want_gable && abut_ids.empty? && s[:style] != 'shed'
         if framed
           gables = framed[:edges]
         else
@@ -1464,7 +1475,12 @@ module InteriorPro
               bowed.include?(wall_ids[i]) || abut_ids.include?(wall_ids[i])
             end
           end
-          unless gables.empty?
+          if s[:style] == 'shed' && !gables.empty?
+            # No split_gable_edges here: a shed has no strips to choose
+            # between - every edge but the eave is already a gable.
+            speeds = Array.new(poly.length, 1.0)
+            gables.each { |i| speeds[i] = 0.0 }
+          elsif !gables.empty?
             # A marked wall that runs past its own roof section (a wing
             # attaches along it) gets its gable only on ONE span: the strip
             # UNDER the user's click, or the deepest strip when no click was
@@ -3258,6 +3274,62 @@ module InteriorPro
       nil
     end
 
+    # ---------- shed low-wall marking (the Shed Roof click tool) -------
+    #
+    # A shed has exactly ONE low eave, so this list holds at most one id.
+    # Clicking another wall MOVES the mark; clicking the marked wall
+    # clears it and the roof falls back to its longest edge. A mark that
+    # belongs to a different building simply never matches that roof's
+    # own wall ids, so a second roof is left alone without any extra
+    # bookkeeping.
+    def self.shed_wall_ids
+      Sketchup.active_model.get_attribute('InteriorPro', 'roof_shed_wall_ids') || []
+    end
+
+    # Mark this wall as the low eave. Returns true when something changed.
+    # Rebuilds the roof that owns the wall, exactly like toggle_gable_wall!.
+    def self.set_shed_wall!(wall)
+      return false unless wall && wall.valid? &&
+                          wall.get_attribute('InteriorPro', 'type') == 'wall'
+      id = wall.get_attribute('InteriorPro', 'id')
+      return false if id.nil?
+      # A curved wall is refused for the same reason a gable end is: the
+      # eave of a shed is one straight line to slope away from, and a
+      # bowed wall has none.
+      if gable_refused?(wall) && !shed_wall_ids.include?(id)
+        puts "[Roof] shed eave refused on curved wall #{id}"
+        begin
+          UI.messagebox('A curved wall cannot be the low side of a shed ' \
+                        'roof. Pick a straight wall.')
+        rescue StandardError
+          nil
+        end
+        return false
+      end
+      was = shed_wall_ids
+      ids = was.include?(id) ? [] : [id]
+      Sketchup.active_model.set_attribute('InteriorPro', 'roof_shed_wall_ids', ids)
+      puts "[Roof] wall #{id}: #{ids.empty? ? 'no longer the shed eave' : 'SHED eave'}"
+      # Marking the eave is also the ANSWER to "make this a shed" - one
+      # click, not a click plus a trip to the panel (the UI rule in
+      # CLAUDE.md: fewer clicks, and a tool button runs its tool). Un-
+      # marking leaves the style alone: the roof stays a shed and falls
+      # back to its longest edge.
+      unless roofs.empty?
+        own = roof_of_wall_id(id)
+        st  = ids.empty? ? nil : 'shed'
+        if own
+          build_roof!(replace: own, style: st)
+        else
+          build_roof!(style: st)
+        end
+      end
+      true
+    rescue StandardError => e
+      puts "[Roof] set_shed_wall!: #{e.message}"
+      false
+    end
+
     # ---------- gable-end marking (the Gable Ends click tool) ----------
 
     def self.gable_wall_ids
@@ -4834,6 +4906,35 @@ module InteriorPro
     end
 
     # Gable style: the two shortest non-adjacent edges become the gables.
+    # The LOW edge of a shed roof: the one the user marked, or - with
+    # nothing marked - the longest edge, so the roof runs across the
+    # short way and stays as low as it can.
+    # `avoid` is the abut edges: a line buried in the wall of the storey
+    # above cannot be an eave, and if it were chosen every edge would run
+    # at speed 0 and the skeleton would have nothing to build from.
+    def self.shed_low_edge(poly, wall_ids, marked, avoid = [])
+      return nil if poly.nil? || poly.length < 3
+      avoid = avoid.nil? ? [] : avoid.to_a
+      free = (0...poly.length).reject { |k| avoid.include?(wall_ids[k]) }
+      free = (0...poly.length).to_a if free.empty?
+      unless marked.nil? || marked.empty?
+        i = free.find { |k| wall_ids[k] && marked.include?(wall_ids[k]) }
+        return i if i
+      end
+      best = nil
+      bestlen = -1.0
+      free.each do |k|
+        a = poly[k]
+        b = poly[(k + 1) % poly.length]
+        d = Math.hypot(b[0] - a[0], b[1] - a[1])
+        if d > bestlen
+          bestlen = d
+          best = k
+        end
+      end
+      best
+    end
+
     def self.pick_gable_edges(poly)
       n = poly.length
       lens = Array.new(n) { |i| vlen(vsub(poly[(i + 1) % n], poly[i])) }
