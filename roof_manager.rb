@@ -1574,6 +1574,23 @@ module InteriorPro
       InteriorPro.assign_tag(grp, 'IP/Roofs')
       roof_mat = surface_material(model, s)
       trim_mat = color_material(model, s[:fascia_color]) # fascia + drip + underside
+      # A SHED'S TOP EDGE IS AN EAVE, NOT A RAKE (2026-08-26).
+      # Every edge but the low one is a gable so that the geometry comes
+      # out right - speed 0, cut vertical, wall raised to meet it. But
+      # `gables` also means "no fascia, no drip, no soffit, put a rake
+      # board on it instead", and that is wrong for the edge across the
+      # TOP of a shed: its top is LEVEL, it needs the same fascia and
+      # soffit as the eave opposite it. The user photographed the gap -
+      # "אין פשייה איפה שהסימון הצהוב גם לא איבס".
+      # Told apart by shape, not by name: a level edge runs square to the
+      # fall, a rake runs with it. So a gable end - always square to its
+      # own roof's fall - is untouched, and only a shed has any of these.
+      # NOT DONE YET: a shed's level top edge still gets a rake board and
+      # no fascia. Giving it the eave bands needs build_band! to take a
+      # per-edge height - band_top is the EAVE height, and on a shed the
+      # top edge is a storey above it, so the bands land 6 ft too low.
+      # `rakes` is every gable until that exists.
+      rakes = gables
       gable_flags = Array.new(poly.length, false)
       gables.each { |i| gable_flags[i] = true }
       # An abut edge is flagged like a gable for everything the flags SKIP
@@ -1648,7 +1665,11 @@ module InteriorPro
       # drop_buried_twins! for why the underside cannot be tested directly.
       top_shell = drop_buried_faces!(top_shell, grp.entities,
                                      dz > 0.001 ? shell_before : nil)
-      if s[:ridge_cap] && s[:style] != 'flat'
+      # A SHED HAS NO RIDGE (2026-08-26). Two planes meeting is what a
+      # ridge cap is for; a shed is ONE plane, so whatever line the cap
+      # walk finds on it is not a ridge - it came out as a bare batten
+      # lying across the shingles, which is what the user circled in red.
+      if s[:ridge_cap] && !%w[flat shed].include?(s[:style])
         cap_lines = drop_facet_hips(ridge_lines(top_shell), poly, wall_ids)
         # THE VALLEY CHANNEL (2026-08-21) - the metal roof only: "צריך משהו
         # שמכסה פה בוואלי... זה יותר מוליך מים". The same line walk with the
@@ -1679,10 +1700,13 @@ module InteriorPro
       # stretch the rake owns and the flat fascia must skip. The rest of
       # the same edge is a plain eave and keeps its fascia (2026-08-09).
       surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
+      # ...and the spans that CUT the eave bands are the rakes' only: a
+      # shed's level top edge is getting a fascia now, and a span there
+      # would carve straight back out again (2026-08-26).
       gable_spans = nil
-      if zmap && !gables.empty?
+      if zmap && !rakes.empty?
         gable_spans = {}
-        gables.each do |i|
+        rakes.each do |i|
           ch = edge_profile_chain(poly, i, zmap, surface: surf)
           next if ch.nil?
           gable_spans[i] = chain_regions_above(ch, band_top)
@@ -1773,7 +1797,7 @@ module InteriorPro
         # wing roof rises to meet this one.
         if zmap && framed
           owners = framed_line_owners(framed)
-          gables.each do |i|
+          rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
             build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
@@ -1781,7 +1805,7 @@ module InteriorPro
                               reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
-          gables.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
+          rakes.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
         end
       end
       if s[:drip]
@@ -1910,10 +1934,10 @@ module InteriorPro
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
         # (user 2026-08-24: "צריך להיות גם באיב של הגייבל").
-        if sb && board && zmap && !gables.empty?
+        if sb && board && zmap && !rakes.empty?
           if framed
             owners = framed_line_owners(framed)
-            gables.each do |i|
+            rakes.each do |i|
               key = line_key(poly, i)
               cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
@@ -1922,7 +1946,7 @@ module InteriorPro
                                  reach: framed_edge_span(framed, poly, i, owners))
             end
           else
-            gables.each do |i|
+            rakes.each do |i|
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
                                  sloped: s[:soffit_slope] == true)
             end
@@ -2028,7 +2052,7 @@ module InteriorPro
       #   InteriorPro::RoofManager.build_roof!(gable_walls: false)
       if s[:gable_walls] && zmap && !gables.empty?
         build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
-                               s[:overhang], framed, band_top, slope)
+                               s[:overhang], framed, band_top, slope, cells)
       end
       grp.entities.grep(Sketchup::Face).each do |f|
         next if f.material
@@ -3570,7 +3594,8 @@ module InteriorPro
     end
 
     def self.build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
-                                    overhang, framed, band_top, slope)
+                                    overhang, framed, band_top, slope,
+                                    cells = nil)
       owners = framed ? framed_line_owners(framed) : {}
       surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       gables.each do |i|
@@ -3597,19 +3622,267 @@ module InteriorPro
         inw = [-d[1], d[0]] # inward for CCW
         names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
                 InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
-        chain_regions_above(chain, zbase).each do |prof|
-          # Only the VISIBLE spans get a prism (dense sampling, same rule
-          # as the rakes): where a wing roof covers this line the profile
-          # coincides with (or dives under) the wing surface, and a wall
-          # there would knife through the wing roof - that was the lower
-          # half of the "green line" bug (2026-08-09).
-          wall_visible_profile(prof, a, d, cov).each do |pp|
+        # WHERE THE WALL REALLY STOPS (2026-08-26). The poly edge is the
+        # EAVE polygon's - the wall centrelines pushed out by the overhang -
+        # so at every corner it runs PAST the wall it belongs to, by the
+        # overhang. On a gable that stub sits down where the triangle has no
+        # height and nobody ever saw it; on a SHED the far end of a side wall
+        # is at FULL height, and the stub hangs in the air past the corner -
+        # the white board in the user's photo, 2026-08-26.
+        # ...but ONLY on a plain plan. Where the roof was OVER-FRAMED, a
+        # gable wall is MEANT to run past its own wall - all the way to
+        # where the wing roof meets the main one, or the hole under that
+        # wing stays open (rt17, rt86, 2026-08-09). There the chain is
+        # already cut to `reach` and needs no help from here.
+        lo, hi = framed ? [-1.0e12, 1.0e12]
+                        : wall_span_on_edge(wall, a, d, vlen(vsub(b, a)), th)
+        # MEASURE THE ROOF WHERE THE WALL ACTUALLY STANDS (2026-08-26).
+        #
+        # This used to copy the profile off the roof EDGE and draw it at
+        # the WALL line, one overhang inboard. The two are the same height
+        # only when stepping inboard runs square to the fall - true of a
+        # gable end, which is why it held for two years, and false of a
+        # SHED's high wall, where stepping inboard runs straight DOWNHILL.
+        # There the roof is slope*overhang lower than the copy said, and
+        # the wall stood that far proud of the shingles: the grey bar the
+        # user photographed. Shifting the copy down by that much was a
+        # patch on one case; it still says nothing about a wall line that
+        # crosses from one roof plane onto another.
+        #
+        # So the profile is no longer copied at all. It is SAMPLED off the
+        # roof's underside along the wall's own line - the same plane
+        # equation build_hip_geometry! raised the roof with - and a wall
+        # can then only ever meet the roof it actually touches.
+        # ONE WALL PER CORNER (2026-08-26). Two walls that meet own the
+        # same little square of plan, and on a shed BOTH of them are
+        # raised - so both built a prism there, one inside the other, and
+        # the seam showed as a double line down the corner (the user's
+        # red arrows). Every raised wall gives up its START end to its
+        # neighbour: exactly one of the two builds the corner, so there
+        # is no overlap and no gap either. A plain gable has no adjacent
+        # gable edges at all, so nothing there moves.
+        unless framed
+          prev = (i - 1) % poly.length
+          if gables.include?(prev)
+            pw = wall_by_id(wall_ids[prev])
+            pt2 = pw ? pw.get_attribute('InteriorPro', 'thickness').to_f : 0.0
+            lo += pt2 if pt2 > 0.1
+          end
+        end
+        prof_src = framed ? nil
+                          : wall_line_profile(poly, i, cells, z0, slope,
+                                              overhang, lo, hi)
+        if prof_src
+          chain_regions_above(prof_src.map { |t, z| [t, nil, z] }, zbase).each do |pp|
             build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, pp, names)
+          end
+        else
+          chain_regions_above(chain, zbase).each do |prof|
+            # Only the VISIBLE spans get a prism (dense sampling, same rule
+            # as the rakes): where a wing roof covers this line the profile
+            # coincides with (or dives under) the wing surface, and a wall
+            # there would knife through the wing roof - that was the lower
+            # half of the "green line" bug (2026-08-09).
+            wall_visible_profile(prof, a, d, cov).each do |pp|
+              cp = clip_profile(pp, lo, hi)
+              next if cp.empty?
+              build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, cp, names)
+            end
           end
         end
       end
     rescue StandardError => e
       puts "[Roof] build_gable_wall_tops!: #{e.message}"
+    end
+
+    # PURE: which of these gable edges have a LEVEL top - the edges that
+    # run square to the fall, so the roof neither climbs nor drops along
+    # them. On a shed that is the high edge across the top; on a gable
+    # end it is never any of them, because a gable end always faces its
+    # own roof's fall. Measured the same way the roof was built: the
+    # cell's eave normal is the downhill direction, and an edge square to
+    # it is level.
+    def self.level_gable_edges(poly, gables, cells)
+      return [] if poly.nil? || cells.nil? || cells.empty? || gables.nil?
+      n = poly.length
+      gables.select do |i|
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        d = vnorm(vsub(b, a))
+        mid = [(a[0] + b[0]) / 2.0 - d[1] * 0.5, (a[1] + b[1]) / 2.0 + d[0] * 0.5]
+        cell = cells.find { |c| point_in_ring?(c[:pts], mid[0], mid[1]) }
+        next false if cell.nil? || cell[:eave].nil?
+        e = poly[cell[:eave]]
+        ed = vnorm(vsub(poly[(cell[:eave] + 1) % n], e))
+        vdot(d, ed).abs > 0.7      # runs the same way as its own eave
+      end
+    rescue StandardError
+      []
+    end
+
+    # PURE: the roof's UNDERSIDE at (x, y). Straight out of
+    # build_hip_geometry!: over one cell the roof is a plane that starts
+    # at z0 - slope*overhang on that cell's eave line and climbs at
+    # `slope` away from it. nil when there is no cell to ask - a flat
+    # roof, or a point off the roof altogether.
+    def self.roof_under_z(poly, cells, z0, slope, overhang, x, y)
+      return nil if poly.nil? || cells.nil? || cells.empty?
+      n = poly.length
+      cell = cells.find { |c| point_in_ring?(c[:pts], x, y) }
+      cell ||= cells.min_by do |c|
+        cx = c[:pts].map { |p| p[0] }.inject(:+) / c[:pts].length.to_f
+        cy = c[:pts].map { |p| p[1] }.inject(:+) / c[:pts].length.to_f
+        (cx - x)**2 + (cy - y)**2
+      end
+      return nil if cell.nil? || cell[:eave].nil?
+      e = poly[cell[:eave]]
+      ed = vnorm(vsub(poly[(cell[:eave] + 1) % n], e))
+      en = [-ed[1], ed[0]]
+      z0.to_f - slope.to_f * overhang.to_f +
+        slope.to_f * vdot(en, [x - e[0], y - e[1]])
+    rescue StandardError
+      nil
+    end
+
+    # PURE: the wall-top profile for poly edge i, as [[t, z], ...], read
+    # off the roof's underside along the WALL's own line - one overhang
+    # inboard of the roof edge, which is where the prism is drawn. t is
+    # measured along the edge from poly[i], between lo and hi.
+    # nil when there is no roof surface to read.
+    def self.wall_line_profile(poly, i, cells, z0, slope, overhang, lo, hi,
+                               step = 6.0)
+      return nil if cells.nil? || cells.empty? || poly.nil?
+      n = poly.length
+      a = poly[i]
+      b = poly[(i + 1) % n]
+      len = vlen(vsub(b, a))
+      d = vnorm(vsub(b, a))
+      inw = [-d[1], d[0]]
+      lo = [lo.to_f, 0.0].max
+      hi = [hi.to_f, len].min
+      return nil if hi - lo < 0.5
+      ts = []
+      t = lo
+      while t < hi - 1.0e-6
+        ts << t
+        t += step
+      end
+      ts << hi
+      out = ts.map do |tt|
+        x = a[0] + d[0] * tt + inw[0] * overhang.to_f
+        y = a[1] + d[1] * tt + inw[1] * overhang.to_f
+        z = roof_under_z(poly, cells, z0, slope, overhang, x, y)
+        z.nil? ? nil : [tt, z]
+      end.compact
+      return nil if out.length < 2
+      simplify_profile(out)
+    rescue StandardError
+      nil
+    end
+
+    # PURE: drop every point that sits on the straight line between its
+    # neighbours. A plane samples into a run of collinear points, and a
+    # prism does not need them.
+    def self.simplify_profile(prof, tol = 0.01)
+      return prof if prof.nil? || prof.length < 3
+      out = [prof.first]
+      prof.each_cons(3) do |(t1, z1), (t2, z2), (t3, z3)|
+        span = t3 - t1
+        next out << [t2, z2] if span.abs < 1.0e-9
+        zi = z1 + (z3 - z1) * ((t2 - t1) / span)
+        out << [t2, z2] if (zi - z2).abs > tol
+      end
+      out << prof.last
+      out
+    end
+
+    # PURE: is (x, y) inside this ring of [x, y] points?
+    def self.point_in_ring?(ring, x, y)
+      return false if ring.nil? || ring.length < 3
+      c = false
+      n = ring.length
+      n.times do |i|
+        a = ring[i]
+        b = ring[(i + 1) % n]
+        next if (a[1] > y) == (b[1] > y)
+        xx = (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]
+        c = !c if x < xx
+      end
+      c
+    end
+
+    # The span of THIS wall along a poly edge, as [t_lo, t_hi] measured
+    # from `a` along `d`, clamped to the edge.
+    #
+    # THE WALL'S OWN BOUNDING BOX IS THE ANSWER, when there is one. The
+    # first try padded the CENTRELINE by half a thickness, reasoning that
+    # a square corner puts the outer face there. That is only true when a
+    # wall was drawn down its centre: the user's are drawn along their
+    # OUTER face, so the centreline already reached the corner and the pad
+    # pushed 2.5 in. past it - exactly the stub he photographed poking out
+    # through the soffit (2026-08-26). A bounding box needs no assumption
+    # about how the wall was drawn.
+    #
+    # The padded centreline stays as the fallback for a wall with no
+    # geometry to measure (the test stub), and a wall that cannot be
+    # measured at all gives back the whole edge - the behaviour before any
+    # of this existed, so a missing attribute is only ever neutral.
+    def self.wall_span_on_edge(wall, a, d, len, th)
+      ts = wall_bounds_span(wall, a, d) || wall_centre_span(wall, a, d, th)
+      return [0.0, len] if ts.nil?
+      [[ts[0], 0.0].max, [ts[1], len].min]
+    rescue StandardError
+      [0.0, len]
+    end
+
+    # The wall group's own extent along d, or nil when there is nothing to
+    # measure. For a wall running along d - which is every wall this is
+    # asked about - the box's extent IS the wall's length, end caps and
+    # corner boards included.
+    def self.wall_bounds_span(wall, a, d)
+      return nil unless wall && wall.valid?
+      bb = wall.bounds
+      lo = bb.min
+      hi = bb.max
+      return nil if lo.nil? || hi.nil?
+      ts = [[lo.x, lo.y], [hi.x, lo.y], [lo.x, hi.y], [hi.x, hi.y]].map do |x, y|
+        d[0] * (x.to_f - a[0]) + d[1] * (y.to_f - a[1])
+      end
+      return nil if ts.max - ts.min < 1.0
+      [ts.min, ts.max]
+    rescue StandardError
+      nil
+    end
+
+    # PURE: the centreline endpoints, each pushed out by half a thickness.
+    def self.wall_centre_span(wall, a, d, th)
+      seg = InteriorPro::RoomManager.centerline(wall)
+      return nil if seg.nil?
+      ts = [seg[:s], seg[:e]].map do |p|
+        d[0] * (p.x.to_f - a[0]) + d[1] * (p.y.to_f - a[1])
+      end
+      pad = th.to_f.abs / 2.0
+      [ts.min - pad, ts.max + pad]
+    rescue StandardError
+      nil
+    end
+
+    # PURE: a [[t, z], ...] profile cut down to t in [lo, hi], with z
+    # interpolated at the two new ends. Empty when nothing is left.
+    def self.clip_profile(prof, lo, hi)
+      return [] if prof.nil? || prof.length < 2
+      lo = [lo, prof.first[0]].max
+      hi = [hi, prof.last[0]].min
+      return [] if hi - lo < 0.5
+      zat = lambda do |t|
+        seg = prof.each_cons(2).find { |(t1, _z1), (t2, _z2)| t >= t1 - 1.0e-9 && t <= t2 + 1.0e-9 }
+        next (t <= prof.first[0] ? prof.first[1] : prof.last[1]) if seg.nil?
+        (t1, z1), (t2, z2) = seg
+        next z1 if (t2 - t1).abs < 1.0e-9
+        z1 + (z2 - z1) * ((t - t1) / (t2 - t1))
+      end
+      inner = prof.select { |t, _z| t > lo + 1.0e-9 && t < hi - 1.0e-9 }
+      [[lo, zat.call(lo)]] + inner + [[hi, zat.call(hi)]]
     end
 
     # The visible sub-profiles of a wall-top region: each cons pair is
