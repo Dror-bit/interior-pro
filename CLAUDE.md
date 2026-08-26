@@ -22,6 +22,20 @@ Live folder (edit in place, no RBZ):
 - One step at a time. Test in SketchUp, then commit, then next step.
 - Do not break what already works.
 
+## BOARDS MEET, THEY NEVER RUN INSIDE EACH OTHER (user's law, 2026-08-26)
+
+Set by the user after catching it three times in one day: *"תרשום לעצמך
+חוק שהם חייבים להיפגש ולא להיכנס אחד לתוך השני."*
+
+Whenever two trim pieces (fascia, drip, soffit, rake board, deck strip -
+any two solids) share a corner or a line, exactly ONE of them owns the
+shared block and the other is CUT BACK to end flush on its face. Never
+let both build into the same piece of space - overlapping solids show as
+seams and doubled lines on the face, and the user sees them immediately.
+Before adding any new trim piece, ask: which existing piece does each of
+its ends run into, and is it cut to end exactly there?
+`RoofManager.rake_meet_span` is the helper for rake-vs-band corners.
+
 ## Current phase: curved walls, then 2D plans to PDF
 
 (The old "doors only" restriction is retired - it was from the 2026-04 phase

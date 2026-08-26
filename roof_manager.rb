@@ -1585,12 +1585,16 @@ module InteriorPro
       # Told apart by shape, not by name: a level edge runs square to the
       # fall, a rake runs with it. So a gable end - always square to its
       # own roof's fall - is untouched, and only a shed has any of these.
-      # NOT DONE YET: a shed's level top edge still gets a rake board and
-      # no fascia. Giving it the eave bands needs build_band! to take a
-      # per-edge height - band_top is the EAVE height, and on a shed the
-      # top edge is a storey above it, so the bands land 6 ft too low.
-      # `rakes` is every gable until that exists.
-      rakes = gables
+      # DONE (2026-08-26, the user approved the section sketch): a level
+      # edge comes OUT of `rakes`, so no rake board, rake drip, rake
+      # soffit or rake beams grow on it, and the fascia/drip/soffit
+      # blocks below give it the eave dress at its OWN height - read off
+      # the roof underside at that edge, not band_top, which sits a
+      # storey lower. No gutter there: the water runs to the low side.
+      # It STAYS in `gables`, so the raised wall and every skip-flag
+      # treat it exactly as before.
+      lvl_edges = framed || cells.nil? ? [] : level_gable_edges(poly, gables, cells)
+      rakes = gables - lvl_edges
       gable_flags = Array.new(poly.length, false)
       gables.each { |i| gable_flags[i] = true }
       # An abut edge is flagged like a gable for everything the flags SKIP
@@ -1643,6 +1647,33 @@ module InteriorPro
                               roof_mat, roof_mat)
         end
         build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat)
+        # THE DECK ENDS AT THE END (2026-08-26, the user's own corner
+        # mock-up: "ככה"). On a shed the rake trim rides OUTSIDE the slab
+        # edge, so from above a bare white ledge showed between the deck
+        # and the corner. The deck is stretched over it: one strip along
+        # each rake, dz thick with its top flush with the deck, out to
+        # the rake trim's outer face. Built with the rake board's own
+        # builder off the TOP shell's line - the zmap lifted by dz - so
+        # it follows the deck's profile exactly, and painted as roof.
+        # SHED ONLY: lvl_edges is empty on every other style, so a plain
+        # gable keeps exactly the look it has.
+        unless lvl_edges.empty?
+          rake_out = (s[:fascia] ? FASCIA_THICK : 0.0) +
+                     (s[:drip] ? DRIP_THICK : 0.0)
+          if rake_out > 0.001 && zmap && !rakes.empty?
+            zmap_top = {}
+            zmap.each { |k2, v2| zmap_top[k2] = v2 + dz }
+            before_deck = grp.entities.grep(Sketchup::Face)
+            rakes.each do |i|
+              build_rake_board!(grp, poly, i, zmap_top, dz,
+                                k_in: 0.0, k_out: rake_out)
+            end
+            (grp.entities.grep(Sketchup::Face) - before_deck).each do |f|
+              f.material = roof_mat
+              f.back_material = roof_mat
+            end
+          end
+        end
       end
 
       # ---- ridge cap (2026-08-10) --------------------------------------
@@ -1805,22 +1836,39 @@ module InteriorPro
                               reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
-          rakes.each { |i| build_rake_board!(grp, poly, i, zmap, s[:fascia_depth]) }
+          # A rake board ENDS where it MEETS the level edge's fascia
+          # (the user's standing rule, 2026-08-26: boards meet, they
+          # never run inside one another). rake_meet_span pulls its span
+          # back one fascia-thickness at a corner shared with a level
+          # edge; nil anywhere else - the exact old path.
+          rakes.each do |i|
+            build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
+                              reach: rake_meet_span(poly, i, lvl_edges,
+                                                    FASCIA_THICK))
+          end
         end
       end
       if s[:drip]
+        # THE METAL EDGE WRAPS EVERY CORNER (2026-08-26, the user: "בכל
+        # הפינות לא רק בשתיים וגם בגגות האחרים"). Where the eave drip
+        # meets a rake it used to end in a mitred 45 at the poly corner -
+        # a notch short of the rake drip climbing past it. Cut SQUARE
+        # instead and run onto the rake drip's own outer face, exactly
+        # the join the shed's top edge already has. A hip or flat roof
+        # has no gabled edge, so square_flags never fires there and
+        # nothing moves.
+        d_in = s[:fascia] ? FASCIA_THICK : 0.0
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
-                    gable_flags, gable_spans)
+                    gable_flags, gable_spans, gable_flags, d_in + DRIP_THICK)
         # ...and the same thin strip climbing the gable rakes (user
         # 2026-08-24). build_band! skips a gabled edge entirely, so without
         # this the drip stopped dead at the corner. It rides on the rake
         # fascia's outer face when there is one, and on the poly line itself
         # when the fascia is switched off, so it never floats in mid air.
         # Same chain/runs machinery as the rake fascia - no new geometry.
-        d_in = s[:fascia] ? FASCIA_THICK : 0.0
         if zmap && framed
           owners = framed_line_owners(framed)
-          gables.each do |i|
+          rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
             build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH, cover: cov,
@@ -1828,10 +1876,41 @@ module InteriorPro
                               reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
-          gables.each do |i|
+          rakes.each do |i|
             build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH,
                               k_in: d_in, k_out: d_in + DRIP_THICK)
           end
+        end
+      end
+      # ---------- THE LEVEL TOP EDGE OF A SHED (2026-08-26) -------------
+      # The same fascia and drip the low eave just got, only at the top
+      # edge's own height. The soffit's turn comes inside the soffit
+      # block below, so its board is painted and softened with the rest.
+      # SQUARE CORNERS, not mitred (the user's red circles): the fascia
+      # runs THROUGH the corner and ends flat on the rake board's outer
+      # face, and the drip the same, one drip-thickness further out - so
+      # both wrap the rake's top end instead of leaving a notch beside it.
+      lvl_edges.each do |le|
+        ze = level_edge_band_top(poly, le, cells, z0, slope, s[:overhang])
+        next if ze.nil?
+        flags = Array.new(poly.length, true)
+        flags[le] = false
+        sqf = Array.new(poly.length, false)
+        sqf[(le - 1) % poly.length] = true
+        sqf[(le + 1) % poly.length] = true
+        d_in = s[:fascia] ? FASCIA_THICK : 0.0
+        if s[:fascia]
+          # A quarter inch DEEPER than the eave depth (the user,
+          # 2026-08-26: "תאריך למטה ברבע אינץ'") - the rake board's
+          # bottom lands that much lower at the shared corner, and the
+          # two must end FLUSH.
+          build_band!(grp, poly, -FASCIA_THICK, 0.0, ze,
+                      ze - s[:fascia_depth] - 0.25, flags, nil, sqf,
+                      FASCIA_THICK)
+        end
+        if s[:drip]
+          build_band!(grp, poly, 0.0, DRIP_THICK, ze, ze - DRIP_DEPTH,
+                      flags, nil, sqf, d_in + DRIP_THICK)
         end
       end
       # ---------- THE GUTTER (2026-08-28) -------------------------------
@@ -1930,6 +2009,25 @@ module InteriorPro
           # a rectangle, no 45 degree diagonal (user 2026-08-24).
           build_band!(grp, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
                       gable_flags, gable_spans, gable_flags, 0.0, rise)
+          # ...and the same board under a shed's LEVEL top edge, at that
+          # edge's own height (2026-08-26). Built inside this block so it
+          # is painted and seam-softened with every other soffit face.
+          # With the sloped option ON it slopes WITH the roof - and
+          # inboard of the top edge is DOWNHILL, so its rise is the eave
+          # formula MIRRORED: the inner edge DROPS instead of climbing,
+          # and the board lies parallel to the deck above it (the user:
+          # "האיבס צריך להיות מקביל לפשיה", 2026-08-26).
+          lvl_edges.each do |le|
+            ze = level_edge_band_top(poly, le, cells, z0, slope, s[:overhang])
+            next if ze.nil?
+            sb2 = soffit_band(s[:overhang], s[:fascia_depth], s[:fascia], ze)
+            next if sb2.nil?
+            flags = Array.new(poly.length, true)
+            flags[le] = false
+            rise2 = -soffit_rise(sb2, slope, s[:soffit_slope])
+            build_band!(grp, poly, sb2[:k_in], sb2[:k_out], sb2[:z_top],
+                        sb2[:z_bot], flags, nil, gable_flags, 0.0, rise2)
+          end
         end
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
@@ -1946,9 +2044,14 @@ module InteriorPro
                                  reach: framed_edge_span(framed, poly, i, owners))
             end
           else
+            # The rake twin ENDS where it MEETS the level edge's own
+            # soffit board (boards meet, never one inside the other) -
+            # pulled back a whole overhang, to that board's inner edge.
             rakes.each do |i|
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
-                                 sloped: s[:soffit_slope] == true)
+                                 sloped: s[:soffit_slope] == true,
+                                 reach: rake_meet_span(poly, i, lvl_edges,
+                                                       s[:overhang].to_f))
             end
           end
         end
@@ -1981,10 +2084,10 @@ module InteriorPro
           # With a SLOPED soffit the lowest lookout is culled - see `clear`
           # over build_rake_beams!.
           lk_clear = s[:soffit_slope] ? spec[:h].to_f + 0.02 : 0.02
-          if zmap && !gables.empty?
+          if zmap && !rakes.empty?
             if framed
               owners = framed_line_owners(framed)
-              gables.each do |i|
+              rakes.each do |i|
                 key = line_key(poly, i)
                 cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
                 build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
@@ -1993,7 +2096,7 @@ module InteriorPro
                                   reach: framed_edge_span(framed, poly, i, owners))
               end
             else
-              gables.each do |i|
+              rakes.each do |i|
                 build_rake_beams!(grp, poly, i, zmap, sb[:k_in], sb[:k_out], spec,
                                   drop: drop, clear: lk_clear)
               end
@@ -3714,6 +3817,45 @@ module InteriorPro
       puts "[Roof] build_gable_wall_tops!: #{e.message}"
     end
 
+    # THE USER'S STANDING RULE (2026-08-26): trim boards MEET - they end
+    # exactly on the face of the board they run into, and never continue
+    # inside it. Where a rake piece shares a corner with a LEVEL (banded)
+    # edge, the level edge's band owns the corner block, and the rake
+    # piece is pulled back by `cut` - the depth of that band - so the two
+    # end flush on one plane. Returns [t_lo, t_hi] along the edge, or nil
+    # when nothing needs pulling back, and nil keeps the caller's exact
+    # old path.
+    def self.rake_meet_span(poly, i, lvl_edges, cut)
+      return nil if lvl_edges.nil? || lvl_edges.empty?
+      n = poly.length
+      len = vlen(vsub(poly[(i + 1) % n], poly[i]))
+      lo = lvl_edges.include?((i - 1) % n) ? cut.to_f : 0.0
+      hi = lvl_edges.include?((i + 1) % n) ? len - cut.to_f : len
+      lo > 0.0 || hi < len ? [lo, hi] : nil
+    rescue StandardError
+      nil
+    end
+
+    # The band height for a shed's LEVEL top edge: the roof's underside
+    # ON that edge's own line - the exact analogue of what band_top
+    # (z0 - slope*overhang) is for the low eave. Sampled half an inch
+    # inboard, because the line itself sits on the cell boundary, then
+    # corrected back by slope*0.5 - a level edge faces straight up its
+    # own fall, so half an inch inboard is half an inch downhill.
+    # nil when there is no surface to read.
+    def self.level_edge_band_top(poly, le, cells, z0, slope, overhang)
+      a = poly[le]
+      b = poly[(le + 1) % poly.length]
+      d = vnorm(vsub(b, a))
+      inw = [-d[1], d[0]]
+      mx = (a[0] + b[0]) / 2.0 + inw[0] * 0.5
+      my = (a[1] + b[1]) / 2.0 + inw[1] * 0.5
+      ze = roof_under_z(poly, cells, z0, slope, overhang, mx, my)
+      ze.nil? ? nil : ze + slope.to_f * 0.5
+    rescue StandardError
+      nil
+    end
+
     # PURE: which of these gable edges have a LEVEL top - the edges that
     # run square to the fall, so the roof neither climbs nor drops along
     # them. On a shed that is the high edge across the top; on a gable
@@ -4051,13 +4193,13 @@ module InteriorPro
         end
       end
       face.call([obl] + op3 + [obh])              # outer face
-      face.call([ibl] + ip3 + [ibh])              # inner face
+      inner_f = face.call([ibl] + ip3 + [ibh])    # inner face
       face.call([obl, obh, ibh, ibl])             # bottom
       face.call([obl, op3.first, ip3.first, ibl]) # start cut (the diagonal)
       face.call([obh, op3.last, ip3.last, ibh])   # end cut (the diagonal)
       add_top_strip!(sub, op, ip, o_at, i_at, p3)
       soften_coplanar_edges!(sub)
-      paint_gable_top!(sub, d, inw, names)
+      paint_mitred_wall!(sub, inner_f, names)
       true
     rescue StandardError => e
       puts "[Roof] add_mitred_wall_solid!: #{e.message}"
@@ -4090,6 +4232,35 @@ module InteriorPro
         end
         adv_o ? oi += 1 : ii += 1
       end
+    end
+
+    # Paint the mitred solid BY IDENTITY, not by normal (2026-08-26):
+    # add_face orients a face by its winding order, and the mitred
+    # builder's winding put every normal INWARD - so paint_gable_top!'s
+    # normal test called the exterior face "interior" and the wall came
+    # out white outside with the texture buried in the joint (the user's
+    # photo). Here the builder simply SAYS which face is the inner one;
+    # everything else - outer face, ends, top, bottom - wears the
+    # exterior material, exactly the set the old push-pull prism gave it.
+    def self.paint_mitred_wall!(sub, inner_f, names)
+      ext_name, int_name = names
+      unless ext_name || int_name
+        puts '[Roof] gable wall top: no wall materials found - left unpainted'
+        return
+      end
+      return unless InteriorPro::WallTool.respond_to?(:new)
+      wt = InteriorPro::WallTool.new
+      ext_m = ext_name ? wt.load_or_create_material(ext_name) : nil
+      int_m = int_name ? wt.load_or_create_material(int_name) : nil
+      sub.entities.grep(Sketchup::Face).each do |fc|
+        m = (!inner_f.nil? && fc.equal?(inner_f)) ? (int_m || ext_m)
+                                                  : (ext_m || int_m)
+        next unless m
+        fc.material = m
+        fc.back_material = m
+      end
+    rescue StandardError => e
+      puts "[Roof] paint_mitred_wall!: #{e.message}"
     end
 
     # 3D distance between two Point3d, without relying on Point3d#-
