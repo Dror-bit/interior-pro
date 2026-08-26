@@ -32,7 +32,7 @@ module InteriorPro
         # Colors section went away - every colour now stands beside the
         # thing it paints (user: "כל הצבעים תחלק אותם ליד כל העמודות שהם
         # שייכים אליהם"), which is three rows saved.
-        width: 340, height: 760, resizable: true,
+        width: 340, height: 790, resizable: true,
         min_width: 300, min_height: 380,
         max_width: 560, max_height: 1100
       )
@@ -40,7 +40,8 @@ module InteriorPro
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
                                                 soffit, scol, sslope, rlevel,
-                                                gutt, gprof, gwidth, gcol, dspout|
+                                                gutt, gprof, gwidth, gcol, dspout,
+                                                maxover|
         # Which roof this Apply belongs to: the one the Edit tool clicked,
         # or none (the plain Roof button). Checked NOW, not at show time -
         # the roof the panel opened on may have been rebuilt or removed
@@ -113,7 +114,13 @@ module InteriorPro
           # following the fascia. nil is the older-call case and means
           # leave whatever is saved.
           gutter_color: gcol.nil? ? nil : gcol.to_s,
-          downspouts: dspout.nil? ? nil : truthy(dspout)
+          downspouts: dspout.nil? ? nil : truthy(dspout),
+          # THE HEIGHT LIMIT over the storey above (2026-08-30), in
+          # FEET in the panel because that is how he asked for it
+          # ("מקסימום 4 פוט מעל הרצפה של הקומה העליונה") - inches
+          # everywhere below. nil from a shorter call means leave it
+          # alone; 0 is a real value and turns the limit off.
+          abut_headroom: maxover.nil? ? nil : maxover.to_f * 12.0
         }
         # WHERE the roof goes (2026-08-26, step 5 - the storey picker,
         # user: "איך אני בוחר קומה ראשונה או שניה או שניהם?"):
@@ -155,7 +162,7 @@ module InteriorPro
                                       : RoofManager.settings,
                               edit: !@target.nil?))
       begin
-        dlg.set_size(340, 760)
+        dlg.set_size(340, 790)
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError => e
         puts "[Roof] dialog size: #{e.message}"
@@ -261,6 +268,8 @@ module InteriorPro
           </div>
           <div class="row"><label>Pitch (rise : 12)</label>
             <select id="pitch">#{pitch_options}</select></div>
+          <div class="row sub"><label>Max over storey above</label>
+            <input type="number" id="maxOver" step="0.5" min="0" value="#{(s[:abut_headroom].to_f / 12.0).round(2)}"> ft</div>
 
           <div class="section-title">Eaves</div>
           <div class="row"><label><input type="checkbox" id="eaves"#{s[:overhang] > 0.01 ? ' checked' : ''} onchange="eavesChanged()"> Eaves (overhang)</label>
@@ -343,7 +352,8 @@ module InteriorPro
                 document.getElementById('gutterProfile').value,
                 document.getElementById('gutterWidth').value,
                 gutterPickedFlag ? document.getElementById('gutterColor').value : '',
-                document.getElementById('downspouts').checked);
+                document.getElementById('downspouts').checked,
+                document.getElementById('maxOver').value);
             }
             styleChanged();
             eavesChanged();

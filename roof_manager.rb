@@ -115,6 +115,10 @@ module InteriorPro
       {
         style: g.call('roof_style', 'hip').to_s,
         pitch: g.call('roof_pitch', DEFAULT_PITCH).to_f,
+        # How far over the UPPER storey's floor a lower roof may end
+        # (2026-08-30). 0 = no limit, and the roof climbs as far as
+        # the pitch takes it, exactly as it did before that day.
+        abut_headroom: g.call('roof_abut_headroom', abut_headroom).to_f,
         overhang: g.call('roof_overhang', DEFAULT_OVERHANG).to_f,
         fascia: g.call('roof_fascia', true) == true,
         fascia_depth: g.call('roof_fascia_depth', DEFAULT_FASCIA_DEPTH).to_f,
@@ -153,6 +157,7 @@ module InteriorPro
       m = Sketchup.active_model
       m.set_attribute('InteriorPro', 'roof_style', s[:style])
       m.set_attribute('InteriorPro', 'roof_pitch', s[:pitch])
+      m.set_attribute('InteriorPro', 'roof_abut_headroom', s[:abut_headroom])
       m.set_attribute('InteriorPro', 'roof_overhang', s[:overhang])
       m.set_attribute('InteriorPro', 'roof_fascia', s[:fascia])
       m.set_attribute('InteriorPro', 'roof_fascia_depth', s[:fascia_depth])
@@ -195,7 +200,8 @@ module InteriorPro
     # roof_textures: `X = {...} unless const_defined?(:X)` is not re-read by
     # InteriorPro.reload!, and that has already cost this project rounds.
     def self.roof_setting_keys
-      %i[style pitch overhang fascia fascia_depth drip soffit soffit_color
+      %i[style pitch abut_headroom overhang fascia fascia_depth drip
+         soffit soffit_color
          soffit_slope roof_color fascia_color roof_material thickness
          ridge_cap gutter gutter_profile gutter_width gutter_color
          downspouts gable_walls]
@@ -1297,6 +1303,22 @@ module InteriorPro
     # no height to give back. A limit at or below the eave gives 0.0 -
     # honest, and the caller is the one that decides how flat is too
     # flat. PURE.
+    # How far over the UPPER storey's floor the lower roof may end.
+    # 4 ft, his own number (2026-08-30): "מקסימום 4 פוט מעל הרצפה של
+    # הקומה העליונה" - enough to put a window above it. 0 turns the cap
+    # off and the roof climbs as far as the pitch takes it, exactly as it
+    # did before today. A METHOD, not a constant, so reload! picks up a
+    # change (see the note in CLAUDE.md).
+    def self.abut_headroom
+      48.0
+    end
+
+    # However tight the limit gets, never build something that does not
+    # drain. Half an inch per foot is the flattest this will go.
+    def self.min_abut_slope
+      0.5 / 12.0
+    end
+
     def self.slope_for_limit(reach, overhang, z0, limit)
       run = reach.to_f - overhang.to_f
       return nil if run <= 1.0
@@ -1317,7 +1339,8 @@ module InteriorPro
                          gable_walls: nil, soffit: nil, soffit_color: nil,
                          soffit_slope: nil, gutter: nil, gutter_profile: nil,
                          gutter_width: nil, gutter_color: nil,
-                         downspouts: nil, level: nil, replace: nil)
+                         downspouts: nil, abut_headroom: nil,
+                         level: nil, replace: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
       # its settings are the starting point (keywords below still override,
@@ -1334,6 +1357,9 @@ module InteriorPro
       s[:gable_walls] = (gable_walls == true) unless gable_walls.nil?
       s[:style] = style.to_s if style
       s[:pitch] = pitch.to_f if pitch
+      # 0 is a real value here (turn the limit off), so this is
+      # `unless nil?`, never a bare truthy test.
+      s[:abut_headroom] = abut_headroom.to_f unless abut_headroom.nil?
       s[:overhang] = overhang.to_f unless overhang.nil?
       s[:fascia] = (fascia == true) unless fascia.nil?
       s[:fascia_depth] = fascia_depth.to_f if fascia_depth && fascia_depth.to_f > 0.01
@@ -1471,6 +1497,36 @@ module InteriorPro
           if cells.nil?
             puts '[Roof] could not form roof faces from the skeleton'
             return nil
+          end
+          # ---------- THE HEIGHT CAP (2026-08-30) ----------------------
+          # A roof that dies against the storey above has no ridge on
+          # that side - it just keeps rising until it reaches the wall,
+          # and over a deep wing that buries the storey whole ("הוא עולה
+          # מעבר לקיר של הקומה השניה"). His rule: the roof may end at
+          # most `abut_headroom` above the UPPER floor, so a window can
+          # sit over it.
+          #
+          # This only ever makes the roof FLATTER, and only when it would
+          # otherwise break the limit - a small wing keeps the pitch he
+          # picked, untouched, which is the whole point of taking the
+          # smaller of the two. s[:pitch] is deliberately NOT rewritten:
+          # the number he chose stays his, and the cap is worked out
+          # again from scratch on every rebuild.
+          if s[:abut_headroom].to_f > 0.0 && !abut_ids.empty?
+            floor_z = uppers.select { |w2|
+              abut_ids.include?(w2.get_attribute('InteriorPro', 'id'))
+            }.map { |w2| w2.get_attribute('InteriorPro', 'base_z').to_f }.min
+            unless floor_z.nil?
+              cap = slope_for_limit(cell_reach(poly, cells), s[:overhang],
+                                    eave_z(walls),
+                                    floor_z + s[:abut_headroom].to_f)
+              if cap && cap < slope
+                slope = [cap, min_abut_slope].max
+                puts format('[Roof] level %d: pitch held down to %.2f:12 ' \
+                            'to stay %.0f in. over the storey above',
+                            lvl, slope * 12.0, s[:abut_headroom].to_f)
+              end
+            end
           end
         end
       end
