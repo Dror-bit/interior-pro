@@ -356,8 +356,14 @@ ok('the lower roof builds at all', !low_r.nil?)
 fx = low_r.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
 ok('it stops at the divider, not at the back of the storey',
    fx.map { |p| p[1] }.max < 150.0, fx.map { |p| p[1] }.max)
-ok('...ONE INCH inside the wall exposed face, so no stub pokes out',
-   (fx.map { |p| p[1] }.max - 138.0).abs < 0.5, fx.map { |p| p[1] }.max)
+# ON THE WALL FACE, not an inch inside it (2026-09-01). It used to stop
+# an inch in, to bury the end cuts; the user could see the shingles
+# vanish into the stucco and asked for that inch back ("הגג נכנס לתוך
+# הקיר של הקומה השניה באינץ... תחזיר אותו אינץ אחורה"). The wrap was
+# taken off the abut corners in the same breath, so nothing pokes out
+# there either - RoofManager::ABUT_TUCK is the one number that says so.
+ok('...ON the wall exposed face, so nothing pokes into the stucco',
+   (fx.map { |p| p[1] }.max - 137.0).abs < 0.5, fx.map { |p| p[1] }.max)
 ok('...with its eaves still pushed out on its own three sides',
    fx.map { |p| p[1] }.min < -14.0 &&
    (fx.map { |p| p[0] }.min - -15.0).abs < 0.01 &&
@@ -382,7 +388,7 @@ ok('...but stays below the upper storey top', zmax_at_wall < 192.0, zmax_at_wall
 # bottom up to the roof underside.
 low_cap = RF.build_roof!(level: 1, soffit: 'spanish', soffit_slope: true)
 caps = low_cap.entities.grep(Sketchup::Face).select do |f|
-  f.pts.all? { |p| (p.y - 138.0).abs < 0.05 } && f.pts.map(&:z).max > 89.0
+  f.pts.all? { |p| (p.y - 137.0).abs < 0.05 } && f.pts.map(&:z).max > 89.0
 end
 ok('the eave gets an end cap at BOTH corners against the wall',
    caps.length == 2, caps.length)
@@ -439,9 +445,9 @@ low_l = RF.build_roof!(level: 1)
 ok('an L-shaped exposed part still builds', !low_l.nil?)
 fxl = low_l.get_attribute('InteriorPro', 'footprint_xy').each_slice(2).to_a
 ok('...as an L: six corners', fxl.length == 6, fxl.length)
-ok('...cut on BOTH dividers, an inch inside each wall face',
-   fxl.any? { |p| (p[1] - 138.0).abs < 0.5 } &&
-   fxl.any? { |p| (p[0] - 252.0).abs < 0.5 }, fxl)
+ok('...cut on BOTH dividers, on each wall face',
+   fxl.any? { |p| (p[1] - 137.0).abs < 0.5 } &&
+   fxl.any? { |p| (p[0] - 253.0).abs < 0.5 }, fxl)
 
 # nothing above -> nothing changes: the plain full loop, as always
 Sketchup.reset_model!

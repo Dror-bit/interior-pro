@@ -524,6 +524,53 @@ module InteriorPro
     #
     # nil = nothing to cut (no divider crosses this storey, or no face is
     # open to the sky). The caller then behaves exactly as before today.
+    # DOES THIS UPPER WALL CROSS THE STOREY BELOW? (2026-09-01)
+    #
+    # It used to be one question about the wall's MIDDLE point: inside
+    # the storey and clear of its boundary line = a divider, otherwise a
+    # wall that merely STANDS on the wall below. That reads a wall as if
+    # it were all one thing, and the user's own house proved it is not:
+    # his lower storey is an L, the upper storey stands on the big body,
+    # and the upper south wall runs 377" along the lower wall and then
+    # another 249" out over the open wing. Its middle sits on the
+    # stacked half, so it was written off, no divider was found, and the
+    # roof was built over the WHOLE lower storey - upper house included.
+    #
+    # So sample the whole line instead, and ask how much of it really
+    # crosses open storey. Any run worth a foot counts. A wall that only
+    # stacks has none of it - every sample sits half a thickness from
+    # the boundary - so that case answers exactly as it did before.
+    CROSS_SAMPLES = 32 unless const_defined?(:CROSS_SAMPLES, false)
+    MIN_CROSS_RUN = 12.0 unless const_defined?(:MIN_CROSS_RUN, false)
+
+    def self.crosses_storey?(base_pts, w)
+      rm = InteriorPro::RoomManager
+      sg = rm.centerline(w)
+      return false unless sg
+      th = sg[:th].to_f
+      dx = sg[:e].x - sg[:s].x
+      dy = sg[:e].y - sg[:s].y
+      len = Math.sqrt(dx * dx + dy * dy)
+      return false if len < 1.0
+      n = CROSS_SAMPLES
+      clear = 0
+      (0..n).each do |i|
+        t = i.to_f / n
+        x = sg[:s].x + dx * t
+        y = sg[:s].y + dy * t
+        next unless point_in_poly?(base_pts, x, y)
+        clear += 1 if dist_to_edges(base_pts, x, y) > th / 2.0 + 1.0
+      end
+      clear * len / (n + 1).to_f >= MIN_CROSS_RUN
+    end
+
+    # HOW FAR THE ROOF RUNS INTO THE UPPER WALL (2026-09-01).
+    # It used to stop one inch INSIDE the wall, to swallow the end cuts.
+    # The user can see that inch - the shingles disappear into the stucco
+    # ("הגג נכנס לתוך הקיר של הקומה השניה באינץ... תחזיר אותו אינץ
+    # אחורה") - so the edge now lands ON the wall face it meets.
+    ABUT_TUCK = 0.0 unless const_defined?(:ABUT_TUCK, false)
+
     def self.exposed_polygon(walls, upper_walls, overhang)
       rm = InteriorPro::RoomManager
       segs = walls.map { |w| rm.centerline(w) }.compact
@@ -535,14 +582,7 @@ module InteriorPro
 
       # the dividers: upper walls whose middle stands INSIDE this storey,
       # clear of its own boundary line (a stacked wall sits ON it).
-      dividers = upper_walls.select do |w|
-        sg = rm.centerline(w)
-        next false unless sg
-        mx = (sg[:s].x + sg[:e].x) / 2.0
-        my = (sg[:s].y + sg[:e].y) / 2.0
-        point_in_poly?(base[:pts], mx, my) &&
-          dist_to_edges(base[:pts], mx, my) > sg[:th].to_f / 2.0 + 1.0
-      end
+      dividers = upper_walls.select { |w| crosses_storey?(base[:pts], w) }
       return nil if dividers.empty?
       d_ids = dividers.map { |w| w.get_attribute('InteriorPro', 'id') }.compact
 
@@ -577,7 +617,7 @@ module InteriorPro
         id = edge && edge[:wall] ? edge[:wall].get_attribute('InteriorPro', 'id') : nil
         next overhang unless d_ids.include?(id)
         th = edge ? edge[:th].to_f : 0.0
-        [1.0, th / 2.0].min - th
+        [ABUT_TUCK, th / 2.0].min - th
       end
       out = outer_offset(poly, edata, overhang, oh_for)
       return nil unless out
@@ -1602,11 +1642,21 @@ module InteriorPro
       # in the upper wall) - but it is NOT in `gables`, so nothing a gable
       # BUILDS (rake boards, rake soffits, gable wall tops) grows there.
       # The upper wall itself closes that side.
+      abut_flags = Array.new(poly.length, false)
       unless abut_ids.empty?
         wall_ids.each_with_index do |id2, i|
-          gable_flags[i] = true if abut_ids.include?(id2)
+          next unless abut_ids.include?(id2)
+          gable_flags[i] = true
+          abut_flags[i] = true
         end
       end
+      # WHICH CORNERS THE METAL EDGE MAY WRAP (2026-09-01). It wraps a
+      # gable rake because there is a rake drip out there to land on. At
+      # an ABUT corner there is no board outside - there is the upper
+      # WALL - so a wrap just pokes 7/8" out of the stucco (the user
+      # measured it). Those corners get no wrap; the band ends on the
+      # wall face like every other board that meets something.
+      wrap_flags = gable_flags.each_with_index.map { |g, i| g && !abut_flags[i] }
       zmap = nil
       if s[:style] == 'flat'
         ridge = build_flat_geometry!(grp, poly, z0, roof_mat, trim_mat)
@@ -1859,7 +1909,7 @@ module InteriorPro
         # nothing moves.
         d_in = s[:fascia] ? FASCIA_THICK : 0.0
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
-                    gable_flags, gable_spans, gable_flags, d_in + DRIP_THICK)
+                    gable_flags, gable_spans, wrap_flags, d_in + DRIP_THICK)
         # ...and the same thin strip climbing the gable rakes (user
         # 2026-08-24). build_band! skips a gabled edge entirely, so without
         # this the drip stopped dead at the corner. It rides on the rake

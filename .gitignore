@@ -21,4 +21,5 @@ tests/ui_dialogs.rb
 tests/wall_stretch_tool.rb
 tests/floor_manager.rb
 tests/roof_manager.rb
+tests/dormer_manager.rb
 tests/roof_dialog.rb
