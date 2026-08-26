@@ -50,6 +50,8 @@ module InteriorPro
       roof_shed_tool.rb
       roof_edit_tool.rb
       dormer_manager.rb
+      dormer_dialog.rb
+      dormer_tool.rb
       downspout_tool.rb
       molding_library.rb
       molding_tool.rb

@@ -352,6 +352,19 @@ module InteriorPro
       gable_cmd.large_icon = icon_path('roof_gable')
       tb.add_item(gable_cmd)
 
+      # Dormer (2026-09-02): the panel first - sizes, gablet style and
+      # pitch - and its Place button hands over to DormerTool, which
+      # draws the whole dormer under the cursor and takes one click.
+      # Same shape as the Wall button, which opens the library first.
+      dormer_cmd = UI::Command.new('Dormer') {
+        InteriorPro::DormerDialog.show
+      }
+      dormer_cmd.tooltip = 'Dormer - size it, then click a roof slope to place it'
+      dormer_cmd.status_bar_text = 'Open the dormer panel and place a dormer on a roof'
+      dormer_cmd.small_icon = icon_path('dormer_tool')
+      dormer_cmd.large_icon = icon_path('dormer_tool')
+      tb.add_item(dormer_cmd)
+
       # Shed roof (2026-08-26): a single-slope roof. Click the LOW wall -
       # the roof rises away from it and every other wall is cut vertical.
       # One click does the whole thing (the UI rule: a tool button runs

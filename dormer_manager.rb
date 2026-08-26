@@ -146,8 +146,95 @@ module InteriorPro
     end
 
     def self.warn_nil(msg)
-      puts "[Dormer] #{msg}"
+      puts "[Dormer] #{msg}" unless @quiet
       nil
+    end
+
+    # The placing tool asks frame() a question on every mouse move, and
+    # most of those questions have no answer yet ("not over a roof",
+    # "too short here"). Without this the console fills with one line per
+    # pixel travelled.
+    def self.quietly
+      old = @quiet
+      @quiet = true
+      yield
+    ensure
+      @quiet = old
+    end
+
+    # ---------- what the panel remembers (2026-09-02) -------------------
+    #
+    # Saved on the MODEL, exactly like RoofManager.settings, so the next
+    # dormer in this file starts from the last one's numbers.
+    # pitch12 is the panel's own "rise : 12"; 0 means FOLLOW THE ROOF,
+    # which is the default the user agreed to.
+    def self.settings
+      m = Sketchup.active_model
+      g = lambda do |k, d|
+        v = m.get_attribute('InteriorPro', k)
+        v.nil? ? d : v
+      end
+      { width:        g.call('dormer_width',   DEFAULT_WIDTH).to_f,
+        length:       g.call('dormer_length',  DEFAULT_LENGTH).to_f,
+        setback:      g.call('dormer_setback', DEFAULT_SETBACK).to_f,
+        overhang:     g.call('dormer_overhang', DEFAULT_OVERHANG).to_f,
+        pitch12:      g.call('dormer_pitch12', 0.0).to_f,
+        fascia_depth: g.call('dormer_fascia_depth', 0.0).to_f,
+        style:        g.call('dormer_style', 'gable').to_s }
+    end
+
+    def self.save_settings!(s)
+      m = Sketchup.active_model
+      m.set_attribute('InteriorPro', 'dormer_width', s[:width].to_f)
+      m.set_attribute('InteriorPro', 'dormer_length', s[:length].to_f)
+      m.set_attribute('InteriorPro', 'dormer_setback', s[:setback].to_f)
+      m.set_attribute('InteriorPro', 'dormer_overhang', s[:overhang].to_f)
+      m.set_attribute('InteriorPro', 'dormer_pitch12', s[:pitch12].to_f)
+      m.set_attribute('InteriorPro', 'dormer_fascia_depth', s[:fascia_depth].to_f)
+      m.set_attribute('InteriorPro', 'dormer_style', s[:style].to_s)
+      s
+    end
+
+    # Panel numbers -> a frame() spec. The two "follow the house" cases
+    # are a ZERO in the panel, never a blank: pitch12 0 = the roof's own
+    # pitch, fascia_depth 0 = the house's own fascia.
+    def self.spec_from_settings(s = nil)
+      s ||= settings
+      spec = { width: s[:width].to_f, length: s[:length].to_f,
+               setback: s[:setback].to_f, overhang: s[:overhang].to_f,
+               style: s[:style].to_s }
+      spec[:pitch] = s[:pitch12].to_f / 12.0 if s[:pitch12].to_f > 0.01
+      spec[:fascia_depth] = s[:fascia_depth].to_f if s[:fascia_depth].to_f > 0.01
+      spec
+    end
+
+    # ---------- the ghost (2026-09-02) ---------------------------------
+    #
+    # What the placing tool draws under the cursor: the two roof planes
+    # of the dormer, its front wall, and the hole it will cut - all in
+    # world points, all from the SAME frame the build will use, so what
+    # he sees is what he gets. nil when there is no dormer to place here.
+    def self.preview(roof, x, y, spec = {})
+      quietly do
+        rf = roof_frame(roof, x, y)
+        return nil if rf.nil?
+        s = spec.merge(rf)
+        fr = frame(s)
+        return nil if fr.nil?
+        at = at_lambda(s)
+        loops = [1.0, -1.0].map do |sg|
+          roof_plan(fr, sg).map { |ss, w| at.call(ss, w, top_z(fr, w)) }
+        end
+        rt = fr[:roof_thickness]
+        half = fr[:half]
+        loops << [[-half, fr[:z_front]], [half, fr[:z_front]],
+                  [half, fr[:z_eave] - rt], [0.0, fr[:z_ridge] - rt],
+                  [-half, fr[:z_eave] - rt]]
+                 .map { |w, z| at.call(fr[:s_front], w, z) }
+        op = opening_plan(fr)
+        loops << op.map { |ss, w| at.call(ss, w, roof_z(fr, ss)) } if op
+        loops
+      end
     end
 
     # The main roof surface, and the height of the dormer roof's TOP
@@ -614,6 +701,17 @@ module InteriorPro
         extrude_sz!(drip, dprof, at, we * sg, (we + dt) * sg)
       end unless dprof.nil?
 
+      # THE EAVES ARE CLOSED (2026-09-02, the user: "עכשיו רק איבס
+      # וסיימנו"). The soffit board sits exactly where RoofManager's
+      # soffit_band puts it - from the wall face out to the fascia's
+      # inner face, at the fascia's bottom line, one SOFFIT_THICK thick -
+      # and it tilts with the roof when the house's boards do.
+      # Its BACK end is cut on the main roof like the fascia's, and
+      # because a tilted board's inner edge is higher, that edge reaches
+      # further back before the roof catches it: the cut is a diagonal
+      # in plan, not a square end.
+      build_eave_soffit!(grp, fr, at, spec, dep, z_top)
+
       # THE RAKE IS RoofManager's OWN BOARD - same climb, same cut-back
       # at the corner (rake_meet_span), same metal edge on its face.
       unless rm.nil?
@@ -630,6 +728,19 @@ module InteriorPro
           rm.build_rake_board!(rake, poly, gi, zmap, dep)
           paint!(rake, mat)
           rm.build_rake_board!(drip, poly, gi, zmap, dd, k_in: ft, k_out: ft + dt)
+          # ...and the gable's own soffit, RoofManager's board again.
+          # It is pulled back a whole overhang where it meets the eave
+          # soffit, so the two boards meet instead of crossing.
+          style, sloped = soffit_choice(spec)
+          if style != 'none' && fr[:overhang] >= 1.0 &&
+             rm.respond_to?(:build_rake_soffit!)
+            rs = new_part!(grp, 'InteriorPro_DormerSoffit', 'dormer_soffit')
+            rm.build_rake_soffit!(rs, poly, gi, zmap, dep, fr[:overhang],
+                                  sloped: sloped,
+                                  reach: rm.rake_meet_span(poly, gi, ring[:level],
+                                                           fr[:overhang]))
+            paint!(rs, trim_material(soffit_color(spec, style)))
+          end
         end
       end
       paint!(drip, mat)
@@ -638,6 +749,97 @@ module InteriorPro
       puts "[Dormer] build_trim!: #{e.class}: #{e.message}"
       puts e.backtrace.first(4) if e.backtrace
       false
+    end
+
+    # The soffit style and tilt: whatever the house is wearing, unless
+    # the caller says otherwise.
+    def self.soffit_choice(spec)
+      st = spec[:soffit]
+      sl = spec[:soffit_slope]
+      rm = roof_manager
+      if (st.nil? || sl.nil?) && rm && rm.respond_to?(:settings)
+        begin
+          set = rm.settings
+          st = set[:soffit] if st.nil?
+          sl = set[:soffit_slope] if sl.nil?
+        rescue StandardError
+          nil
+        end
+      end
+      [st.nil? ? 'boxed' : st.to_s, sl == true]
+    end
+
+    def self.soffit_color(spec, style)
+      c = spec[:soffit_color]
+      rm = roof_manager
+      if c.nil? && rm && rm.respond_to?(:settings)
+        c = begin
+          rm.settings[:soffit_color]
+        rescue StandardError
+          nil
+        end
+      end
+      c = nil if c.to_s.empty?
+      if c.nil? && rm && rm.respond_to?(:soffit_colors)
+        c = rm.soffit_colors[style]
+      end
+      c.nil? ? trim_color(spec) : c.to_s
+    end
+
+    def self.soffit_thick
+      rm = roof_manager
+      rm.nil? ? 0.75 : rm::SOFFIT_THICK
+    end
+
+    # PURE: one eave soffit board, as two profiles in (s, z) - the OUTER
+    # one against the fascia and the INNER one against the wall. The
+    # inner one is `rise` higher (that is the tilt) and therefore ends
+    # further back, which is what makes the cut a diagonal.
+    def self.eave_soffit_profiles(fr, z_top, depth, s0, thick, rise)
+      z_bot = z_top - depth
+      cut = lambda { |z| (z - fr[:z0]) / fr[:slope] }
+      out_end = cut.call(z_bot)
+      in_end  = cut.call(z_bot + rise)
+      return nil if out_end <= s0 + 0.5 || in_end <= s0 + 0.5
+      [[[s0, z_bot + thick], [out_end, z_bot + thick], [out_end, z_bot], [s0, z_bot]],
+       [[s0, z_bot + rise + thick], [in_end, z_bot + rise + thick],
+        [in_end, z_bot + rise], [s0, z_bot + rise]]]
+    end
+
+    def self.build_eave_soffit!(grp, fr, at, spec, depth, z_top)
+      style, sloped = soffit_choice(spec)
+      return nil if style == 'none' || fr[:overhang] < 1.0
+      rm = roof_manager
+      ft = rm ? rm::FASCIA_THICK : TRIM_THICK
+      thick = soffit_thick
+      # the same number soffit_rise gives a roof, measured on the
+      # DORMER's own pitch - that is the fall across this board.
+      rise = sloped ? fr[:pitch] * fr[:overhang] : 0.0
+      prof = eave_soffit_profiles(fr, z_top, depth, fr[:s_rake], thick, rise)
+      return nil if prof.nil?
+      w_out = fr[:w_edge] - ft
+      w_in  = fr[:half]
+      return nil if w_out - w_in < 0.5
+      sub = new_part!(grp, 'InteriorPro_DormerSoffit', 'dormer_soffit')
+      [1.0, -1.0].each do |sg|
+        extrude_sz2!(sub, prof[0], prof[1], at, w_out * sg, w_in * sg)
+      end
+      paint!(sub, trim_material(soffit_color(spec, style)))
+      sub
+    end
+
+    # Two profiles, one at each end of the sweep - the tilted twin of
+    # extrude_sz!.
+    def self.extrude_sz2!(sub, prof_a, prof_b, at, w_a, w_b)
+      a = prof_a.map { |s, z| at.call(s, w_a, z) }
+      b = prof_b.map { |s, z| at.call(s, w_b, z) }
+      add_face!(sub, a)
+      add_face!(sub, b.reverse)
+      prof_a.length.times do |i|
+        j = (i + 1) % prof_a.length
+        add_face!(sub, [a[i], a[j], b[j], b[i]])
+      end
+      sub
     end
 
     # A profile in (s, z) swept across the width.
