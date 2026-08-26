@@ -41,6 +41,20 @@ require './room_manager'
 require './level_manager'
 require './roof_manager'
 
+# THE ABUT HEIGHT CAP IS OFF IN HERE (2026-08-30). This suite is about
+# the settings stamp and the eave end cap, and it builds its shed at
+# 6:12 - which over this 153" reach ends 70" above the upper floor, so
+# the new cap would flatten it to 4.09:12 and move every number below.
+# The cap has its own suite (rt90); switching it off here keeps the two
+# apart instead of rewriting numbers the user already approved.
+module InteriorPro
+  module RoofManager
+    def self.abut_headroom
+      0.0
+    end
+  end
+end
+
 $fails = 0
 def ok(n, c, x = nil)
   puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))
