@@ -1247,6 +1247,63 @@ module InteriorPro
       cells.empty? ? nil : cells
     end
 
+    # ---------- how HIGH this roof will climb (2026-08-30) --------------
+    #
+    # A roof that dies against the storey above (an abut edge, speed 0)
+    # has no ridge of its own on that side: it just keeps rising until it
+    # reaches the wall. Over a deep wing that is a LOT of height - the
+    # user's own 43 ft wing at 4:12 climbed 14 ft above the upper floor
+    # and swallowed the second storey whole ("הוא עולה מעבר לקיר של
+    # הקומה השניה", 2026-08-30).
+    #
+    # REACH answers "how far, in plan, is the farthest roof point from
+    # its own eave line", in inches. It is PURE, and - this is the whole
+    # point - it does NOT depend on the pitch. build_hip_geometry! lifts
+    # every cell point by slope * (its distance from that cell's eave),
+    # so the top of the finished roof is always
+    #     z0 - slope * overhang + slope * reach
+    # and the pitch is only the multiplier. That is what lets a cap be
+    # worked out before the roof is built, instead of building it twice.
+    #
+    # The distance is measured exactly the way build_hip_geometry! does
+    # it - signed, onto the cell's own eave normal - so the number here
+    # and the z there can never drift apart.
+    def self.cell_reach(poly, cells)
+      return 0.0 if poly.nil? || cells.nil? || poly.empty?
+      n = poly.length
+      lines = Array.new(n) do |i|
+        p = poly[i]
+        d = vnorm(vsub(poly[(i + 1) % n], poly[i]))
+        { p: p, n: [-d[1], d[0]] }
+      end
+      best = 0.0
+      cells.each do |cell|
+        ln = lines[cell[:eave]]
+        next if ln.nil?
+        cell[:pts].each do |pt|
+          d = vdot(ln[:n], vsub(pt, ln[:p]))
+          best = d if d > best
+        end
+      end
+      best
+    end
+
+    # The steepest slope whose roof top still sits at or below `limit`:
+    #     z0 - slope * overhang + slope * reach  <=  limit
+    # i.e. slope <= (limit - z0) / (reach - overhang).
+    #
+    # nil = there is nothing to cap, and the caller must leave the user's
+    # own pitch alone: a roof that never climbs past its own overhang has
+    # no height to give back. A limit at or below the eave gives 0.0 -
+    # honest, and the caller is the one that decides how flat is too
+    # flat. PURE.
+    def self.slope_for_limit(reach, overhang, z0, limit)
+      run = reach.to_f - overhang.to_f
+      return nil if run <= 1.0
+      head = limit.to_f - z0.to_f
+      head <= 0.0 ? 0.0 : head / run
+    end
+
     # ---------- build / remove ----------
 
     # Build (or rebuild) the roof from the saved settings; keyword args
