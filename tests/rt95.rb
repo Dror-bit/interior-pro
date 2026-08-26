@@ -90,9 +90,17 @@ roof_pts = roofs.flat_map { |g| pts_of(g) }
 ok('outside to outside across the roof is the width',
    close(wall_pts.map(&:x).max - wall_pts.map(&:x).min, WID, 0.05),
    wall_pts.map(&:x).max - wall_pts.map(&:x).min)
+# The LENGTH is still measured on the WALL - front wall to ridge die-in.
+# The slab itself is longer by its rake overhang (2026-09-02, rt97).
 ok('front wall to ridge die-in is the length',
-   close(roof_pts.map(&:y).max - roof_pts.map(&:y).min, LEN, 0.05),
-   roof_pts.map(&:y).max - roof_pts.map(&:y).min)
+   close(roof_pts.map(&:y).max - wall_pts.map(&:y).min, LEN, 0.05),
+   roof_pts.map(&:y).max - wall_pts.map(&:y).min)
+# ...plus the bit of deck that finishes ON the metal edge instead of
+# short of it (2026-09-02, deck_front - rt98).
+ok('...and the slab reaches past it by the rake overhang',
+   close(wall_pts.map(&:y).min - roof_pts.map(&:y).min,
+         fr[:overhang] + fr[:deck_front], 0.05),
+   wall_pts.map(&:y).min - roof_pts.map(&:y).min)
 ok('the front wall sits at the setback',
    close(wall_pts.map(&:y).min, SET, 0.01), wall_pts.map(&:y).min)
 

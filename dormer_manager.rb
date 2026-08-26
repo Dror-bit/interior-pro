@@ -31,6 +31,21 @@ module InteriorPro
     DEFAULT_LENGTH    = 96.0 unless const_defined?(:DEFAULT_LENGTH, false)
     DEFAULT_WALL_TH   =  5.0 unless const_defined?(:DEFAULT_WALL_TH, false)
     DEFAULT_ROOF_TH   =  0.5 unless const_defined?(:DEFAULT_ROOF_TH, false)
+    # THE OVERHANG (2026-09-02, the user: "אני לא רואה בכלל אוברהנג").
+    # The roof slab hangs this far PAST the walls on all three open
+    # sides - out over the cheeks (the eaves) and forward past the front
+    # wall (the rake) - which is what gives the fascia something to hang
+    # off. 0 rebuilds the flush slab every dormer had before today.
+    DEFAULT_OVERHANG  =  6.0 unless const_defined?(:DEFAULT_OVERHANG, false)
+    # THE TRIM (2026-09-02). Same boards the main roof wears, same
+    # sizes, so the dormer reads as part of the house. Kill switch:
+    # InteriorPro::DormerManager::USE_DORMER_TRIM = false.
+    USE_DORMER_TRIM   = true unless const_defined?(:USE_DORMER_TRIM, false)
+    TRIM_THICK        = 0.75 unless const_defined?(:TRIM_THICK, false)
+    TRIM_DRIP_THICK   = 0.1  unless const_defined?(:TRIM_DRIP_THICK, false)
+    TRIM_DRIP_DEPTH   = 2.0  unless const_defined?(:TRIM_DRIP_DEPTH, false)
+    DEFAULT_FASCIA_DEPTH = 8.0 unless const_defined?(:DEFAULT_FASCIA_DEPTH, false)
+    DEFAULT_TRIM_COLOR   = '#ffffff' unless const_defined?(:DEFAULT_TRIM_COLOR, false)
     # A face wall shorter than this has no room for a window, and a
     # dormer whose cheeks are shorter than this is a bump, not a dormer.
     MIN_FACE_HEIGHT   = 12.0 unless const_defined?(:MIN_FACE_HEIGHT, false)
@@ -60,6 +75,8 @@ module InteriorPro
       pitch   = spec.fetch(:pitch, slope).to_f
       th      = spec.fetch(:thickness, DEFAULT_WALL_TH).to_f
       rt      = spec.fetch(:roof_thickness, DEFAULT_ROOF_TH).to_f
+      oh      = spec.fetch(:overhang, DEFAULT_OVERHANG).to_f
+      oh      = 0.0 if oh < 0.0
       return warn_nil('width and length must both be positive') if
         width <= 0.0 || length <= 0.0
       return warn_nil('the dormer roof has no pitch') if pitch <= 0.0
@@ -85,10 +102,46 @@ module InteriorPro
       return warn_nil('too long for its width: the cheeks never leave ' \
                       'the roof') if s_cheek - s_front < MIN_CHEEK_RUN
 
+      # THE OVERHANG. The slab keeps its own plane, so hanging it out
+      # sideways only makes its outer edge LOWER (w_edge is further from
+      # the ridge) and hanging it forward only moves its front edge. The
+      # lower outer edge meets the main roof EARLIER - s_valley - which
+      # is where the eave, and the fascia under it, have to stop.
+      # An overhang wider than the dormer's own half width is not a roof
+      # edge any more, it is a canopy - and on a flat-enough pitch it
+      # never comes back down to the main roof at all.
+      return warn_nil(format('the overhang %.1f" is too big for a %.1f" ' \
+                             'wide dormer', oh, width)) if oh > half
+      w_edge   = half + oh
+      s_rake   = s_front - oh
+      z_edge   = z_ridge - w_edge * pitch
+      s_valley = (z_edge - z0) / slope
+      return warn_nil(format('the overhang is too big: %.1f" of eave would ' \
+                             'already be under the roof', oh)) if
+        s_valley <= s_rake + 1.0
+
+      # THE DECK COVERS ITS OWN BOARDS (2026-09-02, the user: "הגג שינגלס
+      # צריך להגיע עד סוף המטל אדג כמו בצדדים"). The overhang the user
+      # types is measured to the FASCIA - w_edge is the fascia's outer
+      # face, exactly as a roof's eave polygon is. The shingle deck then
+      # runs one fascia plus one metal edge FURTHER out, so it finishes
+      # over the metal instead of stopping short of it, which is what
+      # RoofManager's own rake_out does on the house.
+      d_side      = deck_side
+      d_front     = deck_front
+      w_deck      = w_edge + d_side
+      s_deck      = s_rake - d_front
+      z_deck_edge = z_ridge - w_deck * pitch
+      s_valley_d  = (z_deck_edge - z0) / slope
+
       { z0: z0, slope: slope, pitch: pitch, setback: setback,
-        width: width, length: length, half: half,
+        width: width, length: length, half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_eave, s_cheek: s_cheek,
+        s_rake: s_rake, s_valley: s_valley, w_edge: w_edge, z_edge: z_edge,
+        deck_side: d_side, deck_front: d_front,
+        w_deck: w_deck, s_deck: s_deck,
+        s_valley_deck: s_valley_d, z_deck_edge: z_deck_edge,
         z_front: z_front, z_ridge: z_ridge, z_eave: z_eave, height: height }
     end
 
@@ -109,9 +162,29 @@ module InteriorPro
     # ends sit exactly on the main roof surface, which is what makes the
     # cut in step 2 a straight line.
     def self.roof_plan(fr, sign)
-      w = fr[:half] * sign
-      [[fr[:s_front], 0.0], [fr[:s_front], w], [fr[:s_eave], w],
+      w = fr[:w_deck] * sign
+      [[fr[:s_deck], 0.0], [fr[:s_deck], w], [fr[:s_valley_deck], w],
        [fr[:s_ridge], 0.0]]
+    end
+
+    # HOW FAR THE SHINGLE DECK RUNS PAST THE FASCIA LINE, so it always
+    # finishes ON the metal edge's outer face and never short of it.
+    # The two sides are NOT the same, because the boards are not:
+    #   EAVE  - the fascia hangs INSIDE the line and only the metal edge
+    #           is outside it, so the deck needs one metal thickness.
+    #   GABLE - the rake board and its metal edge are both OUTSIDE the
+    #           line, so the deck needs a fascia plus a metal edge.
+    # That is RoofManager's own rake_out, the same number the house's
+    # gables use.
+    def self.deck_side
+      rm = roof_manager
+      rm.nil? ? TRIM_DRIP_THICK : rm::DRIP_THICK
+    end
+
+    def self.deck_front
+      rm = roof_manager
+      return TRIM_THICK + TRIM_DRIP_THICK if rm.nil?
+      rm::FASCIA_THICK + rm::DRIP_THICK
     end
 
     # ---------- building it --------------------------------------------
@@ -138,7 +211,7 @@ module InteriorPro
       grp.name = 'InteriorPro_Dormer'
       grp.set_attribute('InteriorPro', 'type', 'dormer')
       grp.set_attribute('InteriorPro', 'style', 'gable')
-      %i[setback width length pitch thickness roof_thickness].each do |k|
+      %i[setback width length pitch thickness roof_thickness overhang].each do |k|
         grp.set_attribute('InteriorPro', k.to_s, fr[k])
       end
       grp.set_attribute('InteriorPro', 'base_xy', [base[0], base[1]])
@@ -148,6 +221,7 @@ module InteriorPro
       build_front_wall!(grp, fr, at, spec[:wall_names])
       [1.0, -1.0].each { |sg| build_cheek!(grp, fr, at, sg, spec[:wall_names]) }
       [1.0, -1.0].each { |sg| build_roof_plane!(grp, fr, at, sg, spec[:roof_material]) }
+      build_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
       grp
     rescue StandardError => e
       puts "[Dormer] build_dormer!: #{e.class}: #{e.message}"
@@ -193,6 +267,7 @@ module InteriorPro
 
       # the eave line of this face: its lowest edge. The dormer's setback
       # is measured from there, which is how a builder measures it.
+      roof_mat = face.material
       pts = face_points(face)
       lowest = nil
       pts.each_with_index do |p, i|
@@ -205,15 +280,47 @@ module InteriorPro
       s_click = (x - e0.x) * into[0] + (y - e0.y) * into[1]
       base = [x - into[0] * s_click, y - into[1] * s_click]
       z_at = plane_z_lambda(face)
-      { base: base, along: along, into: into,
+      { base: base, along: along, into: into, roof_mat: roof_mat,
         z0: z_at.call(base[0], base[1]), slope: slope }
+    end
+
+    # THE DORMER WEARS THE HOUSE (2026-09-02, the user asked for "קירות
+    # בטקסטורת קירות הבית" and the roof in the roof's own material).
+    # Nothing is typed in: the slab it stands on hands over its own
+    # material in roof_frame, and the walls take whatever exterior
+    # material most of the house's walls are wearing.
+    def self.house_wall_material(model = nil)
+      model ||= Sketchup.active_model
+      tally = Hash.new(0)
+      count_walls(model.entities, tally, 0)
+      best = tally.max_by { |_n, c| c }
+      best && best.first
+    rescue StandardError
+      nil
+    end
+
+    def self.count_walls(ents, tally, depth)
+      ents.grep(Sketchup::Group).each do |g|
+        if g.get_attribute('InteriorPro', 'type') == 'wall'
+          n = g.get_attribute('InteriorPro', 'exterior_material').to_s
+          tally[n] += 1 unless n.empty?
+        elsif depth < 2
+          count_walls(g.entities, tally, depth + 1)
+        end
+      end
     end
 
     # Put one dormer on a real roof, at (x, y) in plan.
     def self.place_on_roof!(roof, x, y, spec = {})
       rf = roof_frame(roof, x, y)
       return nil if rf.nil?
-      add_dormer!(roof.entities, spec.merge(rf))
+      s = spec.merge(rf)
+      s[:roof_material] = rf[:roof_mat] if s[:roof_material].nil?
+      if s[:wall_names].nil?
+        wm = house_wall_material
+        s[:wall_names] = [wm] if wm
+      end
+      add_dormer!(roof.entities, s)
     end
 
     # One line for the console: a dormer in the middle of the biggest
@@ -250,23 +357,37 @@ module InteriorPro
       grp
     end
 
+    # THE FRONT CORNERS ARE MITRED (2026-09-02, the user: "הקירות שוב
+    # נכנסים אחת בתוך השני במקום ליצור פינות באלכסון"). Until today the
+    # front wall ran the FULL width and each cheek ran the full length,
+    # so both owned the same block of space at each front corner - the
+    # thing CLAUDE.md forbids. Now each wall's INNER face is pulled back
+    # by one thickness at that corner, so the two meet on the 45 degree
+    # plane w + s = half + s_front and neither crosses it.
+    #
     # The gable face: a pentagon that stops on the UNDERSIDE of its own
     # roof - the slab owns everything above that line.
     def self.build_front_wall!(grp, fr, at, names)
       rt   = fr[:roof_thickness]
       half = fr[:half]
+      th   = fr[:thickness]
+      hi   = half - th                      # the mitre pulls the inner
+      return warn_nil('the walls are too thick for this width') if hi <= 0.5
       s_o  = fr[:s_front]
-      s_i  = fr[:s_front] + fr[:thickness]
-      prof = [[-half, fr[:z_front]], [half, fr[:z_front]],
-              [half, fr[:z_eave] - rt], [0.0, fr[:z_ridge] - rt],
-              [-half, fr[:z_eave] - rt]]
+      s_i  = fr[:s_front] + th
+      outer_p = [[-half, fr[:z_front]], [half, fr[:z_front]],
+                 [half, fr[:z_eave] - rt], [0.0, fr[:z_ridge] - rt],
+                 [-half, fr[:z_eave] - rt]]
+      inner_p = [[-hi, fr[:z_front]], [hi, fr[:z_front]],
+                 [hi, top_z(fr, hi) - rt], [0.0, fr[:z_ridge] - rt],
+                 [-hi, top_z(fr, hi) - rt]]
       sub = new_part!(grp, 'InteriorPro_DormerWall', 'dormer_front')
-      outer = prof.map { |w, z| at.call(s_o, w, z) }
-      inner = prof.map { |w, z| at.call(s_i, w, z) }
+      outer = outer_p.map { |w, z| at.call(s_o, w, z) }
+      inner = inner_p.map { |w, z| at.call(s_i, w, z) }
       add_face!(sub, outer)
       add_face!(sub, inner.reverse)
-      prof.length.times do |i|
-        j = (i + 1) % prof.length
+      outer_p.length.times do |i|
+        j = (i + 1) % outer_p.length
         add_face!(sub, [outer[i], outer[j], inner[j], inner[i]])
       end
       paint_wall!(sub, names)
@@ -275,21 +396,25 @@ module InteriorPro
 
     # A cheek is a right triangle in section: the front edge stands, the
     # top runs level under the slab, the bottom rides the main roof up
-    # until the two meet.
+    # until the two meet. Its FRONT edge is mitred against the front
+    # wall - the inner face starts one thickness further back.
     def self.build_cheek!(grp, fr, at, sign, names)
       rt   = fr[:roof_thickness]
+      th   = fr[:thickness]
       w_o  = fr[:half] * sign
-      w_i  = w_o - fr[:thickness] * sign
+      w_i  = w_o - th * sign
       z_top = fr[:z_eave] - rt
-      tri = [[fr[:s_front], fr[:z_front]], [fr[:s_front], z_top],
-             [fr[:s_cheek], z_top]]
+      s_i   = fr[:s_front] + th
+      outer_p = [[fr[:s_front], fr[:z_front]], [fr[:s_front], z_top],
+                 [fr[:s_cheek], z_top]]
+      inner_p = [[s_i, roof_z(fr, s_i)], [s_i, z_top], [fr[:s_cheek], z_top]]
       sub = new_part!(grp, 'InteriorPro_DormerWall', 'dormer_cheek')
-      outer = tri.map { |s, z| at.call(s, w_o, z) }
-      inner = tri.map { |s, z| at.call(s, w_i, z) }
+      outer = outer_p.map { |s, z| at.call(s, w_o, z) }
+      inner = inner_p.map { |s, z| at.call(s, w_i, z) }
       add_face!(sub, outer)
       add_face!(sub, inner.reverse)
-      tri.length.times do |i|
-        j = (i + 1) % tri.length
+      outer_p.length.times do |i|
+        j = (i + 1) % outer_p.length
         add_face!(sub, [outer[i], outer[j], inner[j], inner[i]])
       end
       paint_wall!(sub, names)
@@ -318,6 +443,239 @@ module InteriorPro
         end
       end
       sub
+    end
+
+    # ---------- STEP 3: THE TRIM (2026-09-02) ---------------------------
+    #
+    # A FASCIA under each eave, a RAKE BOARD up each gable edge, and the
+    # METAL EDGE lapping over the top of both. Sizes come from the roof
+    # dialog when it is loaded, so the dormer's boards are the house's
+    # boards.
+    #
+    # BOARDS MEET, THEY NEVER RUN INSIDE EACH OTHER (CLAUDE.md).
+    # THE RAKE OWNS THE FRONT CORNER. The rake board sits in the slice
+    # s_rake-TRIM_THICK .. s_rake, and reaches TRIM_THICK sideways past
+    # the slab so it covers the fascia's end grain. The eave fascia
+    # therefore STOPS at s_rake - not one thousandth in front of it.
+    # At the BACK the fascia is cut on the main roof surface itself: it
+    # is a vertical board, the roof climbs into it, so its end is the
+    # slanted line where the two planes cross. Nothing is buried.
+    def self.fascia_depth(spec)
+      d = spec[:fascia_depth]
+      if d.nil? && defined?(InteriorPro::RoofManager) &&
+         InteriorPro::RoofManager.respond_to?(:settings)
+        begin
+          d = InteriorPro::RoofManager.settings[:fascia_depth]
+        rescue StandardError
+          d = nil
+        end
+      end
+      # 0 is a real answer - "no boards" - so only a MISSING depth falls
+      # back to the house's own.
+      d = DEFAULT_FASCIA_DEPTH if d.nil?
+      d.to_f
+    end
+
+    def self.trim_color(spec)
+      c = spec[:fascia_color]
+      if c.nil? && defined?(InteriorPro::RoofManager) &&
+         InteriorPro::RoofManager.respond_to?(:settings)
+        begin
+          c = InteriorPro::RoofManager.settings[:fascia_color]
+        rescue StandardError
+          c = nil
+        end
+      end
+      c = DEFAULT_TRIM_COLOR if c.nil? || c.to_s.empty?
+      c.to_s
+    end
+
+    # THE DORMER'S BOARDS ARE THE ROOF'S BOARDS (2026-09-02, the user:
+    # "יש לך את התיכנון המדוייק של הפשיה בגייבל ובהיפ... תייסם אותם כמו
+    # בגגות!!!"). The first version of this hand-rolled its own fascia
+    # and its own corner rule, and got the corner the OTHER way round
+    # from every roof in the plugin. Nothing here builds a board any
+    # more: the dormer hands RoofManager an outline and a height map and
+    # RoofManager's own build_band! and build_rake_board! do the work -
+    # so the gable corner, the cut-back rake and the wrapping metal edge
+    # are the same ones the house wears, and a fix to either fixes both.
+    #
+    # THE OUTLINE, in the dormer's own (s, w) frame:
+    #   A(s_rake,-w) -> B(s_rake,+w)   the GABLE end (rake boards)
+    #   B -> C(s_cut,+w)               the right EAVE  (fascia band)
+    #   C -> D(s_ridge,0) -> E         the VALLEY, buried in the main
+    #                                  roof: no boards, and no wrap
+    #                                  either - exactly an ABUT edge.
+    #   E(s_cut,-w) -> A               the left EAVE
+    #
+    # s_cut is where the climbing main roof reaches the BOTTOM of the
+    # fascia. Past it the board would be buried, so it ends there -
+    # square, like a roof's rake ends on a covering wing.
+    def self.trim_ring(fr, at)
+      we = fr[:w_edge]
+      sw = [[[fr[:s_rake], -we], 'gable'], [[fr[:s_rake], we], 'eave'],
+            [[fr[:s_valley], we], 'valley'], [[fr[:s_ridge], 0.0], 'valley'],
+            [[fr[:s_valley], -we], 'eave']]
+      pts = sw.map { |(s, w), _| q = at.call(s, w, 0.0); [q.x, q.y] }
+      labs = sw.map(&:last)
+      n = pts.length
+      # build_rake_board! reads its outward normal off a CCW ring. Which
+      # way round these five come out depends on the dormer's placing,
+      # so measure and flip - carrying each label with its own EDGE, not
+      # with a corner (reversing turns edge i into edge n-2-i).
+      if signed_area(pts) < 0.0
+        pts = pts.reverse
+        labs = (0...n).map { |i| labs[(n - 2 - i) % n] }
+      end
+      { poly: pts, labels: labs, gable: labs.index('gable'),
+        level: (0...n).select { |i| labs[i] == 'eave' } }
+    end
+
+    def self.signed_area(pts)
+      a = 0.0
+      n = pts.length
+      n.times do |i|
+        p = pts[i]
+        q = pts[(i + 1) % n]
+        a += p[0] * q[1] - q[0] * p[1]
+      end
+      a / 2.0
+    end
+
+    # The height map RoofManager reads the rake's climb from: the slab's
+    # UNDERSIDE at every node of the ring, plus the one node that is not
+    # a corner at all - the gable's APEX, halfway along the front edge.
+    # Without it the front edge would look level and the rake board
+    # would come out flat.
+    def self.trim_zmap(fr, at)
+      rt = fr[:roof_thickness]
+      nodes = [[fr[:s_rake], -fr[:w_edge], fr[:z_edge] - rt],
+               [fr[:s_rake], 0.0, fr[:z_ridge] - rt],
+               [fr[:s_rake], fr[:w_edge], fr[:z_edge] - rt],
+               [fr[:s_valley], fr[:w_edge], fr[:z_edge] - rt],
+               [fr[:s_valley], -fr[:w_edge], fr[:z_edge] - rt],
+               [fr[:s_ridge], 0.0, fr[:z_ridge] - rt]]
+      map = {}
+      nodes.each do |s, w, z|
+        q = at.call(s, w, 0.0)
+        map[[q.x, q.y]] = z
+      end
+      map
+    end
+
+    # PURE: one eave board seen from the side, in (s, z).
+    #
+    # THE BACK END IS A DIAGONAL (2026-09-02, the user: "הפשייה צריך
+    # להגיע עד סוף הגג ולהיחתך באלכסון"). The board is vertical and the
+    # main roof climbs into it, so the line where the two planes cross
+    # is slanted. Cutting it square would either leave the last stretch
+    # of eave bare or bury the board's foot in the shingles. This is the
+    # one thing RoofManager's own band cannot do - its band is a prism
+    # between two heights - so the eave boards are built here and only
+    # the rake comes from RoofManager.
+    #
+    # THE FRONT END STOPS ON THE GABLE LINE (2026-09-02, the user:
+    # "הגיבל צריך לבוא לפני האנכי"). THE RAKE OWNS THE CORNER: it runs
+    # the full gable edge, out to the fascia's own outer face, and this
+    # board dies behind it. The metal edge is the one exception - it
+    # WRAPS the corner and finishes on the rake metal's outer face,
+    # which is what the house's own drip does (wrap_flags).
+    def self.eave_profile(fr, z_top, depth, s0)
+      return nil if depth <= 0.0
+      z_bot = z_top - depth
+      s_t = (z_top - fr[:z0]) / fr[:slope]
+      s_b = (z_bot - fr[:z0]) / fr[:slope]
+      return nil if s_t <= s0 + 0.5
+      return [[s0, z_top], [s_t, z_top], [s_b, z_bot]] if s_b <= s0
+      [[s0, z_top], [s_t, z_top], [s_b, z_bot], [s0, z_bot]]
+    end
+
+    def self.build_trim!(grp, fr, at, spec = {})
+      dep = fascia_depth(spec)
+      return false if dep <= 0.0
+      rm = roof_manager
+      ft = rm ? rm::FASCIA_THICK : TRIM_THICK
+      dt = rm ? rm::DRIP_THICK   : TRIM_DRIP_THICK
+      dd = rm ? rm::DRIP_DEPTH   : TRIM_DRIP_DEPTH
+      mat = trim_material(trim_color(spec))
+      z_top = fr[:z_edge] - fr[:roof_thickness]
+      we = fr[:w_edge]
+
+      fas = new_part!(grp, 'InteriorPro_DormerFascia', 'dormer_fascia')
+      prof = eave_profile(fr, z_top, dep, fr[:s_rake])
+      [1.0, -1.0].each do |sg|
+        extrude_sz!(fas, prof, at, (we - ft) * sg, we * sg)
+      end unless prof.nil?
+      paint!(fas, mat)
+
+      drip = new_part!(grp, 'InteriorPro_DormerDrip', 'dormer_drip')
+      dprof = eave_profile(fr, z_top, dd, fr[:s_rake] - ft - dt)
+      [1.0, -1.0].each do |sg|
+        extrude_sz!(drip, dprof, at, we * sg, (we + dt) * sg)
+      end unless dprof.nil?
+
+      # THE RAKE IS RoofManager's OWN BOARD - same climb, same cut-back
+      # at the corner (rake_meet_span), same metal edge on its face.
+      unless rm.nil?
+        ring = trim_ring(fr, at)
+        gi = ring[:gable]
+        unless gi.nil?
+          zmap = trim_zmap(fr, at)
+          poly = ring[:poly]
+          # NO rake_meet_span here: on the house the level fascia owns
+          # the corner, on the dormer he wants it the other way about,
+          # so the rake runs its WHOLE edge - right out to the eave
+          # fascia's outer face - and covers that board's end.
+          rake = new_part!(grp, 'InteriorPro_DormerRake', 'dormer_rake')
+          rm.build_rake_board!(rake, poly, gi, zmap, dep)
+          paint!(rake, mat)
+          rm.build_rake_board!(drip, poly, gi, zmap, dd, k_in: ft, k_out: ft + dt)
+        end
+      end
+      paint!(drip, mat)
+      true
+    rescue StandardError => e
+      puts "[Dormer] build_trim!: #{e.class}: #{e.message}"
+      puts e.backtrace.first(4) if e.backtrace
+      false
+    end
+
+    # A profile in (s, z) swept across the width.
+    def self.extrude_sz!(sub, prof, at, w_a, w_b)
+      a = prof.map { |s, z| at.call(s, w_a, z) }
+      b = prof.map { |s, z| at.call(s, w_b, z) }
+      add_face!(sub, a)
+      add_face!(sub, b.reverse)
+      prof.length.times do |i|
+        j = (i + 1) % prof.length
+        add_face!(sub, [a[i], a[j], b[j], b[i]])
+      end
+      sub
+    end
+
+    def self.roof_manager
+      return nil unless defined?(InteriorPro::RoofManager)
+      rm = InteriorPro::RoofManager
+      return nil unless rm.respond_to?(:build_band!) &&
+                        rm.respond_to?(:build_rake_board!) &&
+                        rm.respond_to?(:rake_meet_span)
+      rm
+    end
+
+    def self.trim_material(color)
+      return nil unless defined?(InteriorPro::WallTool) &&
+                        InteriorPro::WallTool.respond_to?(:new)
+      InteriorPro::WallTool.new.load_or_create_material(color)
+    rescue StandardError
+      nil
+    end
+
+    def self.paint!(sub, mat)
+      return if mat.nil?
+      sub.entities.grep(Sketchup::Face).each do |f|
+        f.material = mat
+        f.back_material = mat
+      end
     end
 
     # ---------- STEP 2: the hole in the main roof -----------------------
