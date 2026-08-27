@@ -11,12 +11,27 @@
 #   pitch 0        - the gablet takes the main roof's own pitch.
 #   fascia depth 0 - the dormer wears the house's own fascia depth.
 #
-# THE STYLE ROW is here from the start, but only Gable is built today.
-# Hip, Shed and Flat are the next three steps and their buttons say so
-# rather than pretending.
+# HE TYPES THE WALL HEIGHT, NOT THE LENGTH (2026-09-02: "האורך לתוך הגג
+# לא רלוונטי לי"). A window goes in that wall, so the height is the
+# number he cares about; how far the gablet reaches into the roof falls
+# out of it, and it is refused outright if it would climb to within a
+# foot of the house's own ridge.
+#
+# THE STYLE ROW is here from the start. Gable and Shed are built; Flat
+# and Hip are the next two steps and their buttons say so rather than
+# pretending. A shed's pitch must be FLATTER than the roof's - that is
+# what makes it climb out instead of diving under - and "Same as roof"
+# hands it half the roof's own pitch.
 module InteriorPro
   module DormerDialog
-    BUILT_STYLES = %w[gable].freeze unless const_defined?(:BUILT_STYLES, false)
+    # A METHOD, NOT A CONSTANT, and for the reason written all over this
+    # project: `X = ... unless const_defined?` is NOT re-read by
+    # InteriorPro.reload!, so the day Shed was finished the panel still
+    # showed it greyed out (the user, 2026-09-02: "הוא לא נותן לי ללחוץ
+    # על שד"). Every list that grows step by step has to be a method.
+    def self.built_styles
+      %w[gable shed]
+    end
 
     def self.show
       if @dialog
@@ -37,11 +52,13 @@ module InteriorPro
         min_width: 400, min_height: 480,
         max_width: 560, max_height: 900
       )
-      dlg.add_action_callback('place_dormer') do |_, style, width, length,
+      dlg.add_action_callback('place_dormer') do |_, style, width, height,
                                                   setback, overhang, pitch12,
                                                   fdepth|
-        s = { style: BUILT_STYLES.include?(style.to_s) ? style.to_s : 'gable',
-              width: width.to_f, length: length.to_f, setback: setback.to_f,
+        old = InteriorPro::DormerManager.settings
+        s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
+              width: width.to_f, height: height.to_f, length: old[:length],
+              setback: setback.to_f,
               overhang: overhang.to_f, pitch12: pitch12.to_f,
               fascia_depth: fdepth.to_f }
         InteriorPro::DormerManager.save_settings!(s)
@@ -69,7 +86,7 @@ module InteriorPro
       pitch_options = pitch_options.join
       styles = [['gable', 'Gable'], ['hip', 'Hip'],
                 ['shed', 'Shed'], ['flat', 'Flat']].map do |v, t|
-        built = BUILT_STYLES.include?(v)
+        built = built_styles.include?(v)
         chk = s[:style].to_s == v && built ? ' checked' : ''
         dis = built ? '' : ' disabled'
         note = built ? '' : ' <span class="soon">next</span>'
@@ -96,12 +113,17 @@ module InteriorPro
           <div class="row styles">#{styles}</div>
           <div class="row"><label>Pitch (rise : 12)</label>
             <select id="pitch">#{pitch_options}</select></div>
+          <div class="hint" id="shedHint" style="display:none">A shed must be
+            FLATTER than the roof - "Same as roof" gives it half the roof's
+            pitch.</div>
 
           <div class="section-title">Size</div>
           <div class="row"><label>Width (across the roof)</label>
             <input type="number" id="width" step="1" min="12" value="#{s[:width].round}"> in</div>
-          <div class="row"><label>Length (into the roof)</label>
-            <input type="number" id="length" step="1" min="12" value="#{s[:length].round}"> in</div>
+          <div class="row"><label>Front wall height</label>
+            <input type="number" id="height" step="1" min="12" value="#{(s[:height] > 0.01 ? s[:height] : 36.0).round}"> in</div>
+          <div class="hint">How far it reaches into the roof follows from
+            this. It stops you a foot short of the house ridge.</div>
           <div class="row"><label>Setback from the eave</label>
             <input type="number" id="setback" step="1" min="0" value="#{s[:setback].round}"> in</div>
 
@@ -114,20 +136,29 @@ module InteriorPro
           <button onclick="placeDormer()">Place on roof</button>
           <div class="hint">Then hover a roof slope - the whole dormer is drawn
             where it would land - and click once to build it. Esc cancels.</div>
-          <div class="hint">The front wall height is not typed: the gablet dies
-            into the roof at the end of its length, so the height falls out of
-            the width, the length and the pitch.</div>
+          <div class="hint">The gablet always dies into the roof at the end of
+            its own length, so the length is what the height, the width and the
+            pitch produce - never a fourth number that can argue with them.</div>
           <script>
+            function styleChanged() {
+              var v = document.querySelector('input[name=style]:checked').value;
+              document.getElementById('shedHint').style.display =
+                (v === 'shed') ? 'block' : 'none';
+            }
             function placeDormer() {
               sketchup.place_dormer(
                 document.querySelector('input[name=style]:checked').value,
                 document.getElementById('width').value,
-                document.getElementById('length').value,
+                document.getElementById('height').value,
                 document.getElementById('setback').value,
                 document.getElementById('overhang').value,
                 document.getElementById('pitch').value,
                 document.getElementById('fasciaDepth').value);
             }
+            Array.prototype.forEach.call(
+              document.querySelectorAll('input[name=style]'),
+              function (r) { r.addEventListener('change', styleChanged); });
+            styleChanged();
           </script>
         </body></html>
       HTML

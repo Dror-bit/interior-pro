@@ -139,5 +139,62 @@ rescue StandardError
 end
 ok('a mouse wandering off the roof says nothing in the console', !noisy)
 
+# ---- 5. THE HEIGHT DRIVES THE LENGTH, AND THE RIDGE IS THE CEILING ---
+# (2026-09-02, the user: "האורך לתוך הגג לא רלוונטי לי... הוא צריך
+# לעצור אותי נגיד פוט אחד לפני הגובה של הגג")
+base = { z0: Z0, slope: SLOPE, setback: 36.0, width: 48.0, thickness: 5.0,
+         roof_thickness: 0.5, overhang: 6.0 }
+h = 30.0
+fh = DM.frame(base.merge(height: h))
+ok('a typed height comes out as that height',
+   close(fh[:height], h, 0.01), fh && fh[:height])
+ok('...and the length is whatever produced it',
+   close(fh[:length], (h + 24.0 * fh[:pitch]) / SLOPE, 0.01), fh[:length])
+ok('a taller wall needs a longer reach',
+   DM.frame(base.merge(height: h * 2))[:length] > fh[:length])
+fs = DM.frame(base.merge(height: h, style: 'shed'))
+ok('a shed height works off its own formula',
+   close(fs[:height], h, 0.01) &&
+   close(fs[:length], h / (SLOPE - fs[:pitch]), 0.01), fs && fs[:length])
+
+# the ceiling: the roof face's own top, one foot of clearance
+ceiling_z = Z0 + (36.0 + fh[:length]) * SLOPE
+ok('with a foot to spare it still builds',
+   !DM.frame(base.merge(height: h, z_top: ceiling_z + DM::RIDGE_CLEARANCE)).nil?)
+ok('...and one inch short of that it is refused, not squeezed',
+   DM.frame(base.merge(height: h,
+                       z_top: ceiling_z + DM::RIDGE_CLEARANCE - 1.0)).nil?)
+ok('...with a reason that names the tallest wall that WOULD fit',
+   DM.last_reason.to_s.include?('tallest front wall'), DM.last_reason)
+ok('a roof with no top given is not capped at all',
+   !DM.frame(base.merge(height: h)).nil?)
+
+# ---- 6. IT HAS TO FIT ON THIS SLOPE, SIDEWAYS TOO --------------------
+# (2026-09-02, the user: "אני לא רוצה שיהיה אפשר להניח את הגגון אם הוא
+# נוגע ברידג גם של הצדדים לא רק של הגובה... חייבת להיות מגבלה")
+Sketchup.reset_model!
+m6 = Sketchup.active_model
+slope6 = m6.entities.add_group
+slope6.set_attribute('InteriorPro', 'type', 'roof')
+tp6 = lambda { |x, y| Geom::Point3d.new(x, y, Z0 + y * SLOPE) }
+# a narrow slope: 120" wide, 400" up the fall
+slope6.entities.add_face([tp6.call(-60, 0), tp6.call(60, 0),
+                          tp6.call(60, 400), tp6.call(-60, 400)])
+DM.save_settings!(width: 48.0, length: 96.0, setback: 36.0, overhang: 6.0,
+                  pitch12: 0.0, fascia_depth: 0.0, height: 0.0, style: 'gable')
+sp6 = DM.spec_from_settings
+ok('in the middle of the slope it fits', !DM.preview(slope6, 0.0, 120.0, sp6).nil?)
+ok('pushed up against the hip on the right it is refused',
+   DM.preview(slope6, 45.0, 120.0, sp6).nil?)
+ok('...and against the one on the left too',
+   DM.preview(slope6, -45.0, 120.0, sp6).nil?)
+ok('...with a reason that says which edge it ran into',
+   DM.last_reason.to_s.include?('edge of this roof slope'), DM.last_reason)
+ok('a wider dormer stops fitting where a narrow one did',
+   DM.preview(slope6, 30.0, 120.0,
+              DM.spec_from_settings(DM.settings.merge(width: 96.0))).nil?)
+ok('the build refuses it too, not just the ghost',
+   DM.place_on_roof!(slope6, 45.0, 120.0, sp6).nil?)
+
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

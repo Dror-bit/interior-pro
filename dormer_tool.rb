@@ -32,6 +32,18 @@ module InteriorPro
                    InteriorPro::DormerManager.spec_from_settings
                  )
                end
+      # WHY THERE IS NO GHOST, in the status bar. The maths says no for
+      # good reasons - too tall for this roof, too short for a window -
+      # and a silent cursor just looks broken.
+      msg = if @loops
+              'Click to place the dormer (Esc to cancel)'
+            elsif roof
+              why = InteriorPro::DormerManager.last_reason
+              why ? "Dormer: #{why}" : 'A dormer does not fit here'
+            else
+              'Hover a roof slope to place the dormer (Esc to cancel)'
+            end
+      Sketchup.set_status_text(msg, SB_PROMPT)
       view.invalidate
     end
 
