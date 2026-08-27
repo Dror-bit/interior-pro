@@ -63,14 +63,201 @@ module InteriorPro
                       label: 'Barrel Tile (Spanish S)' },
         'roman'  => { tile_w: 13.0, exposure: 14.0, relief: 1.0, scallop: 0.45,
                       stagger: false, texture: 'roof_roman_tile.jpg',
-                      label: 'Roman Tile (flat pan)' },
-        'slate'  => { tile_w: 12.0, exposure: 8.0,  relief: 0.6, scallop: 0.0,
-                      stagger: true,  texture: 'roof_flat_slate.jpg',
-                      label: 'Flat Slate Tile' },
+                      label: 'Roman Tile (flat pan)',
+                      # A PAN AND A ROLL, sized by the user (2026-08-21).
+                      #
+                      # First it was measured off his own ROMAN_TILED_ROOF.skp:
+                      # a 10.63" tile on an 8.27" pitch. He looked at the built
+                      # roof and asked for a fatter roll and less flat pan
+                      # showing between two of them: "תצמצם את הרווחים ביניהם
+                      # נגיד ל-2 ואז חצי העיגול לעשות 8".
+                      #
+                      #   roll 8" + gap 2"  ->  10" between centres
+                      #   the roll overhangs the pan by half itself, so the
+                      #   whole tile is 10 + 4 = 14" wide
+                      #
+                      # Written as fractions of the run pitch because that is
+                      # what run_cover_w / run_height take. run_cover is over
+                      # 1.0 on purpose: the tile is WIDER than its spacing -
+                      # that overhang is what laps the joint.
+                      run_pitch: 10.0, run_cover: 14.0 / 10.0,
+                      # The roll keeps the PROPORTION he has been looking at -
+                      # 2.28" tall on a 4.72" roll - so the bigger roll is the
+                      # same shape, only larger: 0.48 * 8" = 3.84". He left the
+                      # height to us and asked only for whatever is lightest;
+                      # height costs nothing, the segment count does, and that
+                      # is untouched. The wider pitch is the real saving - it
+                      # puts about 17% fewer pieces on the same roof.
+                      run_rise: 3.84 / 14.0,
+                      # THE RIDGE CAP IS STATED, NOT DERIVED (2026-08-21).
+                      # 13" across and 1.42" of arch - his numbers: the crown
+                      # came down 3" off the 4.42" it had, the width went to
+                      # 10" and then to 13" once he saw it: "אני רוצה להרחיב
+                      # אותו ל-13, אבל לא להגביה אותו רק להרחיב." So the arch
+                      # stays exactly where it is and only the span grows.
+                      # Stating them here is the point: the cap stops following
+                      # the tile around, which is what kept changing it behind
+                      # his back. Roman is the ONLY material that names them,
+                      # so nothing else moved.
+                      cap_w: 13.0, cap_crown: 1.42, cap_round: true },
+        # FLAT TILE - given real geometry on 2026-08-21c, from the user's
+        # photograph of a flat concrete tile roof.
+        #
+        # Until now it had NONE. `scallop` is the "profile is curved" flag and
+        # a flat tile is not curved, so runs? said no, place_runs! returned
+        # nothing, and the roof came out as a smooth coloured deck with the
+        # photograph painted on it - exactly the hole standing seam was in
+        # before 2026-08-21. `run_flat` is its way in: a FLAT plate, not a
+        # roll and not a rib.
+        #
+        # THE TILES SIT ON EACH OTHER, and that is the whole shape. The user
+        # asked the one question that mattered - "האם הם יושבים אחד על השני?"
+        # - after seeing a mockup where each course was a separate slab lying
+        # on the deck, and that mockup read as a tiled FLOOR. On a real roof
+        # the NOSE of every tile rests on the HEAD of the one below it; the
+        # raised nose is what casts the shadow line at every course, and it is
+        # the only thing that makes it read as a roof. See
+        # RoofTileParts.flat_tile - the piece carries its own nose, ramp and
+        # flat field, so nothing stacks: every head lies on the deck.
+        #
+        # 13 x 13 is his approved size, 0.7" step. The texture is 52 x 52 to
+        # stay a whole 4 x 4 of them - rt73 fails if the painted grid and the
+        # 3D grid ever drift apart.
+        #
+        # STAGGERED, half a tile on every other course. It was built straight
+        # first, off his photograph, and he looked at the result and asked for
+        # the broken bond instead: "אני רוצה שזה יהיה סטאגרן". `stagger` and
+        # course_phase had been sitting here unused since the texture grid was
+        # written; RoofTilePlace.flat_slots is what finally reads them, and it
+        # walks the COURSES on the outside so it can.
+        #
+        # THE CAP IS STATED SO IT CANNOT MOVE. cap_w / cap_crown are written
+        # out at exactly the numbers the old derivation produced (6.0 * 1.15
+        # and 2.28 * 1.15): adding run_* would otherwise have swelled the cap
+        # from 6.9" to 14.95" behind his back, which is the trap cap_crown_
+        # stated? exists to shut. He asked for tiles, not for a new cap.
+        # Its LIFT does follow the tiles - a cap floating 2.28" over a 0.7"
+        # tile would show daylight underneath - see cap_lift_for.
+        'slate'  => { tile_w: 13.0, exposure: 13.0, relief: 0.6, scallop: 0.0,
+                      stagger: true, texture: 'roof_flat_slate.jpg',
+                      label: 'Flat Slate Tile',
+                      run_flat: true, run_courses: true,
+                      run_pitch: 13.0, run_cover: 1.0,
+                      run_rise: 0.7 / 13.0,
+                      # SETBACK 0: the boundary tiles are CUT on the line now, so pulling
+                      # them back as well would only re-open the gap the cutting
+                      # closed. Stated, so nothing derives one.
+                      # crown 1.0 is HIS number, set in two steps: "מקסימום
+                      # 2" brought it from the derived 2.622 to 2.0, and then
+                      # "תוריד את הגובה שלו ב-1 אחד נוסף" - the cap also
+                      # rides a tile height (0.7) above the deck, so the
+                      # crown alone under-states what the eye sees.
+                      cap_w: 6.9, cap_crown: 1.0, ridge_setback: 0.0 },
+        # STANDING SEAM - given a real 3D shape on 2026-08-21. Until then it
+        # had none at all: `scallop` is the "profile is curved" flag and a
+        # standing seam is not curved, so runs? said no and the roof came out
+        # as a flat coloured surface with nothing on it. `run_seam` is its own
+        # way in - a SQUARE rib, not a round roll.
+        #
+        # The shape, from the drawing the user approved:
+        #   seam a rectangle 2" thick standing 1" proud, centred on the joint
+        #        between two pans - "אני רוצה שזה יהיה רוחב 2 וגובה של 1",
+        #        after seeing the first build at 1" x 1.75"
+        #   gap  26" of flat pan showing BETWEEN two ribs - "תעשה בין
+        #        הבליטות מרווח של 26 אינץ'"
+        # so the pans are 2 + 26 = 28" centre to centre, the panel is 28 + 1 =
+        # 29" across, and the run is 12 faces however wide it gets.
+        #
+        # AND IT KEEPS ITS LINES. Every other piece is softened so its chords
+        # disappear; this one is not, because the user asked for the opposite
+        # here: "אני רוצה שכן יראו את הקווים ואת הפינות - רק בגג הזה". Sharp
+        # arrises are what a folded metal panel looks like.
+        #
+        # THE RIDGE IS A FOLDED PLATE, NOT AN ARCH (2026-08-21). From the
+        # photograph the user sent of a real one: "רידג' אחיד שמקופל לשני
+        # הצדדים של הגג, כל צד בערך 5". So 5" down each slope - a 10" cap -
+        # and a crown of ZERO, which is what makes it a fold instead of a
+        # barrel. It still lifts to the ribs' height so it lands on top of
+        # them, exactly like the flashing in his picture.
+        # THE RIBS STOP UNDER THE CAP (2026-08-21, second pass). setback was 0
+        # - "the cap rides on the rib tops, so they can run right up to the
+        # line" - and the user saw exactly that: the rib ends slide in under
+        # the hovering cap and show. "הברזלים נכנסים לתוך הרידג' קאפ וזה לא
+        # נראה טוב... שזה יחתך איפה שהרידג' מתחיל." The cap covers 5" down
+        # each slope (cap_w 10), so a rib cut 4" short of the line hides its
+        # end a clear inch inside the cap. STATED here, like the cap numbers,
+        # so no other number can move it.
         'seam'   => { tile_w: 16.0, exposure: 0.0,  relief: 1.0, scallop: 0.0,
                       stagger: false, texture: 'roof_standing_seam.jpg',
-                      label: 'Standing Seam Metal' }
+                      label: 'Standing Seam Metal',
+                      run_seam: true,
+                      run_pitch: 28.0, run_cover: 29.0 / 28.0,
+                      run_rise: 1.0 / 29.0,
+                      cap_w: 10.0, cap_crown: 0.0, ridge_setback: 4.0 },
+        # METAL ROOF TILES - the user's second reference (Metal Roof Tiles.skp,
+        # a Trimble parametric component, 2026-08-20). It is NOT standing seam
+        # and 'seam' above is left exactly as it was: standing seam runs in one
+        # unbroken sheet, this one is pressed into TILES, so it has both ribs
+        # across the slope and a step up it every course.
+        #
+        # run_* are this material's own pipe numbers, and they are what makes
+        # it read as pressed metal rather than as clay:
+        #   run_pitch   16" rib spacing, the panel's own module
+        #   run_cover   a wide crest - 85% of the pitch, a narrow valley
+        #   run_rise    and a SHALLOW one; metal is pressed, not moulded
+        #   run_courses the step every course, which clay does not have
+        # SPANISH TILE. Built as pressed metal tile and renamed by the user on
+        # 2026-08-21 once he saw it - the folded sheet with a step every course
+        # is the shape he wanted all along, and Barrel Tile left the menu the
+        # same day because this replaces it.
+        #
+        # Shrunk from a 16" module to 7" at his measurement ("תקטין את הטייל
+        # ל-7 זה כרגע יותר מידי גדול"). tile_w, exposure and run_pitch move
+        # together on purpose: the painted grid and the 3D grid are the same
+        # grid, and rt73 fails if they drift apart. The texture is 3 modules
+        # wide by 2 tall, so its size follows to 21 x 14.
+        # THE COURSE STAYED LONG. "תקטין את הטייל ל-7" is the tile's WIDTH -
+        # a real Spanish tile is about seven inches across and twice that up
+        # the slope. Shrinking BOTH to seven took the piece count from 2,278
+        # to 11,960 on his own roof, over the safety brake, so the roof built
+        # with no tiles at all and looked like they had been deleted.
+        'metaltile' => { tile_w: 7.0, exposure: 14.0, relief: 1.0, scallop: 0.5,
+                         stagger: false, texture: 'roof_metal_tile.jpg',
+                         label: 'Spanish Tile',
+                         # run_cover and run_rise are UNCHANGED from the shape
+                         # he approved. Only the module shrank. run_rise was
+                         # briefly "improved" to 0.34 on the same edit and he
+                         # caught it: he asked for a size and a name, and a
+                         # third change he did not ask for is a bug even when
+                         # the number looks better on paper.
+                         run_pitch: 7.0, run_cover: 0.85, run_rise: 0.22,
+                         run_courses: true,
+                         # PAINT IT FLAT (2026-08-21). The fold now carries the
+                         # whole pattern in 3D, so a photographed tile texture
+                         # under it is two patterns fighting - the user asked
+                         # for the colour picker alone, on the tiles AND on the
+                         # deck beneath them. The texture stays registered and
+                         # on disk so rt73 keeps checking the grid, it is just
+                         # not painted on any more.
+                         flat_color: true }
       }
+    end
+
+    # Is this material pressed into courses, so a run is a row of short pieces
+    # with a step between them rather than one unbroken pipe? Clay is not;
+    # metal tile is. The flag is explicit because `exposure` is set on the clay
+    # materials too - it drives their TEXTURE grid, not their geometry, and
+    # reading it as "make steps" is exactly the mistake that produced the
+    # 50,652-face roof on 2026-08-19.
+    # Does this material want the plain colour instead of its texture?
+    def self.flat_color?(name)
+      s = shape(name)
+      !s.nil? && s[:flat_color] == true
+    end
+
+    def self.run_courses?(name)
+      s = shape(name)
+      !s.nil? && s[:run_courses] == true && s[:exposure].to_f > EPS
     end
 
     # exposure 0 means "this material has no courses at all" - standing seam
@@ -84,6 +271,57 @@ module InteriorPro
     def self.courses?(name)
       s = shape(name)
       !s.nil? && s[:exposure] > EPS
+    end
+
+    # Does this material run as ONE long half-pipe from ridge to eave?
+    #
+    # The user's own reference settled this on 2026-08-20 (Roman Tiled Roof.skp,
+    # material `ceramicrooftile`): a Spanish/Roman roof reads as an unbroken
+    # half round per run over the whole slope, NOT as a tile per course. That
+    # is also why it is cheap - a run's face count is its cross section, so a
+    # 30ft run and a 3ft run cost exactly the same.
+    #
+    # Only the ROUND materials work that way. `scallop` is already the "this
+    # profile is curved" flag, so barrel and roman answer true while flat slate
+    # and standing seam answer false and keep the flat treatment they have.
+    # `run_seam` joins `scallop` here (2026-08-21). Standing seam runs exactly
+    # like the clay pipes - one long piece from ridge to eave, priced by its
+    # cross section - it simply is not ROUND, and scallop only ever meant
+    # "curved". Slate and shingle answer false as before.
+    def self.runs?(name)
+      s = shape(name)
+      return false if s.nil? || s[:tile_w].to_f <= EPS
+      s[:scallop].to_f > EPS || s[:run_seam] == true || s[:run_flat] == true
+    end
+
+    # A square rib instead of a round roll.
+    def self.seam?(name)
+      s = shape(name)
+      !s.nil? && s[:run_seam] == true
+    end
+
+    # A FLAT plate - no roll, no rib, no fold. The third way in to runs?, and
+    # the reason it exists is written on the slate entry above: a flat tile is
+    # a real 3D piece even though nothing about it is curved, and `scallop`
+    # alone can never say so.
+    def self.run_flat?(name)
+      s = shape(name)
+      !s.nil? && s[:run_flat] == true
+    end
+
+    # Where the vertical scanline lives. spans_at answers "at height v = c,
+    # which u stretches are inside the plane?" - a COURSE question. A run is
+    # the same question turned 90 degrees: "at u = c, which v stretches are
+    # inside?". Swapping the pair is the whole difference, so there is one
+    # scanline in this file and not two that can disagree.
+    def self.flip_uv(poly)
+      return [] if poly.nil?
+      poly.map { |p| [p[1], p[0]] }
+    end
+
+    # The v spans of the plane at across-slope position u = c, bottom to top.
+    def self.v_spans_at(poly, c, min_len = 0.0)
+      spans_at(flip_uv(poly), c, min_len)
     end
 
     # ------------------------------------------------------------ vectors
@@ -184,6 +422,146 @@ module InteriorPro
         flat: fr[:flat], pitch: fr[:pitch],
         u_span: poly.map { |p| p[0] }.max,
         v_span: poly.map { |p| p[1] }.max }
+    end
+
+    # ------------------------------------------------------------ clipping
+    #
+    # Added 2026-08-21c for the flat tile. A tile at a hip or a valley has to
+    # be CUT on the line - "שייחתכו במדויק" - and an instance cannot be cut,
+    # so the boundary tiles are built as their own little groups from the
+    # clipped footprint. Everything here is plain 2D polygon work in a plane's
+    # own u/v; no SketchUp, and nothing else in the plugin calls it yet.
+    def self.poly_area(poly)
+      return 0.0 if poly.nil? || poly.length < 3
+      a = 0.0
+      n = poly.length
+      n.times do |i|
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        a += (x1 * y2) - (x2 * y1)
+      end
+      a / 2.0
+    end
+
+    def self.poly_ccw(poly)
+      poly_area(poly).negative? ? poly.reverse : poly
+    end
+
+    # Keep the part of `poly` on the LEFT of the directed line a -> b.
+    def self.clip_left(poly, a, b)
+      return [] if poly.nil? || poly.length < 3
+      out = []
+      n = poly.length
+      n.times do |i|
+        cur = poly[i]
+        nxt = poly[(i + 1) % n]
+        dc = ((b[0] - a[0]) * (cur[1] - a[1])) - ((b[1] - a[1]) * (cur[0] - a[0]))
+        dn = ((b[0] - a[0]) * (nxt[1] - a[1])) - ((b[1] - a[1]) * (nxt[0] - a[0]))
+        out << cur if dc >= -1.0e-9
+        next unless (dc > 0) != (dn > 0)
+        t = dc / (dc - dn)
+        out << [cur[0] + ((nxt[0] - cur[0]) * t), cur[1] + ((nxt[1] - cur[1]) * t)]
+      end
+      out
+    end
+
+    # Cut `rect` down to the part of it inside `region`.
+    #
+    # ONLY THE EDGES THAT ACTUALLY REACH IT are used, and that is the whole
+    # trick: clipping by every edge of the region is the textbook algorithm and
+    # it is only correct for a CONVEX region, while a roof plane with a dormer
+    # or a light well punched out of it is not convex. An edge that runs
+    # nowhere near this tile cannot be the one cutting it, so leaving it out
+    # keeps the answer exact for the cases that matter - a hip, a valley, a
+    # rake, the side of a dormer - and stops a far-away concave edge from
+    # eating a tile in the middle of the roof.
+    def self.clip_to_poly(rect, region, reach = nil)
+      return [] if rect.nil? || rect.length < 3 || region.nil? || region.length < 3
+      cx = rect.map { |p| p[0] }.sum / rect.length.to_f
+      cy = rect.map { |p| p[1] }.sum / rect.length.to_f
+      r = reach || (rect.map { |p| Math.hypot(p[0] - cx, p[1] - cy) }.max + 0.01)
+      rr = poly_ccw(region)
+      out = rect
+      n = rr.length
+      n.times do |i|
+        a = rr[i]
+        b = rr[(i + 1) % n]
+        next if Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.0e-9
+        next if seg_dist(a, b, [cx, cy]) > r
+        out = clip_left(out, a, b)
+        return [] if out.length < 3
+      end
+      out = clean_poly(out)
+      return [] if out.empty?
+      # AND THE RESULT MUST ACTUALLY LIE INSIDE (2026-08-21c, fifth pass).
+      # The reach filter above skips edges far from the tile - which also
+      # means a tile floating entirely OUTSIDE the region, far from every
+      # edge, sails through unclipped and comes back whole. One did: a full
+      # phantom column of tiles off the rake of a hip plane, found by the
+      # plain-Ruby measurement. The centroid test costs one point-in-polygon
+      # and closes that door for good.
+      ox = out.sum { |p| p[0] } / out.length
+      oy = out.sum { |p| p[1] } / out.length
+      poly_contains?(rr, [ox, oy]) ? out : []
+    end
+
+    # Plain ray-cast point-in-polygon, boundary points counted by the same
+    # half-open rule the scanline uses.
+    def self.poly_contains?(poly, pt)
+      x, y = pt
+      hit = false
+      n = poly.length
+      n.times do |i|
+        ax, ay = poly[i]
+        bx, by = poly[(i + 1) % n]
+        next if (ay > y) == (by > y)
+        xx = ax + ((y - ay) * (bx - ax) / (by - ay))
+        hit = !hit if x < xx
+      end
+      hit
+    end
+
+    # Keep the slice of `poly` between two heights. Used to split a cut tile
+    # into its nose, its ramp and its flat field - three planar faces, because
+    # one face over the whole thing would be bent and SketchUp refuses those.
+    def self.clip_band(poly, va, vb)
+      out = clip_left(poly, [0.0, va], [1.0, va])
+      return [] if out.length < 3
+      clean_poly(clip_left(out, [1.0, vb], [0.0, vb]))
+    end
+
+    # EVERY CLIPPED POLYGON GOES THROUGH HERE, and skipping it is what put the
+    # bare stripes on the user's roof (2026-08-21c, the hard way). When a tile
+    # corner lies exactly ON the clip line - and at the eave line every tile
+    # does - clip_left keeps the corner AND emits the intersection point, which
+    # is the same point again. The test stub's add_face swallowed the
+    # duplicate; real SketchUp raises, the whole cut tile died, and every hip,
+    # valley and rake grew a bare stripe of deck where its cut tiles should
+    # be. §0 of the 2026-08-21b handoff, learned twice now: geometry that only
+    # passed the lenient stub has not passed anything.
+    def self.clean_poly(poly, tol = 1.0e-3)
+      return [] if poly.nil? || poly.length < 3
+      out = []
+      poly.each do |p|
+        out << [p[0], p[1]] if out.empty? ||
+                               Math.hypot(p[0] - out[-1][0], p[1] - out[-1][1]) > tol
+      end
+      out.pop while out.length > 2 &&
+                    Math.hypot(out[0][0] - out[-1][0],
+                               out[0][1] - out[-1][1]) <= tol
+      return [] if out.length < 3 || poly_area(out).abs < 0.25
+      out
+    end
+
+    def self.seg_dist(p, q, x)
+      dx = q[0] - p[0]
+      dy = q[1] - p[1]
+      ll = (dx * dx) + (dy * dy)
+      return Math.hypot(x[0] - p[0], x[1] - p[1]) if ll < 1.0e-12
+      t = (((x[0] - p[0]) * dx) + ((x[1] - p[1]) * dy)) / ll
+      t = 0.0 if t < 0.0
+      t = 1.0 if t > 1.0
+      Math.hypot(x[0] - (p[0] + (dx * t)), x[1] - (p[1] + (dy * t)))
     end
 
     # ----------------------------------------------------------- scanline

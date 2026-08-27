@@ -1,0 +1,92 @@
+=== ROOF SETTINGS ===
+  style = "hip"
+  pitch = 4.0
+  overhang = 12.0
+  fascia = true
+  fascia_depth = 8.0
+  drip = true
+  soffit = "wood"
+  soffit_slope = true
+  roof_material = "shingle"
+  roof_color = "#9f5132"
+  fascia_color = "#ffffff"
+  thickness = 0.5
+  ridge_cap = true
+  gutter = false
+  downspouts = true
+=== WALL EXTERIOR MATERIALS (count) ===
+  "Stucco" x10
+=== ROOFS ===
+  roof0: level=2 name=InteriorPro_Roof
+    biggest slope face: rise/run=0.3333 (=4.00:12)  z 198.0..302.4  area=773.3 sqft
+  roof1: level=1 name=InteriorPro_Roof
+    biggest slope face: rise/run=0.3333 (=4.00:12)  z 102.0..147.6  area=150.8 sqft
+=== DORMERS ===
+  DORMER (depth 0) name=InteriorPro_Dormer
+    style = "gable"
+    setback = 36.0
+    width = 48.0
+    length = 96.0
+    pitch = 0.6666666666666666
+    thickness = 5.0
+    roof_thickness = 0.5
+    height = 48.0
+    base_xy = [0.0, 0.0]
+    along_xy = [1.0, 0.0]
+    roof_cut = nil
+    part dormer_front   faces=7   z 24.0..87.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_roof    faces=6   z 71.5..88.0
+    part dormer_roof    faces=6   z 71.5..88.0
+  DORMER (depth 1) name=InteriorPro_Dormer
+    style = "gable"
+    setback = 36.0
+    width = 48.0
+    length = 96.0
+    pitch = 0.33333333333333326
+    thickness = 5.0
+    roof_thickness = 0.5
+    height = 24.0
+    base_xy = [253.2352226022331, 1534.970998683365]
+    along_xy = [0.9999999957146744, 9.257781285131141e-05]
+    roof_cut = 2
+    part dormer_front   faces=7   z 210.5..242.0
+    part dormer_cheek   faces=5   z 210.5..234.0
+    part dormer_cheek   faces=5   z 210.5..234.0
+    part dormer_roof    faces=6   z 234.0..242.5
+    part dormer_roof    faces=6   z 234.0..242.5
+  DORMER (depth 1) name=InteriorPro_Dormer
+    style = "gable"
+    setback = 36.0
+    width = 48.0
+    length = 96.0
+    pitch = 0.6666666666666666
+    thickness = 5.0
+    roof_thickness = 0.5
+    height = 48.0
+    base_xy = [0.0, 0.0]
+    along_xy = [1.0, 0.0]
+    roof_cut = 2
+    part dormer_front   faces=7   z 24.0..87.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_roof    faces=6   z 71.5..88.0
+    part dormer_roof    faces=6   z 71.5..88.0
+  DORMER (depth 1) name=InteriorPro_Dormer
+    style = "gable"
+    setback = 36.0
+    width = 48.0
+    length = 96.0
+    pitch = 0.6666666666666666
+    thickness = 5.0
+    roof_thickness = 0.5
+    height = 48.0
+    base_xy = [0.0, 0.0]
+    along_xy = [1.0, 0.0]
+    roof_cut = 2
+    part dormer_front   faces=7   z 24.0..87.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_cheek   faces=5   z 24.0..71.5
+    part dormer_roof    faces=6   z 71.5..88.0
+    part dormer_roof    faces=6   z 71.5..88.0

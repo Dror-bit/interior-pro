@@ -1,0 +1,54 @@
+TRIM ON? true
+fascia_depth = 8.0
+trim_color   = #ffffff
+dormers found: 6
+--- dormer 0 : nil overhang, z 24.0..88.0
+    parts: 5
+    dormer_front   faces=7   x -24.0..24.0  y 36.0..41.0  z 24.0..87.5  mat=[nil]
+    dormer_cheek   faces=5   x 19.0..24.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_cheek   faces=5   x -24.0..-19.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_roof    faces=6   x 0.0..24.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]
+    dormer_roof    faces=6   x -24.0..0.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]
+--- dormer 1 : nil overhang, z 210.5..242.5
+    parts: 5
+    dormer_front   faces=7   x 229.2..277.2  y 1494.0..1499.0  z 210.5..242.0  mat=[nil]
+    dormer_cheek   faces=5   x 272.2..277.2  y 1428.5..1499.0  z 210.5..234.0  mat=[nil]
+    dormer_cheek   faces=5   x 229.2..234.2  y 1428.5..1499.0  z 210.5..234.0  mat=[nil]
+    dormer_roof    faces=6   x 253.2..277.2  y 1403.0..1499.0  z 234.0..242.5  mat=[nil]
+    dormer_roof    faces=6   x 229.2..253.2  y 1403.0..1499.0  z 234.0..242.5  mat=[nil]
+--- dormer 2 : 6.0 overhang, z 210.5..242.5
+    parts: 5
+    dormer_front   faces=7   x 229.2..277.2  y 944.5..949.5  z 210.5..242.0  mat=["Stucco"]
+    dormer_cheek   faces=5   x 229.2..234.2  y 944.5..1015.0  z 210.5..234.0  mat=["Stucco"]
+    dormer_cheek   faces=5   x 272.2..277.2  y 944.5..1015.0  z 210.5..234.0  mat=["Stucco"]
+    dormer_roof    faces=6   x 223.2..253.2  y 938.5..1040.5  z 232.0..242.5  mat=["InteriorPro_Roof_shingle_9f5132"]
+    dormer_roof    faces=6   x 253.2..283.2  y 938.5..1040.5  z 232.0..242.5  mat=["InteriorPro_Roof_shingle_9f5132"]
+--- dormer 3 : 6.0 overhang, z 210.5..242.5
+    parts: 13
+    dormer_front   faces=7   x 229.2..277.2  y 1494.0..1499.0  z 210.5..242.0  mat=["Stucco"]
+    dormer_cheek   faces=5   x 272.2..277.2  y 1428.5..1499.0  z 210.5..234.0  mat=["Stucco"]
+    dormer_cheek   faces=5   x 229.2..234.2  y 1428.5..1499.0  z 210.5..234.0  mat=["Stucco"]
+    dormer_roof    faces=6   x 253.2..283.2  y 1403.0..1505.0  z 232.0..242.5  mat=["InteriorPro_Roof_shingle_9f5132"]
+    dormer_roof    faces=6   x 223.2..253.2  y 1403.0..1505.0  z 232.0..242.5  mat=["InteriorPro_Roof_shingle_9f5132"]
+    dormer_fascia  faces=6   x 283.2..284.0  y 1434.5..1505.0  z 224.0..232.0  mat=["#ffffff"]
+    dormer_drip    faces=6   x 284.0..284.1  y 1434.5..1505.0  z 230.0..232.0  mat=["#ffffff"]
+    dormer_rake    faces=6   x 253.2..284.0  y 1505.0..1505.7  z 223.8..242.0  mat=["#ffffff"]
+    dormer_drip    faces=6   x 253.2..284.0  y 1505.7..1505.8  z 229.8..242.0  mat=["#ffffff"]
+    dormer_fascia  faces=6   x 222.5..223.2  y 1434.5..1505.0  z 224.0..232.0  mat=["#ffffff"]
+    dormer_drip    faces=6   x 222.4..222.5  y 1434.5..1505.0  z 230.0..232.0  mat=["#ffffff"]
+    dormer_rake    faces=6   x 222.5..253.2  y 1505.0..1505.7  z 223.8..242.0  mat=["#ffffff"]
+    dormer_drip    faces=6   x 222.5..253.2  y 1505.7..1505.8  z 229.8..242.0  mat=["#ffffff"]
+--- dormer 4 : nil overhang, z 24.0..88.0
+    parts: 5
+    dormer_front   faces=7   x -24.0..24.0  y 36.0..41.0  z 24.0..87.5  mat=[nil]
+    dormer_cheek   faces=5   x 19.0..24.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_cheek   faces=5   x -24.0..-19.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_roof    faces=6   x 0.0..24.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]
+    dormer_roof    faces=6   x -24.0..0.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]
+--- dormer 5 : nil overhang, z 24.0..88.0
+    parts: 5
+    dormer_front   faces=7   x -24.0..24.0  y 36.0..41.0  z 24.0..87.5  mat=[nil]
+    dormer_cheek   faces=5   x 19.0..24.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_cheek   faces=5   x -24.0..-19.0  y 36.0..107.2  z 24.0..71.5  mat=[nil]
+    dormer_roof    faces=6   x 0.0..24.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]
+    dormer_roof    faces=6   x -24.0..0.0  y 36.0..132.0  z 71.5..88.0  mat=[nil]

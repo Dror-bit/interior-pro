@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 12px; background: #fff; }
+  .section-title { font-weight: bold; margin: 12px 0 6px; color: #37474f; }
+  .row { margin: 7px 0; color: #333; display: flex; align-items: center; gap: 8px; }
+  .row label { flex: 1; }
+  .row input[type=number], .row select { width: 84px; padding: 4px; }
+  .row input[type=color] { width: 48px; height: 26px; padding: 0; border: 1px solid #bbb; }
+  .sub { margin-left: 22px; }
+  button { width: 100%; padding: 10px; margin-top: 12px; border: none; border-radius: 6px;
+           background: #37474f; color: #fff; font-size: 14px; cursor: pointer; }
+  button.secondary { background: #9e9e9e; }
+</style></head><body>
+  
+  <div class="section-title">Roof Type</div>
+  <div class="row">
+    <label><input type="radio" name="style" value="hip" checked onchange="styleChanged()"> Hip</label>
+    <label><input type="radio" name="style" value="gable" onchange="styleChanged()"> Gable</label>
+    <label><input type="radio" name="style" value="flat" onchange="styleChanged()"> Flat</label>
+  </div>
+  <div class="row"><label>Pitch (rise : 12)</label>
+    <select id="pitch"><option value="2">2:12</option><option value="3">3:12</option><option value="4" selected>4:12</option><option value="5">5:12</option><option value="6">6:12</option><option value="7">7:12</option><option value="8">8:12</option><option value="9">9:12</option><option value="10">10:12</option><option value="11">11:12</option><option value="12">12:12</option></select></div>
+  <div class="row sub"><label>Max over storey above</label>
+    <input type="number" id="maxOver" step="0.5" min="0" value="4.0"> ft</div>
+
+  <div class="section-title">Eaves</div>
+  <div class="row"><label><input type="checkbox" id="eaves" checked onchange="eavesChanged()"> Eaves (overhang)</label>
+    <input type="number" id="overhang" step="1" min="0" value="12.0"> in</div>
+
+  <div class="section-title">Trim</div>
+  <div class="row"><label><input type="checkbox" id="fascia" checked> Fascia board</label>
+    <input type="number" id="fasciaDepth" step="0.25" min="1" value="8.0"> in
+    <input type="color" id="fasciaColor" value="#ffffff"></div>
+  <div class="row"><label><input type="checkbox" id="drip" checked> Metal drip edge</label></div>
+  <div class="row"><label><input type="checkbox" id="gutter" onchange="gutterChanged()"> Gutter (eaves only)</label>
+    <select id="gutterProfile" style="width:112px"><option value="k" selected>K-Style (ogee)</option><option value="round">Half round</option><option value="box">Square</option></select></div>
+  <div class="row sub"><label>Gutter size</label>
+    <input type="number" id="gutterWidth" step="0.5" min="3" max="9" value="5.0"> in
+    <input type="color" id="gutterColor" value="#ffffff" oninput="gutterPicked()"></div>
+  <div class="row sub"><label><input type="checkbox" id="downspouts" checked> Downspouts (one per corner)</label></div>
+  <div class="row"><label>Soffit</label>
+    <select id="soffit" onchange="soffitChanged()"><option value="none" selected>None</option><option value="boxed">Boxed (painted)</option><option value="wood">Wood</option><option value="stucco">Stucco</option><option value="beams">Exposed beams</option><option value="spanish">Spanish (stucco + tails)</option></select>
+    <input type="color" id="soffitColor" value="#ffffff" oninput="soffitPicked()"></div>
+  <div class="row sub"><label><input type="checkbox" id="soffitSlope"> Sloped (follows the roof)</label></div>
+
+  <div class="section-title">Surface</div>
+  <div class="row"><label>Roof material</label>
+    <select id="roofMat" style="width:112px"><option value="color" selected>Solid color</option><option value="shingle">Shingles</option><option value="roman">Roman Tile (flat pan)</option><option value="slate">Flat Slate Tile</option><option value="seam">Standing Seam Metal</option><option value="metaltile">Spanish Tile</option></select>
+    <input type="color" id="roofColor" value="#584e4a"></div>
+  <div class="row"><label>Roof thickness</label>
+    <input type="number" id="thickness" step="0.25" min="0" value="0.5"> in</div>
+  <div class="row"><label><input type="checkbox" id="ridgeCap" checked> Ridge cap</label></div>
+
+
+  <button onclick="applyRoof()">Apply - Build Roof</button>
+  <button class="secondary" onclick="sketchup.remove_roof()">Remove Roof</button>
+  <script>
+    function styleChanged() {
+      var flat = document.querySelector('input[name=style]:checked').value === 'flat';
+      document.getElementById('pitch').disabled = flat;
+    }
+    function eavesChanged() {
+      document.getElementById('overhang').disabled = !document.getElementById('eaves').checked;
+    }
+    var gutterPickedFlag = false;
+    function gutterPicked() { gutterPickedFlag = true; }
+    function gutterChanged() {
+      var on = document.getElementById('gutter').checked;
+      document.getElementById('gutterProfile').disabled = !on;
+      document.getElementById('gutterWidth').disabled = !on;
+      document.getElementById('gutterColor').disabled = !on;
+      document.getElementById('downspouts').disabled = !on;
+    }
+    var SOFFIT_DEF = {"wood":"#8b5a2b","stucco":"#efeae1","spanish":"#efeae1"};
+    var soffitPickedFlag = false;
+    function soffitPicked() { soffitPickedFlag = true; }
+    function soffitChanged() {
+      var v = document.getElementById('soffit').value;
+      var c = document.getElementById('soffitColor');
+      c.disabled = (v === 'none');
+      document.getElementById('soffitSlope').disabled = (v === 'none');
+      if (!soffitPickedFlag && SOFFIT_DEF[v]) { c.value = SOFFIT_DEF[v]; }
+    }
+    function applyRoof() {
+      sketchup.apply_roof(
+        document.querySelector('input[name=style]:checked').value,
+        document.getElementById('pitch').value,
+        document.getElementById('eaves').checked,
+        document.getElementById('overhang').value,
+        document.getElementById('fascia').checked,
+        document.getElementById('fasciaDepth').value,
+        document.getElementById('drip').checked,
+        document.getElementById('roofColor').value,
+        document.getElementById('fasciaColor').value,
+        document.getElementById('roofMat').value,
+        document.getElementById('thickness').value,
+        document.getElementById('ridgeCap').checked,
+        document.getElementById('soffit').value,
+        soffitPickedFlag ? document.getElementById('soffitColor').value : '',
+        document.getElementById('soffitSlope').checked,
+        (function () { var lv = document.getElementById('roofLevel');
+                       return lv ? lv.value : ''; })(),
+        document.getElementById('gutter').checked,
+        document.getElementById('gutterProfile').value,
+        document.getElementById('gutterWidth').value,
+        gutterPickedFlag ? document.getElementById('gutterColor').value : '',
+        document.getElementById('downspouts').checked,
+        document.getElementById('maxOver').value);
+    }
+    styleChanged();
+    eavesChanged();
+    gutterChanged();
+    soffitChanged();
+  </script>
+</body></html>

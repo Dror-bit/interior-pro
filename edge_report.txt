@@ -1,0 +1,194 @@
+--- SELECTION: 10 item(s): Sketchup::Edge, Sketchup::Face
+
+EDGE0 id=4624640 len=0.7500
+  A=(-279.4637, -330.3196, 84.0000)  B=(-279.4637, -330.3196, 84.7500)
+  soft=false smooth=false hidden=false faces=4
+  face0: id=4624641 area=247.740 verts=4
+    normal=(1.000000, -0.000000, -0.000000)
+    plane=[1.000000, -0.000000, -0.000000, 279.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face1: id=4624653 area=11.932 verts=4
+    normal=(-0.707107, -0.707107, 0.000000)
+    plane=[-0.707107, -0.707107, 0.000000, -431.181940]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face2: id=4624882 area=12.728 verts=4
+    normal=(-0.707107, -0.707107, 0.000000)
+    plane=[-0.707107, -0.707107, 0.000000, -431.181940]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face3: id=4624888 area=9.000 verts=4
+    normal=(1.000000, -0.000000, -0.000000)
+    plane=[1.000000, -0.000000, -0.000000, 279.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+
+EDGE1 id=4624852 len=12.0000
+  A=(-279.4637, -342.3196, 84.0000)  B=(-267.4637, -342.3196, 84.0000)
+  soft=false smooth=false hidden=false faces=2
+  face0: id=4624855 area=72.000 verts=3
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -83.999720]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.0000
+  face1: id=4624876 area=9.000 verts=5
+    normal=(0.000000, 1.000000, 0.000000)
+    plane=[0.000000, 1.000000, 0.000000, 342.319677]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  normals dot=0.00000046  angle=90.0000 deg
+  worst gap: face0 vertex off face1 plane = 11.99999790 in
+
+EDGE2 id=4624862 len=0.7500
+  A=(-267.4637, -342.3196, 84.7500)  B=(-267.4637, -342.3196, 84.0000)
+  soft=false smooth=false hidden=false faces=6
+  face0: id=4624114 area=1981.918 verts=5
+    normal=(-1.000000, 0.000000, 0.000000)
+    plane=[-1.000000, 0.000000, 0.000000, -267.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 90.0000
+  face1: id=4624120 area=8.485 verts=7
+    normal=(-0.707107, -0.707107, 0.000000)
+    plane=[-0.707107, -0.707107, 0.000000, -431.181940]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 92.0000
+  face2: id=4624205 area=1376.575 verts=9
+    normal=(0.000001, 1.000000, 0.000002)
+    plane=[0.000001, 1.000000, 0.000002, 342.319656]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 149.3573
+  face3: id=4624230 area=6.000 verts=6
+    normal=(-1.000000, 0.000000, 0.000000)
+    plane=[-1.000000, 0.000000, 0.000000, -267.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 92.0000
+  face4: id=4624876 area=9.000 verts=5
+    normal=(0.000000, 1.000000, 0.000000)
+    plane=[0.000000, 1.000000, 0.000000, 342.319677]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face5: id=4624882 area=12.728 verts=4
+    normal=(-0.707107, -0.707107, 0.000000)
+    plane=[-0.707107, -0.707107, 0.000000, -431.181940]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+
+EDGE3 id=4624906 len=2.2500
+  A=(-269.7137, -342.3196, 84.7500)  B=(-267.4637, -342.3196, 84.7500)
+  soft=false smooth=false hidden=false faces=2
+  face0: id=4624870 area=72.000 verts=4
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -84.749848]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 84.7500
+  face1: id=4624876 area=9.000 verts=5
+    normal=(0.000000, 1.000000, 0.000000)
+    plane=[0.000000, 1.000000, 0.000000, 342.319677]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  normals dot=0.00000046  angle=90.0000 deg
+  worst gap: face0 vertex off face1 plane = 11.99999790 in
+
+EDGE4 id=4624867 len=9.7500
+  A=(-279.4637, -342.3196, 84.7500)  B=(-269.7137, -342.3196, 84.7500)
+  soft=false smooth=false hidden=false faces=3
+  face0: id=4624870 area=72.000 verts=4
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -84.749848]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 84.7500
+  face1: id=4624876 area=9.000 verts=5
+    normal=(0.000000, 1.000000, 0.000000)
+    plane=[0.000000, 1.000000, 0.000000, 342.319677]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face2: id=4624909 area=15.844 verts=3
+    normal=(0.000000, 1.000000, 0.000000)
+    plane=[0.000000, 1.000000, 0.000000, 342.319677]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 88.0000
+
+EDGE5 id=4624869 len=12.0000
+  A=(-279.4637, -330.3196, 84.7500)  B=(-279.4637, -342.3196, 84.7500)
+  soft=false smooth=false hidden=false faces=3
+  face0: id=4624870 area=72.000 verts=4
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -84.749848]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 84.7500
+  face1: id=4624888 area=9.000 verts=4
+    normal=(1.000000, -0.000000, -0.000000)
+    plane=[1.000000, -0.000000, -0.000000, 279.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  face2: id=4624896 area=39.000 verts=4
+    normal=(1.000000, -0.000000, -0.000000)
+    plane=[1.000000, -0.000000, -0.000000, 279.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 88.0000
+
+EDGE6 id=4624854 len=12.0000
+  A=(-279.4637, -330.3196, 84.0000)  B=(-279.4637, -342.3196, 84.0000)
+  soft=false smooth=false hidden=false faces=2
+  face0: id=4624855 area=72.000 verts=3
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -83.999720]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.0000
+  face1: id=4624888 area=9.000 verts=4
+    normal=(1.000000, -0.000000, -0.000000)
+    plane=[1.000000, -0.000000, -0.000000, 279.463717]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+  normals dot=0.00000046  angle=90.0000 deg
+  worst gap: face0 vertex off face1 plane = 12.00000000 in
+
+FACE0 selected instead of an edge - its boundary:
+  this: id=4624855 area=72.000 verts=3
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -83.999720]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.0000
+    edge0 len=12.000 soft=false smooth=false faces=2 (-279.4637, -342.3196, 84.0000)->(-267.4637, -342.3196, 84.0000)
+    edge1 len=16.971 soft=true smooth=true faces=2 (-267.4637, -342.3196, 84.0000)->(-279.4637, -330.3196, 84.0000)
+    edge2 len=12.000 soft=false smooth=false faces=2 (-279.4637, -330.3196, 84.0000)->(-279.4637, -342.3196, 84.0000)
+
+FACE1 selected instead of an edge - its boundary:
+  this: id=4624870 area=72.000 verts=4
+    normal=(0.000000, 0.000000, 1.000000)
+    plane=[0.000000, 0.000000, 1.000000, -84.749848]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.7500 .. 84.7500
+    edge0 len=9.750 soft=false smooth=false faces=3 (-279.4637, -342.3196, 84.7500)->(-269.7137, -342.3196, 84.7500)
+    edge1 len=2.250 soft=false smooth=false faces=2 (-269.7137, -342.3196, 84.7500)->(-267.4637, -342.3196, 84.7500)
+    edge2 len=16.971 soft=true smooth=true faces=2 (-267.4637, -342.3196, 84.7500)->(-279.4637, -330.3196, 84.7500)
+    edge3 len=12.000 soft=false smooth=false faces=3 (-279.4637, -330.3196, 84.7500)->(-279.4637, -342.3196, 84.7500)
+
+FACE2 selected instead of an edge - its boundary:
+  this: id=4624882 area=12.728 verts=4
+    normal=(-0.707107, -0.707107, 0.000000)
+    plane=[-0.707107, -0.707107, 0.000000, -431.181940]
+    material=InteriorPro_Roof_ffffff hidden=false
+    z range 84.0000 .. 84.7500
+    edge0 len=16.971 soft=true smooth=true faces=2 (-267.4637, -342.3196, 84.0000)->(-279.4637, -330.3196, 84.0000)
+    edge1 len=0.750 soft=false smooth=false faces=6 (-267.4637, -342.3196, 84.7500)->(-267.4637, -342.3196, 84.0000)
+    edge2 len=16.971 soft=true smooth=true faces=2 (-267.4637, -342.3196, 84.7500)->(-279.4637, -330.3196, 84.7500)
+    edge3 len=0.750 soft=false smooth=false faces=4 (-279.4637, -330.3196, 84.0000)->(-279.4637, -330.3196, 84.7500)
+
+--- ALL EDGES within 12" of (-279.4637, -330.3196, 84.3750) (context: Sketchup::ComponentDefinition) : 15
+  d=  0.38 len=330.320 soft=false smooth=false faces=2  (-279.4637, -330.3196, 84.7500) -> (-279.4637, 0.0000, 84.7500)
+  d=  0.38 len= 15.910 soft=true  smooth=true  faces=2  (-268.2137, -341.5696, 84.7500) -> (-279.4637, -330.3196, 84.7500)
+  d=  0.38 len=330.320 soft=false smooth=false faces=2  (-279.4637, -330.3196, 84.0000) -> (-279.4637, 0.0000, 84.0000)
+  d=  0.38 len= 15.910 soft=true  smooth=true  faces=2  (-268.2137, -341.5696, 84.0000) -> (-279.4637, -330.3196, 84.0000)
+  d=  0.38 len=  0.750 soft=false smooth=false faces=4  (-279.4637, -330.3196, 84.0000) -> (-279.4637, -330.3196, 84.7500)
+  d=  0.38 len= 12.000 soft=false smooth=false faces=3  (-279.4637, -330.3196, 84.7500) -> (-279.4637, -342.3196, 84.7500)
+  d=  0.38 len= 16.971 soft=true  smooth=true  faces=2  (-267.4637, -342.3196, 84.7500) -> (-279.4637, -330.3196, 84.7500)
+  d=  0.38 len=  3.250 soft=false smooth=false faces=1  (-279.4637, -330.3196, 84.7500) -> (-279.4637, -330.3196, 88.0000)
+  d=  0.38 len= 12.000 soft=false smooth=false faces=2  (-279.4637, -330.3196, 84.0000) -> (-279.4637, -342.3196, 84.0000)
+  d=  0.38 len= 16.971 soft=true  smooth=true  faces=2  (-267.4637, -342.3196, 84.0000) -> (-279.4637, -330.3196, 84.0000)
+  d=  3.63 len= 12.000 soft=false smooth=false faces=3  (-279.4637, -342.3196, 88.0000) -> (-279.4637, -330.3196, 88.0000)
+  d=  3.63 len=168.731 soft=false smooth=false faces=2  (-279.4637, -330.3196, 88.0000) -> (-439.5357, -330.3196, 141.3573)
+  d=  3.63 len=  0.750 soft=false smooth=false faces=2  (-279.4637, -330.3196, 88.0000) -> (-279.4637, -330.3196, 88.7500)
+  d=  4.38 len= 12.000 soft=false smooth=false faces=2  (-279.4637, -342.3196, 88.7500) -> (-279.4637, -330.3196, 88.7500)
+  d=  4.38 len=168.731 soft=false smooth=false faces=2  (-279.4637, -330.3196, 88.7500) -> (-439.5357, -330.3196, 142.1073)

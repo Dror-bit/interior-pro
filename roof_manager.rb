@@ -1608,6 +1608,16 @@ module InteriorPro
                else
                  roofs
                end
+      # DORMERS SURVIVE THE REBUILD (2026-09-02). They live inside the
+      # roof group being erased, so they are read off it first and put
+      # back on the new one at the end - placed again, so they land on
+      # the roof that exists now and not on the shape of the old one.
+      kept_dormers = if defined?(InteriorPro::DormerManager) &&
+                        InteriorPro::DormerManager.respond_to?(:harvest)
+                       InteriorPro::DormerManager.harvest(doomed)
+                     else
+                       []
+                     end
       doomed.each { |r| r.erase! if r.valid? }
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Roof'
@@ -2242,6 +2252,13 @@ module InteriorPro
       save_roof_marks!(grp, wall_ids - abut_ids)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
+      unless kept_dormers.empty?
+        begin
+          InteriorPro::DormerManager.replant!(grp, kept_dormers)
+        rescue StandardError => e
+          puts "[Roof] putting the dormers back: #{e.message}"
+        end
+      end
       model.commit_operation
       puts format('[Roof] %s over level %d: eave %.1f", ridge %.1f" (pitch %s:12, overhang %.0f", fascia %s, drip %s)',
                   s[:style], lvl, z0, ridge, s[:pitch], s[:overhang],

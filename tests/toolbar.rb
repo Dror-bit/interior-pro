@@ -328,6 +328,19 @@ module InteriorPro
       roof_cmd.large_icon = icon_path('roof_tool')
       tb.add_item(roof_cmd)
 
+      # Edit Roof (2026-08-26): click a roof, get ITS OWN panel. The
+      # guard above still holds - in a running session a populated bar is
+      # skipped whole, and a fresh SketchUp start builds all three - so
+      # the new button shows up on the next restart, never duplicated.
+      redit_cmd = UI::Command.new('Edit Roof') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofEditTool.new)
+      }
+      redit_cmd.tooltip = 'Edit Roof - click a roof to edit it'
+      redit_cmd.status_bar_text = 'Click a roof to open its settings and rebuild just it'
+      redit_cmd.small_icon = icon_path('roof_edit')
+      redit_cmd.large_icon = icon_path('roof_edit')
+      tb.add_item(redit_cmd)
+
       # Per-wall gable ends (2026-08-05): click walls to choose WHERE the
       # gables go, like Revit's Defines Slope.
       gable_cmd = UI::Command.new('Gable Ends') {
@@ -338,6 +351,34 @@ module InteriorPro
       gable_cmd.small_icon = icon_path('roof_gable')
       gable_cmd.large_icon = icon_path('roof_gable')
       tb.add_item(gable_cmd)
+
+      # Shed roof (2026-08-26): a single-slope roof. Click the LOW wall -
+      # the roof rises away from it and every other wall is cut vertical.
+      # One click does the whole thing (the UI rule: a tool button runs
+      # its tool), so there is no trip to the panel to pick the style.
+      shed_cmd = UI::Command.new('Shed Roof') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofShedTool.new)
+      }
+      shed_cmd.tooltip = 'Shed Roof - click the LOW wall of a single-slope roof'
+      shed_cmd.status_bar_text =
+        'Click the low wall: the shed roof rises away from it. Click it again to clear.'
+      shed_cmd.small_icon = icon_path('roof_shed')
+      shed_cmd.large_icon = icon_path('roof_shed')
+      tb.add_item(shed_cmd)
+
+      # Downspouts (2026-08-29): they come up automatically, one per
+      # corner, and this is how one comes off - and back on. Same story
+      # as Edit Roof above: the length guard skips a populated bar whole,
+      # so this shows up on the next SketchUp restart, never twice.
+      dspout_cmd = UI::Command.new('Downspout') {
+        Sketchup.active_model.select_tool(InteriorPro::DownspoutTool.new)
+      }
+      dspout_cmd.tooltip = 'Downspout - click one to remove it, click the roof to bring it back'
+      dspout_cmd.status_bar_text =
+        'Click a downspout to remove it for good; click the roof where one was to restore it'
+      dspout_cmd.small_icon = icon_path('downspout')
+      dspout_cmd.large_icon = icon_path('downspout')
+      tb.add_item(dspout_cmd)
 
       tb.restore
     end
@@ -639,8 +680,17 @@ module InteriorPro
       menu.add_item('Roof: Build / Update') {
         InteriorPro::RoofDialog.show
       }
+      menu.add_item('Roof: Edit (click a roof)') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofEditTool.new)
+      }
       menu.add_item('Roof: Gable Ends (click walls)') {
         Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
+      }
+      menu.add_item('Roof: Shed - single slope (click the low wall)') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofShedTool.new)
+      }
+      menu.add_item('Roof: Downspout (click one to remove)') {
+        Sketchup.active_model.select_tool(InteriorPro::DownspoutTool.new)
       }
       menu.add_item('Roof: Remove') {
         InteriorPro::RoofManager.remove_all!

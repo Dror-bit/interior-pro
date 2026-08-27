@@ -8,6 +8,7 @@ module InteriorPro
       arc_math.rb
       roof_tile_math.rb
       roof_tile_parts.rb
+      roof_tile_place.rb
       wall_library.rb
       wall_library_dialog.rb
       wall_tool.rb
@@ -46,6 +47,10 @@ module InteriorPro
       roof_manager.rb
       roof_dialog.rb
       roof_gable_tool.rb
+      roof_shed_tool.rb
+      roof_edit_tool.rb
+      dormer_manager.rb
+      downspout_tool.rb
       molding_library.rb
       molding_tool.rb
       molding_dialog.rb

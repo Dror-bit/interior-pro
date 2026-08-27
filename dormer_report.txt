@@ -1,0 +1,35 @@
+DORMER PROBE  2026-08-26 13:48:15 -0700
+========================================================================
+
+WALLS in model: 4
+  W0  id=6e51089f-236b-43ed-bca5-90bf303c7186 cat=exterior lvl=2   len=24'-2.9"  h=8'-6.0"  th=5.00  top_z=208.00
+  W1  id=3f532d6d-58c9-4bb9-9f27-d0893b038c0e cat=exterior lvl=2   len=24'-1.9"  h=8'-6.0"  th=5.00  top_z=208.00
+  W2  id=704d191a-f00d-43e7-8a0e-7f593ca201f3 cat=exterior lvl=2   len=24'-2.9"  h=8'-6.0"  th=5.00  top_z=208.00
+  W3  id=bfd3a3c3-9e22-4614-b34f-91a60292f190 cat=exterior lvl=2   len=24'-1.9"  h=8'-6.0"  th=5.00  top_z=208.00
+
+ROOFS in model: 1
+
+ROOF 0  ------------------------------------------------------------
+  style=shed  pitch=4.0:12  overhang=12.00  thickness=0.50
+  fascia=true depth=8.00  drip=true  soffit=wood slope=true  gutter=false
+  ridge_cap=true  material=shingle
+  BOUNDS x[-150.60..164.96] y[29.14..344.28] z[196.00..309.51]
+  size: 26'-3.6" wide x 26'-3.1" deep, roof height 9'-5.5"
+  faces=88  sloping/flat deck faces=20
+    deck0  area=723.58sf  z[204.00..308.98]  slope=4.00:12  falls toward (-0.00, 1.00)
+           plan x[-149.75..164.11] y[29.24..344.18]  6 corners
+    deck1  area=723.58sf  z[204.53..309.51]  slope=4.00:12  falls toward (-0.00, 1.00)
+           plan x[-149.75..164.11] y[29.24..344.18]  4 corners
+    deck2  area=1.96sf    z[204.53..309.51]  slope=4.00:12  falls toward (0.00, 1.00)
+           plan x[-150.60..-149.75] y[29.24..344.18]  4 corners
+    deck3  area=1.96sf    z[204.53..309.51]  slope=4.00:12  falls toward (-0.00, 1.00)
+           plan x[164.11..164.96] y[29.24..344.18]  4 corners
+    deck4  area=1.72sf    z[204.00..308.73]  slope=4.00:12  falls toward (-0.00, -1.00)
+           plan x[-150.50..-149.75] y[29.99..344.18]  4 corners
+    deck5  area=1.72sf    z[204.00..308.73]  slope=4.00:12  falls toward (-0.00, 1.00)
+           plan x[164.11..164.86] y[29.99..344.18]  4 corners
+    deck6  area=1.72sf    z[196.00..300.73]  slope=4.00:12  falls toward (-0.00, -1.00)
+           plan x[-150.50..-149.75] y[29.99..344.18]  6 corners
+    deck7  area=1.72sf    z[196.00..300.73]  slope=4.00:12  falls toward (0.00, -1.00)
+           plan x[164.11..164.86] y[29.99..344.18]  6 corners
+  sub-groups: InteriorPro_GableWallx3

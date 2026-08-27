@@ -1,0 +1,15 @@
+--- 1. CODE LOADED? ---
+  soffit_band: true
+  build_rake_soffit!: true
+  rake_soffit_segments: true
+  rake_soffit_step: true
+  dedupe_ring: true
+
+--- 2. SETTINGS ---
+  soffit="boxed" overhang=12.0 fascia=true fascia_depth=8.0 pitch=4.0 style=hip
+  band_top=92.0  soffit bottom should be z=84.0
+  gable walls marked: 1
+
+--- 3. REBUILD (watch the console for [Roof] lines) ---
+  roof0: faces=109 at_soffit_height=55 above_it=54
+  roof0: soffit attr="boxed"

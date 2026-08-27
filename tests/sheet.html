@@ -49,7 +49,14 @@
             .thumb.sel .sheet { border-color:#1f6feb; }
             .thumb .cap { font-size:11px; color:#aaa; padding:3px 1px 0;
                           direction:ltr; text-align:left; white-space:nowrap;
-                          overflow:hidden; text-overflow:ellipsis; }
+                          overflow:hidden; display:flex; align-items:center;
+                          gap:5px; }
+            .thumb .cap span { overflow:hidden; text-overflow:ellipsis; }
+            .thumb .cap input[type=checkbox] { width:auto; margin:0; flex:none;
+                                               accent-color:#1f6feb; cursor:pointer; }
+            /* a sheet that is staying in the set but out of the print */
+            .thumb.off .sheet { opacity:.35; }
+            .thumb.off .cap span { text-decoration:line-through; opacity:.6; }
             .thumb.sel .cap { color:#9ecbff; }
             .thumb svg { width:100%; height:auto; }
             /* A section is a box you press. Closed it is a raised blue-grey
@@ -93,6 +100,14 @@
                          border:none; color:#999; opacity:0; }
             .pg:hover button { opacity:1; }
             .pg button:hover { color:#ff8a8a; background:none; }
+            /* The tick is what goes into the PDF; the x throws the sheet away.
+               A sheet that is staying in the set but out of the print is
+               greyed and struck through, so the list says which is which
+               without having to open anything. */
+            .pg input[type=checkbox] { width:auto; margin:0; flex:none;
+                                       accent-color:#1f6feb; cursor:pointer; }
+            .pg.off b, .pg.off span { opacity:.45; text-decoration:line-through; }
+            #planback { width:auto; margin:6px; padding:4px 8px; font-size:11px; }
             #filepick { display:none; }
             button.tool { width:auto; flex:1; padding:5px 0; margin-top:0;
                           display:flex; align-items:center; justify-content:center; }
@@ -152,10 +167,10 @@
                    stays out of the boxes, because it is the point of the
                    window and should never be one click away. -->
               <div class="sec" data-k="pages">
-                <h4><span class="ar">&#9656;</span>דפים</h4>
+                <h4><span class="ar">&#9656;</span>דפים<span class="tag" id="pagestag"></span></h4>
                 <div class="bd">
                   <div id="pages" tabindex="0"></div>
-                  <button id="stripbtn">הצג את כל הדפים</button>
+                  <button id="stripbtn">הצג את הדפים ובחר מה יוצא ל-PDF</button>
                 </div>
               </div>
 
@@ -227,6 +242,15 @@
                         <path d="M4 11 L7.5 8 M4 11 L7.5 14"/>
                       </g></svg>
                     </button>
+                  </div>
+                  <!-- How far a new dimension stands off the thing it
+                       measures. Sitting ON the wall is what the user hit:
+                       nothing to read and nothing to grab (2026-08-19).
+                       With a dimension picked, this box changes THAT one. -->
+                  <div class="row" style="margin-top:7px; align-items:center">
+                    <span style="font-size:12px; flex:none">מרחק מהאובייקט</span>
+                    <input id="dimoff" type="number" step="1" style="width:70px">
+                    <span style="font-size:11px; color:#888; flex:none">אינץ'</span>
                   </div>
                   <div id="markinfo" class="hint">בחר כלי ולחץ על הציור.</div>
                 </div>
@@ -334,16 +358,63 @@
 
           <script>
           var DOC=null, STATE=null, PAGE=null, BOUNDS=null, SCALES=[];
+          // Told by Ruby in the payload, never guessed here - see markTextH.
+          var DIM_TEXT_H=5, DIM_LABEL_OFF=0.8;
           var URLS={};                // path -> file:/// address, for the sheet
           var MODE='hand';            // hand | dim | note | erase
           var ERA=null;               // which SITE line the rubber is over
           var PEND=null;              // the first point of a dimension
+          // The second point, and then the dimension is not finished yet
+          // (2026-08-19). A dimension tool in SketchUp, in LayOut and in Rayon
+          // takes THREE clicks: what to measure from, what to measure to, and
+          // then you pull the line off the wall and click to leave it there.
+          //
+          // Ours took two, and where the line sat was a separate job with a
+          // separate tool afterwards - which is exactly the "צריך לעשות פעמיים
+          // כדי להגיע לתוצאה פשוטה" the user called out, and exactly what the
+          // "fewer clicks, always" rule in CLAUDE.md exists to stop.
+          var PEND2=null;
+          var PEND3=null;             // and the end of a note's shoulder
+          var PENDOFF=0;              // how far off the wall, while he is choosing
           var HOVER=null;             // where the mouse is, in model inches
           var VIEW=null;              // how to get from the screen to the model
           var SEL=null;               // which mark is picked, by place in the list
           var EDIT=null;              // which note's words are open for changing
           var MDRAG=null;             // a mark being moved right now
+          // CARRYING (2026-08-19). The user: "אני רוצה שהוא יזיז את הקו או כל
+          // דבר אחר בלייב ואז עוד לחיצה זה יקבע אותם שם... מספיק עם העיגולים
+          // הכחולים האלו."
+          //
+          // So a mark is not dragged with handles - it is PICKED UP by a click,
+          // it follows the mouse, and the next click puts it down. SketchUp's
+          // move tool, and Rayon's. Holding the button and dragging still works
+          // for anyone who reaches for it; letting go without having moved is
+          // what starts a carry.
+          //
+          // {i, part, at:[model x,y], snap:<the mark as it was>}
+          var CARRY=null;
+          // Everything picked, not just the last thing (2026-08-19). The user:
+          // "כמו בסקאצ'אפ אני רוצה למתוח נגיד ריבוע לבחירת דברים ומחוק ביחד."
+          // SEL stays the ONE that the panels talk about; SELS is the whole
+          // pick, and Delete and carrying both work on all of it.
+          var SELS=[];
+          // The rubber band being pulled right now, in screen pixels.
+          var BAND=null;
           var GRAB=10;                // how near the mouse has to be, in pixels
+          // ...except for a MARK, which gets a much wider one (2026-08-19).
+          //
+          // MEASURED, not chosen. The user reported over three rounds that he
+          // could not pick up or erase a dimension. The click probe wrote down
+          // every press: they landed 11 to 43 pixels from the dimension line,
+          // most of them 11-22. At GRAB=10 not one of them could ever have
+          // caught. Nothing was broken - the target was a hair wide, on a
+          // sheet 15,876 pixels across, with 1622 free lines lying over it for
+          // the mouse to find instead.
+          //
+          // 26 catches every attempt he made bar the wildest, and a mark is
+          // tested BEFORE the free lines, so a dimension always wins over a
+          // line lying under it. tests/t51.js pins both.
+          var MARK_GRAB=26;
           var SF = {};      // scale label -> paper inches per model inch
           var ZOOM = null;  // null = fit the window; otherwise a multiplier
 
@@ -487,33 +558,86 @@
             if(live){
               // what is picked, drawn over the top. Presentation only - the mark
               // itself is still the one Ruby built, so the paper cannot drift.
-              if(SEL!==null && marks()[SEL] && VIEW){
-                var sm=marks()[SEL];
-                var dot=function(p){
-                  return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+
-                         '" r="4" fill="#fff" stroke="#1f6feb" stroke-width="2"/>';
-                };
+              var picked = SELS.length ? SELS : (SEL===null ? [] : [SEL]);
+              picked.forEach(function(pi){
+              if(marks()[pi] && VIEW){
+                var sm=marks()[pi];
+                // No handles. The user, 2026-08-19: "מספיק עם העיגולים
+                // הכחולים האלו." What is picked is shown by drawing the THING
+                // in blue over itself - the same way SketchUp shows a
+                // selection - and it is moved by carrying it, not by grabbing
+                // a dot on it.
                 if(sm.t==='dim'){
-                  var pa=screenOf(sm.x1,sm.y1), pb=screenOf(sm.x2,sm.y2);
+                  // the dimension line where it actually stands...
+                  var dl=dimLine(sm);
+                  var pa=screenOf(dl[0],dl[1]), pb=screenOf(dl[2],dl[3]);
                   o.push('<line x1="'+pa[0].toFixed(1)+'" y1="'+pa[1].toFixed(1)+
                          '" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+
                          '" stroke="#1f6feb" stroke-width="2" opacity=".55"/>');
-                  o.push(dot(pa)); o.push(dot(pb));
+                  // ...and the two points on the object that it measures
+                  // and its witness lines, so the whole dimension reads as
+                  // picked rather than just its middle
+                  var wa=screenOf(sm.x1,sm.y1), wb=screenOf(sm.x2,sm.y2);
+                  o.push('<line x1="'+wa[0].toFixed(1)+'" y1="'+wa[1].toFixed(1)+
+                         '" x2="'+pa[0].toFixed(1)+'" y2="'+pa[1].toFixed(1)+
+                         '" stroke="#1f6feb" stroke-width="1.5" opacity=".45"/>');
+                  o.push('<line x1="'+wb[0].toFixed(1)+'" y1="'+wb[1].toFixed(1)+
+                         '" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+
+                         '" stroke="#1f6feb" stroke-width="1.5" opacity=".45"/>');
                 } else {
-                  var pc=screenOf(sm.x,sm.y);
-                  o.push('<circle cx="'+pc[0].toFixed(1)+'" cy="'+pc[1].toFixed(1)+
-                         '" r="9" fill="none" stroke="#1f6feb" stroke-width="2"/>');
-                  if(sm.kx!==undefined) o.push(dot(screenOf(sm.kx,sm.ky)));
-                  if(sm.lx!==undefined) o.push(dot(screenOf(sm.lx,sm.ly)));
+                  // a note: its leader, drawn over itself in blue
+                  var seg=function(p1,p2){
+                    o.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+
+                           '" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+
+                           '" stroke="#1f6feb" stroke-width="2" opacity=".55"/>');
+                  };
+                  var pw=screenOf(sm.x,sm.y);
+                  if(sm.kx!==undefined){
+                    var pk=screenOf(sm.kx,sm.ky);
+                    if(sm.lx!==undefined) seg(screenOf(sm.lx,sm.ly), pk);
+                    seg(pk, pw);
+                  } else if(sm.lx!==undefined){
+                    seg(screenOf(sm.lx,sm.ly), pw);
+                  }
                 }
               }
+              });
 
-              // the dimension being stretched right now, before it is real
-              if(PEND && HOVER && VIEW){
-                var a=VIEW.toPaper(PEND[0],PEND[1]), b=VIEW.toPaper(HOVER[0],HOVER[1]);
-                o.push('<line x1="'+(a[0]*k).toFixed(1)+'" y1="'+((ph-a[1])*k).toFixed(1)+
-                       '" x2="'+(b[0]*k).toFixed(1)+'" y2="'+((ph-b[1])*k).toFixed(1)+
-                       '" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4 3"/>');
+              // the dimension being drawn right now, before it is real
+              if(PEND && VIEW){
+                var SP=function(mx,my){
+                  var q=VIEW.toPaper(mx,my);
+                  return [(q[0]*k), ((ph-q[1])*k)];
+                };
+                var dash=function(p1,p2,w){
+                  o.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+
+                         '" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+
+                         '" stroke="#1f6feb" stroke-width="'+(w||1.5)+
+                         '" stroke-dasharray="4 3"/>');
+                };
+                if(MODE==='note'){
+                  // the leader being drawn, one segment per click
+                  var kp = PEND2 || HOVER;
+                  if(kp) dash(SP(PEND[0],PEND[1]), SP(kp[0],kp[1]), 1.5);
+                  if(PEND2){
+                    var ep = PEND3 || HOVER;
+                    // the shoulder is level with the knee whatever height the
+                    // mouse is at - he is choosing its LENGTH
+                    if(ep) dash(SP(PEND2[0],PEND2[1]), SP(ep[0],PEND2[1]), 1.5);
+                  }
+                } else if(PEND2){
+                  // stage three: the real thing, following the mouse. What he
+                  // is looking at IS the dimension he is about to leave there,
+                  // witness lines and all - not a hint of one.
+                  var tmp={t:'dim', x1:PEND[0], y1:PEND[1],
+                           x2:PEND2[0], y2:PEND2[1], off:PENDOFF};
+                  var L=dimLine(tmp);
+                  dash(SP(PEND[0],PEND[1]),  SP(L[0],L[1]), 1);   // witness
+                  dash(SP(PEND2[0],PEND2[1]),SP(L[2],L[3]), 1);   // witness
+                  dash(SP(L[0],L[1]), SP(L[2],L[3]), 2);          // the line
+                } else if(HOVER){
+                  dash(SP(PEND[0],PEND[1]), SP(HOVER[0],HOVER[1]));
+                }
               }
             }
             o.push('</svg>');
@@ -526,6 +650,7 @@
             $('sheetWrap').innerHTML=sheetSVG(PAGE, fitK()*(ZOOM||1), true);
             hookDrag();
             paintErase();
+            paintSnap();
             paintTextPick();
             if($('strip').className==='on') paintStrip();
           }
@@ -581,6 +706,55 @@
 
           function marks(){ return STATE.marks||(STATE.marks=[]); }
 
+          // ---- snapping a dimension onto the drawing ----------------------
+          //
+          // The user, 2026-08-19: "הלחיצה צריכה להינעל על פינות וקצוות כמו
+          // בשאר הכלים". A dimension that starts a quarter of an inch off the
+          // corner reads 15' 1/16" when the wall is 15' - and he has no way to
+          // see which one it did.
+          //
+          // So the click looks for a corner first: every END of a line and
+          // every VERTEX of a polyline or polygon that is drawn on the plan -
+          // walls, free geometry, anything on a visible layer. The search is
+          // in SCREEN pixels, not model inches, so the pull feels the same
+          // however far he is zoomed in, exactly like SketchUp.
+          var SNAP_PX = 12;
+          var SNAPPED = null;   // where the last snap landed, for the marker
+
+          function eachVertex(fn){
+            if(!DOC||!STATE||!PAGE) return;
+            var v=(PAGE.views||[])[0]; if(!v) return;
+            var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
+            if(!cv) return;
+            var hid=STATE.hidden||[];
+            cv.layers.forEach(function(l){
+              if(hid.indexOf(l.name)>=0) return;
+              (l.shapes||[]).forEach(function(s){
+                if(s.type==='line'){ fn(s.x1,s.y1); fn(s.x2,s.y2); }
+                else if(s.points){ s.points.forEach(function(q){ fn(q[0],q[1]); }); }
+              });
+            });
+            // the ends of dimensions already drawn, so a run of them lines up
+            marks().forEach(function(m){
+              if(m.t==='dim'){ fn(m.x1,m.y1); fn(m.x2,m.y2); }
+            });
+          }
+
+          // p is where the mouse really is, in model inches. Returns the
+          // corner it should lock onto, or p itself when there is none near.
+          function snapPoint(p){
+            if(!p||!VIEW) return p;
+            var ps=screenOf(p[0],p[1]);
+            var best=null, bd=SNAP_PX;
+            eachVertex(function(x,y){
+              var q=screenOf(x,y);
+              var d=Math.hypot(q[0]-ps[0], q[1]-ps[1]);
+              if(d<bd){ bd=d; best=[x,y]; }
+            });
+            SNAPPED = best ? best.slice() : null;
+            return best || p;
+          }
+
           // model inches -> pixels inside the drawing, for hit testing
           function screenOf(mx,my){
             var p=VIEW.toPaper(mx,my);
@@ -608,15 +782,27 @@
           function hitMark(e){
             if(!VIEW||!PAGE) return null;
             var p=mouseAt(e); if(!p) return null;
-            var X=p[0], Y=p[1], best=null, bd=GRAB;
+            var X=p[0], Y=p[1], best=null, bd=MARK_GRAB;
             marks().forEach(function(m,i){
               if(m.t==='dim'){
+                // the two CLICKED points - they sit on the thing being
+                // measured and they are what 'a' and 'b' move
                 var a=screenOf(m.x1,m.y1), b=screenOf(m.x2,m.y2);
                 var da=Math.hypot(a[0]-X,a[1]-Y), db=Math.hypot(b[0]-X,b[1]-Y);
                 if(da<bd){ bd=da; best={i:i,part:'a'}; }
                 if(db<bd){ bd=db; best={i:i,part:'b'}; }
-                var ds=distToSeg(X,Y,a,b);
-                if(ds<bd){ bd=ds; best={i:i,part:'all'}; }
+                // the NUMBER itself, before the line: they overlap on a short
+                // dimension, and the thing he reached for is the one he can
+                // see (2026-08-19). The ends still win over both.
+                var lp=dimLabelXY(m), ls=screenOf(lp[0],lp[1]);
+                var dl=Math.hypot(ls[0]-X,ls[1]-Y);
+                if(dl<bd){ bd=dl; best={i:i,part:'text'}; }
+                // and the DIMENSION LINE, which is where it stands now - not
+                // where it was clicked. Dragging it pulls it off the wall.
+                var L=dimLine(m);
+                var la=screenOf(L[0],L[1]), lb=screenOf(L[2],L[3]);
+                var ds=distToSeg(X,Y,la,lb);
+                if(ds<bd){ bd=ds; best={i:i,part:'off'}; }
               } else if(m.t==='note'){
                 if(m.lx!==undefined){
                   var t=screenOf(m.lx,m.ly);
@@ -680,25 +866,199 @@
           // It sits outside the view frame's clip, so a line running off the
           // edge of the sheet lights up along its whole length. That is on
           // purpose: it shows what is about to be deleted, not what is printed.
+          // WHAT THE ERASER CAN TAKE (2026-08-19).
+          //
+          // It used to rub out free SITE geometry and nothing else, so a
+          // dimension could only go by picking it and pressing Delete - which
+          // is not how the user works. In SketchUp the eraser is THE way you
+          // get rid of a dimension: you pass over it, it lights up, you click
+          // or you drag across a run of them. He sent a picture of exactly
+          // that. So the eraser now takes marks too - dimensions and notes -
+          // and marks win over site lines, because they are the small thing
+          // drawn on top and they are what he is aiming at.
+          //
+          // ERA is {kind:'mark'|'site', i:index} or null.
+          function hitErase(e){
+            var h=hitMark(e);
+            if(h) return {kind:'mark', i:h.i};
+            var s=hitSite(e);
+            return (s===null) ? null : {kind:'site', i:s};
+          }
+
+          function sameEra(a,b){
+            if(a===null||b===null) return a===b;
+            return a.kind===b.kind && a.i===b.i;
+          }
+
+          function eraKey(x){ return x.kind+':'+x.i; }
+
+          // Everything the current sweep has crossed, in the order it was
+          // crossed. Dragging the eraser over a run of things is how SketchUp
+          // does it, and one round trip per item would make it crawl - so the
+          // sweep collects and the whole lot goes on letting go.
+          var ERASWEEP=null;
+          var ERADONE=false;   // a sweep just ran; swallow the click behind it
+
+          function eraShapePoints(x){
+            if(x.kind==='site'){
+              var lay=siteLayer(); if(!lay) return null;
+              var s=(lay.shapes||[])[x.i];
+              return (s&&s.points) ? s.points.map(function(q){ return screenOf(q[0],q[1]); }) : null;
+            }
+            var m=marks()[x.i]; if(!m) return null;
+            if(m.t==='dim'){
+              var L=dimLine(m);
+              return [screenOf(L[0],L[1]), screenOf(L[2],L[3])];
+            }
+            // a note: ring its words
+            var c=screenOf(m.x,m.y);
+            return [[c[0]-14,c[1]],[c[0]+14,c[1]]];
+          }
+
+          // The green square on the corner the dimension is about to lock to.
+          // Painted straight onto the drawing, like the eraser's highlight -
+          // going through render() on every mouse move would make it stick.
+          // ---- the rubber band ---------------------------------------------
+          //
+          // Painted straight onto the drawing, like the eraser's highlight and
+          // the snap marker: going through render() on every mouse move would
+          // rebuild every line on the sheet and the band would feel stuck.
+          function paintBand(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#bandhi');
+            if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(!BAND) return;
+            var x=Math.min(BAND.x0,BAND.x1), y=Math.min(BAND.y0,BAND.y1);
+            var w=Math.abs(BAND.x1-BAND.x0), h=Math.abs(BAND.y1-BAND.y0);
+            var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
+            n.setAttribute('id','bandhi');
+            n.setAttribute('x',x.toFixed(1)); n.setAttribute('y',y.toFixed(1));
+            n.setAttribute('width',w.toFixed(1)); n.setAttribute('height',h.toFixed(1));
+            n.setAttribute('fill','#1f6feb');
+            n.setAttribute('fill-opacity','.08');
+            n.setAttribute('stroke','#1f6feb');
+            n.setAttribute('stroke-width','1');
+            n.setAttribute('stroke-dasharray','4 3');
+            svg.appendChild(n);
+          }
+
+          // Is any part of this mark inside the box he pulled? A mark that
+          // merely CROSSES it counts - reaching a dimension means reaching its
+          // line, and asking him to swallow the whole of a 70 foot one before
+          // it will pick would be its own kind of fiddling.
+          function markInBox(m, x0, y0, x1, y1) {
+            var lo=[Math.min(x0,x1), Math.min(y0,y1)];
+            var hi=[Math.max(x0,x1), Math.max(y0,y1)];
+            var inside=function(p){
+              return p[0]>=lo[0] && p[0]<=hi[0] && p[1]>=lo[1] && p[1]<=hi[1];
+            };
+            var pts=[];
+            if(m.t==='dim'){
+              var L=dimLine(m);
+              pts.push(screenOf(m.x1,m.y1), screenOf(m.x2,m.y2),
+                       screenOf(L[0],L[1]), screenOf(L[2],L[3]));
+              var lab=dimLabelXY(m); pts.push(screenOf(lab[0],lab[1]));
+              // and the middle, so a long dimension lying across the box counts
+              pts.push(screenOf((L[0]+L[2])/2, (L[1]+L[3])/2));
+            } else {
+              pts.push(screenOf(m.x,m.y));
+              if(m.kx!==undefined) pts.push(screenOf(m.kx,m.ky));
+              if(m.lx!==undefined) pts.push(screenOf(m.lx,m.ly));
+            }
+            return pts.some(inside);
+          }
+
+          function pickInBand(band){
+            SELS=[];
+            marks().forEach(function(m,i){
+              if(markInBox(m, band.x0, band.y0, band.x1, band.y1)) SELS.push(i);
+            });
+            SEL = SELS.length ? SELS[0] : null;
+          }
+
+          function paintSnap(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#snaphi');
+            if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(MODE!=='dim'||!SNAPPED||!VIEW) return;
+            var q=screenOf(SNAPPED[0],SNAPPED[1]);
+            var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
+            n.setAttribute('id','snaphi');
+            n.setAttribute('x',(q[0]-4).toFixed(1)); n.setAttribute('y',(q[1]-4).toFixed(1));
+            n.setAttribute('width','8'); n.setAttribute('height','8');
+            n.setAttribute('fill','none');
+            n.setAttribute('stroke','#2fbf5f');
+            n.setAttribute('stroke-width','2');
+            svg.appendChild(n);
+          }
+
           function paintErase(){
             var svg=$('sheetWrap').firstChild; if(!svg) return;
             var old=svg.querySelector('#erahi');
             if(old&&old.parentNode) old.parentNode.removeChild(old);
-            if(MODE!=='erase'||ERA===null||!VIEW) return;
-            var lay=siteLayer(); if(!lay) return;
-            var s=(lay.shapes||[])[ERA]; if(!s||!s.points) return;
-            var pts=s.points.map(function(q){
-              var t=screenOf(q[0],q[1]);
-              return t[0].toFixed(1)+','+t[1].toFixed(1);
-            }).join(' ');
-            var n=document.createElementNS('http://www.w3.org/2000/svg','polyline');
-            n.setAttribute('id','erahi');
-            n.setAttribute('points',pts);
-            n.setAttribute('fill','none');
-            n.setAttribute('stroke','#e5484d');
-            n.setAttribute('stroke-width','3');
-            n.setAttribute('stroke-linecap','round');
-            svg.appendChild(n);
+            if(MODE!=='erase'||!VIEW) return;
+            var show=[];
+            if(ERASWEEP) show=ERASWEEP.slice();
+            else if(ERA) show=[ERA];
+            if(!show.length) return;
+            var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+            g.setAttribute('id','erahi');
+            show.forEach(function(x){
+              var pts=eraShapePoints(x); if(!pts) return;
+              var n=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+              n.setAttribute('points',pts.map(function(t){
+                return t[0].toFixed(1)+','+t[1].toFixed(1); }).join(' '));
+              n.setAttribute('fill','none');
+              // Blue, like the picture he sent of SketchUp: this is "the
+              // eraser is on it", not "it is already gone".
+              n.setAttribute('stroke','#1f6feb');
+              n.setAttribute('stroke-width','4');
+              n.setAttribute('stroke-linecap','round');
+              n.setAttribute('opacity','.85');
+              g.appendChild(n);
+            });
+            svg.appendChild(g);
+          }
+
+          // Take everything the sweep crossed. Marks live in the settings, so
+          // they go here; site lines live in Ruby, so they go in ONE message.
+          function eraseSweep(list){
+            if(!list||!list.length) return;
+            var seen={}, marksGone=[], siteGone=[];
+            list.forEach(function(x){
+              var k=eraKey(x); if(seen[k]) return; seen[k]=1;
+              if(x.kind==='mark') marksGone.push(x.i); else siteGone.push(x.i);
+            });
+            // highest first, so taking one out cannot move the next
+            marksGone.sort(function(a,b){ return b-a; })
+                     .forEach(function(i){ marks().splice(i,1); });
+            if(marksGone.length){ SEL=null; push(); render(); showMarks(); }
+            if(siteGone.length) sketchup.drop_site_line(JSON.stringify({is:siteGone}));
+          }
+
+          // The eraser's own pointer, so the tool says what it is the way it
+          // does in SketchUp - he asked for this by name. Drawn here rather
+          // than shipped as a file: it is eleven characters of path data and a
+          // missing file would silently fall back to an arrow.
+          // The select tool's own pointer - a plain black arrow, which is what
+          // it is in SketchUp and what the user asked for. A grabbing hand said
+          // "this pans", and panning is not what this tool does any more.
+          function arrowCursor(){
+            var s='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'+
+                  '<path d="M4 2 L4 18 L8.4 14 L11.2 20.4 L14 19.2 L11.3 13 L17 13 Z" '+
+                  'fill="#000" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>'+
+                  '</svg>';
+            return 'url("data:image/svg+xml;utf8,'+encodeURIComponent(s)+'") 4 2, default';
+          }
+
+          function eraserCursor(){
+            var s='<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">'+
+                  '<g fill="none" stroke="#000" stroke-width="1.6" stroke-linejoin="round">'+
+                  '<path d="M3 17.5 L10.5 10 L18 17.5 L14 21.5 L7 21.5 Z" fill="#fff"/>'+
+                  '<path d="M10.5 10 L15 5.5 L22.5 13 L18 17.5"/>'+
+                  '<path d="M7 21.5 L18.5 21.5"/>'+
+                  '</g></svg>';
+            return 'url("data:image/svg+xml;utf8,'+encodeURIComponent(s)+'") 4 21, crosshair';
           }
 
           // ---- one label at a time ----------------------------------------
@@ -708,6 +1068,14 @@
           // the label's key (PlanCanvas.text_key) so it survives the sheet
           // being rebuilt from the model.
           var TSEL=null;   // {key, shape, paper} - the label being changed
+          // A label being shoved right now. Ruby draws the writing, so the
+          // window cannot really move it until Ruby has heard - a round trip
+          // per mouse move would crawl. So the highlight box moves live and
+          // the real move is sent once, on letting go.
+          var TDRAG=null;
+          // and a label being CARRIED - picked up by a click, put down by the
+          // next one. See CARRY.
+          var TCARRY=null;
 
           // Where a piece of writing sits on the screen, near enough to click.
           //
@@ -799,7 +1167,7 @@
           // is swallowed by the page. t46 drives the real handler now, which
           // is the only reason this was found rather than argued about.
           function hideNoteBar(){
-            $('notebar').className=''; PEND=null; EDIT=null;
+            $('notebar').className=''; PEND=null; PEND2=null; PEND3=null; EDIT=null;
           }
 
           function closeTextBar(){
@@ -858,7 +1226,24 @@
             var old=svg.querySelector('#txhi');
             if(old&&old.parentNode) old.parentNode.removeChild(old);
             if(!TSEL||!VIEW||!PAGE) return;
+            // The document is rebuilt from the model on every change, so the
+            // shape object we are holding is a ghost the moment Ruby answers.
+            // Find the label by its KEY again - that is what the key is for.
+            if(!TDRAG && !TCARRY){
+              var want=TSEL.key, found=null;
+              eachText(function(s,paper){
+                if(!found && s.key===want) found={key:s.key, shape:s, paper:paper};
+              });
+              if(found) TSEL=found;
+            }
             var b=textBox(TSEL.shape, TSEL.paper);
+            // while it is being shoved, the box follows the mouse even though
+            // the writing itself cannot move until Ruby redraws it
+            var tc = TDRAG || TCARRY;
+            if(tc){
+              b.x += tc.dx*VIEW.sf*VIEW.k;
+              b.y -= tc.dy*VIEW.sf*VIEW.k;      // paper y is up, screen y is down
+            }
             var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
             n.setAttribute('id','txhi');
             n.setAttribute('x',b.x.toFixed(1)); n.setAttribute('y',b.y.toFixed(1));
@@ -868,6 +1253,51 @@
             n.setAttribute('stroke','#1f6feb');
             n.setAttribute('stroke-width','1.5');
             svg.appendChild(n);
+          }
+
+          // Shove the picked label by dx,dy MORE than it is already shoved.
+          // Only the position is sent - the size and the weight are left out
+          // of the message entirely, so a drag cannot quietly reset them
+          // (set_text_mark merges what it is given onto what is there).
+          // Put down what is being carried, wherever it is now.
+          function dropCarry(){
+            if(!CARRY) return;
+            CARRY=null;
+            push(); render(); showMarks();
+          }
+
+          function dropTextCarry(){
+            if(!TCARRY) return;
+            var dx=TCARRY.dx, dy=TCARRY.dy;
+            TCARRY=null;
+            if(dx||dy) nudgeText(dx, dy);
+            else { paintTextPick(); showMarks(); }
+          }
+
+          // Esc while carrying puts it back where it was picked up from -
+          // otherwise a slip of the mouse costs him the position he had.
+          function cancelCarry(){
+            if(CARRY){
+              if(CARRY.many && CARRY.many.length>1 && CARRY.snaps){
+                CARRY.many.forEach(function(i,n){
+                  if(marks()[i] && CARRY.snaps[n]) marks()[i]=CARRY.snaps[n];
+                });
+              } else if(marks()[CARRY.i] && CARRY.snap){
+                marks()[CARRY.i]=CARRY.snap;
+              }
+              CARRY=null;
+              render();
+            }
+            if(TCARRY){ TCARRY=null; paintTextPick(); }
+          }
+
+          function nudgeText(dx, dy){
+            if(!TSEL) return;
+            var cur=textMarks()[TSEL.key]||{};
+            var bx=(typeof cur.dx==='number')?cur.dx:0;
+            var by=(typeof cur.dy==='number')?cur.dy:0;
+            sketchup.set_text_mark(JSON.stringify(
+              {key:TSEL.key, dx:bx+dx, dy:by+dy}));
           }
 
           function sendTextMark(extra){
@@ -883,9 +1313,203 @@
             sketchup.set_text_mark(JSON.stringify(out));
           }
 
+          // How tall a dimension's number is when the mark carries no height of
+          // its own - which is every mark this window makes. Ruby says the
+          // number in the payload rather than the window guessing it; a guess
+          // here is how the window and the paper start disagreeing.
+          function markTextH(){ return (DIM_TEXT_H>0) ? DIM_TEXT_H : 5; }
+
+          // Where a dimension's NUMBER sits. The SAME arithmetic as
+          // PlanCanvas.dim_label_xy - see the long note over it. Two copies of
+          // one formula is a drift risk and is treated as one: rt81 and t50
+          // check both sides against the same numbers.
+          //
+          //   oa  along the line   - his right/left
+          //   oc  across the line  - his up/down
+          // in the LINE'S own frame, so the number keeps its place relative to
+          // the dimension however the line was drawn or later moved.
+          // The two ends of the DIMENSION LINE - the clicked points pushed off
+          // the object by `off`. The SAME arithmetic as PlanCanvas.dim_line.
+          // Returns [ax,ay,bx,by,ux,uy,len].
+          // How far point q lies to the LEFT of a -> b. This is the number the
+          // third click of the dimension tool is choosing, and it is the same
+          // `off` the finished mark stores - so what he sees while he is
+          // pulling it is exactly what he gets.
+          function offsetToward(a, b, q){
+            var dx=b[0]-a[0], dy=b[1]-a[1];
+            var L=Math.sqrt(dx*dx+dy*dy);
+            if(L<1e-9) return 0;
+            var ux=dx/L, uy=dy/L;
+            return (q[0]-a[0])*(-uy) + (q[1]-a[1])*(ux);
+          }
+
+          function dimLine(m){
+            var dx=m.x2-m.x1, dy=m.y2-m.y1;
+            var len=Math.sqrt(dx*dx+dy*dy);
+            if(len<1e-9) return [m.x1,m.y1,m.x2,m.y2,0,0,len];
+            var ux=dx/len, uy=dy/len;
+            var off=(m.off===undefined||m.off===null)?0:m.off;
+            var nx=-uy*off, ny=ux*off;
+            return [m.x1+nx,m.y1+ny,m.x2+nx,m.y2+ny,ux,uy,len];
+          }
+
+          function dimLabelXY(m){
+            var L=dimLine(m);
+            var mx=(L[0]+L[2])/2, my=(L[1]+L[3])/2;
+            if(L[6]<1e-9) return [mx,my];
+            var ux=L[4], uy=L[5];
+            var h=(m.h>0)?m.h:markTextH();
+            var oa=(m.oa===undefined||m.oa===null)?0:m.oa;
+            var oc=(m.oc===undefined||m.oc===null)?h*DIM_LABEL_OFF:m.oc;
+            return [mx+ux*oa-uy*oc, my+uy*oa+ux*oc];
+          }
+
+          // How far a NEW dimension stands off the wall. Remembered, because
+          // a distance he liked once he will like again.
+          function dimOff(){
+            var v=(STATE&&STATE.dim_off);
+            return (typeof v==='number' && isFinite(v)) ? v : 0;
+          }
+
+          // The box shows the PICKED dimension's own distance when there is
+          // one, and the setting for the next one when there is not - so the
+          // number in the box is always the number that typing in it changes.
+          function paintDimOff(){
+            var b=$('dimoff'); if(!b) return;
+            var m=(SEL!==null)?marks()[SEL]:null;
+            var v=(m&&m.t==='dim') ? ((m.off===undefined||m.off===null)?0:m.off)
+                                   : dimOff();
+            if(document.activeElement!==b) b.value=Math.round(v*100)/100;
+          }
+
+          function setDimOff(v){
+            if(!isFinite(v)) return;
+            var m=(SEL!==null)?marks()[SEL]:null;
+            if(m && m.t==='dim'){ m.off=v; }      // the one he has picked
+            else { STATE.dim_off=v; }             // and otherwise the next one
+            push(); render(); showMarks();
+          }
+
+          // Everything a press knows about itself, written to a file so it can
+          // be READ instead of argued about. Wrapped whole: if the probe
+          // itself throws it must not take the click down with it, which is
+          // the exact failure it exists to catch.
+          function probeClick(e){
+            try {
+              var p=mouseAt(e), am=atMouse(e);
+              var h=null, ht=null, hs=null;
+              try { h=hitMark(e); } catch(err){ h={ERROR:String(err)}; }
+              try { var t=hitText(e); ht=t?t.key:null; } catch(err){ ht='ERROR '+String(err); }
+              try { hs=hitSite(e); } catch(err){ hs='ERROR '+String(err); }
+              var ms=[];
+              (STATE&&STATE.marks?STATE.marks:[]).forEach(function(m,i){
+                if(m.t!=='dim'){ ms.push({i:i,t:m.t}); return; }
+                var L=dimLine(m);
+                var a=screenOf(L[0],L[1]), b=screenOf(L[2],L[3]);
+                var lab=dimLabelXY(m), ls=screenOf(lab[0],lab[1]);
+                ms.push({i:i, t:'dim',
+                         a:[Math.round(a[0]),Math.round(a[1])],
+                         b:[Math.round(b[0]),Math.round(b[1])],
+                         label:[Math.round(ls[0]),Math.round(ls[1])],
+                         dLine: p?Math.round(distToSeg(p[0],p[1],a,b)):null,
+                         dLabel: p?Math.round(Math.hypot(ls[0]-p[0],ls[1]-p[1])):null});
+              });
+              sketchup.sheet_probe(JSON.stringify({
+                mode:MODE, shift:!!e.shiftKey,
+                mouseScreen: p?[Math.round(p[0]),Math.round(p[1])]:null,
+                mouseModel: am?[Math.round(am[0]*10)/10,Math.round(am[1]*10)/10]:null,
+                svgSize: (function(){
+                  var s=$('sheetWrap').firstChild;
+                  if(!s) return 'NO SVG';
+                  var r=s.getBoundingClientRect();
+                  return {rectW:Math.round(r.width), rectH:Math.round(r.height),
+                          attrW:s.getAttribute?s.getAttribute('width'):null,
+                          attrH:s.getAttribute?s.getAttribute('height'):null};
+                })(),
+                view: VIEW?{k:Math.round(VIEW.k*100)/100, sf:VIEW.sf,
+                            cx:VIEW.cx, cy:VIEW.cy}:null,
+                pageH: PAGE?PAGE.height:null,
+                grab: GRAB,
+                hitMark: h, hitTextKey: ht, hitSite: hs,
+                SEL: SEL, TSEL: TSEL?TSEL.key:null,
+                marks: ms
+              }));
+            } catch(err){
+              try { sketchup.sheet_probe(JSON.stringify({PROBE_THREW:String(err)})); }
+              catch(e2){ /* nothing left to do */ }
+            }
+          }
+
+          // A note from the THREE points HE clicked (2026-08-19), which is
+          // the shape in the Rayon screenshot he sent:
+          //
+          //   tip  --\                                  the arrow, click 1
+          //           \____________________  [123]      the knee is click 2,
+          //           knee            end              the shoulder end is 3
+          //
+          // The shoulder is kept level with the knee - he chooses how LONG it
+          // is, not how crooked - and the words sit a small gap past its end.
+          // All three points still drag afterwards.
+          //
+          // The gap is measured in PAPER inches and divided back out by the
+          // scale, so a note looks the same on a 1/8" sheet and a 1/2" one.
+          //
+          // Its own function so t52 can build the note THE WINDOW builds,
+          // rather than a copy of it - saveNote lives inside the load handler
+          // and no suite can reach in there.
+          function noteMark(tip, knee, end, text, arrow, sf){
+            var off = 0.7 / (sf || (1/96));
+            // Which way the shoulder runs is HIS - it is the third click.
+            var away = (end[0] >= knee[0]) ? 1 : -1;
+            // x/y is the MIDDLE of the words (draw_mark_note centres them), so
+            // clearing the end of the line means half the words plus a pad -
+            // not a flat nudge. With a flat one the left half of a long note
+            // ran back over the shoulder, which is not what the picture shows:
+            // there the box STARTS after the line ends.
+            //
+            // The width is the same rough estimate plan_canvas falls back to
+            // (0.6 of the height per letter). It only decides where the words
+            // start, so being a few per cent out costs nothing.
+            var h = markTextH();
+            var half = String(text || '').length * h * 0.6 / 2;
+            // The shoulder is kept LEVEL with the knee, the way it is in the
+            // picture he sent: he chooses how long it is, not how crooked.
+            return {t:'note',
+                    x: end[0] + away*(half + off*0.12), y: knee[1],
+                    kx: knee[0], ky: knee[1],
+                    lx: tip[0],  ly: tip[1],
+                    text: text, arrow: !!arrow};
+          }
+
           function moveMark(m, part, dx, dy){
             if(m.t==='dim'){
-              if(part==='a'){ m.x1+=dx; m.y1+=dy; }
+              if(part==='text'){
+                // The mouse moved dx,dy across the sheet; the mark stores the
+                // move ALONG the line and ACROSS it, so it survives the line
+                // being dragged somewhere else afterwards.
+                var ddx=m.x2-m.x1, ddy=m.y2-m.y1;
+                var L=Math.sqrt(ddx*ddx+ddy*ddy);
+                if(L<1e-9) return;
+                var ux=ddx/L, uy=ddy/L;
+                var h=(m.h>0)?m.h:markTextH();
+                if(m.oa===undefined||m.oa===null) m.oa=0;
+                if(m.oc===undefined||m.oc===null) m.oc=h*DIM_LABEL_OFF;
+                m.oa += dx*ux + dy*uy;
+                m.oc += dx*(-uy) + dy*ux;
+              }
+              else if(part==='off'){
+                // Dragging the dimension LINE pulls it off the wall, the way a
+                // dimension behaves in any drawing program. Only the sideways
+                // part of the drag counts - sliding it along its own length
+                // would mean nothing, and the two clicked points stay exactly
+                // on the thing being measured.
+                var edx=m.x2-m.x1, edy=m.y2-m.y1;
+                var E=Math.sqrt(edx*edx+edy*edy);
+                if(E<1e-9) return;
+                if(m.off===undefined||m.off===null) m.off=0;
+                m.off += dx*(-edy/E) + dy*(edx/E);
+              }
+              else if(part==='a'){ m.x1+=dx; m.y1+=dy; }
               else if(part==='b'){ m.x2+=dx; m.y2+=dy; }
               else { m.x1+=dx; m.y1+=dy; m.x2+=dx; m.y2+=dy; }
             } else {
@@ -901,10 +1525,15 @@
           }
 
           function dropMark(){
-            if(SEL===null) return;
-            marks().splice(SEL,1);
-            SEL=null;
-            push(); showMarks();
+            // Everything he picked, not just one - that is what the rubber band
+            // is for (2026-08-19). Highest index first, or taking one out moves
+            // the next.
+            var gone = SELS.length ? SELS.slice() : (SEL===null ? [] : [SEL]);
+            if(!gone.length) return;
+            gone.sort(function(a,b){ return b-a; })
+                .forEach(function(i){ if(marks()[i]) marks().splice(i,1); });
+            SELS=[]; SEL=null;
+            push(); render(); showMarks();
           }
 
           // A head on the end of the leader, or a bare line. SketchUp's own text
@@ -922,7 +1551,9 @@
           }
 
           function setMode(m){
-            MODE=m; PEND=null; HOVER=null; ERA=null;
+            cancelCarry();
+            BAND=null; SELS=[];
+            MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
             if(m!=='hand') SEL=null;
             ['thand','tdim','tnote','terase'].forEach(function(id){
               $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
@@ -936,13 +1567,27 @@
           function showMarks(){
             var n=marks().length;
             $('tundo').disabled = !n;
-            var tip={hand:'לחץ על סימון כדי לבחור, Delete מוחק.',
-                     dim:'לחץ בהתחלה ואז בסוף.',
-                     note:'לחץ על מה שההערה מדברת עליו.',
-                     erase:'לחץ על קו כדי למחוק אותו מהתוכנית. המודל לא משתנה.'}[MODE];
-            if(MODE==='hand'&&SEL!==null) tip='נבחר. Delete מוחק, גרירה מזיזה.';
-            if(MODE==='erase'&&!siteLayer())
-              tip='אין גיאומטריה חופשית על הדף, או ששכבת SITE כבויה.';
+            var tip={hand:'לחץ על סימון כדי לבחור · מתח ריבוע לבחירת כמה · Delete מוחק · Alt+גרירה מזיז את התוכנית.',
+                     dim:'1 לחץ בהתחלה · 2 לחץ בסוף · 3 משוך את הקו מהקיר ולחץ.',
+                     note:'1 לחץ על מה שההערה מדברת עליו · 2 איפה שהקו נשבר · 3 סוף הקו · ואז כתוב.',
+                     erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.'}[MODE];
+            if(MODE==='note'&&PEND&&!PEND2) tip='2 עכשיו לחץ איפה שהקו נשבר.';
+            if(MODE==='note'&&PEND&&PEND2&&!PEND3) tip='3 עכשיו לחץ בסוף הקו, שם ייכתב הטקסט.';
+            if(MODE==='dim'&&PEND&&!PEND2) tip='2 עכשיו לחץ על הנקודה השנייה.';
+            if(MODE==='dim'&&PEND&&PEND2)
+              tip='3 משוך את הקו לאיפה שאתה רוצה ולחץ. Esc מבטל.';
+            if(MODE==='hand'&&SEL!==null){
+              tip='נבחר. לחיצה מרימה, לחיצה שנייה מניחה. Delete מוחק.';
+              if(marks()[SEL] && marks()[SEL].t==='dim')
+                tip='נבחר. לחץ על הקו או על המספר כדי להרים, הזז, ולחץ שוב להניח. חיצים לדיוק.';
+            }
+            if(SELS.length>1) tip=SELS.length+' נבחרו. לחיצה מרימה את כולם יחד, Delete מוחק את כולם.';
+            if(CARRY||TCARRY) tip='מחזיק — הזז ולחץ כדי להניח. Esc מחזיר.';
+            paintDimOff();
+            // No free geometry is no longer a dead end - the eraser still
+            // takes dimensions and notes (2026-08-19).
+            if(MODE==='erase'&&!siteLayer()&&!n)
+              tip='אין מה למחוק על הדף הזה.';
             // The mark counter belongs to the marks, not to the rubber.
             $('markinfo').textContent = tip +
               ((n && MODE!=='erase') ? ('  ·  ' + n + ' על הדף') : '');
@@ -954,18 +1599,47 @@
           function hookDrag(){
             var svg=$('sheetWrap').firstChild;
             if(!svg) return;
-            svg.style.cursor = MODE==='hand' ? 'grab' : 'crosshair';
+            svg.style.cursor = MODE==='hand' ? arrowCursor()
+                             : MODE==='erase' ? eraserCursor() : 'crosshair';
 
             svg.onmousemove=function(e){
               if(MODE==='erase'){
-                var h3=hitSite(e);
-                if(h3!==ERA){ ERA=h3; paintErase(); }
-                svg.style.cursor = (ERA===null) ? 'crosshair' : 'pointer';
+                var h3=hitErase(e);
+                if(ERASWEEP){
+                  // dragging: everything crossed joins the sweep
+                  if(h3 && !ERASWEEP.some(function(x){ return sameEra(x,h3); })){
+                    ERASWEEP.push(h3);
+                  }
+                  paintErase();
+                } else if(!sameEra(h3,ERA)){
+                  ERA=h3; paintErase();
+                }
+                svg.style.cursor = eraserCursor();
                 return;
               }
-              if(MODE==='dim'&&PEND){ HOVER=atMouse(e); render(); return; }
+              if(MODE==='note'&&PEND&&!PEND3){
+                var np=atMouse(e);
+                if(np){ HOVER=np; render(); }
+                return;
+              }
+              if(MODE==='dim'){
+                if(PEND&&PEND2){
+                  // the third stage: the mouse is choosing how far off the
+                  // wall the line sits. Only the sideways part of where he is
+                  // counts - sliding along the measured line means nothing.
+                  var mp=atMouse(e);
+                  if(mp){ PENDOFF=offsetToward(PEND,PEND2,mp); render(); }
+                  return;
+                }
+                // Show the corner it will lock onto BEFORE he clicks, so he is
+                // never guessing whether it caught - the whole point of a snap.
+                var hp=snapPoint(atMouse(e));
+                if(PEND){ HOVER=hp; render(); }
+                else { paintSnap(); }
+                return;
+              }
               if(MODE==='hand'&&!MDRAG&&!DRAG){
-                svg.style.cursor = hitMark(e) ? 'move' : 'grab';
+                svg.style.cursor = hitMark(e) ? 'move' : arrowCursor();
               }
             };
 
@@ -973,8 +1647,16 @@
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did.
               if(MODE==='hand'&&!e.shiftKey){
+                // Carrying something? Then this click PUTS IT DOWN. Nothing
+                // else gets to happen on it.
+                if(CARRY){ dropCarry(); e.preventDefault(); return; }
+                if(TCARRY){ dropTextCarry(); e.preventDefault(); return; }
                 var h=hitMark(e);
                 if(h){
+                  if(TSEL) closeTextBar();
+                  // clicking one thing picks that one thing, and drops
+                  // whatever the band had picked before
+                  if(SELS.indexOf(h.i)<0) SELS=[h.i];
                   SEL=h.i;
                   MDRAG={part:h.part, at:atMouse(e)};
                   svg.style.cursor='move';
@@ -982,14 +1664,61 @@
                   e.preventDefault();
                   return;
                 }
-                if(SEL!==null){ SEL=null; render(); showMarks(); }
+                // Nothing hand-drawn under the mouse - so try any WRITING on
+                // the sheet (2026-08-19). This is the one the user was after:
+                // the dimensions the plugin draws on the walls itself are not
+                // marks, so there was nothing to grab and the click panned the
+                // whole plan instead. They could already be picked with two
+                // clicks to change their SIZE; now one click picks them and
+                // they drag, the way they do in every other program.
+                var ht=hitText(e);
+                if(ht){
+                  SEL=null;
+                  TSEL=ht;
+                  TDRAG={at:atMouse(e), dx:0, dy:0, moved:false};
+                  TCARRY=null;
+                  svg.style.cursor='move';
+                  paintTextPick(); showMarks();
+                  e.preventDefault();
+                  return;
+                }
+                if(TSEL){ closeTextBar(); }
+                if(SEL!==null||SELS.length){ SEL=null; SELS=[]; render(); showMarks(); }
+              }
+              // Write down what this press was given and what the hit test
+              // made of it (2026-08-19). See the sheet_probe callback.
+              if(MODE==='hand'||MODE==='erase') probeClick(e);
+              // The eraser starts a SWEEP: whatever the mouse crosses from
+              // here until it is let go goes together, the way dragging the
+              // eraser across a drawing works in SketchUp (2026-08-19).
+              if(MODE==='erase'&&!e.shiftKey){
+                var h4=hitErase(e);
+                ERASWEEP = h4 ? [h4] : [];
+                ERA=null;
+                paintErase();
+                e.preventDefault();
+                return;
               }
               if(MODE!=='hand'&&!e.shiftKey){ e.preventDefault(); return; }
+              // Empty paper in SELECT mode pulls a rubber band, the way it does
+              // in SketchUp (2026-08-19). Moving the DRAWING around the sheet
+              // used to live on this gesture; it is on Alt-drag now, and the
+              // hint line says so. Shift still pans the view.
+              if(MODE==='hand' && !e.shiftKey && !e.altKey && e.button!==1 &&
+                 (PAGE.views||[])[0]){
+                var bp=mouseAt(e);
+                if(bp){
+                  BAND={x0:bp[0], y0:bp[1], x1:bp[0], y1:bp[1], moved:false};
+                  paintBand();
+                  e.preventDefault();
+                  return;
+                }
+              }
               var stage=$('stage');
               var pan = e.shiftKey || e.button===1 || !(PAGE.views||[])[0];
               DRAG={x:e.clientX,y:e.clientY,ox:STATE.origin_x,oy:STATE.origin_y,
                     pan:pan, sl:stage.scrollLeft, st:stage.scrollTop};
-              svg.style.cursor= pan ? 'move' : 'grabbing';
+              svg.style.cursor= pan ? 'move' : arrowCursor();
               e.preventDefault();
             };
 
@@ -1024,24 +1753,66 @@
             svg.onclick=function(e){
               if(MODE==='hand'||e.shiftKey) return;
               if(MODE==='erase'){
-                var hi=hitSite(e);
+                // Letting go has already taken the sweep; this click is the
+                // browser's echo of it and has nothing left to do.
+                if(ERADONE){ ERADONE=false; return; }
+                var hi=hitErase(e);
                 if(hi===null){
-                  $('markinfo').textContent='אין קו מתחת לעכבר. רק גיאומטריה חופשית נמחקת כאן.';
+                  $('markinfo').textContent='אין כלום מתחת לעכבר.';
                   return;
                 }
                 ERA=null; paintErase();
-                sketchup.drop_site_line(JSON.stringify({i:hi}));
+                eraseSweep([hi]);
                 return;
               }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
               if(MODE==='dim'){
-                if(!PEND){ PEND=p; HOVER=p; showMarks(); return; }
-                marks().push({t:'dim',x1:PEND[0],y1:PEND[1],x2:p[0],y2:p[1]});
-                PEND=null; HOVER=null;
-                push(); showMarks();
+                // THREE clicks, like every other drawing program:
+                //   1  what to measure from   (locks onto a corner)
+                //   2  what to measure to     (locks onto a corner)
+                //   3  where the line sits    (pull it off the wall)
+                if(!PEND){
+                  PEND=snapPoint(p); HOVER=PEND; PEND2=null; PENDOFF=dimOff();
+                  showMarks(); return;
+                }
+                if(!PEND2){
+                  PEND2=snapPoint(p);
+                  PENDOFF=dimOff();      // start from the distance he last used
+                  HOVER=PEND2;
+                  render(); showMarks(); return;
+                }
+                // the third click leaves it where he pulled it to
+                marks().push({t:'dim',x1:PEND[0],y1:PEND[1],x2:PEND2[0],y2:PEND2[1],
+                              off:PENDOFF});
+                STATE.dim_off=PENDOFF;   // and the next one starts there too
+                PEND=null; PEND2=null; PEND3=null; HOVER=null; SNAPPED=null;
+                push(); render(); showMarks();
               } else if(MODE==='note'){
-                PEND=p;
+                // A leader is DRAWN, not guessed (2026-08-19). The user, on
+                // how Rayon does it: "קודם לחיצה אחת זה מותח קו אחד, ואז עוד
+                // לחיצה מותח קו שני, ורק אז כותבים בריבוע מה שרוצים."
+                //
+                //   1  what the note is about   (the arrow tip, snaps)
+                //   2  where the leader bends   (and the words sit there)
+                //   3  type
+                //
+                // It used to be one click and the plugin chose the other two
+                // points for him - up and to the right, always - and then he
+                // dragged them where he actually wanted them. Two jobs for one
+                // note, which is the thing he called out.
+                if($('notebar').className==='on') return;   // already typing
+                if(!PEND){
+                  PEND=snapPoint(p); PEND2=null; PEND3=null; HOVER=PEND;
+                  render(); showMarks(); return;
+                }
+                if(!PEND2){
+                  PEND2=p; HOVER=p;
+                  render(); showMarks(); return;
+                }
+                PEND3=p;
+                HOVER=p;
+                render();
                 $('notebar').className='on';
                 $('notetext').value='';
                 paintArrow();
@@ -1051,6 +1822,54 @@
           }
 
           function onMove(e){
+            if(BAND){
+              var bq=mouseAt(e);
+              if(bq){ BAND.x1=bq[0]; BAND.y1=bq[1]; BAND.moved=true; paintBand(); }
+              return;
+            }
+            // carrying a mark: it follows the mouse, live, with no button held
+            if(CARRY){
+              var nc=atMouse(e);
+              if(nc){
+                var ddx=nc[0]-CARRY.at[0], ddy=nc[1]-CARRY.at[1];
+                if(CARRY.many && CARRY.many.length>1){
+                  // several things picked: they all travel together, and they
+                  // travel WHOLE - nobody wants one end of one dimension to
+                  // come along and not the other
+                  CARRY.many.forEach(function(i){
+                    if(marks()[i]) moveMark(marks()[i], 'all', ddx, ddy);
+                  });
+                } else if(marks()[CARRY.i]){
+                  moveMark(marks()[CARRY.i], CARRY.part, ddx, ddy);
+                }
+                CARRY.at=nc;
+                render();
+              }
+              return;
+            }
+            // and carrying a label - only the highlight can move live, because
+            // Ruby draws the writing; the real move goes on the drop click
+            if(TCARRY){
+              var nt2=atMouse(e);
+              if(nt2){
+                TCARRY.dx += nt2[0]-TCARRY.at[0];
+                TCARRY.dy += nt2[1]-TCARRY.at[1];
+                TCARRY.at = nt2;
+                paintTextPick();
+              }
+              return;
+            }
+            if(TDRAG){
+              var nowt=atMouse(e);
+              if(nowt){
+                TDRAG.dx += nowt[0]-TDRAG.at[0];
+                TDRAG.dy += nowt[1]-TDRAG.at[1];
+                TDRAG.at = nowt;
+                TDRAG.moved = true;
+                paintTextPick();
+              }
+              return;
+            }
             if(MDRAG){
               var now=atMouse(e);
               if(now){
@@ -1076,19 +1895,57 @@
           }
 
           function onUp(){
+            if(BAND){
+              var band=BAND;
+              BAND=null;
+              paintBand();
+              if(band.moved) pickInBand(band); else { SELS=[]; SEL=null; }
+              render(); showMarks();
+              return;
+            }
+            if(ERASWEEP){
+              var sweep=ERASWEEP;
+              ERASWEEP=null;
+              ERADONE=true;          // the click that follows has nothing left to do
+              paintErase();
+              eraseSweep(sweep);
+              return;
+            }
+            if(TDRAG){
+              var tmoved=TDRAG.moved, tdx=TDRAG.dx, tdy=TDRAG.dy, tat=TDRAG.at;
+              TDRAG=null;
+              var svgt=$('sheetWrap').firstChild;
+              if(svgt) svgt.style.cursor='move';
+              if(tmoved){ nudgeText(tdx, tdy); }
+              else {
+                // a plain click on a label PICKS IT UP
+                TCARRY={at:tat, dx:0, dy:0};
+                paintTextPick(); showMarks();
+              }
+              return;
+            }
             if(MDRAG){
-              var moved=MDRAG.moved;
+              var moved=MDRAG.moved, mpart=MDRAG.part, mat=MDRAG.at;
               MDRAG=null;
               var svg0=$('sheetWrap').firstChild;
               if(svg0) svg0.style.cursor='move';
-              if(moved) push();
+              if(moved){ push(); }
+              else if(SEL!==null && marks()[SEL]){
+                // a plain click PICKS IT UP - it now follows the mouse and the
+                // next click puts it down
+                CARRY={i:SEL, part:mpart, at:mat,
+                       many:SELS.slice(),
+                       snap:JSON.parse(JSON.stringify(marks()[SEL])),
+                       snaps:JSON.parse(JSON.stringify(SELS.map(function(i){ return marks()[i]; })))};
+                showMarks();
+              }
               return;
             }
             if(!DRAG) return;
             var moved=!DRAG.pan;
             DRAG=null;
             var svg=$('sheetWrap').firstChild;
-            if(svg) svg.style.cursor='grab';
+            if(svg) svg.style.cursor = MODE==='hand' ? arrowCursor() : 'crosshair';
             if(moved) push();
           }
 
@@ -1097,6 +1954,9 @@
 
           function loadSheet(p){
             DOC=p.doc; STATE=p.state; BOUNDS=p.bounds; SCALES=p.scales;
+            if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
+            if(p.dim_label_off!==undefined && p.dim_label_off!==null)
+              DIM_LABEL_OFF=p.dim_label_off;
             // Every picture the sheet can show needs an address here, not just
             // the renders. The logo is a picture too - it sits in the title
             // block - and leaving it out of this list is why the user picked a
@@ -1171,8 +2031,10 @@
           }
 
           // One list for every sheet in the set - plan, schedules, renders.
-          // Click a row to go there, press the x to throw that sheet away.
-          // The plan sheet has no x: it is the drawing, not an extra.
+          // Click a row to go there, the TICK says whether it goes into the
+          // PDF, the x throws it away. Since 2026-08-19 the x is on every row
+          // including the plan sheet, and the tick is the answer to "print
+          // only some of these" - two different questions, two controls.
           // ---- the page strip ---------------------------------------------
           //
           // Every sheet drawn small, down the far side of the drawing. Same
@@ -1194,13 +2056,27 @@
             // it, and the little sheet says the same things the big one does.
             var W=520;
             box.innerHTML='';
+            var skip=(STATE.pdf_skip||[]);
             (DOC.pages||[]).forEach(function(pg,i){
+              var key=pageKey(pg);
+              var out=skip.indexOf(key)>=0;
               var d=document.createElement('div');
-              d.className='thumb'+(i===(STATE.active||0)?' sel':'');
+              d.className='thumb'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
               d.onclick=function(){ goToPage(i); };
-              d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+
-                          '</div><div class="cap">'+
-                          esc((pg.sheet_number||('#'+(i+1)))+'  '+pg.name)+'</div>';
+              d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+'</div>';
+              // the tick lives HERE now - next to the picture of the sheet, so
+              // he is choosing pages he can see
+              var cap=document.createElement('div');
+              cap.className='cap';
+              var c=document.createElement('input');
+              c.type='checkbox'; c.checked=!out;
+              c.title='לצרף את הדף הזה ל-PDF';
+              c.onclick=function(e){ e.stopPropagation(); togglePdf(key); };
+              cap.appendChild(c);
+              var t=document.createElement('span');
+              t.textContent=(pg.sheet_number||('#'+(i+1)))+'  '+pg.name;
+              cap.appendChild(t);
+              d.appendChild(cap);
               box.appendChild(d);
             });
             var sel=box.querySelector('.thumb.sel');
@@ -1211,35 +2087,79 @@
             var box=$('strip');
             var on = box.className!=='on';
             box.className = on ? 'on' : '';
-            $('stripbtn').textContent = on ? 'הסתר את הדפים' : 'הצג את כל הדפים';
+            $('stripbtn').textContent = on ? 'הסתר את הדפים' : 'הצג את הדפים ובחר מה יוצא ל-PDF';
             STATE.strip = on;
             paintStrip();
             render();                        // the drawing area just changed width
           }
 
+          // The name a sheet answers to in the settings. The SAME three lines
+          // as PlanSheetDialog.page_key on the Ruby side - not the number and
+          // not the position, because both of those move the moment a sheet is
+          // added or thrown away, and a tick that moved with them would
+          // quietly start meaning a different sheet.
+          function pageKey(p){
+            var k=(p&&p.kind)||'plan';
+            return k==='image' ? ('image:'+p.ref) : k;
+          }
+
+          // The tick keeps the sheet in the set and only leaves it out of the
+          // print. Nothing is deleted here and nothing is rebuilt - the state
+          // goes back to Ruby and the PDF reads it at export time.
+          function togglePdf(key){
+            var s=(STATE.pdf_skip||[]).slice();
+            var at=s.indexOf(key);
+            if(at>=0) s.splice(at,1); else s.push(key);
+            STATE.pdf_skip=s;
+            fillPages();      // which repaints the strip too
+            push();
+          }
+
           function fillPages(){
             var box=$('pages'); box.innerHTML='';
+            var skip=(STATE.pdf_skip||[]);
+            var off=0;
             (DOC.pages||[]).forEach(function(p,i){
+              var key=pageKey(p);
+              var out=skip.indexOf(key)>=0;
+              if(out) off++;
               var row=document.createElement('div');
-              row.className='pg'+(i===(STATE.active||0)?' sel':'');
+              row.className='pg'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
               row.onclick=function(){ $('pages').focus(); goToPage(i); };
+              // The tick moved to the THUMBNAILS (2026-08-19). The user:
+              // "אני רוצה שהווי יעבור לתמונות של הדפים... כי מרגיש לי שיותר קל
+              // לבחור דפים שרואים בהוצאה ל-PDF." So this list is the x - what
+              // is in the set - and the strip is the tick - what gets printed.
+              // A row still shows struck through when its sheet is out, which
+              // tells him where things stand without being a second control.
               var num=document.createElement('b');
               num.textContent=p.sheet_number||('#'+(i+1));
               row.appendChild(num);
               var nm=document.createElement('span');
               nm.textContent=p.name; nm.title=p.name;
               row.appendChild(nm);
-              if(p.kind && p.kind!=='plan'){
-                var x=document.createElement('button');
-                x.textContent='×'; x.title='הסר את הדף הזה';
-                x.onclick=function(e){
-                  e.stopPropagation();
-                  sketchup.delete_page(JSON.stringify({kind:p.kind, ref:p.ref}));
-                };
-                row.appendChild(x);
-              }
+              // and the x - every sheet, the plan sheet included (2026-08-19).
+              var x=document.createElement('button');
+              x.textContent='×'; x.title='למחוק את הדף הזה מהתוכנית';
+              x.onclick=function(e){
+                e.stopPropagation();
+                sketchup.delete_page(JSON.stringify({kind:(p.kind||'plan'), ref:p.ref}));
+              };
+              row.appendChild(x);
               box.appendChild(row);
             });
+            // the one page that cannot be added back from anywhere else
+            if(STATE.drop_plan){
+              var b=document.createElement('button');
+              b.id='planback'; b.textContent='החזר את דף התוכנית';
+              b.onclick=function(){ sketchup.restore_plan(); };
+              box.appendChild(b);
+            }
+            var t=$('pagestag');
+            if(t){
+              var n=(DOC.pages||[]).length;
+              t.textContent = off ? ((n-off)+' מתוך '+n+' ל-PDF') : '';
+            }
             var sel=box.querySelector('.pg.sel');
             if(sel && sel.scrollIntoView) sel.scrollIntoView({block:'nearest'});
             paintStrip();
@@ -1654,14 +2574,44 @@
                 setMode('hand');
                 return;
               }
+              // Nudging the picked dimension's number, for when the mouse is
+              // not accurate enough (2026-08-19). The arrows move it the way
+              // he sees it; what is STORED is along-and-across the line, so it
+              // stays put when the dimension itself is moved later.
+              // Shift = a whole text height a press, otherwise a quarter.
+              var ar={ArrowLeft:[-1,0],ArrowRight:[1,0],
+                      ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
+              if(ar && MODE==='hand' && SEL!==null && marks()[SEL] &&
+                 marks()[SEL].t==='dim'){
+                e.preventDefault();
+                var st1=markTextH()*(e.shiftKey?1:0.25);
+                moveMark(marks()[SEL],'text',ar[0]*st1,ar[1]*st1);
+                push(); render(); showMarks();
+                return;
+              }
+              // and the same for a picked LABEL - the plugin's own dimensions,
+              // a room name, a tag
+              if(ar && MODE==='hand' && SEL===null && TSEL){
+                e.preventDefault();
+                var st2=markTextH()*(e.shiftKey?1:0.25);
+                nudgeText(ar[0]*st2, ar[1]*st2);
+                return;
+              }
               if(e.key==='Delete'||e.key==='Backspace'){
                 if(SEL!==null){ e.preventDefault(); dropMark(); }
               } else if(e.key==='Escape'){
-                PEND=null; HOVER=null; SEL=null; ERA=null;
+                cancelCarry();
+                BAND=null; SELS=[];
+                PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
                 closeTextBar();
                 render(); showMarks();
               }
             });
+
+            $('dimoff').onchange=function(){ setDimOff(parseFloat(this.value)); };
+            $('dimoff').onkeydown=function(e){
+              if(e.key==='Enter'){ e.preventDefault(); this.blur(); }
+            };
 
             $('notearrow').onclick=function(){
               STATE.note_arrow = (STATE.note_arrow===false);
@@ -1686,26 +2636,14 @@
                 push(); showMarks();
                 return;
               }
-              if(t&&PEND){
-                // The words go up and to the right of the thing they describe,
-                // with the leader running back to it. About 0.7 of a paper inch
-                // whatever the scale, so it looks the same on every sheet - and
-                // he drags the box wherever he likes afterwards.
-                // The words go up and away from the thing they describe. The
-                // knee sits at the same height as the words, on the side the
-                // thing is on, so the shoulder comes out level - the shape in
-                // the picture he sent. He drags any of the three afterwards.
-                var off=0.7/scaleFactor(STATE.scale);
-                var tx=PEND[0]+off, ty=PEND[1]+off;
-                var toward = PEND[0] < tx ? -1 : 1;
-                marks().push({t:'note', x:tx, y:ty,
-                              kx:tx + toward*off*0.55, ky:ty,
-                              lx:PEND[0], ly:PEND[1], text:t,
-                              arrow: STATE.note_arrow!==false});
+              if(t&&PEND&&PEND2&&PEND3){
+                marks().push(noteMark(PEND, PEND2, PEND3, t,
+                                      STATE.note_arrow!==false,
+                                      scaleFactor(STATE.scale)));
                 SEL=marks().length-1;
               }
               closeNote();
-              push(); showMarks();
+              push(); render(); showMarks();
             }
             $('noteok').onclick=saveNote;
             $('notecancel').onclick=function(){ closeNote(); showMarks(); };

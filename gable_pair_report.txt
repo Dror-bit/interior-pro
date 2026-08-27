@@ -1,0 +1,59 @@
+========================================================================
+GABLE PAIR PROBE  (read only)   2026-08-24 18:15:09 -0700
+========================================================================
+top_level = 1
+
+ALL WALLS (6)
+  id             sx        sy        ex        ey            th      h   base lvl cat       sag
+  --------------------------------------------------------------------------------------------------------
+  55b6e6f8-118e- 0.0       0.0       0.0       765.84       5.0  106.0    0.0   1 exterior  -
+  77c2ae4f-9924- 0.0       765.84    -599.61   765.84       5.0  106.0    0.0   1 exterior  -
+  2fa1dbc6-444c- -599.61   765.84    -599.61   -330.32      5.0  106.0    0.0   1 exterior  -
+  21009453-55a9- -279.46   -330.32   -279.46   0.0          5.0  106.0    0.0   1 exterior  -
+  740b1b31-b8a5- -279.46   0.0       0.0       0.0          5.0  106.0    0.0   1 exterior  -
+  f25c967d-3e75- -599.61   -330.32   -279.46   -330.32      5.0  106.0    0.0   1 exterior  -
+
+gable_wall_ids  = ["740b1b31-b8a5-4934-bb10-05f14b515e6e", "f25c967d-3e75-4a49-84f1-733dc25c7f4f"]
+gable_click_pts = [[-184.24, 0.0], [-465.27, -330.32]]
+
+MODEL ROOF SETTINGS
+  drip             true
+  fascia           true
+  fascia_color     "#ffffff"
+  fascia_depth     8.0
+  gable_walls      true
+  overhang         12.0
+  pitch            4.0
+  ridge_cap        true
+  roof_color       "#584e4a"
+  roof_material    "shingle"
+  soffit           "wood"
+  soffit_color     ""
+  soffit_slope     true
+  style            "hip"
+  thickness        0.5
+
+ROOF GROUPS IN THE MODEL: 1
+  roof#0  level=1  style="hip"  ridge_z=205.93461810584046  faces=136
+        wall_ids   = ["55b6e6f8-118e-40a5-9cc8-efb248c22a97", "77c2ae4f-9924-40ff-a765-4a8bf9b813fc", "2fa1dbc6-444c-41f2-af23-6061cfc09447", "f25c967d-3e75-4a49-84f1-733dc25c7f4f", "21009453-55a9-4e1d-8806-17c5bffd27df", "740b1b31-b8a5-4934-bb10-05f14b515e6e"]
+        gable_ids  = ["740b1b31-b8a5-4934-bb10-05f14b515e6e", "f25c967d-3e75-4a49-84f1-733dc25c7f4f"]
+        settings   = {:style=>"hip", :pitch=>4.0, :overhang=>12.0, :fascia=>true, :fascia_depth=>8.0, :drip=>true, :soffit=>"wood", :soffit_color=>"", :soffit_slope=>true, :roof_color=>"#584e4a", :fascia_color=>"#ffffff", :thickness=>0.5, :ridge_cap=>true, :gable_walls=>true}
+
+walls handed to the roof on level 1: 6
+eave polygon (6 pts, overhang 12.0):
+   0  (    12.00,    -12.00)   wall="55b6e6f8-118e-40a5-9cc8-efb248c22a97"
+   1  (    12.00,    777.84)   wall="77c2ae4f-9924-40ff-a765-4a8bf9b813fc"
+   2  (  -611.61,    777.84)   wall="2fa1dbc6-444c-41f2-af23-6061cfc09447"
+   3  (  -611.61,   -342.32)   wall="f25c967d-3e75-4a49-84f1-733dc25c7f4f"
+   4  (  -267.46,   -342.32)   wall="21009453-55a9-4e1d-8806-17c5bffd27df"
+   5  (  -267.46,    -12.00)   wall="740b1b31-b8a5-4934-bb10-05f14b515e6e"
+
+marks that are ON the loop: ["740b1b31-b8a5-4934-bb10-05f14b515e6e", "f25c967d-3e75-4a49-84f1-733dc25c7f4f"]
+marks that are OFF the loop (ignored): []
+gable poly edges from the marks: [3, 5]
+framed_plan:
+  main   = [-611.61, -12.0, 12.0, 777.84]
+  g      = {:n=>false, :s=>true, :e=>false, :w=>false}
+  edges  = [3, 5]
+  score  = 2   nrects=2
+  wing0 rect=[-611.61, -342.32, -267.46, -12.0]  mouth=:n  gabled=true

@@ -302,39 +302,60 @@ module InteriorPro
       title  = st['sheet_title'].to_s.empty? ? 'FLOOR PLAN' : st['sheet_title'].to_s
       num    = st['sheet_number'].to_s.empty? ? 'A-101' : st['sheet_number'].to_s
 
-      p1 = pd.new_sheet(doc, title,
-                        size: size, orientation: orient,
-                        scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
-                        sheet_number: num, sheet_title: title)
-      p1.kind = 'plan'
-      p1.sheet_number = num
+      # The plan sheet thrown away with the x in the page list (2026-08-19).
+      # It is the only page that needs a flag of its own: a picture sheet is
+      # removed by taking the picture out of st['images'] and the schedules
+      # sheet by hiding its layer, and both of those already existed. The plan
+      # sheet is built out of nothing, so the only way to not have one is to
+      # be told not to build it.
+      drop_plan = st['drop_plan'] == true
+
+      p1 = nil
+      unless drop_plan
+        p1 = pd.new_sheet(doc, title,
+                          size: size, orientation: orient,
+                          scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
+                          sheet_number: num, sheet_title: title)
+        p1.kind = 'plan'
+        p1.sheet_number = num
+      end
 
       own       = st['tables_own_page'] != false
       tables_on = pt.any?(doc) && !hidden.include?(pt::LAYER)
+      # With no plan sheet there is nothing to tuck the tables into a corner
+      # of, so they take a sheet of their own whatever the setting says.
+      own = true if p1.nil?
 
       tbl_zoom = text_pct(st, 'tables') / 100.0
 
-      if tables_on && !own
+      if tables_on && !own && p1
         pt.place!(p1, doc, zoom: tbl_zoom)
         shrink_view_for_tables!(p1, doc, hidden, tbl_zoom)
       end
 
-      v = p1.views.first
-      b = doc.canvas('MODEL').bounds
-      if st['origin_x'] && st['origin_y']
-        v.origin_x = st['origin_x'].to_f
-        v.origin_y = st['origin_y'].to_f
-        # A position remembered from a model that has since changed can leave
-        # the drawing completely off the sheet, and the page looks empty. If
-        # not one inch of it is on the paper, come back to the middle.
-        v.centre_on!(b) unless overlaps?(v.model_window, b)
-      else
-        v.centre_on!(b)
+      if p1
+        v = p1.views.first
+        b = doc.canvas('MODEL').bounds
+        if st['origin_x'] && st['origin_y']
+          v.origin_x = st['origin_x'].to_f
+          v.origin_y = st['origin_y'].to_f
+          # A position remembered from a model that has since changed can leave
+          # the drawing completely off the sheet, and the page looks empty. If
+          # not one inch of it is on the paper, come back to the middle.
+          v.centre_on!(b) unless overlaps?(v.model_window, b)
+        else
+          v.centre_on!(b)
+        end
       end
 
-      last = num
+      # Sheet numbers run on from the plan. With the plan sheet thrown away
+      # nobody has claimed A-101 yet, so the first sheet that IS built takes
+      # it - otherwise the set would start at A-102 with a hole in front of it.
+      last  = num
+      taken = !p1.nil?
       if tables_on && own
-        last = next_sheet_number(num)
+        last = taken ? next_sheet_number(last) : num
+        taken = true
         p2 = doc.add_page('SCHEDULES', size, orient)
         pt.place!(p2, doc, full: true, zoom: tbl_zoom)
         pd.build_title_block!(p2, doc, sheet_number: last,
@@ -348,13 +369,29 @@ module InteriorPro
       img_title = st['image_title'].to_s.empty? ? 'RENDERING' : st['image_title'].to_s
       Array(st['images']).each_with_index do |path, i|
         next if path.to_s.empty?
-        last = next_sheet_number(last)
+        last = taken ? next_sheet_number(last) : num
+        taken = true
         pg = pd.new_image_sheet(doc, "#{img_title} #{i + 1}", path,
                                 size: size, orientation: orient,
                                 sheet_number: last, sheet_title: img_title)
         pg.kind = 'image'
         pg.ref  = i                 # which picture in the user's list this is
         pg.sheet_number = last
+      end
+
+      # Belt and braces (2026-08-19). The window refuses to throw away the last
+      # remaining sheet, but a model saved in some other state must never open
+      # onto nothing - a set with no pages draws a blank window and PDF export
+      # refuses to print at all. If it somehow happens, the plan comes back.
+      if doc.pages.empty?
+        puts '[Sheet] every page was dropped - putting the plan sheet back'
+        pb = pd.new_sheet(doc, title,
+                          size: size, orientation: orient,
+                          scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
+                          sheet_number: num, sheet_title: title)
+        pb.kind = 'plan'
+        pb.sheet_number = num
+        pb.views.first.centre_on!(doc.canvas('MODEL').bounds)
       end
 
       # LAST, after every page exists.
@@ -534,6 +571,24 @@ module InteriorPro
             i = o.key?('italic') ? o['italic'] : o[:italic]
             s[:bold]   = !!b unless b.nil?
             s[:italic] = !!i unless i.nil?
+            # Where he shoved it (2026-08-19). The user could already pick any
+            # ONE label on the sheet and change its size; what he could not do
+            # was move it, and the labels he most wanted to move - the
+            # dimensions the plugin draws on the walls by itself - are not
+            # marks and so had nothing to grab at all.
+            #
+            # x0/y0 are kept the way h0 is: the position the label was BUILT
+            # at, so a second pass over the same document shifts it once and
+            # not twice. The plan is redrawn from the model on every change,
+            # and without this the label would walk across the sheet.
+            dx = (o.key?('dx') ? o['dx'] : o[:dx]).to_f
+            dy = (o.key?('dy') ? o['dy'] : o[:dy]).to_f
+            if dx != 0.0 || dy != 0.0
+              s[:x0] = s[:x].to_f unless s.key?(:x0)
+              s[:y0] = s[:y].to_f unless s.key?(:y0)
+              s[:x] = s[:x0] + dx
+              s[:y] = s[:y0] + dy
+            end
           end
         end
       end
@@ -558,38 +613,125 @@ module InteriorPro
       (m[key.to_s] || m[key.to_sym]).to_f
     end
 
-    def self.draw_mark_dim(lay, m)
+    # How far a hand dimension's LINE stands off the two points that were
+    # clicked (2026-08-19). The user's complaint, in his own words:
+    # "המידה יושבת על האובייקט" - it lands on top of the wall it measures and
+    # there is nothing to read and nothing to grab.
+    #
+    # `off` is that distance, measured across the line, signed: positive is to
+    # the LEFT of start -> end, so which side it goes to follows the direction
+    # he drew it. No `off` on the mark means 0 - dead on the two points, which
+    # is where every dimension drawn before today sits, so old drawings open
+    # unchanged.
+    #
+    # WITNESS_GAP leaves the little breath between the object and the start of
+    # the witness line that a drafted dimension has; WITNESS_OVER is how far
+    # the witness line carries on past the dimension line.
+    WITNESS_GAP  = 0.35 unless const_defined?(:WITNESS_GAP, false)  # of the tick
+    WITNESS_OVER = 0.75 unless const_defined?(:WITNESS_OVER, false) # of the tick
+
+    # The two ends of the DIMENSION LINE - the clicked points pushed off by
+    # `off`. Pure, and the one place that knows it: the ticks, the number and
+    # the window's hit test all read the line from here.
+    def self.dim_line(m)
       x1 = mark_num(m, :x1); y1 = mark_num(m, :y1)
       x2 = mark_num(m, :x2); y2 = mark_num(m, :y2)
       dx = x2 - x1
       dy = y2 - y1
       len = Math.hypot(dx, dy)
-      return if len < 0.5                       # a stray double click, not a line
+      return [x1, y1, x2, y2, 0.0, 0.0, len] if len < 1.0e-9
       ux = dx / len
       uy = dy / len
+      off = mark_has?(m, :off) ? mark_num(m, :off) : 0.0
+      nx = -uy * off
+      ny = ux * off
+      [x1 + nx, y1 + ny, x2 + nx, y2 + ny, ux, uy, len]
+    end
+
+    def self.draw_mark_dim(lay, m)
+      x1 = mark_num(m, :x1); y1 = mark_num(m, :y1)
+      x2 = mark_num(m, :x2); y2 = mark_num(m, :y2)
+      ax, ay, bx, by, ux, uy, len = dim_line(m)
+      return if len < 0.5                       # a stray double click, not a line
       nx = -uy                                  # across the line
       ny = ux
 
-      lay.line(x1, y1, x2, y2)
+      lay.line(ax, ay, bx, by)
       # a slash through each end, the way a plan dimension is ticked
       t = MARK_TICK / 2.0
-      [[x1, y1], [x2, y2]].each do |px, py|
-        ax = (ux + nx) * t
-        ay = (uy + ny) * t
-        lay.line(px - ax, py - ay, px + ax, py + ay)
+      [[ax, ay], [bx, by]].each do |px, py|
+        tx = (ux + nx) * t
+        ty = (uy + ny) * t
+        lay.line(px - tx, py - ty, px + tx, py + ty)
+      end
+
+      # The witness lines - the thin pair running from the thing being measured
+      # out to the dimension line. Only drawn when the dimension actually
+      # stands off something; on top of the object they would be zero long.
+      off = mark_has?(m, :off) ? mark_num(m, :off) : 0.0
+      if off.abs > MARK_TICK * WITNESS_GAP
+        sgn = off.negative? ? -1.0 : 1.0
+        g   = MARK_TICK * WITNESS_GAP * sgn
+        o   = MARK_TICK * WITNESS_OVER * sgn
+        [[x1, y1, ax, ay], [x2, y2, bx, by]].each do |px, py, qx, qy|
+          lay.line(px + nx * g, py + ny * g, qx + nx * o, qy + ny * o)
+        end
       end
 
       # Never upside down: past vertical, read it from the other side.
-      ang = Math.atan2(dy, dx) * 180.0 / Math::PI
+      ang = Math.atan2(y2 - y1, x2 - x1) * 180.0 / Math::PI
       ang -= 180.0 while ang > 90.0
       ang += 180.0 while ang < -90.0
 
       h   = mark_num(m, :h)
       h   = mark_text_h if h <= 0
-      off = h * 0.8
+      lx, ly = dim_label_xy(m, h)
       lay.text(InteriorPro::PlanGenerator.send(:fmt_feet, len),
-               (x1 + x2) / 2.0 + nx * off, (y1 + y2) / 2.0 + ny * off,
-               h: h, align: :center, rotation: ang)
+               lx, ly, h: h, align: :center, rotation: ang)
+    end
+
+    # Where a dimension's NUMBER sits (2026-08-19).
+    #
+    # The user asked to be able to shove it out of the way: "אני רוצה שיהיה לי
+    # אפשרות להזיז אותן ימינה ושמאלה ולמטה ולמעלה, תלוי איך אני מצייר אותן
+    # לאיזה כיוון" - and that last clause is the whole design.
+    #
+    # The offset is kept in the LINE'S OWN frame, never the sheet's:
+    #   oa  along the line   - his right/left
+    #   oc  across the line  - his up/down
+    # so the number holds its place relative to the dimension whichever way the
+    # line was drawn, and it still holds it after he drags an end somewhere
+    # else. Stored in the sheet's units, inches, like every other mark number.
+    #
+    # No `oc` on the mark at all means h * DIM_LABEL_OFF, which is exactly
+    # where every dimension has sat since they were built - so a drawing made
+    # before today opens looking identical. rt81 fails if that stops being true.
+    #
+    # The sheet window has the same arithmetic in dimLabelXY(), because it has
+    # to know where the number is before it can let him grab it. Two copies of
+    # one formula is a drift risk and it is treated as one: rt81 and t50 check
+    # BOTH against the same numbers, so if either side moves, one goes red.
+    DIM_LABEL_OFF = 0.8 unless const_defined?(:DIM_LABEL_OFF, false)
+
+    def self.mark_has?(m, key)
+      m.key?(key.to_s) || m.key?(key.to_sym)
+    rescue StandardError
+      false
+    end
+
+    # Measured from the DIMENSION LINE, not from the clicked points: when the
+    # dimension stands off the wall, the number goes with it (2026-08-19).
+    def self.dim_label_xy(m, h = nil)
+      h = mark_num(m, :h) if h.nil?
+      h = mark_text_h if h.nil? || h <= 0
+      ax, ay, bx, by, ux, uy, len = dim_line(m)
+      mx = (ax + bx) / 2.0
+      my = (ay + by) / 2.0
+      return [mx, my] if len < 1.0e-9
+      oa = mark_has?(m, :oa) ? mark_num(m, :oa) : 0.0
+      oc = mark_has?(m, :oc) ? mark_num(m, :oc) : h * DIM_LABEL_OFF
+      # across the line is (-uy, ux), the same normal the ticks are drawn on
+      [mx + (ux * oa) - (uy * oc), my + (uy * oa) + (ux * oc)]
     end
 
     # A note is the SketchUp Text tool: words in a box, and a line with an

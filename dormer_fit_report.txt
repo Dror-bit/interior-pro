@@ -1,0 +1,23 @@
+settings: {:width=>58.0, :length=>96.0, :setback=>30.0, :overhang=>6.0, :height=>48.0, :pitch12=>0.0, :fascia_depth=>0.0, :style=>"hip"}
+spec:     {:width=>58.0, :length=>96.0, :setback=>30.0, :overhang=>6.0, :style=>"hip", :height=>48.0, :follow_click=>true}
+face: outer loop 4 pts, ALL vertices 9 (IT HAS HOLES)
+face z 198.0..306.4, so about 325" of run
+eave base (-72.0, 1221.7), uphill (1.00, 0.00), slope 0.333
+--- walking up the middle of the slope ---
+  setback    12"  it would reach the edge of this roof slope - keep 12" clear of the ridge and the hips. Move it, make it smaller, or change the gablet
+  setback    36"  FITS
+  setback    60"  FITS
+  setback    84"  FITS
+  setback   108"  FITS
+  setback   132"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 43"
+  setback   156"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 35"
+  setback   180"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 27"
+  setback   204"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 19"
+  setback   228"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 11"
+  setback   252"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 3"
+  setback   276"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is -5"
+  setback   300"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is -13"
+  setback   324"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is -21"
+  setback   348"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is -14"
+  setback   372"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is -6"
+  setback   396"  too long for this roof - it would reach the ridge. The tallest front wall that fits here is 2"

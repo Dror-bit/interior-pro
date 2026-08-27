@@ -64,8 +64,8 @@ DD    = RM::DRIP_DEPTH
 
 spec = { z0: Z0, slope: SLOPE, setback: SET, width: WID, length: LEN,
          thickness: TH, roof_thickness: RT, overhang: OH,
-         fascia_depth: DEPTH, base: [0.0, 0.0], along: [1.0, 0.0],
-         into: [0.0, 1.0] }
+         fascia_depth: DEPTH, soffit: 'wood', soffit_slope: true,
+         base: [0.0, 0.0], along: [1.0, 0.0], into: [0.0, 1.0] }
 fr = DM.frame(spec)
 ok('the frame is computed', !fr.nil?)
 
@@ -86,6 +86,7 @@ roofs  = kind.call('dormer_roof')
 fascia = kind.call('dormer_fascia')
 rakes  = kind.call('dormer_rake')
 drips  = kind.call('dormer_drip')
+soffs  = kind.call('dormer_soffit')
 
 # ---- 1. THE MITRE IS A PLANE ------------------------------------------
 MIT = SET + WID / 2.0            # s + |w| on the mitre plane
@@ -213,6 +214,51 @@ ok('...and on the gable metal edge too',
    close(rp.map(&:y).min, fr[:s_rake] - FT - DT, 0.01),
    [rp.map(&:y).min, fr[:s_rake] - FT - DT])
 ok('...and never past it', rp.map { |p| p.x.abs }.max <= fr[:w_edge] + DT + 0.001)
+
+# ---- 6c. THE EAVES ARE CLOSED ----------------------------------------
+# (the user's last item: "עכשיו רק איבס וסיימנו")
+ST = RM::SOFFIT_THICK
+ok('there is a soffit under the eave and under the rake',
+   soffs.length == 2, soffs.length)
+eso = soffs.select { |g| pts_of(g).map { |p| p.x.abs }.max > WID / 2.0 + 0.1 }
+rso = soffs - eso
+ok('one of each', eso.length == 1 && rso.length == 1, [eso.length, rso.length])
+es = eso.flat_map { |g| pts_of(g) }
+ok('the eave soffit runs from the wall face to the fascia INNER face',
+   close(es.map { |p| p.x.abs }.min, WID / 2.0, 0.02) &&
+   close(es.map { |p| p.x.abs }.max, fr[:w_edge] - FT, 0.02),
+   [es.map { |p| p.x.abs }.min, es.map { |p| p.x.abs }.max])
+ok('...its bottom IS the fascia bottom line - the two boards meet',
+   close(es.map(&:z).min, BAND - DEPTH, 0.02),
+   [es.map(&:z).min, BAND - DEPTH])
+ok('...it is one soffit board thick',
+   close(es.select { |p| close(p.x.abs, fr[:w_edge] - FT, 0.02) }
+           .map(&:z).max - es.map(&:z).min, ST, 0.02))
+ok('...and it tilts with the roof: the inner edge is higher by pitch x overhang',
+   close(es.map(&:z).max - (BAND - DEPTH + ST),
+         fr[:pitch] * fr[:overhang], 0.02),
+   es.map(&:z).max - (BAND - DEPTH + ST))
+inner = es.select { |p| close(p.x.abs, WID / 2.0, 0.02) }
+outer = es.select { |p| close(p.x.abs, fr[:w_edge] - FT, 0.02) }
+ok('...its back end is a DIAGONAL: the higher inner edge reaches further',
+   inner.map(&:y).max > outer.map(&:y).max + 1.0,
+   [outer.map(&:y).max, inner.map(&:y).max])
+ok('...and no point of it is buried under the main roof',
+   es.all? { |p| p.z >= Z0 + p.y * SLOPE - 0.02 })
+rs = rso.flat_map { |g| pts_of(g) }
+ok('the rake soffit is pulled back one overhang, onto the eave board',
+   close(rs.map { |p| p.x.abs }.max, fr[:w_edge] - OH, 0.05),
+   rs.map { |p| p.x.abs }.max)
+ok('...and it fills the front overhang',
+   close(rs.map(&:y).min, fr[:s_rake], 0.05) &&
+   close(rs.map(&:y).max, SET, 0.05), [rs.map(&:y).min, rs.map(&:y).max])
+
+Sketchup.reset_model!
+g4 = DM.build_dormer!(Sketchup.active_model.entities, spec.merge(soffit: 'none'))
+ok('soffit "none" closes nothing and breaks nothing',
+   g4.entities.grep(Sketchup::Group).none? do |g|
+     g.get_attribute('InteriorPro', 'part') == 'dormer_soffit'
+   end)
 
 # ---- 7. NOTHING IS HAND ROLLED ---------------------------------------
 # The sizes are RoofManager's own constants, because RoofManager built
