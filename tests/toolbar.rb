@@ -381,6 +381,56 @@ module InteriorPro
       tb.add_item(dspout_cmd)
 
       tb.restore
+
+      # THE DORMER GROUP, kept together and fenced off with a separator
+      # on each side (2026-09-02, the user: "תשים את כל אלה בצד עם איזה
+      # קו קטן שמפריד ביניהם"). Place, Edit, Move, Delete - one family,
+      # read left to right.
+      tb.add_separator if tb.respond_to?(:add_separator)
+
+      # Dormer (2026-09-02): the panel first - sizes, gablet style and
+      # pitch - and its Place button hands over to DormerTool, which
+      # draws the whole dormer under the cursor and takes one click.
+      # Same shape as the Wall button, which opens the library first.
+      dormer_cmd = UI::Command.new('Dormer') {
+        InteriorPro::DormerDialog.show
+      }
+      dormer_cmd.tooltip = 'Dormer - size it, then click a roof slope to place it'
+      dormer_cmd.status_bar_text = 'Open the dormer panel and place a dormer on a roof'
+      dormer_cmd.small_icon = icon_path('dormer_tool')
+      dormer_cmd.large_icon = icon_path('dormer_tool')
+      tb.add_item(dormer_cmd)
+
+      # Edit / Move / Delete a dormer (2026-09-02). Same click-to-pick
+      # shape as Edit Roof, one type further in. Delete closes the hole
+      # it cut; Move carries the dormer's own sizes to the new spot.
+      dedit_cmd = UI::Command.new('Edit Dormer') {
+        Sketchup.active_model.select_tool(InteriorPro::DormerEditTool.new)
+      }
+      dedit_cmd.tooltip = 'Edit Dormer - click a dormer to open its own panel'
+      dedit_cmd.status_bar_text = 'Click a dormer to edit its sizes and gablet'
+      dedit_cmd.small_icon = icon_path('dormer_edit')
+      dedit_cmd.large_icon = icon_path('dormer_edit')
+      tb.add_item(dedit_cmd)
+
+      dmove_cmd = UI::Command.new('Move Dormer') {
+        Sketchup.active_model.select_tool(InteriorPro::DormerMoveTool.new)
+      }
+      dmove_cmd.tooltip = 'Move Dormer - click it, then click where it goes'
+      dmove_cmd.status_bar_text = 'Move a dormer to another place on the roof'
+      dmove_cmd.small_icon = icon_path('dormer_move')
+      dmove_cmd.large_icon = icon_path('dormer_move')
+      tb.add_item(dmove_cmd)
+
+      ddel_cmd = UI::Command.new('Delete Dormer') {
+        Sketchup.active_model.select_tool(InteriorPro::DormerDeleteTool.new)
+      }
+      ddel_cmd.tooltip = 'Delete Dormer - click a dormer to remove it'
+      ddel_cmd.status_bar_text = 'Delete a dormer and close the hole it cut'
+      ddel_cmd.small_icon = icon_path('dormer_delete')
+      ddel_cmd.large_icon = icon_path('dormer_delete')
+      tb.add_item(ddel_cmd)
+
     end
 
     # Separate 2D toolbar (2026-07-30): direct access to the 2D editor, so the

@@ -1,0 +1,32 @@
+roofs in the model: 2
+--- roof 0: style hip, pitch 4.0, level 2
+    OPEN  face0   x    373.5..   533.5  y   1165.0..  1185.0  z  243.67
+    OPEN  face0   x    363.5..   533.5  y   1379.0..  1419.0  z  244.33
+    OPEN  face1   x    -44.2..    25.8  y   1267.6..  1287.6  z  219.93
+    OPEN  face1   x    -48.0..    22.0  y   1176.9..  1196.9  z  218.68
+    OPEN  face1   x    -55.0..    15.0  y   1419.0..  1439.0  z  216.33
+    OPEN  face1   x    -55.0..   105.0  y   1346.9..  1366.9  z  234.33
+    OPEN  face1   x    -41.9..    28.1  y   1083.0..  1103.0  z  220.70
+    OPEN  face1   x    -39.6..    30.4  y   1020.7..  1040.7  z  221.48
+    OPEN  face2   x    373.5..   533.5  y   1165.0..  1185.0  z  244.19
+    OPEN  face2   x    363.5..   533.5  y   1379.0..  1419.0  z  244.86
+    OPEN  face3   x    -44.2..    25.8  y   1267.6..  1287.6  z  220.46
+    OPEN  face3   x    -48.0..    22.0  y   1176.9..  1196.9  z  219.21
+    OPEN  face3   x    -55.0..    15.0  y   1419.0..  1439.0  z  216.86
+    OPEN  face3   x    -55.0..   105.0  y   1346.9..  1366.9  z  234.86
+    OPEN  face3   x    -41.9..    28.1  y   1083.0..  1103.0  z  221.23
+    OPEN  face3   x    -39.6..    30.4  y   1020.7..  1040.7  z  222.01
+    openings: 0 PATCHED, 16 OPEN
+      InteriorPro_Dormer [dormer]                  x3
+      InteriorPro_EaveBar                          x2
+      InteriorPro_GableWall                        x2
+      InteriorPro_RidgeCap                         x1
+--- roof 1: style gable, pitch 5.0, level 1
+    OPEN  face0   x    107.2..   163.2  y    775.4..   795.4  z  128.11
+    OPEN  face1   x    -32.1..    23.9  y    777.0..   797.0  z  128.73
+    OPEN  face2   x    107.2..   163.2  y    775.4..   795.4  z  128.64
+    OPEN  face3   x    -32.1..    23.9  y    777.0..   797.0  z  129.27
+    openings: 0 PATCHED, 4 OPEN
+      InteriorPro_Dormer [dormer]                  x2
+      InteriorPro_GableWall                        x1
+      InteriorPro_RidgeCap                         x19

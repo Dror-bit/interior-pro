@@ -1,0 +1,6 @@
+--- roof 0: 1 dormer(s)
+    2 orphan opening(s)
+    (49.0, 1385.8)  skinned +6, rim 5, seam 5
+    (49.0, 1385.8)  skinned +1, rim 0, seam 5
+--- roof 1: 2 dormer(s)
+    0 orphan opening(s)

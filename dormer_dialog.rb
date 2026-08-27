@@ -58,13 +58,15 @@ module InteriorPro
       )
       dlg.add_action_callback('place_dormer') do |_, style, width, height,
                                                   setback, overhang, pitch12,
-                                                  fdepth|
+                                                  fdepth, mode|
         old = InteriorPro::DormerManager.settings
         s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
               width: width.to_f, height: height.to_f, length: old[:length],
               setback: setback.to_s.empty? ? old[:setback] : setback.to_f,
               overhang: overhang.to_f, pitch12: pitch12.to_f,
-              fascia_depth: fdepth.to_f }
+              fascia_depth: fdepth.to_f,
+              place_mode: %w[free depth flush].include?(mode.to_s) ?
+                          mode.to_s : 'free' }
         InteriorPro::DormerManager.save_settings!(s)
         tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
         if tgt
@@ -127,6 +129,16 @@ module InteriorPro
       # SAME ORDER AS THE ROOF PANEL (2026-09-02, the user: "תעשה את סדר
       # הגגות בדורמר כמו בגגות"): Hip, Gable, Flat, Shed. One place in
       # the plugin, one order.
+      # WHERE IT SITS - his three (2026-09-02B): "1- להציב איפה שרוצים
+      # 2- מידה/מרחק מסוף הגג ... 3- פלש עם הקיר".
+      modes = [['free', 'Click anywhere'],
+               ['depth', 'Depth from the fascia'],
+               ['flush', 'Flush with the wall']].map do |v, t|
+        chk = (s[:place_mode].to_s == v) ||
+              (s[:place_mode].to_s.empty? && v == 'free') ? ' checked' : ''
+        "<label><input type=\"radio\" name=\"pmode\" " \
+          "value=\"#{v}\"#{chk}> #{t}</label>"
+      end.join
       styles = [['hip', 'Hip'], ['gable', 'Gable'],
                 ['flat', 'Flat'], ['shed', 'Shed']].map do |v, t|
         built = built_styles.include?(v)
@@ -146,6 +158,8 @@ module InteriorPro
           .row input[type=number] { width: 88px; padding: 4px; }
           .row select { width: 150px; padding: 4px; }
           .styles label { flex: none; margin-right: 10px; }
+          .placing { flex-wrap: wrap; }
+          .placing label { flex: none; margin-right: 12px; }
           .styles label.off { color: #9e9e9e; }
           .soon { font-size: 11px; color: #b0bec5; }
           .hint { color: #78909c; font-size: 12px; margin-top: 6px; }
@@ -162,6 +176,12 @@ module InteriorPro
           <div class="hint" id="flatHint" style="display:none">A flat gablet has
             no pitch at all: its deck is level, so its height is simply how far
             it reaches into the roof times the roof's own pitch.</div>
+
+          <div class="section-title">Where it sits</div>
+          <div class="row placing">#{modes}</div>
+          <div class="row" id="depthRow"><label>Depth from the fascia</label>
+            <input type="number" id="setback" step="1" min="0" value="#{s[:setback].round}"> in</div>
+          <div class="hint" id="placeHint"></div>
 
           <div class="section-title">Size</div>
           <div class="row"><label>Width (across the roof)</label>
@@ -182,9 +202,8 @@ module InteriorPro
                    'where it stands. Move it with the Move Dormer button.</div>'
                  : '<div class="hint">Then hover a roof slope - the whole ' \
                    'dormer is drawn where it would land - and click once to ' \
-                   'build it. WHERE YOU CLICK is the setback: walk the mouse ' \
-                   'up the slope and the dormer walks with it, and the status ' \
-                   'bar says how far from the eave it is. Esc cancels.</div>'}
+                   'build it. The status bar says where it will sit. ' \
+                   'Esc cancels.</div>'}
           <div class="hint">The gablet always dies into the roof at the end of
             its own length, so the length is what the height, the width and the
             pitch produce - never a fourth number that can argue with them.</div>
@@ -198,20 +217,36 @@ module InteriorPro
               // a flat gablet HAS no pitch - the control would be a lie
               document.getElementById('pitch').disabled = (v === 'flat');
             }
+            function modeChanged() {
+              var v = document.querySelector('input[name=pmode]:checked').value;
+              document.getElementById('depthRow').style.display =
+                (v === 'depth') ? 'flex' : 'none';
+              var h = {
+                free: 'The click sets how far up the slope it sits.',
+                depth: 'The mouse only slides it sideways - the depth stays what you typed.',
+                flush: 'Its front wall lands in the plane of the house wall. The mouse only slides it sideways.'
+              };
+              document.getElementById('placeHint').textContent = h[v];
+            }
             function placeDormer() {
               sketchup.place_dormer(
                 document.querySelector('input[name=style]:checked').value,
                 document.getElementById('width').value,
                 document.getElementById('height').value,
-                '',
+                document.getElementById('setback').value,
                 document.getElementById('overhang').value,
                 document.getElementById('pitch').value,
-                document.getElementById('fasciaDepth').value);
+                document.getElementById('fasciaDepth').value,
+                document.querySelector('input[name=pmode]:checked').value);
             }
             Array.prototype.forEach.call(
               document.querySelectorAll('input[name=style]'),
               function (r) { r.addEventListener('change', styleChanged); });
+            Array.prototype.forEach.call(
+              document.querySelectorAll('input[name=pmode]'),
+              function (r) { r.addEventListener('change', modeChanged); });
             styleChanged();
+            modeChanged();
           </script>
         </body></html>
       HTML

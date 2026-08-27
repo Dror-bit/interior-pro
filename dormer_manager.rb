@@ -339,6 +339,7 @@ module InteriorPro
         height:       g.call('dormer_height', 0.0).to_f,
         pitch12:      g.call('dormer_pitch12', 0.0).to_f,
         fascia_depth: g.call('dormer_fascia_depth', 0.0).to_f,
+        place_mode:   g.call('dormer_place_mode', 'free').to_s,
         style:        g.call('dormer_style', 'gable').to_s }
     end
 
@@ -352,6 +353,8 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'dormer_pitch12', s[:pitch12].to_f)
       m.set_attribute('InteriorPro', 'dormer_fascia_depth', s[:fascia_depth].to_f)
       m.set_attribute('InteriorPro', 'dormer_style', s[:style].to_s)
+      m.set_attribute('InteriorPro', 'dormer_place_mode',
+                      s[:place_mode].nil? ? 'free' : s[:place_mode].to_s)
       s
     end
 
@@ -362,6 +365,7 @@ module InteriorPro
       s ||= settings
       spec = { width: s[:width].to_f, length: s[:length].to_f,
                setback: s[:setback].to_f, overhang: s[:overhang].to_f,
+               place_mode: s[:place_mode].to_s,
                style: s[:style].to_s }
       # a typed height wins: the length is then whatever produces it.
       spec[:height] = s[:height].to_f if s[:height].to_f > 0.01
@@ -607,6 +611,11 @@ module InteriorPro
       base = [x - into[0] * s_click, y - into[1] * s_click]
       z_at = plane_z_lambda(face)
       { base: base, along: along, into: into, roof_mat: roof_mat, face: face,
+        # EAVE LINE -> HOUSE WALL FACE (2026-09-02B). The roof's eave
+        # polygon is built at the wall face plus the overhang, so this
+        # distance IS the roof's own overhang - measured off the roof,
+        # never typed and never guessed. `flush` placing uses it.
+        wall_s: roof.get_attribute('InteriorPro', 'overhang_in').to_f,
         # HOW FAR UP THE SLOPE HE CLICKED. With `follow_click` this
         # becomes the setback, so the ghost walks up and down the roof
         # with the mouse instead of sitting at one typed number - which
@@ -668,14 +677,46 @@ module InteriorPro
       plan.map { |ss, ww| at.call(ss, ww, 0.0) }
     end
 
+    # THE EAVE IS NOT ONE OF THOSE EDGES (2026-09-02B). Above the ridge
+    # or past a hip there is no roof left to die into, so 12" of clear
+    # roof is a real rule. The EAVE is the opposite case: reaching it,
+    # or hanging over it, is what a dormer flush with the house wall
+    # does - the same thing the house's own eave does. So the clearance
+    # is measured against every edge EXCEPT the eave, and a corner that
+    # is outside the face is allowed when the eave is the edge it went
+    # out through.
+    def self.eave_edges(pts)
+      zmin = pts.map(&:z).min
+      n = pts.length
+      (0...n).select do |i|
+        (pts[i].z - zmin).abs < 0.25 && (pts[(i + 1) % n].z - zmin).abs < 0.25
+      end
+    end
+
+    def self.nearest_edge(ring, x, y)
+      best = nil
+      best_i = 0
+      n = ring.length
+      n.times do |i|
+        d = seg_distance(ring[i], ring[(i + 1) % n], x, y)
+        if best.nil? || d < best
+          best = d
+          best_i = i
+        end
+      end
+      best_i
+    end
+
     def self.fits_on_face?(fr, at, face, margin = RIDGE_CLEARANCE)
       return true if face.nil?
       pts = face_points(face)
       return true if pts.nil? || pts.length < 3
       ring = pts.map { |p| [p.x, p.y] }
+      eave = eave_edges(pts)
       deck_corners(fr, at).each do |q|
-        next if point_in_ring?(ring, q.x, q.y) &&
-                ring_distance(ring, q.x, q.y) >= margin
+        next if ring_distance(ring, q.x, q.y, eave) >= margin &&
+                (point_in_ring?(ring, q.x, q.y) ||
+                 eave.include?(nearest_edge(ring, q.x, q.y)))
         warn_nil(format('it would reach the edge of this roof slope - keep ' \
                         '%.0f" clear of the ridge and the hips. Move it, make ' \
                         'it smaller, or change the gablet', margin))
@@ -689,9 +730,40 @@ module InteriorPro
     # taken from where the mouse is rather than from the panel.
     def self.click_spec(spec, rf)
       s = spec.merge(rf)
-      s[:setback] = rf[:s_click].to_f if s[:follow_click] && rf[:s_click]
+      case place_mode(s)
+      when 'flush'
+        # HIS THIRD OPTION (2026-09-02B): the front wall lands in the
+        # plane of the house wall, which is exactly one roof overhang
+        # up the slope from the eave line.
+        s[:setback] = wall_setback(rf)
+      when 'depth'
+        s[:setback] = spec[:setback].to_f
+      else
+        # 'free' still needs a placing tool behind it. A caller that
+        # never set follow_click - Edit, Move, replant, every rt suite -
+        # keeps the setback it handed in, exactly as before the modes
+        # existed.
+        s[:setback] = rf[:s_click].to_f if s[:follow_click] && rf[:s_click]
+      end
       s[:setback] = 0.0 if s[:setback].to_f < 0.0
       s
+    end
+
+    # free  - the click sets how far up the slope it sits
+    # depth - a typed distance from the fascia; the mouse only slides it
+    #         sideways ("אם אני קובע עומק הוא רץ רק על העומק")
+    # flush - hard against the house wall
+    # The old `follow_click` flag still decides for callers written
+    # before the modes existed, so nothing that used to work changes.
+    def self.place_mode(s)
+      m = s[:place_mode].to_s
+      return m if %w[free depth flush].include?(m)
+      s[:follow_click] ? 'free' : 'depth'
+    end
+
+    def self.wall_setback(rf)
+      w = rf[:wall_s].to_f
+      w > 0.01 ? w : 0.0
     end
 
     # Put one dormer on a real roof, at (x, y) in plan.
@@ -1660,10 +1732,18 @@ module InteriorPro
       cx = flat.map(&:x).inject(:+) / flat.length
       cy = flat.map(&:y).inject(:+) / flat.length
 
-      # every distinct skin plane the roof still has around the hole
+      # EVERY SKIN PLANE THAT IS ACTUALLY OVER THIS HOLE - and no other
+      # (2026-09-02B). Without the covers_point? test this collected a
+      # plane from every sloping face in the whole roof group: on a hip
+      # roof that is four slopes, so healing one dormer laid a patch on
+      # each of them and left slabs hanging in mid-air over the house
+      # (the user: "יש כל מיני שכבות צפות באוויר מעל"), while the hole
+      # it was asked to close stayed open. cut_roof! has always tested
+      # this; heal_roof! is its inverse and has to test the same thing.
       zs = []
       ents.grep(Sketchup::Face).each do |f|
         next if f.normal.z.abs < 0.2
+        next unless covers_point?(f, cx, cy)
         z_at = plane_z_lambda(f)
         next if z_at.nil?
         z = z_at.call(cx, cy)
@@ -1673,7 +1753,75 @@ module InteriorPro
       end
       return 0 if zs.empty?
 
-      # the rim, and anything else left inside the opening, goes first
+      # THE HOLE THAT IS REALLY THERE (2026-09-02B). Everything below
+      # used to compute the ring again from the frame and hand it to
+      # add_face. Three things were measured wrong with that, in his own
+      # model, after he saw the opening survive both Delete and Move:
+      #   * ents.add_face(ring) on a ring that is already an inner loop
+      #     RETURNS THE SURROUNDING FACE and creates nothing - it
+      #     reported "2 skin(s) back" over a hole you could see through.
+      #     Edge#find_faces is the call that skins a loop already there.
+      #   * The RIM - the slab's cut sides - has to go AFTER the skin,
+      #     not before: find_faces rebuilds every face those edges can
+      #     bound, the rim included (measured: rim 5, skinned +5).
+      #   * The SEAM between the new skin and the slope is two coplanar
+      #     faces with an edge between them, and that edge draws as a
+      #     line on the roof ("אבל עדיין רואים אותו בגג"). Erased, the
+      #     two merge into one face and the roof is whole again.
+      # So: find the loops that ARE in the opening, then skin, rim, seam.
+      real = []
+      if ents.grep(Sketchup::Face).first.respond_to?(:loops)
+        ents.grep(Sketchup::Face).each do |f|
+          next if f.normal.z.abs < 0.2 || f.loops.length < 2
+          f.loops.each do |lp|
+            next if lp.outer?
+            pts = lp.vertices.map(&:position)
+            next unless pts.all? { |p| in_plan?(plan, at, p.x, p.y, 0.5) }
+            real << [lp, f]
+          end
+        end
+      end
+      unless real.empty?
+        done = 0
+        real.each do |lp, host|
+          next unless lp.valid?
+          m = mat || (host.valid? ? host.material : nil)
+          skinned = lp.edges.any? do |e|
+            e.valid? &&
+              e.faces.count { |f| f.valid? && f.normal.z.abs > 0.2 } >= 2
+          end
+          lp.edges.each { |e| e.find_faces if e.valid? } unless skinned
+          rim = []
+          lp.edges.each do |e|
+            next unless e.valid?
+            e.faces.each { |f| rim << f if f.valid? && f.normal.z.abs < 0.2 }
+          end
+          rim.uniq!
+          ents.erase_entities(rim) unless rim.empty?
+          next unless lp.valid?
+          seam = lp.edges.select do |e|
+            next false unless e.valid?
+            fs = e.faces.select(&:valid?)
+            fs.length == 2 && fs[0].normal.dot(fs[1].normal).abs > 0.999
+          end
+          seam.each do |e|
+            e.faces.each do |f|
+              next unless f.valid? && m
+              f.material = m
+              f.back_material = m
+            end
+          end
+          ents.erase_entities(seam) unless seam.empty?
+          done += 1
+        end
+        puts "[Dormer] hole closed: #{done} opening(s) skinned and merged"
+        return done
+      end
+
+      # FALLBACK, and the only path the cloud stub can run: it has no
+      # loops, no edges and no find_faces, so there the ring is still
+      # drawn by hand. tests/rt104.rb pins the one thing that path can
+      # still get wrong - laying a patch on a slope the hole is not in.
       doomed = ents.grep(Sketchup::Face).select do |f|
         pts = face_points(f)
         next false if pts.nil? || pts.length < 3
@@ -1982,19 +2130,25 @@ module InteriorPro
       inside
     end
 
-    def self.ring_distance(ring, x, y)
+    def self.seg_distance(a, b, x, y)
+      ax, ay = a
+      bx, by = b
+      dx = bx - ax
+      dy = by - ay
+      len2 = dx * dx + dy * dy
+      t = len2 < 1.0e-9 ? 0.0 : (((x - ax) * dx + (y - ay) * dy) / len2)
+      t = 0.0 if t < 0.0
+      t = 1.0 if t > 1.0
+      Math.sqrt((x - (ax + dx * t))**2 + (y - (ay + dy * t))**2)
+    end
+
+    # `skip` = indices of edges this distance must ignore (the eave).
+    def self.ring_distance(ring, x, y, skip = nil)
       best = nil
       n = ring.length
       n.times do |i|
-        ax, ay = ring[i]
-        bx, by = ring[(i + 1) % n]
-        dx = bx - ax
-        dy = by - ay
-        len2 = dx * dx + dy * dy
-        t = len2 < 1.0e-9 ? 0.0 : (((x - ax) * dx + (y - ay) * dy) / len2)
-        t = 0.0 if t < 0.0
-        t = 1.0 if t > 1.0
-        d = Math.sqrt((x - (ax + dx * t))**2 + (y - (ay + dy * t))**2)
+        next if skip && skip.include?(i)
+        d = seg_distance(ring[i], ring[(i + 1) % n], x, y)
         best = d if best.nil? || d < best
       end
       best || 1.0e9
@@ -2083,12 +2237,30 @@ module InteriorPro
       ext = ext_name ? wt.load_or_create_material(ext_name) : nil
       int = wt.load_or_create_material(int_name)
       return if ext.nil? && int.nil?
+      # WHICH SIDE IT SITS ON, NOT WHICH WAY IT LOOKS (2026-09-02B).
+      # This used to read f.normal, and a face's normal is decided by the
+      # winding add_face happened to get. The two cheeks are built from
+      # the same point order at mirrored w, so the second one's skins
+      # come out with their normals flipped - and the house texture went
+      # on the INSIDE of that cheek while the white went outdoors (the
+      # user: "הקירות מבחוץ ... מראים את הצבע של הפנים"). The measured
+      # proof: on one cheek the 570 sq in skin was Stucco, on the other
+      # the same 570 sq in skin was #ffffff.
+      #
+      # A face's POSITION cannot flip. The wall part is one slab; the
+      # skin further along `outward` than the slab's own middle is the
+      # outdoor one, the skin behind it is the indoor one, and the edges
+      # that bridge them sit on the middle and stay outdoor - they are
+      # the mitres and the top, hidden anyway, and leaving them bare
+      # showed white stripes in the corner.
+      mid = sub.bounds.center
       sub.entities.grep(Sketchup::Face).each do |f|
-        n = f.normal
         inside = if outward.nil?
                    false
                  else
-                   (n.x * outward[0] + n.y * outward[1] + n.z * outward[2]) < -0.5
+                   c = f.bounds.center
+                   ((c.x - mid.x) * outward[0] + (c.y - mid.y) * outward[1] +
+                    (c.z - mid.z) * outward[2]) < -0.05
                  end
         m = inside ? int : (ext || int)
         next if m.nil?

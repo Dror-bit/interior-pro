@@ -1,0 +1,310 @@
+house walls by exterior_material: {"Stucco"=>10}
+house_wall_material -> "Stucco"
+DEFAULT_INTERIOR_COLOR -> "#ffffff"
+dormers: 6
+--- dormer 0: style gable  into (1.000, 0.000)  along (0.000, 1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area    660.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    456.7  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat Stucco
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    132.0  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat Stucco
+        area    132.0  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+        area     10.5  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(0.71, -0.71, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+        area     10.5  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+--- dormer 1: style gable  into (1.000, 0.000)  along (0.000, 1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area    660.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    456.7  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat Stucco
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    132.0  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat Stucco
+        area    132.0  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+        area     10.5  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(0.71, -0.71, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+        area     10.5  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+--- dormer 2: style gable  into (1.000, 0.000)  along (0.000, 1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area    660.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    456.7  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    143.8  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat Stucco
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    132.0  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area    570.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    477.0  n(0.00, -1.00, 0.00)  sideways -along                 mat Stucco
+        area    132.0  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+        area     10.5  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     40.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     30.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+        area     10.5  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    486.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    112.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     21.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area     16.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+--- dormer 3: style gable  into (1.000, 0.000)  along (0.000, 1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area   1560.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area   1056.7  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    355.9  n(-0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    355.9  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area   3675.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat Stucco
+        area   3432.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    344.1  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area   3675.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area   3432.0  n(0.00, -1.00, 0.00)  sideways -along                 mat Stucco
+        area    344.1  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     85.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     75.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+        area     10.5  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_9f5132"=>6}
+        area     85.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_9f5132
+        area     75.4  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_9f5132
+        area     14.9  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat InteriorPro_Roof_9f5132
+        area     10.5  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area   1566.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area   1566.0  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area   1566.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area   1566.0  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    292.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    292.7  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    292.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    292.5  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     88.9  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     88.9  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     84.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area     84.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    252.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+--- dormer 4: style gable  into (-1.000, 0.000)  along (0.000, -1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area    637.2  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+        area    436.4  n(1.00, -0.00, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    142.0  n(0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    142.0  n(0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area    494.1  n(0.00, -1.00, 0.00)  sideways +along                 mat Stucco
+        area    401.4  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area    131.1  n(0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area    494.1  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+        area    401.4  n(-0.00, 1.00, -0.00)  sideways -along                 mat Stucco
+        area    131.1  n(-0.71, 0.71, -0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_shingle_9f5132"=>6}
+        area     33.9  n(0.00, -1.00, 0.00)  sideways +along                 mat InteriorPro_Roof_shingle_9f5132
+        area     27.6  n(-0.00, 1.00, -0.00)  sideways -along                 mat InteriorPro_Roof_shingle_9f5132
+        area     12.3  n(0.86, 0.52, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_shingle_9f5132
+        area     10.6  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat InteriorPro_Roof_shingle_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_shingle_9f5132"=>6}
+        area     33.9  n(0.00, -1.00, 0.00)  sideways +along                 mat InteriorPro_Roof_shingle_9f5132
+        area     27.6  n(-0.00, 1.00, -0.00)  sideways -along                 mat InteriorPro_Roof_shingle_9f5132
+        area     12.3  n(-0.86, 0.52, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_shingle_9f5132
+        area     10.6  n(1.00, -0.00, -0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_shingle_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area    341.3  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area    341.3  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area    341.3  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+        area    341.3  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    102.6  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area    102.6  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area    102.4  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+        area    102.4  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     26.9  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area     26.9  n(-0.00, 1.00, -0.00)  sideways -along                 mat #ffffff
+        area     24.2  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+        area     24.2  n(0.00, -1.00, 0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    168.0  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(1.00, -0.00, -0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  UP the slope (inward front)     mat #ffffff
+--- dormer 5: style gable  into (1.000, 0.000)  along (0.000, 1.000)
+    spec keys: [:along, :base, :fascia_depth, :into, :length, :overhang, :pitch, :roof_thickness, :setback, :slope, :style, :thickness, :width, :z0, :z_top]
+    wall_names in spec? nil   roof_material? nil
+    InteriorPro_DormerWall      7 faces   {"#ffffff"=>1, "Stucco"=>6}
+        area    637.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    436.4  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat Stucco
+        area    142.0  n(-0.71, 0.71, -0.00)  DOWN the slope (outward front)  mat Stucco
+        area    142.0  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat Stucco
+    InteriorPro_DormerWall      5 faces   {"Stucco"=>3, "#ffffff"=>2}
+        area    494.1  n(-0.00, 1.00, -0.00)  sideways +along                 mat Stucco
+        area    401.4  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    131.1  n(-0.71, -0.71, 0.00)  DOWN the slope (outward front)  mat #ffffff
+    InteriorPro_DormerWall      5 faces   {"#ffffff"=>1, "Stucco"=>4}
+        area    494.1  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    401.4  n(0.00, -1.00, 0.00)  sideways -along                 mat Stucco
+        area    131.1  n(0.71, -0.71, 0.00)  UP the slope (inward front)     mat Stucco
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_shingle_9f5132"=>6}
+        area     33.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_shingle_9f5132
+        area     27.6  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_shingle_9f5132
+        area     12.3  n(-0.86, -0.52, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_shingle_9f5132
+        area     10.6  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_shingle_9f5132
+    InteriorPro_DormerRoof      6 faces   {"InteriorPro_Roof_shingle_9f5132"=>6}
+        area     33.9  n(-0.00, 1.00, -0.00)  sideways +along                 mat InteriorPro_Roof_shingle_9f5132
+        area     27.6  n(0.00, -1.00, 0.00)  sideways -along                 mat InteriorPro_Roof_shingle_9f5132
+        area     12.3  n(0.86, -0.52, -0.00)  UP the slope (inward front)     mat InteriorPro_Roof_shingle_9f5132
+        area     10.6  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat InteriorPro_Roof_shingle_9f5132
+    InteriorPro_DormerFascia   12 faces   {"#ffffff"=>12}
+        area    341.3  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    341.3  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    341.3  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    341.3  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerDrip     23 faces   {"#ffffff"=>23}
+        area    102.6  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    102.6  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area    102.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area    102.4  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerSoffit   12 faces   {"#ffffff"=>12}
+        area     26.9  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     26.9  n(0.00, -1.00, 0.00)  sideways -along                 mat #ffffff
+        area     24.2  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+        area     24.2  n(-0.00, 1.00, -0.00)  sideways +along                 mat #ffffff
+    InteriorPro_DormerRake     11 faces   {"#ffffff"=>11}
+        area    168.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area    168.0  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+    InteriorPro_DormerSoffit   11 faces   {"#ffffff"=>11}
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(-1.00, 0.00, 0.00)  DOWN the slope (outward front)  mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff
+        area     11.2  n(1.00, -0.00, -0.00)  UP the slope (inward front)     mat #ffffff

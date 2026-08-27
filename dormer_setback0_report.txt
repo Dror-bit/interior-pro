@@ -1,0 +1,33 @@
+roof: style hip, pitch 4.0, overhang_in 12.00, eave_z 202.00, ridge_z 306.42
+roof: fascia true, drip_edge true, soffit "boxed", thickness_in 0.00
+slope 0.3333  (pitch 4.00:12)   z0 at eave 198.53   z_top 306.94
+eave base (578.50, 1221.74)  uphill (-1.000, 0.000)
+--- this roof FACE, as (s = up the slope, w = across) ---
+  pt0  s    -0.00  w    313.24  z   198.53
+  pt1  s     0.00  w   -313.26  z   198.53
+  pt2  s   325.25  w   -313.23  z   306.94
+  pt3  s   325.25  w    313.24  z   306.94
+  face runs s -0.00 .. 325.25
+--- HOUSE WALLS, where their faces sit on the same axis ---
+  10 walls in the model
+  wall1  s    12.00..   17.00   w   -301.26..   301.24   h 106.0  th 5.0
+  wall2  s    12.00..  394.00   w    296.24..   301.24   h 106.0  th 5.0
+  wall6  s    12.00..   17.00   w   -301.26..   301.24   h 96.0  th 5.0
+  wall9  s    12.00..  638.50   w    296.24..   301.24   h 96.0  th 5.0
+  wall7  s    12.00..  638.50   w   -301.26..  -296.20   h 96.0  th 5.0
+  wall0  s    12.00..  638.50   w   -301.26..  -296.20   h 106.0  th 5.0
+  wall3  s   389.00..  394.00   w    296.24..   508.24   h 106.0  th 5.0
+  wall4  s   389.00..  638.50   w    503.24..   508.24   h 106.0  th 5.0
+  wall5  s   633.50..  638.50   w   -301.20..   508.24   h 106.0  th 5.0
+  wall8  s   633.50..  638.50   w   -301.20..   301.24   h 96.0  th 5.0
+  >>> the wall nearest the eave starts at s = 12.00
+  >>> so eave line -> wall face = 12.00"
+--- the dormer panel right now ---
+  {:width=>30.0, :length=>96.0, :setback=>30.0, :overhang=>6.0, :height=>20.0, :pitch12=>0.0, :fascia_depth=>0.0, :style=>"gable"}
+--- frame() / fits_on_face? at a few setbacks ---
+  setback    0.0"  it would reach the edge of this roof slope - keep 12" clea  s_rake -6.00  s_deck -6.85  s_ridge 75.00  w_edge 21.00
+  setback   12.0"  it would reach the edge of this roof slope - keep 12" clea  s_rake 6.00  s_deck 5.15  s_ridge 87.00  w_edge 21.00
+  setback   12.0"  it would reach the edge of this roof slope - keep 12" clea  s_rake 6.00  s_deck 5.15  s_ridge 87.00  w_edge 21.00
+  setback   24.0"  FITS                                                        s_rake 18.00  s_deck 17.15  s_ridge 99.00  w_edge 21.00
+  setback   36.0"  FITS                                                        s_rake 30.00  s_deck 29.15  s_ridge 111.00  w_edge 21.00
+  setback   48.0"  FITS                                                        s_rake 42.00  s_deck 41.15  s_ridge 123.00  w_edge 21.00

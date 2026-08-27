@@ -35,11 +35,20 @@ module InteriorPro
       # good reasons - too tall for this roof, too short for a window -
       # and a silent cursor just looks broken.
       msg = if @loops
-              back = InteriorPro::DormerManager.roof_frame(roof, pt.x, pt.y)
-              set = back && back[:s_click] ? back[:s_click].round : nil
-              set ? "Setback #{set}\" from the eave - click to place " \
-                    '(Esc to cancel)'
-                  : 'Click to place the dormer (Esc to cancel)'
+              spec = tool_spec
+              case InteriorPro::DormerManager.place_mode(spec)
+              when 'flush'
+                'Flush with the house wall - click to place (Esc to cancel)'
+              when 'depth'
+                "Locked #{spec[:setback].to_f.round}\" from the fascia - " \
+                  'click to place (Esc to cancel)'
+              else
+                back = InteriorPro::DormerManager.roof_frame(roof, pt.x, pt.y)
+                set = back && back[:s_click] ? back[:s_click].round : nil
+                set ? "Setback #{set}\" from the eave - click to place " \
+                      '(Esc to cancel)'
+                    : 'Click to place the dormer (Esc to cancel)'
+              end
             elsif roof
               why = InteriorPro::DormerManager.last_reason
               why ? "Dormer: #{why}" : 'A dormer does not fit here'
@@ -117,7 +126,9 @@ module InteriorPro
 
     # THE MOUSE SETS THE SETBACK. Everything else comes from the panel.
     def tool_spec
-      InteriorPro::DormerManager.spec_from_settings.merge(follow_click: true)
+      s = InteriorPro::DormerManager.spec_from_settings
+      s.merge(follow_click:
+                InteriorPro::DormerManager.place_mode(s) == 'free')
     end
 
     # The roof group under the cursor AND the point on it - the same
