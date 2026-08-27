@@ -473,18 +473,50 @@ module InteriorPro
     # Faces that cannot carry a tile - vertical ones (the slab edge, a tear
     # face) and degenerate ones - drop out here rather than being special
     # cased three times below.
+    # THE OUTLINE IS THE ROOF, EACH INNER LOOP IS A DORMER (2026-09-02B).
+    # face_points hands back the HOLE vertices mixed in with the outline's -
+    # the landmine this project has hit before - so a slope with a dormer on
+    # it came out as a polygon that is not the roof at all. Now the outline
+    # comes off the outer loop and the holes travel with the plane, so a run
+    # crossing one stops instead of shooting through the dormer
+    # ("תיראה שמבתוכו הוא לא חתך את הפאנלים").
     def self.planes_from_faces(faces)
       out = []
       (faces || []).each do |f|
-        pts = face_points(f)
+        pts = face_outline(f)
         next if pts.nil? || pts.length < 3
         nrm = face_normal(f)
         next if nrm.nil?
         fr = InteriorPro::RoofTileMath.plane_frame(nrm)
         next if fr.nil? || fr[:flat]
-        out << { points: pts, normal: fr[:n], u: fr[:u], v: fr[:v], n: fr[:n] }
+        out << { points: pts, normal: fr[:n], u: fr[:u], v: fr[:v], n: fr[:n],
+                 holes: face_holes(f) }
       end
       out
+    end
+
+    def self.face_outline(f)
+      if f.respond_to?(:outer_loop) && f.outer_loop
+        return to_xyz(f.outer_loop.vertices.map(&:position))
+      end
+      face_points(f)
+    rescue StandardError
+      face_points(f)
+    end
+
+    def self.face_holes(f)
+      return [] unless f.respond_to?(:loops)
+      f.loops.reject(&:outer?)
+       .map { |lp| to_xyz(lp.vertices.map(&:position)) }
+       .compact.select { |h| h.length >= 3 }
+    rescue StandardError
+      []
+    end
+
+    def self.to_xyz(pts)
+      pts.map { |p| p.respond_to?(:x) ? [p.x.to_f, p.y.to_f, p.z.to_f] : p.map(&:to_f) }
+    rescue StandardError
+      nil
     end
 
     def self.face_points(f)
@@ -737,8 +769,30 @@ module InteriorPro
                     InteriorPro::RoofTileMath.edge_slots(0.0, pu[:u_span].to_f,
                                                          pitch, margin: margin)
                   end
+        # the dormers standing on THIS plane, in its own u/v
+        holes_uv = (pl[:holes] || []).map do |h|
+          h.map { |p| InteriorPro::RoofTileMath.project(p, pu[:origin], pu[:u], pu[:v]) }
+        end
         slots_u.each do |c|
-          InteriorPro::RoofTileMath.v_spans_at(pu[:poly], c + u_off, min_len).each do |(v1, vtop)|
+          uu = c + u_off
+          spans = InteriorPro::RoofTileMath.v_spans_at(pu[:poly], uu, min_len)
+          cuts = []
+          unless holes_uv.empty?
+            cuts = holes_uv.flat_map do |h|
+              InteriorPro::RoofTileMath.v_spans_at(h, uu, 0.0)
+            end
+            spans = InteriorPro::RoofTileMath.spans_minus(spans, cuts, min_len)
+          end
+          spans.each do |(v1, vtop)|
+            # A DORMER IS NOT A RIDGE (2026-09-02B). The setback below
+            # exists to hide a cut UNDER the ridge cap or the valley
+            # channel. A dormer has neither: the panel runs up to it and
+            # the dormer's own wall covers the joint, which is the user's
+            # standing law - boards MEET, they never stop short and they
+            # never run inside each other. Pulling back here left a bare
+            # patch of deck all round the dormer: "הוא נחתך יותר מדי".
+            top_at_dormer = cuts.any? { |(clo, _hi)| (clo - vtop).abs < 0.01 }
+            bot_at_dormer = cuts.any? { |(_lo, chi)| (chi - v1).abs < 0.01 }
             # STOP SHORT OF THE RIDGE AND THE HIP (2026-08-21).
             #
             # v_spans_at cuts the run's CENTRE LINE at the outline, but a tile
@@ -749,7 +803,7 @@ module InteriorPro
             # Pulling every span's top back by the cap's half width lands the
             # cut under the cap, which is exactly the piece that is there to
             # cover it. The eave end is untouched - it still hangs over.
-            v2 = vtop - setback
+            v2 = vtop - (top_at_dormer ? 0.0 : setback)
             next if (v2 - v1) < min_len
             course_pieces(v1, v2, exposure, overlap, min_len).each do |(a, len)|
               v0 = a
@@ -776,15 +830,20 @@ module InteriorPro
                   plen += overhang
                 end
               elsif InteriorPro::RoofTileMath.seam?(shape_name)
-                # A rib that STARTS mid-slope was cut by a VALLEY (or a
-                # dormer). Its foot hides under the valley channel exactly the
-                # way its head hides under the ridge cap - the same stated
-                # setback, from the other end. "זה לא מכסה זה יותר מוליך מים"
-                # - the channel lies flat, so a rib touching it would sit ON
-                # it; stopping short keeps the water path clear.
-                v0 = a + setback
-                plen -= setback
-                next if plen < min_len
+                # A rib that STARTS mid-slope was cut by a VALLEY. Its foot
+                # hides under the valley channel exactly the way its head
+                # hides under the ridge cap - the same stated setback, from
+                # the other end. "זה לא מכסה זה יותר מוליך מים" - the channel
+                # lies flat, so a rib touching it would sit ON it; stopping
+                # short keeps the water path clear.
+                # A DORMER is the exception: nothing lies flat there, so the
+                # rib runs right up to it (see top_at_dormer above).
+                step = (bot_at_dormer && (a - v1).abs < 0.01) ? 0.0 : setback
+                if step.positive?
+                  v0 = a + step
+                  plen -= step
+                  next if plen < min_len
+                end
               end
               o = InteriorPro::RoofTileMath.unproject([c, v0], pu[:origin],
                                                       pu[:u], pu[:v])
@@ -897,6 +956,38 @@ module InteriorPro
       puts "[RoofTiles] runs: #{made} instances of #{defn.name}" \
            "#{cut.positive? ? " + #{cut} cut on a hip or valley" : ''}"
       made + cut
+    end
+
+    # RE-LAY THE FIELD ON ONE ROOF (2026-09-02B). A dormer just cut into a
+    # slope - or just lifted off it - changes the shape the runs have to fit,
+    # and the runs were laid long before that happened. This throws the old
+    # ones away and lays them again off the faces as they are NOW: the same
+    # thing a full rebuild does, but for this one roof and without touching
+    # anything else standing on it.
+    def self.relay_runs!(roof, opts = {})
+      return 0 if roof.nil? || !roof.respond_to?(:entities)
+      name = (opts[:shape] ||
+              roof.get_attribute('InteriorPro', 'roof_material')).to_s
+      return 0 if name.empty?
+      return 0 unless InteriorPro::RoofTileMath.runs?(name)
+      ents = roof.entities
+      faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
+      return 0 if faces.empty?
+      mat = opts[:material] || faces.max_by(&:area).material
+      old = ents.grep(Sketchup::ComponentInstance).select do |i|
+        d = i.definition
+        d && d.name.to_s.start_with?('IP_TileRun')
+      end
+      old += ents.grep(Sketchup::Group).select do |g|
+        g.get_attribute('InteriorPro', 'part').to_s == 'tile_flat_cut'
+      end
+      ents.erase_entities(old) unless old.empty?
+      faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
+      place_runs!(roof, planes_from_faces(faces), name,
+                  model: opts[:model], material: mat)
+    rescue StandardError => e
+      puts "[RoofTiles] relay_runs!: #{e.message}"
+      0
     end
 
     # One tile that a boundary cut, built as its own little group from the

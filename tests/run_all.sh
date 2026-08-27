@@ -37,7 +37,7 @@ for t in t1 t2 t3 t4 t5 t6 t7 t8 t9 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 
 done
 
 echo "== ruby suites (callbacks, rooms, plans, doors) =="
-for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27 rt28 rt29 rt30 rt31 rt32 rt33 rt34 rt35 rt36 rt37 rt38 rt39 rt40 rt41 rt42 rt43 rt44 rt45 rt46 rt47 rt48 rt49 rt50 rt51 rt52 rt53 rt54 rt55 rt56 rt57 rt58 rt59 rt60 rt61 rt62 rt63 rt64 rt65 rt66 rt67 rt68 rt69 rt70 rt71 rt72 rt73 rt74 rt75 rt77 rt78 rt79 rt80 rt81 rt82 rt83 rt84 rt85 rt86 rt87 rt88 rt89 rt90 rt91 rt92 rt93 rt94 rt95 rt96 rt97 rt98 rt99 rt100 rt101 rt102 rt103 rt104; do
+for r in rt rt2 rt3 rt4 rt5 rt6 rt7 rt8 rt9 rt10 rt11 rt12 rt13 rt14 rt15 rt16 rt17 rt18 rt19 rt20 rt21 rt22 rt23 rt24 rt25 rt26 rt27 rt28 rt29 rt30 rt31 rt32 rt33 rt34 rt35 rt36 rt37 rt38 rt39 rt40 rt41 rt42 rt43 rt44 rt45 rt46 rt47 rt48 rt49 rt50 rt51 rt52 rt53 rt54 rt55 rt56 rt57 rt58 rt59 rt60 rt61 rt62 rt63 rt64 rt65 rt66 rt67 rt68 rt69 rt70 rt71 rt72 rt73 rt74 rt75 rt77 rt78 rt79 rt80 rt81 rt82 rt83 rt84 rt85 rt86 rt87 rt88 rt89 rt90 rt91 rt92 rt93 rt94 rt95 rt96 rt97 rt98 rt99 rt100 rt101 rt102 rt103 rt104 rt105; do
   [ -f "$r.rb" ] || continue
   if ruby "$r.rb" >/dev/null 2>&1; then echo "  PASS $r"; else echo "  FAIL $r"; ruby "$r.rb" 2>&1 | grep FAIL | head -3; fail=1; fi
 done

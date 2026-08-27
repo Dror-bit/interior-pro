@@ -603,6 +603,34 @@ module InteriorPro
       out
     end
 
+    # SUBTRACT WHAT IS NOT ROOF ANY MORE (2026-09-02B). A dormer standing on
+    # a slope is a HOLE in it, and a run crossing that hole has to become two
+    # runs - one below it, one above - exactly the way a valley already splits
+    # one. Both lists are [lo, hi] pairs on the same axis; the cuts need not
+    # be sorted and may overlap each other.
+    def self.spans_minus(spans, cuts, min_len = 0.0)
+      return Array(spans) if cuts.nil? || cuts.empty?
+      out = []
+      Array(spans).each do |(lo, hi)|
+        pieces = [[lo, hi]]
+        cuts.each do |(clo, chi)|
+          next if clo.nil? || chi.nil? || chi <= clo
+          nxt = []
+          pieces.each do |(a, b)|
+            if chi <= a + EPS || clo >= b - EPS
+              nxt << [a, b]
+              next
+            end
+            nxt << [a, clo] if clo - a > EPS
+            nxt << [chi, b] if b - chi > EPS
+          end
+          pieces = nxt
+        end
+        pieces.each { |(a, b)| out << [a, b] if (b - a) > min_len + EPS }
+      end
+      out.sort_by { |p| p[0] }
+    end
+
     # ------------------------------------------------------------ courses
 
     # The v of every course butt line, from the eave up.

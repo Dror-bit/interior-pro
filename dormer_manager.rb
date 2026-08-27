@@ -779,7 +779,25 @@ module InteriorPro
         wm = house_wall_material
         s[:wall_names] = [wm] if wm
       end
-      add_dormer!(roof.entities, s)
+      g = add_dormer!(roof.entities, s)
+      relay_runs!(roof) unless g.nil? || spec[:no_relay]
+      g
+    end
+
+    # THE PANELS HAVE TO KNOW (2026-09-02B). He looked up at a dormer from
+    # inside the attic and the standing seam ran straight through it -
+    # "תיראה שמבתוכו הוא לא חתך את הפאנלים". cut_roof! opens the deck; the
+    # runs were laid before the hole existed and nobody told them. So every
+    # place, every delete and every replant lays the field again on that
+    # roof, off the faces as they are now - and planes_from_faces now hands
+    # the tile machine the holes, so a run that crosses one is split.
+    def self.relay_runs!(roof)
+      return 0 unless defined?(InteriorPro::RoofTilePlace) &&
+                      InteriorPro::RoofTilePlace.respond_to?(:relay_runs!)
+      InteriorPro::RoofTilePlace.relay_runs!(roof)
+    rescue StandardError => e
+      puts "[Dormer] relay_runs!: #{e.message}"
+      0
     end
 
     # One line for the console: a dormer in the middle of the biggest
@@ -1693,6 +1711,16 @@ module InteriorPro
       spec
     end
 
+    # The roof GROUP itself, when the entities are not enough - relaying the
+    # tile field needs the group, not its entity list.
+    def self.dormer_roof_group(g)
+      InteriorPro::RoofManager.roofs.find do |r|
+        r.respond_to?(:valid?) && r.valid? && r.entities.to_a.include?(g)
+      end
+    rescue StandardError
+      nil
+    end
+
     # The roof group a dormer is standing in - it was built into that
     # group's entities, so its parent IS its roof.
     def self.dormer_roof(g)
@@ -1859,9 +1887,11 @@ module InteriorPro
       spec = dormer_spec(g)
       return false if spec.nil?
       ents = dormer_roof(g)
+      roof = dormer_roof_group(g)
       fr = frame(spec)
       heal_roof!(ents, fr, at_lambda(spec)) if ents && fr
       g.erase! if g.valid?
+      relay_runs!(roof) if roof && !@no_relay
       true
     rescue StandardError => e
       puts "[Dormer] remove_dormer!: #{e.class}: #{e.message}"
@@ -1947,8 +1977,10 @@ module InteriorPro
       back = 0
       cut = 0
       lost = 0
+      @no_relay = true
       saved.each do |d|
-        g, h = replant_one!(roof, d[:x], d[:y], d[:spec])
+        g, h = replant_one!(roof, d[:x], d[:y],
+                            d[:spec].merge(no_relay: true))
         if g.nil?
           lost += 1
           next
@@ -1962,8 +1994,11 @@ module InteriorPro
         cut.positive?
       puts "[Dormer] #{lost} dormer(s) could not be put back at all" if
         lost.positive?
+      @no_relay = false
+      relay_runs!(roof) if back.positive?
       back
     rescue StandardError => e
+      @no_relay = false
       puts "[Dormer] replant!: #{e.message}"
       0
     end

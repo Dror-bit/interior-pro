@@ -1,0 +1,45 @@
+=== roof 0
+--- dormer 0  style gable  width 30.0  half 15.0  th 5.0  overhang 6.0
+    s_front 47.01  s_ridge 107.01  s_eave 95.01  s_rake 41.01  s_deck 40.16  w_edge 21.00  w_deck 21.10
+  rib w   13.17..  15.17  s    -7.07..  321.56
+  rib w  -14.83.. -12.83  s    -7.07..  321.56
+--- dormer 1  style gable  width 50.0  half 25.0  th 5.0  overhang 6.0
+    s_front 44.11  s_ridge 189.11  s_eave 164.11  s_rake 38.11  s_deck 37.26  w_edge 31.00  w_deck 31.10
+  rib w   30.73..  32.73  s    -7.07..  321.56
+  rib w    2.73..   4.73  s    -0.60..   49.11
+       opening front (wall inner)   s    49.11   top end  +0.000   bottom end -49.717
+       wall outer front             s    44.11   top end  -5.000   bottom end -44.717
+       deck front (s_deck)          s    37.26   top end -11.850   bottom end -37.867
+       rake front (s_rake)          s    38.11   top end -11.000   bottom end -38.717
+  rib w    2.73..   4.73  s   181.77..  321.56
+       opening valley @w            s   185.39   top end -136.172   bottom end  -3.615
+       s_ridge                      s   189.11   top end -132.445   bottom end  -7.342
+       s_eave                       s   164.11   top end -157.445   bottom end +17.658
+  rib w  -25.27.. -23.27  s    -7.07..  321.56
+=== roof 1
+--- dormer 0  style gable  width 30.0  half 15.0  th 5.0  overhang 6.0
+    s_front 33.25  s_ridge 94.27  s_eave 85.23  s_rake 27.25  s_deck 26.40  w_edge 21.00  w_deck 21.10
+  rib w    0.38..   2.38  s    -0.31..   38.25
+       opening front (wall inner)   s    38.25   top end  -0.000   bottom end -38.566
+       wall outer front             s    33.25   top end  -5.000   bottom end -33.566
+       deck front (s_deck)          s    26.40   top end -11.850   bottom end -26.716
+       rake front (s_rake)          s    27.25   top end -11.000   bottom end -27.566
+  rib w    0.38..   2.38  s    92.14..  133.02
+       opening valley @w            s    93.44   top end -39.575   bottom end  -1.298
+       s_ridge                      s    94.27   top end -38.743   bottom end  -2.129
+       s_eave                       s    85.23   top end -47.783   bottom end  +6.910
+  rib w    0.38..   2.38  s   140.48..  180.69
+--- dormer 1  style gable  width 30.0  half 15.0  th 5.0  overhang 6.0
+    s_front 34.89  s_ridge 95.90  s_eave 86.86  s_rake 28.89  s_deck 28.04  w_edge 21.00  w_deck 21.10
+  rib w   -4.01..  -2.01  s   140.48..  181.36
+  rib w   23.99..  25.99  s   140.48..  276.06
+  rib w   23.99..  25.99  s    -2.56..  133.02
+  rib w   -4.01..  -2.01  s    -0.35..   39.89
+       opening front (wall inner)   s    39.89   top end  -0.000   bottom end -40.235
+       wall outer front             s    34.89   top end  -5.000   bottom end -35.235
+       deck front (s_deck)          s    28.04   top end -11.850   bottom end -28.385
+       rake front (s_rake)          s    28.89   top end -11.000   bottom end -29.235
+  rib w   -4.01..  -2.01  s    92.81..  133.02
+       opening valley @w            s    94.09   top end -38.927   bottom end  -1.283
+       s_ridge                      s    95.90   top end -37.112   bottom end  -3.097
+       s_eave                       s    86.86   top end -46.152   bottom end  +5.943
