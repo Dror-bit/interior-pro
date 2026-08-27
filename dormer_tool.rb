@@ -28,15 +28,18 @@ module InteriorPro
       @pt = pt
       @loops = if roof && pt
                  InteriorPro::DormerManager.preview(
-                   roof, pt.x, pt.y,
-                   InteriorPro::DormerManager.spec_from_settings
+                   roof, pt.x, pt.y, tool_spec
                  )
                end
       # WHY THERE IS NO GHOST, in the status bar. The maths says no for
       # good reasons - too tall for this roof, too short for a window -
       # and a silent cursor just looks broken.
       msg = if @loops
-              'Click to place the dormer (Esc to cancel)'
+              back = InteriorPro::DormerManager.roof_frame(roof, pt.x, pt.y)
+              set = back && back[:s_click] ? back[:s_click].round : nil
+              set ? "Setback #{set}\" from the eave - click to place " \
+                    '(Esc to cancel)'
+                  : 'Click to place the dormer (Esc to cancel)'
             elsif roof
               why = InteriorPro::DormerManager.last_reason
               why ? "Dormer: #{why}" : 'A dormer does not fit here'
@@ -76,10 +79,16 @@ module InteriorPro
     def onLButtonDown(_flags, x, y, view)
       roof, pt = pick_roof(view, x, y)
       return UI.messagebox('Click an Interior Pro roof') if roof.nil? || pt.nil?
-      spec = InteriorPro::DormerManager.spec_from_settings
+      spec = tool_spec
       if InteriorPro::DormerManager.preview(roof, pt.x, pt.y, spec).nil?
-        return UI.messagebox('A dormer this size does not fit here - ' \
-                             'try further down the slope, or change the sizes.')
+        # SAY WHICH RULE STOPPED IT. The maths already worked out the
+        # reason - too tall for this roof, too close to the ridge or a
+        # hip, too short for a window - and a box that only says "does
+        # not fit" makes the user guess which number to change.
+        why = InteriorPro::DormerManager.last_reason
+        return UI.messagebox(why ? "This dormer #{why}" :
+                             'A dormer this size does not fit here - try ' \
+                             'further down the slope, or change the sizes.')
       end
       model = Sketchup.active_model
       model.start_operation('Dormer', true)
@@ -105,6 +114,11 @@ module InteriorPro
     end
 
     private
+
+    # THE MOUSE SETS THE SETBACK. Everything else comes from the panel.
+    def tool_spec
+      InteriorPro::DormerManager.spec_from_settings.merge(follow_click: true)
+    end
 
     # The roof group under the cursor AND the point on it - the same
     # pick, so the ghost and the build cannot disagree about where.

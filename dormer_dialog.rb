@@ -17,11 +17,11 @@
 # out of it, and it is refused outright if it would climb to within a
 # foot of the house's own ridge.
 #
-# THE STYLE ROW is here from the start. Gable and Shed are built; Flat
-# and Hip are the next two steps and their buttons say so rather than
-# pretending. A shed's pitch must be FLATTER than the roof's - that is
-# what makes it climb out instead of diving under - and "Same as roof"
-# hands it half the roof's own pitch.
+# THE STYLE ROW: all four are built - Gable, Hip, Shed, Flat.
+# A shed's pitch must be FLATTER than the roof's - that is what makes it
+# climb out instead of diving under - and "Same as roof" hands it half
+# the roof's own pitch. A flat gablet has no pitch at all, so the
+# control is disabled for it.
 module InteriorPro
   module DormerDialog
     # A METHOD, NOT A CONSTANT, and for the reason written all over this
@@ -30,10 +30,14 @@ module InteriorPro
     # showed it greyed out (the user, 2026-09-02: "הוא לא נותן לי ללחוץ
     # על שד"). Every list that grows step by step has to be a method.
     def self.built_styles
-      %w[gable shed]
+      %w[gable hip shed flat]
     end
 
-    def self.show
+    # `target` (2026-09-02): the panel opened ON one dormer by the Edit
+    # tool. Its own numbers fill the controls and the button rebuilds
+    # THAT dormer where it stands, instead of starting a placing tool.
+    def self.show(target = nil)
+      @target = target && target.respond_to?(:valid?) && target.valid? ? target : nil
       if @dialog
         begin
           @dialog.close
@@ -43,7 +47,7 @@ module InteriorPro
         @dialog = nil
       end
       dlg = UI::HtmlDialog.new(
-        dialog_title: 'Interior Pro - Dormer',
+        dialog_title: @target ? 'Interior Pro - Edit Dormer' : 'Interior Pro - Dormer',
         preferences_key: 'InteriorPro_Dormer',
         # Wide enough that no control is clipped and nothing needs
         # scrolling sideways (the user, 2026-09-02: "תוודא שכל
@@ -58,13 +62,34 @@ module InteriorPro
         old = InteriorPro::DormerManager.settings
         s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
               width: width.to_f, height: height.to_f, length: old[:length],
-              setback: setback.to_f,
+              setback: setback.to_s.empty? ? old[:setback] : setback.to_f,
               overhang: overhang.to_f, pitch12: pitch12.to_f,
               fascia_depth: fdepth.to_f }
         InteriorPro::DormerManager.save_settings!(s)
-        Sketchup.active_model.select_tool(InteriorPro::DormerTool.new)
+        tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
+        if tgt
+          model = Sketchup.active_model
+          model.start_operation('Edit Dormer', true)
+          g = InteriorPro::DormerManager.replace_dormer!(
+            tgt,
+            style: s[:style], width: s[:width], height: s[:height],
+            overhang: s[:overhang],
+            pitch: s[:pitch12].to_f > 0.01 ? s[:pitch12].to_f / 12.0 : nil,
+            fascia_depth: s[:fascia_depth].to_f > 0.01 ? s[:fascia_depth].to_f : nil
+          )
+          model.commit_operation
+          if g.nil?
+            why = InteriorPro::DormerManager.last_reason
+            UI.messagebox(why ? "This dormer #{why}" :
+                          'That change could not be built - see the Ruby Console.')
+          else
+            @target = g
+          end
+        else
+          Sketchup.active_model.select_tool(InteriorPro::DormerTool.new)
+        end
       end
-      dlg.set_html(build_html(InteriorPro::DormerManager.settings))
+      dlg.set_html(build_html(panel_values, edit: !@target.nil?))
       begin
         dlg.set_size(430, 560)
         dlg.center if dlg.respond_to?(:center)
@@ -75,7 +100,22 @@ module InteriorPro
       @dialog = dlg
     end
 
-    def self.build_html(s)
+    # The numbers the panel shows: the dormer's own when editing one,
+    # otherwise the last ones used.
+    def self.panel_values
+      base = InteriorPro::DormerManager.settings
+      return base if @target.nil?
+      sp = InteriorPro::DormerManager.dormer_spec(@target)
+      return base if sp.nil?
+      p12 = (sp[:pitch].to_f - sp[:slope].to_f).abs < 0.001 ? 0.0 :
+            (sp[:pitch].to_f * 12.0).round
+      base.merge(width: sp[:width], overhang: sp[:overhang],
+                 style: sp[:style], pitch12: p12,
+                 height: @target.get_attribute('InteriorPro', 'height').to_f,
+                 fascia_depth: sp[:fascia_depth].to_f)
+    end
+
+    def self.build_html(s, edit: false)
       pitch_options = ['<option value="0"' +
                        (s[:pitch12].to_f > 0.01 ? '' : ' selected') +
                        '>Same as roof</option>']
@@ -84,8 +124,11 @@ module InteriorPro
         "<option value=\"#{p}\"#{sel}>#{p}:12</option>"
       end
       pitch_options = pitch_options.join
-      styles = [['gable', 'Gable'], ['hip', 'Hip'],
-                ['shed', 'Shed'], ['flat', 'Flat']].map do |v, t|
+      # SAME ORDER AS THE ROOF PANEL (2026-09-02, the user: "תעשה את סדר
+      # הגגות בדורמר כמו בגגות"): Hip, Gable, Flat, Shed. One place in
+      # the plugin, one order.
+      styles = [['hip', 'Hip'], ['gable', 'Gable'],
+                ['flat', 'Flat'], ['shed', 'Shed']].map do |v, t|
         built = built_styles.include?(v)
         chk = s[:style].to_s == v && built ? ' checked' : ''
         dis = built ? '' : ' disabled'
@@ -116,6 +159,9 @@ module InteriorPro
           <div class="hint" id="shedHint" style="display:none">A shed must be
             FLATTER than the roof - "Same as roof" gives it half the roof's
             pitch.</div>
+          <div class="hint" id="flatHint" style="display:none">A flat gablet has
+            no pitch at all: its deck is level, so its height is simply how far
+            it reaches into the roof times the roof's own pitch.</div>
 
           <div class="section-title">Size</div>
           <div class="row"><label>Width (across the roof)</label>
@@ -124,8 +170,6 @@ module InteriorPro
             <input type="number" id="height" step="1" min="12" value="#{(s[:height] > 0.01 ? s[:height] : 36.0).round}"> in</div>
           <div class="hint">How far it reaches into the roof follows from
             this. It stops you a foot short of the house ridge.</div>
-          <div class="row"><label>Setback from the eave</label>
-            <input type="number" id="setback" step="1" min="0" value="#{s[:setback].round}"> in</div>
 
           <div class="section-title">Eaves and trim</div>
           <div class="row"><label>Overhang</label>
@@ -133,9 +177,14 @@ module InteriorPro
           <div class="row"><label>Fascia depth (0 = like the house)</label>
             <input type="number" id="fasciaDepth" step="0.25" min="0" value="#{s[:fascia_depth]}"> in</div>
 
-          <button onclick="placeDormer()">Place on roof</button>
-          <div class="hint">Then hover a roof slope - the whole dormer is drawn
-            where it would land - and click once to build it. Esc cancels.</div>
+          <button onclick="placeDormer()">#{edit ? 'Apply to this dormer' : 'Place on roof'}</button>
+          #{edit ? '<div class="hint">This rebuilds the dormer you clicked, ' \
+                   'where it stands. Move it with the Move Dormer button.</div>'
+                 : '<div class="hint">Then hover a roof slope - the whole ' \
+                   'dormer is drawn where it would land - and click once to ' \
+                   'build it. WHERE YOU CLICK is the setback: walk the mouse ' \
+                   'up the slope and the dormer walks with it, and the status ' \
+                   'bar says how far from the eave it is. Esc cancels.</div>'}
           <div class="hint">The gablet always dies into the roof at the end of
             its own length, so the length is what the height, the width and the
             pitch produce - never a fourth number that can argue with them.</div>
@@ -144,13 +193,17 @@ module InteriorPro
               var v = document.querySelector('input[name=style]:checked').value;
               document.getElementById('shedHint').style.display =
                 (v === 'shed') ? 'block' : 'none';
+              document.getElementById('flatHint').style.display =
+                (v === 'flat') ? 'block' : 'none';
+              // a flat gablet HAS no pitch - the control would be a lie
+              document.getElementById('pitch').disabled = (v === 'flat');
             }
             function placeDormer() {
               sketchup.place_dormer(
                 document.querySelector('input[name=style]:checked').value,
                 document.getElementById('width').value,
                 document.getElementById('height').value,
-                document.getElementById('setback').value,
+                '',
                 document.getElementById('overhang').value,
                 document.getElementById('pitch').value,
                 document.getElementById('fasciaDepth').value);

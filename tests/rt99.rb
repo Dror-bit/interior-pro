@@ -196,5 +196,81 @@ ok('a wider dormer stops fitting where a narrow one did',
 ok('the build refuses it too, not just the ghost',
    DM.place_on_roof!(slope6, 45.0, 120.0, sp6).nil?)
 
+# ---- 7. THE MOUSE SETS THE SETBACK -----------------------------------
+# (2026-09-02: the ghost has to walk up the slope with the mouse, or the
+# limit that stops it looks arbitrary)
+DM.save_settings!(width: 48.0, length: 96.0, setback: 36.0, overhang: 6.0,
+                  pitch12: 0.0, fascia_depth: 0.0, height: 0.0, style: 'gable')
+plain = DM.spec_from_settings
+follow = plain.merge(follow_click: true)
+rf_lo = DM.roof_frame(roof, 0.0, 60.0)
+rf_hi = DM.roof_frame(roof, 0.0, 150.0)
+ok('the roof frame reports how far up the slope the click was',
+   close(rf_lo[:s_click], 60.0, 0.5) && close(rf_hi[:s_click], 150.0, 0.5),
+   [rf_lo[:s_click], rf_hi[:s_click]])
+ok('without follow_click the panel setback stands',
+   close(DM.click_spec(plain, rf_hi)[:setback], 36.0),
+   DM.click_spec(plain, rf_hi)[:setback])
+ok('WITH it, the click is the setback',
+   close(DM.click_spec(follow, rf_hi)[:setback], 150.0, 0.5),
+   DM.click_spec(follow, rf_hi)[:setback])
+ok('...so two clicks up the slope give two different dormers',
+   DM.frame(DM.click_spec(follow, rf_lo))[:s_front] <
+   DM.frame(DM.click_spec(follow, rf_hi))[:s_front])
+ok('a click below the eave line cannot make a negative setback',
+   DM.click_spec(follow, rf_lo.merge(s_click: -20.0))[:setback] >= 0.0)
+
+# ---- 8. EDIT, MOVE, DELETE ------------------------------------------
+# (2026-09-02) All three read the dormer back into the spec that made
+# it. If a dormer cannot answer that question, none of them can work -
+# so this is where it is pinned.
+Sketchup.reset_model!
+m8 = Sketchup.active_model
+roof8 = m8.entities.add_group
+roof8.set_attribute('InteriorPro', 'type', 'roof')
+tp8 = lambda { |x, y| Geom::Point3d.new(x, y, Z0 + y * SLOPE) }
+top8 = [tp8.call(-200, 0), tp8.call(200, 0), tp8.call(200, 400), tp8.call(-200, 400)]
+roof8.entities.add_face(top8)
+roof8.entities.add_face(top8.map { |p| Geom::Point3d.new(p.x, p.y, p.z - 0.5) })
+DM.save_settings!(width: 48.0, length: 96.0, setback: 36.0, overhang: 6.0,
+                  pitch12: 0.0, fascia_depth: 0.0, height: 0.0, style: 'gable')
+g8 = DM.place_on_roof!(roof8, 0.0, 120.0, DM.spec_from_settings)
+ok('a dormer is placed to work on', !g8.nil?)
+
+sp8 = DM.dormer_spec(g8)
+ok('it can be read back into a spec', !sp8.nil?, sp8 && sp8.keys.sort)
+ok('...with the frame it was built in, not just its sizes',
+   sp8 && close(sp8[:z0], Z0) && close(sp8[:slope], SLOPE) &&
+   sp8[:base].length == 2 && sp8[:along].length == 2 && sp8[:into].length == 2,
+   sp8 && [sp8[:z0], sp8[:slope], sp8[:base], sp8[:into]])
+fr8 = DM.frame(sp8)
+ok('...and that spec builds the IDENTICAL frame',
+   fr8 && close(fr8[:s_ridge], DM.frame(DM.spec_from_settings.merge(
+     DM.roof_frame(roof8, 0.0, 120.0)))[:s_ridge], 0.01))
+ok('it knows which roof it stands in', !DM.dormer_spec(g8).nil? &&
+   !DM.dormer_roof(g8).nil?)
+
+# EDIT: same place, new numbers
+g9 = DM.replace_dormer!(g8, width: 60.0)
+ok('edit rebuilds it with the new number', !g9.nil? &&
+   close(DM.dormer_spec(g9)[:width], 60.0),
+   g9 && DM.dormer_spec(g9)[:width])
+ok('...in the same place', close(DM.dormer_spec(g9)[:setback], 36.0, 0.01),
+   DM.dormer_spec(g9)[:setback])
+ok('...and the old one is gone, not left behind',
+   !g8.valid? || g8.get_attribute('InteriorPro', 'type') != 'dormer')
+ok('an edit that cannot be built leaves the dormer alone',
+   DM.replace_dormer!(g9, height: 100_000.0).nil? && g9.valid?)
+
+# DELETE: the dormer AND the hole
+before = roof8.entities.grep(Sketchup::Face).length
+ok('delete removes it', DM.remove_dormer!(g9))
+ok('...the group really is gone', !g9.valid?)
+after = roof8.entities.grep(Sketchup::Face).length
+ok('...and the roof got skins back over the hole', after >= before,
+   [before, after])
+ok('deleting something that is not a dormer is refused, not crashed',
+   !DM.remove_dormer!(roof8))
+
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

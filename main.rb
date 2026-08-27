@@ -52,6 +52,7 @@ module InteriorPro
       dormer_manager.rb
       dormer_dialog.rb
       dormer_tool.rb
+      dormer_edit_tools.rb
       downspout_tool.rb
       molding_library.rb
       molding_tool.rb

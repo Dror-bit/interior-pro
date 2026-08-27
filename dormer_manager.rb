@@ -97,7 +97,9 @@ module InteriorPro
       style_now = spec.fetch(:style, 'gable').to_s
       if spec[:height].to_f > 0.0
         h = spec[:height].to_f
-        length = if style_now == 'shed'
+        length = if style_now == 'flat'
+                   h / slope
+                 elsif style_now == 'shed'
                    p2 = spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
                    p2 < slope ? h / (slope - p2) : 0.0
                  else
@@ -116,8 +118,11 @@ module InteriorPro
       z_front  = z0 + s_front * slope      # roof surface at the front wall
       z_ridge  = z0 + s_ridge * slope
       style    = style_now
+      return warn_nil('unknown gablet style') unless
+        %w[gable hip shed flat].include?(style)
       return shed_frame(spec, z0, slope, setback, width, length, th, rt, oh,
-                        half, s_front, s_ridge, z_front, z_ridge) if style == 'shed'
+                        half, s_front, s_ridge, z_front, z_ridge,
+                        style) if style == 'shed' || style == 'flat'
       z_eave   = z_ridge - half * pitch    # the dormer's own side eaves
       height   = z_eave - z_front          # front wall, what falls out
 
@@ -158,14 +163,29 @@ module InteriorPro
       # runs one fascia plus one metal edge FURTHER out, so it finishes
       # over the metal instead of stopping short of it, which is what
       # RoofManager's own rake_out does on the house.
-      d_side      = deck_side
-      d_front     = deck_front
+      # A HIP HAS NO RAKE (2026-09-02). All three open edges are level
+      # eaves, so the deck runs past every one of them by a metal edge
+      # and no more - the fascia hangs inside the line on all three.
+      hip = style == 'hip'
+      d_side      = deck_over_eave
+      d_front     = hip ? deck_over_eave : deck_over_rake
       w_deck      = w_edge + d_side
       s_deck      = s_rake - d_front
       z_deck_edge = z_ridge - w_deck * pitch
       s_valley_d  = (z_deck_edge - z0) / slope
 
-      { z0: z0, slope: slope, pitch: pitch, setback: setback, style: 'gable',
+      # THE HIP POINT: with one pitch on all three planes the hip lines
+      # run at 45 degrees in plan, so the ridge starts one half width
+      # back from the front eave. Past the die-in there is no ridge left
+      # to start - that is a pyramid, not a dormer.
+      s_hip = s_rake + w_edge
+      return warn_nil(format('too wide for its length - the hip would reach ' \
+                             'the roof before it reaches a ridge (needs about ' \
+                             '%.0f" more length)', s_hip + 12.0 - s_ridge)) if
+        hip && s_hip > s_ridge - 12.0
+
+      { z0: z0, slope: slope, pitch: pitch, setback: setback, style: style,
+        s_hip: s_hip,
         width: width, length: length, half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_eave, s_cheek: s_cheek,
@@ -194,14 +214,25 @@ module InteriorPro
     #   THE BACK is the valley, buried in the roof - no boards.
     # The back is a straight line at s_ridge across the whole width,
     # because both planes depend on s alone.
+    #
+    # A FLAT GABLET IS A SHED WITH NO PITCH AT ALL (2026-09-02). Every
+    # line of this holds with pitch 0 - the deck is level, the height is
+    # length x slope, the back edge is still one straight line - so flat
+    # is not a fourth builder, it is this one with the number zeroed.
     def self.shed_frame(spec, z0, slope, setback, width, length, th, rt, oh,
-                        half, s_front, s_ridge, z_front, z_ridge)
-      pitch = spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
+                        half, s_front, s_ridge, z_front, z_ridge,
+                        style = 'shed')
+      flat = style == 'flat'
+      pitch = if flat
+                0.0
+              else
+                spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
+              end
       return warn_nil('a shed gablet needs a pitch, flatter than the roof') if
-        pitch <= 0.0
+        !flat && pitch <= 0.0
       return warn_nil(format('a shed gablet must be FLATTER than the roof ' \
                              '(%.2f:12 against %.2f:12)', pitch * 12.0,
-                             slope * 12.0)) if pitch >= slope - 0.0001
+                             slope * 12.0)) if !flat && pitch >= slope - 0.0001
       return warn_nil('the overhang is too big for this width') if oh > half
 
       z_top_front = z_ridge - length * pitch    # the plane at the front wall
@@ -223,7 +254,7 @@ module InteriorPro
       # metal thickness, over a rake a fascia plus a metal thickness.
       w_deck  = w_edge + deck_over_rake
       s_deck  = s_rake - deck_over_eave
-      { z0: z0, slope: slope, pitch: pitch, setback: setback, style: 'shed',
+      { z0: z0, slope: slope, pitch: pitch, setback: setback, style: style,
         width: width, length: length, half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_rake, s_cheek: s_cheek,
@@ -344,18 +375,26 @@ module InteriorPro
       quietly do
         rf = roof_frame(roof, x, y)
         return nil if rf.nil?
-        s = spec.merge(rf)
+        s = click_spec(spec, rf)
         fr = frame(s)
         return nil if fr.nil?
         at = at_lambda(s)
         return nil unless fits_on_face?(fr, at, rf[:face])
         rt = fr[:roof_thickness]
         half = fr[:half]
-        if fr[:style] == 'shed'
+        if shed_like?(fr)
           w = fr[:w_deck]
           loops = [[[fr[:s_deck], -w], [fr[:s_deck], w],
                     [fr[:s_ridge], w], [fr[:s_ridge], -w]]
                    .map { |ss, ww| at.call(ss, ww, deck_z(fr, ss, ww)) }]
+          loops << [at.call(fr[:s_front], -half, fr[:z_front]),
+                    at.call(fr[:s_front], half, fr[:z_front]),
+                    at.call(fr[:s_front], half, shed_top(fr, fr[:s_front])),
+                    at.call(fr[:s_front], -half, shed_top(fr, fr[:s_front]))]
+        elsif fr[:style] == 'hip'
+          loops = hip_planes(fr).map do |plan|
+            plan.map { |ss, ww| at.call(ss, ww, deck_z(fr, ss, ww)) }
+          end
           loops << [at.call(fr[:s_front], -half, fr[:z_front]),
                     at.call(fr[:s_front], half, fr[:z_front]),
                     at.call(fr[:s_front], half, shed_top(fr, fr[:s_front])),
@@ -384,8 +423,20 @@ module InteriorPro
     # shed falls forward off the line where it dies into the roof - so
     # one of the two arguments is always the one that matters.
     def self.deck_z(fr, s, w)
-      return fr[:z_ridge] - (fr[:s_ridge] - s) * fr[:pitch] if fr[:style] == 'shed'
+      return fr[:z_ridge] - (fr[:s_ridge] - s) * fr[:pitch] if shed_like?(fr)
+      # A HIP climbs away from whichever eave is nearest - the front one
+      # or the side one - which is what makes the two meet on a 45.
+      if fr[:style] == 'hip'
+        d = [fr[:w_edge] - w.abs, s - fr[:s_rake]].min
+        return fr[:z_edge] + d * fr[:pitch]
+      end
       top_z(fr, w)
+    end
+
+    # Shed and flat share one body, one set of boards and one hole - flat
+    # is the same shape with the pitch zeroed.
+    def self.shed_like?(fr)
+      fr[:style] == 'shed' || fr[:style] == 'flat'
     end
 
     # ---------- plan shapes, still pure --------------------------------
@@ -453,19 +504,38 @@ module InteriorPro
       grp = ents.add_group
       grp.name = 'InteriorPro_Dormer'
       grp.set_attribute('InteriorPro', 'type', 'dormer')
-      grp.set_attribute('InteriorPro', 'style', 'gable')
-      %i[setback width length pitch thickness roof_thickness overhang].each do |k|
+      # EVERYTHING NEEDED TO REBUILD IT LATER (2026-09-02). Edit, Move and
+      # Delete all start from these: with the frame numbers AND the frame
+      # itself - where the eave line is, which way is up the slope, how
+      # high and how steep the roof under it is - dormer_spec can hand
+      # frame() the exact same question the placing click asked.
+      grp.set_attribute('InteriorPro', 'style', fr[:style])
+      %i[setback width length pitch thickness roof_thickness overhang
+         z0 slope height].each do |k|
         grp.set_attribute('InteriorPro', k.to_s, fr[k])
       end
       grp.set_attribute('InteriorPro', 'base_xy', [base[0], base[1]])
       grp.set_attribute('InteriorPro', 'along_xy', along)
-      grp.set_attribute('InteriorPro', 'height', fr[:height])
+      grp.set_attribute('InteriorPro', 'into_xy', into)
+      grp.set_attribute('InteriorPro', 'fascia_depth', fascia_depth(spec))
+      # the ceiling this roof face gave it, so an EDIT is held to the
+      # same limit the placing click was - without it a typed height
+      # could push a built dormer straight through the ridge.
+      grp.set_attribute('InteriorPro', 'z_top', spec[:z_top].to_f) if spec[:z_top]
 
-      if fr[:style] == 'shed'
+      if shed_like?(fr)
         build_shed_wall!(grp, fr, at, spec[:wall_names])
         [1.0, -1.0].each { |sg| build_shed_cheek!(grp, fr, at, sg, spec[:wall_names]) }
         build_shed_roof!(grp, fr, at, spec[:roof_material])
         build_shed_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
+      elsif fr[:style] == 'hip'
+        # the front wall leans its top with the front plane, exactly as a
+        # shed's does; the cheeks are the gable's, level under a side
+        # plane that only varies across the width.
+        build_shed_wall!(grp, fr, at, spec[:wall_names])
+        [1.0, -1.0].each { |sg| build_cheek!(grp, fr, at, sg, spec[:wall_names]) }
+        build_hip_roof!(grp, fr, at, spec[:roof_material])
+        build_hip_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
       else
         build_front_wall!(grp, fr, at, spec[:wall_names])
         [1.0, -1.0].each { |sg| build_cheek!(grp, fr, at, sg, spec[:wall_names]) }
@@ -532,6 +602,13 @@ module InteriorPro
       base = [x - into[0] * s_click, y - into[1] * s_click]
       z_at = plane_z_lambda(face)
       { base: base, along: along, into: into, roof_mat: roof_mat, face: face,
+        # HOW FAR UP THE SLOPE HE CLICKED. With `follow_click` this
+        # becomes the setback, so the ghost walks up and down the roof
+        # with the mouse instead of sitting at one typed number - which
+        # is what he expected of a placing tool, and what made the limit
+        # look arbitrary when it fired (2026-09-02: "לא נותן לי לקרב את
+        # הגג... אני לא מבין למה").
+        s_click: s_click,
         z_top: z_top, z0: z_at.call(base[0], base[1]), slope: slope }
     end
 
@@ -574,10 +651,12 @@ module InteriorPro
     # the hips beside it, the eave below. Off the face there is no roof
     # to die into and no roof to cut.
     def self.deck_corners(fr, at)
-      plan = if fr[:style] == 'shed'
+      plan = if shed_like?(fr)
                w = fr[:w_deck]
                [[fr[:s_deck], -w], [fr[:s_deck], w],
                 [fr[:s_ridge], w], [fr[:s_ridge], -w]]
+             elsif fr[:style] == 'hip'
+               hip_planes(fr).flatten(1)
              else
                roof_plan(fr, 1.0) + roof_plan(fr, -1.0)
              end
@@ -600,11 +679,21 @@ module InteriorPro
       true
     end
 
+    # The spec the click actually builds: the panel's numbers, the roof's
+    # own frame, and - when the caller is the placing tool - the setback
+    # taken from where the mouse is rather than from the panel.
+    def self.click_spec(spec, rf)
+      s = spec.merge(rf)
+      s[:setback] = rf[:s_click].to_f if s[:follow_click] && rf[:s_click]
+      s[:setback] = 0.0 if s[:setback].to_f < 0.0
+      s
+    end
+
     # Put one dormer on a real roof, at (x, y) in plan.
     def self.place_on_roof!(roof, x, y, spec = {})
       rf = roof_frame(roof, x, y)
       return nil if rf.nil?
-      s = spec.merge(rf)
+      s = click_spec(spec, rf)
       fr = frame(s)
       return nil if fr.nil?
       return nil unless fits_on_face?(fr, at_lambda(s), rf[:face])
@@ -997,6 +1086,143 @@ module InteriorPro
       nil
     end
 
+    # ---------- THE HIP GABLET (2026-09-02, style 4 of 4) ---------------
+    #
+    # Three planes at one pitch: a triangle over the front and a quad
+    # down each side, meeting on two 45 degree hips. The ridge starts
+    # where those hips meet - one half width back from the front eave -
+    # and runs back to the same die-in point every other style uses.
+    #
+    # EVERY OPEN EDGE IS A LEVEL EAVE at one height, which is what makes
+    # the trim simple: one band across the front, mitred at both corners,
+    # and a board down each side cut on the roof at the back with a
+    # matching 45 at the front. No rake anywhere.
+    def self.hip_planes(fr)
+      wd = fr[:w_deck]
+      sd = fr[:s_deck]
+      s_hipd = sd + wd
+      front = [[sd, -wd], [sd, wd], [s_hipd, 0.0]]
+      sides = [1.0, -1.0].map do |sg|
+        [[sd, wd * sg], [fr[:s_valley_deck], wd * sg],
+         [fr[:s_ridge], 0.0], [s_hipd, 0.0]]
+      end
+      [front] + sides
+    end
+
+    def self.build_hip_roof!(grp, fr, at, mat)
+      rt = fr[:roof_thickness]
+      hip_planes(fr).each do |plan|
+        sub = new_part!(grp, 'InteriorPro_DormerRoof', 'dormer_roof')
+        top = plan.map { |ss, ww| at.call(ss, ww, deck_z(fr, ss, ww)) }
+        bot = plan.map { |ss, ww| at.call(ss, ww, deck_z(fr, ss, ww) - rt) }
+        ring!(sub, top, bot, plan.length)
+        next unless mat
+        sub.entities.grep(Sketchup::Face).each do |f|
+          f.material = mat
+          f.back_material = mat
+        end
+      end
+      true
+    end
+
+    # The same five-corner outline the gable uses, but the front edge is
+    # an EAVE here, not a gable end.
+    def self.hip_ring(fr, at)
+      we = fr[:w_edge]
+      sw = [[[fr[:s_rake], -we], 'eave'], [[fr[:s_rake], we], 'side'],
+            [[fr[:s_valley], we], 'valley'], [[fr[:s_ridge], 0.0], 'valley'],
+            [[fr[:s_valley], -we], 'side']]
+      pts = sw.map { |(ss, ww), _| q = at.call(ss, ww, 0.0); [q.x, q.y] }
+      labs = sw.map(&:last)
+      n = pts.length
+      if signed_area(pts) < 0.0
+        pts = pts.reverse
+        labs = (0...n).map { |i| labs[(n - 2 - i) % n] }
+      end
+      { poly: pts, labels: labs,
+        # everything but the front edge is built by hand or not at all
+        gable_flags: labs.map { |l| l != 'eave' } }
+    end
+
+    # One side board, mitred 45 at the front corner and cut on the roof
+    # at the back. `k_out` / `k_in` are the two faces measured OUTWARD
+    # from the side line, and the mitre is simply the fact that a corner
+    # of a band offset by k sits k along BOTH edges - so the face at k
+    # starts at s_rake - k.
+    def self.build_hip_side!(sub, fr, at, depth, k_out, k_in, hang = 0.0)
+      z_top = fr[:z_edge] - fr[:roof_thickness] - hang
+      p_out = eave_profile(fr, z_top, depth, fr[:s_rake] - k_out)
+      p_in  = eave_profile(fr, z_top, depth, fr[:s_rake] - k_in)
+      return nil if p_out.nil? || p_in.nil? || p_out.length != p_in.length
+      [1.0, -1.0].each do |sg|
+        extrude_sz2!(sub, p_out, p_in, at,
+                     (fr[:w_edge] + k_out) * sg, (fr[:w_edge] + k_in) * sg)
+      end
+      sub
+    end
+
+    def self.build_hip_trim!(grp, fr, at, spec = {})
+      dep = fascia_depth(spec)
+      return false if dep <= 0.0
+      rm = roof_manager
+      return false if rm.nil?
+      ft = rm::FASCIA_THICK
+      dt = rm::DRIP_THICK
+      dd = rm::DRIP_DEPTH
+      mat = trim_material(trim_color(spec))
+      ring = hip_ring(fr, at)
+      poly = ring[:poly]
+      band_top = fr[:z_edge] - fr[:roof_thickness]
+
+      # THE FRONT: RoofManager's own band, mitred at both hip corners -
+      # a level board meeting a level board at 90 degrees, which is what
+      # a mitre is for. It never meets the main roof, so nothing is cut.
+      fas = new_part!(grp, 'InteriorPro_DormerFascia', 'dormer_fascia')
+      rm.build_band!(fas, poly, -ft, 0.0, band_top, band_top - dep,
+                     ring[:gable_flags], nil)
+      # THE SIDES: level too, but the roof climbs into them, so they are
+      # built here with the diagonal end - and with the matching 45 at
+      # the front, so fascia meets fascia on one seam.
+      build_hip_side!(fas, fr, at, dep, 0.0, -ft)
+      paint!(fas, mat)
+
+      drip = new_part!(grp, 'InteriorPro_DormerDrip', 'dormer_drip')
+      rm.build_band!(drip, poly, 0.0, dt, band_top, band_top - dd,
+                     ring[:gable_flags], nil)
+      build_hip_side!(drip, fr, at, dd, dt, 0.0)
+      paint!(drip, mat)
+
+      style, sloped = soffit_choice(spec)
+      if style != 'none' && fr[:overhang] >= 1.0
+        scol = trim_material(soffit_color(spec, style))
+        sof = new_part!(grp, 'InteriorPro_DormerSoffit', 'dormer_soffit')
+        sb = rm.soffit_band(fr[:overhang], dep, true, band_top)
+        rise = sloped ? fr[:pitch] * fr[:overhang] : 0.0
+        if sb
+          rm.build_band!(sof, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
+                         ring[:gable_flags], nil, nil, 0.0, rise)
+        end
+        thick = soffit_thick
+        oh = fr[:overhang]
+        p_out = eave_soffit_profiles(fr, band_top, dep, fr[:s_rake] + ft,
+                                     thick, 0.0)
+        p_in  = eave_soffit_profiles(fr, band_top, dep, fr[:s_rake] + oh,
+                                     thick, rise)
+        if p_out && p_in && p_out[0].length == p_in[1].length
+          [1.0, -1.0].each do |sg|
+            extrude_sz2!(sof, p_out[0], p_in[1], at,
+                         (fr[:w_edge] - ft) * sg, fr[:half] * sg)
+          end
+        end
+        paint!(sof, scol)
+      end
+      true
+    rescue StandardError => e
+      puts "[Dormer] build_hip_trim!: #{e.class}: #{e.message}"
+      puts e.backtrace.first(4) if e.backtrace
+      false
+    end
+
     # ---------- STEP 3: THE TRIM (2026-09-02) ---------------------------
     #
     # A FASCIA under each eave, a RAKE BOARD up each gable edge, and the
@@ -1357,6 +1583,155 @@ module InteriorPro
       end
     end
 
+    # ---------- EDIT, MOVE, DELETE (2026-09-02) -------------------------
+    #
+    # All three start here: read a built dormer back into the spec that
+    # made it, so frame() gives the identical numbers and the hole can be
+    # found again to the thousandth.
+    def self.dormer_spec(g)
+      return nil unless g.respond_to?(:get_attribute) &&
+                        g.get_attribute('InteriorPro', 'type') == 'dormer'
+      a = lambda { |k| g.get_attribute('InteriorPro', k) }
+      base  = Array(a.call('base_xy')).map(&:to_f)
+      along = Array(a.call('along_xy')).map(&:to_f)
+      into  = Array(a.call('into_xy')).map(&:to_f)
+      return nil if base.length < 2 || along.length < 2
+      spec = { z0: a.call('z0').to_f, slope: a.call('slope').to_f,
+               setback: a.call('setback').to_f, width: a.call('width').to_f,
+               length: a.call('length').to_f, pitch: a.call('pitch').to_f,
+               thickness: a.call('thickness').to_f,
+               roof_thickness: a.call('roof_thickness').to_f,
+               overhang: a.call('overhang').to_f,
+               style: a.call('style').to_s,
+               base: base, along: along }
+      spec[:into] = into if into.length >= 2
+      fd = a.call('fascia_depth')
+      spec[:fascia_depth] = fd.to_f unless fd.nil?
+      zt = a.call('z_top')
+      spec[:z_top] = zt.to_f unless zt.nil?
+      spec
+    end
+
+    # The roof group a dormer is standing in - it was built into that
+    # group's entities, so its parent IS its roof.
+    def self.dormer_roof(g)
+      par = begin
+        g.parent
+      rescue StandardError
+        nil
+      end
+      return par.entities if par.respond_to?(:entities) && par.entities
+      # Fallback, and the one the test stub needs: find the roof group
+      # whose own entities hold this dormer.
+      model = Sketchup.active_model
+      found = nil
+      walk = lambda do |ents, depth|
+        ents.grep(Sketchup::Group).each do |grp|
+          if grp.get_attribute('InteriorPro', 'type') == 'roof'
+            found = grp.entities if grp.entities.to_a.include?(g)
+          end
+          walk.call(grp.entities, depth + 1) if found.nil? && depth < 2
+          break if found
+        end
+      end
+      walk.call(model.entities, 0)
+      found
+    rescue StandardError
+      nil
+    end
+
+    # THE INVERSE OF cut_roof!. Erase whatever is still standing in the
+    # opening (the rim between the two skins) and lay each skin back over
+    # it, on its own plane - measured off the roof's own faces, not
+    # assumed, because the slab's thickness is the roof's business.
+    def self.heal_roof!(ents, fr, at, mat = nil)
+      plan = opening_plan(fr)
+      return 0 if plan.nil?
+      flat = plan.map { |ss, w| at.call(ss, w, 0.0) }
+      cx = flat.map(&:x).inject(:+) / flat.length
+      cy = flat.map(&:y).inject(:+) / flat.length
+
+      # every distinct skin plane the roof still has around the hole
+      zs = []
+      ents.grep(Sketchup::Face).each do |f|
+        next if f.normal.z.abs < 0.2
+        z_at = plane_z_lambda(f)
+        next if z_at.nil?
+        z = z_at.call(cx, cy)
+        next if zs.any? { |(zz, _)| (zz - z).abs < 0.01 }
+        zs << [z, z_at]
+        mat ||= f.material
+      end
+      return 0 if zs.empty?
+
+      # the rim, and anything else left inside the opening, goes first
+      doomed = ents.grep(Sketchup::Face).select do |f|
+        pts = face_points(f)
+        next false if pts.nil? || pts.length < 3
+        pts.all? { |p| in_plan?(plan, at, p.x, p.y, -0.05) }
+      end
+      doomed.each { |f| f.erase! if f.respond_to?(:erase!) && f.valid? }
+
+      made = 0
+      zs.each do |(_z, z_at)|
+        ring = plan.map do |ss, w|
+          q = at.call(ss, w, 0.0)
+          at.call(ss, w, z_at.call(q.x, q.y))
+        end
+        begin
+          f = ents.add_face(ring)
+          next if f.nil?
+          made += 1
+          next unless mat
+          f.material = mat
+          f.back_material = mat
+        rescue StandardError
+          next
+        end
+      end
+      puts "[Dormer] hole closed: #{doomed.length} piece(s) removed, #{made} skin(s) back"
+      made
+    rescue StandardError => e
+      puts "[Dormer] heal_roof!: #{e.class}: #{e.message}"
+      0
+    end
+
+    # Delete a dormer AND close the hole it cut. One operation, so one
+    # Ctrl+Z puts the whole thing back.
+    def self.remove_dormer!(g)
+      spec = dormer_spec(g)
+      return false if spec.nil?
+      ents = dormer_roof(g)
+      fr = frame(spec)
+      heal_roof!(ents, fr, at_lambda(spec)) if ents && fr
+      g.erase! if g.valid?
+      true
+    rescue StandardError => e
+      puts "[Dormer] remove_dormer!: #{e.class}: #{e.message}"
+      false
+    end
+
+    # Rebuild one dormer with some numbers changed - that is Edit - or at
+    # a different place - that is Move. The old one and its hole go, and
+    # a new one is built from the merged spec. Returns the new group.
+    def self.replace_dormer!(g, changes = {})
+      spec = dormer_spec(g)
+      return nil if spec.nil?
+      ents = dormer_roof(g)
+      return nil if ents.nil?
+      merged = spec.merge(changes)
+      # a nil is "unset it", not "set it to nothing" - that is how the
+      # panel says "follow the roof's own pitch" on an edit.
+      merged.reject! { |_k, v| v.nil? }
+      merged.delete(:length) if changes.key?(:height) && changes[:height]
+      return nil if frame(merged).nil?
+      remove_dormer!(g)
+      add_dormer!(ents, merged)
+    rescue StandardError => e
+      puts "[Dormer] replace_dormer!: #{e.class}: #{e.message}"
+      nil
+    end
+
     # ---------- STEP 2: the hole in the main roof -----------------------
     #
     # THE ROUGH OPENING, in (s, w), inside the walls: the front wall's
@@ -1368,7 +1743,7 @@ module InteriorPro
       th = fr[:thickness]
       hw = fr[:half] - th
       return nil if hw <= 0.5
-      if fr[:style] == 'shed'
+      if shed_like?(fr)
         s0 = fr[:s_front] + th
         return nil if fr[:s_ridge] <= s0 + 0.5
         return [[s0, -hw], [s0, hw], [fr[:s_ridge], hw], [fr[:s_ridge], -hw]]
@@ -1524,12 +1899,19 @@ module InteriorPro
       inside
     end
 
+    # THE OUTER LOOP, NOT EVERY VERTEX (2026-09-02). A roof face that
+    # already has dormers in it has HOLES, and `face.vertices` hands back
+    # the hole vertices mixed in with the outline's. Threading a ring
+    # through that lot gives a shape that is not the roof at all - which
+    # is why placing a second dormer kept being refused in places the
+    # first one was allowed, and why it got worse with every one added
+    # (the user: "אפילו יותר גרוע הוא מרחיק אותי יותר").
     def self.face_points(f)
-      if f.respond_to?(:pts) && f.pts
-        Array(f.pts)
-      else
-        f.vertices.map(&:position)
+      return Array(f.pts) if f.respond_to?(:pts) && f.pts
+      if f.respond_to?(:outer_loop) && f.outer_loop
+        return f.outer_loop.vertices.map(&:position)
       end
+      f.vertices.map(&:position)
     end
 
     # z of a face's plane at (x, y), or nil for a vertical face.
