@@ -46,6 +46,11 @@ module InteriorPro
     TRIM_DRIP_DEPTH   = 2.0  unless const_defined?(:TRIM_DRIP_DEPTH, false)
     DEFAULT_FASCIA_DEPTH = 8.0 unless const_defined?(:DEFAULT_FASCIA_DEPTH, false)
     DEFAULT_TRIM_COLOR   = '#ffffff' unless const_defined?(:DEFAULT_TRIM_COLOR, false)
+    # The room side of every dormer wall. A colour, not a material name -
+    # WallTool.load_or_create_material reads a leading '#' as a colour,
+    # which is the same trick the house's own interior_material uses.
+    DEFAULT_INTERIOR_COLOR = '#ffffff' unless
+      const_defined?(:DEFAULT_INTERIOR_COLOR, false)
     # A face wall shorter than this has no room for a window, and a
     # dormer whose cheeks are shorter than this is a bump, not a dormer.
     MIN_FACE_HEIGHT   = 12.0 unless const_defined?(:MIN_FACE_HEIGHT, false)
@@ -772,7 +777,8 @@ module InteriorPro
         j = (i + 1) % outer_p.length
         add_face!(sub, [outer[i], outer[j], inner[j], inner[i]])
       end
-      paint_wall!(sub, names)
+      into, = frame_dirs(at)
+      paint_wall!(sub, names, [-into[0], -into[1], 0.0])
       sub
     end
 
@@ -799,7 +805,8 @@ module InteriorPro
         j = (i + 1) % outer_p.length
         add_face!(sub, [outer[i], outer[j], inner[j], inner[i]])
       end
-      paint_wall!(sub, names)
+      _, along = frame_dirs(at)
+      paint_wall!(sub, names, [along[0] * sign, along[1] * sign, 0.0])
       sub
     end
 
@@ -856,7 +863,8 @@ module InteriorPro
                at.call(s_i, -hi, shed_top(fr, s_i))]
       sub = new_part!(grp, 'InteriorPro_DormerWall', 'dormer_front')
       ring!(sub, outer, inner, 4)
-      paint_wall!(sub, names)
+      into, = frame_dirs(at)
+      paint_wall!(sub, names, [-into[0], -into[1], 0.0])
       sub
     end
 
@@ -874,7 +882,8 @@ module InteriorPro
       outer = outer_p.map { |ss, z| at.call(ss, w_o, z) }
       inner = inner_p.map { |ss, z| at.call(ss, w_i, z) }
       ring!(sub, outer, inner, 3)
-      paint_wall!(sub, names)
+      _, along = frame_dirs(at)
+      paint_wall!(sub, names, [along[0] * sign, along[1] * sign, 0.0])
       sub
     end
 
@@ -1732,6 +1741,116 @@ module InteriorPro
       nil
     end
 
+    # ---------- SURVIVING A ROOF REBUILD (2026-09-02) -------------------
+    #
+    # A dormer is built INTO its roof's group, and RoofManager rebuilds a
+    # roof by erasing that whole group - so before today every Apply in
+    # the roof panel quietly took the dormers with it.
+    #
+    # `harvest` reads them off a roof that is about to go: the sizes, and
+    # the plan point they stood over. `replant!` puts them back on the
+    # NEW roof by PLACING them again at that point - so the frame is
+    # measured off the roof that exists now. Change the pitch and the
+    # dormers come back sitting on the new slope, not floating over where
+    # the old one used to be.
+    def self.harvest(groups)
+      saved = []
+      Array(groups).each do |r|
+        next unless r.respond_to?(:entities) && r.valid?
+        collect_dormers(r.entities, saved, 0)
+      end
+      saved
+    rescue StandardError => e
+      puts "[Dormer] harvest: #{e.message}"
+      []
+    end
+
+    def self.collect_dormers(ents, saved, depth)
+      ents.grep(Sketchup::Group).each do |g|
+        if g.get_attribute('InteriorPro', 'type') == 'dormer'
+          sp = dormer_spec(g)
+          next if sp.nil?
+          # the point it stood over: the middle of its own footprint,
+          # measured in its own frame and turned into plan.
+          at = at_lambda(sp)
+          q = at.call(sp[:setback].to_f + sp[:length].to_f / 2.0, 0.0, 0.0)
+          # IT KEEPS ITS HEIGHT, NOT ITS LENGTH (2026-09-02, the user:
+          # "אם אני משנה זווית לגג הוא נעלם, אני צריך שהוא יישאר איך
+          # שהוא"). What he looks at is the front wall - a window goes
+          # in it - and how far the gablet reaches into the roof is
+          # whatever that height needs on the NEW pitch. Carrying the
+          # old length instead is what made a steeper roof throw it away.
+          h = g.get_attribute('InteriorPro', 'height').to_f
+          if h > 0.0
+            sp[:height] = h
+            sp.delete(:length)
+          end
+          # the frame keys go: the new roof supplies its own.
+          %i[z0 slope base along into z_top].each { |k| sp.delete(k) }
+          saved << { spec: sp, x: q.x, y: q.y }
+        elsif depth < 2
+          collect_dormers(g.entities, saved, depth + 1)
+        end
+      end
+    end
+
+    def self.replant!(roof, saved)
+      return 0 if roof.nil? || saved.nil? || saved.empty?
+      back = 0
+      cut = 0
+      lost = 0
+      saved.each do |d|
+        g, h = replant_one!(roof, d[:x], d[:y], d[:spec])
+        if g.nil?
+          lost += 1
+          next
+        end
+        back += 1
+        next if h.nil? || d[:spec][:height].nil?
+        cut += 1 if (h - d[:spec][:height].to_f).abs > 0.5
+      end
+      puts "[Dormer] #{back} dormer(s) put back on the new roof" if back.positive?
+      puts "[Dormer] #{cut} of them had to come down to fit the new roof" if
+        cut.positive?
+      puts "[Dormer] #{lost} dormer(s) could not be put back at all" if
+        lost.positive?
+      back
+    rescue StandardError => e
+      puts "[Dormer] replant!: #{e.message}"
+      0
+    end
+
+    # KEEP IT, EVEN IF IT HAS TO COME DOWN. First try the dormer exactly
+    # as it was. If the new roof cannot take that, find the tallest front
+    # wall it CAN take - by halving the gap, not by guessing - and put it
+    # back at that height. Only a roof that cannot hold even the shortest
+    # dormer loses it.
+    def self.replant_one!(roof, x, y, spec)
+      g = place_on_roof!(roof, x, y, spec)
+      return [g, spec[:height]] unless g.nil?
+      want = spec[:height].to_f
+      return [nil, nil] if want <= MIN_FACE_HEIGHT
+      lo = MIN_FACE_HEIGHT
+      hi = want
+      best = nil
+      20.times do
+        mid = (lo + hi) / 2.0
+        if fits_here?(roof, x, y, spec.merge(height: mid))
+          best = mid
+          lo = mid
+        else
+          hi = mid
+        end
+        break if hi - lo < 0.25
+      end
+      return [nil, nil] if best.nil?
+      [place_on_roof!(roof, x, y, spec.merge(height: best)), best]
+    end
+
+    def self.fits_here?(roof, x, y, spec)
+      !preview(roof, x, y, spec).nil?
+    end
+
     # ---------- STEP 2: the hole in the main roof -----------------------
     #
     # THE ROUGH OPENING, in (s, w), inside the walls: the front wall's
@@ -1945,21 +2064,49 @@ module InteriorPro
       nil
     end
 
-    def self.paint_wall!(sub, names)
-      return if names.nil?
-      ext_name, int_name = names
-      return unless ext_name || int_name
+    # THE INSIDE IS WHITE (2026-09-02, the user: "שהאינטיריור הקירות
+    # יהיו לבנים"). A dormer's walls are the house's walls seen from
+    # outside and a ROOM seen from inside, and the house's own walls have
+    # worked that way from the start - a texture out, a colour in.
+    #
+    # `outward` is the way this wall faces. The one face pointing the
+    # other way is the room side and gets the interior colour; everything
+    # else keeps the house's exterior material, exactly as before - the
+    # top edge and the mitred ends are hidden anyway, and leaving them
+    # bare would show as white slivers on a corner.
+    def self.paint_wall!(sub, names, outward = nil)
+      ext_name, int_name = Array(names)
+      int_name = DEFAULT_INTERIOR_COLOR if int_name.nil? || int_name.to_s.empty?
       return unless defined?(InteriorPro::WallTool) &&
                     InteriorPro::WallTool.respond_to?(:new)
       wt = InteriorPro::WallTool.new
-      m = wt.load_or_create_material(ext_name || int_name)
-      return unless m
+      ext = ext_name ? wt.load_or_create_material(ext_name) : nil
+      int = wt.load_or_create_material(int_name)
+      return if ext.nil? && int.nil?
       sub.entities.grep(Sketchup::Face).each do |f|
+        n = f.normal
+        inside = if outward.nil?
+                   false
+                 else
+                   (n.x * outward[0] + n.y * outward[1] + n.z * outward[2]) < -0.5
+                 end
+        m = inside ? int : (ext || int)
+        next if m.nil?
         f.material = m
         f.back_material = m
       end
     rescue StandardError => e
       puts "[Dormer] paint_wall!: #{e.message}"
+    end
+
+    # The dormer's two horizontal axes in the world, read off the same
+    # placing lambda everything else uses: INTO the roof, and ALONG the
+    # eave. A wall's outward direction is one of these, signed.
+    def self.frame_dirs(at)
+      o = at.call(0.0, 0.0, 0.0)
+      i = at.call(1.0, 0.0, 0.0)
+      a = at.call(0.0, 1.0, 0.0)
+      [[i.x - o.x, i.y - o.y, 0.0], [a.x - o.x, a.y - o.y, 0.0]]
     end
 
     def self.unit(v)
