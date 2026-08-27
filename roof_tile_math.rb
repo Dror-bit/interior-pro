@@ -505,6 +505,87 @@ module InteriorPro
       poly_contains?(rr, [ox, oy]) ? out : []
     end
 
+    # THE HOLE THE TILES SEE IS BIGGER THAN THE HOLE IN THE DECK
+    # (2026-09-03, the user: "כל הדברים האלו הקשורים לגג צריכים להיחתך
+    # בקצה החיצוני של הקיר ולא הפנימי").
+    #
+    # cut_roof! opens the deck at the ROUGH opening - the inside faces of the
+    # dormer's walls - because that is where the walls stand and the deck has
+    # to carry them. The tiles are a different question: a tile stopping on
+    # the inner face runs the whole thickness of the wall UNDER it and shows
+    # its cut end inside the opening, which is the leftover he circled on the
+    # Roman roof. Grown by the wall thickness, the same loop lands on the
+    # OUTER face, and every material stops where the wall starts.
+    #
+    # Push every edge out along its own normal and re-corner the polygon on
+    # the crossings of the moved edges. Convex only - which a dormer opening
+    # is, a rectangle or the house-shaped pentagon under a gablet - and the
+    # original comes back untouched if anything does not add up, so a shape
+    # this cannot handle simply stays as it was.
+    # WHICH EDGES MOVE - `mode`:
+    #   :all    every edge.
+    #   :walls  everything except the edges facing UP the slope. On a dormer
+    #           those are the VALLEY edges, where the gablet dies into the
+    #           main roof: no wall there to hide behind, only the two roofs
+    #           meeting, so moving that edge takes tiles out from ABOVE the
+    #           dormer and leaves bare deck round its top corner (2026-09-03,
+    #           second pass - he circled exactly that spot on both dormers).
+    #           The front wall and the two cheeks are the three that move.
+    #   :sides  only the edges facing sideways - the two cheeks. A RUN is cut
+    #           where its CENTRE LINE meets the hole, and a pipe is 14" wide,
+    #           so a run whose centre clears the cheek by an inch still has
+    #           half its body inside the opening: "הרומן טיל עדיין נכנס קצת
+    #           לתוך קירות פנים הבית". Pushing the cheeks out by half a
+    #           piece takes that run out with it. Only the cheeks: doing it
+    #           at the foot or the valley would open a gap instead.
+    def self.grow_poly(poly, d, mode = :all)
+      return poly if poly.nil? || poly.length < 3 || d.abs < 1.0e-9
+      pp = poly_ccw(poly)
+      lines = []
+      pp.length.times do |i|
+        a = pp[i]
+        b = pp[(i + 1) % pp.length]
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        l = Math.hypot(dx, dy)
+        next if l < 1.0e-9
+        # counter-clockwise keeps the inside on the left, so the RIGHT hand
+        # normal is the way out
+        nx = dy / l
+        ny = -dx / l
+        dd = case mode
+             when :walls then ny > 0.05 ? 0.0 : d
+             when :sides then nx.abs > 0.7 ? d : 0.0
+             else d
+             end
+        ox = nx * dd
+        oy = ny * dd
+        lines << [[a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy]]
+      end
+      return poly if lines.length < 3
+      out = []
+      lines.length.times do |i|
+        q = line_cross(lines[i - 1], lines[i])
+        return poly if q.nil?
+        out << q
+      end
+      out
+    end
+
+    # Where two infinite lines cross, or nil when they are parallel.
+    def self.line_cross(l1, l2)
+      x1, y1 = l1[0]
+      x2, y2 = l1[1]
+      x3, y3 = l2[0]
+      x4, y4 = l2[1]
+      den = ((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4))
+      return nil if den.abs < 1.0e-9
+      a = (x1 * y2) - (y1 * x2)
+      b = (x3 * y4) - (y3 * x4)
+      [((a * (x3 - x4)) - ((x1 - x2) * b)) / den,
+       ((a * (y3 - y4)) - ((y1 - y2) * b)) / den]
+    end
+
     # THE OTHER HALF OF clip_to_poly: cut `rect` down to the part of it
     # OUTSIDE `hole` (2026-09-03).
     #
