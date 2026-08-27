@@ -230,9 +230,10 @@ ok('...with its own eave height, not the shed one',
    close(gfr[:z_eave], gfr[:z_ridge] - (WID / 2.0) * gfr[:pitch]), gfr[:z_eave])
 ok('...and its hole is still the five-corner one',
    DM.opening_plan(gfr).length == 5, DM.opening_plan(gfr).length)
+# the OUTER face of the walls now - see rt95
 ok('the shed hole is a plain rectangle back to the die-in',
-   DM.opening_plan(fr) == [[SET + TH, -(WID / 2.0 - TH)], [SET + TH, WID / 2.0 - TH],
-                           [fr[:s_ridge], WID / 2.0 - TH], [fr[:s_ridge], -(WID / 2.0 - TH)]],
+   DM.opening_plan(fr) == [[SET, -(WID / 2.0)], [SET, WID / 2.0],
+                           [fr[:s_ridge], WID / 2.0], [fr[:s_ridge], -(WID / 2.0)]],
    DM.opening_plan(fr))
 
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")

@@ -816,7 +816,11 @@ module InteriorPro
         # only what is left over: half the piece less the wall it can hide
         # in. On the seam, whose rib is 1" against a 5" wall, that is nothing
         # at all.
-        extra = half_piece - (opts[:hole_grow] || 0.0).to_f
+        # How much wall a piece is allowed to hide under: the dormer's wall
+        # thickness. The deck's hole now stops on the wall's OUTER face, so
+        # a piece may reach as far as the wall is thick and no further -
+        # past that it is out the other side, in the room.
+        extra = half_piece - (opts[:wall_th] || opts[:hole_grow] || 0.0).to_f
         extra = 0.0 if extra.negative?
         holes_uv = (pl[:holes] || []).map do |h|
           flat = h.map do |p|
@@ -1095,7 +1099,8 @@ module InteriorPro
       faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
       place_runs!(roof, planes_from_faces(faces), name,
                   model: opts[:model], material: mat,
-                  hole_grow: opts[:hole_grow] || dormer_wall_thickness(roof))
+                  hole_grow: opts[:hole_grow] || 0.0,
+                  wall_th: opts[:wall_th] || dormer_wall_thickness(roof))
     rescue StandardError => e
       puts "[RoofTiles] relay_runs!: #{e.message}"
       0

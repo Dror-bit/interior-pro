@@ -150,17 +150,20 @@ ok('a sane dormer is NOT refused',
    !DM.frame(z0: Z0, slope: SLOPE, setback: 0.0, width: WID, length: LEN).nil?)
 
 # ---- 7. STEP 2: THE HOLE IN THE ROOF ----------------------------------
-# The rough opening is the dormer's inside: the front wall's inner face,
-# the cheeks' inner faces, and at the back the VALLEY - past that line
-# there is no dormer over the hole any more.
+# THE OUTER FACE OF THE WALLS (2026-09-03). It was the dormer's INSIDE -
+# the walls' inner faces - so the deck ran on under every wall and its cut
+# edge showed as a lip round the opening. Now it stops on the OUTSIDE, the
+# same line the tiles above it stop on, and the wall closes the edge. At the
+# back it is still the VALLEY: past that line there is no dormer over the
+# hole any more, and no wall either.
 op = DM.opening_plan(fr)
 ok('there is an opening', !op.nil? && op.length == 5, op && op.length)
 if op
-  hw = WID / 2.0 - TH
-  ok('...it is inside the cheeks', close(op.map { |_s, w| w.abs }.max, hw),
-     op.map { |_s, w| w.abs }.max)
-  ok('...it starts behind the front wall',
-     close(op.map { |s2, _w| s2 }.min, SET + TH), op.map { |s2, _w| s2 }.min)
+  hw = WID / 2.0
+  ok('...it reaches the OUTER face of both cheeks',
+     close(op.map { |_s, w| w.abs }.max, hw), op.map { |_s, w| w.abs }.max)
+  ok('...and the OUTER face of the front wall, not behind it',
+     close(op.map { |s2, _w| s2 }.min, SET), op.map { |s2, _w| s2 }.min)
   ok('...and its back point is the ridge die-in',
      close(op.map { |s2, _w| s2 }.max, fr[:s_ridge]), op.map { |s2, _w| s2 }.max)
   side = op.select { |_s, w| close(w.abs, hw) }.map { |s2, _w| s2 }.max

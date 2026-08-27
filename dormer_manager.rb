@@ -2041,16 +2041,24 @@ module InteriorPro
     # itself - the line where the dormer's roof dies into the main one.
     # Past that line there is no dormer above the hole any more, so that
     # is exactly where the hole has to stop.
+    # THE OUTER FACE, NOT THE ROUGH OPENING (2026-09-03). It used to be the
+    # INSIDE faces of the three walls, one thickness in from the outside, so
+    # the deck ran on under every wall and its cut edge showed as a lip all
+    # round the opening - "השכבה שמתחת לרעפים/שינגלס צריכה להיחתך בקצה
+    # החיצוני של הקיר ולא בפנים הבית". Now the deck stops on the OUTSIDE of
+    # the walls, where the tiles above it already stop, and the wall closes
+    # the edge instead of standing on it. The back is untouched: there is no
+    # wall there, only the valley where the two roofs meet, and that is
+    # exactly where the hole has to stop.
     def self.opening_plan(fr)
-      th = fr[:thickness]
-      hw = fr[:half] - th
+      hw = fr[:half]
       return nil if hw <= 0.5
       if shed_like?(fr)
-        s0 = fr[:s_front] + th
+        s0 = fr[:s_front]
         return nil if fr[:s_ridge] <= s0 + 0.5
         return [[s0, -hw], [s0, hw], [fr[:s_ridge], hw], [fr[:s_ridge], -hw]]
       end
-      s0 = fr[:s_front] + th
+      s0 = fr[:s_front]
       # the valley in plan runs from the ridge die-in point straight out
       # to the eave die-in point at the full half width.
       s_v = lambda do |w|

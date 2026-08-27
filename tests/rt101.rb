@@ -85,10 +85,10 @@ shed0 = DM.frame(spec.merge(style: 'shed', pitch: 0.0001))
   ok("flat matches a shed at zero pitch: #{k}", close(fr[k], shed0[k], 0.05),
      [fr[k], shed0[k]])
 end
-ok('the hole is the shed rectangle',
-   DM.opening_plan(fr) == [[SET + TH, -(WID / 2.0 - TH)], [SET + TH, WID / 2.0 - TH],
-                           [fr[:s_ridge], WID / 2.0 - TH],
-                           [fr[:s_ridge], -(WID / 2.0 - TH)]],
+ok('the hole is the shed rectangle, on the walls OUTER face',
+   DM.opening_plan(fr) == [[SET, -(WID / 2.0)], [SET, WID / 2.0],
+                           [fr[:s_ridge], WID / 2.0],
+                           [fr[:s_ridge], -(WID / 2.0)]],
    DM.opening_plan(fr))
 
 Sketchup.reset_model!
