@@ -800,6 +800,78 @@ module InteriorPro
       0
     end
 
+    # THE DORMER WEARS THE SAME ROOF AS THE HOUSE (2026-09-05).
+    #
+    # Until today a dormer roof got the house roof's MATERIAL and nothing
+    # else - the texture was right and the standing seam ribs, the pressed
+    # panels, the clay pipes simply were not there ("הגגון יקבל את אותם
+    # רעפים כמו הגג שהוא ממוקם עליו - לא רק את הצבע").
+    #
+    # The same machine lays them: one plane per dormer_roof sub-group, into
+    # THAT sub-group's own entities - so the pieces travel with the dormer
+    # on a move and go with it on a delete, and no transformation has to be
+    # carried anywhere. The roof group is asked for the shape NAME, which is
+    # what `roof_material` holds on a roof (the material itself comes off
+    # the face, which already carries the house's).
+    #
+    # THE EAVE BAR COMES TOO (he chose it, 2026-09-05): the same 0.57"
+    # square bar the main roof's panels die into, sitting on the deck flush
+    # with the edge, over the metal edge that is already there.
+    def self.place_tiles!(g)
+      return 0 unless defined?(InteriorPro::RoofTilePlace) &&
+                      InteriorPro::RoofTilePlace.respond_to?(:place_runs!)
+      roof = dormer_roof_group(g)
+      return 0 if roof.nil?
+      name = roof.get_attribute('InteriorPro', 'roof_material').to_s
+      return 0 if name.empty?
+      return 0 unless InteriorPro::RoofTileMath.runs?(name)
+      made = 0
+      g.entities.grep(Sketchup::Group).each do |sub|
+        next unless sub.get_attribute('InteriorPro', 'part').to_s == 'dormer_roof'
+        f = top_skin(sub)
+        next if f.nil?
+        planes = InteriorPro::RoofTilePlace.planes_from_faces([f])
+        next if planes.empty?
+        mat = f.material
+        made += InteriorPro::RoofTilePlace.place_runs!(
+          sub, planes, name, material: mat
+        ).to_i
+        next unless InteriorPro::RoofTilePlace.respond_to?(:place_eave_bars!)
+        made += InteriorPro::RoofTilePlace.place_eave_bars!(
+          sub, planes, name, material: mat
+        ).to_i
+      end
+      puts "[Dormer] tiles on the dormer: #{made}"
+      made
+    rescue StandardError => e
+      puts "[Dormer] place_tiles!: #{e.message}"
+      0
+    end
+
+    # THE TOP SKIN OF ONE SLAB - BY POSITION, NOT BY NORMAL. The underside
+    # of a slab is written with the opposite winding and its normal points
+    # UP too, so a normal test hands back both faces and a second field is
+    # laid underneath where nobody can see it. The slab has exactly one top
+    # and one bottom that are not vertical; the higher one is the roof.
+    def self.top_skin(sub)
+      fs = sub.entities.grep(Sketchup::Face).reject do |f|
+        f.normal.z.abs < 0.05
+      end
+      return nil if fs.empty?
+      fs.max_by { |f| face_mid_z(f) }
+    rescue StandardError
+      nil
+    end
+
+    # The average height of a face's own corners. Its bounding box would do
+    # the same job in SketchUp and does not exist in the test stub.
+    def self.face_mid_z(f)
+      zs = f.vertices.map { |v| v.position.z.to_f }
+      zs.empty? ? 0.0 : zs.inject(:+) / zs.length
+    rescue StandardError
+      0.0
+    end
+
     # One line for the console: a dormer in the middle of the biggest
     # slope of the first roof in the model.
     def self.demo_on_roof!(width: DEFAULT_WIDTH, length: DEFAULT_LENGTH,
@@ -831,6 +903,7 @@ module InteriorPro
       cut = cut_roof!(roof_ents, fr, at_lambda(spec))
       grp.set_attribute('InteriorPro', 'roof_cut', cut)
       puts "[Dormer] roof skins cut: #{cut}"
+      place_tiles!(grp) unless spec[:no_tiles]
       grp
     end
 
