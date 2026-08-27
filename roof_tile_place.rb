@@ -964,6 +964,45 @@ module InteriorPro
     # ones away and lays them again off the faces as they are NOW: the same
     # thing a full rebuild does, but for this one roof and without touching
     # anything else standing on it.
+    # WHICH PIECES ARE THE FIELD (2026-09-03).
+    #
+    # This threw away every instance whose DEFINITION NAME starts with
+    # IP_TileRun - which is only the generated pipe. A flat tile's definition
+    # is IP_TileFlatWedge, pressed metal is IP_TileSheet, and the user's own
+    # Spanish tile is a component out of HIS file with a name of its own. On
+    # those three nothing was erased at all: the new field was laid on top of
+    # the old one, and both things he reported on 2026-09-03 follow from that
+    # single line - twice the tile round a gable, and no hole where the dormer
+    # stands, because the tiles covering it are the OLD ones, laid before the
+    # dormer existed ("שלא נוצר חור ברעפים בספניש ובטיל המרובעים... הספאניש
+    # מכפיל את כמות הטיל מסביב לגמלון").
+    #
+    # Every generated piece stamps its own `part` on its DEFINITION, so ask
+    # that instead of the name. The asset tile carries no stamp - it is his
+    # file, not ours - so it is matched by identity.
+    #
+    # A METHOD, not a constant: a list that grows has to survive reload!.
+    def self.field_parts
+      %w[tile_run tile_sheet tile_flat]
+    end
+
+    def self.field_part?(part)
+      field_parts.include?(part.to_s)
+    end
+
+    # THE EAVE BAR AND THE RIDGE CAP ARE NOT THE FIELD. The bar's definition
+    # is stamped 'tile_edge' and the cap is a group, and relay_runs! does not
+    # lay either of them again - erasing them would leave the roof without the
+    # frame the panels die into.
+    def self.field_piece?(defn, asset = nil)
+      return false if defn.nil?
+      return true if asset && asset[:defn] && defn.equal?(asset[:defn])
+      return true if field_part?(defn.get_attribute('InteriorPro', 'part'))
+      defn.name.to_s.start_with?('IP_TileRun')
+    rescue StandardError
+      false
+    end
+
     def self.relay_runs!(roof, opts = {})
       return 0 if roof.nil? || !roof.respond_to?(:entities)
       name = (opts[:shape] ||
@@ -974,9 +1013,11 @@ module InteriorPro
       faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
       return 0 if faces.empty?
       mat = opts[:material] || faces.max_by(&:area).material
+      asset = InteriorPro::RoofTileParts.asset_tile(
+        opts[:model] || Sketchup.active_model, name
+      )
       old = ents.grep(Sketchup::ComponentInstance).select do |i|
-        d = i.definition
-        d && d.name.to_s.start_with?('IP_TileRun')
+        field_piece?(i.definition, asset)
       end
       old += ents.grep(Sketchup::Group).select do |g|
         g.get_attribute('InteriorPro', 'part').to_s == 'tile_flat_cut'
