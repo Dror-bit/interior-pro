@@ -304,6 +304,15 @@ module InteriorPro
         vclips = flat_valley_clips(pu, opts[:valleys],
                                    InteriorPro::RoofTileParts.cap_w(s) / 2.0)
         cclips = cover_clips(pl, pu, planes)
+        # THE DORMERS STANDING ON THIS PLANE (2026-09-03), in its own u/v.
+        # The run materials subtract them from the run's span; a plate is not
+        # a span, so it is clipped instead - see clip_outside_poly.
+        holes_uv = (pl[:holes] || []).map do |h|
+          h.map do |q|
+            pr = InteriorPro::RoofTileMath.project(q, pu[:origin], pu[:u], pu[:v])
+            [pr[0], pr[1]]
+          end
+        end
         # The columns are the same list every course; only the phase moves.
         cols = sheet_slots(pu[:u_span].to_f, pitch)
         k = 0
@@ -369,6 +378,15 @@ module InteriorPro
                                                       cc[:line][1])
                 )
               end
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            # ...and cut out of any dormer standing on this plane. A tile
+            # wholly inside one is gone; one on its edge keeps only the part
+            # outside it, so the field STOPS at the dormer wall instead of
+            # running under it.
+            holes_uv.each do |h|
+              poly = InteriorPro::RoofTileMath.clip_outside_poly(poly, h)
               break if poly.length < 3
             end
             next if poly.length < 3

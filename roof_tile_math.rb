@@ -505,6 +505,55 @@ module InteriorPro
       poly_contains?(rr, [ox, oy]) ? out : []
     end
 
+    # THE OTHER HALF OF clip_to_poly: cut `rect` down to the part of it
+    # OUTSIDE `hole` (2026-09-03).
+    #
+    # A dormer is a hole in the field. The run materials learned that through
+    # spans_minus - a run is a line, and subtracting an interval from a line
+    # is exact. A flat tile is not a line, it is a plate, so it needs the same
+    # answer in two dimensions: "והפלאט טיל לא נחתך ביכלל".
+    #
+    # A tile has to come back as ONE polygon - it is built as one face - and
+    # rect minus a convex hole is an L wherever the tile straddles a CORNER of
+    # the hole. So the answer is the largest single piece that is outside: cut
+    # the rect against each of the hole's reaching edges in turn, keep the
+    # biggest survivor. On the common case, a tile straddling one edge, that
+    # piece IS the exact answer; at a corner it gives up the corner block
+    # rather than leave tile hanging over the opening, which is the side to
+    # err on - a tile over the hole is the thing he can see.
+    #
+    # Same winding trick as clip_to_poly, read backwards: poly_ccw puts the
+    # inside on the LEFT of every edge, so an edge handed over REVERSED keeps
+    # the right hand side - the outside.
+    def self.clip_outside_poly(rect, hole, reach = nil)
+      return rect if rect.nil? || rect.length < 3 || hole.nil? || hole.length < 3
+      cx = rect.map { |p| p[0] }.sum / rect.length.to_f
+      cy = rect.map { |p| p[1] }.sum / rect.length.to_f
+      r = reach || (rect.map { |p| Math.hypot(p[0] - cx, p[1] - cy) }.max + 0.01)
+      hh = poly_ccw(hole)
+      best = nil
+      best_a = nil
+      hh.length.times do |i|
+        a = hh[i]
+        b = hh[(i + 1) % hh.length]
+        next if Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.0e-9
+        next if seg_dist(a, b, [cx, cy]) > r
+        out = clean_poly(clip_left(rect, b, a))
+        next if out.length < 3
+        ox = out.sum { |p| p[0] } / out.length
+        oy = out.sum { |p| p[1] } / out.length
+        next if poly_contains?(hh, [ox, oy])
+        ar = poly_area(out).abs
+        next if !best_a.nil? && ar <= best_a
+        best_a = ar
+        best = out
+      end
+      # No edge reaches it, or every cut leaves nothing standing outside:
+      # inside the hole it is gone, anywhere else it is whole.
+      return (poly_contains?(hh, [cx, cy]) ? [] : rect) if best.nil?
+      best
+    end
+
     # Plain ray-cast point-in-polygon, boundary points counted by the same
     # half-open rule the scanline uses.
     def self.poly_contains?(poly, pt)
