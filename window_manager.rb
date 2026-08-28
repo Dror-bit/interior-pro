@@ -16,6 +16,26 @@ module InteriorPro
       path.reverse.find { |e| window_entity?(e) }
     end
 
+    # A GABLET WINDOW (2026-09-07). It answers type == 'window' so Edit
+    # Window finds it in the click path exactly like a house window, but
+    # it has no host wall: the hole and the body are the DORMER's own
+    # geometry, so everything about it goes through DormerManager.
+    def self.dormer_window?(e)
+      return false unless window_entity?(e)
+      v = e.get_attribute('InteriorPro', 'dormer_window')
+      v == true || v.to_s == 'true'
+    end
+
+    # The dormer a picked window belongs to is simply the dormer further
+    # up the same click path - no id to store and nothing to keep in step.
+    def self.find_dormer_in_path(path)
+      return nil unless path
+      path.reverse.find do |e|
+        e.respond_to?(:get_attribute) &&
+          e.get_attribute('InteriorPro', 'type') == 'dormer'
+      end
+    end
+
     def self.host_wall(window)
       wid = window.get_attribute('InteriorPro', 'host_wall_id')
       InteriorPro::DoorManager.find_wall_by_id(Sketchup.active_model, wid)
@@ -24,6 +44,12 @@ module InteriorPro
     # Remove the window body + its opening from the wall, then rebuild the wall.
     def self.delete_window(window)
       return false unless window_entity?(window)
+      if dormer_window?(window)
+        UI.messagebox("This window belongs to a dormer.\n\n" \
+                      'Take it away with the "A window in the front wall" ' \
+                      'tick in the Dormer panel.')
+        return false
+      end
       wall = host_wall(window)
       t = window.get_attribute('InteriorPro', 'position_along_wall_in').to_f
       model = Sketchup.active_model
@@ -48,6 +74,12 @@ module InteriorPro
     # via the native rebuild; the window body is translated to match.
     def self.move_window(window, delta_t)
       return false unless window_entity?(window)
+      if dormer_window?(window)
+        UI.messagebox("This window belongs to a dormer.\n\n" \
+                      'It is centred in the gablet\'s front wall and moves ' \
+                      'with the dormer itself.')
+        return false
+      end
       delta_t = delta_t.to_f
       return true if delta_t.abs < 0.001
       wall = host_wall(window)
@@ -93,6 +125,7 @@ module InteriorPro
     # old body + opening, then run the native placement with the new params.
     def self.update_window(window, settings)
       return false unless window_entity?(window)
+      return false if dormer_window?(window)   # DormerManager.set_window! owns it
       wall = host_wall(window)
       unless wall
         UI.messagebox('Host wall not found.')
@@ -306,7 +339,12 @@ module InteriorPro
 
   class WindowEditTool
     def activate
-      sel = Sketchup.active_model.selection.find { |e| InteriorPro::WindowManager.window_entity?(e) }
+      # A gablet window is NOT reached from the selection: its panel needs
+      # the dormer it sits in, and only the click path can say which.
+      sel = Sketchup.active_model.selection.find do |e|
+        InteriorPro::WindowManager.window_entity?(e) &&
+          !InteriorPro::WindowManager.dormer_window?(e)
+      end
       if sel
         InteriorPro::WindowLibraryDialog.show_for_edit(sel)
       else
@@ -323,7 +361,17 @@ module InteriorPro
       ph.do_pick(x, y)
       path = ph.count > 0 ? ph.path_at(0) : nil
       window = InteriorPro::WindowManager.find_window_in_path(path)
-      InteriorPro::WindowLibraryDialog.show_for_edit(window) if window
+      return unless window
+      unless InteriorPro::WindowManager.dormer_window?(window)
+        InteriorPro::WindowLibraryDialog.show_for_edit(window)
+        return
+      end
+      dormer = InteriorPro::WindowManager.find_dormer_in_path(path)
+      if dormer
+        InteriorPro::WindowLibraryDialog.show_for_dormer_window(window, dormer)
+      else
+        UI.messagebox('Could not find the dormer this window belongs to.')
+      end
     end
   end
 end

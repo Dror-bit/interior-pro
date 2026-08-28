@@ -102,6 +102,150 @@ module InteriorPro
       dialog.show
     end
 
+    # ---------- THE GABLET WINDOW'S OWN PANEL (2026-09-07) --------------
+    #
+    # He asked for it in his words: "צריך להיות אופציה לערוך אותו - אולי
+    # אם אני לוחץ על עריכה ואז על החלון הזה נפתח אופציות שונות, וגם צריך
+    # רק גודל ועוד שתי סוגים של חלונות." So this is the SHORT form of the
+    # window panel: the size, the three types he was shown, and nothing
+    # else. A gablet window has no header height (it is centred in the
+    # wall), no casing and no host wall, so those rows are simply absent
+    # rather than present and ignored.
+    #
+    # Apply goes to DormerManager.set_window!, which stores the numbers on
+    # the DORMER and rebuilds it - the hole and the body together.
+    def self.show_for_dormer_window(window, dormer)
+      return unless window && dormer
+      lim = InteriorPro::DormerManager.window_limits(dormer) || {}
+      cur = {
+        'window_type' => window.get_attribute('InteriorPro', 'window_type').to_s,
+        'width'       => window.get_attribute('InteriorPro', 'width_in').to_f,
+        'height'      => window.get_attribute('InteriorPro', 'height_in').to_f
+      }
+      dialog = UI::HtmlDialog.new(
+        dialog_title: 'Interior Pro - Dormer Window',
+        preferences_key: 'InteriorPro_DormerWindow',
+        width: 360,
+        height: 330,
+        min_width: 320,
+        min_height: 260,
+        resizable: true
+      )
+      dialog.set_html(dormer_window_html(cur, lim))
+
+      dialog.add_action_callback('apply_dormer_window') { |_ctx, data|
+        settings = JSON.parse(data)
+        dialog.close
+        model = Sketchup.active_model
+        model.start_operation('Edit Dormer Window', true)
+        begin
+          ok = InteriorPro::DormerManager.set_window!(dormer, settings)
+          if ok
+            model.commit_operation
+          else
+            model.abort_operation
+            UI.messagebox('Could not rebuild the dormer window: ' \
+                          "#{InteriorPro::DormerManager.last_reason}")
+          end
+        rescue StandardError => e
+          model.abort_operation rescue nil
+          UI.messagebox("Error editing the dormer window: #{e.message}")
+        end
+      }
+
+      dialog.add_action_callback('cancel_dormer_window') { |_ctx| dialog.close }
+
+      dialog.set_size(360, 330)
+      dialog.show
+    end
+
+    def self.dormer_window_html(cur, lim)
+      types = InteriorPro::DormerManager.window_types
+      labels = { 'Picture' => 'Fixed - one pane, nothing opens',
+                 'Slider XO' => 'Slider - one half slides across',
+                 'Double Hung' => 'Hung - opens up and down' }
+      sel = types.include?(cur['window_type']) ? cur['window_type'] : types.first
+      opts = types.map { |t|
+        "<option value=\"#{t}\"#{t == sel ? ' selected' : ''}>#{labels[t] || t}</option>"
+      }.join
+      max_w = (lim[:max_w] || 48.0).round(1)
+      max_h = (lim[:max_h] || 24.0).round(1)
+      min_w = (lim[:min_w] || 18.0).round(1)
+      min_h = (lim[:min_h] || 12.0).round(1)
+      w = cur['width'].to_f > 0 ? cur['width'].to_f.round(1) : max_w
+      h = cur['height'].to_f > 0 ? cur['height'].to_f.round(1) : max_h
+      <<~HTML
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <style>
+          /* Same rules as the full window form: room under the last
+             button, scroll down but never sideways (rt26). */
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
+          body { font-family: Arial, sans-serif; background: #f0f0f0; padding-bottom: 8px; }
+          .header { background: #6A1B9A; color: white; padding: 7px 12px; font-size: 13px; font-weight: bold; }
+          .content { padding: 8px; }
+          .panel { background: white; border-radius: 6px; padding: 10px; border: 1px solid #ddd; }
+          .section-title { font-size: 10px; color: #6A1B9A; font-weight: bold; text-transform: uppercase; margin-top: 7px; margin-bottom: 2px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+          .section-title:first-child { margin-top: 0; }
+          label { display: block; font-size: 11px; color: #555; margin-top: 4px; margin-bottom: 1px; }
+          input, select { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+          .row { display: flex; gap: 6px; }
+          .row > div { flex: 1; }
+          .note { font-size: 10px; color: #888; margin-top: 5px; line-height: 1.4; }
+          .place-row { margin-top: 10px; display: flex; gap: 6px; }
+          .btn-place { flex: 2; padding: 8px; background: #6A1B9A; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
+          .btn-place:hover { background: #4A148C; }
+          .btn-cancel { flex: 1; padding: 8px; background: #eee; color: #444; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer; }
+        </style>
+        </head>
+        <body>
+        <div class="header">Interior Pro - Dormer Window</div>
+        <div class="content">
+          <div class="panel">
+            <div class="section-title">Window Type</div>
+            <select id="winType">#{opts}</select>
+
+            <div class="section-title">Size</div>
+            <div class="row">
+              <div>
+                <label>Width (in)</label>
+                <input type="number" id="winWidth" value="#{w}" min="#{min_w}" max="#{max_w}" step="0.5">
+              </div>
+              <div>
+                <label>Height (in)</label>
+                <input type="number" id="winHeight" value="#{h}" min="#{min_h}" max="#{max_h}" step="0.5">
+              </div>
+            </div>
+            <div class="note">
+              This gablet has room for #{max_w}" x #{max_h}".
+              A bigger number is pulled back to that; the window stays
+              centred in the front wall.
+            </div>
+
+            <div class="place-row">
+              <button class="btn-place" onclick="apply()">Apply</button>
+              <button class="btn-cancel" onclick="sketchup.cancel_dormer_window()">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <script>
+          function apply() {
+            var d = {
+              window_type: document.getElementById('winType').value,
+              width: parseFloat(document.getElementById('winWidth').value) || 0,
+              height: parseFloat(document.getElementById('winHeight').value) || 0
+            };
+            sketchup.apply_dormer_window(JSON.stringify(d));
+          }
+        </script>
+        </body>
+        </html>
+      HTML
+    end
+
     def self.build_html
       s   = @last || {}
       dw  = s['width']          || 36

@@ -611,9 +611,15 @@ module InteriorPro
       end
     end
 
-    def build_casement_body(window_group, unit, n, thickness, clicked_side)
+    # THE BODY, WITHOUT AN OPERATION OF ITS OWN (2026-09-07).
+    #
+    # Split out so a caller that is ALREADY inside a start_operation can
+    # build the same window without nesting one operation inside another -
+    # the gablet window does exactly that, inside the dormer's own
+    # operation. Nothing about the geometry changed; build_casement_body
+    # below is this method plus the operation it always had.
+    def casement_body!(window_group, unit, n, thickness, clicked_side)
       model = Sketchup.active_model
-      model.start_operation('Build Casement Body', true, false, true) # transparent
       begin
         frame_mat = get_or_create_material(model, 'InteriorPro_Window_Frame',
                                            Sketchup::Color.new(255, 255, 255), 1.0)
@@ -698,7 +704,21 @@ module InteriorPro
           build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
                            sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat, 0.0625)
         end
+        true
+      rescue => e
+        puts "[WindowTool] casement body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+        false
+      end
+    end
+    # everything in this class is private from line 135 down; this one is
+    # the gablet window's door in, so it is opened again on purpose.
+    public :casement_body!
 
+    def build_casement_body(window_group, unit, n, thickness, clicked_side)
+      model = Sketchup.active_model
+      model.start_operation('Build Casement Body', true, false, true) # transparent
+      begin
+        casement_body!(window_group, unit, n, thickness, clicked_side)
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil

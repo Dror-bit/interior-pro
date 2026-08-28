@@ -607,6 +607,15 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'place_mode',
                         %w[free depth flush].include?(pm) ? pm : 'free')
       grp.set_attribute('InteriorPro', 'window', spec[:window] ? true : false)
+      # THE WINDOW'S OWN NUMBERS (2026-09-07). They live on the dormer,
+      # not on the window group, because Edit and Move rebuild the whole
+      # dormer from these attributes - exactly like the setback and the
+      # place mode above. Nothing typed means "as big as it may be".
+      grp.set_attribute('InteriorPro', 'window_type', window_type_of(spec))
+      grp.set_attribute('InteriorPro', 'window_w', spec[:window_w].to_f) if
+        spec[:window_w].to_f > 0.0
+      grp.set_attribute('InteriorPro', 'window_h', spec[:window_h].to_f) if
+        spec[:window_h].to_f > 0.0
       # the ceiling this roof face gave it, so an EDIT is held to the
       # same limit the placing click was - without it a typed height
       # could push a built dormer straight through the ridge.
@@ -632,7 +641,16 @@ module InteriorPro
         [1.0, -1.0].each { |sg| build_roof_plane!(grp, fr, at, sg, spec[:roof_material]) }
         build_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
       end
-      punch_window!(wall, fr, at) if spec[:window] && wall
+      # THE WINDOW: the hole first, then the body that fills it. Both
+      # live INSIDE the dormer group, so they move, are erased and come
+      # back with it (rt117, rt120).
+      if spec[:window] && wall
+        wr = window_rect(fr, spec[:window_w], spec[:window_h])
+        if wr
+          punch_window!(wall, fr, at, wr)
+          build_window_body!(grp, fr, at, wr, spec)
+        end
+      end
       grp
     rescue StandardError => e
       puts "[Dormer] build_dormer!: #{e.class}: #{e.message}"
@@ -1356,7 +1374,9 @@ module InteriorPro
 
     # Where the window sits, in the dormer's own frame: w across the wall,
     # z in the world. nil - and a reason - when nothing fits.
-    def self.window_rect(fr)
+    # The typed size the panel can ask for is passed in; with nothing
+    # typed this is bit for bit the method rt117 pinned.
+    def self.window_rect(fr, want_w = nil, want_h = nil)
       # THE RULE HE SET, one rule for every side: 6" of wall clear all
       # round, and never bigger than 48 x 24 - "זה יהיה המקסימום ואם זה
       # גגון יותר קטן אז שיהיה פשוט 6 מכל כיוון". On his 60" gablet the
@@ -1370,11 +1390,18 @@ module InteriorPro
       width = [width, clear_w - 2.0].min
       return warn_nil('the gablet is too narrow for a window') if
         width < window_min_w
+      # A TYPED SIZE ONLY EVER FITS INSIDE THAT (2026-09-07). The Edit
+      # Window panel can ask for a smaller window; it can never ask for
+      # one the wall has no room for, and it can never go under the
+      # smallest window we build. A narrower window is also allowed to be
+      # TALLER on a gable, so the head is measured after the clamp.
+      width = [[want_w.to_f, window_min_w].max, width].min if want_w.to_f > 0.0
       top = wall_top_over(fr, width / 2.0)
       clear_h = top - fr[:z_front].to_f
       height = [window_max_h, clear_h - 2.0 * window_margin].min
       return warn_nil('the front wall is too short for a window') if
         height < window_min_h
+      height = [[want_h.to_f, window_min_h].max, height].min if want_h.to_f > 0.0
       # centred in the clear wall: the two margins come out equal, which
       # is what he drew back at me.
       { w: 0.0, width: width, height: height,
@@ -1415,6 +1442,152 @@ module InteriorPro
       r
     rescue StandardError => e
       puts "[Dormer] punch_window!: #{e.class}: #{e.message}"
+      nil
+    end
+
+    # ---------- THE WINDOW BODY (2026-09-07) ----------------------------
+    #
+    # HIS INSTRUCTION, IN HIS WORDS: "תעתיק את הקוד של החלון ... מהחלונות
+    # שכבר קיימים ברשימת החלונות." So the gablet window is not a second
+    # window builder - it IS the house window. Everything here does is
+    # put an empty group in the hole, point it the right way, and hand it
+    # to WindowTool#casement_body!, which is the same call every window
+    # in a wall goes through.
+    #
+    # That is why the split in window_tool.rb was needed: the dormer is
+    # built inside its own start_operation, and nesting SketchUp
+    # operations is not safe. `casement_body!` is the geometry with the
+    # operation taken off it.
+    #
+    # Three types. The fixed window he picked first, and the two he asked
+    # to have as choices beside it.
+    #
+    # THE THIRD ONE CHANGED (2026-09-07, after he saw it): the drawing
+    # offered two casements swinging out, and he said no - "אני רוצה
+    # שהסוג חלון השלישי יהיה חלון שנפתח מלמעלה למטה, לא צריך דאבל
+    # קייסמנט." A hung window it is: one rail across the middle, the
+    # sashes run up and down. WindowTool already builds exactly that
+    # (window_grid -> [1, 2], build_hung_panes).
+    def self.window_types
+      ['Picture', 'Slider XO', 'Double Hung']
+    end
+
+    def self.window_type_of(spec)
+      t = if spec.is_a?(Hash)
+            spec[:window_type] || spec['window_type']
+          else
+            spec
+          end
+      window_types.include?(t.to_s) ? t.to_s : window_types.first
+    end
+
+    def self.window_sash_depth; 2.0; end
+    def self.window_jamb_in;    1.0; end
+
+    # WHERE THE BODY GOES, PURE. WindowTool builds around the group's
+    # ORIGIN with u along the wall and v into it, so the origin is the
+    # centre of the hole ON THE OUTSIDE FACE, u is the dormer's `along`
+    # and v is its `into` - which is why clicked_side is -1: for the
+    # window tool, -n is outdoors.
+    #
+    # The jamb runs `interior_depth` past the sash, and on a thin gablet
+    # wall that is cut back so it can never stand out into the room.
+    def self.window_place(fr, at, r)
+      into, along = frame_dirs(at)
+      th = fr[:thickness].to_f
+      { origin: at.call(fr[:s_front].to_f, r[:w].to_f, r[:z].to_f),
+        unit: along, n: into, clicked_side: -1, thickness: th,
+        interior_depth: [window_jamb_in, [th - window_sash_depth, 0.25].max].min }
+    end
+
+    def self.build_window_body!(grp, fr, at, rect = nil, spec = {})
+      r = rect || window_rect(fr)
+      return nil if r.nil? || grp.nil? || !grp.valid?
+      return warn_nil('the window tool is not loaded') unless
+        defined?(InteriorPro::WindowTool) && InteriorPro::WindowTool.respond_to?(:new)
+
+      type = window_type_of(spec)
+      pl   = window_place(fr, at, r)
+      win  = new_part!(grp, 'InteriorPro_DormerWindow', 'dormer_window')
+
+      # THE EDIT TOOL FINDS IT BY THIS (2026-09-07). WindowManager picks
+      # the deepest thing in the click path with type == 'window', so a
+      # gablet window answers to Edit Window exactly like a house window;
+      # `dormer_window` is how the panel knows to show the short form.
+      win.set_attribute('InteriorPro', 'type', 'window')
+      win.set_attribute('InteriorPro', 'dormer_window', true)
+      win.set_attribute('InteriorPro', 'window_type', type)
+      win.set_attribute('InteriorPro', 'width_in', r[:width].to_f)
+      win.set_attribute('InteriorPro', 'height_in', r[:height].to_f)
+      win.set_attribute('InteriorPro', 'interior_depth_in', pl[:interior_depth])
+      win.set_attribute('InteriorPro', 'frame_width_in', 1.0)
+      win.set_attribute('InteriorPro', 'area_sqft',
+                        (r[:width].to_f * r[:height].to_f) / 144.0)
+      win.set_attribute('InteriorPro', 'window_w', r[:width].to_f)
+      win.set_attribute('InteriorPro', 'window_h', r[:height].to_f)
+
+      win.entities.add_cpoint(Geom::Point3d.new(0, 0, 0)) if
+        win.entities.respond_to?(:add_cpoint)
+      win.transformation = Geom::Transformation.new(pl[:origin]) if
+        win.respond_to?(:transformation=)
+
+      tool = InteriorPro::WindowTool.new
+      tool.window_type           = type
+      tool.preset_name           = type
+      tool.width                 = r[:width].to_f
+      tool.height                = r[:height].to_f
+      tool.interior_depth        = pl[:interior_depth]
+      tool.arch_rise             = 0.0
+      tool.glass_grid_style      = 'none'
+      tool.exterior_casing_style = 'none'
+      tool.interior_casing_style = 'none'
+      tool.casement_body!(win,
+                          Geom::Vector3d.new(pl[:unit][0], pl[:unit][1], 0.0),
+                          Geom::Vector3d.new(pl[:n][0], pl[:n][1], 0.0),
+                          pl[:thickness], pl[:clicked_side])
+      win
+    rescue StandardError => e
+      puts "[Dormer] build_window_body!: #{e.class}: #{e.message}"
+      nil
+    end
+
+    # The Edit Window panel's way in: the size and the type live on the
+    # DORMER, because the hole and the body are both its geometry, so a
+    # change is a rebuild of the dormer - the same road Edit Dormer takes.
+    def self.set_window!(dormer, settings = {})
+      return nil if dormer.nil? || !dormer.respond_to?(:valid?) || !dormer.valid?
+      pick = lambda { |k| settings[k].nil? ? settings[k.to_sym] : settings[k] }
+      ch = { window: true, window_type: window_type_of(pick.call('window_type')) }
+      w = pick.call('width').to_f
+      h = pick.call('height').to_f
+      ch[:window_w] = w if w > 0.0
+      ch[:window_h] = h if h > 0.0
+      replace_dormer!(dormer, ch)
+    end
+
+    # What the Edit Window panel is allowed to ask for on THIS gablet:
+    # the biggest window its front wall has room for, and the smallest
+    # window we build at all. Typing outside that is pulled back in.
+    def self.window_limits(dormer)
+      spec = dormer_spec(dormer)
+      return nil if spec.nil?
+      fr = frame(spec)
+      return nil if fr.nil?
+      r = window_rect(fr)
+      return nil if r.nil?
+      { max_w: r[:width], max_h: r[:height],
+        min_w: window_min_w, min_h: window_min_h }
+    rescue StandardError
+      nil
+    end
+
+    # The window group inside a dormer, when there is one.
+    def self.window_of(dormer)
+      return nil if dormer.nil? || !dormer.respond_to?(:entities)
+      dormer.entities.grep(Sketchup::Group).find do |s|
+        s.get_attribute('InteriorPro', 'part').to_s == 'dormer_window'
+      end
+    rescue StandardError
       nil
     end
 
@@ -2190,6 +2363,12 @@ module InteriorPro
       spec[:place_mode] = pm if %w[free depth flush].include?(pm)
       wi = a.call('window')
       spec[:window] = (wi == true || wi.to_s == 'true') unless wi.nil?
+      wt = a.call('window_type').to_s
+      spec[:window_type] = wt if window_types.include?(wt)
+      ww = a.call('window_w')
+      spec[:window_w] = ww.to_f if ww.to_f > 0.0
+      wh = a.call('window_h')
+      spec[:window_h] = wh.to_f if wh.to_f > 0.0
       zt = a.call('z_top')
       spec[:z_top] = zt.to_f unless zt.nil?
       spec
