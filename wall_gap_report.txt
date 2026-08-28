@@ -1,0 +1,19 @@
+Interior Pro - daylight between the wall tops and the roof
+model: claud cold   time: 2026-08-28 16:12:43 -0700
+walls: 6
+roofs: 1
+  roof #1  z 197.0 .. 266.2   plan x 865.2..1157.4  y 128.6..532.2
+
+the roof's lowest point: 197.0
+
+  wall   top z     height    gap       plan middle
+  #1     202.00    96.00     -5.00     (1011.2, 517.6) 
+  #2     202.00    96.00     -5.00     (1142.0, 395.0) 
+  #3     202.00    96.00     -5.00     (1069.5, 272.5) 
+  #4     202.00    96.00     -5.00     (997.0, 208.2) 
+  #5     202.00    96.00     -5.00     (938.8, 144.0) 
+  #6     202.00    96.00     -5.00     (880.5, 330.8) 
+
+wall tops: highest 202.00, lowest 202.00
+GAP between the highest wall top and the roof: -5.00"
+a positive gap is daylight - the roof floats that far above the wall.

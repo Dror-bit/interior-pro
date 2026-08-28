@@ -1,0 +1,115 @@
+roofs: 2
+
+=== roof 0  material "seam"   runs? true  seam? true  run_flat? false
+    instances: 14
+        IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8            14
+    groups by part: {"ridge_cap"=>1, "tile_edge"=>2, "gable_wall_top"=>1}
+    asset_tile: none
+    pieces relay_runs! would NOT erase: 0
+    run_height 1.000  run_pitch 28.000  eave_overhang 1.250  ridge_setback 4.000
+    defn IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8      x 13.0000..15.0000  y -0.0000..1.0000  z 0.0000..1.0000
+    upward faces (what relay_runs! feeds the placer): 12
+        area    32088.6  n(0.36,-0.00,0.93)  loops 1  centre z 127.69  UNDERSIDE (a skin sits above it)
+        area    32088.6  n(0.36,-0.00,0.93)  loops 1  centre z 128.23  top skin
+        area    32088.6  n(-0.36,0.00,0.93)  loops 1  centre z 128.23  top skin
+        area    32088.6  n(-0.36,0.00,0.93)  loops 1  centre z 127.69  UNDERSIDE (a skin sits above it)
+        area      163.7  n(-0.00,-0.00,1.00)  loops 1  centre z 101.38  top skin
+        area      163.7  n(-0.00,-0.00,1.00)  loops 1  centre z 101.38  top skin
+        area      109.9  n(-0.36,-0.00,0.93)  loops 1  centre z 127.69  top skin
+        area      109.9  n(0.36,0.00,0.93)  loops 1  centre z 127.69  top skin
+        area       14.7  n(-0.36,-0.00,0.93)  loops 1  centre z 125.69  UNDERSIDE (a skin sits above it)
+        area       14.7  n(-0.36,-0.00,0.93)  loops 1  centre z 127.69  top skin
+    planes_from_faces 10, of them wider than 24": 4
+    -- plane 0: u span 219.00  v 0.00..146.52  holes 0
+       pieces whose ORIGIN sits on this plane: 7
+       ORIGINS below the eave (v < 0): 0   lowest v 1.19
+         origin u    12.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    40.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    68.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    96.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u   124.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u   152.50  v    1.192  stretched length    1.000  end v    2.192
+    -- plane 1: u span 219.00  v 0.00..146.52  holes 0
+       pieces whose ORIGIN sits on this plane: 7
+       ORIGINS below the eave (v < 0): 0   lowest v 1.19
+         origin u    10.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    38.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    66.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u    94.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u   122.50  v    1.192  stretched length    1.000  end v    2.192
+         origin u   150.50  v    1.192  stretched length    1.000  end v    2.192
+    -- plane 2: u span 219.00  v 0.00..146.52  holes 0
+       pieces whose ORIGIN sits on this plane: 7
+       ORIGINS below the eave (v < 0): 0   lowest v 1.00
+         origin u    12.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    40.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    68.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    96.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u   124.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u   152.50  v    1.000  stretched length    1.000  end v    2.000
+    -- plane 3: u span 219.00  v 0.00..146.52  holes 0
+       pieces whose ORIGIN sits on this plane: 7
+       ORIGINS below the eave (v < 0): 0   lowest v 1.00
+         origin u    10.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    38.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    66.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u    94.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u   122.50  v    1.000  stretched length    1.000  end v    2.000
+         origin u   150.50  v    1.000  stretched length    1.000  end v    2.000
+
+=== roof 1  material "roman"   runs? true  seam? false  run_flat? false
+    instances: 143
+        IP_TileRun_roman_14.00_3.84_0.33_10.00_8             143
+    groups by part: {"ridge_cap"=>40, "gable_wall_top"=>2, ""=>3}
+    asset_tile: none
+    pieces relay_runs! would NOT erase: 0
+    run_height 3.840  run_pitch 10.000  eave_overhang 1.250  ridge_setback 4.600
+    defn IP_TileRun_roman_14.00_3.84_0.33_10.00_8        x -5.0000..9.0000  y 0.0000..1.0000  z 0.0000..4.1733
+    upward faces (what relay_runs! feeds the placer): 18
+        area   220745.0  n(0.38,-0.00,0.92)  loops 1  centre z 264.76  UNDERSIDE (a skin sits above it)
+        area   220745.0  n(0.38,0.00,0.92)  loops 1  centre z 265.30  top skin
+        area   192302.3  n(-0.38,-0.00,0.92)  loops 4  centre z 265.30  top skin
+        area   192302.3  n(-0.38,-0.00,0.92)  loops 4  centre z 264.76  UNDERSIDE (a skin sits above it)
+        area     4072.3  n(0.38,0.00,0.92)  loops 1  centre z 260.01  top skin
+        area     4072.3  n(0.38,0.00,0.92)  loops 1  centre z 259.26  UNDERSIDE (a skin sits above it)
+        area     4072.3  n(-0.38,-0.00,0.92)  loops 1  centre z 260.01  top skin
+        area      469.3  n(-0.00,-0.00,1.00)  loops 1  centre z 197.00  top skin
+        area      469.3  n(-0.00,-0.00,1.00)  loops 1  centre z 197.00  top skin
+        area      264.3  n(0.38,0.00,0.92)  loops 1  centre z 256.76  UNDERSIDE (a skin sits above it)
+    planes_from_faces 16, of them wider than 24": 4
+    -- plane 0: u span 626.50  v 0.00..352.35  holes 0
+       pieces whose ORIGIN sits on this plane: 62
+       ORIGINS below the eave (v < 0): 62   lowest v -1.04
+         origin u     5.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    15.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    25.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    35.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    45.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    55.00  v   -1.042  stretched length    1.000  end v   -0.042
+    -- plane 1: u span 626.47  v 0.00..352.35  holes 3
+       pieces whose ORIGIN sits on this plane: 81
+       ORIGINS below the eave (v < 0): 62   lowest v -1.04
+         origin u     5.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    15.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    25.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    35.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    45.00  v   -1.042  stretched length    1.000  end v   -0.042
+         origin u    55.00  v   -1.042  stretched length    1.000  end v   -0.042
+    -- plane 2: u span 626.50  v 0.00..352.35  holes 0
+       pieces whose ORIGIN sits on this plane: 62
+       ORIGINS below the eave (v < 0): 62   lowest v -1.25
+         origin u     5.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    15.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    25.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    35.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    45.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    55.00  v   -1.250  stretched length    1.000  end v   -0.250
+    -- plane 3: u span 626.47  v 0.00..352.35  holes 3
+       pieces whose ORIGIN sits on this plane: 81
+       ORIGINS below the eave (v < 0): 62   lowest v -1.25
+         origin u     5.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    15.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    25.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    35.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    45.00  v   -1.250  stretched length    1.000  end v   -0.250
+         origin u    55.00  v   -1.250  stretched length    1.000  end v   -0.250

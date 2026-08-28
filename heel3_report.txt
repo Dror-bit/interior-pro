@@ -1,0 +1,25 @@
+=== heel3 report 2026-08-28 13:30 ===
+--- the walls themselves
+  497e882d-8c6 cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  ba88582f-7e3 cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  843776c1-929 cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  a3ddc2b0-15f cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  006d5644-d9b cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  c37ede43-97f cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  d2d2f7d6-8b5 cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  2795ffef-d9e cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  83462982-8f7 cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+  534649af-32b cat=exterior  side names=["Stucco", "#ffffff"]                    faces={"(none)"=>4, "#ffffff"=>1, "Stucco"=>1}
+
+--- roof 1  eave_z=118.61723446893788
+  band 1   z 106.00..166.14   materials={"Stucco"=>7, "#ffffff"=>1}
+  band 2   z 106.00..118.62   materials={"Stucco"=>5, "#ffffff"=>1}
+  band 3   z 106.00..118.62   materials={"Stucco"=>5, "#ffffff"=>1}
+  roof settings: fascia_color="#ffffff" roof_color="#c16e53" soffit=boxed soffit_color="#ffffff"
+
+--- roof 2  eave_z=215.0
+  band 1   z 202.00..345.00   materials={"Stucco"=>7, "#ffffff"=>1}
+  band 2   z 202.00..345.00   materials={"Stucco"=>7, "#ffffff"=>1}
+  band 3   z 202.00..215.00   materials={"Stucco"=>5, "#ffffff"=>1}
+  band 4   z 202.00..215.00   materials={"Stucco"=>5, "#ffffff"=>1}
+  roof settings: fascia_color="#ffffff" roof_color="#c16e53" soffit=boxed soffit_color="#ffffff"

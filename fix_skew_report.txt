@@ -1,0 +1,8 @@
+fix skew corner  2026-08-28 16:25:41 -0700
+before: north end_y=520.1043789068  west start_y=520.1043789068
+rebuild north: ok
+rebuild west : ok
+
+roof rebuild said:
+  [Roof] hip over level 2: eave 210.0", ridge 262.1" (pitch 5.0:12, overhang 12", fascia on, drip on)
+decomposed - no fallback message

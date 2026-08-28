@@ -1,0 +1,13 @@
+place_on_roof! -> built
+replace_dormer! (Edit) -> built
+move (remove + place) -> built
+
+every full relay of the roof, in order:
+  phase    holes    dormers in roof
+  place    0        1
+  edit     0        1
+  move     0        1
+
+relays on PLACE : 1
+relays on EDIT  : 1
+relays on MOVE  : 1

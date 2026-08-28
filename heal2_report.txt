@@ -1,0 +1,22 @@
+
+=== roof 0: 6 inner loop(s) in the skins ===
+
+  -- dormer 5  style "gable"
+     saved: length 145.00  height 50.0  setback 50.00  width 50.00  pitch 0.4167  z_top 333.0625
+     spec has :height? false
+     rebuilt frame: length 145.00  s_front 50.00  s_ridge 195.00  half 25.00
+     the opening heal would use: x -22.00..123.00  y 1028.31..1078.31  (5 corners)
+       loop 0 (5 corners, x -22.00..123.00 y 1028.31..1078.31): 5 of 5 corners inside  WOULD BE HEALED
+       loop 3 (5 corners, x -22.00..123.00 y 1028.31..1078.31): 5 of 5 corners inside  WOULD BE HEALED
+     loops this dormer would heal: 2
+
+  -- dormer 6  style "shed"
+     saved: length 144.00  height 29.99999999999997  setback 41.47  width 70.00  pitch 0.2083  z_top 333.0625
+     spec has :height? false
+     rebuilt frame: length 144.00  s_front 41.47  s_ridge 185.47  half 35.00
+     the opening heal would use: x -30.53..113.47  y 1103.19..1173.19  (4 corners)
+       loop 2 (4 corners, x -30.53..113.47 y 1103.19..1173.19): 4 of 4 corners inside  WOULD BE HEALED
+       loop 5 (4 corners, x -30.53..113.47 y 1103.19..1173.19): 4 of 4 corners inside  WOULD BE HEALED
+     loops this dormer would heal: 2
+
+=== roof 1: 0 inner loop(s) in the skins ===

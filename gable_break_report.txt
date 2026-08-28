@@ -1,0 +1,23 @@
+Interior Pro - where the roof does not close
+model: claud cold   time: 2026-08-28 16:08:38 -0700
+roofs: 1
+
+roof #1   faces=213 (upward 33)  3+face edges=114  holes=0
+  bounds z: 197.0 .. 266.2
+  set_gables: 3 wall(s)
+    gable click 1 at (978.4, 141.5)
+    gable click 2 at (878.0, 299.8)
+    gable click 3 at (1144.5, 428.5)
+
+  OPEN edges - only one face on them: 10
+    roof             len    8.54"  (866.0, 258.0, 257.6) -> (866.0, 258.0, 266.2)  [sloping]
+    roof             len  142.08"  (866.0, 129.5, 205.5) -> (866.0, 258.0, 266.2)  [sloping]
+    roof             len  142.08"  (866.0, 258.0, 265.6) -> (866.0, 129.5, 205.0)  [sloping]
+    roof             len  148.12"  (1156.5, 258.0, 205.5) -> (1011.5, 258.0, 235.8)  [sloping]
+    roof             len    0.54"  (1011.5, 258.0, 235.8) -> (1011.5, 258.0, 235.3)  [sloping]
+    roof             len  148.12"  (1011.5, 258.0, 235.3) -> (1156.5, 258.0, 205.0)  [sloping]
+    roof             len    0.54"  (1011.5, 258.0, 205.0) -> (1011.5, 258.0, 205.5)  [sloping]
+    roof             len  128.50"  (866.0, 258.0, 205.5) -> (866.0, 129.5, 205.5)  [level]
+    roof             len  145.00"  (1011.5, 258.0, 205.5) -> (1156.5, 258.0, 205.5)  [level]
+    roof             len    0.54"  (866.0, 258.0, 205.0) -> (866.0, 258.0, 205.5)  [sloping]
+  parts: gable_wall_topx3

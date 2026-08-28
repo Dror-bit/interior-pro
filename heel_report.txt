@@ -1,0 +1,29 @@
+=== heel report 2026-08-28 11:37 ===
+settings: overhang=12.00  pitch=5.00:12  thickness=0.50  fascia=true depth=8.00  drip=true  soffit=boxed
+heel_lift = 5.000
+slab_lift (vertical deck thickness) = 0.542
+exterior walls: 10   tops: [106.0, 202.0]
+roofs: 2
+
+--- roof 1  eave_z=110.61723446893788  pitch=5.0  overhang=
+part                          low z   high z      n  low vs wall top
+(loose faces on the roof group)    98.00   159.15      1   -104.00 << BELOW the wall top
+gable_wall_top               106.00   158.14      1    -96.00 << BELOW the wall top
+ridge_cap                    156.65   166.10     14    -45.35 << BELOW the wall top
+LOWEST anything on this roof: 98.00   wall top: 202.00   difference: -104.00
+
+--- roof 2  eave_z=207.0  pitch=5.0  overhang=
+part                          low z   high z      n  low vs wall top
+(loose faces on the roof group)   194.00   338.06      1     -8.00 << BELOW the wall top
+gable_wall_top               202.00   337.00      2     +0.00 
+tile_edge                    202.54   246.81      4     +0.54 
+dormer_cheek                 215.04   247.54      2    +13.04 
+dormer_front                 215.04   260.04      1    +13.04 
+dormer_rake                  233.04   260.04      1    +31.04 
+dormer_soffit                233.04   248.79      2    +31.04 
+dormer_fascia                233.04   245.04      1    +31.04 
+dormer_drip                  243.04   260.04      1    +41.04 
+dormer_roof                  245.00   260.54      2    +43.00 
+(unnamed d2)                 245.88   259.93      6    +43.88 
+ridge_cap                    258.46   339.51      2    +56.46 
+LOWEST anything on this roof: 194.00   wall top: 202.00   difference: -8.00

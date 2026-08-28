@@ -1,0 +1,145 @@
+
+=== roof 0   material "seam"   cap_round? false   cap_w 10.00   crown 0.00   lift 1.00   gap 1.0
+    caps on the roof itself: 1
+    house cap 0: 22 faces   height 3.37"   x 59.75..69.75  y 701.50..920.50
+       laid in 1 run(s) along y   gaps: []
+
+=== roof 1   material "roman"   cap_round? true   cap_w 13.00   crown 1.42   lift 4.17   gap 1.0
+    caps on the roof itself: 40
+    house cap 0: 28 faces   height 9.66"   x 246.75..259.75  y 908.50..923.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 1: 28 faces   height 9.66"   x 246.75..259.75  y 924.50..939.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 2: 28 faces   height 9.66"   x 246.75..259.75  y 940.50..955.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 3: 28 faces   height 9.66"   x 246.75..259.75  y 956.50..971.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 4: 28 faces   height 9.66"   x 246.75..259.75  y 972.50..987.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 5: 28 faces   height 9.66"   x 246.75..259.75  y 988.50..1003.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 6: 28 faces   height 9.66"   x 246.75..259.75  y 1004.50..1019.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 7: 28 faces   height 9.66"   x 246.75..259.75  y 1020.50..1035.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 8: 28 faces   height 9.66"   x 246.75..259.75  y 1036.50..1051.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 9: 28 faces   height 9.66"   x 246.75..259.75  y 1052.50..1067.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 10: 28 faces   height 9.66"   x 246.75..259.75  y 1068.50..1083.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 11: 28 faces   height 9.66"   x 246.75..259.75  y 1084.50..1099.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 12: 28 faces   height 9.66"   x 246.75..259.75  y 1100.50..1115.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 13: 28 faces   height 9.66"   x 246.75..259.75  y 1116.50..1131.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 14: 28 faces   height 9.66"   x 246.75..259.75  y 1132.50..1147.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 15: 28 faces   height 9.66"   x 246.75..259.75  y 1148.50..1163.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 16: 28 faces   height 9.66"   x 246.75..259.75  y 1164.50..1179.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 17: 28 faces   height 9.66"   x 246.75..259.75  y 1180.50..1195.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 18: 28 faces   height 9.66"   x 246.75..259.75  y 1196.50..1211.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 19: 28 faces   height 9.66"   x 246.75..259.75  y 1212.50..1227.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 20: 28 faces   height 9.66"   x 246.75..259.75  y 1228.50..1243.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 21: 28 faces   height 9.66"   x 246.75..259.75  y 1244.50..1259.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 22: 28 faces   height 9.66"   x 246.75..259.75  y 1260.50..1275.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 23: 28 faces   height 9.66"   x 246.75..259.75  y 1276.50..1291.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 24: 28 faces   height 9.66"   x 246.75..259.75  y 1292.50..1307.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 25: 28 faces   height 9.66"   x 246.75..259.75  y 1308.50..1323.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 26: 28 faces   height 9.66"   x 246.75..259.75  y 1324.50..1339.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 27: 28 faces   height 9.66"   x 246.75..259.75  y 1340.50..1355.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 28: 28 faces   height 9.66"   x 246.75..259.75  y 1356.50..1371.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 29: 28 faces   height 9.66"   x 246.75..259.75  y 1372.50..1387.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 30: 28 faces   height 9.66"   x 246.75..259.75  y 1388.50..1403.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 31: 28 faces   height 9.66"   x 246.75..259.75  y 1404.50..1419.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 32: 28 faces   height 9.66"   x 246.75..259.75  y 1420.50..1435.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 33: 28 faces   height 9.66"   x 246.75..259.75  y 1436.50..1451.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 34: 28 faces   height 9.66"   x 246.75..259.75  y 1452.50..1467.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 35: 28 faces   height 9.66"   x 246.75..259.75  y 1468.50..1483.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 36: 28 faces   height 9.66"   x 246.75..259.75  y 1484.50..1499.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 37: 28 faces   height 9.66"   x 246.75..259.75  y 1500.50..1515.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 38: 28 faces   height 9.66"   x 246.75..259.75  y 1516.50..1531.50
+       laid in 1 run(s) along y   gaps: []
+    house cap 39: 28 faces   height 9.66"   x 246.75..259.75  y 1532.50..1534.97
+       laid in 1 run(s) along x   gaps: []
+    dormer 42: 10 cap(s)
+    dormer 42 cap 0: 28 faces   height 9.66"   x -28.85..-13.85  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 1: 28 faces   height 9.66"   x -12.85..2.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 2: 28 faces   height 9.66"   x 3.15..18.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 3: 28 faces   height 9.66"   x 19.15..34.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 4: 28 faces   height 9.66"   x 35.15..50.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 5: 28 faces   height 9.66"   x 51.15..66.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 6: 28 faces   height 9.66"   x 67.15..82.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 7: 28 faces   height 9.66"   x 83.15..98.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 8: 28 faces   height 9.66"   x 99.15..114.15  y 1046.81..1059.81
+       laid in 1 run(s) along x   gaps: []
+    dormer 42 cap 9: 28 faces   height 9.66"   x 115.15..116.25  y 1046.81..1059.81
+       laid in 1 run(s) along y   gaps: []
+    dormer 43: 0 cap(s)
+    dormer 44: 17 cap(s)
+    dormer 44 cap 0: 28 faces   height 11.43"   x -23.20..-7.86  y 1374.47..1389.81
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 1: 28 faces   height 13.28"   x -16.35..3.45  y 1363.15..1382.95
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 2: 28 faces   height 12.90"   x -5.03..14.76  y 1351.84..1371.64
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 3: 28 faces   height 9.14"   x 6.28..16.22  y 1350.39..1360.32
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 4: 28 faces   height 11.43"   x -23.20..-7.86  y 1317.33..1332.67
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 5: 28 faces   height 13.28"   x -16.35..3.45  y 1324.19..1343.98
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 6: 28 faces   height 12.90"   x -5.03..14.76  y 1335.50..1355.30
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 7: 28 faces   height 9.14"   x 6.28..16.22  y 1346.81..1356.75
+       laid in 1 run(s) along y   gaps: []
+    dormer 44 cap 8: 28 faces   height 9.66"   x 6.53..21.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 9: 28 faces   height 9.66"   x 22.53..37.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 10: 28 faces   height 9.66"   x 38.53..53.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 11: 28 faces   height 9.66"   x 54.53..69.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 12: 28 faces   height 9.66"   x 70.53..85.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 13: 28 faces   height 9.66"   x 86.53..101.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 14: 28 faces   height 9.66"   x 102.53..117.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 15: 28 faces   height 9.66"   x 118.53..133.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []
+    dormer 44 cap 16: 28 faces   height 9.66"   x 134.53..149.53  y 1347.07..1360.07
+       laid in 1 run(s) along x   gaps: []

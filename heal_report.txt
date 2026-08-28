@@ -1,0 +1,29 @@
+
+=== roof 0 ===
+    dormers standing on it: 3
+    HOLE still open in face 1: 5 corners  x -22.00..123.00  y 1028.31..1078.31  z 217.83..278.25
+    HOLE still open in face 1: 4 corners  x -30.53..113.47  y 1103.19..1173.19  z 214.28..274.28
+    HOLE still open in face 1: 5 corners  x -22.00..85.00  y 1226.00..1296.00  z 217.83..262.42
+    HOLE still open in face 1: 4 corners  x -22.00..50.00  y 1366.00..1436.00  z 217.83..247.83
+    HOLE still open in face 3: 5 corners  x -22.00..123.00  y 1028.31..1078.31  z 218.38..278.79
+    HOLE still open in face 3: 4 corners  x -30.53..113.47  y 1103.19..1173.19  z 214.82..274.82
+    HOLE still open in face 3: 5 corners  x -22.00..85.00  y 1226.00..1296.00  z 218.38..262.96
+    HOLE still open in face 3: 4 corners  x -22.00..50.00  y 1366.00..1436.00  z 218.38..248.38
+    holes still open: 8
+    coplanar seam edges left on the skin: 0
+    edges with fewer than two faces: 3
+       loose (578.50, 1535.00, 197.54) -> (253.25, 1534.97, 333.06)   faces 1
+       loose (578.50, 1535.00, 197.00) -> (578.50, 1535.00, 197.54)   faces 1
+       loose (253.25, 1534.97, 332.52) -> (253.25, 1534.97, 333.06)   faces 1
+
+=== roof 1 ===
+    dormers standing on it: 0
+    holes still open: 0
+    coplanar seam edges left on the skin: 0
+    edges with fewer than two faces: 6
+       loose (200.75, 920.50, 93.38) -> (201.50, 920.50, 93.38)   faces 1
+       loose (201.50, 920.50, 93.38) -> (201.50, 920.50, 101.38)   faces 1
+       loose (189.50, 920.50, 106.00) -> (189.50, 920.50, 98.00)   faces 1
+       loose (-71.25, 920.50, 93.38) -> (-72.00, 920.50, 93.38)   faces 1
+       loose (-72.00, 920.50, 93.38) -> (-72.00, 920.50, 101.38)   faces 1
+       loose (-60.00, 920.50, 106.00) -> (-60.00, 920.50, 98.00)   faces 1

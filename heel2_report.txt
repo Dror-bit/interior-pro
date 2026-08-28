@@ -1,0 +1,24 @@
+=== heel2 report 2026-08-28 13:21 ===
+overhang=12.00  pitch=5.00:12  thickness=0.50  fascia_depth=8.00  soffit=boxed
+
+--- roof 1   eave_z=118.62   faces=1627
+walls under it: 6
+  a3ddc2b0-1 left   wall top   106.00   lowest roof over it   114.00   corner is   -8.00 inside   ((roof))
+  a3ddc2b0-1 right  wall top   106.00   lowest roof over it   106.00   corner is   +0.00 inside   (gable_wall_top)
+  006d5644-d left   wall top   106.00   lowest roof over it   106.00   corner is   +0.00 inside   (gable_wall_top)
+  006d5644-d right  wall top   106.00   lowest roof over it   110.62   corner is   -4.62 inside   ((roof))
+  c37ede43-9 left   wall top   106.00   lowest roof over it   106.00   corner is   +0.00 inside   (gable_wall_top)
+  c37ede43-9 right  wall top   106.00   lowest roof over it   106.00   corner is   +0.00 inside   ((roof))
+WORST: +0.00 inside, wall a3ddc2b0-15fd-406a-94a9-7be5a439ffe8 (right side), part gable_wall_top
+
+--- roof 2   eave_z=215.0   faces=662
+walls under it: 4
+  d2d2f7d6-8 left   wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   (gable_wall_top)
+  d2d2f7d6-8 right  wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   ((roof))
+  2795ffef-d left   wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   (gable_wall_top)
+  2795ffef-d right  wall top   202.00   lowest roof over it   207.00   corner is   -5.00 inside   ((roof))
+  83462982-8 left   wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   (gable_wall_top)
+  83462982-8 right  wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   ((roof))
+  534649af-3 left   wall top   202.00   lowest roof over it   202.00   corner is   +0.00 inside   (gable_wall_top)
+  534649af-3 right  wall top   202.00   lowest roof over it   207.00   corner is   -5.00 inside   ((roof))
+WORST: +0.00 inside, wall d2d2f7d6-8b5c-4f39-9616-82653eefbec9 (left side), part gable_wall_top

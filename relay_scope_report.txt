@@ -1,0 +1,15 @@
+Interior Pro - how wide does a relay really have to be
+model: claud cold
+time : 2026-08-28 15:58:59 -0700
+
+roofs: 2
+
+roof #1  material="roman"  laid in runs=true
+  field pieces on it : 42
+  dormers on it      : 0
+
+roof #2  material="seam"  laid in runs=true
+  field pieces on it : 44
+  dormers on it      : 0
+
+read: a low percentage is what a scoped relay would save.

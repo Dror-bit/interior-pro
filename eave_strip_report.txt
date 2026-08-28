@@ -1,0 +1,13 @@
+
+=== roof 0   material "seam" ===
+    everything in this roof spans  x -72.10..201.60   y 700.65..920.60
+    face (deck/skin)             x    -72.10..   201.60   y    700.65..   920.60   z    93.38..  154.54
+    group tile_edge              x    -72.36..   201.86   y    701.50..   920.50   z   101.92..  103.21
+    group gable_wall_top         x    -60.00..   189.50   y    713.50..   718.50   z   106.00..  153.52
+    TILE FIELD (all instances)   x    -71.43..   200.93   y    727.00..   897.00   z   102.28..  154.03
+
+=== roof 1   material "roman" ===
+    everything in this roof spans  x -72.10..578.60   y 907.65..1535.85
+    face (deck/skin)             x    -72.10..   578.60   y    907.65..  1535.85   z   189.00..  333.06
+    group gable_wall_top         x    -60.00..   566.50   y    920.50..  1523.00   z   202.00..  332.00
+    TILE FIELD (all instances)   x    -74.76..   581.26   y    908.50..  1534.97   z   197.06..  335.15

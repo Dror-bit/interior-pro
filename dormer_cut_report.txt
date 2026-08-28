@@ -1,0 +1,68 @@
+
+=== roof 0  material "seam"  runs? true  courses? false  flat? false
+    asset_tile: none   min_run_len 3.00   ridge_setback 4.00
+    field pieces 16  {"IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8"=>16}   cut-tile groups 0
+    -- plane 0: u span 219.00  holes 1
+       hole 0: u 73.88..93.88   v 40.99..101.01
+       pieces reaching INTO this hole: 2
+         over u   2.00  v   0.70   piece u    81.50  v   100.31..  142.72   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+         over u   2.00  v   0.19   piece u    81.50  v     1.19..   41.18   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+    -- plane 1: u span 219.00  holes 1
+       hole 0: u 123.49..143.49   v 42.74..102.76
+       pieces reaching INTO this hole: 2
+         over u   2.00  v   1.75   piece u   135.50  v   101.01..  142.72   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+         over u   2.00  v   0.19   piece u   135.50  v     1.19..   42.93   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+    -- plane 2: u span 219.00  holes 1
+       hole 0: u 73.88..93.88   v 40.99..101.01
+       pieces reaching INTO this hole: 1
+         over u   2.00  v   0.89   piece u    81.50  v   100.12..  142.52   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+    -- plane 3: u span 219.00  holes 1
+       hole 0: u 123.49..143.49   v 42.74..102.76
+       pieces reaching INTO this hole: 1
+         over u   2.00  v   1.94   piece u   135.50  v   100.81..  142.52   IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+
+=== roof 1  material "slate"  runs? true  courses? true  flat? true
+    asset_tile: none   min_run_len 3.00   ridge_setback 0.00
+    field pieces 2566  {"IP_TileFlatWedge_slate_12.60_0.70"=>2566}   cut-tile groups 178
+    -- plane 1: u span 626.47  holes 2
+       hole 0: u 363.30..403.30   v 59.58..211.25
+       pieces reaching INTO this hole: 59
+         over u  12.60  v  13.00   piece u   377.20  v   182.21..  195.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   364.20  v   182.21..  195.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   377.20  v   156.21..  169.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   390.20  v   182.21..  195.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   383.70  v    91.21..  104.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   370.70  v    91.21..  104.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   370.70  v   195.21..  208.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   370.70  v   143.21..  156.21   IP_TileFlatWedge_slate_12.60_0.70
+       hole 1: u 84.58..124.58   v 73.22..224.88
+       pieces reaching INTO this hole: 52
+         over u  12.60  v  13.00   piece u   104.20  v   182.21..  195.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   104.20  v   208.21..  221.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    91.20  v   182.21..  195.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    97.70  v   143.21..  156.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    91.20  v   208.21..  221.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   110.70  v   143.21..  156.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    84.70  v   117.21..  130.21   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   110.70  v   117.21..  130.21   IP_TileFlatWedge_slate_12.60_0.70
+    -- plane 3: u span 626.47  holes 2
+       hole 0: u 363.30..403.30   v 59.58..211.25
+       pieces reaching INTO this hole: 59
+         over u  12.60  v  13.00   piece u   377.20  v   130.00..  143.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   390.20  v   182.00..  195.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   377.20  v   182.00..  195.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   364.20  v   182.00..  195.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   390.20  v   156.00..  169.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   377.20  v   156.00..  169.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   364.20  v   156.00..  169.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   390.20  v   130.00..  143.00   IP_TileFlatWedge_slate_12.60_0.70
+       hole 1: u 84.58..124.58   v 73.22..224.88
+       pieces reaching INTO this hole: 52
+         over u  12.60  v  13.00   piece u   104.20  v   208.00..  221.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   104.20  v   182.00..  195.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   104.20  v   156.00..  169.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    97.70  v   169.00..  182.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    91.20  v   182.00..  195.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    97.70  v   143.00..  156.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u    84.70  v   143.00..  156.00   IP_TileFlatWedge_slate_12.60_0.70
+         over u  12.60  v  13.00   piece u   104.20  v   130.00..  143.00   IP_TileFlatWedge_slate_12.60_0.70

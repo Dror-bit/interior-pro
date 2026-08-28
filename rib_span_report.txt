@@ -1,0 +1,37 @@
+
+=== roof 0 ===
+    house plane 0: u 0..219.00  v 0..146.52   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.19  max 216.81
+    house plane 1: u 0..219.00  v 0..146.52   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.19  max 216.81
+    house plane 2: u 0..219.00  v 0..146.52   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.00  max 217.00
+    house plane 3: u 0..219.00  v 0..146.52   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.00  max 217.00
+    house plane 16: u 0..219.00  v 0..12.16   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -4.26  max -4.26
+    house plane 17: u 0..219.00  v 0..12.16   7 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -4.26  max -4.26
+
+=== roof 1 ===
+    house plane 0: u 0..626.50  v 0..352.35   22 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.00  max 624.50
+    house plane 1: u 0..626.47  v 0..352.35   23 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -2.00  max 624.47
+    house plane 18: u 0..626.50  v 0..12.31   22 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -4.48  max -4.48
+    house plane 19: u 0..626.44  v 0..12.31   22 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -4.48  max -4.48
+    house plane 24: u 0..50.00  v 0..260.00   1 ribs
+       ribs that run past the roof at their own u: 0
+       gap from each rib top to the roof top: min -135.00  max -135.00

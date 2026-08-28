@@ -1,0 +1,50 @@
+=== dormer window probe 2 2026-08-28 14:49:32 ===
+--- BEFORE ---
+  dormer.window       = true
+  dormer.window_type  = "Double Hung"
+  dormer.window_w     = 30.0
+  dormer.window_h     = 18.0
+  dormer_front:
+    origin=[0.0, 0.0, 0.0]
+    hole=30.0 x 18.0  body=nil x nil
+    'InteriorPro_DormerWall' faces=11 groups=0 inst=0 z=218.04..302.04 mats=["Stucco", "#ffffff"]
+  dormer_window:
+    origin=[-42.0, 1156.68, 256.92]
+    hole=30.0 x 18.0  body=30.0 x 18.0
+    'InteriorPro_DormerWindow' faces=0 groups=5 inst=0 mats=[]
+      'Jamb' faces=10 groups=0 inst=0 z=-9.0..9.0 mats=[]
+      'Sash' faces=10 groups=0 inst=0 z=-8.0..0.5 mats=[]
+      'Glass' faces=6 groups=0 inst=0 z=-7.0..-0.5 mats=[]
+      'Sash' faces=10 groups=0 inst=0 z=-0.5..8.0 mats=[]
+      'Glass' faces=6 groups=0 inst=0 z=0.5..7.0 mats=[]
+
+--- set_window!(30 x 18, Double Hung), everything it prints ---
+  | [Dormer] hole closed: 2 opening(s) skinned and merged
+  | [RoofTiles] runs: 44 instances of IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+  | [Dormer] cut: 2 skin(s), 2 piece(s) removed, 0 still over the hole
+  | [Dormer] roof skins cut: 2
+  | [RoofTiles] runs: 7 instances of IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+  | [RoofTiles] eave bar: 1 mitred bars
+  | [RoofTiles] runs: 7 instances of IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8
+  | [RoofTiles] eave bar: 1 mitred bars
+  | [Roof] ridge cap: 204" of ridge - drawn as one run to stay light
+  | [Dormer] tiles on the dormer: 17
+  set_window! -> a new dormer group
+--- AFTER ---
+  dormer.window       = true
+  dormer.window_type  = "Double Hung"
+  dormer.window_w     = 30.0
+  dormer.window_h     = 18.0
+  dormer_front:
+    origin=[0.0, 0.0, 0.0]
+    hole=30.0 x 18.0  body=nil x nil
+    'InteriorPro_DormerWall' faces=11 groups=0 inst=0 z=218.04..302.04 mats=["Stucco", "#ffffff"]
+  dormer_window:
+    origin=[-42.0, 1156.68, 256.92]
+    hole=30.0 x 18.0  body=30.0 x 18.0
+    'InteriorPro_DormerWindow' faces=0 groups=5 inst=0 mats=[]
+      'Jamb' faces=10 groups=0 inst=0 z=-9.0..9.0 mats=[]
+      'Sash' faces=10 groups=0 inst=0 z=-8.0..0.5 mats=[]
+      'Glass' faces=6 groups=0 inst=0 z=-7.0..-0.5 mats=[]
+      'Sash' faces=10 groups=0 inst=0 z=-0.5..8.0 mats=[]
+      'Glass' faces=6 groups=0 inst=0 z=0.5..7.0 mats=[]

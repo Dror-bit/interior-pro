@@ -1,0 +1,12 @@
+
+=== roof 0 ===
+    top faces on the roof itself: 20
+    ridge caps on the roof itself: 1
+    house cap 0: 22 faces   worst point OUT of the roof by 0.00"
+
+=== roof 1 ===
+    top faces on the roof itself: 24
+    ridge caps on the roof itself: 1
+    house cap 0: 22 faces   worst point OUT of the roof by 0.00"
+    -- dormer 5: 2 roof polys, 1 caps
+    dormer 5 cap 0: 22 faces   worst point OUT of the roof by 0.00"

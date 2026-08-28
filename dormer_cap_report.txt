@@ -1,0 +1,11 @@
+
+=== roof 1  dormer 5  style "gable"
+    roof planes: 2
+      plane 0: x -28.85..123.00  y 1357.61..1388.71  z 265.83..278.79
+      plane 1: x -28.85..123.00  y 1326.51..1357.61  z 265.83..278.79
+    shared ridge points: [[-28.85, 1357.61, 278.79], [123.0, 1357.61, 278.79]]
+    ridge_cap groups: 1
+      cap 0: 22 faces   x -28.85..123.00  y 1352.61..1362.61  z 276.71..280.24
+         along the ridge: 0.00 .. 151.85   (ridge is 0.00 .. 151.85)
+         cap z 276.71..280.24   ridge z 278.79..278.79
+    parts: {"dormer_front"=>1, "dormer_cheek"=>2, "dormer_roof"=>2, "dormer_fascia"=>1, "dormer_drip"=>1, "dormer_soffit"=>2, "dormer_rake"=>1, "ridge_cap"=>1}

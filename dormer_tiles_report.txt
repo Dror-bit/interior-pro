@@ -1,0 +1,184 @@
+=== model claud cold ===
+
+=== roof 0   material "seam"
+    ridge_cap attr nil   runs? true   courses? false   seam? true   flat? false
+    shape: {:tile_w=>16.0, :exposure=>0.0, :relief=>1.0, :scallop=>0.0, :stagger=>false, :texture=>"roof_standing_seam.jpg", :label=>"Standing Seam Metal", :run_seam=>true, :run_pitch=>28.0, :run_cover=>1.0357142857142858, :run_rise=>0.034482758620689655, :cap_w=>10.0, :cap_crown=>0.0, :ridge_setback=>4.0}
+    asset_tile: none
+    ridge_cap groups in model: 1
+    main roof top faces: 14
+      main plane 0: area  32088.6 in2   pitch  21.0 deg   across(u)  219.00   up-slope(v)  146.52
+      main plane 1: area  32088.6 in2   pitch  21.0 deg   across(u)  219.00   up-slope(v)  146.52
+      main plane 2: area    163.7 in2   pitch   0.0 deg   across(u)    0.75   up-slope(v)  219.00
+      main plane 3: area    163.7 in2   pitch   0.0 deg   across(u)    0.75   up-slope(v)  219.00
+      main plane 4: area    109.9 in2   pitch  21.0 deg   across(u)    0.75   up-slope(v)  146.52
+      main plane 5: area    109.9 in2   pitch  21.0 deg   across(u)    0.75   up-slope(v)  146.52
+      main plane 6: area     22.0 in2   pitch   0.0 deg   across(u)    0.10   up-slope(v)  219.95
+      main plane 7: area     22.0 in2   pitch   0.0 deg   across(u)    0.10   up-slope(v)  219.95
+      main plane 8: area     14.7 in2   pitch  21.0 deg   across(u)    0.10   up-slope(v)  146.52
+      main plane 9: area     14.7 in2   pitch  21.0 deg   across(u)    0.10   up-slope(v)  146.52
+      main plane 10: area   2663.2 in2   pitch  22.3 deg   across(u)  219.00   up-slope(v)   12.16
+      main plane 11: area   2663.2 in2   pitch  22.3 deg   across(u)  219.00   up-slope(v)   12.16
+      main plane 12: area   1604.0 in2   pitch  21.0 deg   across(u)   12.00   up-slope(v)  133.67
+      main plane 13: area   1604.0 in2   pitch  21.0 deg   across(u)   12.00   up-slope(v)  133.67
+    dormers: 0
+
+=== roof 1   material "roman"
+    ridge_cap attr nil   runs? true   courses? true   seam? false   flat? false
+    shape: {:tile_w=>13.0, :exposure=>14.0, :relief=>1.0, :scallop=>0.45, :stagger=>false, :texture=>"roof_roman_tile.jpg", :label=>"Roman Tile (flat pan)", :run_pitch=>10.0, :run_cover=>1.4, :run_rise=>0.2742857142857143, :cap_w=>13.0, :cap_crown=>1.42, :cap_round=>true}
+    asset_tile: none
+    ridge_cap groups in model: 40
+    main roof top faces: 20
+      main plane 0: area 220745.0 in2   pitch  22.6 deg   across(u)  626.50   up-slope(v)  352.35
+      main plane 1: area 192302.3 in2   pitch  22.6 deg   across(u)  626.47   up-slope(v)  352.35
+      main plane 2: area    469.3 in2   pitch   0.0 deg   across(u)    0.75   up-slope(v)  626.50
+      main plane 3: area    469.3 in2   pitch   0.0 deg   across(u)    0.75   up-slope(v)  626.44
+      main plane 4: area    264.3 in2   pitch  22.6 deg   across(u)    0.75   up-slope(v)  352.35
+      main plane 5: area    264.3 in2   pitch  22.6 deg   across(u)    0.75   up-slope(v)  352.35
+      main plane 6: area    264.3 in2   pitch  22.6 deg   across(u)    0.75   up-slope(v)  352.35
+      main plane 7: area    264.3 in2   pitch  22.6 deg   across(u)    0.75   up-slope(v)  352.35
+      main plane 8: area     62.8 in2   pitch   0.0 deg   across(u)    0.10   up-slope(v)  628.20
+      main plane 9: area     62.8 in2   pitch   0.0 deg   across(u)    0.10   up-slope(v)  628.14
+      main plane 10: area     35.2 in2   pitch  22.6 deg   across(u)    0.23   up-slope(v)  352.35
+      main plane 11: area     35.2 in2   pitch  22.6 deg   across(u)    0.23   up-slope(v)  352.35
+      main plane 12: area     35.2 in2   pitch  22.6 deg   across(u)    0.10   up-slope(v)  352.35
+      main plane 13: area     35.2 in2   pitch  22.6 deg   across(u)    0.10   up-slope(v)  352.35
+      main plane 14: area   7712.9 in2   pitch  24.0 deg   across(u)  626.50   up-slope(v)   12.31
+      main plane 15: area   7712.2 in2   pitch  24.0 deg   across(u)  626.44   up-slope(v)   12.31
+      main plane 16: area   4072.3 in2   pitch  22.6 deg   across(u)   12.00   up-slope(v)  339.35
+      main plane 17: area   4072.3 in2   pitch  22.6 deg   across(u)   12.00   up-slope(v)  339.35
+      main plane 18: area   4072.2 in2   pitch  22.6 deg   across(u)   12.00   up-slope(v)  339.35
+      main plane 19: area   4072.2 in2   pitch  22.6 deg   across(u)   12.00   up-slope(v)  339.35
+    dormers: 3
+
+    -- dormer 0  style "gable"
+         width           50.0
+         length          144.99999999999997
+         height          50.0
+         pitch           0.4166666666666668
+         thickness       5.0
+         roof_thickness  0.5
+         overhang        6.0
+         setback         50.0
+         z0              197.5416666666666
+         slope           0.4166666666666668
+         fascia_depth    12.0
+         dormer_roof groups: 2
+         roof group 0: 6 faces, 1 top
+           top face 0: area   4592.2 in2   pitch  22.6 deg   across(u)  151.85   up-slope(v)   33.69
+         roof group 1: 6 faces, 1 top
+           top face 0: area   4592.2 in2   pitch  22.6 deg   across(u)  151.85   up-slope(v)   33.69
+         plane 0: u 0..151.85   v 0..33.69
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v     6.61  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    65.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    75.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    85.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    95.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   105.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   115.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   125.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   135.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   145.00  v    -1.25  
+         plane 1: u 0..151.85   v 0..33.69
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u     5.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    15.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    65.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    75.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    85.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    95.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   105.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   115.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   125.00  v     4.60  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   135.00  v    15.44  
+         parts inside: {"dormer_front"=>1, "dormer_cheek"=>2, "dormer_roof"=>2, "dormer_fascia"=>1, "dormer_drip"=>1, "dormer_soffit"=>2, "dormer_rake"=>1, "ridge_cap"=>10}
+         component instances inside dormer: 0
+
+    -- dormer 1  style "shed"
+         width           70.0
+         length          143.99999999999983
+         height          30.0
+         pitch           0.2083333333333334
+         thickness       5.0
+         roof_thickness  0.5
+         overhang        6.0
+         setback         41.473791074131384
+         z0              197.5416666666666
+         slope           0.4166666666666668
+         fascia_depth    12.0
+         dormer_roof groups: 1
+         roof group 0: 6 faces, 1 top
+           top face 0: area  12833.1 in2   pitch  11.8 deg   across(u)   83.70   up-slope(v)  153.32
+         plane 0: u 0..83.70   v 0..153.32
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u     5.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    15.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    65.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    75.00  v    -1.25  
+         parts inside: {"dormer_front"=>1, "dormer_cheek"=>2, "dormer_roof"=>1, "dormer_fascia"=>1, "dormer_drip"=>1, "dormer_rake"=>1, "dormer_soffit"=>1}
+         component instances inside dormer: 0
+
+    -- dormer 2  style "hip"
+         width           60.0
+         length          173.99999999999994
+         height          60.0
+         pitch           0.4166666666666668
+         thickness       5.0
+         roof_thickness  0.5
+         overhang        6.0
+         setback         55.033634984484635
+         z0              197.54166666666663
+         slope           0.4166666666666668
+         fascia_depth    12.0
+         dormer_roof groups: 3
+         roof group 0: 5 faces, 1 top
+           top face 0: area   1411.8 in2   pitch  22.6 deg   across(u)   72.20   up-slope(v)   39.11
+         roof group 1: 6 faces, 1 top
+           top face 0: area   5631.6 in2   pitch  22.6 deg   across(u)  180.10   up-slope(v)   39.11
+         roof group 2: 6 faces, 1 top
+           top face 0: area   5631.6 in2   pitch  22.6 deg   across(u)  180.10   up-slope(v)   39.11
+         plane 0: u 0..72.20   v 0..39.11
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+         plane 1: u 0..180.10   v 0..39.11
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v    12.02  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v     1.19  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    65.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    75.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    85.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    95.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   105.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   115.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   125.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   135.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   145.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   155.00  v    -1.25  
+         plane 2: u 0..180.10   v 0..39.11
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    25.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    35.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    45.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    55.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    65.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    75.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    85.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u    95.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   105.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   115.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   125.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   135.00  v    -1.25  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   145.00  v     1.08  
+           IP_TileRun_roman_14.00_3.84_0.33_10.00_8   u   155.00  v    11.92  
+         parts inside: {"dormer_front"=>1, "dormer_cheek"=>2, "dormer_roof"=>3, "dormer_fascia"=>1, "dormer_drip"=>1, "dormer_soffit"=>1, "ridge_cap"=>17}
+         component instances inside dormer: 0

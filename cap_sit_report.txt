@@ -1,0 +1,10 @@
+
+=== roof 0 ===
+    house cap 0: deepest point is 0.00" BELOW (sunk into it) the roof   at (59.8, 701.5, 152.6), roof z 152.61
+
+=== roof 1 ===
+    house cap 0: deepest point is 0.00" above the roof   at (255.8, 908.5, 332.0), roof z 332.02
+    dormer 5 cap 0: deepest point is 0.00" BELOW (sunk into it) the roof   at (-28.8, 1050.8, 277.8), roof z 277.75
+    dormer 7 cap 0: deepest point is 0.45" BELOW (sunk into it) the roof   at (8.1, 1351.4, 290.5), roof z 290.91
+    dormer 7 cap 1: deepest point is 0.45" BELOW (sunk into it) the roof   at (8.1, 1355.7, 290.5), roof z 290.91
+    dormer 7 cap 2: deepest point is 0.00" BELOW (sunk into it) the roof   at (151.8, 1351.1, 291.9), roof z 291.93

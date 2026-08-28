@@ -1,0 +1,52 @@
+model claud cold   roofs found: 2
+  roof 0: 124 faces, 50 instances, groups {"part:ridge_cap"=>1, "part:tile_edge"=>2, "part:gable_wall_top"=>2, "type:dormer"=>2}
+  roof 1: 81 faces, 14 instances, groups {"part:ridge_cap"=>1, "part:tile_edge"=>2, "part:gable_wall_top"=>1}
+  top level of the model: {"wall"=>10, "room"=>2, "ceiling"=>1, "subfloor"=>1, "roof"=>2}
+
+=== roof 0  dormer 5  style "gable" ===
+    THE DORMER ROOF ITSELF:            x   -28.85..  123.00  y  1022.21.. 1084.41  z   265.33..  278.79
+    -- the dormer's own parts:
+      dormer_front                       x   -22.00..  -17.00  y  1028.31.. 1078.31  z   218.38..  278.29
+      dormer_cheek                       x   -22.00..   96.80  y  1073.31.. 1078.31  z   218.38..  267.88
+      dormer_cheek                       x   -22.00..   96.80  y  1028.31.. 1033.31  z   218.38..  267.88
+      dormer_roof                        x   -28.85..  123.00  y  1053.31.. 1084.41  z   265.33..  278.79
+      dormer_roof                        x   -28.85..  123.00  y  1022.21.. 1053.31  z   265.33..  278.79
+      dormer_fascia                      x   -28.00..   90.80  y  1022.31.. 1084.31  z   253.38..  265.38
+      dormer_drip                        x   -28.85..   90.80  y  1022.21.. 1084.41  z   263.38..  278.29
+      dormer_soffit                      x   -28.00..   68.00  y  1023.06.. 1083.56  z   253.38..  256.62
+      dormer_rake                        x   -28.75..  -28.00  y  1022.31.. 1084.31  z   253.38..  278.29
+      dormer_soffit                      x   -28.00..  -22.00  y  1028.31.. 1078.31  z   255.88..  267.04
+      ridge_cap                          x   -28.85..  117.75  y  1048.31.. 1058.31  z   276.71..  280.24
+      ridge_cap                          x   -28.85..  117.75  y  1048.31.. 1058.31  z   276.71..  280.24
+      ridge_cap                          x   -28.85..  117.75  y  1048.31.. 1058.31  z   276.71..  280.24
+    -- inside dormer_roof 3:
+      rib 0 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    83.00..   85.00  y  1057.00.. 1083.87  z   266.22..  278.18
+      rib 1 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    55.00..   57.00  y  1057.00.. 1083.87  z   266.22..  278.18
+      rib 2 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    27.00..   29.00  y  1057.00.. 1083.87  z   266.22..  278.18
+      rib 3 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    -1.00..    1.00  y  1057.00.. 1083.87  z   266.22..  278.18
+      rib 4 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x   -29.00..  -27.00  y  1057.00.. 1083.87  z   266.22..  278.18
+      group tile_edge                    x   -28.85..   90.80  y  1083.49.. 1084.80  z   265.83..  267.14
+    -- inside dormer_roof 4:
+      rib 0 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x   -29.00..  -27.00  y  1022.75.. 1049.62  z   266.22..  278.18
+      rib 1 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    -1.00..    1.00  y  1022.75.. 1049.62  z   266.22..  278.18
+      rib 2 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    27.00..   29.00  y  1022.75.. 1049.62  z   266.22..  278.18
+      rib 3 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    55.00..   57.00  y  1022.75.. 1049.62  z   266.22..  278.18
+      rib 4 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x    83.00..   85.00  y  1022.75.. 1049.62  z   266.22..  278.18
+      group tile_edge                    x   -28.85..   90.80  y  1021.83.. 1023.14  z   265.83..  267.14
+
+=== roof 0  dormer 6  style "shed" ===
+    THE DORMER ROOF ITSELF:            x   -36.63..  113.47  y  1096.34.. 1180.04  z   243.05..  274.82
+    -- the dormer's own parts:
+      dormer_front                       x   -30.53..  -25.53  y  1103.19.. 1173.19  z   214.82..  245.36
+      dormer_cheek                       x   -30.53..  111.07  y  1168.19.. 1173.19  z   214.82..  273.82
+      dormer_cheek                       x   -30.53..  111.07  y  1103.19.. 1108.19  z   214.82..  273.82
+      dormer_roof                        x   -36.63..  113.47  y  1096.34.. 1180.04  z   243.05..  274.82
+      dormer_fascia                      x   -36.53..  -35.78  y  1097.19.. 1179.19  z   231.07..  243.07
+      dormer_drip                        x   -36.63..  111.07  y  1096.34.. 1180.04  z   241.07..  273.82
+      dormer_rake                        x   -36.53..  111.07  y  1096.44.. 1179.94  z   231.07..  273.82
+      dormer_soffit                      x   -35.78..   57.07  y  1097.19.. 1179.19  z   231.07..  251.32
+    -- inside dormer_roof 3:
+      rib 0 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x   -35.85..  109.56  y  1175.00.. 1177.00  z   243.76..  274.99
+      rib 1 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x   -35.85..  109.56  y  1147.00.. 1149.00  z   243.76..  274.99
+      rib 2 IP_TileRun_seamRib_29.00_1.00_0.33_28.00_8 x   -35.85..  109.56  y  1119.00.. 1121.00  z   243.76..  274.99
+      group tile_edge                    x   -36.83..  -35.65  y  1096.34.. 1180.04  z   243.55..  244.73
