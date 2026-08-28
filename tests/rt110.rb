@@ -197,6 +197,48 @@ if dh
      [kept, moved])
 end
 
+# ---- 4a2. AND NO PART OF A CAP SINKS INTO THE ROOF (2026-09-05).
+# Where two caps meet, the covered one ducks so it passes beneath the other.
+# A LIFTED metal cap carries a skirt the full height of its lift, so its rim
+# already touches the roof and there is no room to duck: the same 0.45" a
+# clay cap has 4" of air for pushed the seam's skirt into the deck. Measured
+# on his hip dormer, both diagonals 0.45" below the surface.
+if dh
+  def plane_z_of(cf, x, y)
+    n = cf.normal
+    return nil if n.z.abs < 1.0e-9
+    p0 = cf.pts[0]
+    p0.z.to_f - (((n.x * (x - p0.x)) + (n.y * (y - p0.y))) / n.z)
+  end
+
+  def over?(cf, x, y)
+    InteriorPro::RoofTileMath.poly_contains?(
+      cf.pts.map { |p| [p.x.to_f, p.y.to_f] }, [x, y]
+    )
+  end
+
+  worst = nil
+  caps(dh).each do |c|
+    c.entities.grep(Sketchup::Face).each do |f|
+      f.vertices.each do |v|
+        p = v.position.transform(c.transformation)
+        zr = nil
+        hf.each do |cf|
+          next unless over?(cf, p.x.to_f, p.y.to_f)
+          z = plane_z_of(cf, p.x.to_f, p.y.to_f)
+          zr = z if z && (zr.nil? || z > zr)
+        end
+        next if zr.nil?
+        d = p.z.to_f - zr
+        worst = d if worst.nil? || d < worst
+      end
+    end
+  end
+  ok('a hip dormer has caps with geometry to measure', !worst.nil?, worst)
+  ok('no part of a cap sinks below the roof it lies on',
+     !worst.nil? && worst >= -0.01, worst)
+end
+
 # ---- 4b. A SHINGLE DORMER GETS THE CAP TOO (2026-09-05).
 # "בגגון בשינגלס תוסיף רידג׳ קאפ". Shingles are drawn by the texture - there
 # is no field to lay - and the cap sat behind the same guard as the field,

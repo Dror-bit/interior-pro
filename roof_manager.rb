@@ -3069,6 +3069,23 @@ module InteriorPro
       cap_lift = cap_lift_for(shape_name)
       cap_round = cap_round_for(shape_name)
       half = cap_w / 2.0
+      # AND IT SITS ON THE ROOF, NOT ON STILTS (2026-09-05). The lift was
+      # added on 2026-08-21 because the arch was only 1.42" high and a
+      # pan-and-roll tile standing 4.17" proud came straight out through it,
+      # so the cap was bedded on top of the tile ends. A true half round of
+      # a 13" cap is 6.5" high - it clears that tile on its own - and the
+      # lift is now only a pair of upright walls between the arc and the
+      # roof: "יש כמו קרשים מתחת לטייל, שכבה שמפרידה בין החצי עיגול לבין
+      # משטח הגג, ואני רוצה להוריד אותו". The arc's own rim lands on the
+      # deck instead.
+      cap_lift = 0.0 if cap_round
+
+      # A CLAY RIDGE IS HALF ROUND, FULL STOP (2026-09-05). It was drawn as
+      # an arch whose crown came from the tile - a half circle with a
+      # straight run along its top, which is not a shape any clay ridge cap
+      # has: "זה כמו חצי עיגול ואז קו... תוריד את הקו ותשאיר רק חצי עיגול".
+      # The crown IS the radius, so the section closes as a true semicircle.
+      cap_c = half if cap_round
       lift = cap_head_lift
       # Once, outside the loop - it depends on the material, not on the line.
       cap_flat = defined?(InteriorPro::RoofTileMath) &&
@@ -3106,8 +3123,21 @@ module InteriorPro
         next if span < 1.0
         # A run that tucks under another dips one thickness at that end,
         # so it passes BENEATH the covering run instead of crossing it.
-        drop_a = tucked[[ka[0].round(2), ka[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
-        drop_b = tucked[[kb[0].round(2), kb[1].round(2)]] ? RIDGE_CAP_THICK : 0.0
+        # A RUN DUCKS BY WHAT IT IS CLEAR OF THE ROOF, AND NO MORE
+        # (2026-09-05). The duck exists so a covered run passes BENEATH its
+        # neighbour, and it costs nothing while the cap is riding on air.
+        # A LIFTED METAL cap is not: it carries a skirt the full height of
+        # its lift, closing the hollow underneath, so its rim already
+        # touches the roof plane and there is no room to duck at all. The
+        # same 0.45" that a clay cap has 4" of air for pushed the seam's
+        # skirt straight into the deck - measured on his hip dormer, both
+        # diagonals 0.45" below the surface ("הוא ניכנס לתוך הגג והוא צריך
+        # להיות מקביל לזווית שבוא הגג יורד"). Clay skirts nothing and does
+        # not move.
+        skirt_h = (cap_soft && !cap_flat) || valley ? 0.0 : cap_lift
+        tuck = [[cap_lift - skirt_h, 0.0].max, RIDGE_CAP_THICK].min
+        drop_a = tucked[[ka[0].round(2), ka[1].round(2)]] ? tuck : 0.0
+        drop_b = tucked[[kb[0].round(2), kb[1].round(2)]] ? tuck : 0.0
         zadj = lambda do |q|
           # The whole cap rides on top of the tiles - see cap_lift_for.
           # A valley channel does not: it lies on the deck and the water
@@ -3148,7 +3178,13 @@ module InteriorPro
           [[r / taper_lo, 1.0].min, 0.03].max
         end
         plen = one_run ? span : RIDGE_CAP_LENGTH
-        starts = one_run ? [0.0] : cap_starts(span, plen, RIDGE_CAP_EXPOSURE)
+        # AND THEY DO NOT LAP - THEY SIT AN INCH APART (2026-09-05, his
+        # number). A lapped run needs the head lift that rides one piece
+        # over the last, and that lift is what drew the straight line along
+        # the top. Butted with a gap there is nothing to ride over, so the
+        # lift goes too and every piece is the same clean half round.
+        expo = cap_round ? plen + cap_gap : RIDGE_CAP_EXPOSURE
+        starts = one_run ? [0.0] : cap_starts(span, plen, expo)
         # The metal hip cap ends in a CORNER, not a square cut - see the
         # miter_lo comment in build_cap_piece!. Only the piece that actually
         # holds the eave corner (the first one, r runs from the low end), and
@@ -3161,7 +3197,7 @@ module InteriorPro
           # right way whichever way ridge_lines happened to order it.
           q1 = rising ? a0 + r1 : b0 - r1
           q2 = rising ? a0 + r2 : b0 - r2
-          h = (one_run || (i.zero? && low_free)) ? 0.0 : lift
+          h = (one_run || cap_round || (i.zero? && low_free)) ? 0.0 : lift
           build_cap_piece!(grp, ka, d, za, zb, len, q1, q2, prof, mat,
                            h, plen, zadj, wscale, cap_soft,
                            i.zero? ? miter : 0.0,
@@ -3263,6 +3299,12 @@ module InteriorPro
         .cap_round?(InteriorPro::RoofTileMath.shape(shape_name))
     rescue StandardError
       false
+    end
+
+    # THE GAP BETWEEN TWO HALF ROUND CAPS, his number (2026-09-05). A
+    # METHOD, not a constant, so reload! actually re-reads it.
+    def self.cap_gap
+      1.0
     end
 
     # How many chords per SIDE of the arch. A METHOD, not a constant, so

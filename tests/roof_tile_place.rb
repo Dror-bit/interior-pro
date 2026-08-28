@@ -787,6 +787,507 @@ module InteriorPro
         pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
         next if pu.nil? || pu[:flat]
         next if pu[:u_span].to_f < pitch
+        # NOT `top`: the inner loop below has its own `top` for the tile's own
+        # cut, and a block shares this scope - naming both the same silently
+        # rewrote the loop bound with the first tile's cut and the plane came
+        # out with a single course on it.
+        v_max = pu[:v_span].to_f
+        # THE VALLEY PULL-BACK (2026-08-21c, fourth pass). The tiles were cut
+        # exactly ON the valley line from both sides, and the bare meeting
+        # read as a ragged seam - "אני לא מבין למה אתה לא מסדר את הפינות
+        # במפגש שלהם בוואלי". Now the valley carries the same flat channel
+        # the metal roof has, and each tile stops HALF A CHANNEL short of the
+        # line, so it butts the channel's edge exactly - same idea as the
+        # seam's ribs, done by moving each tile's own clip line instead of
+        # its foot, because a valley cuts these tiles on their SIDE.
+        #
+        # From this plane's side of the roof a valley is just one more
+        # outline edge, and a hip is too - only roof_manager can tell them
+        # apart, which is why the lines arrive from outside (opts[:valleys],
+        # from ridge_lines(valleys: true)) instead of being guessed here.
+        vclips = flat_valley_clips(pu, opts[:valleys],
+                                   InteriorPro::RoofTileParts.cap_w(s) / 2.0)
+        cclips = cover_clips(pl, pu, planes)
+        # THE DORMERS STANDING ON THIS PLANE (2026-09-03), in its own u/v.
+        # The run materials subtract them from the run's span; a plate is not
+        # a span, so it is clipped instead - see clip_outside_poly.
+        holes_uv = (pl[:holes] || []).map do |h|
+          InteriorPro::RoofTileMath.grow_poly(
+            h.map do |q|
+              pr = InteriorPro::RoofTileMath.project(q, pu[:origin], pu[:u], pu[:v])
+              [pr[0], pr[1]]
+            end, grow, :walls
+          )
+        end
+        # The columns are the same list every course; only the phase moves.
+        cols = sheet_slots(pu[:u_span].to_f, pitch)
+        k = 0
+        while (k * exposure) < v_max
+          phase = InteriorPro::RoofTileMath.course_phase(k, pitch, stagger)
+          a = k * exposure
+          b = (k + 1) * exposure
+          cols.each do |c0|
+            c = c0 + phase
+            # THE OUTLINE IS THE ONLY THING THAT CUTS (2026-08-21c, fifth
+            # pass, and this line is where two rounds of valley trouble
+            # lived). The tile used to be truncated FIRST at the height
+            # v_spans_at gave for its CENTRE line - a HORIZONTAL cut - and
+            # only then clipped on the outline. Against a diagonal the
+            # diagonal never got to cut what the horizontal cut had already
+            # thrown away, and the valley line wore a staircase of bare
+            # wedges, up to half a tile wide. Measured with plain Ruby on an
+            # L-roof: 6.2" of bare deck at the worst point; 0.0 after this.
+            #
+            # So the tile is its FULL course rectangle, and the outline cuts
+            # it - horizontal at a ridge, diagonal at a hip or a valley,
+            # vertical at a rake, all the same clip.
+            rect = [[c - half_w, a], [c + half_w, a],
+                    [c + half_w, b], [c - half_w, b]]
+            poly = InteriorPro::RoofTileMath.clip_to_poly(rect, pu[:poly])
+            next if poly.length < 3
+            # ...and pulled back off any valley when the channel is wanted -
+            # see vclips above. The cut line is INFINITE, so only a tile
+            # actually near the segment is clipped by it.
+            vclips.each do |(va2, vb2, seg)|
+              cx = poly.sum { |p| p[0] } / poly.length
+              cy = poly.sum { |p| p[1] } / poly.length
+              next if InteriorPro::RoofTileMath.seg_dist(seg[0], seg[1],
+                                                         [cx, cy]) > pitch + exposure
+              poly = InteriorPro::RoofTileMath.clean_poly(
+                InteriorPro::RoofTileMath.clip_left(poly, va2, vb2)
+              )
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            # ...and cut where another roof plane passes overhead - see
+            # cover_clips. The gate is ANY buried point, not the middle: a
+            # tile straddling the covering plane's edge with only one corner
+            # in the dark was slipping through on the centre test, and that
+            # corner is the strip right at the open gable wall - exactly
+            # where the user is looking.
+            cclips.each do |cc|
+              buried = poly.any? do |q2|
+                w = InteriorPro::RoofTileMath.unproject(q2, pu[:origin],
+                                                        pu[:u], pu[:v])
+                next false unless InteriorPro::RoofTileMath.poly_contains?(
+                  cc[:plan], [w[0], w[1]]
+                )
+                zq = z_on_plane(cc[:q], w[0], w[1])
+                !zq.nil? && zq > w[2] + 0.05
+              end
+              next unless buried
+              if cc[:line].nil?
+                poly = []
+              else
+                poly = InteriorPro::RoofTileMath.clean_poly(
+                  InteriorPro::RoofTileMath.clip_left(poly, cc[:line][0],
+                                                      cc[:line][1])
+                )
+              end
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            # ...and cut out of any dormer standing on this plane. A tile
+            # wholly inside one is gone; one on its edge keeps only the part
+            # outside it, so the field STOPS at the dormer wall instead of
+            # running under it.
+            holes_uv.each do |h|
+              poly = InteriorPro::RoofTileMath.clip_outside_poly(poly, h)
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            cut_area = InteriorPro::RoofTileMath.poly_area(poly).abs
+            # A dropped sliver is a notch of bare deck ON the line, and the
+            # line is exactly where the user is looking. clean_poly already
+            # refuses true degenerates.
+            next if cut_area < 1.0
+            whole = cut_area >= (2.0 * half_w * (b - a)) - 0.01
+            # A CUT tile carries its footprint and is built where it lies as
+            # the same wedge, clipped - see build_flat_cut!.
+            unless whole
+              out << { origin: InteriorPro::RoofTileMath.unproject(
+                         [c, a], pu[:origin], pu[:u], pu[:v]
+                       ),
+                       u: pu[:u], v: pu[:v], n: pu[:n], length: b - a,
+                       cut: poly, pu_origin: pu[:origin], v0: a,
+                       # the COURSE window, so the cut wedge keeps exactly
+                       # its neighbours' slope
+                       cv0: a, clen: exposure }
+              next
+            end
+            o = InteriorPro::RoofTileMath.unproject([c, a - overhang],
+                                                    pu[:origin], pu[:u], pu[:v])
+            out << { origin: o, u: pu[:u], v: pu[:v], n: pu[:n],
+                     length: (b - a) + overhang }
+          end
+          k += 1
+          break if k > 10_000
+        end
+      end
+      out
+    end
+
+    # THE RIBS FACE EACH OTHER ACROSS THE RIDGE (2026-08-21).
+    #
+    # Every plane laid its ribs out from its OWN left edge, so the two slopes
+    # of one ridge arrived at it on unrelated spacings and the ribs did not
+    # meet - "אני רוצה שהם יהיו אחד מול השני". A real standing seam roof is one
+    # panel folded over the ridge, so the two sides ARE the same line.
+    #
+    # This is a PHASE, not a new layout: it slides the existing grid so that
+    # every rib lands on one grid in WORLD space, measured along the plane's
+    # own across-slope direction from the world origin. Two opposite slopes
+    # have anti-parallel u, so that is the same set of lines for both and they
+    # meet exactly. A hip plane runs across the other axis and keeps its own
+    # grid - there is nothing over there for it to line up with.
+    #
+    # `u_off` is where the piece sits inside its slot (see run_slots), so the
+    # grid is measured on the RIB, not on the slot's origin.
+    #
+    # It also stops asking edge_slots for a WHOLE CELL. edge_slots refuses a
+    # partial tile at either end, which is right for a bird stop but wrong
+    # here: the two slopes reach the rake at different phases, so one of them
+    # threw its last rib away and the ridge lost a pair. A rib is 2" wide -
+    # if its line crosses the plane, the rib is there.
+    #
+    # Returns SLOT positions (where an instance's origin goes), so the caller
+    # is unchanged; the rib itself lands at slot + u_off.
+    def self.seam_slots(u_span, pitch, u_off, d0)
+      return [] if pitch <= 1.0e-9 || u_span <= 1.0e-9
+      out = []
+      # One line past each end, and let the plane OUTLINE do the cutting -
+      # the same manners as sheet_slots. Stopping the loop at the u_span
+      # instead put a rib on the rake of one slope and not of the other,
+      # purely because their origins sit at opposite corners.
+      #
+      # A line landing exactly ON the u range is dropped at BOTH ends. The
+      # scanline's half-open rule already drops it at the top end only, and
+      # that one-sided rule is what put a rib on one slope's rake and not on
+      # the other's - the two slopes read the same edge from opposite corners.
+      r = ((-d0) % pitch) - pitch
+      while r <= u_span + pitch + 1.0e-9
+        out << (r - u_off) if r > 1.0e-6 && r < u_span - 1.0e-6
+        r += pitch
+        break if out.length > 20_000
+      end
+      out
+    end
+
+    # A run shorter than this is a sliver at the tip of a hip. It gets nothing:
+    # half a pipe poking out of a corner looks worse than a bare stretch of
+    # texture, which is the same call edge_slots already makes across the eave.
+    # Dropped from 6" to 3" on 2026-08-21, when the Spanish Tile module shrank
+    # to 7": a course is now about seven inches long, and a 6" floor threw away
+    # every short course at a hip.
+    def self.min_run_len
+      3.0
+    end
+
+    # How close, in plan, a roof face's own edge has to be to an eave segment
+    # before we call them the same edge. They come from the same polygon, so
+    # this is tight on purpose - a loose match would silently borrow the
+    # neighbouring plane's slope.
+    def self.plan_tol
+      0.75
+    end
+
+    # ------------------------------------------------------------------ pure
+    #
+    # A roof face, reduced to the two things this file needs.
+    # Faces that cannot carry a tile - vertical ones (the slab edge, a tear
+    # face) and degenerate ones - drop out here rather than being special
+    # cased three times below.
+    # THE OUTLINE IS THE ROOF, EACH INNER LOOP IS A DORMER (2026-09-02B).
+    # face_points hands back the HOLE vertices mixed in with the outline's -
+    # the landmine this project has hit before - so a slope with a dormer on
+    # it came out as a polygon that is not the roof at all. Now the outline
+    # comes off the outer loop and the holes travel with the plane, so a run
+    # crossing one stops instead of shooting through the dormer
+    # ("תיראה שמבתוכו הוא לא חתך את הפאנלים").
+    def self.planes_from_faces(faces)
+      out = []
+      (faces || []).each do |f|
+        pts = face_outline(f)
+        next if pts.nil? || pts.length < 3
+        nrm = face_normal(f)
+        next if nrm.nil?
+        fr = InteriorPro::RoofTileMath.plane_frame(nrm)
+        next if fr.nil? || fr[:flat]
+        out << { points: pts, normal: fr[:n], u: fr[:u], v: fr[:v], n: fr[:n],
+                 holes: face_holes(f) }
+      end
+      out
+    end
+
+    def self.face_outline(f)
+      if f.respond_to?(:outer_loop) && f.outer_loop
+        return to_xyz(f.outer_loop.vertices.map(&:position))
+      end
+      face_points(f)
+    rescue StandardError
+      face_points(f)
+    end
+
+    def self.face_holes(f)
+      return [] unless f.respond_to?(:loops)
+      f.loops.reject(&:outer?)
+       .map { |lp| to_xyz(lp.vertices.map(&:position)) }
+       .compact.select { |h| h.length >= 3 }
+    rescue StandardError
+      []
+    end
+
+    def self.to_xyz(pts)
+      pts.map { |p| p.respond_to?(:x) ? [p.x.to_f, p.y.to_f, p.z.to_f] : p.map(&:to_f) }
+    rescue StandardError
+      nil
+    end
+
+    def self.face_points(f)
+      pts = if f.respond_to?(:pts) && f.pts
+              f.pts
+            elsif f.respond_to?(:vertices)
+              f.vertices.map(&:position)
+            end
+      return nil if pts.nil?
+      pts.map { |p| p.respond_to?(:x) ? [p.x.to_f, p.y.to_f, p.z.to_f] : p.map(&:to_f) }
+    rescue StandardError
+      nil
+    end
+
+    def self.face_normal(f)
+      n = f.respond_to?(:normal) ? f.normal : nil
+      return nil if n.nil?
+      [n.x.to_f, n.y.to_f, n.z.to_f]
+    rescue StandardError
+      nil
+    end
+
+    # Distance in PLAN from point x to the segment p-q. Plan, not space:
+    # see the header - the eave carries the underside height and the face
+    # carries the top one, and they are a slab thickness apart.
+    def self.plan_dist_to_segment(p, q, x)
+      dx = q[0] - p[0]
+      dy = q[1] - p[1]
+      ll = (dx * dx) + (dy * dy)
+      return Math.hypot(x[0] - p[0], x[1] - p[1]) if ll < 1.0e-12
+      t = (((x[0] - p[0]) * dx) + ((x[1] - p[1]) * dy)) / ll
+      t = 0.0 if t < 0.0
+      t = 1.0 if t > 1.0
+      Math.hypot(x[0] - (p[0] + (dx * t)), x[1] - (p[1] + (dy * t)))
+    end
+
+    # Which roof plane does this eave segment belong to? The plane whose own
+    # outline carries it, in plan. Both ends must be on the SAME boundary
+    # segment, so a plane that merely passes nearby is not accepted.
+    def self.plane_for(planes, a, b, tol = plan_tol)
+      (planes || []).each do |pl|
+        pts = pl[:points]
+        m = pts.length
+        m.times do |i|
+          p = pts[i]
+          q = pts[(i + 1) % m]
+          next if Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.0e-6
+          next if plan_dist_to_segment(p, q, a) > tol
+          next if plan_dist_to_segment(p, q, b) > tol
+          return pl
+        end
+      end
+      nil
+    end
+
+    # The height of (x, y) ON a plane. nz can never be 0 here: plane_frame
+    # already refused every vertical face.
+    def self.z_on_plane(pl, x, y)
+      p0 = pl[:points][0]
+      n = pl[:n]
+      return nil if n[2].abs < 1.0e-9
+      p0[2] - (((n[0] * (x - p0[0])) + (n[1] * (y - p0[1]))) / n[2])
+    end
+
+    # THE PURE ANSWER: one entry per tile, before anything is placed.
+    #
+    #   planes  from planes_from_faces(top_shell)
+    #   edges   from RoofManager.roof_edges
+    #   shape   'barrel' / 'roman' / 'slate' / 'seam'
+    #
+    # Returns [{ origin: [x, y, z], u:, v:, n:, edge:, wall_id: }, ...].
+    # A partial tile at either end of a run gets nothing - RoofTileMath
+    # .edge_slots already refuses it, and half a tile poking past a corner
+    # looks worse than none.
+    def self.eave_slots(planes, edges, shape_name, opts = {})
+      shape = InteriorPro::RoofTileMath.shape(shape_name)
+      return [] if shape.nil?
+      tile_w = shape[:tile_w].to_f
+      return [] if tile_w <= 1.0e-9
+      segs = (edges && edges[:eave]) || []
+      margin = (opts[:margin] || 0.0).to_f
+      out = []
+      segs.each do |e|
+        a = e[:a]
+        b = e[:b]
+        next if a.nil? || b.nil?
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        len = Math.hypot(dx, dy) # the eave is horizontal, so plan length IS length
+        next if len < tile_w
+        pl = plane_for(planes, a, b)
+        next if pl.nil?
+        ux = dx / len
+        uy = dy / len
+        InteriorPro::RoofTileMath.edge_slots(0.0, len, tile_w, margin: margin).each do |c|
+          x = a[0] + (ux * c)
+          y = a[1] + (uy * c)
+          z = z_on_plane(pl, x, y)
+          next if z.nil?
+          out << { origin: [x, y, z], u: pl[:u], v: pl[:v], n: pl[:n],
+                   edge: e[:edge], wall_id: e[:wall_id] }
+        end
+      end
+      out
+    end
+
+    # THE RUNS - the long half pipes, ridge to eave (2026-08-20).
+    #
+    # One entry per pipe: where it starts, the plane's frame, and HOW LONG it
+    # is. The length is the only new number, and it is the reason the whole
+    # roof costs about ten unique faces - roof_tile_parts models the pipe one
+    # inch long and place_runs! stretches that one definition to each length.
+    #
+    # THE SHAPE OF A PLANE IS NOT A RECTANGLE, and that is the real work here.
+    # A hip face is a triangle, a plane with a dormer has a bite out of it. So
+    # every pipe asks the outline directly: at across-slope position u = c,
+    # which stretches of v are inside? RoofTileMath.v_spans_at is the same
+    # scanline the courses use, turned 90 degrees, so a hip cuts the runs short
+    # for free and a dormer splits one run into two with no special case.
+    #
+    # The pipes are spaced by edge_slots, the same spacing the eave course
+    # uses, so a run and an eave piece can never disagree about the pitch.
+    #
+    # Returns [{ origin: [x, y, z], u:, v:, n:, length: }, ...].
+    # A PLANE HIDING UNDER ANOTHER ROOF GETS NO TILES (2026-08-21c).
+    #
+    # Where one wing's roof runs in under another - the shell intersects on
+    # the valleys, so the buried continuation is its own face - that face has
+    # always been built and painted, and the flat texture kept it invisible.
+    # Real 3D tiles do not stay invisible: they filled the hidden strip and
+    # poked out through the covering roof, in plain view through the open
+    # gable end - "הגג ממשיך מתחת לגג השני ולא נחתך".
+    #
+    # A face is covered when its own middle sits in PLAN inside another
+    # plane's outline AND that plane passes above it there. The shell's
+    # intersection is what splits faces on the meeting lines, so a covered
+    # face is covered as a WHOLE - one point answers for all of it.
+    def self.drop_covered_planes(planes)
+      list = planes || []
+      return list if list.length < 2
+      # SAMPLED, NOT JUST THE CENTRE (2026-08-21c, gable pass). Two planes
+      # that CROSS - each one's far lobe under the other - can both have
+      # their centres in the buried lobe, and the centre-only test threw
+      # both away and left a bare roof. A face goes only when the centre AND
+      # the midpoint toward every corner are all covered: that is a face
+      # with no daylight on it anywhere that matters. A partly-covered face
+      # stays, and cover_clips trims its tiles at the meeting line instead.
+      list.reject do |pl|
+        pts = pl[:points]
+        cx = pts.sum { |p| p[0] } / pts.length
+        cy = pts.sum { |p| p[1] } / pts.length
+        cz = pts.sum { |p| p[2] } / pts.length
+        samples = [[cx, cy, cz]] + pts.map do |p|
+          [(cx + p[0]) / 2.0, (cy + p[1]) / 2.0, (cz + p[2]) / 2.0]
+        end
+        samples.all? do |(sx, sy, sz)|
+          list.any? do |q|
+            next false if q.equal?(pl)
+            next false unless InteriorPro::RoofTileMath.poly_contains?(
+              q[:points].map { |p| [p[0], p[1]] }, [sx, sy]
+            )
+            zq = z_on_plane(q, sx, sy)
+            !zq.nil? && zq > sz + 0.1
+          end
+        end
+      end
+    end
+
+    def self.run_slots(planes, shape_name, opts = {})
+      return [] unless InteriorPro::RoofTileMath.runs?(shape_name)
+      planes = drop_covered_planes(planes)
+      # The flat tile has its own layout - courses on the outside so they can
+      # stagger. Everything below this line is untouched by it.
+      if InteriorPro::RoofTileMath.respond_to?(:run_flat?) &&
+         InteriorPro::RoofTileMath.run_flat?(shape_name)
+        return flat_slots(planes, shape_name, opts)
+      end
+      s = InteriorPro::RoofTileMath.shape(shape_name)
+      # The RUN pitch, not the material's tile pitch. The pipe is allowed to be
+      # finer than the tile the texture draws, and it is (2026-08-21): six inch
+      # pipes on a 13" Roman tile, spaced by their own width plus a narrow pan.
+      # If his own tile is on disk, ITS pitch wins - measured off the copies in
+      # his file, never assumed. Assuming it is what put a 1.5" GAP between the
+      # pipes where his overlap by 2.36".
+      asset = opts[:asset]
+      pitch = (opts[:pitch] || (asset && asset[:pitch]) ||
+               InteriorPro::RoofTileParts.run_pitch(s)).to_f
+      return [] if pitch <= 1.0e-9
+      min_len = (opts[:min_len] || min_run_len).to_f
+      overhang = if opts.key?(:overhang)
+                   opts[:overhang].to_f
+                 else
+                   InteriorPro::RoofTileParts.eave_overhang
+                 end
+      margin = (opts[:margin] || 0.0).to_f
+      # How far short of the ridge or hip a run stops - see the comment where
+      # it is applied. Pass 0.0 to get the old ridge-to-eave run back.
+      setback = if opts.key?(:setback)
+                  opts[:setback].to_f
+                else
+                  InteriorPro::RoofTileParts.ridge_setback(s)
+                end
+      # Clay is one unbroken pipe from ridge to eave. Pressed metal is a row of
+      # short ones with a step between them - that is the whole visible
+      # difference between the user's two references, and it is one flag.
+      exposure = if InteriorPro::RoofTileMath.run_courses?(shape_name)
+                   (opts[:exposure] || s[:exposure]).to_f
+                 else
+                   0.0
+                 end
+      # A pipe course laps over the one below to hide the joint. A SHEET does
+      # not: it carries its own step, so the pieces butt end to end and the
+      # nose of one sits on the field of the next.
+      overlap = (opts[:course_overlap] ||
+                 (InteriorPro::RoofTileMath.run_courses?(shape_name) ? 1.0 : 1.08)).to_f
+      # MEASURE THE PIECE WHERE IT IS DRAWN, NOT WHERE ITS ORIGIN IS
+      # (2026-08-21).
+      #
+      # A slot's u is where the instance's ORIGIN lands. The profile is free to
+      # sit somewhere else inside that frame, and the seam rib does:
+      # RoofTileParts.seam_profile centres it on run_pitch/2 - half a pitch to
+      # the +u side - because the deck underneath it already is the pan.
+      # The length, though, was still cut off the outline at the ORIGIN's u, so
+      # on a hip every rib was measured 14" away from where it was drawn.
+      # Measured on the user's own roof: 6 ribs 10.8" SHORT of the hip on one
+      # side, 6 ribs 9.5" PAST it on the other, the middle of the roof exact.
+      #
+      # Only the seam has an offset profile, so only the seam gets an offset
+      # here - every other material still measures on its own centre line, the
+      # same number it always did.
+      u_off = if InteriorPro::RoofTileMath.seam?(shape_name)
+                InteriorPro::RoofTileParts.run_pitch(s) / 2.0
+              else
+                0.0
+              end
+      # HALF THE PIECE AS IT IS DRAWN, across the slope. A rib is a narrow
+      # bar on a wide grid; a pipe covers nearly its whole pitch.
+      half_piece = if InteriorPro::RoofTileMath.seam?(shape_name)
+                     InteriorPro::RoofTileParts.seam_w(s) / 2.0
+                   else
+                     InteriorPro::RoofTileParts.run_cover_w(s) / 2.0
+                   end
+      out = []
+      (planes || []).each do |pl|
+        pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
+        next if pu.nil? || pu[:flat]
+        next if pu[:u_span].to_f < pitch
         slots_u = if InteriorPro::RoofTileMath.run_courses?(shape_name)
                     sheet_slots(pu[:u_span].to_f, pitch)
                   elsif InteriorPro::RoofTileMath.seam?(shape_name)

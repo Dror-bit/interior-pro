@@ -505,6 +505,136 @@ module InteriorPro
       poly_contains?(rr, [ox, oy]) ? out : []
     end
 
+    # THE HOLE THE TILES SEE IS BIGGER THAN THE HOLE IN THE DECK
+    # (2026-09-03, the user: "כל הדברים האלו הקשורים לגג צריכים להיחתך
+    # בקצה החיצוני של הקיר ולא הפנימי").
+    #
+    # cut_roof! opens the deck at the ROUGH opening - the inside faces of the
+    # dormer's walls - because that is where the walls stand and the deck has
+    # to carry them. The tiles are a different question: a tile stopping on
+    # the inner face runs the whole thickness of the wall UNDER it and shows
+    # its cut end inside the opening, which is the leftover he circled on the
+    # Roman roof. Grown by the wall thickness, the same loop lands on the
+    # OUTER face, and every material stops where the wall starts.
+    #
+    # Push every edge out along its own normal and re-corner the polygon on
+    # the crossings of the moved edges. Convex only - which a dormer opening
+    # is, a rectangle or the house-shaped pentagon under a gablet - and the
+    # original comes back untouched if anything does not add up, so a shape
+    # this cannot handle simply stays as it was.
+    # WHICH EDGES MOVE - `mode`:
+    #   :all    every edge.
+    #   :walls  everything except the edges facing UP the slope. On a dormer
+    #           those are the VALLEY edges, where the gablet dies into the
+    #           main roof: no wall there to hide behind, only the two roofs
+    #           meeting, so moving that edge takes tiles out from ABOVE the
+    #           dormer and leaves bare deck round its top corner (2026-09-03,
+    #           second pass - he circled exactly that spot on both dormers).
+    #           The front wall and the two cheeks are the three that move.
+    #   :sides  only the edges facing sideways - the two cheeks. A RUN is cut
+    #           where its CENTRE LINE meets the hole, and a pipe is 14" wide,
+    #           so a run whose centre clears the cheek by an inch still has
+    #           half its body inside the opening: "הרומן טיל עדיין נכנס קצת
+    #           לתוך קירות פנים הבית". Pushing the cheeks out by half a
+    #           piece takes that run out with it. Only the cheeks: doing it
+    #           at the foot or the valley would open a gap instead.
+    def self.grow_poly(poly, d, mode = :all)
+      return poly if poly.nil? || poly.length < 3 || d.abs < 1.0e-9
+      pp = poly_ccw(poly)
+      lines = []
+      pp.length.times do |i|
+        a = pp[i]
+        b = pp[(i + 1) % pp.length]
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        l = Math.hypot(dx, dy)
+        next if l < 1.0e-9
+        # counter-clockwise keeps the inside on the left, so the RIGHT hand
+        # normal is the way out
+        nx = dy / l
+        ny = -dx / l
+        dd = case mode
+             when :walls then ny > 0.05 ? 0.0 : d
+             when :sides then nx.abs > 0.7 ? d : 0.0
+             else d
+             end
+        ox = nx * dd
+        oy = ny * dd
+        lines << [[a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy]]
+      end
+      return poly if lines.length < 3
+      out = []
+      lines.length.times do |i|
+        q = line_cross(lines[i - 1], lines[i])
+        return poly if q.nil?
+        out << q
+      end
+      out
+    end
+
+    # Where two infinite lines cross, or nil when they are parallel.
+    def self.line_cross(l1, l2)
+      x1, y1 = l1[0]
+      x2, y2 = l1[1]
+      x3, y3 = l2[0]
+      x4, y4 = l2[1]
+      den = ((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4))
+      return nil if den.abs < 1.0e-9
+      a = (x1 * y2) - (y1 * x2)
+      b = (x3 * y4) - (y3 * x4)
+      [((a * (x3 - x4)) - ((x1 - x2) * b)) / den,
+       ((a * (y3 - y4)) - ((y1 - y2) * b)) / den]
+    end
+
+    # THE OTHER HALF OF clip_to_poly: cut `rect` down to the part of it
+    # OUTSIDE `hole` (2026-09-03).
+    #
+    # A dormer is a hole in the field. The run materials learned that through
+    # spans_minus - a run is a line, and subtracting an interval from a line
+    # is exact. A flat tile is not a line, it is a plate, so it needs the same
+    # answer in two dimensions: "והפלאט טיל לא נחתך ביכלל".
+    #
+    # A tile has to come back as ONE polygon - it is built as one face - and
+    # rect minus a convex hole is an L wherever the tile straddles a CORNER of
+    # the hole. So the answer is the largest single piece that is outside: cut
+    # the rect against each of the hole's reaching edges in turn, keep the
+    # biggest survivor. On the common case, a tile straddling one edge, that
+    # piece IS the exact answer; at a corner it gives up the corner block
+    # rather than leave tile hanging over the opening, which is the side to
+    # err on - a tile over the hole is the thing he can see.
+    #
+    # Same winding trick as clip_to_poly, read backwards: poly_ccw puts the
+    # inside on the LEFT of every edge, so an edge handed over REVERSED keeps
+    # the right hand side - the outside.
+    def self.clip_outside_poly(rect, hole, reach = nil)
+      return rect if rect.nil? || rect.length < 3 || hole.nil? || hole.length < 3
+      cx = rect.map { |p| p[0] }.sum / rect.length.to_f
+      cy = rect.map { |p| p[1] }.sum / rect.length.to_f
+      r = reach || (rect.map { |p| Math.hypot(p[0] - cx, p[1] - cy) }.max + 0.01)
+      hh = poly_ccw(hole)
+      best = nil
+      best_a = nil
+      hh.length.times do |i|
+        a = hh[i]
+        b = hh[(i + 1) % hh.length]
+        next if Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.0e-9
+        next if seg_dist(a, b, [cx, cy]) > r
+        out = clean_poly(clip_left(rect, b, a))
+        next if out.length < 3
+        ox = out.sum { |p| p[0] } / out.length
+        oy = out.sum { |p| p[1] } / out.length
+        next if poly_contains?(hh, [ox, oy])
+        ar = poly_area(out).abs
+        next if !best_a.nil? && ar <= best_a
+        best_a = ar
+        best = out
+      end
+      # No edge reaches it, or every cut leaves nothing standing outside:
+      # inside the hole it is gone, anywhere else it is whole.
+      return (poly_contains?(hh, [cx, cy]) ? [] : rect) if best.nil?
+      best
+    end
+
     # Plain ray-cast point-in-polygon, boundary points counted by the same
     # half-open rule the scanline uses.
     def self.poly_contains?(poly, pt)
