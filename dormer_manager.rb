@@ -91,7 +91,16 @@ module InteriorPro
       oh      = 0.0 if oh < 0.0
       return warn_nil('width and length must both be positive') if
         width <= 0.0 || length <= 0.0
-      return warn_nil('the dormer roof has no pitch') if pitch <= 0.0
+      # A FLAT GABLET HAS NO PITCH, ON PURPOSE (2026-09-06). shed_frame
+      # zeroes it for `flat`, build_dormer! saves that zero on the group
+      # and dormer_spec hands it straight back - so EVERY rebuild of a
+      # flat gablet came back through here with pitch 0 and was thrown
+      # away: the replant after any roof rebuild (which is when he saw
+      # it - "גגון שטוח נעלם כששמים אותו על גג ברזל ואז מחליפים
+      # לשינגלס"), and Edit and Move as well. Measured: gable and shed
+      # store their real pitch and survive; only flat stored a zero.
+      return warn_nil('the dormer roof has no pitch') if
+        pitch <= 0.0 && spec.fetch(:style, 'gable').to_s != 'flat'
       return warn_nil('setback cannot be negative') if setback < 0.0
 
       # THE HEIGHT DRIVES THE LENGTH (2026-09-02). He cares about the
@@ -340,6 +349,7 @@ module InteriorPro
         pitch12:      g.call('dormer_pitch12', 0.0).to_f,
         fascia_depth: g.call('dormer_fascia_depth', 0.0).to_f,
         place_mode:   g.call('dormer_place_mode', 'free').to_s,
+        window:       g.call('dormer_window', true) ? true : false,
         style:        g.call('dormer_style', 'gable').to_s }
     end
 
@@ -355,6 +365,7 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'dormer_style', s[:style].to_s)
       m.set_attribute('InteriorPro', 'dormer_place_mode',
                       s[:place_mode].nil? ? 'free' : s[:place_mode].to_s)
+      m.set_attribute('InteriorPro', 'dormer_window', s[:window] ? true : false)
       s
     end
 
@@ -366,6 +377,7 @@ module InteriorPro
       spec = { width: s[:width].to_f, length: s[:length].to_f,
                setback: s[:setback].to_f, overhang: s[:overhang].to_f,
                place_mode: s[:place_mode].to_s,
+               window: s[:window] ? true : false,
                style: s[:style].to_s }
       # a typed height wins: the length is then whatever produces it.
       spec[:height] = s[:height].to_f if s[:height].to_f > 0.01
@@ -527,13 +539,21 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'along_xy', along)
       grp.set_attribute('InteriorPro', 'into_xy', into)
       grp.set_attribute('InteriorPro', 'fascia_depth', fascia_depth(spec))
+      # THE MODE IT WAS PLACED IN (2026-09-06). Without this a built dormer
+      # forgot whether its setback was clicked, typed or flush: Edit could
+      # not re-apply a typed depth, and Move always ran free.
+      pm = spec[:place_mode].to_s
+      grp.set_attribute('InteriorPro', 'place_mode',
+                        %w[free depth flush].include?(pm) ? pm : 'free')
+      grp.set_attribute('InteriorPro', 'window', spec[:window] ? true : false)
       # the ceiling this roof face gave it, so an EDIT is held to the
       # same limit the placing click was - without it a typed height
       # could push a built dormer straight through the ridge.
       grp.set_attribute('InteriorPro', 'z_top', spec[:z_top].to_f) if spec[:z_top]
 
+      wall = nil
       if shed_like?(fr)
-        build_shed_wall!(grp, fr, at, spec[:wall_names])
+        wall = build_shed_wall!(grp, fr, at, spec[:wall_names])
         [1.0, -1.0].each { |sg| build_shed_cheek!(grp, fr, at, sg, spec[:wall_names]) }
         build_shed_roof!(grp, fr, at, spec[:roof_material])
         build_shed_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
@@ -541,16 +561,17 @@ module InteriorPro
         # the front wall leans its top with the front plane, exactly as a
         # shed's does; the cheeks are the gable's, level under a side
         # plane that only varies across the width.
-        build_shed_wall!(grp, fr, at, spec[:wall_names])
+        wall = build_shed_wall!(grp, fr, at, spec[:wall_names])
         [1.0, -1.0].each { |sg| build_cheek!(grp, fr, at, sg, spec[:wall_names]) }
         build_hip_roof!(grp, fr, at, spec[:roof_material])
         build_hip_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
       else
-        build_front_wall!(grp, fr, at, spec[:wall_names])
+        wall = build_front_wall!(grp, fr, at, spec[:wall_names])
         [1.0, -1.0].each { |sg| build_cheek!(grp, fr, at, sg, spec[:wall_names]) }
         [1.0, -1.0].each { |sg| build_roof_plane!(grp, fr, at, sg, spec[:roof_material]) }
         build_trim!(grp, fr, at, spec) if USE_DORMER_TRIM
       end
+      punch_window!(wall, fr, at) if spec[:window] && wall
       grp
     rescue StandardError => e
       puts "[Dormer] build_dormer!: #{e.class}: #{e.message}"
@@ -735,7 +756,10 @@ module InteriorPro
         # HIS THIRD OPTION (2026-09-02B): the front wall lands in the
         # plane of the house wall, which is exactly one roof overhang
         # up the slope from the eave line.
-        s[:setback] = wall_setback(rf)
+        w = wall_setback(rf)
+        # no wall under this slope - keep the setback we were handed
+        # rather than snapping the dormer down to the eave.
+        s[:setback] = w > 0.01 ? w : spec[:setback].to_f
       when 'depth'
         s[:setback] = spec[:setback].to_f
       else
@@ -1242,6 +1266,95 @@ module InteriorPro
     # the two corners of each cheek follow the same line.
     def self.shed_top(fr, s)
       deck_z(fr, s, 0.0) - fr[:roof_thickness]
+    end
+
+    # ---------- A WINDOW IN THE FRONT WALL (2026-09-06) -----------------
+    #
+    # His rule, in his words: 48 x 24 is the MAXIMUM - "אפשרי להתחיל עם
+    # אופציה 2 זה יהיה המקסימום" - and on a smaller gablet the window
+    # simply keeps 6" clear on every side. It may never run into the
+    # thickness of the cheeks ("שלא יוכל להיכנס לתוך עובי הקירות"), so
+    # the width is measured off the INSIDE faces, not the outside ones.
+    # It is punched into the front wall INSIDE the dormer group, so it
+    # travels with the dormer and is erased with it, exactly like the
+    # tiles (rt109).
+    #
+    # Methods, not constants: a constant is not re-read by reload!.
+    def self.window_max_w; 48.0; end
+    def self.window_max_h; 24.0; end
+    def self.window_margin; 6.0; end
+    def self.window_min_w; 18.0; end
+    def self.window_min_h; 12.0; end
+
+    # The top of the front wall over a window whose own half-width is hw -
+    # the LOWEST point of it, so a gable's slope never eats the head.
+    def self.wall_top_over(fr, hw)
+      return shed_top(fr, fr[:s_front]) if shed_like?(fr) || fr[:style] == 'hip'
+      top_z(fr, hw) - fr[:roof_thickness].to_f
+    end
+
+    # Where the window sits, in the dormer's own frame: w across the wall,
+    # z in the world. nil - and a reason - when nothing fits.
+    def self.window_rect(fr)
+      # THE RULE HE SET, one rule for every side: 6" of wall clear all
+      # round, and never bigger than 48 x 24 - "זה יהיה המקסימום ואם זה
+      # גגון יותר קטן אז שיהיה פשוט 6 מכל כיוון". On his 60" gablet the
+      # 6" margins give exactly the 48 he picked.
+      #
+      # Then one hard stop on top of it: the opening may never reach the
+      # INSIDE faces of the cheeks - "שלא יוכל להיכנס לתוך עובי הקירות" -
+      # so it is held an inch clear of them whatever the margin says.
+      clear_w = 2.0 * (fr[:half].to_f - fr[:thickness].to_f)
+      width = [window_max_w, 2.0 * fr[:half].to_f - 2.0 * window_margin].min
+      width = [width, clear_w - 2.0].min
+      return warn_nil('the gablet is too narrow for a window') if
+        width < window_min_w
+      top = wall_top_over(fr, width / 2.0)
+      clear_h = top - fr[:z_front].to_f
+      height = [window_max_h, clear_h - 2.0 * window_margin].min
+      return warn_nil('the front wall is too short for a window') if
+        height < window_min_h
+      # centred in the clear wall: the two margins come out equal, which
+      # is what he drew back at me.
+      { w: 0.0, width: width, height: height,
+        z: (fr[:z_front].to_f + top) / 2.0 }
+    end
+
+    # The hole itself: the rectangle is drawn on the outer face and on the
+    # inner face, both small faces are erased so each loop becomes a hole,
+    # and four reveal faces close the gap between them - so the wall stays
+    # a closed solid with a window-shaped tunnel through it.
+    def self.punch_window!(sub, fr, at, rect = nil)
+      r = rect || window_rect(fr)
+      return nil if r.nil? || sub.nil? || !sub.valid?
+      s_o = fr[:s_front]
+      s_i = fr[:s_front] + fr[:thickness]
+      w0 = r[:w] - r[:width] / 2.0
+      w1 = r[:w] + r[:width] / 2.0
+      z0 = r[:z] - r[:height] / 2.0
+      z1 = r[:z] + r[:height] / 2.0
+      box = [[w0, z0], [w1, z0], [w1, z1], [w0, z1]]
+      outer = box.map { |w, z| at.call(s_o, w, z) }
+      inner = box.map { |w, z| at.call(s_i, w, z) }
+      # Drawing the rectangle on a face SPLITS it; erasing the small face
+      # leaves its loop behind as a HOLE. (The cloud stub has no face
+      # splitting and no Face#erase!, so it just gets the reveal faces -
+      # the real hole is only ever seen on his machine.)
+      [outer, inner].each do |ring|
+        f = add_face!(sub, ring)
+        next unless f.respond_to?(:erase!)
+        f.erase! if !f.respond_to?(:valid?) || f.valid?
+      end
+      4.times do |i|
+        j = (i + 1) % 4
+        add_face!(sub, [outer[i], outer[j], inner[j], inner[i]])
+      end
+      sub.set_attribute('InteriorPro', 'window_w', r[:width])
+      sub.set_attribute('InteriorPro', 'window_h', r[:height])
+      r
+    rescue StandardError => e
+      puts "[Dormer] punch_window!: #{e.class}: #{e.message}"
+      nil
     end
 
     def self.build_shed_wall!(grp, fr, at, names)
@@ -2012,6 +2125,10 @@ module InteriorPro
       spec[:into] = into if into.length >= 2
       fd = a.call('fascia_depth')
       spec[:fascia_depth] = fd.to_f unless fd.nil?
+      pm = a.call('place_mode').to_s
+      spec[:place_mode] = pm if %w[free depth flush].include?(pm)
+      wi = a.call('window')
+      spec[:window] = (wi == true || wi.to_s == 'true') unless wi.nil?
       zt = a.call('z_top')
       spec[:z_top] = zt.to_f unless zt.nil?
       spec

@@ -52,13 +52,28 @@ module InteriorPro
         # Wide enough that no control is clipped and nothing needs
         # scrolling sideways (the user, 2026-09-02: "תוודא שכל
         # האופציות פתוחות ואני לא צריך לגלל").
-        width: 430, height: 560, resizable: true,
-        min_width: 400, min_height: 480,
-        max_width: 560, max_height: 900
+        width: 430, height: 700, resizable: true,
+        min_width: 400, min_height: 420,
+        max_width: 560, max_height: 1000
       )
+      # IT OPENS WHOLE (2026-09-06). He sent two shots of the panel with a
+      # scrollbar down the side and the Place button cut in half: "אני רוצה
+      # שהוא יפתח כולו". A typed height cannot know - the panel is taller
+      # in Edit than in Place, and taller again when the depth row shows -
+      # so the PAGE measures itself and the window follows.
+      dlg.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 420 if want < 420
+          want = 1000 if want > 1000
+          dlg.set_size(430, want)
+        rescue StandardError => e
+          puts "[Dormer] fit_height: #{e.message}"
+        end
+      end
       dlg.add_action_callback('place_dormer') do |_, style, width, height,
                                                   setback, overhang, pitch12,
-                                                  fdepth, mode|
+                                                  fdepth, mode, win|
         old = InteriorPro::DormerManager.settings
         s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
               width: width.to_f, height: height.to_f, length: old[:length],
@@ -66,7 +81,10 @@ module InteriorPro
               overhang: overhang.to_f, pitch12: pitch12.to_f,
               fascia_depth: fdepth.to_f,
               place_mode: %w[free depth flush].include?(mode.to_s) ?
-                          mode.to_s : 'free' }
+                          mode.to_s : 'free',
+              # HIS OPTION, ON THE PANEL (2026-09-06): "בסרגל של הגגונים
+              # תהיה אופציה עם חלון או בלי חלון".
+              window: !%w[false 0 off].include?(win.to_s.downcase) }
         InteriorPro::DormerManager.save_settings!(s)
         tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
         if tgt
@@ -77,7 +95,16 @@ module InteriorPro
             style: s[:style], width: s[:width], height: s[:height],
             overhang: s[:overhang],
             pitch: s[:pitch12].to_f > 0.01 ? s[:pitch12].to_f / 12.0 : nil,
-            fascia_depth: s[:fascia_depth].to_f > 0.01 ? s[:fascia_depth].to_f : nil
+            fascia_depth: s[:fascia_depth].to_f > 0.01 ? s[:fascia_depth].to_f : nil,
+            # WHERE IT SITS, ON AN EDIT TOO (2026-09-06). Until now the
+            # panel sent only sizes, so a typed "depth from the fascia"
+            # did nothing and the mode was forgotten. Only 'depth' can
+            # move a standing dormer from a dialog - 'free' needs a click
+            # and 'flush' is already where it was put - so the other two
+            # change the remembered mode and leave the dormer where it is.
+            place_mode: s[:place_mode].to_s,
+            setback: s[:place_mode].to_s == 'depth' ? s[:setback].to_f : nil,
+            window: s[:window] ? true : false
           )
           model.commit_operation
           if g.nil?
@@ -93,7 +120,7 @@ module InteriorPro
       end
       dlg.set_html(build_html(panel_values, edit: !@target.nil?))
       begin
-        dlg.set_size(430, 560)
+        dlg.set_size(430, 700)
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError => e
         puts "[Dormer] dialog size: #{e.message}"
@@ -114,7 +141,10 @@ module InteriorPro
       base.merge(width: sp[:width], overhang: sp[:overhang],
                  style: sp[:style], pitch12: p12,
                  height: @target.get_attribute('InteriorPro', 'height').to_f,
-                 fascia_depth: sp[:fascia_depth].to_f)
+                 fascia_depth: sp[:fascia_depth].to_f,
+                 setback: sp[:setback].to_f,
+                 place_mode: (sp[:place_mode] || base[:place_mode]).to_s,
+                 window: sp.key?(:window) ? sp[:window] : base[:window])
     end
 
     def self.build_html(s, edit: false)
@@ -183,6 +213,12 @@ module InteriorPro
             <input type="number" id="setback" step="1" min="0" value="#{s[:setback].round}"> in</div>
           <div class="hint" id="placeHint"></div>
 
+          <div class="section-title">Window</div>
+          <div class="row"><label>A window in the front wall</label>
+            <input type="checkbox" id="hasWindow"#{s[:window] ? ' checked' : ''}></div>
+          <div class="hint">Centred, at most 48" x 24". On a smaller gablet it
+            keeps 6" clear on every side and never runs into the cheeks.</div>
+
           <div class="section-title">Size</div>
           <div class="row"><label>Width (across the roof)</label>
             <input type="number" id="width" step="1" min="12" value="#{s[:width].round}"> in</div>
@@ -216,6 +252,7 @@ module InteriorPro
                 (v === 'flat') ? 'block' : 'none';
               // a flat gablet HAS no pitch - the control would be a lie
               document.getElementById('pitch').disabled = (v === 'flat');
+              fitWindow();
             }
             function modeChanged() {
               var v = document.querySelector('input[name=pmode]:checked').value;
@@ -227,6 +264,7 @@ module InteriorPro
                 flush: 'Its front wall lands in the plane of the house wall. The mouse only slides it sideways.'
               };
               document.getElementById('placeHint').textContent = h[v];
+              fitWindow();
             }
             function placeDormer() {
               sketchup.place_dormer(
@@ -237,7 +275,8 @@ module InteriorPro
                 document.getElementById('overhang').value,
                 document.getElementById('pitch').value,
                 document.getElementById('fasciaDepth').value,
-                document.querySelector('input[name=pmode]:checked').value);
+                document.querySelector('input[name=pmode]:checked').value,
+                document.getElementById('hasWindow').checked ? 'true' : 'false');
             }
             Array.prototype.forEach.call(
               document.querySelectorAll('input[name=style]'),
@@ -245,8 +284,18 @@ module InteriorPro
             Array.prototype.forEach.call(
               document.querySelectorAll('input[name=pmode]'),
               function (r) { r.addEventListener('change', modeChanged); });
+            function fitWindow() {
+              if (window.sketchup && sketchup.fit_height) {
+                var b = document.body;
+                var d = document.documentElement;
+                sketchup.fit_height(Math.max(b.scrollHeight, b.offsetHeight,
+                                             d.scrollHeight, d.offsetHeight));
+              }
+            }
             styleChanged();
             modeChanged();
+            fitWindow();
+            window.addEventListener('load', fitWindow);
           </script>
         </body></html>
       HTML
