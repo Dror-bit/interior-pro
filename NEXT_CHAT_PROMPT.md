@@ -1,7 +1,7 @@
 פרויקט Interior Pro — תוסף SketchUp (Ruby, מודול InteriorPro).
 תיקייה חיה:
 C:\Users\rordt\AppData\Roaming\SketchUp\SketchUp 2024\SketchUp\Plugins\interior_pro
-בקש גישה לתיקייה, וקרא HANDOFF_2026-09-05.md ואחריו CLAUDE.md.
+בקש גישה לתיקייה, וקרא HANDOFF_2026-09-07.md ואחריו CLAUDE.md.
 אל תסמוך על הסיכומים — תאמת מול הקוד החי.
 
 צעד ראשון חובה: git status דרך ה-CMD שלי. אל תריץ git בעצמך —
@@ -16,10 +16,10 @@ C:\Users\rordt\AppData\Roaming\SketchUp\SketchUp 2024\SketchUp\Plugins\interior_
 אין לי רובי על ה-Windows, אבל ל-VM שדרכו אתה מריץ פקודות יש רובי
 ו-node, אז אתה מריץ את כל חבילת הבדיקות בעצמך:
 cd tests ואז LANG=C.UTF-8 bash run_all.sh ..
-צריכות לצאת 161 ירוקות. תמיד run_all.sh, לא קובץ טסט לבד.
-הריצה ארוכה מ-45 שניות, אז ברקע:
-(setsid env LANG=C.UTF-8 bash run_all.sh .. > /tmp/run.log 2>&1 < /dev/null &)
-ואז לקרוא את הלוג בקריאה נפרדת.
+צריכות לצאת 169 ירוקות (rt51/rt52 אדומות מסיבה ישנה).
+תמיד run_all.sh, לא קובץ טסט לבד.
+כל החבילה נכנסת בקריאת shell אחת עם timeout של 180 שניות —
+לא צריך להריץ ברקע ולא לפצל לנתחים.
 בדיקה חדשה — תריץ גם נגד הקוד הישן ותוודא שהיא נופלת.
 אם בדיקה ישנה נופלת — קודם תניח שהתיקון שלך רחב מדי.
 

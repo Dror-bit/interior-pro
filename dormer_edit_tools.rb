@@ -186,8 +186,7 @@ module InteriorPro
       @roof = roof
       @pt = pt
       @loops = if roof && pt
-                 InteriorPro::DormerManager.preview(roof, pt.x, pt.y,
-                                                    @spec.merge(follow_click: true))
+                 InteriorPro::DormerManager.preview(roof, pt.x, pt.y, move_spec)
                end
       say(if @loops
             'Click to drop it here (Esc to cancel)'
@@ -233,14 +232,16 @@ module InteriorPro
       end
       roof, pt = pick_roof(view, x, y)
       return UI.messagebox('Click a roof slope') if roof.nil? || pt.nil?
-      s = @spec.merge(follow_click: true)
+      s = move_spec
       if InteriorPro::DormerManager.preview(roof, pt.x, pt.y, s).nil?
         why = InteriorPro::DormerManager.last_reason
         return UI.messagebox(why ? "This dormer #{why}" : 'It does not fit there.')
       end
       model = Sketchup.active_model
       model.start_operation('Move Dormer', true)
-      InteriorPro::DormerManager.remove_dormer!(@picked)
+      # no_relay: place_on_roof! lays the field again once the new hole is
+      # cut - doing it here as well relaid the whole roof for nothing.
+      InteriorPro::DormerManager.remove_dormer!(@picked, no_relay: true)
       g = InteriorPro::DormerManager.place_on_roof!(roof, pt.x, pt.y, s)
       model.commit_operation
       UI.messagebox('It could not be rebuilt there - see the Ruby Console.') if g.nil?
@@ -267,6 +268,22 @@ module InteriorPro
     end
 
     private
+
+    # WHAT THE MOUSE IS ALLOWED TO DO (2026-09-06). Until now Move always
+    # handed in follow_click, so a dormer placed at a typed depth jumped to
+    # wherever the cursor was - "אם קבעתי 60 אינץ' מהפשיה הוא יזוז רק על
+    # הקו הזה". Now the dormer's OWN saved mode decides: only 'free'
+    # follows the click up the slope; 'depth' keeps its typed depth and
+    # 'flush' stays on the wall, and in both the mouse only slides it
+    # sideways along the eave. A dormer built before the modes existed has
+    # no saved mode and stays free, exactly as it was.
+    def move_spec
+      mode = @spec[:place_mode].to_s
+      mode = 'free' unless %w[free depth flush].include?(mode)
+      s = @spec.merge(place_mode: mode)
+      s[:follow_click] = true if mode == 'free'
+      s
+    end
 
     def pick_roof(view, x, y)
       ph = view.pick_helper

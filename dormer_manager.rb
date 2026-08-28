@@ -173,6 +173,22 @@ module InteriorPro
       # its own pitch) - so the step that buys `heel` of wall is not the
       # same number for the two. Measured: dividing a shed by the roof
       # slope bought only 4.6" of the 9.25" it was owed.
+      #
+      # THE LENGTH THAT WAS ASKED FOR (2026-09-07). The heel step below
+      # makes `length` LONGER, and build_dormer! used to save that longer
+      # number on the group. dormer_spec handed it straight back as the
+      # next rebuild's typed length, which added the heel to it AGAIN -
+      # so every Edit, Move, replant or Apply grew the gablet. Measured
+      # on a 5:12 roof with a 6" eave: a typed 120 came back 139.2,
+      # 158.4, 177.6, 196.8, and the front wall climbed 45.5 -> 53.5 ->
+      # 61.5 -> 69.5 until the gablet hit the ridge and refused to build
+      # ("too long for this roof - it would reach the ridge"). He saw it
+      # as the window panel failing; the window had nothing to do with it.
+      #
+      # `length_asked` is what was typed. The geometry still uses the
+      # heeled `length` - not one number of it changed - and the GROUP
+      # remembers the asked one, so the heel is added exactly once.
+      length_asked = length
       heel = dormer_heel(oh, style_now, pitch, slope, spec)
       if heel > 0.0
         den = if style_now == 'shed'
@@ -195,9 +211,12 @@ module InteriorPro
       style    = style_now
       return warn_nil('unknown gablet style') unless
         %w[gable hip shed flat].include?(style)
-      return shed_frame(spec, z0, slope, setback, width, length, th, rt, oh,
-                        half, s_front, s_ridge, z_front, z_ridge,
-                        style) if style == 'shed' || style == 'flat'
+      if style == 'shed' || style == 'flat'
+        sfr = shed_frame(spec, z0, slope, setback, width, length, th, rt, oh,
+                         half, s_front, s_ridge, z_front, z_ridge, style)
+        sfr[:length_asked] = length_asked if sfr
+        return sfr
+      end
       z_eave   = z_ridge - half * pitch    # the dormer's own side eaves
       height   = z_eave - z_front          # front wall, what falls out
 
@@ -261,7 +280,8 @@ module InteriorPro
 
       { z0: z0, slope: slope, pitch: pitch, setback: setback, style: style,
         s_hip: s_hip,
-        width: width, length: length, half: half, overhang: oh,
+        width: width, length: length, length_asked: length_asked,
+        half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_eave, s_cheek: s_cheek,
         s_rake: s_rake, s_valley: s_valley, w_edge: w_edge, z_edge: z_edge,
@@ -596,6 +616,11 @@ module InteriorPro
          z0 slope height].each do |k|
         grp.set_attribute('InteriorPro', k.to_s, fr[k])
       end
+      # THE ASKED LENGTH, NOT THE HEELED ONE (2026-09-07) - see frame().
+      # Saving the heeled length here is what made every rebuild grow the
+      # gablet. rt122 pins that a rebuild changes nothing.
+      grp.set_attribute('InteriorPro', 'length',
+                        (fr[:length_asked] || fr[:length]).to_f)
       grp.set_attribute('InteriorPro', 'base_xy', [base[0], base[1]])
       grp.set_attribute('InteriorPro', 'along_xy', along)
       grp.set_attribute('InteriorPro', 'into_xy', into)
@@ -649,6 +674,12 @@ module InteriorPro
         if wr
           punch_window!(wall, fr, at, wr)
           build_window_body!(grp, fr, at, wr, spec)
+          # WHAT WAS BUILT, NOT WHAT WAS ASKED (2026-09-07). A request the
+          # wall cannot hold is pulled back, and the panel has to show the
+          # real number - he typed 30 and the wall gave 24, and the stored
+          # 30 made the panel say something that was not on the roof.
+          grp.set_attribute('InteriorPro', 'window_w', wr[:width])
+          grp.set_attribute('InteriorPro', 'window_h', wr[:height])
         end
       end
       grp
@@ -1372,40 +1403,54 @@ module InteriorPro
       top_z(fr, hw) - fr[:roof_thickness].to_f
     end
 
+    # THE MOST THE WALL ITSELF ALLOWS. His original rule, unchanged: 6"
+    # of wall clear on every side, and never nearer than an inch to the
+    # INSIDE faces of the cheeks - "שלא יוכל להיכנס לתוך עובי הקירות".
+    def self.window_cap_w(fr)
+      clear_w = 2.0 * (fr[:half].to_f - fr[:thickness].to_f)
+      [2.0 * fr[:half].to_f - 2.0 * window_margin, clear_w - 2.0].min
+    end
+
+    # The head is measured AFTER the width is settled, because a narrower
+    # window sits under a higher part of a gable's slope.
+    def self.window_cap_h(fr, width)
+      wall_top_over(fr, width / 2.0) - fr[:z_front].to_f - 2.0 * window_margin
+    end
+
     # Where the window sits, in the dormer's own frame: w across the wall,
     # z in the world. nil - and a reason - when nothing fits.
-    # The typed size the panel can ask for is passed in; with nothing
-    # typed this is bit for bit the method rt117 pinned.
+    #
+    # NOTHING TYPED is exactly what rt117 pinned: 48 x 24, or 6" of wall
+    # all round on a gablet too small for that. That is the default and it
+    # has not moved a digit.
+    #
+    # A TYPED SIZE IS CAPPED BY THE WALL, NOT BY 48 x 24 (2026-09-07). He
+    # typed 30 for the height, got 24 without a word, and said the panel
+    # did nothing. Asked what the ceiling should be once the panel can
+    # type, he chose: "כמה שהקיר מרשה". So 48 x 24 stays the DEFAULT and
+    # the wall is the limit - his front wall is 72" tall and there was no
+    # reason it could not hold a taller window.
     def self.window_rect(fr, want_w = nil, want_h = nil)
-      # THE RULE HE SET, one rule for every side: 6" of wall clear all
-      # round, and never bigger than 48 x 24 - "זה יהיה המקסימום ואם זה
-      # גגון יותר קטן אז שיהיה פשוט 6 מכל כיוון". On his 60" gablet the
-      # 6" margins give exactly the 48 he picked.
-      #
-      # Then one hard stop on top of it: the opening may never reach the
-      # INSIDE faces of the cheeks - "שלא יוכל להיכנס לתוך עובי הקירות" -
-      # so it is held an inch clear of them whatever the margin says.
-      clear_w = 2.0 * (fr[:half].to_f - fr[:thickness].to_f)
-      width = [window_max_w, 2.0 * fr[:half].to_f - 2.0 * window_margin].min
-      width = [width, clear_w - 2.0].min
+      cap_w = window_cap_w(fr)
       return warn_nil('the gablet is too narrow for a window') if
-        width < window_min_w
-      # A TYPED SIZE ONLY EVER FITS INSIDE THAT (2026-09-07). The Edit
-      # Window panel can ask for a smaller window; it can never ask for
-      # one the wall has no room for, and it can never go under the
-      # smallest window we build. A narrower window is also allowed to be
-      # TALLER on a gable, so the head is measured after the clamp.
-      width = [[want_w.to_f, window_min_w].max, width].min if want_w.to_f > 0.0
-      top = wall_top_over(fr, width / 2.0)
-      clear_h = top - fr[:z_front].to_f
-      height = [window_max_h, clear_h - 2.0 * window_margin].min
+        cap_w < window_min_w
+      width = if want_w.to_f > 0.0
+                [[want_w.to_f, window_min_w].max, cap_w].min
+              else
+                [window_max_w, cap_w].min
+              end
+      cap_h = window_cap_h(fr, width)
       return warn_nil('the front wall is too short for a window') if
-        height < window_min_h
-      height = [[want_h.to_f, window_min_h].max, height].min if want_h.to_f > 0.0
+        cap_h < window_min_h
+      height = if want_h.to_f > 0.0
+                 [[want_h.to_f, window_min_h].max, cap_h].min
+               else
+                 [window_max_h, cap_h].min
+               end
       # centred in the clear wall: the two margins come out equal, which
       # is what he drew back at me.
       { w: 0.0, width: width, height: height,
-        z: (fr[:z_front].to_f + top) / 2.0 }
+        z: (fr[:z_front].to_f + wall_top_over(fr, width / 2.0)) / 2.0 }
     end
 
     # The hole itself: the rectangle is drawn on the outer face and on the
@@ -1551,18 +1596,81 @@ module InteriorPro
       nil
     end
 
-    # The Edit Window panel's way in: the size and the type live on the
-    # DORMER, because the hole and the body are both its geometry, so a
-    # change is a rebuild of the dormer - the same road Edit Dormer takes.
+    # The Edit Window panel's way in.
+    #
+    # IT REBUILDS THE FRONT WALL AND THE WINDOW, AND NOTHING ELSE
+    # (2026-09-07). It used to go through replace_dormer!, which erases
+    # the whole gablet and builds it again - and that heals the roof hole,
+    # RELAYS THE ENTIRE TILE FIELD and cuts the hole afresh. On his metal
+    # roof he watched a panel come back under the window and said the
+    # thing "affects other stuff instead of the window". Measured in his
+    # own model: one window change relaid 44 runs across the whole roof.
+    #
+    # So now only the two parts that actually carry the window are erased
+    # and built again, inside the dormer that is standing. The roof, the
+    # cheeks, the trim, the ridge cap and every tile are left untouched.
     def self.set_window!(dormer, settings = {})
       return nil if dormer.nil? || !dormer.respond_to?(:valid?) || !dormer.valid?
+      spec = dormer_spec(dormer)
+      return warn_nil('this gablet cannot be read') if spec.nil?
+      fr = frame(spec)
+      return nil if fr.nil?
+      at = at_lambda(spec)
+
       pick = lambda { |k| settings[k].nil? ? settings[k.to_sym] : settings[k] }
-      ch = { window: true, window_type: window_type_of(pick.call('window_type')) }
-      w = pick.call('width').to_f
-      h = pick.call('height').to_f
-      ch[:window_w] = w if w > 0.0
-      ch[:window_h] = h if h > 0.0
-      replace_dormer!(dormer, ch)
+      type = window_type_of(pick.call('window_type'))
+      r = window_rect(fr, pick.call('width').to_f, pick.call('height').to_f)
+      return nil if r.nil?
+
+      # the paint it is WEARING, read off the wall that is standing, so
+      # rebuilding one wall cannot repaint the gablet by accident.
+      names = wall_names_of(dormer) || begin
+        wm = house_wall_material
+        wm ? [wm] : nil
+      end
+
+      dormer.entities.grep(Sketchup::Group).to_a.each do |sub|
+        next unless sub.respond_to?(:valid?) && sub.valid?
+        part = sub.get_attribute('InteriorPro', 'part').to_s
+        sub.erase! if %w[dormer_front dormer_window].include?(part)
+      end
+
+      wall = if shed_like?(fr) || fr[:style] == 'hip'
+               build_shed_wall!(dormer, fr, at, names)
+             else
+               build_front_wall!(dormer, fr, at, names)
+             end
+      return warn_nil('the front wall could not be rebuilt') if wall.nil?
+      punch_window!(wall, fr, at, r)
+      build_window_body!(dormer, fr, at, r, spec.merge(window_type: type))
+
+      dormer.set_attribute('InteriorPro', 'window', true)
+      dormer.set_attribute('InteriorPro', 'window_type', type)
+      dormer.set_attribute('InteriorPro', 'window_w', r[:width])
+      dormer.set_attribute('InteriorPro', 'window_h', r[:height])
+      dormer
+    rescue StandardError => e
+      puts "[Dormer] set_window!: #{e.class}: #{e.message}"
+      nil
+    end
+
+    # The wall materials this gablet is actually wearing - the exterior
+    # texture and the interior colour - read off the front wall before it
+    # is erased. Same idea as cap_material for the roof slab.
+    def self.wall_names_of(dormer)
+      sub = dormer.entities.grep(Sketchup::Group).find do |s|
+        s.respond_to?(:valid?) && s.valid? &&
+          s.get_attribute('InteriorPro', 'part').to_s == 'dormer_front'
+      end
+      return nil if sub.nil?
+      names = sub.entities.grep(Sketchup::Face)
+                 .map { |f| f.material && f.material.name }.compact.uniq
+      ext = names.find { |n| !n.to_s.start_with?('#') }
+      int = names.find { |n| n.to_s.start_with?('#') }
+      return nil if ext.nil? && int.nil?
+      [ext, int]
+    rescue StandardError
+      nil
     end
 
     # What the Edit Window panel is allowed to ask for on THIS gablet:
@@ -1573,9 +1681,16 @@ module InteriorPro
       return nil if spec.nil?
       fr = frame(spec)
       return nil if fr.nil?
-      r = window_rect(fr)
-      return nil if r.nil?
-      { max_w: r[:width], max_h: r[:height],
+      cap_w = window_cap_w(fr)
+      return nil if cap_w < window_min_w
+      # the head is measured at the width this window actually has, so a
+      # narrow window is told about the extra height it may take.
+      now_w = spec[:window_w].to_f > 0.0 ?
+              [[spec[:window_w].to_f, window_min_w].max, cap_w].min :
+              [window_max_w, cap_w].min
+      cap_h = window_cap_h(fr, now_w)
+      return nil if cap_h < window_min_h
+      { max_w: cap_w, max_h: cap_h,
         min_w: window_min_w, min_h: window_min_h }
     rescue StandardError
       nil
@@ -1584,8 +1699,13 @@ module InteriorPro
     # The window group inside a dormer, when there is one.
     def self.window_of(dormer)
       return nil if dormer.nil? || !dormer.respond_to?(:entities)
+      # AN ERASED PART IS NOT A PART. set_window! erases the old window
+      # and builds a new one in the same dormer, and an erased group can
+      # still be sitting in the entity list - so the answer is the LIVE
+      # one, never the first one that happens to be there.
       dormer.entities.grep(Sketchup::Group).find do |s|
-        s.get_attribute('InteriorPro', 'part').to_s == 'dormer_window'
+        s.respond_to?(:valid?) && s.valid? &&
+          s.get_attribute('InteriorPro', 'part').to_s == 'dormer_window'
       end
     rescue StandardError
       nil
@@ -2640,7 +2760,15 @@ module InteriorPro
 
     # Delete a dormer AND close the hole it cut. One operation, so one
     # Ctrl+Z puts the whole thing back.
-    def self.remove_dormer!(g)
+    #
+    # ONE RELAY, AND ONLY AFTER THE NEW HOLE IS CUT (2026-09-08). A delete
+    # on its own still lays the field again here - the hole is closed and
+    # nothing else is coming. But when this is the FIRST half of an Edit or
+    # a Move, laying it now is both wasted and wrong: measured, an Edit
+    # relaid the whole roof while no dormer stood on it and then cut the
+    # new hole with nobody to tell, and a Move relaid twice. So those two
+    # pass no_relay and do it once themselves, at the end.
+    def self.remove_dormer!(g, opts = {})
       spec = dormer_spec(g)
       return false if spec.nil?
       ents = dormer_roof(g)
@@ -2650,7 +2778,7 @@ module InteriorPro
       heal_roof!(ents, fr, at_lambda(spec)) if ents && fr
       g.erase! if g.valid?
       heal_box!(ents, box) if ents
-      relay_runs!(roof) if roof && !@no_relay
+      relay_runs!(roof) if roof && !@no_relay && !opts[:no_relay]
       true
     rescue StandardError => e
       puts "[Dormer] remove_dormer!: #{e.class}: #{e.message}"
@@ -2683,8 +2811,13 @@ module InteriorPro
         wm = house_wall_material
         merged[:wall_names] = [wm] if wm
       end
-      remove_dormer!(g)
-      add_dormer!(ents, merged)
+      # the roof group has to be asked BEFORE the dormer goes - it is found
+      # by looking for the group that holds it.
+      roof = dormer_roof_group(g)
+      remove_dormer!(g, no_relay: true)
+      out = add_dormer!(ents, merged)
+      relay_runs!(roof) if roof && !@no_relay
+      out
     rescue StandardError => e
       puts "[Dormer] replace_dormer!: #{e.class}: #{e.message}"
       nil
