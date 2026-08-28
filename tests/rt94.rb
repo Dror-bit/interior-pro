@@ -49,6 +49,21 @@ require './room_manager'
 require './level_manager'
 require './roof_manager'
 
+# THE RAISED HEEL IS OFF IN HERE (2026-09-06). Every z in this suite was
+# measured when the roof's underside met the wall top exactly, and the
+# eave tail fell slope x overhang BELOW it. He asked for that tail to be
+# lifted level with the wall corner instead, which moves every roof up by
+# that same amount - so the whole roof, not this suite's subject, would be
+# under test. rt118 pins the heel itself; here it stays off, exactly the
+# way rt85 already switches off the abut cap.
+module InteriorPro
+  module RoofManager
+    def self.heel_lift(_overhang, _slope, _drop = 0.0)
+      0.0
+    end
+  end
+end
+
 $fails = 0
 def ok(n, c, x = nil)
   puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))

@@ -41,6 +41,21 @@ require './room_manager'
 require './level_manager'
 require './roof_manager'
 
+# THE RAISED HEEL IS OFF IN HERE (2026-09-06). Every z in this suite was
+# measured when the roof's underside met the wall top exactly, and the
+# eave tail fell slope x overhang BELOW it. He asked for that tail to be
+# lifted level with the wall corner instead, which moves every roof up by
+# that same amount - so the whole roof, not this suite's subject, would be
+# under test. rt118 pins the heel itself; here it stays off, exactly the
+# way rt85 already switches off the abut cap.
+module InteriorPro
+  module RoofManager
+    def self.heel_lift(_overhang, _slope, _drop = 0.0)
+      0.0
+    end
+  end
+end
+
 # THE ABUT HEIGHT CAP IS OFF IN HERE (2026-08-30). This suite is about
 # the settings stamp and the eave end cap, and it builds its shed at
 # 6:12 - which over this 153" reach ends 70" above the upper floor, so

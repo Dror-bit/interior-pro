@@ -23,6 +23,21 @@ require './sketchup_stub'
 require './roof_manager'
 require './dormer_manager'
 
+# THE GABLET HEEL IS OFF IN HERE (2026-09-06). Every number in this suite
+# was measured when the gablet's roof sat straight on its walls and its
+# eave tail hung overhang x pitch below them. He asked for the same raised
+# heel the house roof got, and chose that it ADDS to the typed height -
+# "העקב נוסף למספר" - so a typed 33 now comes out 35.5 and the overhang
+# does move z_eave. That is the new rule, pinned by rt119; this suite is
+# about something else, so here the heel stays off.
+module InteriorPro
+  module DormerManager
+    def self.dormer_heel(_overhang, _style, _pitch, _slope, _spec)
+      0.0
+    end
+  end
+end
+
 $fails = 0
 def ok(n, c, x = nil)
   puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))

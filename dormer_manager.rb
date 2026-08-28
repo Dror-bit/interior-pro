@@ -76,6 +76,34 @@ module InteriorPro
     #
     # Returns a hash of numbers, or nil when the sizes cannot make a
     # dormer (and says why, once, in the console).
+    USE_DORMER_HEEL = true unless const_defined?(:USE_DORMER_HEEL, false)
+
+    # How far the gablet's own eave tail falls below the wall it stands
+    # on: its overhang times ITS OWN pitch. A shed's pitch is its own
+    # (default: half the roof's); a flat gablet has none at all.
+    def self.dormer_heel(overhang, style, pitch, slope, spec)
+      return 0.0 unless USE_DORMER_HEEL
+      # A flat gablet has no pitch and so no falling tail - but its fascia
+      # still hangs below its deck, so it gets the drop like everyone else.
+      # (That is also what keeps flat identical to a shed at zero pitch,
+      # which rt101 pins.)
+      p = if style.to_s == 'flat'
+            0.0
+          elsif style.to_s == 'shed'
+            spec.key?(:pitch) ? spec[:pitch].to_f : slope.to_f / 2.0
+          else
+            pitch.to_f
+          end
+      # ITS OWN FASCIA DEPTH, AND ONLY THAT (2026-09-06). Same number and
+      # same reason as the house roof: the gablet's eave hangs that far
+      # below its deck, so standing the roof that far over its walls lands
+      # the underside of the eave ON them. He confirmed the gablet already
+      # reads right - "עובד מעולה בדורמר" - and this keeps it that way.
+      # Nothing changes size or shape; the roof simply sits higher.
+      l = fascia_depth(spec).to_f
+      l > 0.0 ? l : 0.0
+    end
+
     def self.frame(spec = {})
       slope = spec[:slope].to_f
       return warn_nil('the main roof has no slope') if slope <= 0.0
@@ -121,6 +149,39 @@ module InteriorPro
                  end
         return warn_nil('that height cannot be built on this roof') if
           length <= 0.0
+      end
+
+      # THE RAISED HEEL, ON THE GABLET TOO (2026-09-06). Same complaint,
+      # same fix as the house roof: the gablet's own eave tail hung
+      # overhang x pitch BELOW the wall top and ate into the front wall.
+      # The roof rides up by exactly that much - one extra step of length,
+      # because a gablet's roof has to keep dying into the main roof - and
+      # the walls grow with it, which is where the window gets its room.
+      #
+      # HE CHOSE WHAT THE PANEL'S NUMBER MEANS (2026-09-06): "העקב נוסף
+      # למספר" - type 33 on a 6" eave at 5:12 and the front wall comes out
+      # 35.5. That deliberately replaces the older rule that a typed height
+      # came back untouched and that the overhang never moved z_eave
+      # (rt97/rt99/rt102); those suites now switch the heel off and rt119
+      # pins the new behaviour.
+      #
+      # A FLAT gablet has no pitch and no tail, so it gets no heel.
+      # Kill switch: InteriorPro::DormerManager::USE_DORMER_HEEL = false.
+      #
+      # ONE EXTRA STEP OF LENGTH, MEASURED IN THE RIGHT UNITS. A gable's
+      # front wall grows length x slope, a SHED's grows length x (slope -
+      # its own pitch) - so the step that buys `heel` of wall is not the
+      # same number for the two. Measured: dividing a shed by the roof
+      # slope bought only 4.6" of the 9.25" it was owed.
+      heel = dormer_heel(oh, style_now, pitch, slope, spec)
+      if heel > 0.0
+        den = if style_now == 'shed'
+                p2 = spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
+                slope - p2
+              else
+                slope
+              end
+        length += heel / den if den > 0.0001
       end
 
       half     = width / 2.0

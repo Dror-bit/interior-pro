@@ -96,6 +96,53 @@ module InteriorPro
       walls_of(top_level)
     end
 
+    # THE RAISED HEEL (2026-09-06). Until today the roof deck's UNDERSIDE
+    # met the wall's top outer corner, so the eave tail dropped away below
+    # the wall and the corner was buried in the soffit. He asked for the
+    # real detail instead - "אני רוצה שהגג יישב על הפינה של הקיר שהפינה
+    # כביכול חשופה והיא נוגעת בתחילת האיבס" - the roof rides UP until the
+    # deck's underside AT THE EAVE TIP is level with that corner, and the
+    # gap this opens over the wall is built as wall. Builders call it a
+    # raised (energy) heel. The lift is exactly what the tail used to fall
+    # over the overhang: overhang x pitch.
+    #
+    # Kill switch: InteriorPro::RoofManager::USE_RAISED_HEEL = false puts
+    # every roof straight back where it was.
+    USE_RAISED_HEEL = true unless const_defined?(:USE_RAISED_HEEL, false)
+
+    # How far the eave assembly hangs BELOW the deck's underside at the
+    # tip: the fascia board's depth, and with a boxed soffit the flat
+    # plate that runs back from it to the wall - which is the piece that
+    # was swallowing the wall corner (measured 2026-09-06: 8" on his eave
+    # walls, exactly his fascia depth).
+    def self.eave_drop(s)
+      return 0.0 unless s[:fascia]
+      d = s[:fascia_depth].to_f
+      d > 0.0 ? d : 0.0
+    end
+
+    # WHAT THE LIFT IS, FINAL (2026-09-06). One number, and it MOVES the
+    # roof group - nothing in it changes size or shape, exactly as he can
+    # do by hand: "אתה בסך הכל מוריד את הגג... לא מגדיל כלום ולא מקטין
+    # כלום ולא משנה שום צורה".
+    #
+    # The number is the EAVE DROP alone - the fascia's depth. The eave
+    # assembly hangs that far below the deck, so standing the roof that
+    # far over the wall top lands the underside of the eave exactly ON the
+    # wall, "תושיב את קצה האיבס העליון שהוא פונה לכיוון הבית על קיר החוץ",
+    # and the eave itself fills the space it opened - which is why nothing
+    # has to be added to close it.
+    #
+    # Two earlier rounds are deliberately NOT here, both measured and both
+    # refused by him: overhang x pitch on its own left the eave box 8"
+    # into the wall, and overhang x pitch PLUS the drop stood the roof 5"
+    # too high and left a hole he could see through.
+    def self.heel_lift(_overhang, _slope, drop = 0.0)
+      return 0.0 unless USE_RAISED_HEEL
+      l = drop.to_f
+      l > 0.0 ? l : 0.0
+    end
+
     # Where the roof underside starts: the highest wall top (base_z + height).
     def self.eave_z(walls)
       walls.map do |w|
@@ -1588,7 +1635,8 @@ module InteriorPro
       end
 
       save_settings!(s)
-      z0 = eave_z(walls)
+      # the wall top, plus the raised heel (see heel_lift).
+      z0 = eave_z(walls) + heel_lift(s[:overhang], slope, eave_drop(s))
 
       model.start_operation('InteriorPro Roof', true)
       # WHO GETS ERASED is the whole of step 3 (2026-08-26). A rebuild
@@ -2217,6 +2265,15 @@ module InteriorPro
         build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
                                s[:overhang], framed, band_top, slope, cells)
       end
+      # NO BAND UNDER THE EAVE (2026-09-06). A first round filled the space
+      # the lift opened over each eave wall with a wall-thick prism, built
+      # into the ROOF group. He looked at it and refused it: "נראה כאילו
+      # הוספת קירות נוספים מתחת לגג... אז תמחק את רצועת הקיר הזאת ובאל
+      # תוסיף כלום פשוט תושיב את קצה האיבס העליון שהוא פונה לכיוון הבית
+      # על קיר החוץ". So nothing is added at all - the lift alone seats
+      # the eave's upper end on the exterior wall, and that is the whole
+      # change. (The gable triangles above are the old ones; they are not
+      # this, and they stay.)
       grp.entities.grep(Sketchup::Face).each do |f|
         next if f.material
         f.material = trim_mat
