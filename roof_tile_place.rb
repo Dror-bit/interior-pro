@@ -1182,6 +1182,18 @@ module InteriorPro
         # bar's own half height - so the bar covers exactly the stretches
         # where roof exists, and a split eave simply gets two bars.
         InteriorPro::RoofTileMath.spans_at(pu[:poly], mid, 1.0).each do |(u1, u2)|
+          # AND NEVER PAST THE METAL EDGE IT LANDS ON (2026-09-05). The deck
+          # runs a little further than the boards under it, and at a valley
+          # corner that little is visible: on the dormer the bar finished
+          # 1.56" past the metal edge, hanging over the main roof - "הוא
+          # יוצא החוצה הוא מעבר למטל אדג". A caller that knows where its
+          # metal edge ends says so, and the bar is cut there. No caller,
+          # no change: the house roof reads the deck exactly as before.
+          if opts[:u_range]
+            u1 = [u1, opts[:u_range][0].to_f].max
+            u2 = [u2, opts[:u_range][1].to_f].min
+          end
+          next if u2 - u1 < 1.0
           o = InteriorPro::RoofTileMath.unproject([u1, 0.0],
                                                   pu[:origin], pu[:u], pu[:v])
           out << { origin: o,

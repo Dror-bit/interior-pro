@@ -824,9 +824,15 @@ module InteriorPro
       return 0 if roof.nil?
       name = roof.get_attribute('InteriorPro', 'roof_material').to_s
       return 0 if name.empty?
-      return 0 unless InteriorPro::RoofTileMath.runs?(name)
       made = 0
+      # THE FIELD IS ONLY FOR A MATERIAL THAT HAS ONE. Shingles are drawn by
+      # the texture, so there are no pieces to lay - but the RIDGE still has
+      # a cap, exactly as the house's shingle roof does. That is why the cap
+      # sits outside this guard (2026-09-05: "בגגון בשינגלס תוסיף רידג׳
+      # קאפ").
+      runs = InteriorPro::RoofTileMath.runs?(name)
       g.entities.grep(Sketchup::Group).each do |sub|
+        next unless runs
         next unless sub.get_attribute('InteriorPro', 'part').to_s == 'dormer_roof'
         f = top_skin(sub)
         next if f.nil?
@@ -834,13 +840,15 @@ module InteriorPro
         next if planes.empty?
         mat = f.material
         made += InteriorPro::RoofTilePlace.place_runs!(
-          sub, planes, name, material: mat
+          sub, planes, name, material: mat, min_len: stub_len(name)
         ).to_i
         next unless InteriorPro::RoofTilePlace.respond_to?(:place_eave_bars!)
         made += InteriorPro::RoofTilePlace.place_eave_bars!(
-          sub, planes, name, material: mat
+          sub, planes, name, material: mat,
+          u_range: metal_edge_u(g, sub, planes.first)
         ).to_i
       end
+      made += place_ridge_cap!(g, name, cap_material(g))
       puts "[Dormer] tiles on the dormer: #{made}"
       made
     rescue StandardError => e
@@ -870,6 +878,231 @@ module InteriorPro
       zs.empty? ? 0.0 : zs.inject(:+) / zs.length
     rescue StandardError
       0.0
+    end
+
+    # A ROOF FACE REDUCED TO WHAT ridge_lines ASKS FOR: its outline and its
+    # normal. The two dormer slopes live in two SEPARATE sub-groups, so the
+    # cap walk cannot be handed the faces themselves - it would compare two
+    # sets of local coordinates and find no shared edge at all. Each face is
+    # lifted into the dormer group's own space first, and RoofManager reads
+    # `pts` and `normal` off this exactly as it reads them off a real face.
+    class CapFace
+      attr_reader :pts, :normal
+
+      def initialize(pts, normal)
+        @pts = pts
+        @normal = normal
+      end
+    end
+
+    # THE SAME RIDGE CAP THE HOUSE WEARS (2026-09-05). The dormer's two
+    # slopes meet on one line - w = 0, from the back where it dies into the
+    # main roof out to the front over its own gable - and that line is a
+    # ridge by exactly the test the house's own ridges pass: two planes, one
+    # each side, both descending away from it.
+    #
+    # RIDGE_CAP_OVERSHOOT is 0, so the cap ends precisely where the ridge
+    # line does and runs neither into the main roof at the back nor past the
+    # rake at the front. Boards meet; they never run inside each other.
+    #
+    # A SHED dormer has one slope and no ridge, so ridge_lines hands back
+    # nothing and this quietly lays none - the same answer build_roof! gives
+    # a shed roof.
+    def self.place_ridge_cap!(g, shape_name, mat)
+      rm = roof_manager
+      return 0 if rm.nil? || !rm.respond_to?(:build_ridge_caps!) ||
+                  !rm.respond_to?(:ridge_lines)
+      faces = []
+      g.entities.grep(Sketchup::Group).each do |sub|
+        next unless sub.get_attribute('InteriorPro', 'part').to_s == 'dormer_roof'
+        f = top_skin(sub)
+        next if f.nil?
+        tr = sub.transformation
+        n = f.normal.transform(tr)
+        n = n.reverse if n.z < 0
+        faces << CapFace.new(f.vertices.map { |v| v.position.transform(tr) }, n)
+      end
+      return 0 if faces.length < 2
+      lines = rm.ridge_lines(faces)
+      return 0 if lines.empty?
+      lines = trim_cap_lines(g, lines, faces, cap_half(rm, shape_name))
+      before = ridge_cap_count(g)
+      rm.build_ridge_caps!(g, lines, nil, mat, shape_name)
+      ridge_cap_count(g) - before
+    rescue StandardError => e
+      puts "[Dormer] place_ridge_cap!: #{e.message}"
+      0
+    end
+
+    # WHERE THE METAL EDGE ACTUALLY ENDS, in this plane's own u
+    # (2026-09-05: "הוא יוצא החוצה הוא מעבר למטל אדג").
+    #
+    # The deck is built to run a little past the boards under it, and at the
+    # valley corner that little shows: measured in his model the eave bar
+    # finished at 92.36 while the metal edge stopped at 90.80 - 1.56" of bar
+    # hanging over the main roof with nothing under it. THE BOARD IT LANDS
+    # ON is the measure, not the deck, so the metal edge is asked directly
+    # and the bar is cut where it ends. Measured, never assumed: a different
+    # overhang or a different valley answers for itself.
+    def self.metal_edge_u(g, sub, plane)
+      return nil if plane.nil?
+      pu = InteriorPro::RoofTileMath.plane_uv(plane[:points], plane[:n])
+      return nil if pu.nil?
+      inv = sub.transformation.inverse
+      us = []
+      g.entities.grep(Sketchup::Group).each do |d|
+        next unless d.get_attribute('InteriorPro', 'part').to_s == 'dormer_drip'
+        t = inv * d.transformation
+        d.entities.grep(Sketchup::Face).each do |f|
+          f.vertices.each do |v|
+            q = v.position.transform(t)
+            us << InteriorPro::RoofTileMath.project(
+              [q.x.to_f, q.y.to_f, q.z.to_f], pu[:origin], pu[:u], pu[:v]
+            )[0]
+          end
+        end
+      end
+      return nil if us.empty?
+      [us.min, us.max]
+    rescue StandardError
+      nil
+    end
+
+    # NO STUB IN THE BACK CORNER (2026-09-05, he circled it on the dormer:
+    # "הבעיה לא היתה בקאפ אלא באחד הפאנלים בסוף הגג").
+    #
+    # A dormer slope is a TRAPEZOID that closes to nothing at the back, so
+    # the last seam line before the valley crosses only a sliver of roof.
+    # Measured in his model: five ribs 26.87" long and one 4.00" long, alone
+    # in the corner, reading as a loose tab hanging over the main roof.
+    #
+    # RoofTilePlace already has the rule - min_run_len, "a sliver at the tip
+    # of a hip gets nothing, half a pipe poking out of a corner looks worse
+    # than a bare stretch of texture". Its 3" was set for the clay tile's
+    # short courses on a house roof. On a dormer the measure is the cap: a
+    # run no longer than the ridge cap is wide is a scrap in the corner the
+    # cap and the valley already close, not a panel. Nothing on the house
+    # roof changes - this number is handed to the dormer's runs only.
+    def self.stub_len(shape_name)
+      rm = roof_manager
+      w = rm.respond_to?(:cap_width_for) ? rm.cap_width_for(shape_name).to_f : 0.0
+      d = if defined?(InteriorPro::RoofTilePlace) &&
+             InteriorPro::RoofTilePlace.respond_to?(:min_run_len)
+            InteriorPro::RoofTilePlace.min_run_len.to_f
+          else
+            0.0
+          end
+      [w, d].max
+    rescue StandardError
+      0.0
+    end
+
+    # THE CAP CANNOT END ON A NEEDLE (2026-09-05, he circled it: "תראה
+    # שאחת הקצוות יוצאות החוצה").
+    #
+    # A gable dormer's two slopes are TRAPEZOIDS, not rectangles: at the
+    # front they are the full deck width, and they close to NOTHING at the
+    # back, where the dormer dies into the main roof. The ridge line runs
+    # the whole way, so a cap laid along all of it runs past the valleys
+    # in the last few inches and its corners hang in the air over the main
+    # roof. Measured in his model: 3.54" out at the back end, which is
+    # exactly half the cap on a 45 degree valley.
+    #
+    # So each end is walked INWARDS until the roof under it can carry the
+    # cap's full width - both edges, not just the centre line. The front
+    # end is already full width and does not move at all. The number is
+    # never assumed: it is asked of the outline, so a shallower valley or
+    # a wider cap answers for itself.
+    def self.trim_cap_lines(g, lines, faces, half)
+      polys = faces.map { |cf| cf.pts.map { |q| [q.x.to_f, q.y.to_f] } }
+      return lines if polys.empty? || half <= 0.0
+      lines.map do |(ka, za, kb, zb, sides)|
+        len = Math.hypot(kb[0] - ka[0], kb[1] - ka[1])
+        next [ka, za, kb, zb, sides] if len < 1.0e-6
+        d = [(kb[0] - ka[0]) / len, (kb[1] - ka[1]) / len]
+        u = [-d[1], d[0]]
+        a = die_in?(g, ka, za) ? cap_end_in(ka, d, u, half, polys, len) : ka
+        b = die_in?(g, kb, zb) ? cap_end_in(kb, [-d[0], -d[1]], u, half, polys, len) : kb
+        [a, za, b, zb, sides]
+      end
+    end
+
+    # ONLY AN END THAT DIES INTO THE HOUSE ROOF IS PULLED BACK (2026-09-05).
+    #
+    # The first cut of this walked BOTH ends in, and on a HIP dormer that
+    # ate the caps on the two diagonals: "שהיפ הוא לא יושב עד הסופ
+    # באלכסונים". A hip's lower end is the dormer's own outer corner - the
+    # roof narrows to a point there just as it does at a valley, and a cap
+    # running out to that corner is what every hip on the house does.
+    #
+    # The end that must be pulled back is the other kind: the one that lands
+    # ON the main roof's surface, where the dormer dies into it and the cap
+    # would otherwise hang over the house. One test tells them apart, and it
+    # is a measurement: is this end at the height the house roof has at that
+    # spot? The dormer carries the roof plane it was placed on - z0, slope,
+    # base and along - so the answer is exact.
+    def self.die_in?(g, k, z)
+      z0 = g.get_attribute('InteriorPro', 'z0').to_f
+      sl = g.get_attribute('InteriorPro', 'slope').to_f
+      base = Array(g.get_attribute('InteriorPro', 'base_xy')).map(&:to_f)
+      # `s` RUNS ALONG `into`, NOT ALONG `along` - see at_lambda: the frame
+      # is base + into*s + along*w. Reading the wrong one measured the
+      # ridge's die-in across the dormer instead of up the slope and the
+      # test came back false everywhere.
+      into = Array(g.get_attribute('InteriorPro', 'into_xy')).map(&:to_f)
+      along = Array(g.get_attribute('InteriorPro', 'along_xy')).map(&:to_f)
+      into = [-along[1], along[0]] if into.length < 2 && along.length >= 2
+      return false if base.length < 2 || into.length < 2
+      s = ((k[0] - base[0]) * into[0]) + ((k[1] - base[1]) * into[1])
+      (z.to_f - (z0 + (s * sl))).abs < 2.0
+    rescue StandardError
+      false
+    end
+
+    # Walk one end in until BOTH edges of the cap land on roof. Gives the
+    # end back untouched when nothing on the way in carries it, so a shape
+    # this was never written for keeps exactly the cap it had.
+    def self.cap_end_in(k, d, u, half, polys, len)
+      t = 0.0
+      step = 0.25
+      while t <= len / 2.0
+        p = [k[0] + (d[0] * t), k[1] + (d[1] * t)]
+        carried = [-1.0, 1.0].all? do |sg|
+          q = [p[0] + (u[0] * half * sg), p[1] + (u[1] * half * sg)]
+          polys.any? { |pl| InteriorPro::RoofTileMath.poly_contains?(pl, q) }
+        end
+        return [p[0], p[1]] if carried
+        t += step
+      end
+      k
+    end
+
+    def self.cap_half(rm, shape_name)
+      return 0.0 unless rm.respond_to?(:cap_width_for)
+      rm.cap_width_for(shape_name).to_f / 2.0
+    rescue StandardError
+      0.0
+    end
+
+    def self.ridge_cap_count(g)
+      g.entities.grep(Sketchup::Group).count do |s|
+        s.get_attribute('InteriorPro', 'part').to_s == 'ridge_cap'
+      end
+    rescue StandardError
+      0
+    end
+
+    # The cap rides on the roof, so it wears the roof's material - read off
+    # the dormer's own slab, which already carries the house's.
+    def self.cap_material(g)
+      g.entities.grep(Sketchup::Group).each do |sub|
+        next unless sub.get_attribute('InteriorPro', 'part').to_s == 'dormer_roof'
+        f = top_skin(sub)
+        return f.material unless f.nil? || f.material.nil?
+      end
+      nil
+    rescue StandardError
+      nil
     end
 
     # One line for the console: a dormer in the middle of the biggest
@@ -1884,38 +2117,19 @@ module InteriorPro
       end
       unless real.empty?
         done = 0
-        real.each do |lp, host|
-          next unless lp.valid?
-          m = mat || (host.valid? ? host.material : nil)
-          skinned = lp.edges.any? do |e|
-            e.valid? &&
-              e.faces.count { |f| f.valid? && f.normal.z.abs > 0.2 } >= 2
-          end
-          lp.edges.each { |e| e.find_faces if e.valid? } unless skinned
-          rim = []
-          lp.edges.each do |e|
-            next unless e.valid?
-            e.faces.each { |f| rim << f if f.valid? && f.normal.z.abs < 0.2 }
-          end
-          rim.uniq!
-          ents.erase_entities(rim) unless rim.empty?
-          next unless lp.valid?
-          seam = lp.edges.select do |e|
-            next false unless e.valid?
-            fs = e.faces.select(&:valid?)
-            fs.length == 2 && fs[0].normal.dot(fs[1].normal).abs > 0.999
-          end
-          seam.each do |e|
-            e.faces.each do |f|
-              next unless f.valid? && m
-              f.material = m
-              f.back_material = m
-            end
-          end
-          ents.erase_entities(seam) unless seam.empty?
-          done += 1
+        real.each { |lp, host| done += 1 if close_loop!(ents, lp, host, mat) }
+        # AND ANY SCRATCH LEFT ANYWHERE OVER THIS OPENING. A rim face that
+        # was already gone - erased by an earlier pass, or by the user -
+        # left its uprights behind with nothing holding them. They are only
+        # ever inside the opening, so the plan test is the whole safety net.
+        stray = ents.grep(Sketchup::Edge).select do |e|
+          next false unless e.valid? && e.faces.empty?
+          in_plan?(plan, at, e.start.position.x, e.start.position.y, 0.5) &&
+            in_plan?(plan, at, e.end.position.x, e.end.position.y, 0.5)
         end
-        puts "[Dormer] hole closed: #{done} opening(s) skinned and merged"
+        ents.erase_entities(stray) unless stray.empty?
+        puts "[Dormer] hole closed: #{done} opening(s) skinned and merged" \
+             "#{stray.empty? ? '' : ", #{stray.length} bare line(s) erased"}"
         return done
       end
 
@@ -1954,6 +2168,119 @@ module InteriorPro
       0
     end
 
+    # CLOSE ONE OPENING. Lifted out of heal_roof! unchanged (2026-09-05) so
+    # the delete can run it again on anything the frame walk missed - see
+    # heal_box!. Skin, then rim, then seam, in that order: find_faces
+    # rebuilds every face those edges can bound, the rim included.
+    def self.close_loop!(ents, lp, host, mat)
+      return false unless lp.respond_to?(:valid?) && lp.valid?
+      m = mat || (host && host.valid? ? host.material : nil)
+      skinned = lp.edges.any? do |e|
+        e.valid? && e.faces.count { |f| f.valid? && f.normal.z.abs > 0.2 } >= 2
+      end
+      lp.edges.each { |e| e.find_faces if e.valid? } unless skinned
+      rim = []
+      lp.edges.each do |e|
+        next unless e.valid?
+        e.faces.each { |f| rim << f if f.valid? && f.normal.z.abs < 0.2 }
+      end
+      rim.uniq!
+      # THE EDGES THE RIM WAS MADE OF, KEPT BEFORE IT GOES (2026-09-05).
+      # Erasing a face does NOT take its edges: the four upright corners of
+      # the cut had nothing left to bound and stayed in the model as bare
+      # lines drawn on the roof - "הוא משאיר סימן של הקווים של החור".
+      bare = rim.flat_map { |f| f.respond_to?(:edges) ? f.edges : [] }.uniq
+      ents.erase_entities(rim) unless rim.empty?
+      bare = bare.select { |e| e.valid? && e.faces.empty? }
+      ents.erase_entities(bare) unless bare.empty?
+      return false unless lp.valid?
+      seam = lp.edges.select do |e|
+        next false unless e.valid?
+        fs = e.faces.select(&:valid?)
+        fs.length == 2 && fs[0].normal.dot(fs[1].normal).abs > 0.999
+      end
+      seam.each do |e|
+        e.faces.each do |f|
+          next unless f.valid? && m
+          f.material = m
+          f.back_material = m
+        end
+      end
+      ents.erase_entities(seam) unless seam.empty?
+      true
+    rescue StandardError => e
+      puts "[Dormer] close_loop!: #{e.message}"
+      false
+    end
+
+    # THE DORMER'S OWN FOOTPRINT IN PLAN, grown a little. Not the frame -
+    # the GEOMETRY that is standing there. See heal_box!.
+    def self.dormer_plan_box(g, grow = 1.0)
+      xs = []
+      ys = []
+      walk = lambda do |ents, tr|
+        ents.grep(Sketchup::Face).each do |f|
+          f.vertices.each do |v|
+            q = v.position.transform(tr)
+            xs << q.x.to_f
+            ys << q.y.to_f
+          end
+        end
+        ents.grep(Sketchup::Group).each { |sub| walk.call(sub.entities, tr * sub.transformation) }
+      end
+      walk.call(g.entities, g.transformation)
+      return nil if xs.empty?
+      [xs.min - grow, xs.max + grow, ys.min - grow, ys.max + grow]
+    rescue StandardError
+      nil
+    end
+
+    # THE SAFETY NET UNDER DELETE AND MOVE (2026-09-05).
+    #
+    # heal_roof! closes the opening it can REBUILD from the dormer's saved
+    # numbers. When that rebuild does not land exactly on the hole that is
+    # really there - a frame that comes back nil, a roof rebuilt underneath
+    # it, a shed whose length was re-derived - remove_dormer! erased the
+    # dormer anyway and the hole stayed open. Measured in his model: three
+    # dormers standing and four holes ("נישאר חור בגג").
+    #
+    # So after the dormer is gone, anything still open INSIDE THE FOOTPRINT
+    # IT OCCUPIED is closed too. The footprint is the geometry's own, not a
+    # recomputed frame, and two dormers never share one - so this can only
+    # ever close the hole the deleted dormer left. Every style goes through
+    # here: gable, hip, shed and flat all delete through remove_dormer!.
+    def self.heal_box!(ents, box, mat = nil)
+      return 0 if box.nil?
+      inb = lambda do |p|
+        p.x.to_f >= box[0] && p.x.to_f <= box[1] &&
+          p.y.to_f >= box[2] && p.y.to_f <= box[3]
+      end
+      real = []
+      ents.grep(Sketchup::Face).each do |f|
+        next if f.normal.z.abs < 0.2
+        next unless f.respond_to?(:loops) && f.loops.length > 1
+        f.loops.each do |lp|
+          next if lp.outer?
+          next unless lp.vertices.map(&:position).all? { |p| inb.call(p) }
+          real << [lp, f]
+        end
+      end
+      done = 0
+      real.each { |lp, host| done += 1 if close_loop!(ents, lp, host, mat) }
+      stray = ents.grep(Sketchup::Edge).select do |e|
+        e.valid? && e.faces.empty? &&
+          inb.call(e.start.position) && inb.call(e.end.position)
+      end
+      ents.erase_entities(stray) unless stray.empty?
+      unless done.zero? && stray.empty?
+        puts "[Dormer] left over and closed: #{done} hole(s), #{stray.length} bare line(s)"
+      end
+      done
+    rescue StandardError => e
+      puts "[Dormer] heal_box!: #{e.message}"
+      0
+    end
+
     # Delete a dormer AND close the hole it cut. One operation, so one
     # Ctrl+Z puts the whole thing back.
     def self.remove_dormer!(g)
@@ -1962,8 +2289,10 @@ module InteriorPro
       ents = dormer_roof(g)
       roof = dormer_roof_group(g)
       fr = frame(spec)
+      box = dormer_plan_box(g)
       heal_roof!(ents, fr, at_lambda(spec)) if ents && fr
       g.erase! if g.valid?
+      heal_box!(ents, box) if ents
       relay_runs!(roof) if roof && !@no_relay
       true
     rescue StandardError => e
@@ -1985,6 +2314,18 @@ module InteriorPro
       merged.reject! { |_k, v| v.nil? }
       merged.delete(:length) if changes.key?(:height) && changes[:height]
       return nil if frame(merged).nil?
+      # THE MATERIALS ARE NOT IN THE SPEC (2026-09-05). dormer_spec saves
+      # numbers - the materials were never attributes, they were handed in
+      # by place_on_roof! off the roof and off the house wall. So an EDIT,
+      # which rebuilds straight through add_dormer!, put back a dormer with
+      # a bare roof and white walls: "אני לוחץ על עריכת כל גמלון הגג שלו
+      # מאבד את הצבע". Asked off the dormer that is standing here, before
+      # it goes - the roof's own skin is the truest answer there is.
+      merged[:roof_material] = cap_material(g) if merged[:roof_material].nil?
+      if merged[:wall_names].nil?
+        wm = house_wall_material
+        merged[:wall_names] = [wm] if wm
+      end
       remove_dormer!(g)
       add_dormer!(ents, merged)
     rescue StandardError => e

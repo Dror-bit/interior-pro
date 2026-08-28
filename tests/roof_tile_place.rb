@@ -274,6 +274,9 @@ module InteriorPro
                   InteriorPro::RoofTileParts.ridge_setback(s)
                 end
       stagger = s[:stagger] == true
+      # OUT TO THE WALL'S OUTER FACE - see grow_poly. The deck's hole is the
+      # rough opening, one wall thickness in from where the tile has to stop.
+      grow = (opts[:hole_grow] || 0.0).to_f
       # HALF THE TILE AS IT IS DRAWN - the number the span is measured with
       # below. flat_tile builds the plate one joint in from the pitch on each
       # side, so this is its real half width and not half the spacing.
@@ -304,6 +307,17 @@ module InteriorPro
         vclips = flat_valley_clips(pu, opts[:valleys],
                                    InteriorPro::RoofTileParts.cap_w(s) / 2.0)
         cclips = cover_clips(pl, pu, planes)
+        # THE DORMERS STANDING ON THIS PLANE (2026-09-03), in its own u/v.
+        # The run materials subtract them from the run's span; a plate is not
+        # a span, so it is clipped instead - see clip_outside_poly.
+        holes_uv = (pl[:holes] || []).map do |h|
+          InteriorPro::RoofTileMath.grow_poly(
+            h.map do |q|
+              pr = InteriorPro::RoofTileMath.project(q, pu[:origin], pu[:u], pu[:v])
+              [pr[0], pr[1]]
+            end, grow, :walls
+          )
+        end
         # The columns are the same list every course; only the phase moves.
         cols = sheet_slots(pu[:u_span].to_f, pitch)
         k = 0
@@ -369,6 +383,15 @@ module InteriorPro
                                                       cc[:line][1])
                 )
               end
+              break if poly.length < 3
+            end
+            next if poly.length < 3
+            # ...and cut out of any dormer standing on this plane. A tile
+            # wholly inside one is gone; one on its edge keeps only the part
+            # outside it, so the field STOPS at the dormer wall instead of
+            # running under it.
+            holes_uv.each do |h|
+              poly = InteriorPro::RoofTileMath.clip_outside_poly(poly, h)
               break if poly.length < 3
             end
             next if poly.length < 3
@@ -752,6 +775,13 @@ module InteriorPro
               else
                 0.0
               end
+      # HALF THE PIECE AS IT IS DRAWN, across the slope. A rib is a narrow
+      # bar on a wide grid; a pipe covers nearly its whole pitch.
+      half_piece = if InteriorPro::RoofTileMath.seam?(shape_name)
+                     InteriorPro::RoofTileParts.seam_w(s) / 2.0
+                   else
+                     InteriorPro::RoofTileParts.run_cover_w(s) / 2.0
+                   end
       out = []
       (planes || []).each do |pl|
         pu = InteriorPro::RoofTileMath.plane_uv(pl[:points], pl[:n])
@@ -770,8 +800,36 @@ module InteriorPro
                                                          pitch, margin: margin)
                   end
         # the dormers standing on THIS plane, in its own u/v
+        # OUT TO THE WALL, AND ON THE CHEEKS ONLY AS FAR AS THE PIECE
+        # REALLY SHOWS.
+        #
+        # The first push lands the hole on the OUTER face of the dormer's
+        # walls, which is where every material has to stop.
+        #
+        # A run, though, is cut where its CENTRE LINE meets the hole while
+        # its body is half_piece wide either side of it - so beside a cheek a
+        # 14" pipe can still reach 7" in. UNDER THE WALL IS NOT A PROBLEM:
+        # that is where the flashing goes and nobody sees it, and taking the
+        # whole run out for it opens a foot-wide bare lane up both sides -
+        # "יותר מידי פתחים". What must not happen is a piece coming out the
+        # far side, PAST the inner face and into the room. So the cheeks get
+        # only what is left over: half the piece less the wall it can hide
+        # in. On the seam, whose rib is 1" against a 5" wall, that is nothing
+        # at all.
+        # How much wall a piece is allowed to hide under: the dormer's wall
+        # thickness. The deck's hole now stops on the wall's OUTER face, so
+        # a piece may reach as far as the wall is thick and no further -
+        # past that it is out the other side, in the room.
+        extra = half_piece - (opts[:wall_th] || opts[:hole_grow] || 0.0).to_f
+        extra = 0.0 if extra.negative?
         holes_uv = (pl[:holes] || []).map do |h|
-          h.map { |p| InteriorPro::RoofTileMath.project(p, pu[:origin], pu[:u], pu[:v]) }
+          flat = h.map do |p|
+            InteriorPro::RoofTileMath.project(p, pu[:origin], pu[:u], pu[:v])
+          end
+          flat = InteriorPro::RoofTileMath.grow_poly(
+            flat, (opts[:hole_grow] || 0.0).to_f, :walls
+          )
+          InteriorPro::RoofTileMath.grow_poly(flat, extra, :sides)
         end
         slots_u.each do |c|
           uu = c + u_off
@@ -964,6 +1022,60 @@ module InteriorPro
     # ones away and lays them again off the faces as they are NOW: the same
     # thing a full rebuild does, but for this one roof and without touching
     # anything else standing on it.
+    # WHICH PIECES ARE THE FIELD (2026-09-03).
+    #
+    # This threw away every instance whose DEFINITION NAME starts with
+    # IP_TileRun - which is only the generated pipe. A flat tile's definition
+    # is IP_TileFlatWedge, pressed metal is IP_TileSheet, and the user's own
+    # Spanish tile is a component out of HIS file with a name of its own. On
+    # those three nothing was erased at all: the new field was laid on top of
+    # the old one, and both things he reported on 2026-09-03 follow from that
+    # single line - twice the tile round a gable, and no hole where the dormer
+    # stands, because the tiles covering it are the OLD ones, laid before the
+    # dormer existed ("שלא נוצר חור ברעפים בספניש ובטיל המרובעים... הספאניש
+    # מכפיל את כמות הטיל מסביב לגמלון").
+    #
+    # Every generated piece stamps its own `part` on its DEFINITION, so ask
+    # that instead of the name. The asset tile carries no stamp - it is his
+    # file, not ours - so it is matched by identity.
+    #
+    # A METHOD, not a constant: a list that grows has to survive reload!.
+    def self.field_parts
+      %w[tile_run tile_sheet tile_flat]
+    end
+
+    def self.field_part?(part)
+      field_parts.include?(part.to_s)
+    end
+
+    # THE EAVE BAR AND THE RIDGE CAP ARE NOT THE FIELD. The bar's definition
+    # is stamped 'tile_edge' and the cap is a group, and relay_runs! does not
+    # lay either of them again - erasing them would leave the roof without the
+    # frame the panels die into.
+    def self.field_piece?(defn, asset = nil)
+      return false if defn.nil?
+      return true if asset && asset[:defn] && defn.equal?(asset[:defn])
+      return true if field_part?(defn.get_attribute('InteriorPro', 'part'))
+      defn.name.to_s.start_with?('IP_TileRun')
+    rescue StandardError
+      false
+    end
+
+    # HOW FAR PAST THE DECK'S HOLE THE TILES HAVE TO STOP. The dormers
+    # standing on this roof carry their own wall thickness, so it is asked
+    # rather than assumed; with no dormer at all this is 0 and every hole is
+    # used exactly as the face gives it.
+    def self.dormer_wall_thickness(roof)
+      return 0.0 if roof.nil? || !roof.respond_to?(:entities)
+      ths = roof.entities.grep(Sketchup::Group).map do |g|
+        next nil unless g.get_attribute('InteriorPro', 'type') == 'dormer'
+        g.get_attribute('InteriorPro', 'thickness').to_f
+      end.compact.select(&:positive?)
+      ths.empty? ? 0.0 : ths.max
+    rescue StandardError
+      0.0
+    end
+
     def self.relay_runs!(roof, opts = {})
       return 0 if roof.nil? || !roof.respond_to?(:entities)
       name = (opts[:shape] ||
@@ -974,9 +1086,11 @@ module InteriorPro
       faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
       return 0 if faces.empty?
       mat = opts[:material] || faces.max_by(&:area).material
+      asset = InteriorPro::RoofTileParts.asset_tile(
+        opts[:model] || Sketchup.active_model, name
+      )
       old = ents.grep(Sketchup::ComponentInstance).select do |i|
-        d = i.definition
-        d && d.name.to_s.start_with?('IP_TileRun')
+        field_piece?(i.definition, asset)
       end
       old += ents.grep(Sketchup::Group).select do |g|
         g.get_attribute('InteriorPro', 'part').to_s == 'tile_flat_cut'
@@ -984,7 +1098,9 @@ module InteriorPro
       ents.erase_entities(old) unless old.empty?
       faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
       place_runs!(roof, planes_from_faces(faces), name,
-                  model: opts[:model], material: mat)
+                  model: opts[:model], material: mat,
+                  hole_grow: opts[:hole_grow] || 0.0,
+                  wall_th: opts[:wall_th] || dormer_wall_thickness(roof))
     rescue StandardError => e
       puts "[RoofTiles] relay_runs!: #{e.message}"
       0
@@ -1066,6 +1182,18 @@ module InteriorPro
         # bar's own half height - so the bar covers exactly the stretches
         # where roof exists, and a split eave simply gets two bars.
         InteriorPro::RoofTileMath.spans_at(pu[:poly], mid, 1.0).each do |(u1, u2)|
+          # AND NEVER PAST THE METAL EDGE IT LANDS ON (2026-09-05). The deck
+          # runs a little further than the boards under it, and at a valley
+          # corner that little is visible: on the dormer the bar finished
+          # 1.56" past the metal edge, hanging over the main roof - "הוא
+          # יוצא החוצה הוא מעבר למטל אדג". A caller that knows where its
+          # metal edge ends says so, and the bar is cut there. No caller,
+          # no change: the house roof reads the deck exactly as before.
+          if opts[:u_range]
+            u1 = [u1, opts[:u_range][0].to_f].max
+            u2 = [u2, opts[:u_range][1].to_f].min
+          end
+          next if u2 - u1 < 1.0
           o = InteriorPro::RoofTileMath.unproject([u1, 0.0],
                                                   pu[:origin], pu[:u], pu[:v])
           out << { origin: o,
