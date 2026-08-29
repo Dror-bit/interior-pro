@@ -3882,8 +3882,8 @@ module InteriorPro
         # clipped to THIS poly edge, and following the TRUE roof
         # silhouette (2026-08-09 - it used to run the whole end-plane
         # line and bridge straight over the wing roof, in mid-air).
-        chain = edge_profile_chain(poly, i, zmap, surface: surf,
-                                   reach: framed_edge_span(framed, poly, i, owners))
+        rch = framed_edge_span(framed, poly, i, owners)
+        chain = edge_profile_chain(poly, i, zmap, surface: surf, reach: rch)
         next if chain.nil?
         cov = if framed
                 lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
@@ -3903,8 +3903,24 @@ module InteriorPro
         # where the wing roof meets the main one, or the hole under that
         # wing stays open (rt17, rt86, 2026-08-09). There the chain is
         # already cut to `reach` and needs no help from here.
-        lo, hi = framed ? [-1.0e12, 1.0e12]
-                        : wall_span_on_edge(wall, a, d, vlen(vsub(b, a)), th)
+        # ...BUT NEVER INTO THE OVERHANG AT THE EDGE'S OWN ENDS
+        # (2026-09-08, his photo: the wing's triangle poked past the
+        # rakes). The eave polygon runs one overhang PAST the corner
+        # walls, so an unclipped framed chain grew a stub out there -
+        # 12" of wall standing in the rake overhang, a few inches tall.
+        # The framed span stays wider than the wall itself (rt86 - it
+        # may bridge a wing mouth mid-edge), but it now stops where the
+        # corner walls' centrelines stand: one overhang in from each end.
+        # The clip is taken off the OWNING RECT's span (rch), not off
+        # this poly edge - a bridging wall's chain runs past its own
+        # edge (rt17/rt86), and a clip in edge-space cut the bridge.
+        lo, hi = if framed && rch
+                   [rch[0] + overhang.to_f, rch[1] - overhang.to_f]
+                 elsif framed
+                   [-1.0e12, 1.0e12]
+                 else
+                   wall_span_on_edge(wall, a, d, vlen(vsub(b, a)), th)
+                 end
         # MEASURE THE ROOF WHERE THE WALL ACTUALLY STANDS (2026-08-26).
         #
         # This used to copy the profile off the roof EDGE and draw it at
