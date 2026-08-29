@@ -1720,8 +1720,9 @@ module InteriorPro
         ridge = build_flat_geometry!(grp, poly, z0, roof_mat, trim_mat)
         band_top = z0
       elsif framed
+        valley_edges = []
         ridge, zmap = build_framed_geometry!(grp, framed, z0, slope, s[:overhang],
-                                             roof_mat, trim_mat)
+                                             roof_mat, trim_mat, valley_edges)
         band_top = z0 - slope * s[:overhang]
       else
         ridge, zmap = build_hip_geometry!(grp, poly, cells, z0, slope, s[:overhang],
@@ -1742,6 +1743,13 @@ module InteriorPro
       # underside - is covered instead of poking through the shingles.
       # Everything downstream keeps using the UNDERSIDE zmap, so the
       # fascia, the rake and the gable walls do not move at all.
+      # THE SLAB EDGE NEEDS THE SILHOUETTE TOO (2026-09-08). `surf` was
+      # born further down, so build_slab_edge! ran without it and its
+      # chain fell back to the "upper envelope" rule, which deletes a
+      # legitimate low break point - the west strip ran straight from
+      # the eave corner to the ridge point and drew the diagonal line.
+      # Same lambda, just created earlier; nil on hip/flat as before.
+      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       dz = slab_lift(s[:thickness], s[:style] == 'flat' ? 0.0 : slope)
       shell_before = grp.entities.grep(Sketchup::Face)
       if dz > 0.001
@@ -1754,7 +1762,35 @@ module InteriorPro
           build_hip_geometry!(grp, poly, cells, z0 + dz, slope, s[:overhang],
                               roof_mat, roof_mat)
         end
-        build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat)
+        build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat, surface: surf)
+        # THE VALLEYS GET A SIDE TOO (2026-09-08). build_slab_edge! walks
+        # the OUTLINE only; a wing\x27s dive onto its parent plane is an
+        # interior line, so its two skins stood open there - the hollow
+        # and the bare diagonal edge in his photos. The same strip the
+        # outline gets, on the valley lines the framed builder recorded.
+        if framed && defined?(valley_edges) && valley_edges
+          valley_edges.each do |c, p2, zc, zp|
+            pts = [Geom::Point3d.new(c[0], c[1], zc),
+                   Geom::Point3d.new(p2[0], p2[1], zp),
+                   Geom::Point3d.new(p2[0], p2[1], zp + dz),
+                   Geom::Point3d.new(c[0], c[1], zc + dz)]
+            f2 = grp.entities.add_face(pts)
+            next if f2.nil?
+            f2.material = roof_mat
+            f2.back_material = roof_mat
+            # AND NO BLACK LINE ON IT (2026-09-08, twice, with photos:
+            # "עדיין יש את הקו באלכסון"). The strip\x27s edges - shared
+            # with both skins once SketchUp welds them - are soft and
+            # smooth, so the shingles read as one surface over the
+            # meeting line instead of a drawn edge.
+            if f2.respond_to?(:edges)
+              f2.edges.each do |ed|
+                ed.soft = true if ed.respond_to?(:soft=)
+                ed.smooth = true if ed.respond_to?(:smooth=)
+              end
+            end
+          end
+        end
         # THE DECK ENDS AT THE END (2026-08-26, the user's own corner
         # mock-up: "ככה"). On a shed the rake trim rides OUTSIDE the slab
         # edge, so from above a bare white ledge showed between the deck
@@ -1838,7 +1874,6 @@ module InteriorPro
       # Where each gabled edge actually RISES above the eave: that is the
       # stretch the rake owns and the flat fascia must skip. The rest of
       # the same edge is a plain eave and keeps its fascia (2026-08-09).
-      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       # ...and the spans that CUT the eave bands are the rakes' only: a
       # shed's level top edge is getting a fascia now, and a span there
       # would carve straight back out again (2026-08-26).
@@ -2438,12 +2473,12 @@ module InteriorPro
     # edge, from the underside profile up to the top shell. Without it the
     # roof would be two sheets with a gap between them.
     # zmap nil (flat roof) -> a plain band at z_flat.
-    def self.build_slab_edge!(grp, poly, zmap, dz, z_flat, mat)
+    def self.build_slab_edge!(grp, poly, zmap, dz, z_flat, mat, surface: nil)
       return if dz <= 0.001
       n = poly.length
       n.times do |i|
         j = (i + 1) % n
-        chain = zmap ? edge_profile_chain(poly, i, zmap) : nil
+        chain = zmap ? edge_profile_chain(poly, i, zmap, surface: surface) : nil
         segs = if chain && chain.length >= 2
                  chain.each_cons(2).map { |(_t1, p1, z1), (_t2, p2, z2)| [p1, z1, p2, z2] }
                else
@@ -5580,13 +5615,24 @@ module InteriorPro
     # a wing whose mouth straddles the parent ridge dives fully UNDER the
     # parent (junk inside + coplanar z-fight, 2026-08-05B) - then the
     # plane is clipped at the mouth line instead.
-    def self.wing_side_face!(st, quad, mouth_cut, tri, lift, cover)
+    # `valley` = [mouth corner, pen point]: the slope\x27s edge where it
+    # dives onto the parent plane. When the full quad is KEPT, that edge
+    # is recorded (with its heights) so the caller can close the slab
+    # side along it - measured 2026-09-08: all four valley edges carried
+    # ONE face, the deck stood hollow, and the bare material edge was
+    # the diagonal line on his photos. A TUCKED side has no dive and
+    # records nothing.
+    def self.wing_side_face!(st, quad, mouth_cut, tri, lift, cover, valley = nil)
       keep = true
       if cover
         cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0
         cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3.0
         cz = cover.call(cx, cy)
         keep = cz.nil? || lift.call([cx, cy]) > cz + 0.02
+      end
+      if keep && valley && st[:valleys]
+        st[:valleys] << [valley[0], valley[1],
+                         lift.call(valley[0]), lift.call(valley[1])]
       end
       framed_face!(st, keep ? quad : mouth_cut, lift)
     end
@@ -5613,11 +5659,13 @@ module InteriorPro
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, out_r], [xr, pen]],
                           [[x0, y1t], [x0, y0], [xr, out_r], [xr, y1t]],
                           [[x0, y1], [xr, y1], [xr, pen]],
-                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover,
+                          [[x0, y1], [xr, pen]])
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, pen], [xr, out_r]],
                           [[x1, y0], [x1, y1t], [xr, y1t], [xr, out_r]],
                           [[x1, y1], [xr, pen], [xr, y1]],
-                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover,
+                          [[x1, y1], [xr, pen]])
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x1, y0, z0d], [xr, y0, zr]])
           else
@@ -5630,11 +5678,13 @@ module InteriorPro
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, pen], [xr, out_r]],
                           [[x0, y1], [x0, y0t], [xr, y0t], [xr, out_r]],
                           [[x0, y0], [xr, pen], [xr, y0]],
-                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover,
+                          [[x0, y0], [xr, pen]])
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, out_r], [xr, pen]],
                           [[x1, y0t], [x1, y1], [xr, out_r], [xr, y0t]],
                           [[x1, y0], [xr, y0], [xr, pen]],
-                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover,
+                          [[x1, y0], [xr, pen]])
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x0, y1, z0d], [xr, y1, zr]])
           else
@@ -5652,11 +5702,13 @@ module InteriorPro
           wing_side_face!(st, [[x0, y0], [x1, y0], [pen, yr], [out_r, yr]],
                           [[x0, y0], [x1t, y0], [x1t, yr], [out_r, yr]],
                           [[x1, y0], [pen, yr], [x1, yr]],
-                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover,
+                          [[x1, y0], [pen, yr]])
           wing_side_face!(st, [[x1, y1], [x0, y1], [out_r, yr], [pen, yr]],
                           [[x1t, y1], [x0, y1], [out_r, yr], [x1t, yr]],
                           [[x1, y1], [x1, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover,
+                          [[x1, y1], [pen, yr]])
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x0, y1, z0d], [x0, yr, zr]])
           else
@@ -5669,11 +5721,13 @@ module InteriorPro
           wing_side_face!(st, [[x0, y0], [x1, y0], [out_r, yr], [pen, yr]],
                           [[x0t, y0], [x1, y0], [out_r, yr], [x0t, yr]],
                           [[x0, y0], [x0, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover,
+                          [[x0, y0], [pen, yr]])
           wing_side_face!(st, [[x1, y1], [x0, y1], [pen, yr], [out_r, yr]],
                           [[x1, y1], [x0t, y1], [x0t, yr], [out_r, yr]],
                           [[x0, y1], [x0, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover,
+                          [[x0, y1], [pen, yr]])
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x1, y0, z0d], [x1, yr, zr]])
           else
@@ -5685,9 +5739,10 @@ module InteriorPro
 
     # Build the whole framed roof. Returns [ridge, zmap] or nil.
     def self.build_framed_geometry!(grp, plan, z0, slope, overhang,
-                                    roof_mat, under_mat)
+                                    roof_mat, under_mat, valleys = nil)
       st = { grp: grp, z0: z0, delta: -slope * overhang.to_f, slope: slope,
-             roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {} }
+             roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
+             valleys: valleys }
       build_main_rect!(st, plan[:main], plan[:g])
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
