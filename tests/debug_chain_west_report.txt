@@ -1,0 +1,23 @@
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=402.5 (866,129.5) z=205.00
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={:surface=>#<Proc:0x00006083e7101348 /sessions/rcw-0158yamxdrgjb5akvxv6s66u/mnt/interior_pro/tests/live_roof.rb:1870 (lambda)>}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={:full=>false, :surface=>#<Proc:0x00006083e7101348 /sessions/rcw-0158yamxdrgjb5akvxv6s66u/mnt/interior_pro/tests/live_roof.rb:1870 (lambda)>, :reach=>[0.0, 274.0]}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={:full=>false, :surface=>#<Proc:0x00006083e7101348 /sessions/rcw-0158yamxdrgjb5akvxv6s66u/mnt/interior_pro/tests/live_roof.rb:1870 (lambda)>, :reach=>[0.0, 274.0]}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={:surface=>#<Proc:0x00006083e7101348 /sessions/rcw-0158yamxdrgjb5akvxv6s66u/mnt/interior_pro/tests/live_roof.rb:1870 (lambda)>, :reach=>[0.0, 274.0]}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00
+--- edge 1  a=[866.0, 532.0] b=[866.0, 129.5]  kw={:surface=>#<Proc:0x00006083e7239490 /sessions/rcw-0158yamxdrgjb5akvxv6s66u/mnt/interior_pro/tests/live_roof.rb:3898 (lambda)>, :reach=>[0.0, 274.0]}
+    RAW: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00 | t=402.5 (866,129.5) z=205.00
+    OUT: t=0.0 (866,532.0) z=205.00 | t=137.0 (866,395.0) z=262.08 | t=274.0 (866,258.0) z=205.00
+[Roof] gable wall top: no wall materials found - left unpainted
+[Roof] gable wall top: no wall materials found - left unpainted
+[Roof] gable wall top: no wall materials found - left unpainted
+[Roof] hip over level 2: eave 210.0", ridge 262.1" (pitch 5.0:12, overhang 12", fascia on, drip on)
+DONE

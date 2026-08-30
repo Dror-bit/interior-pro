@@ -164,15 +164,23 @@ ok('the top edge has a drip on its outer face', drp.length >= 4, drp.length)
 
 # THE CLOSED CORNER (2026-08-26, the user's red circles): the fascia is
 # cut SQUARE and runs through the corner onto the rake board's OUTER
-# face - 0.75 past the poly corner at x=12 - and the drip one
-# drip-thickness further, onto the rake drip's outer face. A mitred 45
-# end stopped at x=12 and left a notch beside the rake's top end.
-fx = fas.flat_map { |f| f.pts.map(&:x) }.max
+# face, and the drip one drip-thickness further, onto the rake drip's
+# outer face. A mitred 45 end stopped short and left a notch beside the
+# rake's top end.
+# THE RAKE MOVED IN (2026-09-09): it used to stand 0.75 OUTSIDE the poly
+# line, so these two wraps ran to 12.75 and 12.85. Now the rake fascia
+# fills -0.75..0 like the eave's - its outer face IS the poly line at
+# x=12 - so the fascia wraps to 12.0 and the drip to 12.1.
+# `fas` also catches the drip's own end cap (a face planar at y=YT), so
+# the fascia's reach is read off the faces that go the board's full
+# depth, deeper than the 2" drip.
+fx = fas.select { |f| f.pts.map(&:z).min < ZE - 2.5 }
+        .flat_map { |f| f.pts.map(&:x) }.max
 ok('the fascia wraps the corner onto the rake board outer face',
-   close(fx, 12.75, 0.1), fx)
+   close(fx, 12.0, 0.1), fx)
 dx = drp.flat_map { |f| f.pts.map(&:x) }.max
 ok('...and the drip wraps one step further, onto the rake drip',
-   close(dx, 12.85, 0.1), dx)
+   close(dx, 12.1, 0.1), dx)
 
 # ...and the LOW eave's metal edge wraps its two corners the same way
 # (2026-08-26, the user: every corner, not just two). Its band is just
@@ -181,7 +189,7 @@ lowdrp = faces.select { |f| on_line.call(f, YLOW - 0.15, YLOW, 95.8, 98.1) }
 ok('the low eave has its drip', lowdrp.length >= 4, lowdrp.length)
 lx = lowdrp.flat_map { |f| f.pts.map(&:x) }.minmax
 ok('...and it wraps BOTH low corners onto the rake drips',
-   close(lx[1], 12.85, 0.1) && close(lx[0], -233.85, 0.1), lx)
+   close(lx[1], 12.1, 0.1) && close(lx[0], -233.1, 0.1), lx)
 
 # soffit: the board under the top overhang, one fascia depth down
 sof = faces.select { |f| on_line.call(f, YT - 12.5, YT - 0.7, ZE - FD - 0.6, ZE - FD + 1.0) }
@@ -193,15 +201,18 @@ ok('the top edge has a soffit board under its overhang', sof.length >= 4,
 # fascia now owns - two solids in one space, seams on the face. Its top
 # end is cut back one fascia-thickness, to end flush on the fascia's
 # inner face at y = YT - 0.75.
-# the rake board's end cap is a face with one y, spanning x 12..12.75,
-# deeper than any fascia edge (z well below ZE)
+# the rake board's end cap is a face with one y, spanning the board's
+# own 3/4" of x, deeper than any fascia edge (z well below ZE).
+# THE BOARD MOVED IN (2026-09-09): it used to sit at x 12..12.75, OUTSIDE
+# the poly line, and stuck out 3/4" past the perpendicular eave's fascia.
+# It now fills 11.25..12 - flush with it - so the cap does too.
 cap_at = lambda do |ycap|
   faces.any? do |f|
     ys = f.pts.map(&:y)
     xs = f.pts.map(&:x)
     zs = f.pts.map(&:z)
     (ys.max - ys.min) < 0.05 && (ys.max - ycap).abs < 0.05 &&
-      xs.min > 11.9 && xs.min < 12.1 && xs.max < 12.79 && zs.min < ZE - 0.5
+      xs.min > 11.15 && xs.min < 11.35 && xs.max < 12.05 && zs.min < ZE - 0.5
   end
 end
 ok('the rake board ends flush on the fascia inner face',

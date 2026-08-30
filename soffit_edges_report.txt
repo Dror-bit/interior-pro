@@ -1,0 +1,807 @@
+Interior Pro - edges drawn near the soffit inner corner
+time: 2026-08-30 14:34:22 -0700
+window: x 1011.5+-14.0   y 258.0+-14.0   z 190.0..212.0
+
+roofs in model: 1
+edges in the window: 648
+
+--- how many edges per container ---
+  581  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+   67  roof0
+
+DRAWN (not hidden, not soft): 265 of 648
+
+--- every edge, nearest first.  VIS = actually drawn ---
+VIS d=  0.00 len=  3.60 (1011.50,258.00,200.90)-(1011.50,258.00,204.50) [-/-/-] lay=Layer0 faces=3 F1,F2,F3  roof0
+VIS d=  0.00 len=  0.50 (1011.50,258.00,205.00)-(1011.50,258.00,204.50) [-/-/-] lay=Layer0 faces=5 F4,F5,F6,F7,F8  roof0
+VIS d=  0.00 len=  3.90 (1011.50,258.00,200.90)-(1011.50,258.00,197.00) [-/-/-] lay=Layer0 faces=3 F4,F9,F6  roof0
+VIS d=  0.00 len=  1.50 (1011.50,258.00,204.50)-(1011.50,258.00,203.00) [-/-/-] lay=Layer0 faces=5 F4,F10,F6,F7,F8  roof0
+    d=  0.00 len=  0.54 (1011.50,258.00,205.00)-(1011.50,258.00,205.54) [-/soft/smooth] lay=Layer0 faces=3 F11,F12,F13  roof0
+VIS d=  0.00 len=  2.10 (1011.50,258.00,203.00)-(1011.50,258.00,200.90) [-/-/-] lay=Layer0 faces=3 F4,F14,F6  roof0
+VIS d=  0.07 len=  0.14 (1011.50,258.00,203.00)-(1011.60,257.90,203.00) [-/-/-] lay=Layer0 faces=3 F15,F7,F16  roof0
+VIS d=  0.07 len=  0.14 (1011.50,258.00,205.00)-(1011.60,257.90,205.00) [-/-/-] lay=Layer0 faces=3 F17,F7,F18  roof0
+VIS d=  0.11 len=  0.21 (1011.50,258.00,204.50)-(1011.65,257.85,204.50) [-/-/-] lay=Layer0 faces=3 F1,F19,F20  roof0
+VIS d=  0.14 len=  2.00 (1011.60,257.90,205.00)-(1011.60,257.90,203.00) [-/-/-] lay=Layer0 faces=3 F7,F21,F22  roof0
+VIS d=  0.21 len=  3.45 (1011.65,257.85,204.50)-(1011.65,257.85,201.05) [-/-/-] lay=Layer0 faces=3 F1,F23,F24  roof0
+    d=  0.39 len=  0.18 (1011.60,256.32,206.33)-(1011.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  0.53 len=  1.06 (1010.75,258.75,197.00)-(1011.50,258.00,197.00) [hidden/soft/smooth] lay=Layer0 faces=3 F27,F4,F28  roof0
+VIS d=  0.53 len=  1.06 (1010.75,258.75,205.00)-(1011.50,258.00,205.00) [-/-/-] lay=Layer0 faces=3 F29,F4,F30  roof0
+VIS d=  0.55 len=  1.14 (1011.14,257.86,207.49)-(1011.18,259.00,207.58) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  0.75 len=  1.01 (1011.03,256.90,207.23)-(1011.14,257.86,207.49) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  0.78 len=  0.18 (1012.25,256.48,205.94)-(1012.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  0.96 len=  1.01 (1011.60,258.93,207.42)-(1010.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  0.98 len=  0.18 (1012.48,256.67,205.48)-(1012.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  0.99 len=  0.18 (1010.64,256.21,206.59)-(1010.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.06 len=  0.75 (1010.75,258.75,197.75)-(1010.75,258.75,197.00) [-/-/-] lay=Layer0 faces=5 F37,F4,F38,F39,F40  roof0
+VIS d=  1.06 len=  7.25 (1010.75,258.75,205.00)-(1010.75,258.75,197.75) [-/-/-] lay=Layer0 faces=3 F41,F4,F38  roof0
+    d=  1.10 len=  0.77 (1012.25,259.10,207.03)-(1011.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.47 len=  0.55 (1012.48,259.29,206.57)-(1012.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.50 len=  0.18 (1013.00,259.29,206.57)-(1013.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.50 len=  0.18 (1013.00,256.67,205.48)-(1013.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.53 len=  0.77 (1010.87,256.25,206.84)-(1011.03,256.90,207.23) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.60 len=  0.18 (1011.14,257.86,207.49)-(1008.67,257.86,208.52) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.61 len=  1.14 (1011.18,259.00,207.58)-(1011.14,260.14,207.49) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.64 len=  1.14 (1010.64,258.82,207.68)-(1009.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.66 len=  0.77 (1011.60,256.32,206.33)-(1012.25,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.66 len=  0.55 (1012.25,256.48,205.94)-(1012.48,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.75 len=  0.46 (1011.60,258.93,207.42)-(1011.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.78 len=  1.01 (1010.64,256.21,206.59)-(1011.60,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.79 len=  0.53 (1013.00,259.29,206.57)-(1012.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  1.81 len=  0.53 (1012.48,256.67,205.48)-(1013.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.85 len=  0.46 (1010.64,258.82,207.68)-(1010.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  1.85 len=  0.18 (1011.18,259.00,207.58)-(1008.71,259.00,208.61) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.00 len=  0.55 (1010.67,256.02,206.37)-(1010.87,256.25,206.84) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.03 len=  0.18 (1013.52,256.67,205.48)-(1013.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.03 len=  0.18 (1011.03,256.90,207.23)-(1008.56,256.90,208.26) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.05 len=  0.46 (1012.25,259.10,207.03)-(1012.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.07 len=  0.18 (1009.50,256.17,206.68)-(1009.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.18 len=  0.53 (1013.52,259.29,206.57)-(1013.00,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.21 len=  0.53 (1013.00,256.67,205.48)-(1013.52,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.26 len=  0.18 (1013.75,256.48,205.94)-(1013.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.31 len=  1.14 (1009.50,256.17,206.68)-(1010.64,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.32 len=  0.46 (1012.48,259.29,206.57)-(1012.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.39 len=  0.53 (1010.67,255.50,206.37)-(1010.67,256.02,206.37) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.45 len=  0.55 (1013.75,259.10,207.03)-(1013.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.50 len=  0.18 (1012.83,255.50,205.48)-(1010.11,255.50,206.61) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.53 len=  1.01 (1011.60,260.56,207.61)-(1010.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.56 len=  0.18 (1010.87,256.25,206.84)-(1008.40,256.25,207.86) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.56 len=  0.46 (1009.50,258.79,207.77)-(1009.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.57 len=  0.55 (1013.52,256.67,205.48)-(1013.75,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.58 len=  0.46 (1013.00,260.92,206.76)-(1013.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.58 len=  0.46 (1013.00,259.29,206.57)-(1013.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.65 len=  1.01 (1011.14,260.14,207.49)-(1011.03,261.10,207.23) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.67 len=  0.18 (1011.14,260.14,207.49)-(1008.67,260.14,208.52) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.68 len=  0.77 (1012.25,260.72,207.22)-(1011.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.69 len=  1.14 (1009.50,258.79,207.77)-(1008.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.77 len=  0.77 (1014.40,258.93,207.42)-(1013.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.82 len=  1.14 (1010.64,260.45,207.87)-(1009.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  2.83 len=  5.66 (1015.50,254.00,200.90)-(1011.50,258.00,200.90) [-/-/-] lay=Layer0 faces=3 F1,F56,F57  roof0
+VIS d=  2.83 len=  5.23 (1011.65,257.85,201.05)-(1015.35,254.15,201.05) [-/-/-] lay=Layer0 faces=3 F1,F58,F59  roof0
+    d=  2.84 len=  1.14 (1008.71,259.00,208.61)-(1008.67,257.86,208.52) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.85 len=  0.18 (1010.67,256.02,206.37)-(1008.20,256.02,207.40) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.92 len=  0.46 (1013.52,259.29,206.57)-(1013.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.92 len=  0.18 (1014.40,256.32,206.33)-(1014.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.95 len=  0.55 (1012.48,260.92,206.76)-(1012.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.95 len=  1.01 (1008.67,257.86,208.52)-(1008.56,256.90,208.26) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  2.95 len=  0.46 (1013.75,259.10,207.03)-(1013.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.03 len=  0.18 (1012.83,254.98,205.48)-(1010.11,254.98,206.61) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.03 len=  0.77 (1013.75,256.48,205.94)-(1014.40,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.06 len=  0.53 (1012.83,254.98,205.48)-(1012.83,255.50,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.09 len=  0.53 (1010.11,255.50,206.61)-(1010.11,254.98,206.61) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.14 len=  1.14 (1008.36,256.21,206.59)-(1009.50,256.17,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.17 len=  0.53 (1013.00,260.92,206.76)-(1012.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.18 len=  0.18 (1008.36,256.21,206.59)-(1008.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.22 len=  1.14 (1008.67,260.14,208.52)-(1008.71,259.00,208.61) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.24 len=  0.18 (1008.20,255.50,207.40)-(1010.67,255.50,206.37) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.26 len=  0.18 (1013.02,254.75,205.94)-(1010.31,254.75,207.07) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.34 len=  0.77 (1008.56,256.90,208.26)-(1008.40,256.25,207.86) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.35 len=  0.46 (1010.11,255.50,206.61)-(1008.43,255.50,206.82) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.38 len=  0.46 (1014.40,258.93,207.42)-(1014.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.39 len=  0.55 (1010.11,254.98,206.61)-(1010.31,254.75,207.07) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.41 len=  0.53 (1013.52,260.92,206.76)-(1013.00,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.45 len=  0.55 (1013.02,254.75,205.94)-(1012.83,254.98,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.47 len=  0.77 (1011.03,261.10,207.23)-(1010.87,261.75,206.84) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.49 len=  1.01 (1015.36,258.82,207.68)-(1014.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.54 len=  1.14 (1009.50,260.41,207.97)-(1008.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.54 len=  0.55 (1013.75,260.72,207.22)-(1013.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.54 len=  0.46 (1008.36,258.82,207.68)-(1008.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.54 len=  0.18 (1011.03,261.10,207.23)-(1008.56,261.10,208.26) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.61 len=  0.46 (1008.67,257.86,208.52)-(1007.12,257.86,208.68) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.69 len=  0.77 (1014.40,260.56,207.61)-(1013.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.70 len=  0.55 (1008.40,256.25,207.86)-(1008.20,256.02,207.40) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.70 len=  0.46 (1008.71,259.00,208.61)-(1007.16,259.00,208.77) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.73 len=  1.01 (1008.36,258.82,207.68)-(1007.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.74 len=  0.77 (1010.31,254.75,207.07)-(1010.47,254.10,207.46) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.76 len=  0.46 (1010.11,254.98,206.61)-(1008.43,254.98,206.82) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.80 len=  1.01 (1014.40,256.32,206.33)-(1015.36,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.84 len=  0.46 (1010.31,254.75,207.07)-(1008.63,254.75,207.28) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.87 len=  0.46 (1008.56,256.90,208.26)-(1007.01,256.90,208.41) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.89 len=  0.18 (1015.36,256.21,206.59)-(1015.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.90 len=  1.01 (1008.56,261.10,208.26)-(1008.67,260.14,208.52) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.91 len=  0.18 (1013.18,254.10,206.33)-(1010.47,254.10,207.46) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.92 len=  0.77 (1013.18,254.10,206.33)-(1013.02,254.75,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  3.93 len=  0.55 (1010.87,261.75,206.84)-(1010.67,261.98,206.37) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  3.98 len=  0.53 (1008.20,256.02,207.40)-(1008.20,255.50,207.40) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.02 len=  1.01 (1007.40,256.32,206.33)-(1008.36,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.12 len=  0.18 (1007.40,256.32,206.33)-(1007.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.13 len=  0.53 (1008.43,255.50,206.82)-(1008.43,254.98,206.82) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.19 len=  0.18 (1010.87,261.75,206.84)-(1008.40,261.75,207.86) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.19 len=  0.46 (1008.67,260.14,208.52)-(1007.12,260.14,208.68) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.19 len=  0.46 (1015.36,258.82,207.68)-(1015.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.21 len=  1.01 (1015.36,260.45,207.87)-(1014.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.25 len=  0.46 (1008.40,256.25,207.86)-(1006.85,256.25,208.02) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.32 len=  0.53 (1010.67,261.98,206.37)-(1010.67,262.50,206.37) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.32 len=  0.55 (1008.43,254.98,206.82)-(1008.63,254.75,207.28) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.32 len=  0.46 (1010.47,254.10,207.46)-(1008.79,254.10,207.67) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.38 len=  1.14 (1007.16,259.00,208.77)-(1007.12,257.86,208.68) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.40 len=  1.01 (1008.36,260.45,207.87)-(1007.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.46 len=  0.46 (1007.40,258.93,207.42)-(1007.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.47 len=  1.01 (1007.12,257.86,208.68)-(1007.01,256.90,208.41) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.48 len=  0.18 (1010.67,261.98,206.37)-(1008.20,261.98,207.40) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.49 len=  1.01 (1010.47,254.10,207.46)-(1010.58,253.14,207.72) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.50 len=  1.14 (1016.50,258.79,207.77)-(1015.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.52 len=  0.46 (1008.20,256.02,207.40)-(1006.66,256.02,207.56) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.54 len=  0.77 (1008.63,254.75,207.28)-(1008.79,254.10,207.67) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.54 len=  0.77 (1007.40,258.93,207.42)-(1006.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.57 len=  0.77 (1008.40,261.75,207.86)-(1008.56,261.10,208.26) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.63 len=  1.14 (1007.12,260.14,208.68)-(1007.16,259.00,208.77) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.71 len=  0.77 (1006.75,256.48,205.94)-(1007.40,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.71 len=  1.01 (1013.29,253.14,206.59)-(1013.18,254.10,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.75 len=  0.18 (1006.75,256.48,205.94)-(1006.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.78 len=  0.46 (1006.66,255.50,207.56)-(1008.20,255.50,207.40) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.78 len=  0.77 (1007.01,256.90,208.41)-(1006.85,256.25,208.02) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.79 len=  1.14 (1015.36,256.21,206.59)-(1016.50,256.17,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.84 len=  0.46 (1008.56,261.10,208.26)-(1007.01,261.10,208.41) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.88 len=  0.18 (1013.29,253.14,206.59)-(1010.58,253.14,207.72) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  4.95 len=  0.18 (1010.67,262.50,206.37)-(1008.20,262.50,207.40) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  4.98 len=  0.18 (1006.52,256.67,205.48)-(1006.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.01 len=  0.55 (1006.75,259.10,207.03)-(1006.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.02 len=  0.55 (1008.20,261.98,207.40)-(1008.40,261.75,207.86) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.03 len=  0.18 (1016.50,256.17,206.68)-(1016.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.05 len=  1.14 (1016.50,260.41,207.97)-(1015.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.07 len=  0.55 (1006.52,256.67,205.48)-(1006.75,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.10 len=  0.55 (1006.85,256.25,208.02)-(1006.66,256.02,207.56) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.12 len=  0.46 (1006.75,259.10,207.03)-(1006.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.12 len=  1.01 (1008.79,254.10,207.67)-(1008.90,253.14,207.94) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.15 len=  1.01 (1007.01,261.10,208.41)-(1007.12,260.14,208.68) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.15 len=  0.77 (1007.40,260.56,207.61)-(1006.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.17 len=  0.46 (1010.58,253.14,207.72)-(1008.90,253.14,207.94) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.25 len=  0.46 (1016.50,258.79,207.77)-(1016.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.33 len=  0.53 (1006.66,256.02,207.56)-(1006.66,255.50,207.56) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.37 len=  0.53 (1008.20,262.50,207.40)-(1008.20,261.98,207.40) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.39 len=  0.46 (1008.40,261.75,207.86)-(1006.85,261.75,208.02) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.39 len=  0.53 (1006.52,259.29,206.57)-(1006.00,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.40 len=  0.46 (1006.52,259.29,206.57)-(1006.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.40 len=  0.53 (1006.00,256.67,205.48)-(1006.52,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.44 len=  3.45 (1015.35,254.15,201.05)-(1015.35,254.15,204.50) [-/-/-] lay=Layer0 faces=3 F1,F68,F69  roof0
+VIS d=  5.50 len=  0.18 (1006.00,256.67,205.48)-(1006.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.50 len=  0.18 (1006.00,259.29,206.57)-(1006.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.51 len=  1.14 (1010.58,253.14,207.72)-(1010.62,252.00,207.82) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.55 len=  0.21 (1015.35,254.15,204.50)-(1015.50,254.00,204.50) [-/-/-] lay=Layer0 faces=3 F1,F70,F71  roof0
+    d=  5.62 len=  0.55 (1006.75,260.72,207.22)-(1006.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.63 len=  1.14 (1017.64,258.82,207.68)-(1016.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.66 len=  3.60 (1015.50,254.00,204.50)-(1015.50,254.00,200.90) [-/-/-] lay=Layer0 faces=3 F1,F72,F73  roof0
+    d=  5.69 len=  0.46 (1008.20,261.98,207.40)-(1006.66,261.98,207.56) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.71 len=  0.77 (1006.85,261.75,208.02)-(1007.01,261.10,208.41) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.72 len=  1.14 (1013.33,252.00,206.68)-(1013.29,253.14,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.86 len=  1.14 (1016.50,256.17,206.68)-(1017.64,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.89 len=  0.46 (1006.00,259.29,206.57)-(1006.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.89 len=  0.46 (1006.00,260.92,206.76)-(1006.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.91 len=  0.53 (1006.00,259.29,206.57)-(1005.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  5.91 len=  0.53 (1005.48,256.67,205.48)-(1006.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  5.99 len=  0.53 (1006.52,260.92,206.76)-(1006.00,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.01 len=  1.14 (1008.90,253.14,207.94)-(1008.94,252.00,208.03) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.02 len=  0.18 (1013.33,252.00,206.68)-(1010.62,252.00,207.82) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.03 len=  0.18 (1005.48,256.67,205.48)-(1005.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  6.07 len=  0.46 (1008.20,262.50,207.40)-(1006.66,262.50,207.56) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.08 len=  1.14 (1017.64,260.45,207.87)-(1016.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.12 len=  0.55 (1006.66,261.98,207.56)-(1006.85,261.75,208.02) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.16 len=  0.18 (1017.64,256.21,206.59)-(1017.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.24 len=  0.46 (1010.62,252.00,207.82)-(1008.94,252.00,208.03) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.25 len=  0.55 (1005.48,259.29,206.57)-(1005.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.26 len=  0.18 (1005.25,256.48,205.94)-(1005.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  6.30 len=  0.55 (1005.25,256.48,205.94)-(1005.48,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.35 len=  0.46 (1017.64,258.82,207.68)-(1017.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.38 len=  0.46 (1005.48,259.29,206.57)-(1005.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.43 len=  0.53 (1006.66,262.50,207.56)-(1006.66,261.98,207.56) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.46 len=  0.53 (1006.00,260.92,206.76)-(1005.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.54 len=  0.46 (1005.25,259.10,207.03)-(1005.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.63 len=  1.14 (1010.62,252.00,207.82)-(1010.58,250.86,207.72) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.65 len=  0.77 (1005.25,259.10,207.03)-(1004.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.68 len=  1.01 (1018.60,258.93,207.42)-(1017.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.76 len=  0.55 (1005.48,260.92,206.76)-(1005.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  6.77 len=  0.77 (1004.60,256.32,206.33)-(1005.25,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  6.81 len=  1.14 (1013.29,250.86,206.59)-(1013.33,252.00,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  6.85 len=  1.01 (1017.64,256.21,206.59)-(1018.60,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  6.91 len=  0.18 (1004.60,256.32,206.33)-(1004.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.06 len=  1.14 (1008.94,252.00,208.03)-(1008.90,250.86,207.94) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.08 len=  1.01 (1018.60,260.56,207.61)-(1017.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.09 len=  0.77 (1005.25,260.72,207.22)-(1004.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.11 len=  0.18 (1018.60,256.32,206.33)-(1018.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.11 len=  0.46 (1004.60,258.93,207.42)-(1004.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.15 len=  0.18 (1013.29,250.86,206.59)-(1010.58,250.86,207.72) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.32 len=  0.46 (1018.60,258.93,207.42)-(1018.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.35 len=  0.46 (1010.58,250.86,207.72)-(1008.90,250.86,207.94) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.43 len=  1.01 (1004.60,258.93,207.42)-(1003.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.50 len=  0.77 (1019.25,259.10,207.03)-(1018.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  7.58 len=  1.01 (1003.64,256.21,206.59)-(1004.60,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  7.60 len=  0.77 (1018.60,256.32,206.33)-(1019.25,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.68 len=  1.01 (1010.58,250.86,207.72)-(1010.47,249.90,207.46) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.73 len=  0.72 (1010.64,260.45,207.87)-(1010.64,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.75 len=  0.18 (1019.25,256.48,205.94)-(1019.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.79 len=  1.01 (1004.60,260.56,207.61)-(1003.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.80 len=  0.72 (1011.60,260.56,207.61)-(1011.60,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  7.82 len=  1.01 (1013.18,249.90,206.33)-(1013.29,250.86,206.59) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.88 len=  0.18 (1003.64,256.21,206.59)-(1003.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.88 len=  0.77 (1019.25,260.72,207.22)-(1018.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.90 len=  0.72 (1009.50,260.41,207.97)-(1009.50,270.88,212.33) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.95 len=  0.55 (1019.48,259.29,206.57)-(1019.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.98 len=  0.18 (1019.48,256.67,205.48)-(1019.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.98 len=  0.46 (1019.25,259.10,207.03)-(1019.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  7.99 len=  0.55 (1019.25,256.48,205.94)-(1019.48,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  7.99 len=  0.72 (1012.25,260.72,207.22)-(1012.25,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.03 len=  0.46 (1003.64,258.82,207.68)-(1003.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.07 len=  1.01 (1008.90,250.86,207.94)-(1008.79,249.90,207.67) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.11 len=  0.18 (1013.18,249.90,206.33)-(1010.47,249.90,207.46) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.21 len=  0.72 (1012.48,260.92,206.76)-(1012.48,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.25 len=  0.46 (1019.48,259.29,206.57)-(1019.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.27 len=  0.72 (1013.75,260.72,207.22)-(1013.75,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.29 len=  0.72 (1013.00,271.38,211.12)-(1013.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.29 len=  0.72 (1013.00,260.92,206.76)-(1013.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.30 len=  0.72 (1008.36,260.45,207.87)-(1008.36,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.32 len=  0.72 (1014.40,260.56,207.61)-(1014.40,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.32 len=  0.46 (1010.47,249.90,207.46)-(1008.79,249.90,207.67) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.34 len=  0.53 (1020.00,259.29,206.57)-(1019.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.34 len=  0.53 (1019.48,256.67,205.48)-(1020.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.35 len=  0.55 (1019.48,260.92,206.76)-(1019.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.40 len=  0.72 (1013.52,260.92,206.76)-(1013.52,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.47 len=  1.14 (1003.64,258.82,207.68)-(1002.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.50 len=  0.77 (1010.47,249.90,207.46)-(1010.31,249.25,207.07) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.50 len=  0.18 (1020.00,259.29,206.57)-(1020.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.50 len=  0.18 (1020.00,256.67,205.48)-(1020.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.58 len=  0.77 (1013.02,249.25,205.94)-(1013.18,249.90,206.33) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.60 len=  0.72 (1015.36,260.45,207.87)-(1015.36,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.62 len=  1.14 (1002.50,256.17,206.68)-(1003.64,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.74 len=  0.53 (1020.00,260.92,206.76)-(1019.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.75 len=  0.18 (1013.02,249.25,205.94)-(1010.31,249.25,207.07) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.76 len=  0.46 (1020.00,259.29,206.57)-(1020.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.76 len=  0.46 (1020.00,260.92,206.76)-(1020.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.77 len=  1.14 (1003.64,260.45,207.87)-(1002.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.81 len=  0.72 (1007.40,260.56,207.61)-(1007.40,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.85 len=  0.72 (1008.43,255.50,206.82)-(997.58,255.50,211.34) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.86 len=  0.53 (1020.52,259.29,206.57)-(1020.00,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.86 len=  0.53 (1020.00,256.67,205.48)-(1020.52,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.88 len=  0.77 (1008.79,249.90,207.67)-(1008.63,249.25,207.28) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.91 len=  0.72 (1008.63,254.75,207.28)-(997.77,254.75,211.80) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.96 len=  0.55 (1010.31,249.25,207.07)-(1010.11,249.02,206.61) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.98 len=  0.18 (1012.83,249.02,205.48)-(1010.11,249.02,206.61) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  8.98 len=  0.55 (1012.83,249.02,205.48)-(1013.02,249.25,205.94) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  8.98 len=  0.46 (1010.31,249.25,207.07)-(1008.63,249.25,207.28) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.02 len=  0.72 (1008.43,254.98,206.82)-(997.58,254.98,211.34) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.02 len=  0.18 (1002.50,256.17,206.68)-(1002.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.02 len= 15.91 (999.50,270.00,197.00)-(1010.75,258.75,197.00) [-/soft/smooth] lay=Layer0 faces=3 F74,F39,F75  roof0
+    d=  9.02 len= 15.91 (999.50,270.00,197.75)-(1010.75,258.75,197.75) [-/soft/smooth] lay=Layer0 faces=3 F76,F39,F77  roof0
+    d=  9.02 len=  0.72 (1008.79,254.10,207.67)-(997.94,254.10,212.20) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.03 len=  0.18 (1020.52,256.67,205.48)-(1020.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.14 len=  0.72 (1016.50,260.41,207.97)-(1016.50,270.88,212.33) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.14 len=  0.46 (1002.50,258.79,207.77)-(1002.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.16 len=  0.53 (1003.67,262.50,209.29)-(1003.67,263.02,209.29) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.22 len=  0.55 (1020.75,259.10,207.03)-(1020.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.24 len=  0.53 (1020.52,260.92,206.76)-(1020.00,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.25 len=  0.46 (1010.11,249.02,206.61)-(1008.43,249.02,206.82) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.25 len=  0.55 (1020.52,256.67,205.48)-(1020.75,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.25 len=  0.18 (1020.75,256.48,205.94)-(1020.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.27 len=  0.46 (1020.52,259.29,206.57)-(1020.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.27 len=  0.72 (1006.75,260.72,207.22)-(1006.75,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.28 len=  0.55 (1003.67,263.02,209.29)-(1003.87,263.25,209.75) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.32 len=  0.72 (1007.12,257.86,208.68)-(997.25,257.86,212.79) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.33 len=  0.72 (1007.16,259.00,208.77)-(997.29,259.00,212.88) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.33 len=  0.53 (1012.83,248.50,205.48)-(1012.83,249.02,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.34 len=  0.53 (1010.11,249.02,206.61)-(1010.11,248.50,206.61) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.35 len=  0.55 (1008.63,249.25,207.28)-(1008.43,249.02,206.82) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.38 len=  0.72 (1008.90,253.14,207.94)-(998.05,253.14,212.46) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.39 len=  0.77 (1003.87,263.25,209.75)-(1004.03,263.90,210.14) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.45 len=  0.46 (1020.75,259.10,207.03)-(1020.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.49 len=  0.72 (1007.01,256.90,208.41)-(997.14,256.90,212.53) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.50 len=  0.18 (1012.83,248.50,205.48)-(1010.11,248.50,206.61) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.50 len=  0.18 (1010.11,248.50,206.61)-(1012.83,248.50,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.55 len=  0.72 (1006.52,260.92,206.76)-(1006.52,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.56 len=  0.72 (1007.12,260.14,208.68)-(997.25,260.14,212.79) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.56 len=  0.55 (1020.75,260.72,207.22)-(1020.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.60 len=  1.14 (1002.50,258.79,207.77)-(1001.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.63 len=  0.77 (1021.40,258.93,207.42)-(1020.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.71 len=  0.77 (1020.75,256.48,205.94)-(1021.40,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.73 len=  0.53 (1008.43,249.02,206.82)-(1008.43,248.50,206.82) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.74 len=  1.14 (1001.36,256.21,206.59)-(1002.50,256.17,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.75 len=  0.72 (1006.85,256.25,208.02)-(996.97,256.25,212.14) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.76 len=  0.46 (1010.11,248.50,206.61)-(1008.43,248.50,206.82) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.76 len=  0.46 (1008.43,248.50,206.82)-(1010.11,248.50,206.61) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.78 len=  1.01 (1004.03,263.90,210.14)-(1004.14,264.86,210.41) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.83 len=  0.72 (1006.00,260.92,206.76)-(1006.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.83 len=  0.72 (1006.00,271.38,211.12)-(1006.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.84 len=  0.72 (1017.64,260.45,207.87)-(1017.64,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d=  9.85 len=  0.53 (1012.83,247.98,205.48)-(1012.83,248.50,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.86 len=  0.53 (1010.11,248.50,206.61)-(1010.11,247.98,206.61) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.87 len=  1.14 (1002.50,260.41,207.97)-(1001.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.90 len=  0.18 (1021.40,256.32,206.33)-(1021.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.92 len=  0.72 (1007.01,261.10,208.41)-(997.14,261.10,212.53) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.93 len=  0.77 (1021.40,260.56,207.61)-(1020.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.98 len=  0.72 (1006.66,256.02,207.56)-(996.78,256.02,211.67) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d=  9.99 len=  0.72 (1008.94,252.00,208.03)-(998.09,252.00,212.55) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.00 len=  0.18 (1001.46,262.50,210.21)-(1003.67,262.50,209.29) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.03 len=  0.18 (1012.83,247.98,205.48)-(1010.11,247.98,206.61) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.05 len=  0.46 (1021.40,258.93,207.42)-(1021.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.09 len=  0.72 (996.78,255.50,211.67)-(1006.66,255.50,207.56) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.12 len=  0.72 (1005.25,260.72,207.22)-(1005.25,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.14 len=  0.72 (1005.48,260.92,206.76)-(1005.48,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.15 len=  0.18 (1001.36,256.21,206.59)-(1001.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.20 len=  0.18 (1003.87,263.25,209.75)-(1001.65,263.25,210.68) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.22 len=  0.55 (1010.11,247.98,206.61)-(1010.31,247.75,207.07) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.23 len=  0.53 (1008.43,248.50,206.82)-(1008.43,247.98,206.82) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.24 len=  0.55 (1013.02,247.75,205.94)-(1012.83,247.98,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.25 len=  0.18 (1003.67,263.02,209.29)-(1001.46,263.02,210.21) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.25 len=  0.18 (1013.02,247.75,205.94)-(1010.31,247.75,207.07) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.27 len=  0.46 (1010.11,247.98,206.61)-(1008.43,247.98,206.82) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.27 len=  0.46 (1001.36,258.82,207.68)-(1001.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.29 len=  0.72 (1006.85,261.75,208.02)-(996.97,261.75,212.14) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.41 len=  0.72 (1004.60,260.56,207.61)-(1004.60,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.41 len=  0.18 (1004.03,263.90,210.14)-(1001.81,263.90,211.07) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.42 len=  1.01 (1022.36,258.82,207.68)-(1021.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.45 len=  1.14 (1004.14,264.86,210.41)-(1004.18,266.00,210.50) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.45 len=  0.46 (1010.31,247.75,207.07)-(1008.63,247.75,207.28) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.52 len=  1.01 (1021.40,256.32,206.33)-(1022.36,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.55 len=  0.72 (1018.60,260.56,207.61)-(1018.60,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.56 len=  0.72 (1006.66,261.98,207.56)-(996.78,261.98,211.67) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.56 len=  0.55 (1008.43,247.98,206.82)-(1008.63,247.75,207.28) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.63 len=  0.77 (1010.31,247.75,207.07)-(1010.47,247.10,207.46) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.66 len=  1.01 (1001.36,258.82,207.68)-(1000.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.68 len=  1.01 (1022.36,260.45,207.87)-(1021.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.69 len=  0.77 (1013.18,247.10,206.33)-(1013.02,247.75,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.74 len=  0.72 (1008.90,250.86,207.94)-(998.05,250.86,212.46) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.76 len=  1.01 (1000.40,256.32,206.33)-(1001.36,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F32  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 10.77 len=  0.72 (1006.66,262.50,207.56)-(996.78,262.50,211.67) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.87 len=  0.18 (1022.36,256.21,206.59)-(1022.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.90 len=  0.18 (1004.14,264.86,210.41)-(1001.92,264.86,211.33) [-/soft/smooth] lay=Layer0 faces=2 F32,F31 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.90 len=  0.18 (1013.18,247.10,206.33)-(1010.47,247.10,207.46) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.91 len=  1.01 (1001.36,260.45,207.87)-(1000.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.94 len=  0.77 (1008.63,247.75,207.28)-(1008.79,247.10,207.67) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.98 len=  0.46 (1022.36,258.82,207.68)-(1022.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 10.99 len=  0.72 (1003.64,260.45,207.87)-(1003.64,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.06 len=  0.46 (1010.47,247.10,207.46)-(1008.79,247.10,207.67) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.11 len=  0.72 (1019.25,260.72,207.22)-(1019.25,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.11 len=  0.18 (1000.40,256.32,206.33)-(1000.40,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F45,F32 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.12 len=  0.53 (1001.46,263.02,210.21)-(1001.46,262.50,210.21) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.20 len=  0.55 (1001.65,263.25,210.68)-(1001.46,263.02,210.21) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.24 len=  0.46 (1000.40,258.93,207.42)-(1000.40,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.25 len=  0.77 (1001.81,263.90,211.07)-(1001.65,263.25,210.68) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.28 len=  1.14 (1004.18,266.00,210.50)-(1004.14,267.14,210.41) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.40 len=  0.72 (1019.48,260.92,206.76)-(1019.48,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.42 len=  1.01 (1010.47,247.10,207.46)-(1010.58,246.14,207.72) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.46 len=  1.14 (1023.50,258.79,207.77)-(1022.36,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.47 len=  0.77 (1000.40,258.93,207.42)-(999.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F45,F54 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.48 len=  0.72 (1008.79,249.90,207.67)-(997.94,249.90,212.20) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.51 len=  1.01 (1013.29,246.14,206.59)-(1013.18,247.10,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.54 len=  0.77 (999.75,256.48,205.94)-(1000.40,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.55 len=  1.01 (1001.92,264.86,211.33)-(1001.81,263.90,211.07) [-/soft/smooth] lay=Layer0 faces=2 F32,F61 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.57 len=  1.14 (1022.36,256.21,206.59)-(1023.50,256.17,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.62 len=  0.18 (1004.18,266.00,210.50)-(1001.96,266.00,211.42) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.65 len=  0.46 (1000.05,262.50,210.31)-(1001.46,262.50,210.21) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.68 len=  1.01 (1008.79,247.10,207.67)-(1008.90,246.14,207.94) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.69 len=  1.14 (1023.50,260.41,207.97)-(1022.36,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.73 len=  0.77 (1000.40,260.56,207.61)-(999.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.75 len=  0.18 (999.75,256.48,205.94)-(999.75,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.78 len=  0.72 (1020.00,260.92,206.76)-(1020.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.78 len=  0.72 (1020.00,271.38,211.12)-(1020.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.79 len=  0.46 (1001.65,263.25,210.68)-(1000.24,263.25,210.77) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.81 len=  0.72 (1002.50,260.41,207.97)-(1002.50,270.88,212.33) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.86 len=  0.46 (1001.46,263.02,210.21)-(1000.05,263.02,210.31) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.87 len=  0.18 (1013.29,246.14,206.59)-(1010.58,246.14,207.72) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.90 len=  0.46 (999.75,259.10,207.03)-(999.75,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F50,F54 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.92 len=  0.55 (999.75,259.10,207.03)-(999.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F48,F50 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 11.95 len=  0.55 (999.52,256.67,205.48)-(999.75,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.95 len=  0.46 (1001.81,263.90,211.07)-(1000.41,263.90,211.17) [-/soft/smooth] lay=Layer0 faces=2 F54,F61 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.98 len=  0.18 (999.52,256.67,205.48)-(999.52,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 11.99 len=  0.46 (1010.58,246.14,207.72)-(1008.90,246.14,207.94) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.01 len=  0.18 (1023.50,256.17,206.68)-(1023.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.06 len=  0.72 (1008.63,249.25,207.28)-(997.77,249.25,211.80) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.11 len=  0.46 (1023.50,258.79,207.77)-(1023.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.11 len=  1.14 (1001.96,266.00,211.42)-(1001.92,264.86,211.33) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.15 len=  1.01 (1004.14,267.14,210.41)-(1004.03,268.10,210.14) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.16 len=  0.46 (999.52,259.29,206.57)-(999.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F50 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.16 len=  0.72 (1020.52,260.92,206.76)-(1020.52,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.19 len=  0.55 (999.75,260.72,207.22)-(999.52,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.20 len=  0.72 (1020.75,260.72,207.22)-(1020.75,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.31 len=  0.53 (999.52,259.29,206.57)-(999.00,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F44,F49 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.31 len=  0.53 (999.00,256.67,205.48)-(999.52,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.36 len=  0.72 (1008.43,249.02,206.82)-(997.58,249.02,211.34) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.36 len=  0.46 (1001.92,264.86,211.33)-(1000.52,264.86,211.43) [-/soft/smooth] lay=Layer0 faces=2 F61,F52 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.40 len=  0.53 (1000.05,263.02,210.31)-(1000.05,262.50,210.31) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.46 len=  0.18 (1004.14,267.14,210.41)-(1001.92,267.14,211.33) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.46 len=  0.55 (1000.24,263.25,210.77)-(1000.05,263.02,210.31) [-/soft/smooth] lay=Layer0 faces=2 F50,F65 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.46 len=  1.14 (1010.58,246.14,207.72)-(1010.62,245.00,207.82) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.49 len=  0.77 (1000.41,263.90,211.17)-(1000.24,263.25,210.77) [-/soft/smooth] lay=Layer0 faces=2 F54,F66 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.50 len=  0.18 (999.00,256.67,205.48)-(999.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.50 len=  0.18 (999.00,259.29,206.57)-(999.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.56 len=  1.14 (1013.33,245.00,206.68)-(1013.29,246.14,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.58 len=  0.53 (999.52,260.92,206.76)-(999.00,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F49,F63 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.60 len=  1.14 (1024.64,258.82,207.68)-(1023.50,258.79,207.77) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.60 len=  0.72 (1021.40,260.56,207.61)-(1021.40,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.68 len=  0.46 (999.00,260.92,206.76)-(999.00,259.29,206.57) [-/-/-] lay=Layer0 faces=1 F49  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.68 len=  0.46 (999.00,259.29,206.57)-(999.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.70 len=  1.14 (1008.90,246.14,207.94)-(1008.94,245.00,208.03) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.70 len=  1.14 (1023.50,256.17,206.68)-(1024.64,256.21,206.59) [-/-/-] lay=Layer0 faces=1 F36  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.72 len=  0.72 (1001.36,260.45,207.87)-(1001.36,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.74 len=  0.72 (1008.43,248.50,206.82)-(997.58,248.50,211.34) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.74 len=  0.72 (997.58,248.50,211.34)-(1008.43,248.50,206.82) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.75 len=  1.01 (1000.52,264.86,211.43)-(1000.41,263.90,211.17) [-/soft/smooth] lay=Layer0 faces=2 F61,F67 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.80 len=  1.14 (1024.64,260.45,207.87)-(1023.50,260.41,207.97) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.83 len=  0.53 (999.00,259.29,206.57)-(998.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.83 len=  0.53 (998.48,256.67,205.48)-(999.00,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 12.84 len=  1.14 (1001.92,267.14,211.33)-(1001.96,266.00,211.42) [-/soft/smooth] lay=Layer0 faces=2 F36,F46 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.87 len=  0.77 (1004.03,268.10,210.14)-(1003.87,268.75,209.75) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.94 len=  0.77 (1011.60,270.86,212.39)-(1012.25,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 12.98 len=  1.01 (1011.60,271.03,211.97)-(1010.64,270.92,212.23) [-/-/-] lay=Layer0 faces=1 F51  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.00 len=  0.46 (1001.96,266.00,211.42)-(1000.55,266.00,211.52) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.01 len=  0.18 (1013.33,245.00,206.68)-(1010.62,245.00,207.82) [-/soft/smooth] lay=Layer0 faces=2 F31,F36 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.03 len=  0.18 (998.48,256.67,205.48)-(998.48,259.29,206.57) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.09 len=  0.53 (999.00,260.92,206.76)-(998.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.11 len=  0.46 (1010.62,245.00,207.82)-(1008.94,245.00,208.03) [-/soft/smooth] lay=Layer0 faces=2 F52,F46 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.12 len=  0.77 (1012.25,271.19,211.58)-(1011.60,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.14 len=  0.72 (1008.43,247.98,206.82)-(997.58,247.98,211.34) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.14 len=  0.55 (1012.25,271.02,212.00)-(1012.48,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.15 len=  0.18 (1024.64,256.21,206.59)-(1024.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F36,F25 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.19 len=  0.72 (1008.63,247.75,207.28)-(997.77,247.75,211.80) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.19 len=  0.77 (1013.75,271.02,212.00)-(1014.40,270.86,212.39) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.19 len=  0.55 (998.48,259.29,206.57)-(998.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.19 len=  0.46 (998.48,259.29,206.57)-(998.48,260.92,206.76) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.22 len=  0.55 (998.25,256.48,205.94)-(998.48,256.67,205.48) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.24 len=  0.46 (1024.64,258.82,207.68)-(1024.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.25 len=  1.14 (1000.55,266.00,211.52)-(1000.52,264.86,211.43) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.25 len=  0.18 (998.25,256.48,205.94)-(998.25,259.10,207.03) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.25 len=  0.18 (1004.03,268.10,210.14)-(1001.81,268.10,211.07) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.27 len=  0.53 (1012.48,271.21,211.53)-(1013.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.29 len=  0.55 (1013.52,271.21,211.53)-(1013.75,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.31 len=  0.72 (1022.36,260.45,207.87)-(1022.36,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.32 len=  0.55 (1012.48,271.38,211.12)-(1012.25,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.33 len=  0.53 (1013.00,271.21,211.53)-(1013.52,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.33 len=  0.55 (1003.87,268.75,209.75)-(1003.67,268.98,209.29) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.36 len=  0.77 (1014.40,271.03,211.97)-(1013.75,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F66  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.39 len=  0.46 (998.25,259.10,207.03)-(998.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.41 len=  1.01 (1015.36,270.92,212.23)-(1014.40,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F67  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.44 len=  0.55 (998.48,260.92,206.76)-(998.25,260.72,207.22) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.44 len=  0.53 (1013.00,271.38,211.12)-(1012.48,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.46 len=  0.55 (1013.75,271.19,211.58)-(1013.52,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F65  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.47 len=  1.01 (1008.36,270.92,212.23)-(1007.40,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F67  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.50 len=  0.53 (1013.52,271.38,211.12)-(1013.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.57 len=  0.72 (1000.40,260.56,207.61)-(1000.40,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.60 len=  0.72 (1008.79,247.10,207.67)-(997.94,247.10,212.20) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.60 len=  1.14 (1010.62,245.00,207.82)-(1010.58,243.86,207.72) [-/soft/smooth] lay=Layer0 faces=2 F31,F52 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.61 len=  0.77 (998.25,259.10,207.03)-(997.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.62 len=  1.01 (1001.81,268.10,211.07)-(1001.92,267.14,211.33) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.65 len=  1.01 (1025.60,258.93,207.42)-(1024.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.67 len=  0.77 (997.60,256.32,206.33)-(998.25,256.48,205.94) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.67 len=  0.77 (1006.75,271.02,212.00)-(1007.40,270.86,212.39) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.69 len=  1.14 (1013.29,243.86,206.59)-(1013.33,245.00,206.68) [-/-/-] lay=Layer0 faces=1 F31  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.69 len=  0.53 (1003.67,268.98,209.29)-(1003.67,269.50,209.29) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.73 len=  1.01 (1024.64,256.21,206.59)-(1025.60,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.76 len=  0.46 (1001.92,267.14,211.33)-(1000.52,267.14,211.43) [-/soft/smooth] lay=Layer0 faces=2 F46,F34 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.81 len=  1.14 (1008.94,245.00,208.03)-(1008.90,243.86,207.94) [-/soft/smooth] lay=Layer0 faces=2 F52,F64 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.83 len=  0.77 (998.25,260.72,207.22)-(997.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.84 len=  0.77 (1007.40,271.03,211.97)-(1006.75,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F66  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.85 len=  1.01 (1025.60,260.56,207.61)-(1024.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.86 len=  0.18 (1003.87,268.75,209.75)-(1001.65,268.75,210.68) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.90 len=  0.18 (997.60,256.32,206.33)-(997.60,258.93,207.42) [-/soft/smooth] lay=Layer0 faces=2 F25,F26 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 13.92 len=  1.14 (1000.52,267.14,211.43)-(1000.55,266.00,211.52) [-/soft/smooth] lay=Layer0 faces=2 F46,F55 ang= 77.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 13.99 len=  0.55 (1006.52,271.21,211.53)-(1006.75,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.01 len=  0.55 (997.95,254.75,212.22)-(997.75,254.98,211.76) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.01 len=  0.46 (997.60,258.93,207.42)-(997.60,260.56,207.61) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.02 len=  0.53 (997.75,254.98,211.76)-(997.75,255.50,211.76) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.10 len=  0.77 (997.77,254.75,211.80)-(997.94,254.10,212.20) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.15 len=  0.55 (1006.75,271.19,211.58)-(1006.52,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F65  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.15 len=  0.18 (1003.67,268.98,209.29)-(1001.46,268.98,210.21) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.17 len=  0.55 (997.58,254.98,211.34)-(997.77,254.75,211.80) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.19 len=  0.53 (997.58,255.50,211.34)-(997.58,254.98,211.34) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.19 len=  0.72 (999.75,260.72,207.22)-(999.75,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.21 len=  0.53 (1006.00,271.21,211.53)-(1006.52,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.23 len=  0.72 (1023.50,260.41,207.97)-(1023.50,270.88,212.33) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.24 len=  0.18 (1012.25,271.02,212.00)-(1012.25,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.29 len=  0.77 (1001.65,268.75,210.68)-(1001.81,268.10,211.07) [-/soft/smooth] lay=Layer0 faces=2 F26,F42 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.32 len=  0.72 (1008.90,246.14,207.94)-(998.05,246.14,212.46) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.37 len=  0.53 (1006.52,271.38,211.12)-(1006.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.40 len=  0.18 (1013.75,271.02,212.00)-(1013.75,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.41 len=  1.01 (997.60,258.93,207.42)-(996.64,258.82,207.68) [-/soft/smooth] lay=Layer0 faces=2 F25,F34 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.41 len=  0.53 (1005.48,271.21,211.53)-(1006.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.45 len=  0.18 (1012.48,271.21,211.53)-(1012.48,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.48 len=  0.55 (1005.25,271.02,212.00)-(1005.48,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.48 len=  1.01 (996.64,256.21,206.59)-(997.60,256.32,206.33) [-/-/-] lay=Layer0 faces=1 F25  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.49 len=  0.72 (999.52,260.92,206.76)-(999.52,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.49 len=  0.46 (1001.81,268.10,211.07)-(1000.41,268.10,211.17) [-/soft/smooth] lay=Layer0 faces=2 F34,F42 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.49 len=  0.18 (1013.00,271.21,211.53)-(1013.00,273.62,212.54) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.49 len=  0.18 (1013.00,273.62,212.54)-(1013.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.51 len=  0.77 (1004.60,270.86,212.39)-(1005.25,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.56 len=  0.18 (1013.52,271.21,211.53)-(1013.52,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.56 len=  0.18 (1003.67,269.50,209.29)-(1001.46,269.50,210.21) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.57 len=  1.01 (1018.60,271.03,211.97)-(1017.64,270.92,212.23) [-/-/-] lay=Layer0 faces=1 F51  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.57 len=  0.53 (1006.00,271.38,211.12)-(1005.48,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.60 len=  1.01 (997.60,260.56,207.61)-(996.64,260.45,207.87) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.64 len=  0.55 (1005.48,271.38,211.12)-(1005.25,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.64 len=  1.01 (1000.41,268.10,211.17)-(1000.52,267.14,211.43) [-/soft/smooth] lay=Layer0 faces=2 F34,F51 ang= 77.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.67 len=  0.77 (1005.25,271.19,211.58)-(1004.60,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.73 len=  0.55 (1001.46,268.98,210.21)-(1001.65,268.75,210.68) [-/soft/smooth] lay=Layer0 faces=2 F33,F43 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.92 len=  0.77 (1018.60,270.86,212.39)-(1019.25,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.92 len=  0.72 (999.00,260.92,206.76)-(999.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.92 len=  0.72 (999.00,271.38,211.12)-(999.00,260.92,206.76) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 14.93 len=  1.01 (1004.60,271.03,211.97)-(1003.64,270.92,212.23) [-/-/-] lay=Layer0 faces=1 F51  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 14.99 len=  0.18 (1006.75,271.02,212.00)-(1006.75,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.06 len=  0.46 (1001.65,268.75,210.68)-(1000.24,268.75,210.77) [-/soft/smooth] lay=Layer0 faces=2 F42,F43 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.07 len=  0.77 (1019.25,271.19,211.58)-(1018.60,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.07 len=  0.53 (1001.46,269.50,210.21)-(1001.46,268.98,210.21) [-/soft/smooth] lay=Layer0 faces=2 F35,F47 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.20 len=  0.18 (997.75,255.50,211.76)-(995.25,255.50,212.80) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.22 len=  0.72 (1024.64,260.45,207.87)-(1024.64,270.92,212.23) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.25 len=  0.18 (1006.52,271.21,211.53)-(1006.52,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.26 len=  0.72 (1008.94,245.00,208.03)-(998.09,245.00,212.55) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.28 len=  0.77 (1000.24,268.75,210.77)-(1000.41,268.10,211.17) [-/soft/smooth] lay=Layer0 faces=2 F42,F53 ang= 75.1  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.29 len=  0.55 (1019.25,271.02,212.00)-(1019.48,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.30 len=  0.18 (997.75,254.98,211.76)-(995.25,254.98,212.80) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.36 len=  0.46 (1001.46,268.98,210.21)-(1000.05,268.98,210.31) [-/soft/smooth] lay=Layer0 faces=2 F43,F47 ang=  0.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.36 len=  0.72 (998.48,260.92,206.76)-(998.48,271.38,211.12) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.43 len=  0.18 (1006.00,273.62,212.54)-(1006.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.43 len=  0.18 (1006.00,271.21,211.53)-(1006.00,273.62,212.54) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.44 len=  0.55 (1019.48,271.38,211.12)-(1019.25,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.46 len=  0.72 (998.25,260.72,207.22)-(998.25,271.19,211.58) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.54 len=  0.18 (1005.25,271.02,212.00)-(1005.25,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.57 len=  0.53 (1019.48,271.21,211.53)-(1020.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.62 len=  0.18 (1005.48,271.21,211.53)-(1005.48,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.71 len=  0.55 (1000.05,268.98,210.31)-(1000.24,268.75,210.77) [-/soft/smooth] lay=Layer0 faces=2 F43,F60 ang= 61.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.72 len=  0.53 (1020.00,271.38,211.12)-(1019.48,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.74 len=  0.46 (1001.46,269.50,210.21)-(1000.05,269.50,210.31) [-/-/-] lay=Layer0 faces=1 F47  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.85 len=  0.53 (1020.00,271.21,211.53)-(1020.52,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 15.93 len=  0.72 (997.60,260.56,207.61)-(997.60,271.03,211.97) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 15.98 len=  0.55 (1020.52,271.21,211.53)-(1020.75,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.00 len=  0.53 (1020.52,271.38,211.12)-(1020.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.04 len=  0.77 (997.94,249.90,212.20)-(997.77,249.25,211.80) [-/-/-] lay=Layer0 faces=1 F66  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.04 len=  0.53 (1000.05,269.50,210.31)-(1000.05,268.98,210.31) [-/soft/smooth] lay=Layer0 faces=2 F47,F62 ang= 77.5  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.09 len=  0.77 (1020.75,271.02,212.00)-(1021.40,270.86,212.39) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.13 len=  0.55 (1020.75,271.19,211.58)-(1020.52,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F65  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.20 len=  0.18 (1019.25,271.02,212.00)-(1019.25,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F26,F33 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.23 len=  0.77 (1021.40,271.03,211.97)-(1020.75,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F66  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.27 len=  0.55 (997.75,249.02,211.76)-(997.95,249.25,212.22) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.42 len=  0.55 (997.77,249.25,211.80)-(997.58,249.02,211.34) [-/-/-] lay=Layer0 faces=1 F65  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.47 len=  0.18 (1019.48,271.21,211.53)-(1019.48,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.51 len=  0.72 (991.18,262.50,214.01)-(1000.05,262.50,210.31) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.55 len=  0.72 (1000.24,263.25,210.77)-(991.37,263.25,214.47) [-/soft/smooth] lay=Layer0 faces=2 F65,F66 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.56 len=  0.53 (997.75,248.50,211.76)-(997.75,249.02,211.76) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.61 len=  0.72 (1000.41,263.90,211.17)-(991.54,263.90,214.86) [-/soft/smooth] lay=Layer0 faces=2 F66,F67 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.61 len=  1.01 (1022.36,270.92,212.23)-(1021.40,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F67  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.66 len=  0.72 (1000.05,263.02,210.31)-(991.18,263.02,214.01) [-/soft/smooth] lay=Layer0 faces=2 F63,F65 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.70 len=  0.53 (997.58,249.02,211.34)-(997.58,248.50,211.34) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.74 len=  0.18 (1020.00,271.21,211.53)-(1020.00,273.62,212.54) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.74 len=  0.18 (1020.00,273.62,212.54)-(1020.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.77 len=  1.01 (1001.36,270.92,212.23)-(1000.40,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F67  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.86 len=  0.53 (997.75,247.98,211.76)-(997.75,248.50,211.76) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.88 len=  0.72 (1000.52,264.86,211.43)-(991.65,264.86,215.12) [-/soft/smooth] lay=Layer0 faces=2 F67,F64 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 16.97 len=  0.18 (1020.75,271.02,212.00)-(1020.75,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 16.97 len=  0.75 (999.50,270.00,197.75)-(999.50,270.00,197.00) [-/-/-] lay=Layer0 faces=3 F78,F39,F79  roof0
+VIS d= 17.00 len=  0.53 (997.58,248.50,211.34)-(997.58,247.98,211.34) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.00 len=  0.55 (997.95,247.75,212.22)-(997.75,247.98,211.76) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 17.01 len=  0.18 (1020.52,271.21,211.53)-(1020.52,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.14 len=  0.55 (997.58,247.98,211.34)-(997.77,247.75,211.80) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.26 len=  0.77 (999.75,271.02,212.00)-(1000.40,270.86,212.39) [-/-/-] lay=Layer0 faces=1 F45  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.26 len=  0.77 (997.77,247.75,211.80)-(997.94,247.10,212.20) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 17.34 len=  0.72 (1000.55,266.00,211.52)-(991.69,266.00,215.22) [-/soft/smooth] lay=Layer0 faces=2 F64,F55 ang= 10.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.39 len=  0.77 (1000.40,271.03,211.97)-(999.75,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F66  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 17.48 len=  0.18 (997.75,249.02,211.76)-(995.25,249.02,212.80) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.68 len=  0.55 (999.52,271.21,211.53)-(999.75,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F48  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.75 len=  0.18 (997.75,248.50,211.76)-(995.25,248.50,212.80) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.75 len=  0.18 (995.25,248.50,212.80)-(997.75,248.50,211.76) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 17.81 len=  0.55 (999.75,271.19,211.58)-(999.52,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F65  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 17.92 len=  0.72 (1000.52,267.14,211.43)-(991.65,267.14,215.12) [-/soft/smooth] lay=Layer0 faces=2 F55,F51 ang= 11.4  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.01 len=  0.53 (999.00,271.21,211.53)-(999.52,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 18.04 len=  0.18 (997.75,247.98,211.76)-(995.25,247.98,212.80) [-/soft/smooth] lay=Layer0 faces=2 F33,F35 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.14 len=  0.53 (999.52,271.38,211.12)-(999.00,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F63  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.37 len=  0.53 (998.48,271.21,211.53)-(999.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 18.45 len=  0.18 (999.75,271.02,212.00)-(999.75,273.43,213.00) [-/soft/smooth] lay=Layer0 faces=2 F48,F45 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.49 len=  0.53 (999.00,271.38,211.12)-(998.48,271.38,211.12) [-/-/-] lay=Layer0 faces=1 F62  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 18.53 len=  0.72 (1000.41,268.10,211.17)-(991.54,268.10,214.86) [-/soft/smooth] lay=Layer0 faces=2 F51,F53 ang= 17.0  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.56 len=  0.55 (998.25,271.02,212.00)-(998.48,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F33  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.69 len=  0.55 (998.48,271.38,211.12)-(998.25,271.19,211.58) [-/-/-] lay=Layer0 faces=1 F60  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 18.74 len=  0.18 (999.52,271.21,211.53)-(999.52,273.62,212.54) [-/soft/smooth] lay=Layer0 faces=2 F44,F48 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.75 len=  0.77 (997.60,270.86,212.39)-(998.25,271.02,212.00) [-/-/-] lay=Layer0 faces=1 F26  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 18.87 len=  0.77 (998.25,271.19,211.58)-(997.60,271.03,211.97) [-/-/-] lay=Layer0 faces=1 F53  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 19.02 len=  0.72 (1000.24,268.75,210.77)-(991.37,268.75,214.47) [-/soft/smooth] lay=Layer0 faces=2 F53,F60 ang= 32.3  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 19.08 len=  0.18 (999.00,273.62,212.54)-(999.00,271.21,211.53) [-/-/-] lay=Layer0 faces=1 F44  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+VIS d= 19.08 len=  0.18 (999.00,271.21,211.53)-(999.00,273.62,212.54) [-/-/-] lay=Layer0 faces=1 F35  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+    d= 19.31 len=  0.72 (1000.05,268.98,210.31)-(991.18,268.98,214.01) [-/soft/smooth] lay=Layer0 faces=2 F60,F62 ang= 65.7  roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+(list capped at 600)
+
+--- the faces those edges belong to ---
+F1   n=( 0.71, 0.71,-0.00) area=    2.31 loops=1 verts=8 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,254.00,200.90) .. (1015.50,258.00,204.50)   in roof0
+      SMALL FACE - outer loop: (1011.65,257.85,204.50) (1011.65,257.85,201.05) (1015.35,254.15,201.05) (1015.35,254.15,204.50) (1015.50,254.00,204.50) (1015.50,254.00,200.90) (1011.50,258.00,200.90) (1011.50,258.00,204.50)
+F2   n=(-1.00, 0.00, 0.00) area=  462.60 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.50,200.90) .. (1011.50,258.00,204.50)   in roof0
+F3   n=( 0.00, 1.00, 0.00) area=  524.70 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,258.00,200.90) .. (1157.25,258.00,204.50)   in roof0
+F4   n=( 0.71, 0.71, 0.00) area=    8.49 loops=1 verts=8 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,258.00,197.00) .. (1011.50,258.75,205.00)   in roof0
+F5   n=(-1.00, 0.00, 0.00) area=   64.25 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.50,204.50) .. (1011.50,258.00,205.00)   in roof0
+F6   n=( 0.00, 1.00, 0.00) area= 1160.00 loops=1 verts=7 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,258.00,197.00) .. (1156.50,258.00,205.00)   in roof0
+F7   n=( 0.71, 0.71, 0.00) area=    0.28 loops=1 verts=5 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,257.90,203.00) .. (1011.60,258.00,205.00)   in roof0
+      SMALL FACE - outer loop: (1011.50,258.00,205.00) (1011.60,257.90,205.00) (1011.60,257.90,203.00) (1011.50,258.00,203.00) (1011.50,258.00,204.50)
+F8   n=( 0.00, 1.00, 0.00) area=  291.70 loops=1 verts=6 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,258.00,203.00) .. (1157.35,258.00,205.00)   in roof0
+F9   n=(-1.00, 0.00, 0.00) area=  501.15 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.50,197.00) .. (1011.50,258.00,200.90)   in roof0
+F10  n=(-1.00, 0.00, 0.00) area=  192.75 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.50,203.00) .. (1011.50,258.00,204.50)   in roof0
+F11  n=(-1.00, 0.00, 0.00) area=   69.60 loops=1 verts=4 mat=InteriorPro_Roof_c16e53 back=InteriorPro_Roof_c16e53
+      bbox (1011.50,129.50,205.00) .. (1011.50,258.00,205.54)   in roof0
+F12  n=( 0.00, 1.00, 0.00) area=   78.54 loops=1 verts=4 mat=InteriorPro_Roof_c16e53 back=InteriorPro_Roof_c16e53
+      bbox (1011.50,258.00,205.00) .. (1156.50,258.00,205.54)   in roof0
+F13  n=(-0.71,-0.71, 0.00) area=   55.73 loops=1 verts=4 mat=InteriorPro_Roof_c16e53 back=InteriorPro_Roof_c16e53
+      bbox (938.75,258.00,205.00) .. (1011.50,330.75,235.85)   in roof0
+F14  n=(-1.00, 0.00, 0.00) area=  269.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.50,200.90) .. (1011.50,258.00,203.00)   in roof0
+F15  n=( 0.00, 0.00,-1.00) area=   12.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.40,203.00) .. (1011.60,258.00,203.00)   in roof0
+F16  n=( 0.00, 0.00,-1.00) area=   14.58 loops=1 verts=5 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,257.90,203.00) .. (1157.35,258.00,203.00)   in roof0
+F17  n=( 0.00, 0.00, 1.00) area=   12.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.40,205.00) .. (1011.60,258.00,205.00)   in roof0
+F18  n=( 0.00, 0.00, 1.00) area=   14.58 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,257.90,205.00) .. (1157.35,258.00,205.00)   in roof0
+F19  n=( 0.00, 0.00, 1.00) area=   19.27 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,129.35,204.50) .. (1011.65,258.00,204.50)   in roof0
+F20  n=( 0.00, 0.00, 1.00) area=   21.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,257.85,204.50) .. (1157.25,258.00,204.50)   in roof0
+F21  n=( 1.00, 0.00, 0.00) area=  257.00 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.60,129.40,203.00) .. (1011.60,257.90,205.00)   in roof0
+F22  n=( 0.00,-1.00, 0.00) area=  291.50 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.60,257.90,203.00) .. (1157.35,257.90,205.00)   in roof0
+F23  n=( 1.00, 0.00, 0.00) area=  443.32 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.65,129.35,201.05) .. (1011.65,257.85,204.50)   in roof0
+F24  n=( 0.00,-1.00, 0.00) area=  502.32 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.65,257.85,201.05) .. (1157.25,257.85,204.50)   in roof0
+F25  n=( 0.28,-0.37, 0.89) area=    0.18 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1010.64,256.21,206.33) .. (1011.60,258.93,207.68)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1010.64,256.21,206.59) (1011.60,256.32,206.33) (1011.60,258.93,207.42) (1010.64,258.82,207.68)
+F26  n=( 0.55,-0.32, 0.77) area=    0.14 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1011.60,256.32,205.94) .. (1012.25,259.10,207.42)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1011.60,256.32,206.33) (1012.25,256.48,205.94) (1012.25,259.10,207.03) (1011.60,258.93,207.42)
+F27  n=( 0.00, 0.00,-1.00) area=   96.38 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,129.50,197.00) .. (1011.50,258.75,197.00)   in roof0
+F28  n=( 0.00, 0.00,-1.00) area=  108.75 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,258.00,197.00) .. (1156.50,258.75,197.00)   in roof0
+F29  n=( 0.00, 0.00, 1.00) area=   96.38 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,129.50,205.00) .. (1011.50,258.75,205.00)   in roof0
+F30  n=( 0.00, 0.00, 1.00) area=  108.75 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,258.00,205.00) .. (1156.50,258.75,205.00)   in roof0
+F31  n=( 0.38,-0.09, 0.92) area=    0.21 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.67,257.86,207.49) .. (1011.18,259.00,208.61)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1011.14,257.86,207.49) (1011.18,259.00,207.58) (1008.71,259.00,208.61) (1008.67,257.86,208.52)
+F32  n=( 0.37,-0.28, 0.89) area=    0.18 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.56,256.90,207.23) .. (1011.14,257.86,208.52)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1011.03,256.90,207.23) (1011.14,257.86,207.49) (1008.67,257.86,208.52) (1008.56,256.90,208.26)
+F33  n=( 0.91,-0.16, 0.38) area=    0.10 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.25,256.48,205.48) .. (1012.48,259.29,207.03)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.25,256.48,205.94) (1012.48,256.67,205.48) (1012.48,259.29,206.57) (1012.25,259.10,207.03)
+F34  n=( 0.06,14.08, 6.10) area=    0.45 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1010.64,258.82,207.42) .. (1011.60,260.56,207.87)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1010.64,258.82,207.68) (1011.60,258.93,207.42) (1011.60,260.56,207.61) (1010.64,260.45,207.87)
+F35  n=( 0.00,-0.38, 0.92) area=    0.09 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.48,256.67,205.48) .. (1013.00,259.29,206.57)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.48,256.67,205.48) (1013.00,256.67,205.48) (1013.00,259.29,206.57) (1012.48,259.29,206.57)
+F36  n=( 0.09,-0.38, 0.92) area=    0.21 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1009.50,256.17,206.59) .. (1010.64,258.82,207.77)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1009.50,256.17,206.68) (1010.64,256.21,206.59) (1010.64,258.82,207.68) (1009.50,258.79,207.77)
+F37  n=(-1.00, 0.00, 0.00) area=   96.38 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,130.25,197.00) .. (1010.75,258.75,197.75)   in roof0
+F38  n=( 0.00, 1.00, 0.00) area= 1160.00 loops=1 verts=5 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,258.75,197.00) .. (1155.75,258.75,205.00)   in roof0
+F39  n=( 0.71, 0.71, 0.00) area=   11.93 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,258.75,197.00) .. (1010.75,270.00,197.75)   in roof0
+F40  n=( 0.00, 1.00, 0.00) area=  109.31 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,258.75,197.00) .. (1156.50,258.75,197.75)   in roof0
+F41  n=(-1.00, 0.00, 0.00) area=  931.62 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1010.75,130.25,197.75) .. (1010.75,258.75,205.00)   in roof0
+F42  n=( 0.14,13.97, 6.05) area=    0.30 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1011.60,258.93,207.03) .. (1012.25,260.72,207.61)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1011.60,258.93,207.42) (1012.25,259.10,207.03) (1012.25,260.72,207.22) (1011.60,260.56,207.61)
+F43  n=( 0.43,12.72, 5.51) area=    0.12 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.25,259.10,206.57) .. (1012.48,260.92,207.22)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.25,259.10,207.03) (1012.48,259.29,206.57) (1012.48,260.92,206.76) (1012.25,260.72,207.22)
+F44  n=( 0.00,-0.38, 0.92) area=    0.09 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.00,256.67,205.48) .. (1013.52,259.29,206.57)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.00,256.67,205.48) (1013.52,256.67,205.48) (1013.52,259.29,206.57) (1013.00,259.29,206.57)
+F45  n=( 0.32,-0.55, 0.77) area=    0.14 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.40,256.25,206.84) .. (1011.03,256.90,208.26)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1010.87,256.25,206.84) (1011.03,256.90,207.23) (1008.56,256.90,208.26) (1008.40,256.25,207.86)
+F46  n=( 0.02,14.11, 6.11) area=    0.52 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1009.50,258.79,207.68) .. (1010.64,260.45,207.97)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1009.50,258.79,207.77) (1010.64,258.82,207.68) (1010.64,260.45,207.87) (1009.50,260.41,207.97)
+F47  n=( 0.00,14.11, 6.11) area=    0.24 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.48,259.29,206.57) .. (1013.00,260.92,206.76)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.48,259.29,206.57) (1013.00,259.29,206.57) (1013.00,260.92,206.76) (1012.48,260.92,206.76)
+F48  n=( 0.16,-0.91, 0.38) area=    0.10 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.20,256.02,206.37) .. (1010.87,256.25,207.86)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1010.67,256.02,206.37) (1010.87,256.25,206.84) (1008.40,256.25,207.86) (1008.20,256.02,207.40)
+F49  n=(-0.00,14.11, 6.11) area=    0.24 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.00,259.29,206.57) .. (1013.52,260.92,206.76)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.00,259.29,206.57) (1013.52,259.29,206.57) (1013.52,260.92,206.76) (1013.00,260.92,206.76)
+F50  n=(-0.43,12.72, 5.51) area=    0.12 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.52,259.10,206.57) .. (1013.75,260.92,207.22)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.52,259.29,206.57) (1013.75,259.10,207.03) (1013.75,260.72,207.22) (1013.52,260.92,206.76)
+F51  n=( 0.28,-0.37, 0.89) area=    0.72 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1010.64,260.45,207.61) .. (1011.60,271.03,212.23)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1010.64,260.45,207.87) (1011.60,260.56,207.61) (1011.60,271.03,211.97) (1010.64,270.92,212.23)
+F52  n=(-0.02,14.11, 6.11) area=    0.52 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.36,258.79,207.68) .. (1009.50,260.45,207.97)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1008.36,258.82,207.68) (1009.50,258.79,207.77) (1009.50,260.41,207.97) (1008.36,260.45,207.87)
+F53  n=( 0.55,-0.32, 0.77) area=    0.56 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1011.60,260.56,207.22) .. (1012.25,271.19,211.97)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1011.60,260.56,207.61) (1012.25,260.72,207.22) (1012.25,271.19,211.58) (1011.60,271.03,211.97)
+F54  n=(-0.14,13.97, 6.05) area=    0.30 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.75,258.93,207.03) .. (1014.40,260.72,207.61)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.75,259.10,207.03) (1014.40,258.93,207.42) (1014.40,260.56,207.61) (1013.75,260.72,207.22)
+F55  n=( 0.09,-0.38, 0.92) area=    0.82 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1009.50,260.41,207.87) .. (1010.64,270.92,212.33)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1009.50,260.41,207.97) (1010.64,260.45,207.87) (1010.64,270.92,212.23) (1009.50,270.88,212.33)
+F56  n=( 0.00, 0.00,-1.00) area=  514.00 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,125.50,200.90) .. (1015.50,258.00,200.90)   in roof0
+F57  n=( 0.00, 0.00,-1.00) area=  575.00 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.50,254.00,200.90) .. (1157.25,258.00,200.90)   in roof0
+F58  n=( 0.00, 0.00, 1.00) area=  475.45 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.65,125.65,201.05) .. (1015.35,257.85,201.05)   in roof0
+F59  n=( 0.00, 0.00, 1.00) area=  531.88 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1011.65,254.15,201.05) .. (1157.25,257.85,201.05)   in roof0
+F60  n=( 0.91,-0.16, 0.38) area=    0.40 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.25,260.72,206.76) .. (1012.48,271.38,211.58)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.25,260.72,207.22) (1012.48,260.92,206.76) (1012.48,271.38,211.12) (1012.25,271.19,211.58)
+F61  n=(-13.28,-0.06, 5.77) area=    0.45 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1007.01,256.90,208.26) .. (1008.67,257.86,208.68)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1008.56,256.90,208.26) (1008.67,257.86,208.52) (1007.12,257.86,208.68) (1007.01,256.90,208.41)
+F62  n=( 0.00,-0.38, 0.92) area=    0.38 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1012.48,260.92,206.76) .. (1013.00,271.38,211.12)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1012.48,260.92,206.76) (1013.00,260.92,206.76) (1013.00,271.38,211.12) (1012.48,271.38,211.12)
+F63  n=( 0.00,-0.38, 0.92) area=    0.38 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.00,260.92,206.76) .. (1013.52,271.38,211.12)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.00,260.92,206.76) (1013.52,260.92,206.76) (1013.52,271.38,211.12) (1013.00,271.38,211.12)
+F64  n=(-0.09,-0.38, 0.92) area=    0.82 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1008.36,260.41,207.87) .. (1009.50,270.92,212.33)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1008.36,260.45,207.87) (1009.50,260.41,207.97) (1009.50,270.88,212.33) (1008.36,270.92,212.23)
+F65  n=(-0.91,-0.16, 0.38) area=    0.40 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.52,260.72,206.76) .. (1013.75,271.38,211.58)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.52,260.92,206.76) (1013.75,260.72,207.22) (1013.75,271.19,211.58) (1013.52,271.38,211.12)
+F66  n=(-0.55,-0.32, 0.77) area=    0.56 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1013.75,260.56,207.22) .. (1014.40,271.19,211.97)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1013.75,260.72,207.22) (1014.40,260.56,207.61) (1014.40,271.03,211.97) (1013.75,271.19,211.58)
+F67  n=(-0.28,-0.37, 0.89) area=    0.72 loops=1 verts=4 mat=(none) back=(none)
+      bbox (1014.40,260.45,207.61) .. (1015.36,271.03,212.23)   in roof0/def=IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8
+      SMALL FACE - outer loop: (1014.40,260.56,207.61) (1015.36,260.45,207.87) (1015.36,270.92,212.23) (1014.40,271.03,211.97)
+F68  n=(-1.00, 0.00, 0.00) area=  443.32 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.35,125.65,201.05) .. (1015.35,254.15,204.50)   in roof0
+F69  n=( 0.00, 1.00, 0.00) area=  489.55 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.35,254.15,201.05) .. (1157.25,254.15,204.50)   in roof0
+F70  n=( 0.00, 0.00, 1.00) area=   19.27 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.35,125.50,204.50) .. (1015.50,254.15,204.50)   in roof0
+F71  n=( 0.00, 0.00, 1.00) area=   21.27 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.35,254.00,204.50) .. (1157.25,254.15,204.50)   in roof0
+F72  n=( 1.00, 0.00, 0.00) area=  462.60 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.50,125.50,200.90) .. (1015.50,254.00,204.50)   in roof0
+F73  n=( 0.00,-1.00, 0.00) area=  510.30 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (1015.50,254.00,200.90) .. (1157.25,254.00,204.50)   in roof0
+F74  n=( 0.00, 0.00,-1.00) area= 1445.62 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,130.25,197.00) .. (1010.75,270.00,197.00)   in roof0
+F75  n=( 0.00, 0.00,-1.00) area= 1702.97 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,258.75,197.00) .. (1156.50,270.00,197.00)   in roof0
+F76  n=( 0.00, 0.00,-1.00) area= 1445.62 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,130.25,197.75) .. (1010.75,270.00,197.75)   in roof0
+F77  n=( 0.00, 0.00,-1.00) area= 1702.97 loops=1 verts=6 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,258.75,197.75) .. (1156.50,270.00,197.75)   in roof0
+F78  n=( 1.00, 0.00, 0.00) area=   96.38 loops=1 verts=4 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,141.50,197.00) .. (999.50,270.00,197.75)   in roof0
+F79  n=( 0.00,-1.00, 0.00) area=  117.75 loops=1 verts=5 mat=InteriorPro_Roof_ffffff back=InteriorPro_Roof_ffffff
+      bbox (999.50,270.00,197.00) .. (1156.50,270.00,197.75)   in roof0

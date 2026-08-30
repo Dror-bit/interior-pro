@@ -1,0 +1,33 @@
+Interior Pro - what is in the middle of the screen
+time: 2026-08-30 15:03:00 -0700
+camera eye (624.81,-15.18,-137.18)  target (1067.60,290.56,386.82)  fov 22.0
+viewport 2604 x 1222
+
+px(-24,-24) hit (878.00,163.69,169.33)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-12,-24) hit (878.00,161.66,168.19)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px( +0,-24) hit (878.00,159.64,167.06)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+12,-24) hit (878.00,157.64,165.94)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+24,-24) hit (878.00,155.66,164.82)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-24,-12) hit (878.00,163.67,166.99)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-12,-12) hit (878.00,161.65,165.86)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px( +0,-12) hit (878.00,159.64,164.75)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+12,-12) hit (878.00,157.65,163.63)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+24,-12) hit (878.00,155.67,162.53)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-24, +0) hit (878.00,163.66,164.67)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-12, +0) hit (878.00,161.64,163.55)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px( +0, +0) hit (878.00,159.64,162.45)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+12, +0) hit (878.00,157.66,161.35)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+24, +0) hit (878.00,155.69,160.26)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-24,+12) hit (878.00,163.64,162.36)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-12,+12) hit (878.00,161.64,161.26)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px( +0,+12) hit (878.00,159.64,160.17)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+12,+12) hit (878.00,157.66,159.08)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+24,+12) hit (878.00,155.70,158.00)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-24,+24) hit (878.00,163.63,160.08)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(-12,+24) hit (878.00,161.63,158.99)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px( +0,+24) hit (878.00,159.64,157.90)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+12,+24) hit (878.00,157.67,156.83)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+px(+24,+24) hit (878.00,155.72,155.77)  type=wall,name=InteriorPro_Wall/Face n=(-1.00, 0.00, 0.00) area=36336.00 mat=Stucco
+
+hit area: (878.00,155.66,155.77) .. (878.00,163.69,169.33)
+centre of what we hit: (878.00, 159.67, 162.55)

@@ -18,16 +18,6 @@ module InteriorPro
     DEFAULT_FASCIA_DEPTH = 8.0 unless const_defined?(:DEFAULT_FASCIA_DEPTH, false)
     FASCIA_THICK = 0.75 unless const_defined?(:FASCIA_THICK, false)
     DRIP_THICK   = 0.1  unless const_defined?(:DRIP_THICK, false)
-    # WHERE THE RAKE FASCIA STANDS (2026-09-09, the user measured it:
-    # "הפשייה של הגיבל יוצאת החוצה 3/4 יותר"). The eave fascia is built
-    # at -FASCIA_THICK..0, so its OUTER face is the poly line. The rake
-    # board used to be built at 0..FASCIA_THICK - outside it - and stuck
-    # out one thickness further at every gable. Now both boards share the
-    # same outer face, and everything that rides on the rake (its drip,
-    # its soffit, the eave drip's wrap, the gutter's square cut) is
-    # measured off these two numbers instead of off FASCIA_THICK.
-    RAKE_K_IN  = -FASCIA_THICK unless const_defined?(:RAKE_K_IN, false)
-    RAKE_K_OUT = 0.0           unless const_defined?(:RAKE_K_OUT, false)
     DRIP_DEPTH   = 2.0  unless const_defined?(:DRIP_DEPTH, false)
     # The boxed soffit board: the flat plate that closes the eave from
     # underneath (2026-08-24). OUTSIDE ONLY - it spans from the wall's
@@ -1730,9 +1720,8 @@ module InteriorPro
         ridge = build_flat_geometry!(grp, poly, z0, roof_mat, trim_mat)
         band_top = z0
       elsif framed
-        valley_edges = []
         ridge, zmap = build_framed_geometry!(grp, framed, z0, slope, s[:overhang],
-                                             roof_mat, trim_mat, valley_edges)
+                                             roof_mat, trim_mat)
         band_top = z0 - slope * s[:overhang]
       else
         ridge, zmap = build_hip_geometry!(grp, poly, cells, z0, slope, s[:overhang],
@@ -1753,13 +1742,6 @@ module InteriorPro
       # underside - is covered instead of poking through the shingles.
       # Everything downstream keeps using the UNDERSIDE zmap, so the
       # fascia, the rake and the gable walls do not move at all.
-      # THE SLAB EDGE NEEDS THE SILHOUETTE TOO (2026-09-08). `surf` was
-      # born further down, so build_slab_edge! ran without it and its
-      # chain fell back to the "upper envelope" rule, which deletes a
-      # legitimate low break point - the west strip ran straight from
-      # the eave corner to the ridge point and drew the diagonal line.
-      # Same lambda, just created earlier; nil on hip/flat as before.
-      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       dz = slab_lift(s[:thickness], s[:style] == 'flat' ? 0.0 : slope)
       shell_before = grp.entities.grep(Sketchup::Face)
       if dz > 0.001
@@ -1772,35 +1754,7 @@ module InteriorPro
           build_hip_geometry!(grp, poly, cells, z0 + dz, slope, s[:overhang],
                               roof_mat, roof_mat)
         end
-        build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat, surface: surf)
-        # THE VALLEYS GET A SIDE TOO (2026-09-08). build_slab_edge! walks
-        # the OUTLINE only; a wing\x27s dive onto its parent plane is an
-        # interior line, so its two skins stood open there - the hollow
-        # and the bare diagonal edge in his photos. The same strip the
-        # outline gets, on the valley lines the framed builder recorded.
-        if framed && defined?(valley_edges) && valley_edges
-          valley_edges.each do |c, p2, zc, zp|
-            pts = [Geom::Point3d.new(c[0], c[1], zc),
-                   Geom::Point3d.new(p2[0], p2[1], zp),
-                   Geom::Point3d.new(p2[0], p2[1], zp + dz),
-                   Geom::Point3d.new(c[0], c[1], zc + dz)]
-            f2 = grp.entities.add_face(pts)
-            next if f2.nil?
-            f2.material = roof_mat
-            f2.back_material = roof_mat
-            # AND NO BLACK LINE ON IT (2026-09-08, twice, with photos:
-            # "עדיין יש את הקו באלכסון"). The strip\x27s edges - shared
-            # with both skins once SketchUp welds them - are soft and
-            # smooth, so the shingles read as one surface over the
-            # meeting line instead of a drawn edge.
-            if f2.respond_to?(:edges)
-              f2.edges.each do |ed|
-                ed.soft = true if ed.respond_to?(:soft=)
-                ed.smooth = true if ed.respond_to?(:smooth=)
-              end
-            end
-          end
-        end
+        build_slab_edge!(grp, poly, zmap, dz, z0, roof_mat)
         # THE DECK ENDS AT THE END (2026-08-26, the user's own corner
         # mock-up: "ככה"). On a shed the rake trim rides OUTSIDE the slab
         # edge, so from above a bare white ledge showed between the deck
@@ -1812,7 +1766,7 @@ module InteriorPro
         # SHED ONLY: lvl_edges is empty on every other style, so a plain
         # gable keeps exactly the look it has.
         unless lvl_edges.empty?
-          rake_out = (s[:fascia] ? RAKE_K_OUT : 0.0) +
+          rake_out = (s[:fascia] ? FASCIA_THICK : 0.0) +
                      (s[:drip] ? DRIP_THICK : 0.0)
           if rake_out > 0.001 && zmap && !rakes.empty?
             zmap_top = {}
@@ -1884,37 +1838,16 @@ module InteriorPro
       # Where each gabled edge actually RISES above the eave: that is the
       # stretch the rake owns and the flat fascia must skip. The rest of
       # the same edge is a plain eave and keeps its fascia (2026-08-09).
+      surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       # ...and the spans that CUT the eave bands are the rakes' only: a
       # shed's level top edge is getting a fascia now, and a span there
       # would carve straight back out again (2026-08-26).
-      # A GABLED EDGE IS NOT A RAKE AT EVERY CORNER (2026-09-08, his
-      # words: the perpendicular eave still met it square instead of 45).
-      # The west edge of his house is a rake over the gable and a plain
-      # EAVE over the wing's level stretch - one edge, two kinds of
-      # corner. rake_corners[e] refines gable_flags per END: [at_start,
-      # at_end], true only where the profile actually RISES off that
-      # corner. The drip wrap and the gutter's square-cut-and-cap consult
-      # it, so a level corner miters at 45 like any two eaves.
-      rake_corners = gable_flags.dup
       gable_spans = nil
       if zmap && !rakes.empty?
         gable_spans = {}
         rakes.each do |i|
           ch = edge_profile_chain(poly, i, zmap, surface: surf)
           next if ch.nil?
-          len_e = vlen(vsub(poly[(i + 1) % poly.length], poly[i]))
-          if len_e > 5.0
-            zt = lambda do |t|
-              next ch.first[2] if t <= ch.first[0]
-              next ch.last[2] if t >= ch.last[0]
-              k2 = ch.index { |c| c[0] >= t }
-              t0, _, zz0 = ch[k2 - 1]
-              t1, _, zz1 = ch[k2]
-              t1 - t0 < 1.0e-6 ? zz1 : zz0 + (zz1 - zz0) * (t - t0) / (t1 - t0)
-            end
-            rake_corners[i] = [zt.call(2.0) > band_top + 0.05,
-                               zt.call(len_e - 2.0) > band_top + 0.05]
-          end
           gable_spans[i] = chain_regions_above(ch, band_top)
                            .map { |rg| [rg.first[0], rg.last[0]] }
         end
@@ -2006,11 +1939,9 @@ module InteriorPro
           rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-            rch = framed_edge_span(framed, poly, i, owners)
             build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
-                              cover: cover_blind_at_ends(cov, poly, i, rch),
-                              surface: surf, reach: rch,
-                              k_in: RAKE_K_IN, k_out: RAKE_K_OUT)
+                              cover: cov, surface: surf,
+                              reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
           # A rake board ENDS where it MEETS the level edge's fascia
@@ -2020,7 +1951,6 @@ module InteriorPro
           # edge; nil anywhere else - the exact old path.
           rakes.each do |i|
             build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
-                              k_in: RAKE_K_IN, k_out: RAKE_K_OUT,
                               reach: rake_meet_span(poly, i, lvl_edges,
                                                     FASCIA_THICK))
           end
@@ -2035,13 +1965,9 @@ module InteriorPro
         # the join the shed's top edge already has. A hip or flat roof
         # has no gabled edge, so square_flags never fires there and
         # nothing moves.
-        d_in = s[:fascia] ? RAKE_K_OUT : 0.0
-        # wrap only where the corner is truly a rake corner (2026-09-08)
-        wrap_corners = rake_corners.each_with_index.map do |g, i2|
-          abut_flags[i2] ? false : g
-        end
+        d_in = s[:fascia] ? FASCIA_THICK : 0.0
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
-                    gable_flags, gable_spans, wrap_corners, d_in + DRIP_THICK)
+                    gable_flags, gable_spans, wrap_flags, d_in + DRIP_THICK)
         # ...and the same thin strip climbing the gable rakes (user
         # 2026-08-24). build_band! skips a gabled edge entirely, so without
         # this the drip stopped dead at the corner. It rides on the rake
@@ -2053,11 +1979,9 @@ module InteriorPro
           rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-            rch = framed_edge_span(framed, poly, i, owners)
-            build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH,
-                              cover: cover_blind_at_ends(cov, poly, i, rch),
+            build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH, cover: cov,
                               surface: surf, k_in: d_in, k_out: d_in + DRIP_THICK,
-                              reach: rch)
+                              reach: framed_edge_span(framed, poly, i, owners))
           end
         elsif zmap
           rakes.each do |i|
@@ -2082,7 +2006,7 @@ module InteriorPro
         sqf = Array.new(poly.length, false)
         sqf[(le - 1) % poly.length] = true
         sqf[(le + 1) % poly.length] = true
-        d_in = s[:fascia] ? RAKE_K_OUT : 0.0
+        d_in = s[:fascia] ? FASCIA_THICK : 0.0
         if s[:fascia]
           # A quarter inch DEEPER than the eave depth (the user,
           # 2026-08-26: "תאריך למטה ברבע אינץ'") - the rake board's
@@ -2090,7 +2014,7 @@ module InteriorPro
           # two must end FLUSH.
           build_band!(grp, poly, -FASCIA_THICK, 0.0, ze,
                       ze - s[:fascia_depth] - 0.25, flags, nil, sqf,
-                      RAKE_K_OUT)
+                      FASCIA_THICK)
         end
         if s[:drip]
           build_band!(grp, poly, 0.0, DRIP_THICK, ze, ze - DRIP_DEPTH,
@@ -2117,9 +2041,9 @@ module InteriorPro
         if gsec
           had_edges = grp.entities.grep(Sketchup::Edge).map(&:object_id)
           had_faces = grp.entities.grep(Sketchup::Face).map(&:object_id)
-          build_profile_band!(grp, poly, gsec, band_top, rake_corners,
-                              gable_spans, rake_corners,
-                              s[:fascia] ? RAKE_K_OUT : 0.0,
+          build_profile_band!(grp, poly, gsec, band_top, gable_flags,
+                              gable_spans, gable_flags,
+                              s[:fascia] ? FASCIA_THICK : 0.0,
                               gutter_outer_len(s[:gutter_profile], gw, gh))
           soften_shallow_edges!(grp.entities, had_edges)
           # Its own colour, but only if he picked one. With '' the faces
@@ -2191,16 +2115,8 @@ module InteriorPro
           # square_flags = the gable edges: where the flat board meets a
           # rake it runs straight on across the corner square and ends in
           # a rectangle, no 45 degree diagonal (user 2026-08-24).
-          # PER CORNER, not per edge (2026-09-09). A gabled edge
-          # whose profile is LEVEL at this end is a plain eave here, and
-          # its own board is built - mitered - by the gable_spans branch.
-          # Squaring the neighbour across the corner square then laid the
-          # two boards one on top of the other in an 11.25 x 11.25
-          # triangle (measured at his corner x 866-878, y 130-141.5).
-          # rake_corners already carries the per-end answer; the drip and
-          # the gutter read it since 2026-09-08.
           build_band!(grp, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
-                      gable_flags, gable_spans, rake_corners, RAKE_K_IN, rise)
+                      gable_flags, gable_spans, gable_flags, 0.0, rise)
           # ...and the same board under a shed's LEVEL top edge, at that
           # edge's own height (2026-08-26). Built inside this block so it
           # is painted and seam-softened with every other soffit face.
@@ -2230,13 +2146,10 @@ module InteriorPro
             rakes.each do |i|
               key = line_key(poly, i)
               cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-              rch = framed_edge_span(framed, poly, i, owners)
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
-                                 cover: cover_blind_at_ends(cov, poly, i, rch),
-                                 surface: surf,
+                                 cover: cov, surface: surf,
                                  sloped: s[:soffit_slope] == true,
-                                 inset: s[:fascia] ? -RAKE_K_IN : 0.0,
-                                 reach: rch)
+                                 reach: framed_edge_span(framed, poly, i, owners))
             end
           else
             # The rake twin ENDS where it MEETS the level edge's own
@@ -2245,7 +2158,6 @@ module InteriorPro
             rakes.each do |i|
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
                                  sloped: s[:soffit_slope] == true,
-                                 inset: s[:fascia] ? -RAKE_K_IN : 0.0,
                                  reach: rake_meet_span(poly, i, lvl_edges,
                                                        s[:overhang].to_f))
             end
@@ -2303,23 +2215,7 @@ module InteriorPro
 
         # ...and then the general rule, over every face the soffit just
         # added: flush boards do not get a line between them.
-        # THE WHOLE EAVE UNDERSIDE IS ONE SURFACE (2026-09-08, his inner
-        # corner: the soffit and the fascia bottom lie in the SAME plane,
-        # and the drawn seams between them read as a triangle of lines).
-        # Every straight-down face on the soffit's own plane joins the
-        # flush-seam pass, so board-to-fascia and fascia-to-fascia joints
-        # soften away like board-to-board ones. Anything at another
-        # height (drip, gutter, deck, tails) is untouched.
-        under = []
-        if sb && board
-          under = grp.entities.grep(Sketchup::Face).select do |f|
-            next false unless f.respond_to?(:vertices)
-            nz = (f.normal.z rescue 0.0)
-            nz < -0.999 &&
-              f.vertices.all? { |v| (v.position.z - sb[:z_bot]).abs < 0.02 }
-          end
-        end
-        soften_flush_seams!(board_faces + tail_faces + under)
+        soften_flush_seams!(board_faces + tail_faces)
 
         # WHAT THE BOARD IS PAINTED (2026-08-25). 'boxed' is a painted board
         # and keeps taking the fascia colour off the fallback below, exactly
@@ -2542,12 +2438,12 @@ module InteriorPro
     # edge, from the underside profile up to the top shell. Without it the
     # roof would be two sheets with a gap between them.
     # zmap nil (flat roof) -> a plain band at z_flat.
-    def self.build_slab_edge!(grp, poly, zmap, dz, z_flat, mat, surface: nil)
+    def self.build_slab_edge!(grp, poly, zmap, dz, z_flat, mat)
       return if dz <= 0.001
       n = poly.length
       n.times do |i|
         j = (i + 1) % n
-        chain = zmap ? edge_profile_chain(poly, i, zmap, surface: surface) : nil
+        chain = zmap ? edge_profile_chain(poly, i, zmap) : nil
         segs = if chain && chain.length >= 2
                  chain.each_cons(2).map { |(_t1, p1, z1), (_t2, p2, z2)| [p1, z1, p2, z2] }
                else
@@ -3938,24 +3834,6 @@ module InteriorPro
     # Spans of a profile chain that rise ABOVE zbase, entry/exit points
     # interpolated AT zbase. chain = [[t, [x,y], z], ...] sorted.
     # Returns [[[t, z], ...], ...]. Pure geometry (testable).
-    # The cover clip, blind in the last fraction of an inch before the
-    # reach's own ends (2026-09-08). At a break point the neighbouring
-    # roof touches the shared line at exactly the board's own height, so
-    # the cover sampler dropped the true end node and left a ragged 0.1"
-    # end that never met the fascia. The reach end IS the meet line -
-    # the board is entitled to reach it, and beyond the reach nothing is
-    # built anyway.
-    def self.cover_blind_at_ends(cov, poly, i, rch, eps = 0.15)
-      return cov if cov.nil? || rch.nil?
-      a = poly[i]
-      d = vnorm(vsub(poly[(i + 1) % poly.length], a))
-      lambda do |cx, cy|
-        t = vdot(vsub([cx, cy], a), d)
-        next nil if t < rch[0] + eps || t > rch[1] - eps
-        cov.call(cx, cy)
-      end
-    end
-
     def self.chain_regions_above(chain, zbase, eps = 0.02)
       regions = []
       cur = nil
@@ -5045,16 +4923,6 @@ module InteriorPro
           next if (n1.x * n2.x + n1.y * n2.y + n1.z * n2.z).abs < 0.9999
           e.soft = true
           e.smooth = true
-          # A SEAM WITH A THIRD FACE ON IT IS DRAWN ANYWAY (2026-09-08,
-          # his inner-corner triangle): where the soffit butts the
-          # fascia their two flush bottoms share the line with the side
-          # face between them, and SketchUp always draws an edge that
-          # carries three faces - soft or not. Hiding is the one thing
-          # that removes it, and only this exact case is hidden.
-          if e.respond_to?(:faces) && e.faces.length > 2 &&
-             e.respond_to?(:hidden=)
-            e.hidden = true
-          end
         end
       end
     rescue StandardError => e
@@ -5125,26 +4993,17 @@ module InteriorPro
     # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
                                 cover: nil, surface: nil, sloped: false,
-                                reach: nil, inset: 0.0)
+                                reach: nil)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
       len = vlen(vsub(b, a))
-      # WHERE IT STARTS (2026-09-09). The rake board used to stand
-      # OUTSIDE the poly line, so this soffit ran right up to that line
-      # and met its inner face. Now the board sits at RAKE_K_IN..0 - flush
-      # with the eave fascia - so its inner face is RAKE_K_IN, and the
-      # soffit starts THERE. Running to the poly line as before would put
-      # its outer 3/4" inside the board (boards meet, they never run
-      # inside each other). The INNER edge does not move: the board loses
-      # that 3/4" off its width, not off the overhang.
-      ins = inset.to_f                         # 0.0 = the old flush-to-line
-      off = [-d[1] * ins, d[0] * ins]          # inward for CCW
-      wide = oh - ins
-      return if wide < 0.5
-      inw = [-d[1] * wide, d[0] * wide] # inward for CCW - the rake board goes the other way
+      # The rake board stands OUTSIDE the poly line (build_rake_board!
+      # pushes it outward by FASCIA_THICK), so the soffit runs right up to
+      # that line and meets its inner face - no inset, no gap under it.
+      inw = [-d[1] * oh, d[0] * oh] # inward for CCW - the rake board goes the other way
       # `reach` (2026-08-27): the eave closes the same BODY the wall and the
       # fascia now close, so all three end on one line. nil = the poly edge.
       chain = edge_profile_chain(poly, i, zmap, surface: surface, reach: reach)
@@ -5160,10 +5019,8 @@ module InteriorPro
           next if span < 0.5
           fa = (ra - t1) / (t2 - t1)
           fb = (rb - t1) / (t2 - t1)
-          q1 = [p1[0] + (p2[0] - p1[0]) * fa + off[0],
-                p1[1] + (p2[1] - p1[1]) * fa + off[1]]
-          q2 = [p1[0] + (p2[0] - p1[0]) * fb + off[0],
-                p1[1] + (p2[1] - p1[1]) * fb + off[1]]
+          q1 = [p1[0] + (p2[0] - p1[0]) * fa, p1[1] + (p2[1] - p1[1]) * fa]
+          q2 = [p1[0] + (p2[0] - p1[0]) * fb, p1[1] + (p2[1] - p1[1]) * fb]
           za = z1 + (z2 - z1) * fa - depth.to_f
           zb = z1 + (z2 - z1) * fb - depth.to_f
           grad = span < 1.0e-6 ? 0.0 : (zb - za) / span
@@ -5723,24 +5580,13 @@ module InteriorPro
     # a wing whose mouth straddles the parent ridge dives fully UNDER the
     # parent (junk inside + coplanar z-fight, 2026-08-05B) - then the
     # plane is clipped at the mouth line instead.
-    # `valley` = [mouth corner, pen point]: the slope\x27s edge where it
-    # dives onto the parent plane. When the full quad is KEPT, that edge
-    # is recorded (with its heights) so the caller can close the slab
-    # side along it - measured 2026-09-08: all four valley edges carried
-    # ONE face, the deck stood hollow, and the bare material edge was
-    # the diagonal line on his photos. A TUCKED side has no dive and
-    # records nothing.
-    def self.wing_side_face!(st, quad, mouth_cut, tri, lift, cover, valley = nil)
+    def self.wing_side_face!(st, quad, mouth_cut, tri, lift, cover)
       keep = true
       if cover
         cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0
         cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3.0
         cz = cover.call(cx, cy)
         keep = cz.nil? || lift.call([cx, cy]) > cz + 0.02
-      end
-      if keep && valley && st[:valleys]
-        st[:valleys] << [valley[0], valley[1],
-                         lift.call(valley[0]), lift.call(valley[1])]
       end
       framed_face!(st, keep ? quad : mouth_cut, lift)
     end
@@ -5767,13 +5613,11 @@ module InteriorPro
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, out_r], [xr, pen]],
                           [[x0, y1t], [x0, y0], [xr, out_r], [xr, y1t]],
                           [[x0, y1], [xr, y1], [xr, pen]],
-                          ->(p) { z0d + sl * (p[0] - x0) }, cover,
-                          [[x0, y1], [xr, pen]])
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, pen], [xr, out_r]],
                           [[x1, y0], [x1, y1t], [xr, y1t], [xr, out_r]],
                           [[x1, y1], [xr, pen], [xr, y1]],
-                          ->(p) { z0d + sl * (x1 - p[0]) }, cover,
-                          [[x1, y1], [xr, pen]])
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x1, y0, z0d], [xr, y0, zr]])
           else
@@ -5786,13 +5630,11 @@ module InteriorPro
           wing_side_face!(st, [[x0, y1], [x0, y0], [xr, pen], [xr, out_r]],
                           [[x0, y1], [x0, y0t], [xr, y0t], [xr, out_r]],
                           [[x0, y0], [xr, pen], [xr, y0]],
-                          ->(p) { z0d + sl * (p[0] - x0) }, cover,
-                          [[x0, y0], [xr, pen]])
+                          ->(p) { z0d + sl * (p[0] - x0) }, cover)
           wing_side_face!(st, [[x1, y0], [x1, y1], [xr, out_r], [xr, pen]],
                           [[x1, y0t], [x1, y1], [xr, out_r], [xr, y0t]],
                           [[x1, y0], [xr, y0], [xr, pen]],
-                          ->(p) { z0d + sl * (x1 - p[0]) }, cover,
-                          [[x1, y0], [xr, pen]])
+                          ->(p) { z0d + sl * (x1 - p[0]) }, cover)
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x0, y1, z0d], [xr, y1, zr]])
           else
@@ -5810,13 +5652,11 @@ module InteriorPro
           wing_side_face!(st, [[x0, y0], [x1, y0], [pen, yr], [out_r, yr]],
                           [[x0, y0], [x1t, y0], [x1t, yr], [out_r, yr]],
                           [[x1, y0], [pen, yr], [x1, yr]],
-                          ->(p) { z0d + sl * (p[1] - y0) }, cover,
-                          [[x1, y0], [pen, yr]])
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
           wing_side_face!(st, [[x1, y1], [x0, y1], [out_r, yr], [pen, yr]],
                           [[x1t, y1], [x0, y1], [out_r, yr], [x1t, yr]],
                           [[x1, y1], [x1, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (y1 - p[1]) }, cover,
-                          [[x1, y1], [pen, yr]])
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
             framed_tri!(st, [[x0, y0, z0d], [x0, y1, z0d], [x0, yr, zr]])
           else
@@ -5829,13 +5669,11 @@ module InteriorPro
           wing_side_face!(st, [[x0, y0], [x1, y0], [out_r, yr], [pen, yr]],
                           [[x0t, y0], [x1, y0], [out_r, yr], [x0t, yr]],
                           [[x0, y0], [x0, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (p[1] - y0) }, cover,
-                          [[x0, y0], [pen, yr]])
+                          ->(p) { z0d + sl * (p[1] - y0) }, cover)
           wing_side_face!(st, [[x1, y1], [x0, y1], [pen, yr], [out_r, yr]],
                           [[x1, y1], [x0t, y1], [x0t, yr], [out_r, yr]],
                           [[x0, y1], [x0, yr], [pen, yr]],
-                          ->(p) { z0d + sl * (y1 - p[1]) }, cover,
-                          [[x0, y1], [pen, yr]])
+                          ->(p) { z0d + sl * (y1 - p[1]) }, cover)
           if gabled
             framed_tri!(st, [[x1, y1, z0d], [x1, y0, z0d], [x1, yr, zr]])
           else
@@ -5847,10 +5685,9 @@ module InteriorPro
 
     # Build the whole framed roof. Returns [ridge, zmap] or nil.
     def self.build_framed_geometry!(grp, plan, z0, slope, overhang,
-                                    roof_mat, under_mat, valleys = nil)
+                                    roof_mat, under_mat)
       st = { grp: grp, z0: z0, delta: -slope * overhang.to_f, slope: slope,
-             roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
-             valleys: valleys }
+             roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {} }
       build_main_rect!(st, plan[:main], plan[:g])
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
@@ -5987,33 +5824,6 @@ module InteriorPro
     #                   number per side is enough and no point needs its
     #                   height worked out from its coordinates. 0.0 = the
     #                   level band every caller had before.
-    # One edge, two kinds of corner (2026-09-08): a flag entry may be a
-    # plain boolean (the whole edge) or [at_start, at_end]. corner_flag
-    # reads the right end; booleans behave exactly as before.
-    def self.corner_flag(v, at_end)
-      v.is_a?(Array) ? v[at_end ? 1 : 0] : v
-    end
-
-    # The ring point whose PROJECTION on the poly edge sits at t
-    # (2026-09-08, his two green circles). An offset ring's corners slide
-    # ALONG the edge (the miters), so cutting a mid-edge span end by a
-    # plain fraction of the ring landed a SKEWED cut - the fascia, drip
-    # and soffit all ended on a diagonal at a break point, and the flat
-    # soffit's skewed end ran under the rake soffit and crossed it. A
-    # span end AT a poly corner keeps the ring's own mitred corner,
-    # exactly as before - real corners still miter.
-    def self.ring_at(poly, i, ring, t, len)
-      j = (i + 1) % poly.length
-      return ring[i] if t <= NODE_TOL
-      return ring[j] if t >= len - NODE_TOL
-      a = poly[i]
-      d = vnorm(vsub(poly[j], a))
-      ti = vdot(vsub(ring[i], a), d)
-      tj = vdot(vsub(ring[j], a), d)
-      return lerp2(ring[i], ring[j], t / len) if (tj - ti).abs < 1.0e-6
-      lerp2(ring[i], ring[j], (t - ti) / (tj - ti))
-    end
-
     def self.build_band!(grp, poly, k_in, k_out, z_top, z_bot, skip_flags = nil,
                          skip_spans = nil, square_flags = nil, square_k = 0.0,
                          rise = 0.0)
@@ -6032,10 +5842,10 @@ module InteriorPro
           next if len < 1.0e-6
           complement_spans(spans, len).each do |(ta, tb)|
             next if tb - ta < 0.5
-            # ring_at, not a plain fraction - a mid-edge end cuts SQUARE
-            # on the meet line (2026-09-08); corner ends are unchanged.
-            quad = [ring_at(poly, i, inner, ta, len), ring_at(poly, i, inner, tb, len),
-                    ring_at(poly, i, outer, tb, len), ring_at(poly, i, outer, ta, len)]
+            fa = ta / len
+            fb = tb / len
+            quad = [lerp2(inner[i], inner[j], fa), lerp2(inner[i], inner[j], fb),
+                    lerp2(outer[i], outer[j], fb), lerp2(outer[i], outer[j], fa)]
             add_prism!(grp.entities, quad, z_top, z_bot, lift)
           end
           next
@@ -6047,11 +5857,11 @@ module InteriorPro
         b_out = outer[j]
         if square_flags
           prev = (i - 1) % n
-          if corner_flag(square_flags[prev], true)
+          if square_flags[prev]
             a_in = band_square_corner(poly, i, prev, k_in, square_k) || a_in
             a_out = band_square_corner(poly, i, prev, k_out, square_k) || a_out
           end
-          if corner_flag(square_flags[j], false)
+          if square_flags[j]
             b_in = band_square_corner(poly, i, j, k_in, square_k) || b_in
             b_out = band_square_corner(poly, i, j, k_out, square_k) || b_out
           end
@@ -6279,23 +6089,18 @@ module InteriorPro
           next if len < 1.0e-6
           complement_spans(spans, len).each do |(ta, tb)|
             next if tb - ta < 0.5
-            # ring_at, same reason as build_band! - a mid-edge gutter end
-            # cuts square on the meet line (2026-09-08).
-            a = section.map { |(k, z)| section_point(ring_at(poly, i, ring.call(k), ta, len), z_ref + z) }
-            b = section.map { |(k, z)| section_point(ring_at(poly, i, ring.call(k), tb, len), z_ref + z) }
-            # A MID-EDGE end is exposed and gets the end cap; an end on
-            # the poly corner meets the next edge's run and stays open
-            # (2026-09-08 - the open gutter mouth at the break point).
-            add_profile_prism!(grp.entities, a, b,
-                               ta > NODE_TOL ? cap_len : nil,
-                               tb < len - NODE_TOL ? cap_len : nil)
+            fa = ta / len
+            fb = tb / len
+            a = section.map { |(k, z)| section_point(lerp2(ring.call(k)[i], ring.call(k)[j], fa), z_ref + z) }
+            b = section.map { |(k, z)| section_point(lerp2(ring.call(k)[i], ring.call(k)[j], fb), z_ref + z) }
+            add_profile_prism!(grp.entities, a, b)
           end
           next
         end
         next if skip_flags && skip_flags[i]
         prev = (i - 1) % n
-        sq_a = square_flags && corner_flag(square_flags[prev], true)
-        sq_b = square_flags && corner_flag(square_flags[j], false)
+        sq_a = square_flags && square_flags[prev]
+        sq_b = square_flags && square_flags[j]
         a = section.map do |(k, z)|
           p = ring.call(k)[i]
           p = band_square_corner(poly, i, prev, k, square_k) || p if sq_a
@@ -6310,8 +6115,8 @@ module InteriorPro
         # an abut edge. That is the end that gets the cap; two eaves
         # meeting at an ordinary corner run straight through and get none.
         add_profile_prism!(grp.entities, a, b,
-                           (skip_flags && corner_flag(skip_flags[prev], true)) ? cap_len : nil,
-                           (skip_flags && corner_flag(skip_flags[j], false)) ? cap_len : nil)
+                           (skip_flags && skip_flags[prev]) ? cap_len : nil,
+                           (skip_flags && skip_flags[j]) ? cap_len : nil)
       end
     rescue StandardError => e
       puts "[Roof] build_profile_band!: #{e.message}"
@@ -6368,13 +6173,6 @@ module InteriorPro
     # k_start - out at the gutter, k_wall - in at the wall face, both
     #           centre line. z_ground - the ground.
     # Returns nil when there is not enough wall to come down.
-    # The elbow's slope: drop per inch of run on the kick-back under
-    # the soffit. tan(20) - a ~70 degree elbow. A METHOD, not a
-    # constant, so reload! actually re-reads it.
-    def self.ds_elbow_slope
-      0.36
-    end
-
     def self.downspout_path(z_top, z_turn, k_start, k_wall, z_ground)
       zt = z_top.to_f
       zn = [z_turn.to_f, zt - 1.0].min
@@ -6382,12 +6180,7 @@ module InteriorPro
       kw = k_wall.to_f
       zg = z_ground.to_f
       travel = ks - kw
-      # A SHALLOW ELBOW, LIKE A REAL ONE (2026-09-08, his photos: the
-      # 45 dropped 12" through open air and read as a floating beam).
-      # Real downspout elbows are ~70-75 degrees: the pipe kicks back
-      # nearly level, tucked up under the soffit, and meets the wall
-      # HIGH. ds_elbow_slope is that kick's drop per inch of run.
-      z_in = zn - (travel > 1.0 ? travel * ds_elbow_slope : 0.0)
+      z_in = zn - (travel > 1.0 ? travel : 0.0)      # 45 degrees, so run = drop
       return nil if z_in <= zg + 3.0 * DS_KICK
       path = [[ks, zt], [ks, zn]]
       path << [kw, z_in] if travel > 1.0

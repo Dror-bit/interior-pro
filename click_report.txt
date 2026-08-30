@@ -1,0 +1,157 @@
+Interior Pro - what you clicked on
+time: 2026-08-30 15:21:08 -0700
+camera eye (624.81,-15.18,-137.18) target (1067.60,290.56,386.82)
+
+clicked point: (872.38,135.88,197.00)
+
+--- everything under the cursor (2) ---
+  0 depth=2 at=-  type=roof,name=InteriorPro_Roof/Face FACE n=( 0.00, 0.00,-1.00) area= 1373.91 loops=1 mat=InteriorPro_Roof_ffffff
+  1 depth=2 at=-  type=roof,name=InteriorPro_Roof/Face FACE n=( 0.00, 0.00,-1.00) area= 1565.16 loops=1 mat=InteriorPro_Roof_ffffff
+
+--- every edge within 8" of the click ---
+edges found: 51
+VIS d= 7.95 len=  0.75 (866.75,130.25,197.75)-(866.75,130.25,197.00) [-/-/-] faces=4 F1,F2,F3,F4  type=roof,name=InteriorPro_Roof
+VIS d= 7.95 len=144.00 (866.75,130.25,197.00)-(1010.75,130.25,197.00) [-/-/-] faces=2 F5,F3  type=roof,name=InteriorPro_Roof
+    d= 7.95 len=  1.06 (866.75,130.25,197.00)-(866.00,129.50,197.00) [hidden/soft/smooth] faces=3 F6,F2,F5  type=roof,name=InteriorPro_Roof
+VIS d= 7.95 len=127.75 (866.75,258.00,197.00)-(866.75,130.25,197.00) [-/-/-] faces=3 F6,F1,F7  type=roof,name=InteriorPro_Roof
+VIS d= 7.95 len=116.50 (878.00,258.00,197.00)-(878.00,141.50,197.00) [-/-/-] faces=2 F7,F8  type=roof,name=InteriorPro_Roof
+    d= 7.95 len= 15.91 (878.00,141.50,197.00)-(866.75,130.25,197.00) [-/soft/smooth] faces=2 F7,F4  type=roof,name=InteriorPro_Roof
+VIS d= 7.95 len=  0.75 (878.00,141.50,197.75)-(878.00,141.50,197.00) [-/-/-] faces=2 F8,F4  type=roof,name=InteriorPro_Roof
+    d= 7.99 len= 15.91 (878.00,141.50,197.75)-(866.75,130.25,197.75) [-/soft/smooth] faces=2 F9,F4  type=roof,name=InteriorPro_Roof
+VIS d= 7.99 len=  7.25 (866.75,130.25,205.00)-(866.75,130.25,197.75) [-/-/-] faces=3 F10,F2,F3  type=roof,name=InteriorPro_Roof
+VIS d= 7.99 len=116.50 (878.00,258.00,197.75)-(878.00,141.50,197.75) [-/-/-] faces=2 F9,F8  type=roof,name=InteriorPro_Roof
+VIS d= 7.99 len=127.75 (866.75,130.25,197.75)-(866.75,258.00,197.75) [-/-/-] faces=3 F10,F1,F9  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=  0.75 (866.00,141.50,197.00)-(866.00,141.50,197.75) [-/-/-] faces=2 F11,F12  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=  0.75 (866.00,129.50,197.00)-(866.00,130.25,197.00) [-/-/-] faces=2 F6,F13  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=144.75 (1010.75,130.25,197.00)-(866.00,130.25,197.00) [-/-/-] faces=2 F14,F15  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=133.50 (866.00,141.50,197.00)-(999.50,141.50,197.00) [-/-/-] faces=2 F14,F11  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len= 11.25 (866.00,130.25,197.00)-(866.00,141.50,197.00) [-/-/-] faces=4 F6,F13,F14,F12  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=116.50 (866.00,141.50,197.00)-(866.00,258.00,197.00) [-/-/-] faces=2 F6,F13  type=roof,name=InteriorPro_Roof
+VIS d= 8.50 len=  0.75 (866.00,130.25,197.75)-(866.00,130.25,197.00) [-/-/-] faces=2 F15,F12  type=roof,name=InteriorPro_Roof
+VIS d= 8.53 len=144.75 (1010.75,130.25,197.75)-(866.00,130.25,197.75) [-/-/-] faces=2 F16,F15  type=roof,name=InteriorPro_Roof
+VIS d= 8.53 len=133.50 (866.00,141.50,197.75)-(999.50,141.50,197.75) [-/-/-] faces=2 F16,F11  type=roof,name=InteriorPro_Roof
+VIS d= 8.53 len= 11.25 (866.00,130.25,197.75)-(866.00,141.50,197.75) [-/-/-] faces=2 F16,F12  type=roof,name=InteriorPro_Roof
+VIS d= 9.02 len=  3.90 (866.00,129.50,200.90)-(866.00,129.50,197.00) [-/-/-] faces=3 F2,F13,F17  type=roof,name=InteriorPro_Roof
+VIS d= 9.02 len=145.50 (1011.50,129.50,197.00)-(866.00,129.50,197.00) [-/-/-] faces=2 F5,F17  type=roof,name=InteriorPro_Roof
+VIS d= 9.40 len=  7.07 (883.00,146.50,202.00)-(878.00,141.50,202.00) [-/-/-] faces=2 F18,F19  type=wall,name=InteriorPro_Wall
+VIS d= 9.40 len=121.50 (999.50,141.50,202.00)-(878.00,141.50,202.00) [-/-/-] faces=2 F20,F21  type=wall,name=InteriorPro_Wall
+VIS d= 9.40 len= 96.00 (878.00,141.50,106.00)-(878.00,141.50,202.00) [-/-/-] faces=2 F21,F22  type=wall,name=InteriorPro_Wall
+VIS d= 9.40 len=  7.07 (878.00,141.50,202.00)-(883.00,146.50,202.00) [-/-/-] faces=2 F20,F22  type=wall,name=InteriorPro_Wall
+VIS d= 9.40 len=378.50 (878.00,141.50,202.00)-(878.00,520.00,202.00) [-/-/-] faces=2 F18,F23  type=wall,name=InteriorPro_Wall
+VIS d= 9.40 len= 96.00 (878.00,141.50,106.00)-(878.00,141.50,202.00) [-/-/-] faces=2 F19,F23  type=wall,name=InteriorPro_Wall
+VIS d= 9.82 len=  2.10 (866.00,129.50,203.00)-(866.00,129.50,200.90) [-/-/-] faces=3 F2,F24,F25  type=roof,name=InteriorPro_Roof
+VIS d= 9.82 len=145.50 (866.00,129.50,200.90)-(1011.50,129.50,200.90) [-/-/-] faces=4 F17,F25,F26,F27  type=roof,name=InteriorPro_Roof
+VIS d= 9.82 len=128.50 (866.00,258.00,200.90)-(866.00,129.50,200.90) [-/-/-] faces=4 F13,F24,F28,F29  type=roof,name=InteriorPro_Roof
+VIS d= 9.82 len=  5.66 (862.00,125.50,200.90)-(866.00,129.50,200.90) [-/-/-] faces=3 F30,F29,F27  type=roof,name=InteriorPro_Roof
+VIS d= 9.82 len=  3.60 (866.00,129.50,200.90)-(866.00,129.50,204.50) [-/-/-] faces=3 F30,F28,F26  type=roof,name=InteriorPro_Roof
+VIS d=10.08 len=  5.23 (865.85,129.35,201.05)-(862.15,125.65,201.05) [-/-/-] faces=3 F30,F31,F32  type=roof,name=InteriorPro_Roof
+VIS d=10.08 len=145.80 (865.85,129.35,201.05)-(1011.65,129.35,201.05) [-/-/-] faces=2 F32,F33  type=roof,name=InteriorPro_Roof
+VIS d=10.08 len=  3.45 (865.85,129.35,204.50)-(865.85,129.35,201.05) [-/-/-] faces=3 F30,F34,F33  type=roof,name=InteriorPro_Roof
+VIS d=10.08 len=128.65 (865.85,258.00,201.05)-(865.85,129.35,201.05) [-/-/-] faces=2 F31,F34  type=roof,name=InteriorPro_Roof
+VIS d=10.83 len=  0.14 (866.00,129.50,203.00)-(865.90,129.40,203.00) [-/-/-] faces=3 F35,F36,F37  type=roof,name=InteriorPro_Roof
+VIS d=10.83 len=145.50 (866.00,129.50,203.00)-(1011.50,129.50,203.00) [-/-/-] faces=3 F25,F38,F37  type=roof,name=InteriorPro_Roof
+VIS d=10.83 len=  1.50 (866.00,129.50,204.50)-(866.00,129.50,203.00) [-/-/-] faces=4 F2,F39,F38,F36  type=roof,name=InteriorPro_Roof
+VIS d=10.83 len=128.50 (866.00,258.00,203.00)-(866.00,129.50,203.00) [-/-/-] faces=3 F24,F39,F35  type=roof,name=InteriorPro_Roof
+VIS d=10.95 len=145.70 (1011.60,129.40,203.00)-(865.90,129.40,203.00) [-/-/-] faces=2 F37,F40  type=roof,name=InteriorPro_Roof
+VIS d=10.95 len=128.60 (865.90,129.40,203.00)-(865.90,258.00,203.00) [-/-/-] faces=2 F35,F41  type=roof,name=InteriorPro_Roof
+VIS d=10.95 len=  2.00 (865.90,129.40,205.00)-(865.90,129.40,203.00) [-/-/-] faces=3 F36,F41,F40  type=roof,name=InteriorPro_Roof
+VIS d=11.73 len=  0.21 (866.00,129.50,204.50)-(865.85,129.35,204.50) [-/-/-] faces=3 F30,F42,F43  type=roof,name=InteriorPro_Roof
+VIS d=11.73 len=128.50 (866.00,129.50,204.50)-(866.00,258.00,204.50) [-/-/-] faces=4 F44,F39,F28,F42  type=roof,name=InteriorPro_Roof
+VIS d=11.73 len=  0.50 (866.00,129.50,205.00)-(866.00,129.50,204.50) [-/-/-] faces=4 F2,F44,F45,F36  type=roof,name=InteriorPro_Roof
+VIS d=11.73 len=145.50 (1011.50,129.50,204.50)-(866.00,129.50,204.50) [-/-/-] faces=4 F45,F38,F26,F43  type=roof,name=InteriorPro_Roof
+VIS d=11.89 len=128.65 (865.85,258.00,204.50)-(865.85,129.35,204.50) [-/-/-] faces=2 F34,F42  type=roof,name=InteriorPro_Roof
+VIS d=11.89 len=145.80 (865.85,129.35,204.50)-(1011.65,129.35,204.50) [-/-/-] faces=2 F33,F43  type=roof,name=InteriorPro_Roof
+
+--- those faces ---
+F1   n=( 1.00, 0.00, 0.00) area=   95.81 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.00) .. (866.75,258.00,197.75)  in type=roof,name=InteriorPro_Roof
+F2   n=( 0.71,-0.71, 0.00) area=    8.49 loops=1 verts=8 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,197.00) .. (866.75,130.25,205.00)  in type=roof,name=InteriorPro_Roof
+F3   n=( 0.00, 1.00, 0.00) area= 1152.00 loops=1 verts=6 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.00) .. (1010.75,130.25,205.00)  in type=roof,name=InteriorPro_Roof
+F4   n=( 0.71,-0.71, 0.00) area=   11.93 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.00) .. (878.00,141.50,197.75)  in type=roof,name=InteriorPro_Roof
+F5   n=( 0.00, 0.00,-1.00) area=  108.56 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,197.00) .. (1011.50,130.25,197.00)  in type=roof,name=InteriorPro_Roof
+F6   n=( 0.00, 0.00,-1.00) area=   96.09 loops=1 verts=6 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,197.00) .. (866.75,258.00,197.00)  in type=roof,name=InteriorPro_Roof
+F7   n=( 0.00, 0.00,-1.00) area= 1373.91 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.00) .. (878.00,258.00,197.00)  in type=roof,name=InteriorPro_Roof
+F8   n=(-1.00, 0.00, 0.00) area=   87.38 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (878.00,141.50,197.00) .. (878.00,258.00,197.75)  in type=roof,name=InteriorPro_Roof
+F9   n=( 0.00, 0.00,-1.00) area= 1373.91 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.75) .. (878.00,258.00,197.75)  in type=roof,name=InteriorPro_Roof
+F10  n=( 1.00, 0.00, 0.00) area=  926.19 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.75,130.25,197.75) .. (866.75,258.00,205.00)  in type=roof,name=InteriorPro_Roof
+F11  n=( 0.00,-1.00, 0.00) area=  100.12 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,141.50,197.00) .. (999.50,141.50,197.75)  in type=roof,name=InteriorPro_Roof
+F12  n=( 1.00, 0.00, 0.00) area=    8.44 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,130.25,197.00) .. (866.00,141.50,197.75)  in type=roof,name=InteriorPro_Roof
+F13  n=( 1.00, 0.00, 0.00) area=  501.15 loops=1 verts=7 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,197.00) .. (866.00,258.00,200.90)  in type=roof,name=InteriorPro_Roof
+F14  n=( 0.00, 0.00,-1.00) area= 1565.16 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,130.25,197.00) .. (1010.75,141.50,197.00)  in type=roof,name=InteriorPro_Roof
+F15  n=( 0.00, 1.00, 0.00) area=  108.56 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,130.25,197.00) .. (1010.75,130.25,197.75)  in type=roof,name=InteriorPro_Roof
+F16  n=( 0.00, 0.00,-1.00) area= 1565.16 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,130.25,197.75) .. (1010.75,141.50,197.75)  in type=roof,name=InteriorPro_Roof
+F17  n=( 0.00, 1.00, 0.00) area=  567.45 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,197.00) .. (1011.50,129.50,200.90)  in type=roof,name=InteriorPro_Roof
+F18  n=( 0.00, 0.00, 1.00) area= 1867.50 loops=1 verts=4 mat=(none)
+      bbox (878.00,141.50,202.00) .. (883.00,520.00,202.00)  in type=wall,name=InteriorPro_Wall
+F19  n=( 0.71,-0.71, 0.00) area=  678.82 loops=1 verts=4 mat=(none)
+      bbox (878.00,141.50,106.00) .. (883.00,146.50,202.00)  in type=wall,name=InteriorPro_Wall
+F20  n=( 0.00, 0.00, 1.00) area=  582.50 loops=1 verts=4 mat=(none)
+      bbox (878.00,141.50,202.00) .. (999.50,146.50,202.00)  in type=wall,name=InteriorPro_Wall
+F21  n=(-0.00,-1.00,-0.00) area=11664.00 loops=1 verts=4 mat=Stucco
+      bbox (878.00,141.50,106.00) .. (999.50,141.50,202.00)  in type=wall,name=InteriorPro_Wall
+F22  n=(-0.71, 0.71, 0.00) area=  678.82 loops=1 verts=4 mat=(none)
+      bbox (878.00,141.50,106.00) .. (883.00,146.50,202.00)  in type=wall,name=InteriorPro_Wall
+F23  n=(-1.00, 0.00, 0.00) area=36336.00 loops=1 verts=4 mat=Stucco
+      bbox (878.00,141.50,106.00) .. (878.00,520.00,202.00)  in type=wall,name=InteriorPro_Wall
+F24  n=( 1.00, 0.00, 0.00) area=  269.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,200.90) .. (866.00,258.00,203.00)  in type=roof,name=InteriorPro_Roof
+F25  n=( 0.00, 1.00, 0.00) area=  305.55 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,200.90) .. (1011.50,129.50,203.00)  in type=roof,name=InteriorPro_Roof
+F26  n=( 0.00, 1.00, 0.00) area=  523.80 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,200.90) .. (1011.50,129.50,204.50)  in type=roof,name=InteriorPro_Roof
+F27  n=( 0.00, 0.00,-1.00) area=  598.00 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (862.00,125.50,200.90) .. (1015.50,129.50,200.90)  in type=roof,name=InteriorPro_Roof
+F28  n=( 1.00, 0.00, 0.00) area=  462.60 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,200.90) .. (866.00,258.00,204.50)  in type=roof,name=InteriorPro_Roof
+F29  n=( 0.00, 0.00,-1.00) area=  522.00 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (862.00,125.50,200.90) .. (866.00,258.00,200.90)  in type=roof,name=InteriorPro_Roof
+F30  n=( 0.71,-0.71, 0.00) area=    2.31 loops=1 verts=8 mat=InteriorPro_Roof_ffffff
+      bbox (862.00,125.50,200.90) .. (866.00,129.50,204.50)  in type=roof,name=InteriorPro_Roof
+      SMALL - loop: (865.85,129.35,204.50) (865.85,129.35,201.05) (862.15,125.65,201.05) (862.15,125.65,204.50) (862.00,125.50,204.50) (862.00,125.50,200.90) (866.00,129.50,200.90) (866.00,129.50,204.50)
+F31  n=( 0.00, 0.00, 1.00) area=  482.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (862.15,125.65,201.05) .. (865.85,258.00,201.05)  in type=roof,name=InteriorPro_Roof
+F32  n=( 0.00, 0.00, 1.00) area=  553.15 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (862.15,125.65,201.05) .. (1015.35,129.35,201.05)  in type=roof,name=InteriorPro_Roof
+F33  n=(-0.00,-1.00, 0.00) area=  503.01 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.85,129.35,201.05) .. (1011.65,129.35,204.50)  in type=roof,name=InteriorPro_Roof
+F34  n=(-1.00, 0.00, 0.00) area=  443.84 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.85,129.35,201.05) .. (865.85,258.00,204.50)  in type=roof,name=InteriorPro_Roof
+F35  n=( 0.00, 0.00,-1.00) area=   12.86 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.90,129.40,203.00) .. (866.00,258.00,203.00)  in type=roof,name=InteriorPro_Roof
+F36  n=( 0.71,-0.71, 0.00) area=    0.28 loops=1 verts=5 mat=InteriorPro_Roof_ffffff
+      bbox (865.90,129.40,203.00) .. (866.00,129.50,205.00)  in type=roof,name=InteriorPro_Roof
+      SMALL - loop: (866.00,129.50,205.00) (865.90,129.40,205.00) (865.90,129.40,203.00) (866.00,129.50,203.00) (866.00,129.50,204.50)
+F37  n=( 0.00, 0.00,-1.00) area=   14.56 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.90,129.40,203.00) .. (1011.60,129.50,203.00)  in type=roof,name=InteriorPro_Roof
+F38  n=( 0.00, 1.00, 0.00) area=  218.25 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,203.00) .. (1011.50,129.50,204.50)  in type=roof,name=InteriorPro_Roof
+F39  n=( 1.00, 0.00, 0.00) area=  192.75 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,203.00) .. (866.00,258.00,204.50)  in type=roof,name=InteriorPro_Roof
+F40  n=( 0.00,-1.00, 0.00) area=  291.40 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.90,129.40,203.00) .. (1011.60,129.40,205.00)  in type=roof,name=InteriorPro_Roof
+F41  n=(-1.00, 0.00, 0.00) area=  257.20 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.90,129.40,203.00) .. (865.90,258.00,205.00)  in type=roof,name=InteriorPro_Roof
+F42  n=( 0.00, 0.00, 1.00) area=   19.29 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.85,129.35,204.50) .. (866.00,258.00,204.50)  in type=roof,name=InteriorPro_Roof
+F43  n=( 0.00, 0.00, 1.00) area=   21.85 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (865.85,129.35,204.50) .. (1011.65,129.50,204.50)  in type=roof,name=InteriorPro_Roof
+F44  n=( 1.00, 0.00, 0.00) area=   64.25 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,204.50) .. (866.00,258.00,205.00)  in type=roof,name=InteriorPro_Roof
+F45  n=( 0.00, 1.00, 0.00) area=   72.75 loops=1 verts=4 mat=InteriorPro_Roof_ffffff
+      bbox (866.00,129.50,204.50) .. (1011.50,129.50,205.00)  in type=roof,name=InteriorPro_Roof

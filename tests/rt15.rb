@@ -455,14 +455,17 @@ ok('no white triangles at the gable ends (2026-08-05B)',
    tris.length == 0, tris.length)
 rake_top = rg.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:z).max
 ok('rake boards climb to the ridge', (rake_top - gz).abs < 0.05, rake_top)
-# THE GABLE DRIP (2026-08-25). The eave poly runs x = -15..255; the rake
-# fascia stands FASCIA_THICK (0.75") outside that line, and the drip rides
-# on its outer face, DRIP_THICK (0.1") thinner still. So the gable ends are
-# the outermost thing on the roof and reach exactly -15.85 / 255.85. If the
-# drip were skipped again this reads -15.75 / 255.75.
+# THE GABLE DRIP (2026-08-25, moved 2026-09-09). The eave poly runs
+# x = -15..255. The rake fascia USED to stand FASCIA_THICK (0.75")
+# OUTSIDE that line, so the gable stuck out 3/4" further than the
+# perpendicular eave - the user measured it and asked for the two to be
+# flush (RAKE_K_IN/RAKE_K_OUT). The rake fascia now fills -0.75..0 like
+# the eave's, its outer face IS the poly line, and the drip rides on that
+# face DRIP_THICK (0.1") beyond it: -15.1 / 255.1. If the drip were
+# skipped again this reads -15.0 / 255.0.
 gx = rg.entities.grep(Sketchup::Face).flat_map(&:pts).map(&:x)
 ok('the drip carries on up the gable rake, 0.1" past the fascia',
-   (gx.min + 15.85).abs < 0.01 && (gx.max - 255.85).abs < 0.01,
+   (gx.min + 15.1).abs < 0.01 && (gx.max - 255.1).abs < 0.01,
    [gx.min, gx.max])
 
 # ---- per-wall gable marking (the Gable Ends tool path) -------------------
