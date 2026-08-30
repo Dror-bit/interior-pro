@@ -1,8 +1,8 @@
 Interior Pro - the house as the roof sees it
-model: claud cold   time: 2026-08-28 16:20:30 -0700
+model: claud cold   time: 2026-08-30 16:24:13 -0700
 
 WALLS (attributes, local coords + group origin):
-  wall id="3f8d1b42-740c-4564-b45f-348c67b94e12" level=2 start_x=1144.5 start_y=520.0 end_x=878.0 end_y=520.1043789067738 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
+  wall id="3f8d1b42-740c-4564-b45f-348c67b94e12" level=2 start_x=1144.5 start_y=520.0 end_x=878.0 end_y=520.0 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
        group origin (0.000, 0.000, 106.000) identity=false
   wall id="2858a767-bd82-418b-9865-bec0477cd9cb" level=2 start_x=1144.5 start_y=270.0 end_x=1144.5 end_y=520.0 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
        group origin (0.000, 0.000, 106.000) identity=false
@@ -12,7 +12,7 @@ WALLS (attributes, local coords + group origin):
        group origin (0.000, 0.000, 106.000) identity=false
   wall id="1d5a3ffe-6f93-45ea-9fbe-8c9d49380379" level=2 start_x=878.0 start_y=141.50000000000003 end_x=994.5 end_y=141.5 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
        group origin (0.000, 0.000, 106.000) identity=false
-  wall id="efc75384-c9e3-4cec-8dab-979e5000a7da" level=2 start_x=878.0 start_y=520.1043789067738 end_x=878.0 end_y=141.50000000000003 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
+  wall id="efc75384-c9e3-4cec-8dab-979e5000a7da" level=2 start_x=878.0 start_y=520.0 end_x=878.0 end_y=141.50000000000003 thickness=5.0 height=96.0 base_z=106.0 anchor="bottom-left" wall_category="exterior" exterior_material="Stucco"
        group origin (0.000, 0.000, 106.000) identity=false
 
 ROOFS (saved settings):
@@ -27,10 +27,10 @@ ROOFS (saved settings):
     soffit_style = nil
     band = nil
     drip = nil
-    roof_material = "shingle"
+    roof_material = "metaltile"
     roof_thickness = nil
     gable_walls = nil
-    set_gables = ["1d5a3ffe-6f93-45ea-9fbe-8c9d49380379", "efc75384-c9e3-4cec-8dab-979e5000a7da", "2858a767-bd82-418b-9865-bec0477cd9cb"]
-    set_gable_xy = [978.3671059629412, 141.5, 878.0, 299.82139255037674, 1144.5, 428.4524886768684]
+    set_gables = ["efc75384-c9e3-4cec-8dab-979e5000a7da", "2858a767-bd82-418b-9865-bec0477cd9cb"]
+    set_gable_xy = [878.0, 299.82139255037674, 1144.5, 428.4524886768684]
 
-RoofManager.settings = {:style=>"hip", :pitch=>5.0, :abut_headroom=>48.0, :overhang=>12.0, :fascia=>true, :fascia_depth=>8.0, :drip=>true, :soffit=>"boxed", :soffit_color=>"#ffffff", :soffit_slope=>true, :roof_color=>"#c16e53", :fascia_color=>"#ffffff", :roof_material=>"shingle", :thickness=>0.5, :ridge_cap=>false, :gutter=>false, :gutter_profile=>"k", :gutter_width=>4.0, :gutter_color=>"", :downspouts=>true, :gable_walls=>true}
+RoofManager.settings = {:style=>"hip", :pitch=>5.0, :abut_headroom=>48.0, :overhang=>12.0, :fascia=>true, :fascia_depth=>8.0, :drip=>true, :soffit=>"boxed", :soffit_color=>"#ffffff", :soffit_slope=>false, :roof_color=>"#c16e53", :fascia_color=>"#ffffff", :roof_material=>"metaltile", :thickness=>0.5, :ridge_cap=>true, :gutter=>true, :gutter_profile=>"box", :gutter_width=>4.0, :gutter_color=>"", :downspouts=>true, :gable_walls=>true}
