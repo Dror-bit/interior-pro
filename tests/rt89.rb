@@ -65,8 +65,11 @@ ok('it drops STRAIGHT before it turns - no diagonal against the fascia',
    close(path[0][0], path[1][0]) && close(path[1][1], ZTURN), path[0..1])
 ok('the elbow does not start above the soffit', path[1][1] <= ZTURN + 1e-9,
    path[1][1])
-ok('the elbow comes in to the wall at 45 degrees',
-   close((path[2][0] - path[1][0]).abs, (path[2][1] - path[1][1]).abs),
+# SHALLOW since 2026-09-08 - a real ~70 degree elbow, tucked under the
+# soffit, instead of a 45 that fell 12" through open air.
+ok('the elbow kicks back SHALLOW - ds_elbow_slope of drop per run',
+   close((path[2][1] - path[1][1]).abs,
+         (path[2][0] - path[1][0]).abs * RM.ds_elbow_slope),
    [path[1], path[2]])
 ok('...and lands ON the wall line', close(path[2][0], KWALL), path[2])
 ok('then it hugs the wall straight down', close(path[3][0], KWALL), path[3])
@@ -92,13 +95,16 @@ ok('one ring per point of the path', rings.length == path.length, rings.length)
 ok('every ring is the whole profile', rings.all? { |r| r.length == rect.length })
 straight = rings[3].map { |_a, k, _z| k }
 straight_w = straight.max - straight.min
-# The turn here is 45 degrees (a vertical run meeting a 45 elbow), so the
-# metal is pushed out by 1/cos(22.5).
+# The bend's stretch follows its own half angle - measured off the path
+# itself, so this stays true whatever ds_elbow_slope says.
+d1 = [path[2][0] - path[1][0], path[2][1] - path[1][1]]
+l1 = Math.hypot(*d1)
+half = Math.acos(((0 * d1[0]) + (-1 * d1[1])) / l1) / 2.0
 bend = rings[2].map { |_a, k, z| Math.hypot(k - path[2][0], z - path[2][1]) }
 ok('a straight run keeps the pipe its own depth',
    close(straight_w, RM::DS_DEPTH), straight_w)
-ok('the 45 degree bend is stretched by 1/cos of its half angle',
-   close(bend.max, (RM::DS_DEPTH / 2.0) / Math.cos(Math::PI / 8.0), 1e-9),
+ok('the bend is stretched by 1/cos of its half angle',
+   close(bend.max, (RM::DS_DEPTH / 2.0) / Math.cos(half), 1e-6),
    bend.max)
 ok('...and a straight point is not stretched at all',
    close(rings[3].map { |_a, k, _z| (k - path[3][0]).abs }.max,
