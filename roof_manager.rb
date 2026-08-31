@@ -1946,7 +1946,9 @@ module InteriorPro
       if s[:fascia] && !@dutch_rakes.empty?
         dep = s[:fascia_depth].to_f
         dep = DEFAULT_FASCIA_DEPTH if dep <= 0.01
-        @dutch_rakes.each { |a, b, out2| build_dutch_rake!(grp, a, b, out2, dep) }
+        @dutch_rakes.each do |a, b, out2, above|
+          build_dutch_rake!(grp, a, b, out2, dep, above)
+        end
       end
       # ...its soffit boards AND those rake boards are TRIM WHITE, like
       # every other board - they are built on the slab pass, where the
@@ -5806,7 +5808,14 @@ module InteriorPro
     # stands one thickness proud of the gable face, exactly the way a
     # rake board stands proud of its wall. `dep` is the fascia depth, and
     # the board hangs straight DOWN by it, like the eave's own.
-    def self.build_dutch_rake!(grp, a, b, out2, dep)
+    # ...AND IT DIES ON THE APRON (2026-09-10). The board now runs all
+    # the way down to where its own slope plane meets the apron, so the
+    # last DUTCH_SET_IN of the cap above it is no longer bare. Down there
+    # the two planes are almost touching, so a board hanging a full
+    # fascia depth would be buried inside the apron - `above` cuts it on
+    # that plane and it tapers to a point exactly on the crease.
+    # BOARDS MEET, THEY NEVER RUN INSIDE EACH OTHER.
+    def self.build_dutch_rake!(grp, a, b, out2, dep, above = nil)
       return if dep <= 0.01
       ox = out2[0] * FASCIA_THICK
       oy = out2[1] * FASCIA_THICK
@@ -5814,10 +5823,28 @@ module InteriorPro
                Geom::Point3d.new(b[0], b[1], b[2]),
                Geom::Point3d.new(b[0], b[1], b[2] - dep),
                Geom::Point3d.new(a[0], a[1], a[2] - dep)]
+      if above
+        kept = []
+        inner.length.times do |k|
+          q0 = inner[k]
+          q1 = inner[(k + 1) % inner.length]
+          s0 = above.call(q0)
+          s1 = above.call(q1)
+          kept << q0 if s0 >= -1.0e-6
+          next if (s0 > 0) == (s1 > 0)
+          t = s0 / (s0 - s1)
+          next if t <= 0.0 || t >= 1.0
+          kept << Geom::Point3d.new(q0.x + (q1.x - q0.x) * t,
+                                    q0.y + (q1.y - q0.y) * t,
+                                    q0.z + (q1.z - q0.z) * t)
+        end
+        return if kept.length < 3
+        inner = kept
+      end
       outer = inner.map { |p| Geom::Point3d.new(p.x + ox, p.y + oy, p.z) }
       faces = [grp.entities.add_face(inner), grp.entities.add_face(outer)]
-      4.times do |k|
-        j = (k + 1) % 4
+      inner.length.times do |k|
+        j = (k + 1) % inner.length
         faces << grp.entities.add_face([inner[k], inner[j], outer[j], outer[k]])
       end
       faces.each { |f| @dutch_soffits << f if f && @dutch_soffits }
@@ -5934,12 +5961,26 @@ module InteriorPro
       # lives. pts3 is [base, base, apex]: the two edges that CLIMB are
       # the ones touching the apex. They stay on the ROOF's own line, out
       # in front of the wall, which is what makes the overhang read.
+      # THE BOARD REACHES THE APRON (2026-09-10). It used to stop on the
+      # gable wall's own base corner, DUTCH_SET_IN short of the point
+      # where its slope plane actually meets the apron - a small
+      # triangular slot at the bottom of every rake, under the new cap
+      # face. Push each base corner that much further away from the
+      # apex, along the board's own line, and the cap and the board end
+      # together on the crease.
       return if @dutch_rakes.nil?
-      a0 = [out[0].x, out[0].y, out[0].z]
-      a1 = [out[1].x, out[1].y, out[1].z]
       ap = [out[2].x, out[2].y, out[2].z]
-      @dutch_rakes << [a0, ap, out2]
-      @dutch_rakes << [a1, ap, out2]
+      reach = lambda do |q|
+        vx = q.x - ap[0]
+        vy = q.y - ap[1]
+        vz = q.z - ap[2]
+        h = Math.sqrt(vx * vx + vy * vy)
+        next [q.x, q.y, q.z] if h < 0.001
+        k = (h + DUTCH_SET_IN) / h
+        [ap[0] + vx * k, ap[1] + vy * k, ap[2] + vz * k]
+      end
+      @dutch_rakes << [reach.call(out[0]), ap, out2, above]
+      @dutch_rakes << [reach.call(out[1]), ap, out2, above]
     end
 
     # The fascia depth this roof is using, with the default filled in.
