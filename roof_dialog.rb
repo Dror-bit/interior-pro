@@ -291,7 +291,7 @@ module InteriorPro
             <input type="color" id="gutterColor" value="#{gutter_col}" oninput="gutterPicked()"></div>
           <div class="row sub"><label><input type="checkbox" id="downspouts"#{s[:downspouts] ? ' checked' : ''}> Downspouts (one per corner)</label></div>
           <div class="row"><label>Soffit</label>
-            <select id="soffit" onchange="soffitChanged()">#{soffit_options}</select>
+            <select id="soffit" onchange="soffitChanged(true)">#{soffit_options}</select>
             <input type="color" id="soffitColor" value="#{soffit_col}" oninput="soffitPicked()"></div>
           <div class="row sub"><label><input type="checkbox" id="soffitSlope"#{s[:soffit_slope] ? ' checked' : ''}> Sloped (follows the roof)</label></div>
 
@@ -328,9 +328,20 @@ module InteriorPro
             var SOFFIT_DEF = {#{soffit_defs}};
             var soffitPickedFlag = #{soffit_picked ? 'true' : 'false'};
             function soffitPicked() { soffitPickedFlag = true; }
-            function soffitChanged() {
+            // PICKING A STYLE HANDS THE LOOK BACK TO THE STYLE
+            // (2026-09-09). A colour picked once set soffitPickedFlag for
+            // good, and soffit_paint lets a hand-picked colour beat the
+            // style's texture - so after one visit to the picker, choosing
+            // Stucco or Wood changed nothing on the roof. Changing the
+            // style now clears the flag (user === true), which sends '' and
+            // lets the style's own picture win again. The picker still
+            // overrides, it just has to be used AFTER the style. The call
+            // on load passes nothing, so a colour really saved last time
+            // survives opening the panel.
+            function soffitChanged(user) {
               var v = document.getElementById('soffit').value;
               var c = document.getElementById('soffitColor');
+              if (user === true) { soffitPickedFlag = false; }
               c.disabled = (v === 'none');
               document.getElementById('soffitSlope').disabled = (v === 'none');
               if (!soffitPickedFlag && SOFFIT_DEF[v]) { c.value = SOFFIT_DEF[v]; }

@@ -2302,6 +2302,10 @@ module InteriorPro
                                   sloped: sloped,
                                   reach: rm.rake_meet_span(poly, gi, ring[:level],
                                                            fr[:overhang]))
+            # ...and the wedge that closes the step between that board
+            # and the flat eave soffit under it (2026-09-09, see
+            # build_rake_return!). A sloped soffit has no such step.
+            build_rake_return!(rs, fr, at, dep, z_top) unless sloped
             paint!(rs, trim_material(soffit_color(spec, style)))
           end
         end
@@ -2418,6 +2422,67 @@ module InteriorPro
     end
 
     # A profile in (s, z) swept across the width.
+    # A cross-section in (w, z) - across the dormer and up - swept along
+    # s. extrude_sz!'s twin, for a piece whose shape changes ACROSS the
+    # dormer instead of along it.
+    def self.extrude_wz!(sub, prof, at, s_a, s_b)
+      a = prof.map { |w, z| at.call(s_a, w, z) }
+      b = prof.map { |w, z| at.call(s_b, w, z) }
+      add_face!(sub, a)
+      add_face!(sub, b.reverse)
+      prof.length.times do |i|
+        j = (i + 1) % prof.length
+        add_face!(sub, [a[i], a[j], b[j], b[i]])
+      end
+      sub
+    end
+
+    # THE BOX RETURN AT THE GABLE CORNER (2026-09-09, the user with a
+    # photo: "יש רווח בין האיבס לפשייה, תסגור אותו כמו בגגות").
+    #
+    # WHAT WAS OPEN. The rake soffit is pulled back one overhang at the
+    # corner (rake_meet_span), so its near end stands at |w| = w_edge -
+    # overhang - and there its underside is overhang x pitch ABOVE the
+    # flat eave soffit's top face. Measured on his dormer: eave soffit
+    # top 234.01, rake soffit underside 235.76 - a 1.75" slot you could
+    # see straight into, running from that end out to where the climbing
+    # rake finally drops to the eave soffit's own level.
+    #
+    # WHAT CLOSES IT. The same wedge a real boxed eave has: a triangle
+    # in (w, z) between the eave soffit's TOP and the rake board's
+    # UNDERSIDE, swept the overhang's depth from the rake plane inward -
+    # exactly the span the rake soffit covers. It ends where the rake
+    # underside meets the soffit top, w_edge - thick/pitch, so it never
+    # runs past the corner or inside the boards it meets (BOARDS MEET).
+    #
+    # NOT for a SLOPED soffit: there the board tilts with the roof and
+    # there is no step to close - it is left exactly as it was.
+    # ROOF_MANAGER IS NOT TOUCHED: this is dormer geometry, built here.
+    def self.build_rake_return!(sub, fr, at, dep, z_top)
+      oh = fr[:overhang].to_f
+      pitch = fr[:pitch].to_f
+      we = fr[:w_edge].to_f
+      thick = soffit_thick
+      return false if oh < 1.0 || pitch <= 0.0 || dep <= 0.0
+      z_bot = z_top - dep                 # the fascia's bottom line
+      z_e = z_bot + thick                 # the flat eave soffit's TOP
+      z_r = z_bot + oh * pitch            # the rake soffit's underside
+      return false if z_r - z_e < 0.05    # nothing to close
+      reach = thick / pitch               # where the rake meets that top
+      return false if reach >= oh - 0.05  # ...already past the return
+      w1 = we - oh
+      w2 = we - reach
+      s0 = fr[:s_rake].to_f
+      [1.0, -1.0].each do |sg|
+        prof = [[w1 * sg, z_e], [w2 * sg, z_e], [w1 * sg, z_r]]
+        extrude_wz!(sub, prof, at, s0, s0 + oh)
+      end
+      true
+    rescue StandardError => e
+      puts "[Dormer] build_rake_return!: #{e.message}"
+      false
+    end
+
     def self.extrude_sz!(sub, prof, at, w_a, w_b)
       a = prof.map { |s, z| at.call(s, w_a, z) }
       b = prof.map { |s, z| at.call(s, w_b, z) }
