@@ -1,0 +1,72 @@
+Interior Pro - the Dutch gable trench (v3)
+model: claud cold   time: 2026-08-31 15:43:12 -0700
+roofs in the model: 1
+
+ROOF 1  level=2
+  style=gable pitch=5.0 overhang=12.0 thickness=0.5 fascia=true fascia_depth=8.0 dutch_depth=35.0
+  faces: 39106
+  vertical faces: 266
+  --- 25 biggest VERTICAL faces ---
+    roof           v=11 area=   5576.9 n=( 1.00, 0.00)  x   -70.18..  -70.18  y   -17.99..  214.90  z  228.92.. 277.44  mat=Stucco
+    roof           v=11 area=   5576.9 n=(-1.00, 0.00)  x  -364.52.. -364.52  y   -17.99..  214.90  z  228.92.. 277.44  mat=Stucco
+    roof           v= 4 area=   2746.6 n=( 0.00,-1.00)  x  -406.77..  -27.93  y   257.15..  257.15  z  203.75.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   2746.6 n=( 0.00, 1.00)  x  -406.77..  -27.93  y   -60.24..  -60.24  z  203.75.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   2301.1 n=(-1.00, 0.00)  x   -27.93..  -27.93  y   -60.24..  257.15  z  203.75.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   2301.1 n=( 1.00, 0.00)  x  -406.77.. -406.77  y   -60.24..  257.15  z  203.75.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   2282.0 n=( 0.00,-1.00)  x  -407.52..  -27.18  y   257.90..  257.90  z  203.00.. 209.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   2282.0 n=( 0.00, 1.00)  x  -407.52..  -27.18  y   -60.99..  -60.99  z  203.00.. 209.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   1913.4 n=(-1.00, 0.00)  x   -27.18..  -27.18  y   -60.99..  257.90  z  203.00.. 209.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=   1913.4 n=( 1.00, 0.00)  x  -407.52.. -407.52  y   -60.99..  257.90  z  203.00.. 209.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    931.6 n=( 1.00, 0.00)  x   -61.43..  -61.43  y    98.45..  214.90  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    931.6 n=(-1.00, 0.00)  x  -373.27.. -373.27  y    98.45..  214.90  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    931.6 n=( 1.00, 0.00)  x   -61.43..  -61.43  y   -17.99..   98.45  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    931.6 n=(-1.00, 0.00)  x  -373.27.. -373.27  y   -17.99..   98.45  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    852.6 n=(-1.00, 0.00)  x   -62.18..  -62.18  y    98.45..  214.90  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    852.6 n=( 1.00, 0.00)  x  -372.52.. -372.52  y   -17.99..   98.45  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    852.6 n=( 1.00, 0.00)  x  -372.52.. -372.52  y    98.45..  214.90  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    852.6 n=(-1.00, 0.00)  x   -62.18..  -62.18  y   -17.99..   98.45  z  220.92.. 277.44  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    761.1 n=( 0.00, 1.00)  x  -407.62..  -27.08  y   258.00..  258.00  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    761.1 n=( 0.00,-1.00)  x  -407.62..  -27.08  y   -61.09..  -61.09  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    760.7 n=( 0.00, 1.00)  x  -407.52..  -27.18  y   -60.99..  -60.99  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    760.7 n=( 0.00,-1.00)  x  -407.52..  -27.18  y   257.90..  257.90  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    638.2 n=( 1.00, 0.00)  x   -27.08..  -27.08  y   -61.09..  258.00  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    638.2 n=(-1.00, 0.00)  x  -407.62.. -407.62  y   -61.09..  258.00  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+    roof           v= 4 area=    637.8 n=( 1.00, 0.00)  x  -407.52.. -407.52  y   -60.99..  257.90  z  209.00.. 211.00  mat=InteriorPro_Roof_ffffff
+
+  gable-shaped vertical faces (biggest 6): 2
+
+  FACE 1  part=roof  mat=Stucco  area=5576.9  n=(1.000,0.000)  verts=11
+    base (-70.18,-17.99,228.92) .. (-70.18,214.90,228.92)   apex (-70.18,98.45,277.44)
+    faces near this end: 5755
+    --- out (1.00,0.00) ---
+      edge1 t=0.15 z= 236.19 |  1:roof@229.0  3:roof@228.9  5:roof@228.9  7:roof@228.9  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@227.0  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.4
+      edge1 t=0.40 z= 248.32 |  1:roof@241.1  3:roof@241.1  5:roof@241.1  7:roof@241.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge1 t=0.70 z= 262.88 |  1:roof@255.6  3:roof@255.6  5:roof@255.6  7:roof@255.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge2 t=0.15 z= 236.19 |  1:roof@229.0  3:roof@228.9  5:roof@228.9  7:roof@228.9  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.8  13:roof@224.0
+      edge2 t=0.40 z= 248.32 |  1:roof@241.1  3:roof@241.1  5:roof@241.1  7:roof@241.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.8  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge2 t=0.70 z= 262.88 |  1:roof@255.6  3:roof@255.6  5:roof@255.6  7:roof@255.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.8  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+    --- out (-1.00,-0.00) ---
+      edge1 t=0.15 z= 236.19 |  1:roof@236.7  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.8  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.7  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.1  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.0
+      edge1 t=0.40 z= 248.32 |  1:roof@248.9  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.0  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.3  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.8  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.2  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2
+      edge1 t=0.70 z= 262.88 |  1:roof@263.4  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.5  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.4  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@263.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.7
+      edge2 t=0.15 z= 236.19 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.9  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.5  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.5  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  13:roof@236.7
+      edge2 t=0.40 z= 248.32 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.1  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.6  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2  13:roof@248.9
+      edge2 t=0.70 z= 262.88 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.6  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.1  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  13:roof@263.4
+
+  FACE 2  part=roof  mat=Stucco  area=5576.9  n=(-1.000,0.000)  verts=11
+    base (-364.52,-17.99,228.92) .. (-364.52,214.90,228.92)   apex (-364.52,98.45,277.44)
+    faces near this end: 5747
+    --- out (-1.00,0.00) ---
+      edge1 t=0.15 z= 236.19 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@236.7  3:roof@228.9  5:roof@228.9  7:roof@228.9  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.8  13:roof@224.0
+      edge1 t=0.40 z= 248.32 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@248.9  3:roof@241.1  5:roof@241.1  7:roof@241.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.8  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge1 t=0.70 z= 262.88 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@263.4  3:roof@255.6  5:roof@255.6  7:roof@255.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.8  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge2 t=0.15 z= 236.19 |  1:roof@229.0  3:roof@228.9  5:roof@228.9  7:roof@228.9  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@227.0  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.4
+      edge2 t=0.40 z= 248.32 |  1:roof@241.1  3:roof@241.1  5:roof@241.1  7:roof@241.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+      edge2 t=0.70 z= 262.88 |  1:roof@255.6  3:roof@255.6  5:roof@255.6  7:roof@255.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@226.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@225.1
+    --- out (1.00,-0.00) ---
+      edge1 t=0.15 z= 236.19 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.9  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.5  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.5  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  13:roof@236.7
+      edge1 t=0.40 z= 248.32 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.1  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.6  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.6  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2  13:roof@248.9
+      edge1 t=0.70 z= 262.88 |  1:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.6  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.1  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.1  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  13:roof@263.4
+      edge2 t=0.15 z= 236.19 |  1:roof@236.7  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.8  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.1  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.7  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@237.1  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@238.0
+      edge2 t=0.40 z= 248.32 |  1:roof@248.9  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.0  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.3  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.8  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@249.2  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@250.2
+      edge2 t=0.70 z= 262.88 |  1:roof@263.4  3:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.5  5:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.8  7:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.4  9:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@263.7  13:IP_TileSheet_metaltile_7.00_5.95_1.31_0.45_8@264.7

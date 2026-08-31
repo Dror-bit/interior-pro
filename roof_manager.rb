@@ -1713,6 +1713,7 @@ module InteriorPro
       # climbing edges of each, so they can get their fascia (2026-09-09)
       @dutch_faces = []
       @dutch_rakes = []
+      @dutch_soffits = []
       model.start_operation('InteriorPro Roof', true)
       # WHO GETS ERASED is the whole of step 3 (2026-08-26). A rebuild
       # replaces, never stacks - but now it replaces only what it is
@@ -1809,7 +1810,8 @@ module InteriorPro
                                              roof_mat, trim_mat, valley_edges,
                                              s[:dutch_depth],
                                              slab_lift(s[:thickness], slope) > 0.001 ?
-                                             nil : 0.0)
+                                             nil : 0.0,
+                                             fascia_depth_of(s))
         band_top = z0 - slope * s[:overhang]
       else
         ridge, zmap = build_hip_geometry!(grp, poly, cells, z0, slope, s[:overhang],
@@ -1844,7 +1846,8 @@ module InteriorPro
           build_flat_geometry!(grp, poly, z0 + dz, roof_mat, roof_mat)
         elsif framed
           build_framed_geometry!(grp, framed, z0 + dz, slope, s[:overhang],
-                                 roof_mat, roof_mat, nil, s[:dutch_depth], dz)
+                                 roof_mat, roof_mat, nil, s[:dutch_depth], dz,
+                                 fascia_depth_of(s))
         else
           build_hip_geometry!(grp, poly, cells, z0 + dz, slope, s[:overhang],
                               roof_mat, roof_mat)
@@ -1945,9 +1948,29 @@ module InteriorPro
         dep = DEFAULT_FASCIA_DEPTH if dep <= 0.01
         @dutch_rakes.each { |a, b, out2| build_dutch_rake!(grp, a, b, out2, dep) }
       end
+      # ...its soffit boards AND those rake boards are TRIM WHITE, like
+      # every other board - they are built on the slab pass, where the
+      # only material to hand is the roof's own (2026-09-09).
+      if trim_mat && @dutch_soffits
+        @dutch_soffits.each do |f|
+          next unless f.valid?
+          f.material = trim_mat
+          f.back_material = trim_mat
+        end
+      end
 
       top_shell = dz > 0.001 ? (grp.entities.grep(Sketchup::Face) - shell_before)
                              : shell_before
+      # THE TILES MUST NOT SEE THE DUTCH TRIM (2026-09-09, the user:
+      # "הורדת את הרעפים איתם"). The gable wall, its soffit boards and
+      # its rake boards are built between the two shell snapshots, so
+      # they landed inside top_shell - and the tile placer lays a course
+      # on EVERY plane it finds there. While the soffit sat level with
+      # the roof nobody saw it; the moment it dropped to the fascia's
+      # bottom, a row of tiles dropped with it.
+      unless @dutch_faces.empty? && (@dutch_soffits || []).empty?
+        top_shell -= (@dutch_faces + (@dutch_soffits || []))
+      end
       # A SHELL FACE BURIED UNDER ANOTHER ROOF FACE IS ERASED (2026-08-21c).
       # Where one wing's roof runs in under another, the intersection leaves
       # the buried continuation as its own face. First its TILES were
@@ -5792,12 +5815,12 @@ module InteriorPro
                Geom::Point3d.new(b[0], b[1], b[2] - dep),
                Geom::Point3d.new(a[0], a[1], a[2] - dep)]
       outer = inner.map { |p| Geom::Point3d.new(p.x + ox, p.y + oy, p.z) }
-      grp.entities.add_face(inner)
-      grp.entities.add_face(outer)
+      faces = [grp.entities.add_face(inner), grp.entities.add_face(outer)]
       4.times do |k|
         j = (k + 1) % 4
-        grp.entities.add_face([inner[k], inner[j], outer[j], outer[k]])
+        faces << grp.entities.add_face([inner[k], inner[j], outer[j], outer[k]])
       end
+      faces.each { |f| @dutch_soffits << f if f && @dutch_soffits }
     rescue StandardError => e
       puts "[Roof] build_dutch_rake!: #{e.message}"
     end
@@ -5819,38 +5842,111 @@ module InteriorPro
       # TWICE - once as the underside and once dz higher as the slab - so
       # a face built in both passes came out as two triangles half an inch
       # apart with daylight between them ("עוד שכבה לא ברורה"). The zmap
-      # is still recorded in both, because everything downstream reads it;
-      # only the FACES wait for the pass that knows the thickness:
-      #   dutch_dz nil - record only (the underside pass, a slab follows)
-      #   0.0          - one flat face (a roof with no slab at all)
-      #   > 0          - the real thing: this triangle, its twin dz BELOW,
-      #                  and the three strips that close them into a wall.
+      # is still recorded in both; only the FACES wait for the pass that
+      # knows the thickness. nil = record only (the underside pass, a slab
+      # follows); a number = build, using the UNDERSIDE heights.
       dz = st[:dutch_dz]
-      return if dz.nil?
-      top = pts3.map { |(x, y, z)| Geom::Point3d.new(x, y, z) }
-      paint = lambda do |f|
-        next if f.nil?
-        f.material = st[:under_mat]
-        f.back_material = st[:under_mat]
-        @dutch_faces << f if @dutch_faces
+      return if dz.nil? || out2.nil?
+      # THE WALL STANDS BACK, THE ROOF REACHES PAST IT (2026-09-09, the
+      # user with a red arrow: "תכניס את הגג 8 לתוך הפנים, גם איבס").
+      # The gable wall is set DUTCH_SET_IN in from the roof's own edge, so
+      # the roof and its fascia overhang it exactly the way an eave
+      # overhangs a wall - and the three strips between the two outlines
+      # are that overhang's soffit.
+      g = DUTCH_SET_IN
+      out = pts3.map { |(x, y, z)| Geom::Point3d.new(x, y, z - dz) }
+      wall = out.map do |p|
+        Geom::Point3d.new(p.x - out2[0] * g, p.y - out2[1] * g, p.z)
       end
-      paint.call(st[:grp].entities.add_face(top))
-      return if dz <= 0.001
-      bot = top.map { |p| Geom::Point3d.new(p.x, p.y, p.z - dz) }
-      paint.call(st[:grp].entities.add_face(bot.reverse))
-      top.length.times do |i|
-        j = (i + 1) % top.length
-        paint.call(st[:grp].entities.add_face([top[i], top[j], bot[j], bot[i]]))
+      wf = st[:grp].entities.add_face(wall)
+      unless wf.nil?
+        wf.material = st[:under_mat]
+        wf.back_material = st[:under_mat]
+        @dutch_faces << wf if @dutch_faces
+      end
+      # THE SOFFIT IS A BOARD, NOT A SHEET (2026-09-09, the user: "את
+      # הדפנה של הפשייה תסגור כי כרגע היא פתוחה"). A single face has an
+      # open edge beside the fascia; this is a real board, SOFFIT_THICK
+      # thick, closed all round. It is collected so build_roof! can paint
+      # it TRIM WHITE - on the slab pass under_mat is the roof material,
+      # which is why the strips came out terracotta.
+      # AT THE BOTTOM OF THE FASCIA, NOT LEVEL WITH THE TILES
+      # (2026-09-09, the user: "הם כמנגד לרעפים, הם צריכים להיות בתחתית
+      # של הפשייה"). The strips drop one fascia depth, so they close on
+      # the fascia board's own bottom edge exactly as an eave soffit does.
+      # The BASE strip is skipped altogether - the apron runs in under it,
+      # right up to the wall, which is what he asked for a round ago.
+      drop = st[:dutch_dep].to_f
+      # ...AND IT ENDS WHERE IT MEETS THE ROOF (2026-09-09, the user
+      # clicked the white plate that stuck out of his tiles: the dropped
+      # board dived straight through the apron near the base). The apron
+      # climbs from the fascia line at the roof's own slope and passes
+      # through the wall's base corners, so any part of the board that is
+      # UNDER that plane is inside the roof - it is cut off, and the board
+      # begins exactly where the fascia's bottom edge comes out of the
+      # tiles. BOARDS MEET, THEY NEVER RUN INSIDE EACH OTHER.
+      sl2 = st[:slope].to_f
+      base = wall[0]
+      above = lambda do |q|
+        apron_z = base.z - sl2 * ((q.x - base.x) * out2[0] +
+                                  (q.y - base.y) * out2[1])
+        q.z - apron_z
+      end
+      out.length.times do |i|
+        next if i.zero?
+        j = (i + 1) % out.length
+        lo = [out[i], out[j], wall[j], wall[i]].map do |q|
+          Geom::Point3d.new(q.x, q.y, q.z - drop)
+        end
+        # clip the board to the part standing clear of the apron
+        kept = []
+        lo.length.times do |k|
+          a = lo[k]
+          b = lo[(k + 1) % lo.length]
+          sa = above.call(a)
+          sb = above.call(b)
+          kept << a if sa >= -1.0e-6
+          next if (sa > 0) == (sb > 0)
+          t = sa / (sa - sb)
+          next if t <= 0.0 || t >= 1.0
+          kept << Geom::Point3d.new(a.x + (b.x - a.x) * t,
+                                    a.y + (b.y - a.y) * t,
+                                    a.z + (b.z - a.z) * t)
+        end
+        next if kept.length < 3
+        hi = kept.map { |q| Geom::Point3d.new(q.x, q.y, q.z + SOFFIT_THICK) }
+        faces = [st[:grp].entities.add_face(kept),
+                 st[:grp].entities.add_face(hi.reverse)]
+        kept.length.times do |k|
+          m = (k + 1) % kept.length
+          faces << st[:grp].entities.add_face([kept[k], kept[m], hi[m], hi[k]])
+        end
+        faces.each do |sf|
+          next if sf.nil?
+          sf.material = st[:under_mat]
+          sf.back_material = st[:under_mat]
+          @dutch_soffits << sf if @dutch_soffits
+        end
       end
       # THE TWO CLIMBING EDGES NEED A FASCIA (2026-09-09, his green marks).
       # They are not footprint edges, so build_rake_board! cannot reach
       # them - the boards are built in build_roof!, where the fascia depth
       # lives. pts3 is [base, base, apex]: the two edges that CLIMB are
-      # the ones touching the apex.
-      return if out2.nil? || @dutch_rakes.nil?
-      apex = pts3[2]
-      @dutch_rakes << [pts3[0], apex, out2]
-      @dutch_rakes << [pts3[1], apex, out2]
+      # the ones touching the apex. They stay on the ROOF's own line, out
+      # in front of the wall, which is what makes the overhang read.
+      return if @dutch_rakes.nil?
+      a0 = [out[0].x, out[0].y, out[0].z]
+      a1 = [out[1].x, out[1].y, out[1].z]
+      ap = [out[2].x, out[2].y, out[2].z]
+      @dutch_rakes << [a0, ap, out2]
+      @dutch_rakes << [a1, ap, out2]
+    end
+
+    # The fascia depth this roof is using, with the default filled in.
+    def self.fascia_depth_of(s)
+      return 0.0 unless s[:fascia]
+      d = s[:fascia_depth].to_f
+      d > 0.01 ? d : DEFAULT_FASCIA_DEPTH
     end
 
     # How deep the Dutch apron runs on a gabled end, or 0.0 when there is
@@ -5860,8 +5956,38 @@ module InteriorPro
     def self.dutch_reach(st, gabled, span)
       return 0.0 unless gabled
       d = st[:dutch].to_f
-      return 0.0 if d <= 0.01 || d >= span - 1.0
+      # the ROOF is cut a set-in further back than the number he types -
+      # the typed depth is where the FASCIA stands, and the wall is
+      # DUTCH_SET_IN behind it (2026-09-09).
+      return 0.0 if d <= 0.01 || d + DUTCH_SET_IN >= span - 1.0
       d
+    end
+
+    # ONE CAP OVER THE DUTCH TRENCH (2026-09-10). Between the gable wall
+    # and the fascia line the roof was OPEN TO THE SKY: the rake boards
+    # closed the sides, the soffit closed the bottom a fascia-depth down,
+    # and nothing at all closed the top (measured 2026-09-10 - the
+    # highest thing over that 8" strip was the soffit board, 8" under the
+    # roof line). This is the little gable's own rake overhang: a strip
+    # of the SAME slope plane, from the wall line out to the fascia line,
+    # dying exactly on the apron's hip line - so its bottom edge lands ON
+    # the apron's own edge and cannot open a hole. It only ADDS a face;
+    # no existing plane moves, which is what went wrong the last time.
+    # `edge` is the strip's outer edge on the fascia line: on the slab
+    # pass its dz-tall side is closed too, so the rake board below meets
+    # a solid edge instead of an open slot. BOARDS MEET.
+    def self.dutch_cap!(st, quad, lift, edge)
+      framed_face!(st, quad, lift)
+      dz = st[:dutch_dz].to_f
+      return if dz < 0.001
+      a = Geom::Point3d.new(edge[0][0], edge[0][1], lift.call(edge[0]))
+      b = Geom::Point3d.new(edge[1][0], edge[1][1], lift.call(edge[1]))
+      f = st[:grp].entities.add_face([a, b,
+                                      Geom::Point3d.new(b.x, b.y, b.z - dz),
+                                      Geom::Point3d.new(a.x, a.y, a.z - dz)])
+      paint_surface!(f, st[:roof_mat], st[:under_mat]) if f
+    rescue StandardError => e
+      puts "[Roof] dutch_cap!: #{e.message}"
     end
 
     # Main rectangle: plain prism — gable triangle on gabled ends, hip
@@ -5884,8 +6010,10 @@ module InteriorPro
         # the wall, a hip apron climbs to it, and the two side planes are
         # cut back by the apron's own hip lines. dw = 0 is the plain
         # gable, and every list below collapses to what it always was.
-        dw = dutch_reach(st, g[:w], yr - y0)
-        de = dutch_reach(st, g[:e], yr - y0)
+        dwf = dutch_reach(st, g[:w], yr - y0)   # where the FASCIA stands
+        def_ = dutch_reach(st, g[:e], yr - y0)
+        dw = dwf > 0.0 ? dwf + DUTCH_SET_IN : 0.0   # where the ROOF is cut
+        de = def_ > 0.0 ? def_ + DUTCH_SET_IN : 0.0
         xw = g[:w] ? x0 + dw : x0 + (yr - y0)
         xe = g[:e] ? x1 - de : x1 - (yr - y0)
         south = [[x0, y0], [x1, y0]]
@@ -5899,11 +6027,23 @@ module InteriorPro
         north << [x1 - de, y1 - de] if de > 0.0
         framed_face!(st, north, ->(p) { z0d + sl * (y1 - p[1]) })
         if g[:w] && dw > 0.0
+          # THE APRON RUNS ALL THE WAY IN TO THE WALL (2026-09-09, the
+          # user: "בחלק התחתון הגג צריך להגיע עד לקיר"). That is what the
+          # set-in is doing in `dw` above - the roof is cut at the WALL,
+          # and the fascia stands DUTCH_SET_IN out in front of it, with
+          # the soffit between them.
           framed_face!(st, [[x0, y1], [x0, y0], [xw, y0 + dw], [xw, y1 - dw]],
                        ->(p) { z0d + sl * (p[0] - x0) })
           zb = z0d + sl * dw
-          framed_gable_face!(st, [[xw, y0 + dw, zb], [xw, y1 - dw, zb], [xw, yr, zr]],
-                             [-1.0, 0.0])
+          framed_gable_face!(st, [[x0 + dwf, y0 + dw, zb], [x0 + dwf, y1 - dw, zb],
+                                  [x0 + dwf, yr, zr]], [-1.0, 0.0])
+          xfw = x0 + dwf
+          dutch_cap!(st, [[xw, y0 + dw], [xw, yr], [xfw, yr], [xfw, y0 + dwf]],
+                     ->(p) { z0d + sl * (p[1] - y0) },
+                     [[xfw, y0 + dwf], [xfw, yr]])
+          dutch_cap!(st, [[xw, yr], [xw, y1 - dw], [xfw, y1 - dwf], [xfw, yr]],
+                     ->(p) { z0d + sl * (y1 - p[1]) },
+                     [[xfw, yr], [xfw, y1 - dwf]])
         elsif g[:w]
           framed_tri!(st, [[x0, y0, z0d], [x0, y1, z0d], [x0, yr, zr]])
         else
@@ -5913,8 +6053,15 @@ module InteriorPro
           framed_face!(st, [[x1, y0], [x1, y1], [xe, y1 - de], [xe, y0 + de]],
                        ->(p) { z0d + sl * (x1 - p[0]) })
           zb = z0d + sl * de
-          framed_gable_face!(st, [[xe, y1 - de, zb], [xe, y0 + de, zb], [xe, yr, zr]],
-                             [1.0, 0.0])
+          framed_gable_face!(st, [[x1 - def_, y1 - de, zb], [x1 - def_, y0 + de, zb],
+                                  [x1 - def_, yr, zr]], [1.0, 0.0])
+          xfe = x1 - def_
+          dutch_cap!(st, [[xe, y0 + de], [xe, yr], [xfe, yr], [xfe, y0 + def_]],
+                     ->(p) { z0d + sl * (p[1] - y0) },
+                     [[xfe, y0 + def_], [xfe, yr]])
+          dutch_cap!(st, [[xe, yr], [xe, y1 - de], [xfe, y1 - def_], [xfe, yr]],
+                     ->(p) { z0d + sl * (y1 - p[1]) },
+                     [[xfe, yr], [xfe, y1 - def_]])
         elsif g[:e]
           framed_tri!(st, [[x1, y1, z0d], [x1, y0, z0d], [x1, yr, zr]])
         else
@@ -5923,8 +6070,10 @@ module InteriorPro
       else
         xr = (x0 + x1) / 2.0
         zr = z0d + sl * (xr - x0)
-        ds = dutch_reach(st, g[:s], xr - x0)
-        dn = dutch_reach(st, g[:n], xr - x0)
+        dsf = dutch_reach(st, g[:s], xr - x0)
+        dnf = dutch_reach(st, g[:n], xr - x0)
+        ds = dsf > 0.0 ? dsf + DUTCH_SET_IN : 0.0
+        dn = dnf > 0.0 ? dnf + DUTCH_SET_IN : 0.0
         ys = g[:s] ? y0 + ds : y0 + (xr - x0)
         yn = g[:n] ? y1 - dn : y1 - (xr - x0)
         west = [[x0, y1], [x0, y0]]
@@ -5941,8 +6090,15 @@ module InteriorPro
           framed_face!(st, [[x0, y0], [x1, y0], [x1 - ds, ys], [x0 + ds, ys]],
                        ->(p) { z0d + sl * (p[1] - y0) })
           zb = z0d + sl * ds
-          framed_gable_face!(st, [[x0 + ds, ys, zb], [x1 - ds, ys, zb], [xr, ys, zr]],
-                             [0.0, -1.0])
+          framed_gable_face!(st, [[x0 + ds, y0 + dsf, zb], [x1 - ds, y0 + dsf, zb],
+                                  [xr, y0 + dsf, zr]], [0.0, -1.0])
+          yfs = y0 + dsf
+          dutch_cap!(st, [[x0 + ds, ys], [xr, ys], [xr, yfs], [x0 + dsf, yfs]],
+                     ->(p) { z0d + sl * (p[0] - x0) },
+                     [[x0 + dsf, yfs], [xr, yfs]])
+          dutch_cap!(st, [[xr, ys], [x1 - ds, ys], [x1 - dsf, yfs], [xr, yfs]],
+                     ->(p) { z0d + sl * (x1 - p[0]) },
+                     [[xr, yfs], [x1 - dsf, yfs]])
         elsif g[:s]
           framed_tri!(st, [[x0, y0, z0d], [x1, y0, z0d], [xr, y0, zr]])
         else
@@ -5952,8 +6108,15 @@ module InteriorPro
           framed_face!(st, [[x1, y1], [x0, y1], [x0 + dn, yn], [x1 - dn, yn]],
                        ->(p) { z0d + sl * (y1 - p[1]) })
           zb = z0d + sl * dn
-          framed_gable_face!(st, [[x1 - dn, yn, zb], [x0 + dn, yn, zb], [xr, yn, zr]],
-                             [0.0, 1.0])
+          framed_gable_face!(st, [[x1 - dn, y1 - dnf, zb], [x0 + dn, y1 - dnf, zb],
+                                  [xr, y1 - dnf, zr]], [0.0, 1.0])
+          yfn = y1 - dnf
+          dutch_cap!(st, [[x0 + dn, yn], [xr, yn], [xr, yfn], [x0 + dnf, yfn]],
+                     ->(p) { z0d + sl * (p[0] - x0) },
+                     [[x0 + dnf, yfn], [xr, yfn]])
+          dutch_cap!(st, [[xr, yn], [x1 - dn, yn], [x1 - dnf, yfn], [xr, yfn]],
+                     ->(p) { z0d + sl * (x1 - p[0]) },
+                     [[xr, yfn], [x1 - dnf, yfn]])
         elsif g[:n]
           framed_tri!(st, [[x1, y1, z0d], [x0, y1, z0d], [xr, y1, zr]])
         else
@@ -6092,10 +6255,11 @@ module InteriorPro
     # Build the whole framed roof. Returns [ridge, zmap] or nil.
     def self.build_framed_geometry!(grp, plan, z0, slope, overhang,
                                     roof_mat, under_mat, valleys = nil,
-                                    dutch = 0.0, dutch_dz = nil)
+                                    dutch = 0.0, dutch_dz = nil, dutch_dep = 0.0)
       st = { grp: grp, z0: z0, delta: -slope * overhang.to_f, slope: slope,
              roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
-             valleys: valleys, dutch: dutch.to_f, dutch_dz: dutch_dz }
+             valleys: valleys, dutch: dutch.to_f, dutch_dz: dutch_dz,
+             dutch_dep: dutch_dep.to_f }
       build_main_rect!(st, plan[:main], plan[:g])
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
@@ -6208,6 +6372,9 @@ module InteriorPro
     # a neighbour parallel to the pushed line, or a push so deep that the
     # edge collapses or turns back on itself.
     MIN_DUTCH_EDGE = 6.0
+    # How far the Dutch gable's WALL stands back from the roof edge, so
+    # the roof and its fascia overhang it (2026-09-09, his number).
+    DUTCH_SET_IN = 8.0 unless const_defined?(:DUTCH_SET_IN, false)
 
     # Is p strictly between q0 and q1 on their own line? PURE.
     def self.on_segment_inside?(p, q0, q1)
