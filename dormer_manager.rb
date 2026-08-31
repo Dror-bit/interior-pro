@@ -431,6 +431,11 @@ module InteriorPro
         fascia_depth: g.call('dormer_fascia_depth', 0.0).to_f,
         place_mode:   g.call('dormer_place_mode', 'free').to_s,
         window:       g.call('dormer_window', true) ? true : false,
+        # THE WINDOW'S FRAME COLOUR (2026-09-09, the user: he could not
+        # choose one). '' means "leave it as WindowTool built it" - the
+        # white every window in the model already wears - so a dormer
+        # placed before today comes back exactly as it was.
+        window_color: g.call('dormer_window_color', '').to_s,
         style:        g.call('dormer_style', 'gable').to_s }
     end
 
@@ -447,6 +452,8 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'dormer_place_mode',
                       s[:place_mode].nil? ? 'free' : s[:place_mode].to_s)
       m.set_attribute('InteriorPro', 'dormer_window', s[:window] ? true : false)
+      m.set_attribute('InteriorPro', 'dormer_window_color',
+                      s[:window_color].to_s)
       s
     end
 
@@ -459,6 +466,7 @@ module InteriorPro
                setback: s[:setback].to_f, overhang: s[:overhang].to_f,
                place_mode: s[:place_mode].to_s,
                window: s[:window] ? true : false,
+               window_color: s[:window_color].to_s,
                style: s[:style].to_s }
       # a typed height wins: the length is then whatever produces it.
       spec[:height] = s[:height].to_f if s[:height].to_f > 0.01
@@ -637,6 +645,8 @@ module InteriorPro
       # dormer from these attributes - exactly like the setback and the
       # place mode above. Nothing typed means "as big as it may be".
       grp.set_attribute('InteriorPro', 'window_type', window_type_of(spec))
+      grp.set_attribute('InteriorPro', 'window_color',
+                        spec[:window_color].to_s)
       grp.set_attribute('InteriorPro', 'window_w', spec[:window_w].to_f) if
         spec[:window_w].to_f > 0.0
       grp.set_attribute('InteriorPro', 'window_h', spec[:window_h].to_f) if
@@ -1590,10 +1600,58 @@ module InteriorPro
                           Geom::Vector3d.new(pl[:unit][0], pl[:unit][1], 0.0),
                           Geom::Vector3d.new(pl[:n][0], pl[:n][1], 0.0),
                           pl[:thickness], pl[:clicked_side])
+      paint_window_frame!(win, spec[:window_color])
       win
     rescue StandardError => e
       puts "[Dormer] build_window_body!: #{e.class}: #{e.message}"
       nil
+    end
+
+    # THE WINDOW FRAME WEARS THE COLOUR HE PICKED (2026-09-09).
+    #
+    # casement_body! paints the jamb and the sash by setting the material
+    # on their GROUPS, and the glass on its own - all of them named
+    # materials shared with every other window in the model. So the frame
+    # cannot be recoloured by touching those materials: it would repaint
+    # the house's windows too. Instead the pieces that are wearing
+    # InteriorPro_Window_Frame get a colour material of their own, and
+    # anything else - the glass above all - is left alone.
+    #
+    # An empty colour means "as WindowTool built it": nothing is touched,
+    # which is exactly how every dormer placed before today looks.
+    FRAME_MAT = 'InteriorPro_Window_Frame'
+
+    def self.paint_window_frame!(win, color)
+      c = color.to_s.strip
+      return false unless c.start_with?('#')
+      mat = trim_material(c)
+      return false if mat.nil?
+      wear = lambda do |e|
+        m = (e.material rescue nil)
+        !m.nil? && m.respond_to?(:name) && m.name.to_s == FRAME_MAT
+      end
+      walk = nil
+      walk = lambda do |ents, depth|
+        ents.to_a.each do |e|
+          next unless e.respond_to?(:material)
+          # asked ONCE - setting the front material would make the test
+          # false before the back one is asked
+          if wear.call(e)
+            e.material = mat
+            e.back_material = mat if e.respond_to?(:back_material=)
+          end
+          if depth < 4 && e.respond_to?(:entities)
+            walk.call(e.entities, depth + 1)
+          elsif depth < 4 && e.respond_to?(:definition)
+            walk.call(e.definition.entities, depth + 1)
+          end
+        end
+      end
+      walk.call(win.entities, 0)
+      true
+    rescue StandardError => e
+      puts "[Dormer] paint_window_frame!: #{e.message}"
+      false
     end
 
     # The Edit Window panel's way in.
@@ -2550,6 +2608,8 @@ module InteriorPro
       spec[:window] = (wi == true || wi.to_s == 'true') unless wi.nil?
       wt = a.call('window_type').to_s
       spec[:window_type] = wt if window_types.include?(wt)
+      wc = a.call('window_color')
+      spec[:window_color] = wc.to_s unless wc.nil?
       ww = a.call('window_w')
       spec[:window_w] = ww.to_f if ww.to_f > 0.0
       wh = a.call('window_h')

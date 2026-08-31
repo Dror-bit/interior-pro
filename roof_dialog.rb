@@ -41,7 +41,7 @@ module InteriorPro
                                                 rmat, thick, rcap,
                                                 soffit, scol, sslope, rlevel,
                                                 gutt, gprof, gwidth, gcol, dspout,
-                                                maxover|
+                                                maxover, dutchd|
         # Which roof this Apply belongs to: the one the Edit tool clicked,
         # or none (the plain Roof button). Checked NOW, not at show time -
         # the roof the panel opened on may have been rebuilt or removed
@@ -120,7 +120,12 @@ module InteriorPro
           # ("מקסימום 4 פוט מעל הרצפה של הקומה העליונה") - inches
           # everywhere below. nil from a shorter call means leave it
           # alone; 0 is a real value and turns the limit off.
-          abut_headroom: maxover.nil? ? nil : maxover.to_f * 12.0
+          abut_headroom: maxover.nil? ? nil : maxover.to_f * 12.0,
+          # THE DUTCH GABLE (2026-09-09), appended last for the same
+          # reason as everything above it: an older call that stops short
+          # sends nil, which means leave it alone. 0 is a real value and
+          # is the plain full gable.
+          dutch_depth: dutchd.nil? ? nil : dutchd.to_f
         }
         # WHERE the roof goes (2026-08-26, step 5 - the storey picker,
         # user: "איך אני בוחר קומה ראשונה או שניה או שניהם?"):
@@ -274,6 +279,12 @@ module InteriorPro
             <select id="pitch">#{pitch_options}</select></div>
           <div class="row sub"><label>Max over storey above</label>
             <input type="number" id="maxOver" step="0.5" min="0" value="#{(s[:abut_headroom].to_f / 12.0).round(2)}"> ft</div>
+          <div class="row sub"><label>Dutch gable (0 = full gable)</label>
+            <input type="number" id="dutchDepth" step="1" min="0" value="#{s[:dutch_depth].to_f.round}"> in</div>
+          <div class="hint">A number here turns every wall you marked as a
+            gable into a Dutch gable: the same ridge and the same height, with
+            a small hip climbing this far in from the fascia and the gable
+            standing on top of it.</div>
 
           <div class="section-title">Eaves</div>
           <div class="row"><label><input type="checkbox" id="eaves"#{s[:overhang] > 0.01 ? ' checked' : ''} onchange="eavesChanged()"> Eaves (overhang)</label>
@@ -370,7 +381,8 @@ module InteriorPro
                 document.getElementById('gutterWidth').value,
                 gutterPickedFlag ? document.getElementById('gutterColor').value : '',
                 document.getElementById('downspouts').checked,
-                document.getElementById('maxOver').value);
+                document.getElementById('maxOver').value,
+                document.getElementById('dutchDepth').value);
             }
             styleChanged();
             eavesChanged();

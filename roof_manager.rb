@@ -206,13 +206,19 @@ module InteriorPro
         # gutter to hang off - so no roof already in the model grows one.
         # The user asked for them automatic (2026-08-29).
         downspouts: g.call('roof_downspouts', true) == true,
-        gable_walls: g.call('roof_gable_walls', true) == true
+        gable_walls: g.call('roof_gable_walls', true) == true,
+        # THE DUTCH GABLE (2026-09-09). How deep, measured IN FROM THE
+        # FASCIA, the little hip apron under a marked gable runs. 0 = the
+        # plain full gable every roof has today, so nothing already built
+        # changes until he types a number.
+        dutch_depth: g.call('roof_dutch_depth', 0.0).to_f
       }
     end
 
     def self.save_settings!(s)
       m = Sketchup.active_model
       m.set_attribute('InteriorPro', 'roof_style', s[:style])
+      m.set_attribute('InteriorPro', 'roof_dutch_depth', s[:dutch_depth].to_f)
       m.set_attribute('InteriorPro', 'roof_pitch', s[:pitch])
       m.set_attribute('InteriorPro', 'roof_abut_headroom', s[:abut_headroom])
       m.set_attribute('InteriorPro', 'roof_overhang', s[:overhang])
@@ -258,6 +264,7 @@ module InteriorPro
     # InteriorPro.reload!, and that has already cost this project rounds.
     def self.roof_setting_keys
       %i[style pitch abut_headroom overhang fascia fascia_depth drip
+         dutch_depth
          soffit soffit_color
          soffit_slope roof_color fascia_color roof_material thickness
          ridge_cap gutter gutter_profile gutter_width gutter_color
@@ -1437,6 +1444,7 @@ module InteriorPro
                          soffit_slope: nil, gutter: nil, gutter_profile: nil,
                          gutter_width: nil, gutter_color: nil,
                          downspouts: nil, abut_headroom: nil,
+                         dutch_depth: nil,
                          level: nil, replace: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
@@ -1474,6 +1482,7 @@ module InteriorPro
       s[:gutter_width] = gutter_width.to_f if gutter_width && gutter_width.to_f > 0.5
       s[:gutter_color] = gutter_color.to_s unless gutter_color.nil?
       s[:downspouts] = (downspouts == true) unless downspouts.nil?
+      s[:dutch_depth] = dutch_depth.to_f unless dutch_depth.nil?
       slope = s[:pitch] / 12.0
 
       # Which storey this roof covers: asked for > the replaced roof's own >
@@ -1558,8 +1567,14 @@ module InteriorPro
         # ...but never with an abut edge in the loop: the over-framing
         # knows nothing about a roof that dies against a wall, while the
         # skeleton fallback handles it as one more zero-speed edge.
+        # ...and never with a Dutch depth typed (2026-09-09): the
+        # over-framing builds a full triangle or a full hip plane per end
+        # (framed_tri! / framed_face!) and cannot express half a hip. With
+        # a depth it must stand aside so the skeleton fallback - which
+        # can - does the work. Depth 0 leaves this line exactly as it was.
         framed = framed_plan(poly, wall_ids, marked, s[:style]) \
-                 if want_gable && abut_ids.empty? && s[:style] != 'shed'
+                 if want_gable && abut_ids.empty? && s[:style] != 'shed' &&
+                    s[:dutch_depth].to_f <= 0.01
         if framed
           gables = framed[:edges]
         else
@@ -1601,15 +1616,54 @@ module InteriorPro
               speeds[i] = 0.0 if abut_ids.include?(id2)
             end
           end
-          arcs = straight_skeleton(poly, speeds)
+          # ---------- THE DUTCH GABLE (2026-09-09) ---------------------
+          # Same ridge, same height: only the bottom of a marked end
+          # changes. See DUTCH_GABLE_PROPOSAL.md. The roof is built as a
+          # plain GABLE on a ring whose marked edges are pushed IN by the
+          # depth he typed - the ridge and the side planes then end on
+          # that line by themselves - and the strip left between the real
+          # fascia and that line is filled with the plain HIP roof's own
+          # cells, clipped to it. Both sets of cells are handed to ONE
+          # build_hip_geometry! with the ORIGINAL ring, because a cell's
+          # plane is defined by its eave edge's LINE, and every line that
+          # matters is the same in both rings.
+          # depth 0, no gable, or a push that does not fit = the exact
+          # old path, cell for cell.
+          dutch_d = s[:dutch_depth].to_f
+          dutch_edges = []
+          poly_sk = poly
+          if dutch_d > 0.01 && !gables.empty?
+            gables.each do |gi|
+              pushed = dutch_poly(poly_sk, gi, dutch_d)
+              next if pushed.nil?
+              poly_sk = pushed
+              dutch_edges << gi
+            end
+          end
+          arcs = straight_skeleton(poly_sk, speeds)
           if arcs.nil?
             puts '[Roof] straight skeleton failed for this footprint'
             return nil
           end
-          cells = roof_cells(poly, arcs, speeds)
+          cells = roof_cells(poly_sk, arcs, speeds)
           if cells.nil?
             puts '[Roof] could not form roof faces from the skeleton'
             return nil
+          end
+          unless dutch_edges.empty?
+            apron = dutch_apron_cells(poly, speeds, dutch_edges, dutch_d)
+            if apron.nil?
+              puts '[Roof] dutch apron failed - falling back to a plain gable'
+              poly_sk = poly
+              arcs = straight_skeleton(poly, speeds)
+              cells = arcs.nil? ? nil : roof_cells(poly, arcs, speeds)
+              return nil if cells.nil?
+              dutch_edges = []
+            else
+              cells += apron
+              puts "[Roof] dutch gable on #{dutch_edges.length} edge(s), " \
+                   "#{dutch_d.round(1)}\" in from the fascia"
+            end
           end
           # ---------- THE HEIGHT CAP (2026-08-30) ----------------------
           # A roof that dies against the storey above has no ridge on
@@ -5940,6 +5994,144 @@ module InteriorPro
       return nil if den.abs < 1e-9
       t = vcross(vsub(p2, p1), d2) / den
       vadd(p1, vmul(d1, t))
+    end
+
+    # THE DUTCH GABLE, STEP 1 (2026-09-09). PURE, pinned by tests/rt128.rb.
+    # See DUTCH_GABLE_PROPOSAL.md.
+    #
+    # A Dutch gable is the SAME roof - same ridge, same height, same pitch.
+    # Only the bottom of the marked end changes: a small hip apron climbs
+    # from the fascia inward, and a vertical gable stands on top of it up
+    # to the ridge. The user chose the one number that controls it: how
+    # deep that apron is, measured IN FROM THE FASCIA.
+    #
+    # The skeleton cannot express half a hip - `speeds` is one number per
+    # edge, 0 (gable) or 1 (hip). So the roof is built as a plain GABLE on
+    # a polygon whose marked edge has been PUSHED IN by that depth: the
+    # ridge and the two side planes then end on that line by themselves,
+    # which is exactly the shape. The apron between the real fascia line
+    # and this one is separate geometry (step 3).
+    #
+    # Returns a new ring, or nil when the push is impossible: a depth that
+    # is zero or less (nothing to do - the caller keeps the plain gable),
+    # a neighbour parallel to the pushed line, or a push so deep that the
+    # edge collapses or turns back on itself.
+    MIN_DUTCH_EDGE = 6.0
+
+    # Is p strictly between q0 and q1 on their own line? PURE.
+    def self.on_segment_inside?(p, q0, q1)
+      d = vsub(q1, q0)
+      len2 = vdot(d, d)
+      return false if len2 < 1.0e-9
+      t = vdot(vsub(p, q0), d) / len2
+      t > 1.0e-6 && t < 1.0 - 1.0e-6
+    end
+
+    def self.dutch_poly(poly, i, depth)
+      d = depth.to_f
+      return nil if poly.nil? || poly.length < 3 || d <= 0.0
+      n = poly.length
+      j = (i + 1) % n
+      prev = (i - 1) % n
+      nxt = j
+      # the marked edge, pushed INWARD: offset_line's k is outward for CCW
+      line = offset_line(poly, i, -d)
+      a = line_cross(line, offset_line(poly, prev, 0.0))
+      b = line_cross(line, offset_line(poly, nxt, 0.0))
+      return nil if a.nil? || b.nil?
+      # THE TWO ENDS MUST LAND ON THE NEIGHBOURING WALLS, not past them.
+      # That is the honest limit on the depth: the apron's sides run up
+      # those two walls, so once an end slides off the end of one, the
+      # shape asked for does not exist. On a rectangle a push equal to
+      # the width lands exactly on the far corner - already too far.
+      return nil unless on_segment_inside?(a, poly[prev], poly[i])
+      return nil unless on_segment_inside?(b, poly[j], poly[(j + 1) % n])
+      # it must still be an edge, and still point the same way
+      return nil if vlen(vsub(b, a)) < MIN_DUTCH_EDGE
+      dir0 = vnorm(vsub(poly[j], poly[i]))
+      dir1 = vnorm(vsub(b, a))
+      return nil if vdot(dir0, dir1) < 0.9
+      out = poly.dup
+      out[i] = a
+      out[j] = b
+      out
+    end
+
+    # Sutherland-Hodgman against ONE half plane: keep the part of `pts`
+    # on the side of the line (p0, nrm) that `positive` asks for. Returns
+    # [] when nothing is left. PURE, pinned by tests/rt128.rb.
+    def self.clip_halfplane(pts, p0, nrm, positive)
+      return [] if pts.nil? || pts.length < 3
+      sgn = lambda { |q| (vdot(nrm, vsub(q, p0))) * (positive ? 1.0 : -1.0) }
+      out = []
+      n = pts.length
+      n.times do |i|
+        a = pts[i]
+        b = pts[(i + 1) % n]
+        sa = sgn.call(a)
+        sb = sgn.call(b)
+        out << a if sa >= -1.0e-6
+        next if (sa > 1.0e-6 && sb > 1.0e-6) || (sa < -1.0e-6 && sb < -1.0e-6)
+        den = sa - sb
+        next if den.abs < 1.0e-9
+        t = sa / den
+        next if t <= 0.0 || t >= 1.0
+        out << [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+      end
+      # drop the doubles the walk can leave on the cut line
+      clean = []
+      out.each do |q|
+        clean << q if clean.empty? || vlen(vsub(clean.last, q)) > 1.0e-6
+      end
+      clean.pop if clean.length > 1 && vlen(vsub(clean.first, clean.last)) < 1.0e-6
+      clean.length < 3 ? [] : clean
+    end
+
+    # THE APRON'S CELLS (2026-09-09). The strip between the real fascia
+    # and the pushed line is exactly what the PLAIN HIP roof has there -
+    # the end plane in the middle and a corner of each side plane beside
+    # it, met on the hip lines. So the hip skeleton is run once more on
+    # the ORIGINAL ring with the marked edges back at speed 1.0, and its
+    # cells are clipped to that strip.
+    #
+    # Two Dutch edges next to each other would each claim the corner
+    # between them, so every strip after the first is also clipped to the
+    # INSIDE of the ones already taken - each piece of plan is owned once
+    # (BOARDS MEET, and faces even more so).
+    #
+    # Returns [] when there is nothing to add, or nil when the hip run
+    # itself fails - the caller then falls back to a plain gable.
+    def self.dutch_apron_cells(poly, speeds, dutch_edges, depth)
+      return [] if dutch_edges.empty?
+      hip_speeds = speeds.dup
+      dutch_edges.each { |i| hip_speeds[i] = 1.0 }
+      arcs = straight_skeleton(poly, hip_speeds)
+      return nil if arcs.nil?
+      cells = roof_cells(poly, arcs, hip_speeds)
+      return nil if cells.nil?
+      cuts = dutch_edges.map { |i| dutch_cut(poly, i, depth) }
+      out = []
+      dutch_edges.each_with_index do |_gi, k|
+        p0, nrm = cuts[k]
+        cells.each do |cell|
+          pts = clip_halfplane(cell[:pts], p0, nrm, true)
+          k.times do |m|
+            break if pts.empty?
+            q0, qn = cuts[m]
+            pts = clip_halfplane(pts, q0, qn, false)
+          end
+          next if pts.length < 3
+          out << { pts: pts, eave: cell[:eave] }
+        end
+      end
+      out
+    end
+
+    # The line a Dutch edge is pushed back to, as [point, outward normal].
+    # PURE. The apron lives on the POSITIVE (fascia) side of it.
+    def self.dutch_cut(poly, i, depth)
+      pt, d = offset_line(poly, i, -depth.to_f)
+      [pt, [d[1], -d[0]]]
     end
 
     # THE SQUARE END (2026-08-24). PURE, pinned by tests/rt84.rb.

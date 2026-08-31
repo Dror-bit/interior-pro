@@ -73,7 +73,7 @@ module InteriorPro
       end
       dlg.add_action_callback('place_dormer') do |_, style, width, height,
                                                   setback, overhang, pitch12,
-                                                  fdepth, mode, win|
+                                                  fdepth, mode, win, wcol|
         old = InteriorPro::DormerManager.settings
         s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
               width: width.to_f, height: height.to_f, length: old[:length],
@@ -84,7 +84,10 @@ module InteriorPro
                           mode.to_s : 'free',
               # HIS OPTION, ON THE PANEL (2026-09-06): "בסרגל של הגגונים
               # תהיה אופציה עם חלון או בלי חלון".
-              window: !%w[false 0 off].include?(win.to_s.downcase) }
+              window: !%w[false 0 off].include?(win.to_s.downcase),
+              # '' = leave the frame as WindowTool builds it (white).
+              # Anything else is a colour he picked (2026-09-09).
+              window_color: wcol.to_s.start_with?('#') ? wcol.to_s : '' }
         InteriorPro::DormerManager.save_settings!(s)
         tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
         if tgt
@@ -104,7 +107,8 @@ module InteriorPro
             # change the remembered mode and leave the dormer where it is.
             place_mode: s[:place_mode].to_s,
             setback: s[:place_mode].to_s == 'depth' ? s[:setback].to_f : nil,
-            window: s[:window] ? true : false
+            window: s[:window] ? true : false,
+            window_color: s[:window_color].to_s
           )
           model.commit_operation
           if g.nil?
@@ -144,10 +148,18 @@ module InteriorPro
                  fascia_depth: sp[:fascia_depth].to_f,
                  setback: sp[:setback].to_f,
                  place_mode: (sp[:place_mode] || base[:place_mode]).to_s,
-                 window: sp.key?(:window) ? sp[:window] : base[:window])
+                 window: sp.key?(:window) ? sp[:window] : base[:window],
+                 window_color: sp.key?(:window_color) ?
+                               sp[:window_color].to_s : base[:window_color])
     end
 
     def self.build_html(s, edit: false)
+      # The frame colour: '' means "as WindowTool built it" (white), and a
+      # colour input cannot hold that - so the swatch previews white and a
+      # flag beside it remembers whether he actually picked (2026-09-09,
+      # the same pattern as the roof panel's soffit colour).
+      win_picked = s[:window_color].to_s.start_with?('#')
+      win_col = win_picked ? s[:window_color].to_s : '#ffffff'
       pitch_options = ['<option value="0"' +
                        (s[:pitch12].to_f > 0.01 ? '' : ' selected') +
                        '>Same as roof</option>']
@@ -218,6 +230,9 @@ module InteriorPro
             <input type="checkbox" id="hasWindow"#{s[:window] ? ' checked' : ''}></div>
           <div class="hint">Centred, at most 48" x 24". On a smaller gablet it
             keeps 6" clear on every side and never runs into the cheeks.</div>
+          <div class="row"><label>Frame colour</label>
+            <input type="color" id="winColor" value="#{win_col}"
+                   oninput="winPicked()"></div>
 
           <div class="section-title">Size</div>
           <div class="row"><label>Width (across the roof)</label>
@@ -266,6 +281,8 @@ module InteriorPro
               document.getElementById('placeHint').textContent = h[v];
               fitWindow();
             }
+            var winPickedFlag = #{win_picked ? 'true' : 'false'};
+            function winPicked() { winPickedFlag = true; }
             function placeDormer() {
               sketchup.place_dormer(
                 document.querySelector('input[name=style]:checked').value,
@@ -276,7 +293,8 @@ module InteriorPro
                 document.getElementById('pitch').value,
                 document.getElementById('fasciaDepth').value,
                 document.querySelector('input[name=pmode]:checked').value,
-                document.getElementById('hasWindow').checked ? 'true' : 'false');
+                document.getElementById('hasWindow').checked ? 'true' : 'false',
+                winPickedFlag ? document.getElementById('winColor').value : '');
             }
             Array.prototype.forEach.call(
               document.querySelectorAll('input[name=style]'),

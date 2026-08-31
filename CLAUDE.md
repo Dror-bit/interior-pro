@@ -4,6 +4,13 @@ SketchUp interior design plugin, Ruby, module `InteriorPro`.
 Live folder (edit in place, no RBZ):
 `C:\Users\rordt\AppData\Roaming\SketchUp\SketchUp 2024\SketchUp\Plugins\interior_pro`
 
+## שתי מכונות (2026-09-09)
+- ווינדוס: SketchUp **2024**, הנתיב למעלה. זו המכונה שעובדים עליה.
+- מאק: SketchUp **2026** -
+  `~/Library/Application Support/SketchUp 2026/SketchUp/Plugins/interior_pro`
+  מתעדכן ב-git: `git push origin door-stabilize` בווינדוס, ואז
+  `git pull origin door-stabilize` במאק, ואז `InteriorPro.reload!`.
+
 ## איך אנחנו עובדים — הכללים המלאים (2026-09-04)
 ##
 ## הועברו לכאן מהודעת הפתיחה, כדי שההודעה בצ'אט חדש תהיה שלוש שורות.
