@@ -1,0 +1,30 @@
+Interior Pro - why does Hip not take?
+model: claud cold   time: 2026-08-31 20:29:47 -0700
+
+--- what the MODEL stores ---
+roof_style (model default): "gable"
+gable marks: ["817ec169-31d9-4417-b433-a92628ddd11b"]
+dutch marks: ["817ec169-31d9-4417-b433-a92628ddd11b"]
+hip marks:   ["8479bf36-071b-4c8d-8267-f06bc6173ae2"]
+SHED marks:  ["817ec169-31d9-4417-b433-a92628ddd11b"]
+click points: [[982.2121006735499, 175.99999999999994]]
+live wall ids (8): ["12e16034-84f5-4055-8cc9-e4eaa60a5e1e", "1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3", "817ec169-31d9-4417-b433-a92628ddd11b", "fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851", "cc6dad57-247c-4edc-9c5d-c449651a7b30", "7fcecd4c-f2fc-41e4-9502-118a7d7a10a5", "a7796f8e-c797-469a-880d-62b2d41a73b6", "8479bf36-071b-4c8d-8267-f06bc6173ae2"]
+marks pointing at walls that no longer exist: []
+
+--- every roof in the model ---
+
+roof #0  style="shed"  level=nil
+  walls it owns: nil
+
+roof #1  style="gable"  level=nil
+  walls it owns: nil
+
+--- what roof_end_of says for every live wall ---
+  12e16034-84f5-4055-8cc9-e4eaa60a5e1e  cat=exterior  end=hip  owner_roof=no
+  1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3  cat=exterior  end=hip  owner_roof=yes
+  817ec169-31d9-4417-b433-a92628ddd11b  cat=exterior  end=dutch  owner_roof=yes
+  fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851  cat=exterior  end=hip  owner_roof=yes
+  cc6dad57-247c-4edc-9c5d-c449651a7b30  cat=exterior  end=hip  owner_roof=yes
+  7fcecd4c-f2fc-41e4-9502-118a7d7a10a5  cat=exterior  end=hip  owner_roof=yes
+  a7796f8e-c797-469a-880d-62b2d41a73b6  cat=exterior  end=hip  owner_roof=yes
+  8479bf36-071b-4c8d-8267-f06bc6173ae2  cat=exterior  end=hip  owner_roof=yes

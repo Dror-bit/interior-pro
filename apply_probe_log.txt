@@ -1,0 +1,25 @@
+Interior Pro - Apply probe   2026-08-31 21:10:01 -0700
+21:10:01  walls and their materials:
+21:10:01    12e16034-84f5-4055-8cc9-e4eaa60a5e1e ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+21:10:01    1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3 ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+21:10:01    817ec169-31d9-4417-b433-a92628ddd11b ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+21:10:01    fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851 ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+21:10:01    cc6dad57-247c-4edc-9c5d-c449651a7b30 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+21:10:01    7fcecd4c-f2fc-41e4-9502-118a7d7a10a5 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+21:10:01    a7796f8e-c797-469a-880d-62b2d41a73b6 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+21:10:01    8479bf36-071b-4c8d-8267-f06bc6173ae2 ext="Horizontal Siding" base_z=106.0 height=96.0 bounds z 106.0..202.0
+21:10:01  PASS 1: gable siding OFF
+21:10:01  pass1: 2 roof(s) to rebuild
+21:10:01  pass1: roof #0 start  style="hip"
+21:10:01  pass1: roof #0 DONE
+21:10:01  pass1: roof #1 start  style="hip"
+21:10:01  pass1: roof #1 DONE
+21:10:01  pass1: all roofs done
+21:10:01  PASS 2: gable siding ON
+21:10:01  pass2: 2 roof(s) to rebuild
+21:10:01  pass2: roof #0 start  style="hip"
+21:10:01  pass2: roof #0 DONE
+21:10:01  pass2: roof #1 start  style="hip"
+21:10:01  pass2: roof #1 DONE
+21:10:01  pass2: all roofs done
+21:10:01  SURVIVED BOTH PASSES - the crash is not in the roof rebuild

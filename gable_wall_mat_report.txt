@@ -1,0 +1,43 @@
+Interior Pro - what is painted on the wall under the roof?
+model: claud cold   time: 2026-08-31 20:41:40 -0700
+
+--- the walls and what they are SUPPOSED to be ---
+  12e16034-84f5-4055-8cc9-e4eaa60a5e1e  level=1  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3  level=1  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  817ec169-31d9-4417-b433-a92628ddd11b  level=1  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851  level=1  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  cc6dad57-247c-4edc-9c5d-c449651a7b30  level=2  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  7fcecd4c-f2fc-41e4-9502-118a7d7a10a5  level=2  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  a7796f8e-c797-469a-880d-62b2d41a73b6  level=2  ext="Stucco"  int="#ffffff"  3D-siding groups inside=0
+  8479bf36-071b-4c8d-8267-f06bc6173ae2  level=2  ext="Board and Batten"  int="#ffffff"  3D-siding groups inside=1
+
+--- what the TEXTURES folder actually has ---
+  ["brick.jpg", "floor_carpet.jpg", "floor_concrete.jpg", "floor_hardwood.jpg", "floor_tile.jpg", "floors", "horizontal_siding.jpg", "plaster.jpg", "roof_barrel_tile.jpg", "roof_flat_slate.jpg", "roof_grain_concrete.jpg", "roof_metal_tile.jpg", "roof_roman_tile.jpg", "roof_shingle.jpg", "roof_standing_seam.jpg", "soffit_wood.jpg", "stone.jpg", "stucco.jpg", "vertical_siding.jpg"]
+
+--- every material in the model whose name looks like a wall material ---
+  "Stucco"  texture=stucco.jpg size=48.0  rgb(170,162,159)
+  "#ffffff"  NO TEXTURE  rgb(255,255,255)
+  "medeek_brick_red"  texture=BRICK_RED.jpg size=58.0  rgb(147,105,71)
+  "medeek_wall_stucco_light_tan"  texture=STUCCO_LIGHT_TAN.jpg size=24.0  rgb(253,240,204)
+  "InteriorPro_Soffit_stucco"  texture=stucco.jpg size=48.0  rgb(170,162,159)
+  "Board and Batten"  NO TEXTURE  rgb(0,0,0)
+  "Vertical Siding"  texture=vertical_siding.jpg size=48.0  rgb(120,88,56)
+  "Plaster"  texture=plaster.jpg size=48.0  rgb(157,139,120)
+  "Horizontal Siding"  texture=horizontal_siding.jpg size=48.0  rgb(69,68,63)
+  "Brick"  texture=brick.jpg size=48.0  rgb(142,102,80)
+  "#8b5a2b"  NO TEXTURE  rgb(139,90,43)
+  "#efeae1"  NO TEXTURE  rgb(239,234,225)
+
+--- the gable wall tops the roof built ---
+
+roof #0 style="hip"
+
+roof #1 style="hip"
+  gable_wall_top: 7 face(s)  name="InteriorPro_GableWall"
+     6 face(s) painted "Stucco"
+     1 face(s) painted "#ffffff"
+     -> "Stucco"  texture=stucco.jpg size=48.0  rgb(170,162,159)
+     -> "#ffffff"  NO TEXTURE  rgb(255,255,255)
+     sub-groups inside: []
+
+gable wall tops found: 1

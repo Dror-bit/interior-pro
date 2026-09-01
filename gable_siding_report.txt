@@ -1,0 +1,59 @@
+Interior Pro - the battens standing above the roof
+model: claud cold   time: 2026-08-31 20:53:04 -0700
+
+roof #0 style="hip"
+  roof group origin=[0.0, 0.0, 0.0] identity=true
+  roof bounds z: 5.29 .. 142.61
+
+roof #1 style="hip"
+  roof group origin=[0.0, 0.0, 0.0] identity=true
+  roof bounds z: 5.29 .. 269.01
+
+  GABLE WALL TOP  origin=[0.0, 0.0, 0.0] identity=true
+    bounds z: 202.0 .. 266.46
+    7 face(s)
+      face0 normal=(-0.0, 1.0, -0.0) verts=5 z 202.0..266.46 mat="#ffffff"
+      face1 normal=(0.0, -1.0, 0.0) verts=5 z 202.0..266.46 mat="#ffffff"
+      face2 normal=(0.38, 0.0, 0.92) verts=4 z 210.0..266.46 mat="#ffffff"
+      face3 normal=(-0.38, 0.0, 0.92) verts=4 z 210.0..266.46 mat="#ffffff"
+      face4 normal=(-1.0, -0.0, -0.0) verts=4 z 202.0..210.0 mat="#ffffff"
+      face5 normal=(0.0, 0.0, -1.0) verts=4 z 202.0..202.0 mat="#ffffff"
+      face6 normal=(1.0, 0.0, -0.0) verts=4 z 202.0..210.0 mat="#ffffff"
+    sub-group "InteriorPro_GableSiding" part="gable_wall_siding" origin=[0.0, 0.0, 0.0]
+      bounds x 925.25..1182.75  y 591.5..592.25  z 202.0..265.94
+      102 face(s) inside
+        17 face(s) at z 202.0..202.0
+        4 face(s) at z 202.0..219.27
+        4 face(s) at z 202.0..213.02
+        4 face(s) at z 202.0..225.94
+        4 face(s) at z 202.0..219.69
+        4 face(s) at z 202.0..232.6
+        4 face(s) at z 202.0..226.35
+        4 face(s) at z 202.0..239.27
+        4 face(s) at z 202.0..233.02
+        4 face(s) at z 202.0..245.94
+        4 face(s) at z 202.0..239.69
+        4 face(s) at z 202.0..252.6
+        4 face(s) at z 202.0..246.35
+        4 face(s) at z 202.0..259.27
+        4 face(s) at z 202.0..253.02
+        4 face(s) at z 202.0..265.94
+        4 face(s) at z 202.0..259.69
+        4 face(s) at z 202.0..212.6
+        1 face(s) at z 212.6..212.6
+        1 face(s) at z 213.02..213.02
+        1 face(s) at z 219.27..219.27
+        1 face(s) at z 219.69..219.69
+        1 face(s) at z 225.94..225.94
+        1 face(s) at z 226.35..226.35
+        1 face(s) at z 232.6..232.6
+
+--- the walls, for comparison ---
+  12e16034-84f5-4055-8cc9-e4eaa60a5e1e ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+  1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3 ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+  817ec169-31d9-4417-b433-a92628ddd11b ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+  fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851 ext="Stucco" base_z=nil height=106.0 bounds z 0.0..106.0
+  cc6dad57-247c-4edc-9c5d-c449651a7b30 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+  7fcecd4c-f2fc-41e4-9502-118a7d7a10a5 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+  a7796f8e-c797-469a-880d-62b2d41a73b6 ext="Stucco" base_z=106.0 height=96.0 bounds z 106.0..202.0
+  8479bf36-071b-4c8d-8267-f06bc6173ae2 ext="Board and Batten" base_z=106.0 height=96.0 bounds z 106.0..308.0

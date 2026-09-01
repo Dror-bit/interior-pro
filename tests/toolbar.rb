@@ -346,25 +346,18 @@ module InteriorPro
       gable_cmd = UI::Command.new('Gable Ends') {
         Sketchup.active_model.select_tool(InteriorPro::RoofGableTool.new)
       }
-      gable_cmd.tooltip = 'Gable Ends - click a wall to toggle hip/gable'
-      gable_cmd.status_bar_text = 'Click walls to toggle their roof end between hip and gable'
+      gable_cmd.tooltip = 'Roof Ends - click a wall: hip, gable, Dutch gable or shed'
+      gable_cmd.status_bar_text = 'Click a wall and pick its roof end: hip, gable, Dutch gable or shed'
       gable_cmd.small_icon = icon_path('roof_gable')
       gable_cmd.large_icon = icon_path('roof_gable')
       tb.add_item(gable_cmd)
 
-      # Shed roof (2026-08-26): a single-slope roof. Click the LOW wall -
-      # the roof rises away from it and every other wall is cut vertical.
-      # One click does the whole thing (the UI rule: a tool button runs
-      # its tool), so there is no trip to the panel to pick the style.
-      shed_cmd = UI::Command.new('Shed Roof') {
-        Sketchup.active_model.select_tool(InteriorPro::RoofShedTool.new)
-      }
-      shed_cmd.tooltip = 'Shed Roof - click the LOW wall of a single-slope roof'
-      shed_cmd.status_bar_text =
-        'Click the low wall: the shed roof rises away from it. Click it again to clear.'
-      shed_cmd.small_icon = icon_path('roof_shed')
-      shed_cmd.large_icon = icon_path('roof_shed')
-      tb.add_item(shed_cmd)
+      # THE SHED BUTTON IS GONE (2026-09-12, his call: "תוריד אותו").
+      # A shed is chosen the same way a gable is now - Gable Ends, click
+      # the low wall, pick "Shed (low eave)" from the menu. Two ways to
+      # say the same thing was the UI rule this broke, and it is also what
+      # let one wall carry a shed mark and a gable mark at the same time.
+      # RoofShedTool itself stays on disk and still works if it is called.
 
       # Downspouts (2026-08-29): they come up automatically, one per
       # corner, and this is how one comes off - and back on. Same story

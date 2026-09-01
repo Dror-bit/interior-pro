@@ -296,7 +296,7 @@ module InteriorPro
             <label><input type="radio" name="style" value="shed"#{s[:style] == 'shed' ? ' checked' : ''} onchange="styleChanged()"> Shed</label>
           </div>
           <div class="row sub" id="shedHint" style="display:none;color:#78909c;font-size:12px">
-            Pick the low wall with the Shed Roof button; with none picked the
+            Pick the low wall with Roof Ends > Shed; with none picked the
             longest wall is used.</div>
           <div class="row"><label>Pitch (rise : 12)</label>
             <select id="pitch">#{pitch_options}</select></div>

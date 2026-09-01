@@ -985,8 +985,8 @@ module InteriorPro
         end
       end
 
-      z_min = group.bounds.min.z
-      z_max = group.bounds.max.z
+      clear_siding!(group)
+      z_min, z_max = InteriorPro::WallTool.local_z_range(group)
       return if (z_max - z_min) < 0.5
 
       total_t = poly.last[2]
@@ -1047,6 +1047,40 @@ module InteriorPro
 
     # A clean, empty sub-group to build this wall's siding in. Any previous
     # one is thrown away first, so a rebuild never stacks siding on siding.
+    # PURE: the wall's own z range, measured WHERE THE BOARDS ARE BUILT.
+    #
+    # group.bounds is in the PARENT's coordinates; every board is built in
+    # the group's OWN. On a ground-floor wall the two are the same number
+    # and this was invisible for months. On an upper storey set_wall_base!
+    # TRANSLATES the group, and the boards went up by the storey height:
+    # MEASURED 2026-09-12 on his model, a 96" wall standing on 106" had
+    # bounds z 106..308 - its battens standing 106" too high, as thin
+    # sticks poking through the roof in his photo.
+    def self.siding_z_range(min_z, max_z, origin_z)
+      [min_z.to_f - origin_z.to_f, max_z.to_f - origin_z.to_f]
+    end
+
+    def self.local_z_range(group)
+      dz = begin
+        group.transformation.origin.z.to_f
+      rescue StandardError
+        0.0
+      end
+      siding_z_range(group.bounds.min.z, group.bounds.max.z, dz)
+    end
+
+    # Take yesterday's boards off BEFORE measuring the wall. They are part
+    # of the group, so leaving them on measured the wall plus the boards -
+    # and each rebuild grew it again.
+    def clear_siding!(group)
+      return unless group&.valid?
+      group.entities.grep(Sketchup::Group).each do |g|
+        g.erase! if g.valid? && g.name == SIDING_GROUP_NAME
+      end
+    rescue StandardError => e
+      puts "[WallTool] clear_siding!: #{e.message}"
+    end
+
     def siding_group(group)
       group.entities.grep(Sketchup::Group).each do |g|
         g.erase! if g.valid? && g.name == SIDING_GROUP_NAME
@@ -1363,8 +1397,8 @@ module InteriorPro
         end
       end
 
-      z_min = group.bounds.min.z
-      z_max = group.bounds.max.z
+      clear_siding!(group)
+      z_min, z_max = InteriorPro::WallTool.local_z_range(group)
       h = z_max - z_min
       return if h < 0.001
 

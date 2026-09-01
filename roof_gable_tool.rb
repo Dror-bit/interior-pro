@@ -7,14 +7,20 @@ module InteriorPro
   class RoofGableTool
     # ORANGE hip, BLUE gable, GREEN Dutch gable - the highlight has to
     # show which of the three a wall is before it is clicked.
+    # PURPLE shed (2026-09-12): the fourth state moved in here from its own
+    # toolbar button, so the highlight has to show it like the other three.
     COLORS = { hip: Sketchup::Color.new(230, 120, 20),
                gable: Sketchup::Color.new(40, 140, 230),
-               dutch: Sketchup::Color.new(60, 180, 90) }.freeze
-    NAMES = { hip: 'Hip', gable: 'Gable', dutch: 'Dutch gable' }.freeze
+               dutch: Sketchup::Color.new(60, 180, 90),
+               shed: Sketchup::Color.new(150, 90, 200) }.freeze
+    # The shed label says what it does, because it is the one choice that
+    # changes the WHOLE roof and not just this end.
+    NAMES = { hip: 'Hip', gable: 'Gable', dutch: 'Dutch gable',
+              shed: 'Shed (low eave)' }.freeze
 
     def activate
       @preview_wall = nil
-      Sketchup.set_status_text('Click a wall to choose its roof end: hip, gable or Dutch gable', SB_PROMPT)
+      Sketchup.set_status_text('Click a wall to choose its roof end: hip, gable, Dutch gable or shed', SB_PROMPT)
     end
 
     def deactivate(view)

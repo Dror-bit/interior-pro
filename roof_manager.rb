@@ -1714,6 +1714,10 @@ module InteriorPro
           puts "[Roof] #{dropped.length} gable mark(s) ignored - the wall is curved" unless dropped.empty?
         end
         gables = (0...poly.length).select { |i| wall_ids[i] && marked.include?(wall_ids[i]) }
+        # ENDS HE EXPLICITLY SET TO HIP (2026-09-12). They only ever REMOVE
+        # a gable the code would have added by itself, so a model with no
+        # hip marks reaches every line below exactly as before.
+        hip_marked = hip_wall_ids
         # ---------- SHED: one plane, one eave (2026-08-26) ------------
         # A shed roof is the gable machinery with the marks INVERTED:
         # every edge but the low one runs at speed 0 and is cut vertical,
@@ -1739,7 +1743,8 @@ module InteriorPro
         # INSIDE the over-framing now (build_main_rect!), and this line
         # is exactly what it was before that mistake.
         dutch_marked = dutch_wall_ids & marked
-        framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked) \
+        framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked,
+                             hip_marked) \
                  if want_gable && abut_ids.empty? && s[:style] != 'shed'
         if framed
           gables = framed[:edges]
@@ -1750,7 +1755,8 @@ module InteriorPro
             # ...but never onto a bowed wall's facets, and never onto the
             # cut line under the storey above.
             gables = gables.reject do |i|
-              bowed.include?(wall_ids[i]) || abut_ids.include?(wall_ids[i])
+              bowed.include?(wall_ids[i]) || abut_ids.include?(wall_ids[i]) ||
+                hip_marked.include?(wall_ids[i])
             end
           end
           if s[:style] == 'shed' && !gables.empty?
@@ -4063,6 +4069,16 @@ module InteriorPro
       Sketchup.active_model.get_attribute('InteriorPro', 'roof_dutch_wall_ids') || []
     end
 
+    # WHICH ends the user explicitly said HIP (2026-09-12). Without this
+    # list a hip choice was only the ABSENCE of a gable mark, and the
+    # Gable style picks its own ends when it finds none - so choosing Hip
+    # on a wall of a gable roof did nothing at all, and he reported it as
+    # broken. Empty on every model that never used the click tool, so a
+    # roof built yesterday builds exactly the same today.
+    def self.hip_wall_ids
+      Sketchup.active_model.get_attribute('InteriorPro', 'roof_hip_wall_ids') || []
+    end
+
     # Every wall id that actually exists in the model right now.
     def self.live_wall_ids
       InteriorPro::LevelManager.all_walls.map do |w|
@@ -4093,6 +4109,13 @@ module InteriorPro
     # One place to ask, so the tool's highlight, its menu and the cycle
     # can never disagree about what a wall is.
     def self.roof_end_of(id)
+      # SHED IS ONE OF THE FOUR NOW (2026-09-12). It used to be a button
+      # of its own with a list of its own, and the two lists could hold
+      # the SAME wall - measured on his model: one wall marked shed AND
+      # gable AND dutch at once, and neither Hip nor Gable would take.
+      # One menu, one state per wall, and shed is asked FIRST because it
+      # is the one that owns the whole roof.
+      return :shed if shed_wall_ids.include?(id)
       return :dutch if dutch_wall_ids.include?(id)
       return :gable if gable_wall_ids.include?(id)
       :hip
@@ -4107,7 +4130,7 @@ module InteriorPro
       return false unless wall && wall.valid?
       id = wall.get_attribute('InteriorPro', 'id')
       return false if id.nil?
-      nxt = { hip: :gable, gable: :dutch, dutch: :hip }[roof_end_of(id)]
+      nxt = { hip: :gable, gable: :dutch, dutch: :hip, shed: :hip }[roof_end_of(id)]
       set_roof_end!(wall, nxt, click)
     end
 
@@ -4118,7 +4141,7 @@ module InteriorPro
     # pick, so choosing from the menu over a different section of a long
     # wall moves the end there. Rebuilds the roof if one exists.
     def self.set_roof_end!(wall, kind, click = nil)
-      kind = :hip unless %i[hip gable dutch].include?(kind)
+      kind = :hip unless %i[hip gable dutch shed].include?(kind)
       return false unless wall && wall.valid? &&
                           wall.get_attribute('InteriorPro', 'type') == 'wall'
       id = wall.get_attribute('InteriorPro', 'id')
@@ -4163,14 +4186,38 @@ module InteriorPro
       # gable marks keeps working untouched. The depth still comes from
       # the roof dialog; this only says which ends use it.
       dids = dutch_wall_ids.dup & live
+      # An explicit HIP is REMEMBERED (2026-09-12), not just the absence
+      # of a gable mark - see hip_wall_ids.
+      hids = hip_wall_ids.dup & live
+      # THE SHED EAVE IS THE FOURTH STATE (2026-09-12). Picking Shed makes
+      # THIS wall the low eave and the whole roof a shed; picking any of
+      # the other three takes the shed off - and takes the STYLE off shed
+      # with it. Leaving the style behind is exactly the trap he hit: the
+      # mark went, the style stayed 'shed', and Hip and Gable both did
+      # nothing at all.
+      sheds = shed_wall_ids & live
+      style_override = nil
+      if kind == :shed
+        sheds = [id]
+        style_override = 'shed'
+      elsif sheds.include?(id)
+        sheds = []
+        style_override = (kind == :hip ? 'hip' : 'gable')
+      end
       idx = ids.index(id)
-      if kind == :hip
+      if kind == :hip || kind == :shed
         unless idx.nil?
           ids.delete_at(idx)
           pts.delete_at(idx)
         end
         dids.delete(id)
+        if kind == :hip
+          hids.push(id) unless hids.include?(id)
+        else
+          hids.delete(id)
+        end
       else
+        hids.delete(id)
         if idx.nil?
           ids.push(id)
           pts.push(click ? [click[0].to_f, click[1].to_f] : [1e9, 1e9])
@@ -4183,11 +4230,14 @@ module InteriorPro
           dids.delete(id)
         end
       end
-      state = { hip: 'hip end', gable: 'GABLE end', dutch: 'DUTCH gable end' }[kind]
+      state = { hip: 'hip end', gable: 'GABLE end', dutch: 'DUTCH gable end',
+                shed: 'SHED low eave' }[kind]
       m = Sketchup.active_model
       m.set_attribute('InteriorPro', 'roof_gable_wall_ids', ids)
       m.set_attribute('InteriorPro', 'roof_gable_click_xy', pts.flatten)
       m.set_attribute('InteriorPro', 'roof_dutch_wall_ids', dids)
+      m.set_attribute('InteriorPro', 'roof_hip_wall_ids', hids)
+      m.set_attribute('InteriorPro', 'roof_shed_wall_ids', sheds)
       puts "[Roof] wall #{id}: #{state} (#{ids.length} gable, #{dids.length} dutch)"
       unless roofs.empty?
         # Rebuild the roof that OWNS this wall, and only it (2026-08-26,
@@ -4195,7 +4245,11 @@ module InteriorPro
         # A roof from an older model claims no walls, finds no owner, and
         # takes the old whole-model rebuild, exactly as before.
         own = roof_of_wall_id(id)
-        own ? build_roof!(replace: own) : build_roof!
+        if own
+          build_roof!(replace: own, style: style_override)
+        else
+          build_roof!(style: style_override)
+        end
       end
       true
     end
@@ -4472,7 +4526,8 @@ module InteriorPro
                                               overhang, lo, hi)
         if prof_src
           chain_regions_above(prof_src.map { |t, z| [t, nil, z] }, zbase).each do |pp|
-            build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, pp, names)
+            build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, pp,
+                                   names, wall)
           end
         else
           chain_regions_above(chain, zbase).each do |prof|
@@ -4484,7 +4539,8 @@ module InteriorPro
             wall_visible_profile(prof, a, d, cov).each do |pp|
               cp = clip_profile(pp, lo, hi)
               next if cp.empty?
-              build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, cp, names)
+              build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, cp,
+                                     names, wall)
             end
           end
         end
@@ -4757,7 +4813,8 @@ module InteriorPro
 
     # One prism: the profile face on the wall's OUTER plane, push-pulled
     # one wall thickness inward. prof = [[t, z], ...] along the edge.
-    def self.build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, prof, names)
+    def self.build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, prof,
+                                    names, wall = nil)
       return if prof.length < 2
       return if prof.last[0] - prof.first[0] < 0.5
       return if prof.map { |_, z| z }.max < zbase + 0.1
@@ -4782,7 +4839,7 @@ module InteriorPro
       return if f.nil?
       inw3 = Geom::Vector3d.new(inw[0], inw[1], 0)
       f.pushpull((f.normal % inw3) > 0 ? th : -th) if f.respond_to?(:pushpull)
-      paint_gable_top!(sub, d, inw, names)
+      paint_gable_top!(sub, d, inw, names, wall)
     rescue StandardError => e
       puts "[Roof] build_gable_top_prism!: #{e.message}"
     end
@@ -4926,7 +4983,11 @@ module InteriorPro
       end
       return unless InteriorPro::WallTool.respond_to?(:new)
       wt = InteriorPro::WallTool.new
-      ext_m = ext_name ? wt.load_or_create_material(ext_name) : nil
+      # 3D siding has no texture of its own - the wall paints its face white
+      # and screws real boards on. Same white here (2026-09-12); the boards
+      # on a mitred shed corner are still to come.
+      face_name = SIDING_3D_NAMES.include?(ext_name.to_s) ? '#ffffff' : ext_name
+      ext_m = face_name ? wt.load_or_create_material(face_name) : nil
       int_m = int_name ? wt.load_or_create_material(int_name) : nil
       sub.entities.grep(Sketchup::Face).each do |fc|
         m = (!inner_f.nil? && fc.equal?(inner_f)) ? (int_m || ext_m)
@@ -4965,28 +5026,241 @@ module InteriorPro
     # EVERY face is painted on BOTH sides: push-pulled faces come out with
     # arbitrary orientation, and a material on the back side only renders
     # as the default WHITE from outside (the 2026-08-09 white triangle).
-    def self.paint_gable_top!(sub, d, inw, names)
+    # THE TRIANGLE IS THE SAME WALL (2026-09-12, his words: "הוא צריך
+    # להיות המשך של הקיר של הבית וגם הסיידינג אותו דבר").
+    #
+    # These two are not textures at all - they are REAL 3D boards the wall
+    # builder screws onto the wall's face, over a face it first paints
+    # WHITE. Painting the triangle with a material of the same name gave
+    # two different wrong answers, both measured on his model 2026-09-12:
+    #   Board and Batten - there is no board_and_batten.jpg, so
+    #     load_or_create_material made an empty material and the triangle
+    #     came out BLACK (rgb 0,0,0 in the report).
+    #   Horizontal Siding - there IS a jpg, so the triangle got a flat
+    #     PHOTO of siding standing next to a wall wearing real boards.
+    # So the triangle now does exactly what the wall does: white face,
+    # then the same boards on top of it.
+    SIDING_3D_NAMES = ['Board and Batten', 'Horizontal Siding'].freeze
+
+    # QUICK OFF SWITCH (2026-09-12). Set it false in the Ruby Console and
+    # rebuild: the triangle keeps the white face (which is right on its
+    # own) and simply gets no boards.
+    #   InteriorPro::RoofManager.send(:remove_const, :USE_GABLE_SIDING)
+    #   InteriorPro::RoofManager::USE_GABLE_SIDING = false
+    USE_GABLE_SIDING = true unless const_defined?(:USE_GABLE_SIDING, false)
+
+    def self.paint_gable_top!(sub, d, inw, names, wall = nil)
       ext_name, int_name = names
       unless ext_name || int_name
         puts '[Roof] gable wall top: no wall materials found - left unpainted'
         return
       end
       return unless InteriorPro::WallTool.respond_to?(:new)
+      siding = SIDING_3D_NAMES.include?(ext_name.to_s)
+      # under real boards the wall face is white, not the material's name
+      face_name = siding ? '#ffffff' : ext_name
       wt = InteriorPro::WallTool.new
-      ext_m = ext_name ? wt.load_or_create_material(ext_name) : nil
+      ext_m = face_name ? wt.load_or_create_material(face_name) : nil
       int_m = int_name ? wt.load_or_create_material(int_name) : nil
       dir3 = Geom::Vector3d.new(d[0], d[1], 0)
       out3 = Geom::Vector3d.new(-inw[0], -inw[1], 0)
+      outer = nil
       sub.entities.grep(Sketchup::Face).each do |fc|
         n = fc.normal
-        inner = n.z.abs < 0.5 && (n % dir3).abs < 0.5 && (n % out3) < 0
+        flat = n.z.abs < 0.5 && (n % dir3).abs < 0.5
+        inner = flat && (n % out3) < 0
+        outer = fc if flat && !inner && (n % out3) > 0.5
         m = inner ? (int_m || ext_m) : (ext_m || int_m)
         next unless m
         fc.material = m
         fc.back_material = m
       end
+      if siding && USE_GABLE_SIDING
+        build_gable_top_siding!(sub, outer, d, inw, ext_name, wall, ext_m)
+      end
     rescue StandardError => e
       puts "[Roof] paint_gable_top!: #{e.message}"
+    end
+
+    # PURE: the highest point of a (t, z) outline at t. The outline is the
+    # gable wall's own outer face - flat along the bottom, cut by the roof
+    # along the top - so this is "how tall is the wall here".
+    def self.tz_top_at(tz, t)
+      best = nil
+      n = tz.length
+      n.times do |i|
+        a = tz[i]
+        b = tz[(i + 1) % n]
+        lo, hi = a[0] <= b[0] ? [a, b] : [b, a]
+        next if t < lo[0] - 1.0e-9 || t > hi[0] + 1.0e-9
+        z = if (hi[0] - lo[0]).abs < 1.0e-9
+              [lo[1], hi[1]].max
+            else
+              lo[1] + (hi[1] - lo[1]) * (t - lo[0]) / (hi[0] - lo[0])
+            end
+        best = z if best.nil? || z > best
+      end
+      best
+    end
+
+    # PURE: one course of lap siding cut to the rake. A course that runs
+    # clear under the roof comes back as ONE long board; where the roof
+    # comes down through it, the course is stepped in `step` bites so the
+    # cut reads as the diagonal it is instead of one big notch. Never
+    # taller than the roof above that bite, so no board pokes through.
+    def self.gable_course_runs(tz, t0, t1, z0, z1, step)
+      return [] if t1 - t0 < 0.5 || z1 - z0 < 0.05 || step <= 0.0
+      segs = []
+      t = t0
+      while t < t1 - 1.0e-6
+        te = [t + step, t1].min
+        zs = [tz_top_at(tz, t + 1.0e-6), tz_top_at(tz, te - 1.0e-6)]
+        tz.each { |p| zs << tz_top_at(tz, p[0]) if p[0] > t && p[0] < te }
+        top = zs.compact.min
+        zt = top.nil? ? nil : [z1, top].min
+        segs << [t, te, zt] if zt && zt - z0 > 0.5
+        t = te
+      end
+      out = []
+      segs.each do |a, b, z|
+        if out.last && (out.last[2] - z).abs < 1.0e-6 && (out.last[1] - a).abs < 1.0e-6
+          out[-1] = [out.last[0], b, z]
+        else
+          out << [a, b, z]
+        end
+      end
+      out
+    end
+
+    # PURE: where the battens stand along the gable, lined up with the ones
+    # on the wall UNDERNEATH it. The wall starts counting half a spacing in
+    # from its own exterior start corner, so the gable counts from the same
+    # place - otherwise the strips step sideways at the eave line, which is
+    # the first thing anyone looking at the house would see.
+    def self.gable_batten_stations(t0, t1, t_origin, spacing, half_w)
+      return [] if spacing <= 0.0 || t1 - t0 < 2.0 * half_w
+      out = []
+      k = ((t0 - t_origin - spacing / 2.0) / spacing).floor
+      loop do
+        t = t_origin + spacing / 2.0 + k * spacing
+        k += 1
+        next if t < t0 + half_w
+        break if t > t1 - half_w
+        out << t
+        break if out.length > 400
+      end
+      out
+    end
+
+    # The boards themselves. `outer` is the triangle's outward face - the
+    # one already painted white - and everything is measured off ITS own
+    # outline, so this works the same for a plain gable prism and for a
+    # mitred shed corner.
+    def self.build_gable_top_siding!(sub, outer, d, inw, ext_name, wall, white)
+      return false unless outer && outer.valid?
+      wt = InteriorPro::WallTool
+      vs = outer.respond_to?(:outer_loop) ? outer.outer_loop.vertices : outer.vertices
+      pts = vs.map(&:position)
+      return false if pts.length < 3
+      p0 = pts.min_by { |p| p.x * d[0] + p.y * d[1] }
+      tz = pts.map { |p| [(p.x - p0.x) * d[0] + (p.y - p0.y) * d[1], p.z.to_f] }
+      t0 = tz.map { |a| a[0] }.min
+      t1 = tz.map { |a| a[0] }.max
+      zb = tz.map { |a| a[1] }.min
+      zt = tz.map { |a| a[1] }.max
+      return false if t1 - t0 < 1.0 || zt - zb < 1.0
+      at = lambda { |t| [p0.x + d[0] * t, p0.y + d[1] * t] }
+      out2 = [-inw[0], -inw[1]]
+
+      # where the wall below starts counting its battens
+      t_org = t0
+      if wall && wall.valid?
+        flat = wall.get_attribute('InteriorPro', 'corners_xy')
+        if flat && flat.length == 8
+          tr = wall.transformation
+          sneg = Geom::Point3d.new(flat[6].to_f, flat[7].to_f, 0).transform(tr)
+          t_org = (sneg.x - p0.x) * d[0] + (sneg.y - p0.y) * d[1]
+        end
+      end
+
+      sg = sub.entities.add_group
+      sg.name = 'InteriorPro_GableSiding'
+      sg.set_attribute('InteriorPro', 'part', 'gable_wall_siding')
+      built = 0
+      begin
+        if ext_name.to_s == 'Horizontal Siding'
+          # EVERY BOARD IN ITS OWN GROUP (2026-09-12). The first cut of this
+          # put a whole course of boards into ONE group, and where the rake
+          # steps them the neighbours touch face to face on exactly the same
+          # plane. SketchUp merges coincident faces, and push-pulling into
+          # that merge TOOK SKETCHUP DOWN - measured with apply_probe_log.txt:
+          # the roof rebuilt clean with the boards off, and died on the same
+          # roof with them on. The wall below never hit it because its own
+          # courses are cut apart by windows, never laid side by side.
+          # A group is SketchUp's own wall between two solids, so one per
+          # board is the fix, not fewer boards.
+          builder = InteriorPro::WallTool.new
+          courses = wt.siding_courses(zb, zt, wt::HSIDING_EXPOSURE)
+          courses.each do |c0, c1|
+            gable_course_runs(tz, t0, t1, c0, c1, wt::HSIDING_EXPOSURE).each do |ta, tb, ztop|
+              break if built > wt::MAX_SIDING_PIECES
+              begin
+                bg = sg.entities.add_group
+                builder.build_siding_board!(
+                  bg, at.call(ta), at.call(tb), c0, ztop,
+                  wt::HSIDING_DEPTH_BOTTOM, wt::HSIDING_DEPTH_TOP
+                )
+                if bg.valid? && bg.entities.length.zero?
+                  bg.erase!
+                else
+                  built += 1
+                end
+              rescue StandardError => e
+                puts "[Roof] gable board skipped: #{e.message}"
+              end
+            end
+          end
+        else
+          half_w = wt::BATTEN_WIDTH / 2.0
+          gable_batten_stations(t0, t1, t_org, wt::BATTEN_SPACING, half_w).each do |t|
+            break if built > wt::MAX_SIDING_PIECES
+            tops = [tz_top_at(tz, t - half_w), tz_top_at(tz, t),
+                    tz_top_at(tz, t + half_w)].compact
+            next if tops.empty?
+            h = tops.min - zb
+            next if h < 1.0
+            c = at.call(t)
+            p1 = Geom::Point3d.new(c[0] - d[0] * half_w, c[1] - d[1] * half_w, zb)
+            p2 = Geom::Point3d.new(c[0] + d[0] * half_w, c[1] + d[1] * half_w, zb)
+            p3 = Geom::Point3d.new(c[0] + d[0] * half_w + out2[0] * wt::BATTEN_DEPTH,
+                                   c[1] + d[1] * half_w + out2[1] * wt::BATTEN_DEPTH, zb)
+            p4 = Geom::Point3d.new(c[0] - d[0] * half_w + out2[0] * wt::BATTEN_DEPTH,
+                                   c[1] - d[1] * half_w + out2[1] * wt::BATTEN_DEPTH, zb)
+            fc = begin
+              sg.entities.add_face(p1, p2, p3, p4)
+            rescue StandardError
+              nil
+            end
+            next unless fc && fc.valid?
+            fc.pushpull(fc.normal.z >= 0 ? h : -h)
+            built += 1
+          end
+        end
+      rescue StandardError => e
+        puts "[Roof] gable siding failed, removing it: #{e.message}"
+        sg.erase! if sg.valid?
+        return false
+      end
+      if sg.valid? && sg.entities.length.zero?
+        sg.erase!
+        return false
+      end
+      sg.material = white if sg.valid? && white
+      puts "[Roof] gable wall top: #{built} #{ext_name} piece(s)"
+      true
+    rescue StandardError => e
+      puts "[Roof] build_gable_top_siding!: #{e.message}"
+      false
     end
 
     # Rake board: the fascia climbing the two sloped edges of a gable end.
@@ -5929,15 +6203,17 @@ module InteriorPro
     # Choose the best rect decomposition and resolve which ends are
     # gabled. Returns { main:, g:, wings: [{rect:, mouth:, gabled:}],
     # edges: [poly edge indices on gabled ends] } or nil (fallback).
-    def self.framed_plan(poly, wall_ids, marked, style, dutch_marked = [])
+    def self.framed_plan(poly, wall_ids, marked, style, dutch_marked = [],
+                         hip_marked = [])
       return nil unless rectilinear?(poly)
       rects = grid_rects(poly)
       return nil unless rects
-      assemble_framed_plan(rects, poly, wall_ids, marked, style, dutch_marked)
+      assemble_framed_plan(rects, poly, wall_ids, marked, style, dutch_marked,
+                           hip_marked)
     end
 
     def self.assemble_framed_plan(rects, poly, wall_ids, marked, style,
-                                  dutch_marked = [])
+                                  dutch_marked = [], hip_marked = [])
       return nil if rects.empty? || rects.length > 8
       main_i = rects.each_index.max_by { |i| (rects[i][2] - rects[i][0]) * (rects[i][3] - rects[i][1]) }
       main = rects[main_i]
@@ -5972,9 +6248,18 @@ module InteriorPro
         # gable"): every wing end gets its triangle automatically, and the
         # main gets its two short-end triangles — no clicks needed. Marks
         # add on top; Hip style gables marked walls only.
-        wings.each { |w| w[:gabled] = true }
+        # ...but NOT over an end he set to Hip himself (2026-09-12). The
+        # automatic gabling is a default, and a default loses to a choice.
+        wings.each do |w|
+          nxt = side_gabled?(w[:rect], OPP_SIDE[w[:mouth]], poly, wall_ids, hip_marked)
+          w[:gabled] = true unless nxt
+        end
         # BOTH main ends gable, even when a leftover click marked only one
         # (2026-08-05C: one end stayed hip). Marks only pick the axis.
+        hip_side = {}
+        [:n, :s, :e, :w].each do |sd|
+          hip_side[sd] = side_gabled?(main, sd, poly, wall_ids, hip_marked)
+        end
         if g[:e] || g[:w]
           g[:e] = g[:w] = true
         elsif g[:n] || g[:s]
@@ -5984,6 +6269,8 @@ module InteriorPro
         else
           g[:n] = g[:s] = true
         end
+        # An end he set to Hip stays hip, even on the Gable style.
+        [:n, :s, :e, :w].each { |sd| g[sd] = false if hip_side[sd] }
       end
       return nil unless g.values.any? || wings.any? { |w| w[:gabled] }
       # ridge sanity: a lone gable + hip end must still leave a ridge
