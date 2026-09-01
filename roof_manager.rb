@@ -712,6 +712,43 @@ module InteriorPro
     # אחורה") - so the edge now lands ON the wall face it meets.
     ABUT_TUCK = 0.0 unless const_defined?(:ABUT_TUCK, false)
 
+    # Is EVERY bit of this storey under the storey above? Asked only when
+    # exposed_polygon found nothing to cut, to tell "nothing crosses" from
+    # "nothing is open" (2026-09-11).
+    def self.storey_covered?(walls, uppers, step = 6.0)
+      return false if walls.length < 3 || uppers.length < 3
+      base = eave_polygon(walls, 0.0)
+      up = eave_polygon(uppers, 0.0)
+      return false if base.nil? || up.nil?
+      covered_polygon?(base[:pts], up[:pts], step)
+    rescue StandardError => e
+      puts "[Roof] storey_covered?: #{e.message}"
+      false
+    end
+
+    # PURE, pinned by rt133. Grid-samples the base outline on a half-step
+    # lattice (so no sample lands on an edge); true when at least one
+    # sample fell inside the base and none of them fell outside the cover.
+    def self.covered_polygon?(base_pts, up_pts, step = 6.0)
+      return false if base_pts.length < 3 || up_pts.length < 3
+      xs = base_pts.map { |p| p[0].to_f }
+      ys = base_pts.map { |p| p[1].to_f }
+      inside = 0
+      x = xs.min + step / 2.0
+      while x < xs.max
+        y = ys.min + step / 2.0
+        while y < ys.max
+          if point_in_poly?(base_pts, x, y)
+            inside += 1
+            return false unless point_in_poly?(up_pts, x, y)
+          end
+          y += step
+        end
+        x += step
+      end
+      inside > 0
+    end
+
     def self.exposed_polygon(walls, upper_walls, overhang)
       rm = InteriorPro::RoomManager
       segs = walls.map { |w| rm.centerline(w) }.compact
@@ -1613,6 +1650,27 @@ module InteriorPro
         if ep
           abut_ids = ep[:abut_ids]
           puts "[Roof] level #{lvl}: cut at #{abut_ids.length} upper wall(s)"
+        elsif storey_covered?(walls, uppers)
+          # THE STOREY ABOVE COVERS THIS ONE (2026-09-11, the user: "אם
+          # לקירות התחתונים יש מעליהם עוד קומה לא צריך להיווצר גג").
+          # exposed_polygon answers nil for two different reasons: no
+          # upper wall CROSSES this storey, or nothing is left open. An
+          # upper storey standing exactly on the lower walls is both -
+          # and the nil fell through to the plain full loop, which built
+          # a roof band right round the storey, under the walls above.
+          # Nothing is open to the sky here, so there is no roof to
+          # build; a stale one on this storey goes, like any rebuild.
+          puts "[Roof] level #{lvl}: the storey above covers it - no roof here"
+          gone = replace ? [replace] : roofs.select do |r|
+            (r.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+          end
+          gone = gone.select { |r| r.respond_to?(:valid?) && r.valid? }
+          unless gone.empty?
+            model.start_operation('InteriorPro Roof', true)
+            gone.each(&:erase!)
+            model.commit_operation
+          end
+          return nil
         end
       end
       ep ||= walls.length >= 3 ? eave_polygon(walls, s[:overhang]) : nil
@@ -2392,18 +2450,32 @@ module InteriorPro
             z_bot = band_top + gsec.map { |(_k, z)| z }.min
             z_turn = [z_bot - 2.0, band_top - s[:fascia_depth].to_f - 1.0].min
             ground = walls.map { |w| w.get_attribute('InteriorPro', 'base_z').to_f }.min
-            dpath = downspout_path(z_bot + 1.0, z_turn,
-                                   gutter_outlet_k(s[:gutter_profile], gw, gh),
-                                   -s[:overhang].to_f + DS_GAP + DS_DEPTH / 2.0,
-                                   ground)
+            # A PIPE WITH NOTHING UNDER IT GOES TO THE GROUND (2026-09-11,
+            # the user: "בקומה שניה דאון ספוט שלא יושב מעל גג של קומה
+            # ראשונה צריך לרדת עד לרצפה"). `ground` is THIS storey's
+            # floor, so every upper-storey pipe used to stop there, in
+            # mid-air. Now each pipe asks what is really under it: a ray
+            # straight down from just under this floor. A LOWER ROOF (or
+            # anything else standing well above the true ground) catches
+            # it and the pipe lands there; nothing does, and it runs on
+            # down to the lowest storey's base. The lowest storey itself
+            # is unchanged - its floor IS the ground.
+            k_s = gutter_outlet_k(s[:gutter_profile], gw, gh)
+            k_w = -s[:overhang].to_f + DS_GAP + DS_DEPTH / 2.0
             dprof = downspout_profile(s[:gutter_profile])
-            drings = dpath ? tube_rings(dpath, dprof) : nil
-            dinner = dpath ? tube_rings(dpath, offset_closed_left(dprof, DS_WALL)) : nil
-            if drings && !drings.empty?
-              build_downspouts!(grp, poly, gable_flags, drings,
-                                gmat || trim_mat, ds_off, dinner,
-                                s[:overhang].to_f)
+            ground_at = downspout_ground_probe(model, ground)
+            rings_at = lambda do |x, y|
+              # FLUSH WITH THE GUTTER'S BOTTOM (2026-09-11, the user: "הדאון
+              # ספוט נכנס כמעט אינץ' לתוך הגאטרס, תעשה אותו פלאש"). It used
+              # to start one inch up inside the trough and showed there as
+              # a little box. Now the pipe's top IS the gutter's underside.
+              dpath = downspout_path(z_bot, z_turn, k_s, k_w, ground_at.call(x, y))
+              next nil if dpath.nil?
+              [tube_rings(dpath, dprof), tube_rings(dpath, offset_closed_left(dprof, DS_WALL))]
             end
+            build_downspouts!(grp, poly, gable_flags, rings_at,
+                              gmat || trim_mat, ds_off, nil,
+                              s[:overhang].to_f)
           end
         end
       end
@@ -7149,7 +7221,7 @@ module InteriorPro
 
     # The centre line, from inside the gutter down to the boot. PURE.
     #
-    # z_top   - where it starts, up inside the gutter trough
+    # z_top   - where it starts: the gutter's underside (flush, 2026-09-11)
     # z_turn  - where the elbow begins. The caller hands this in already
     #           clear of the soffit board, because a pipe that starts its
     #           45 degrees too high runs straight through it.
@@ -7161,6 +7233,42 @@ module InteriorPro
     # constant, so reload! actually re-reads it.
     def self.ds_elbow_slope
       0.36
+    end
+
+    # Where a pipe standing at plan (x, y) should end. Returns a lambda.
+    # `floor` is this storey's own base. On the lowest storey the answer
+    # is always the floor. Higher up, a ray straight down from just under
+    # the floor decides: a hit standing more than DS_LANDING above the
+    # true ground (a lower roof, its gutter, a deck) is where the pipe
+    # lands; otherwise it runs to the true ground. PURE apart from the
+    # ray, so rt134 pins it with a fake ray.
+    DS_LANDING = 6.0 unless const_defined?(:DS_LANDING, false)
+
+    def self.downspout_ground_probe(model, floor, ray: nil, true_ground: nil)
+      tg = true_ground
+      if tg.nil?
+        begin
+          tg = InteriorPro::LevelManager.all_walls.map do |w|
+            w.get_attribute('InteriorPro', 'base_z').to_f
+          end.min
+        rescue StandardError
+          tg = nil
+        end
+      end
+      tg = floor.to_f if tg.nil?
+      return ->(_x, _y) { floor.to_f } if (floor.to_f - tg).abs < 0.5
+      shoot = ray || lambda do |x, y, z|
+        hit = model.raytest([Geom::Point3d.new(x, y, z), Geom::Vector3d.new(0, 0, -1)])
+        hit ? hit[0].z.to_f : nil
+      end
+      lambda do |x, y|
+        hz = begin
+          shoot.call(x, y, floor.to_f - 0.5)
+        rescue StandardError
+          nil
+        end
+        hz && hz > tg + DS_LANDING ? hz : tg
+      end
     end
 
     def self.downspout_path(z_top, z_turn, k_start, k_wall, z_ground)
@@ -7352,15 +7460,31 @@ module InteriorPro
       nil
     end
 
+    # `rings` is either one swept profile for every pipe (as before) or a
+    # lambda (x, y) -> [rings, inner] asked per pipe at the point where its
+    # vertical run stands, so each pipe can end at its own ground
+    # (2026-09-11). nil from the lambda = no pipe there.
     def self.build_downspouts!(grp, poly, skip_flags, rings, mat, skip = [],
                                inner = nil, overhang = 0.0)
       made = 0
+      n = poly.length
       downspout_spots(poly, skip_flags, overhang).each do |(at, edge)|
         key = downspout_key(at)
         next if skip.include?(key)
+        rg = rings
+        inn = inner
+        if rings.respond_to?(:call)
+          i = edge % n
+          d = vnorm(vsub(poly[(i + 1) % n], poly[i]))
+          kw = -overhang.to_f + DS_GAP + DS_DEPTH / 2.0
+          got = rings.call(at[0] + d[1] * kw, at[1] - d[0] * kw)
+          next if got.nil?
+          rg, inn = got
+        end
+        next if rg.nil? || rg.empty?
         sub = grp.entities.add_group
         sub.name = 'InteriorPro_Downspout'
-        build_tube!(sub, poly, edge, at, rings, inner)
+        build_tube!(sub, poly, edge, at, rg, inn)
         sub.set_attribute('InteriorPro', 'type', 'downspout')
         sub.set_attribute('InteriorPro', 'ds_key', key)
         sub.set_attribute('InteriorPro', 'ds_edge', edge)

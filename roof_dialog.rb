@@ -36,6 +36,22 @@ module InteriorPro
         min_width: 300, min_height: 380,
         max_width: 560, max_height: 1100
       )
+      # IT OPENS WHOLE (2026-09-11, the user again: "הוא חייב להיפתח כולו
+      # ולא רק חלק"). A typed height goes stale the moment a row is added
+      # - the Dutch row and its three lines of help pushed the Remove
+      # button under the scroll. Same cure the dormer panel got on
+      # 2026-09-06: the PAGE measures itself once it is laid out and the
+      # window follows, so no future row can clip it again.
+      dlg.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 380 if want < 380
+          want = 1100 if want > 1100
+          dlg.set_size(340, want)
+        rescue StandardError => e
+          puts "[Roof] fit_height: #{e.message}"
+        end
+      end
       dlg.add_action_callback('apply_roof') do |_, style, pitch, eaves, overhang,
                                                 fascia, fdepth, drip, rcol, fcol,
                                                 rmat, thick, rcap,
@@ -404,10 +420,20 @@ module InteriorPro
                 document.getElementById('maxOver').value,
                 document.getElementById('dutchDepth').value);
             }
+            function fitWindow() {
+              if (window.sketchup && sketchup.fit_height) {
+                var b = document.body;
+                var d = document.documentElement;
+                sketchup.fit_height(Math.max(b.scrollHeight, b.offsetHeight,
+                                             d.scrollHeight, d.offsetHeight));
+              }
+            }
             styleChanged();
             eavesChanged();
             gutterChanged();
             soffitChanged();
+            fitWindow();
+            window.addEventListener('load', fitWindow);
           </script>
         </body></html>
       HTML
