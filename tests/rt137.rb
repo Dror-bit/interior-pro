@@ -45,8 +45,20 @@ ok('Brick is NOT', !RF::SIDING_3D_NAMES.include?('Brick'))
 src = File.read('roof_manager.rb', encoding: 'UTF-8')
 ok('THE BLACK BUG: a 3D-siding name is painted white, not by its name',
    src.include?("face_name = siding ? '#ffffff' : ext_name"), nil)
+# THE MITRED SHED CORNER (2026-09-13). Measured on his model: both shed
+# corners came out white with ZERO boards while the plain gable beside
+# them carried 102 battens - paint_mitred_wall! whitened the face and
+# stopped there. It now builds the boards like the prism does.
+mitred = src[/def self\.paint_mitred_wall!.*?\n    end/m].to_s
 ok('...on the mitred shed corner too',
-   src.include?("face_name = SIDING_3D_NAMES.include?(ext_name.to_s) ? '#ffffff' : ext_name"),
+   mitred.include?("siding = SIDING_3D_NAMES.include?(ext_name.to_s)") &&
+   mitred.include?("face_name = siding ? '#ffffff' : ext_name"),
+   nil)
+ok('the mitred shed corner gets the BOARDS too, not just the white',
+   mitred.include?('build_gable_top_siding!'), nil)
+ok('and it is handed the outer face to measure them off',
+   src.include?('outer_f = face.call([obl] + op3 + [obh])') &&
+   src.include?('paint_mitred_wall!(sub, inner_f, names, outer_f, d, inw, wall)'),
    nil)
 
 # --- 2. the outline of a gable triangle, as (t, z) --------------------

@@ -4514,7 +4514,7 @@ module InteriorPro
           built = build_gable_top_mitred!(grp, poly, i, cells, z0, slope,
                                           overhang, th, zbase,
                                           [lo, hi], [lo + pth, hi - nth],
-                                          names)
+                                          names, wall)
           next if built
           # could not build the mitred solid: fall back to the butt rule
           # (give the START corner to the neighbour) so the corner is
@@ -4861,7 +4861,7 @@ module InteriorPro
     # Returns true when at least one solid was built.
     def self.build_gable_top_mitred!(grp, poly, i, cells, z0, slope,
                                      overhang, th, zbase, out_span, in_span,
-                                     names)
+                                     names, wall = nil)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
@@ -4880,7 +4880,7 @@ module InteriorPro
              .max_by { |r| r.last[0] - r.first[0] }
         next if ip.nil? || ip.length < 2
         built = true if add_mitred_wall_solid!(grp, a, d, inw, overhang, th,
-                                               zbase, op, ip, names)
+                                               zbase, op, ip, names, wall)
       end
       built
     rescue StandardError => e
@@ -4892,7 +4892,7 @@ module InteriorPro
     # a triangulated top strip between the two sampled top lines. op/ip =
     # [[t, z], ...] along the edge for the outer and the inner face.
     def self.add_mitred_wall_solid!(grp, a, d, inw, overhang, th, zbase,
-                                    op, ip, names)
+                                    op, ip, names, wall = nil)
       return false if op.length < 2 || ip.length < 2
       return false if op.last[0] - op.first[0] < 0.5
       return false if op.map { |_t, z| z }.max < zbase + 0.1
@@ -4925,14 +4925,14 @@ module InteriorPro
           nil
         end
       end
-      face.call([obl] + op3 + [obh])              # outer face
+      outer_f = face.call([obl] + op3 + [obh])    # outer face
       inner_f = face.call([ibl] + ip3 + [ibh])    # inner face
       face.call([obl, obh, ibh, ibl])             # bottom
       face.call([obl, op3.first, ip3.first, ibl]) # start cut (the diagonal)
       face.call([obh, op3.last, ip3.last, ibh])   # end cut (the diagonal)
       add_top_strip!(sub, op, ip, o_at, i_at, p3)
       soften_coplanar_edges!(sub)
-      paint_mitred_wall!(sub, inner_f, names)
+      paint_mitred_wall!(sub, inner_f, names, outer_f, d, inw, wall)
       true
     rescue StandardError => e
       puts "[Roof] add_mitred_wall_solid!: #{e.message}"
@@ -4975,7 +4975,8 @@ module InteriorPro
     # photo). Here the builder simply SAYS which face is the inner one;
     # everything else - outer face, ends, top, bottom - wears the
     # exterior material, exactly the set the old push-pull prism gave it.
-    def self.paint_mitred_wall!(sub, inner_f, names)
+    def self.paint_mitred_wall!(sub, inner_f, names, outer_f = nil,
+                                d = nil, inw = nil, wall = nil)
       ext_name, int_name = names
       unless ext_name || int_name
         puts '[Roof] gable wall top: no wall materials found - left unpainted'
@@ -4984,9 +4985,12 @@ module InteriorPro
       return unless InteriorPro::WallTool.respond_to?(:new)
       wt = InteriorPro::WallTool.new
       # 3D siding has no texture of its own - the wall paints its face white
-      # and screws real boards on. Same white here (2026-09-12); the boards
-      # on a mitred shed corner are still to come.
-      face_name = SIDING_3D_NAMES.include?(ext_name.to_s) ? '#ffffff' : ext_name
+      # and screws real boards on. Same white here (2026-09-12), and since
+      # 2026-09-13 the mitred shed corner gets the boards as well: measured
+      # on his model, both shed corners came out white with zero boards
+      # while the plain gable next to them carried 102 battens.
+      siding = SIDING_3D_NAMES.include?(ext_name.to_s)
+      face_name = siding ? '#ffffff' : ext_name
       ext_m = face_name ? wt.load_or_create_material(face_name) : nil
       int_m = int_name ? wt.load_or_create_material(int_name) : nil
       sub.entities.grep(Sketchup::Face).each do |fc|
@@ -4995,6 +4999,9 @@ module InteriorPro
         next unless m
         fc.material = m
         fc.back_material = m
+      end
+      if siding && USE_GABLE_SIDING && outer_f && d && inw
+        build_gable_top_siding!(sub, outer_f, d, inw, ext_name, wall, ext_m)
       end
     rescue StandardError => e
       puts "[Roof] paint_mitred_wall!: #{e.message}"

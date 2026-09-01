@@ -1,0 +1,43 @@
+Interior Pro - boards on the gable triangle and on the shed corner
+model: claud cold   time: 2026-09-01 10:07:02 -0700
+USE_GABLE_SIDING = true
+SIDING_3D_NAMES  = ["Board and Batten", "Horizontal Siding"]
+
+--- walls: exterior material + roof end marking ---
+  wall 12e16034-84f5-4055-8cc9-e4eaa60a5e1e  ext="Board and Batten"  end=:hip  base_z=0.0
+  wall 1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3  ext="Board and Batten"  end=:hip  base_z=0.0
+  wall 817ec169-31d9-4417-b433-a92628ddd11b  ext="Board and Batten"  end=:shed  base_z=0.0
+  wall fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851  ext="Board and Batten"  end=:hip  base_z=0.0
+  wall cc6dad57-247c-4edc-9c5d-c449651a7b30  ext="Board and Batten"  end=:hip  base_z=106.0
+  wall 7fcecd4c-f2fc-41e4-9502-118a7d7a10a5  ext="Board and Batten"  end=:hip  base_z=106.0
+  wall a7796f8e-c797-469a-880d-62b2d41a73b6  ext="Board and Batten"  end=:hip  base_z=106.0
+  wall 8479bf36-071b-4c8d-8267-f06bc6173ae2  ext="Board and Batten"  end=:gable  base_z=106.0
+
+roof #0 style="hip"
+  1 gable wall top(s)
+
+  [0] prism (plain gable)   7 face(s), 15 edge(s), 0 softened
+      bounds z: 202.0 .. 266.46
+      stands on: wall 12e16034-84f5-4055-8cc9-e4eaa60a5e1e ext="Board and Batten" (2.13" away)
+      face material x7: #ffffff [rgb 255,255,255]
+      BOARDS: 0 board group(s) + 102 loose face(s)
+              bounds z: 202.0 .. 265.94
+
+roof #1 style="shed"
+  2 gable wall top(s)
+
+  [0] MITRED (shed corner)   7 face(s), 13 edge(s), 1 softened
+      bounds z: 106.0 .. 140.46
+      stands on: wall 1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3 ext="Board and Batten" (2.13" away)
+      face material x7: #ffffff [rgb 255,255,255]
+      BOARDS: 0 board group(s) + 24 loose face(s)
+              bounds z: 106.0 .. 137.02
+
+  [1] MITRED (shed corner)   7 face(s), 13 edge(s), 1 softened
+      bounds z: 106.0 .. 140.46
+      stands on: wall fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851 ext="Board and Batten" (2.13" away)
+      face material x7: #ffffff [rgb 255,255,255]
+      BOARDS: 0 board group(s) + 24 loose face(s)
+              bounds z: 106.0 .. 136.81
+
+SUMMARY: 3 gable wall top(s), 3 of them have boards.
