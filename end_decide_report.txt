@@ -1,0 +1,19 @@
+Interior Pro - what would Roof End decide for the selected wall?
+model: claud cold   time: 2026-09-01 12:00:53 -0700
+
+the FILE on disk has the new rule: true
+
+selection holds 0 entity(ies):
+
+!! no Interior Pro wall in the selection.
+   With the arrow tool, click the WALL itself (not the roof),
+   then run this again.
+
+--- every roof, as it stands ---
+  roof #0 style="shed" level=nil walls=["cc6dad57-247c-4edc-9c5d-c449651a7b30", "7fcecd4c-f2fc-41e4-9502-118a7d7a10a5", "a7796f8e-c797-469a-880d-62b2d41a73b6", "8479bf36-071b-4c8d-8267-f06bc6173ae2"]
+
+--- walls with NO roof over them ---
+  12e16034-84f5-4055-8cc9-e4eaa60a5e1e  base_z=0.0
+  1e6d3aac-6a77-4dee-b0d0-d1f9479f48a3  base_z=0.0
+  817ec169-31d9-4417-b433-a92628ddd11b  base_z=0.0
+  fd2a1cbb-1aed-4e69-bfb2-3e0a8f81b851  base_z=0.0

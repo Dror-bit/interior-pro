@@ -4197,11 +4197,25 @@ module InteriorPro
       # nothing at all.
       sheds = shed_wall_ids & live
       style_override = nil
+      # WHICH ROOF THIS WALL BELONGS TO, ASKED BEFORE ANYTHING IS SAVED -
+      # the rebuild at the bottom needs it anyway, and so does the shed
+      # rule right below.
+      own = roofs.empty? ? nil : roof_of_wall_id(id)
+      cur_style = own ? own.get_attribute('InteriorPro', 'roof_style').to_s : ''
       if kind == :shed
         sheds = [id]
         style_override = 'shed'
-      elsif sheds.include?(id)
-        sheds = []
+      elsif sheds.include?(id) || cur_style == 'shed'
+        # ANY OTHER END ON A SHED ROOF ENDS THE SHED (2026-09-13). Until
+        # now only picking Hip/Gable/Dutch on the shed's OWN low eave took
+        # the style off. He built a shed, marked a DIFFERENT edge Gable,
+        # pressed Apply and nothing moved: the mark was stored, the style
+        # stayed 'shed', and a shed roof inverts every mark it is given.
+        # A shed has exactly one eave, so choosing another kind anywhere
+        # on it is a decision to stop being a shed.
+        sheds = sheds.reject do |sid|
+          sid == id || (own && (r2 = roof_of_wall_id(sid)) && r2.equal?(own))
+        end
         style_override = (kind == :hip ? 'hip' : 'gable')
       end
       idx = ids.index(id)
@@ -4243,11 +4257,30 @@ module InteriorPro
         # Rebuild the roof that OWNS this wall, and only it (2026-08-26,
         # step 3) - a gable click on the ADU must not flatten the house.
         # A roof from an older model claims no walls, finds no owner, and
-        # takes the old whole-model rebuild, exactly as before.
-        own = roof_of_wall_id(id)
+        # takes the old whole-model rebuild, exactly as before. `own` was
+        # asked for above, before anything was written.
         if own
           build_roof!(replace: own, style: style_override)
+        elsif roofs.any? { |r2| !roof_wall_ids(r2).empty? }
+          # NO ROOF OVER THIS WALL (2026-09-13). Measured off his console:
+          # he marked a GROUND FLOOR wall Gable, that storey had no roof at
+          # all, roof_of_wall_id found no owner - and the old fallback then
+          # rebuilt the TOP storey's roof instead. That is the "jump" he
+          # saw, and why nothing changed where he was looking: the wrong
+          # roof was rebuilt, and with no owner there was no style to
+          # move off 'shed' either. The mark IS saved, so it takes effect
+          # the moment a roof is built over that storey.
+          puts "[Roof] wall #{id}: no roof over it - nothing was rebuilt"
+          begin
+            UI.messagebox('This wall has no roof over it yet, so nothing ' \
+                          'changed. The end is remembered - build a roof ' \
+                          'for that storey and it will take effect.')
+          rescue StandardError
+            nil
+          end
         else
+          # an old model whose roofs claim no walls at all: the whole-model
+          # rebuild is still the right answer, exactly as before.
           build_roof!(style: style_override)
         end
       end
