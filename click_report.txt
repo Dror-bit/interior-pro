@@ -1,13 +1,47 @@
 Interior Pro - what you clicked on
-time: 2026-08-31 14:49:12 -0700
-camera eye (-478.98,619.00,250.75) target (-115.98,-961.43,248.52)
+time: 2026-08-31 19:21:26 -0700
+camera eye (259.88,-179.09,255.91) target (2246.87,1454.80,-272.05)
 
-clicked point: (-373.27,140.64,253.20)
+clicked point: (914.79,251.25,105.02)
 
 --- everything under the cursor (1) ---
-  0 depth=2 at=-  type=roof,name=InteriorPro_Roof/Face FACE n=(-1.00, 0.00, 0.00) area=  931.57 loops=1 mat=InteriorPro_Roof_ffffff
+  0 depth=2 at=-  type=roof,name=InteriorPro_Roof/Face FACE n=(-0.00, 1.00,-0.00) area=  126.00 loops=1 mat=InteriorPro_Roof_ffffff
 
 --- every edge within 8" of the click ---
-edges found: 0
+edges found: 14
+VIS d= 4.32 len=  7.07 (924.00,256.25,106.00)-(919.00,251.25,106.00) [-/-/-] faces=2 F1,F2  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len=340.25 (919.00,251.25,106.00)-(919.00,591.50,106.00) [-/-/-] faces=2 F1,F3  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len= 96.00 (919.00,251.25,106.00)-(919.00,251.25,202.00) [-/-/-] faces=2 F2,F3  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len=271.00 (1190.00,251.25,106.00)-(919.00,251.25,106.00) [-/-/-] faces=2 F4,F5  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len=  7.07 (919.00,251.25,106.00)-(924.00,256.25,106.00) [-/-/-] faces=2 F4,F6  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len= 96.00 (919.00,251.25,106.00)-(919.00,251.25,202.00) [-/-/-] faces=2 F5,F6  type=wall,name=InteriorPro_Wall
+VIS d= 4.32 len= 39.35 (919.00,251.25,106.00)-(919.00,251.25,145.35) [-/-/-] faces=2 F7,F8  type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+VIS d= 4.32 len=  5.00 (919.00,251.25,106.00)-(924.00,251.25,106.00) [-/-/-] faces=2 F9,F8  type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+VIS d= 4.32 len= 75.25 (919.00,176.00,106.00)-(919.00,251.25,106.00) [-/-/-] faces=2 F7,F9  type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+VIS d= 5.82 len= 13.00 (919.00,251.25,114.00)-(919.00,251.25,101.00) [-/-/-] faces=1 F10  type=roof,name=InteriorPro_Roof
+VIS d= 5.82 len= 11.25 (919.00,251.25,101.00)-(907.75,251.25,101.00) [-/-/-] faces=1 F10  type=roof,name=InteriorPro_Roof
+VIS d= 8.11 len=  0.75 (907.75,251.25,101.00)-(907.00,251.25,101.00) [-/-/-] faces=1 F10  type=roof,name=InteriorPro_Roof
+VIS d= 8.75 len=  8.00 (907.00,251.25,101.00)-(907.00,251.25,109.00) [-/-/-] faces=1 F10  type=roof,name=InteriorPro_Roof
+VIS d= 8.75 len= 13.00 (907.00,251.25,109.00)-(919.00,251.25,114.00) [-/-/-] faces=1 F10  type=roof,name=InteriorPro_Roof
 
 --- those faces ---
+F1   n=( 0.00, 0.00,-1.00) area= 1676.25 loops=1 verts=4 mat=(none)
+      bbox (919.00,251.25,106.00) .. (924.00,591.50,106.00)  in type=wall,name=InteriorPro_Wall
+F2   n=( 0.71,-0.71, 0.00) area=  678.82 loops=1 verts=4 mat=(none)
+      bbox (919.00,251.25,106.00) .. (924.00,256.25,202.00)  in type=wall,name=InteriorPro_Wall
+F3   n=(-1.00, 0.00, 0.00) area=32664.00 loops=1 verts=4 mat=Stucco
+      bbox (919.00,251.25,106.00) .. (919.00,591.50,202.00)  in type=wall,name=InteriorPro_Wall
+F4   n=( 0.00, 0.00,-1.00) area= 1330.00 loops=1 verts=4 mat=(none)
+      bbox (919.00,251.25,106.00) .. (1190.00,256.25,106.00)  in type=wall,name=InteriorPro_Wall
+F5   n=(-0.00,-1.00,-0.00) area=26016.00 loops=1 verts=4 mat=Stucco
+      bbox (919.00,251.25,106.00) .. (1190.00,251.25,202.00)  in type=wall,name=InteriorPro_Wall
+F6   n=(-0.71, 0.71, 0.00) area=  678.82 loops=1 verts=4 mat=(none)
+      bbox (919.00,251.25,106.00) .. (924.00,256.25,202.00)  in type=wall,name=InteriorPro_Wall
+F7   n=(-1.00, 0.00, 0.00) area= 1781.70 loops=1 verts=4 mat=Stucco
+      bbox (919.00,176.00,106.00) .. (919.00,251.25,145.35)  in type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+F8   n=( 0.00, 1.00, 0.00) area=  196.77 loops=1 verts=4 mat=Stucco
+      bbox (919.00,251.25,106.00) .. (924.00,251.25,145.35)  in type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+F9   n=( 0.00, 0.00,-1.00) area=  376.25 loops=1 verts=4 mat=Stucco
+      bbox (919.00,176.00,106.00) .. (924.00,251.25,106.00)  in type=roof,name=InteriorPro_Roof/part=gable_wall_top,name=InteriorPro_GableWall
+F10  n=( 0.00, 1.00, 0.00) area=  126.00 loops=1 verts=5 mat=InteriorPro_Roof_ffffff
+      bbox (907.00,251.25,101.00) .. (919.00,251.25,114.00)  in type=roof,name=InteriorPro_Roof

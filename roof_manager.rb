@@ -798,8 +798,20 @@ module InteriorPro
     # Generalised on 2026-08-26B from the abut-only version: `cap_flags`
     # marks the edges whose corners get the closure - the abut edges, and
     # with a sloped soffit the gable rakes too.
+    # A RAKE NEIGHBOUR (2026-09-11, the user's red circles). The plate
+    # above assumes the neighbour is a level EAVE, so it is drawn at eave
+    # height. Where the neighbour is a climbing RAKE the roof there sits a
+    # whole storey of rake higher, and the eave-height plate hung in the
+    # air 30" under it - the grey flap he clicked (measured: one 5-vertex
+    # face at y=251.25, every edge open, z 101..114 under a rake at z
+    # 137..145). With `zmap` and `rake_flags` the plate at such a corner
+    # is read off the rake's own profile at that corner instead: from the
+    # top of the rake soffit up to the roof underside, and from the wall
+    # line out to the rake board's INNER face - the board's own end
+    # closes the last 3/4". BOARDS MEET.
     def self.build_end_caps!(grp, poly, cap_flags, s, band_top, slope,
-                             trim_mat = nil)
+                             trim_mat = nil, zmap: nil, rake_flags: nil,
+                             surface: nil)
       oh = s[:overhang].to_f
       return if oh < 1.0
       k_lo = -oh
@@ -831,6 +843,23 @@ module InteriorPro
           nrm = [dy / len, -dx / len] # outward for CCW
           at = lambda do |k, z|
             [c[0] + nrm[0] * k, c[1] + nrm[1] * k, z]
+          end
+          if rake_flags && rake_flags[j] && zmap
+            chain = edge_profile_chain(poly, j, zmap, surface: surface)
+            next if chain.nil?
+            head = (c[0] - a[0]).abs < NODE_TOL && (c[1] - a[1]).abs < NODE_TOL
+            zt = head ? chain.first[2] : chain.last[2]
+            k_hi = s[:fascia] ? RAKE_K_IN : 0.0
+            z_lo = zt - s[:fascia_depth].to_f
+            z_lo += SOFFIT_THICK unless s[:soffit].to_s == 'none'
+            next if zt - z_lo < 0.5
+            f = add_ring!(grp, [at.call(k_lo, z_lo), at.call(k_hi, z_lo),
+                                at.call(k_hi, zt), at.call(k_lo, zt)])
+            if f && trim_mat
+              f.material = trim_mat
+              f.back_material = trim_mat
+            end
+            next
           end
           f = add_ring!(grp, [at.call(k_lo, bot_lo),
                               at.call(kc, z_bot),
@@ -2452,7 +2481,8 @@ module InteriorPro
                                  surface: surf,
                                  sloped: s[:soffit_slope] == true,
                                  inset: s[:fascia] ? -RAKE_K_IN : 0.0,
-                                 reach: rch)
+                                 reach: rch,
+                                 returns: rake_returns(poly, i, abut_flags))
             end
           else
             # The rake twin ENDS where it MEETS the level edge's own
@@ -2463,7 +2493,8 @@ module InteriorPro
                                  sloped: s[:soffit_slope] == true,
                                  inset: s[:fascia] ? -RAKE_K_IN : 0.0,
                                  reach: rake_meet_span(poly, i, lvl_edges,
-                                                       s[:overhang].to_f))
+                                                       s[:overhang].to_f),
+                                 returns: rake_returns(poly, i, abut_flags))
             end
           end
         end
@@ -2574,7 +2605,10 @@ module InteriorPro
         wall_ids.each_with_index do |id2, i2|
           cap_flags[i2] = true if abut_ids.include?(id2)
         end
-        build_end_caps!(grp, poly, cap_flags, s, band_top, slope, trim_mat)
+        rake_flags = Array.new(poly.length, false)
+        rakes.each { |ri| rake_flags[ri] = true }
+        build_end_caps!(grp, poly, cap_flags, s, band_top, slope, trim_mat,
+                        zmap: zmap, rake_flags: rake_flags, surface: surf)
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
@@ -5162,7 +5196,13 @@ module InteriorPro
     #
     # Splits one run into pieces [t_from, t_to, level?]. `level?` means
     # hold the corner's own height right across the piece.
-    def self.rake_soffit_segments(ra, rb, len, overhang)
+    # `returns` (2026-09-11): [head?, tail?] - whether each end may build
+    # its box return at all. An end that dies into the UPPER WALL (an abut
+    # corner) has no eave soffit to return to, so the return there was a
+    # 12" hole with a step face at its far end (measured on his model:
+    # the rake soffit stopped at y=239.25, one overhang short of the wall
+    # at 251.25). nil = both allowed, exactly as before.
+    def self.rake_soffit_segments(ra, rb, len, overhang, returns = nil)
       oh = overhang.to_f
       segs = []
       a = ra.to_f
@@ -5176,6 +5216,10 @@ module InteriorPro
       # there - a box in the middle of nothing.
       head = roomy && a.abs <= NODE_TOL             # the run starts AT a corner
       tail = roomy && (b - len.to_f).abs <= NODE_TOL # ...or ends at one
+      if returns
+        head &&= returns[0]
+        tail &&= returns[1]
+      end
       if head && tail && (b - a) <= 2 * oh + 0.5    # no room for both returns
         head = false
         tail = false
@@ -5190,6 +5234,14 @@ module InteriorPro
       segs << [a, b, false] if b - a > 1.0e-6
       segs << [b, b + oh, true] if tail
       segs
+    end
+
+    # Which ends of rake edge i may build a box return: not the end that
+    # shares its corner with an ABUT edge (2026-09-11). PURE.
+    def self.rake_returns(poly, i, abut_flags)
+      return nil if abut_flags.nil?
+      n = poly.length
+      [!abut_flags[(i - 1) % n], !abut_flags[(i + 1) % n]]
     end
 
     # Drop points that repeat their neighbour. PURE, pinned by rt84.
@@ -5391,7 +5443,7 @@ module InteriorPro
     # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
                                 cover: nil, surface: nil, sloped: false,
-                                reach: nil, inset: 0.0)
+                                reach: nil, inset: 0.0, returns: nil)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
@@ -5437,7 +5489,7 @@ module InteriorPro
             f = (t - ra) / span
             [q1[0] + (q2[0] - q1[0]) * f, q1[1] + (q2[1] - q1[1]) * f]
           end
-          segs = rake_soffit_segments(ra, rb, len, oh)
+          segs = rake_soffit_segments(ra, rb, len, oh, returns)
           segs.each do |sa, sb, level|
             # A sliver shorter than SketchUp's own 1/1000" tolerance has
             # two ends it treats as ONE point, and the face it would make
