@@ -204,7 +204,7 @@ module InteriorPro
       s_front  = setback
       s_ridge  = setback + length          # the ridge dies here
       cap = ridge_cap_check(spec, z0, slope, setback, half, pitch, s_ridge,
-                            style_now, width)
+                            style_now, width, heel)
       return nil unless cap.nil?
       z_front  = z0 + s_front * slope      # roof surface at the front wall
       z_ridge  = z0 + s_ridge * slope
@@ -368,23 +368,42 @@ module InteriorPro
     # wall height that WOULD fit, because "too big" without a number is
     # not much help at a mouse.
     def self.ridge_cap_check(spec, z0, slope, setback, half, pitch, s_ridge,
-                             style, width)
+                             style, width, heel = 0.0)
       z_top = spec[:z_top]
       return nil if z_top.nil?
       ceiling = z_top.to_f - RIDGE_CLEARANCE
       z_ridge = z0 + s_ridge * slope
       return nil if z_ridge <= ceiling + 0.001
       room = ceiling - z0 - setback * slope
-      h_max = if style == 'shed'
+      h_max = case style
+              when 'shed'
                 p2 = spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
                 slope > 0 ? room * (slope - p2) / slope : 0.0
+              when 'flat'
+                # a flat gablet has no pitch of its own, so nothing is
+                # spent climbing half the width - it was being charged
+                # for a rake it does not have (rt139).
+                room
               else
                 room - half * pitch
               end
+      # THE HEEL COMES OFF THE NUMBER WE PRINT (2026-09-13). A typed
+      # height is not what gets built: frame() adds the raised heel - the
+      # gablet's own fascia depth - to the length, and that lifts the
+      # ridge by exactly `heel` whatever the style. So the number this
+      # message offers has to be the number that WILL fit. Measured on
+      # his model: an 8" fascia, the panel refused a typed 25 and told
+      # him 32 fits - both true at once, and it read as nonsense.
+      h_max -= heel.to_f
+      h_max = 0.0 if h_max < 0.0
       # warn_nil returns nil, and nil is this method's "it fits" - so say
       # refused out loud instead of leaning on the return value.
+      # ROUND DOWN, ALWAYS. %.0f rounded 36.6 up to 37, and 37 is a
+      # height this same check then refuses - the message would hand him
+      # a number that does not build (rt139).
       warn_nil(format('too long for this roof - it would reach the ridge. ' \
-                      'The tallest front wall that fits here is %.0f"', h_max))
+                      'The tallest front wall that fits here is %d"',
+                      h_max.floor))
       :refused
     end
 
@@ -772,6 +791,21 @@ module InteriorPro
     # Nothing is typed in: the slab it stands on hands over its own
     # material in roof_frame, and the walls take whatever exterior
     # material most of the house's walls are wearing.
+    # Names that are real 3D boards, not a texture: the wall face under
+    # them is white and the boards are built on it. RoofManager owns the
+    # list; the fallback keeps this file standing on its own.
+    def self.siding_3d?(name)
+      list = begin
+        InteriorPro::RoofManager::SIDING_3D_NAMES
+      rescue StandardError, NameError
+        nil
+      end
+      list = ['Board and Batten', 'Horizontal Siding'] if list.nil?
+      list.include?(name.to_s)
+    rescue StandardError
+      false
+    end
+
     def self.house_wall_material(model = nil)
       model ||= Sketchup.active_model
       tally = Hash.new(0)
@@ -1721,6 +1755,13 @@ module InteriorPro
           s.get_attribute('InteriorPro', 'part').to_s == 'dormer_front'
       end
       return nil if sub.nil?
+      # what it was TOLD to wear beats what its faces show: 3D siding is
+      # painted white, so the faces no longer carry its name (2026-09-13).
+      a_ext = sub.get_attribute('InteriorPro', 'ext_name').to_s
+      a_int = sub.get_attribute('InteriorPro', 'int_name').to_s
+      a_ext = nil if a_ext.empty?
+      a_int = nil if a_int.empty?
+      return [a_ext, a_int] if a_ext || a_int
       names = sub.entities.grep(Sketchup::Face)
                  .map { |f| f.material && f.material.name }.compact.uniq
       ext = names.find { |n| !n.to_s.start_with?('#') }
@@ -3303,10 +3344,26 @@ module InteriorPro
     def self.paint_wall!(sub, names, outward = nil)
       ext_name, int_name = Array(names)
       int_name = DEFAULT_INTERIOR_COLOR if int_name.nil? || int_name.to_s.empty?
+      # THE BLACK GABLET (2026-09-13). Measured on his model: the three
+      # dormer walls were painted with a material literally named 'Board
+      # and Batten' that is rgb(0,0,0) with NO texture - there is no
+      # board_and_batten.jpg, because those are real boards, not a
+      # picture of them. Same bug the gable triangle had, same answer:
+      # the wall face goes WHITE and the boards go on top of it.
+      # WHAT THE WALL IS WEARING IS NOW WRITTEN DOWN. Painting white
+      # would have made wall_names_of - which recovers the names by
+      # reading the faces - forget the real name on the next window
+      # rebuild, and the gablet would stay white for good. The name is
+      # saved on the part itself, and that attribute wins.
+      sub.set_attribute('InteriorPro', 'ext_name', ext_name.to_s) if
+        sub.respond_to?(:set_attribute)
+      sub.set_attribute('InteriorPro', 'int_name', int_name.to_s) if
+        sub.respond_to?(:set_attribute)
       return unless defined?(InteriorPro::WallTool) &&
                     InteriorPro::WallTool.respond_to?(:new)
       wt = InteriorPro::WallTool.new
-      ext = ext_name ? wt.load_or_create_material(ext_name) : nil
+      face_name = siding_3d?(ext_name) ? '#ffffff' : ext_name
+      ext = face_name ? wt.load_or_create_material(face_name) : nil
       int = wt.load_or_create_material(int_name)
       return if ext.nil? && int.nil?
       # WHICH SIDE IT SITS ON, NOT WHICH WAY IT LOOKS (2026-09-02B).
