@@ -73,7 +73,8 @@ module InteriorPro
       end
       dlg.add_action_callback('place_dormer') do |_, style, width, height,
                                                   setback, overhang, pitch12,
-                                                  fdepth, mode, win, wcol|
+                                                  fdepth, mode, win, wcol,
+                                                  wmat|
         old = InteriorPro::DormerManager.settings
         s = { style: built_styles.include?(style.to_s) ? style.to_s : 'gable',
               width: width.to_f, height: height.to_f, length: old[:length],
@@ -87,7 +88,12 @@ module InteriorPro
               window: !%w[false 0 off].include?(win.to_s.downcase),
               # '' = leave the frame as WindowTool builds it (white).
               # Anything else is a colour he picked (2026-09-09).
-              window_color: wcol.to_s.start_with?('#') ? wcol.to_s : '' }
+              window_color: wcol.to_s.start_with?('#') ? wcol.to_s : '',
+              # THE WALL FINISH (2026-09-13). '' = follow the house walls,
+              # which is what a dormer has always done; anything else is
+              # a name he picked off the same list the wall panel uses.
+              wall_material: wall_materials.include?(wmat.to_s) ?
+                             wmat.to_s : '' }
         InteriorPro::DormerManager.save_settings!(s)
         tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
         if tgt
@@ -108,7 +114,9 @@ module InteriorPro
             place_mode: s[:place_mode].to_s,
             setback: s[:place_mode].to_s == 'depth' ? s[:setback].to_f : nil,
             window: s[:window] ? true : false,
-            window_color: s[:window_color].to_s
+            window_color: s[:window_color].to_s,
+            wall_names: s[:wall_material].to_s.empty? ? nil :
+                        [s[:wall_material].to_s, nil]
           )
           model.commit_operation
           if g.nil?
@@ -133,6 +141,21 @@ module InteriorPro
       @dialog = dlg
     end
 
+    # The same list the wall panel offers, asked for by name so the two
+    # can never drift apart. The fallback is only for a load order where
+    # the wall dialog is not in yet.
+    def self.wall_materials
+      if defined?(InteriorPro::WallLibraryDialog::MATERIALS)
+        InteriorPro::WallLibraryDialog::MATERIALS
+      else
+        ['Brick', 'Stucco', 'Stone', 'Vertical Siding', 'Horizontal Siding',
+         'Plaster', 'Board and Batten']
+      end
+    rescue StandardError
+      ['Brick', 'Stucco', 'Stone', 'Vertical Siding', 'Horizontal Siding',
+       'Plaster', 'Board and Batten']
+    end
+
     # The numbers the panel shows: the dormer's own when editing one,
     # otherwise the last ones used.
     def self.panel_values
@@ -150,7 +173,19 @@ module InteriorPro
                  place_mode: (sp[:place_mode] || base[:place_mode]).to_s,
                  window: sp.key?(:window) ? sp[:window] : base[:window],
                  window_color: sp.key?(:window_color) ?
-                               sp[:window_color].to_s : base[:window_color])
+                               sp[:window_color].to_s : base[:window_color],
+                 wall_material:
+                   @target.get_attribute('InteriorPro', 'wall_material').to_s)
+    end
+
+    def self.wall_mat_options(picked)
+      opts = ["<option value=''#{picked.empty? ? ' selected' : ''}>" \
+              'Same as the house</option>']
+      wall_materials.each do |m|
+        opts << "<option value='#{m}'#{m == picked ? ' selected' : ''}>" \
+                "#{m}</option>"
+      end
+      opts.join
     end
 
     def self.build_html(s, edit: false)
@@ -242,6 +277,12 @@ module InteriorPro
           <div class="hint">How far it reaches into the roof follows from
             this. It stops you a foot short of the house ridge.</div>
 
+          <div class="section-title">Walls</div>
+          <div class="row"><label>Outside finish</label>
+            <select id="wallMat">#{wall_mat_options(s[:wall_material].to_s)}</select></div>
+          <div class="hint">"Same as the house" follows whatever most of
+            the house walls are wearing.</div>
+
           <div class="section-title">Eaves and trim</div>
           <div class="row"><label>Overhang</label>
             <input type="number" id="overhang" step="1" min="0" value="#{s[:overhang].round}"> in</div>
@@ -294,7 +335,8 @@ module InteriorPro
                 document.getElementById('fasciaDepth').value,
                 document.querySelector('input[name=pmode]:checked').value,
                 document.getElementById('hasWindow').checked ? 'true' : 'false',
-                winPickedFlag ? document.getElementById('winColor').value : '');
+                winPickedFlag ? document.getElementById('winColor').value : '',
+                document.getElementById('wallMat').value);
             }
             Array.prototype.forEach.call(
               document.querySelectorAll('input[name=style]'),

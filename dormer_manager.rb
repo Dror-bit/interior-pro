@@ -455,6 +455,8 @@ module InteriorPro
         # white every window in the model already wears - so a dormer
         # placed before today comes back exactly as it was.
         window_color: g.call('dormer_window_color', '').to_s,
+        # '' = follow the house walls (2026-09-13)
+        wall_material: g.call('dormer_wall_material', '').to_s,
         style:        g.call('dormer_style', 'gable').to_s }
     end
 
@@ -473,6 +475,8 @@ module InteriorPro
       m.set_attribute('InteriorPro', 'dormer_window', s[:window] ? true : false)
       m.set_attribute('InteriorPro', 'dormer_window_color',
                       s[:window_color].to_s)
+      m.set_attribute('InteriorPro', 'dormer_wall_material',
+                      s[:wall_material].to_s) if s.key?(:wall_material)
       s
     end
 
@@ -658,6 +662,12 @@ module InteriorPro
       pm = spec[:place_mode].to_s
       grp.set_attribute('InteriorPro', 'place_mode',
                         %w[free depth flush].include?(pm) ? pm : 'free')
+      # THE WALL FINISH HE PICKED (2026-09-13). "אפשרי גם לבחור חומר
+      # שונה" - a gablet does not have to follow the house. '' means it
+      # does follow, which is what every dormer built before today did,
+      # so nothing already standing changes.
+      grp.set_attribute('InteriorPro', 'wall_material',
+                        Array(spec[:wall_names]).first.to_s)
       grp.set_attribute('InteriorPro', 'window', spec[:window] ? true : false)
       # THE WINDOW'S OWN NUMBERS (2026-09-07). They live on the dormer,
       # not on the window group, because Edit and Move rebuild the whole
@@ -954,8 +964,9 @@ module InteriorPro
       return nil unless fits_on_face?(fr, at_lambda(s), rf[:face])
       s[:roof_material] = rf[:roof_mat] if s[:roof_material].nil?
       if s[:wall_names].nil?
-        wm = house_wall_material
-        s[:wall_names] = [wm] if wm
+        wm = settings[:wall_material].to_s
+        wm = house_wall_material if wm.empty?
+        s[:wall_names] = [wm] if wm && !wm.to_s.empty?
       end
       g = add_dormer!(roof.entities, s)
       relay_runs!(roof) unless g.nil? || spec[:no_relay]
@@ -2657,6 +2668,8 @@ module InteriorPro
       spec[:window_h] = wh.to_f if wh.to_f > 0.0
       zt = a.call('z_top')
       spec[:z_top] = zt.to_f unless zt.nil?
+      wm = a.call('wall_material').to_s
+      spec[:wall_names] = [wm, nil] unless wm.empty?
       spec
     end
 

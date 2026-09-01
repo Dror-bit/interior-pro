@@ -1,8 +1,14 @@
 Interior Pro - what finish the dormer walls are wearing
-model: claud cold   time: 2026-09-01 10:20:52 -0700
+model: claud cold   time: 2026-09-01 10:37:32 -0700
 
 house_wall_material (what a dormer is told to wear): "Board and Batten"
 RoofManager::SIDING_3D_NAMES = ["Board and Batten", "Horizontal Siding"]
+
+--- is the NEW code actually loaded? ---
+  DormerManager responds to siding_3d?  : true
+  settings has :wall_material           : true
+  settings[:wall_material]              : "Brick"
+  dialog responds to wall_materials     : true
 
 --- materials by that name, as they exist in the model ---
   "Stucco": Stucco [TEXTURE stucco.jpg]
@@ -16,19 +22,18 @@ RoofManager::SIDING_3D_NAMES = ["Board and Batten", "Horizontal Siding"]
 1 dormer(s)
 
 dormer #0 style="gable"
-    height = 33.0
+    wall_material = nil
+    height = 34.809226989746094
     width = 30.0
-    length = 74.99999999999999
+    length = 79.34214477539062
+    dormer_spec[:wall_names] = nil
     part "dormer_front": 11 face(s), 0 sub-group(s)
-        x6  Board and Batten [rgb 0,0,0]
-        x1  #ffffff [rgb 255,255,255]
+        x7  #ffffff [rgb 255,255,255]
         x4  nil
     part "dormer_cheek": 5 face(s), 0 sub-group(s)
-        x4  Board and Batten [rgb 0,0,0]
-        x1  #ffffff [rgb 255,255,255]
+        x5  #ffffff [rgb 255,255,255]
     part "dormer_cheek": 5 face(s), 0 sub-group(s)
-        x4  Board and Batten [rgb 0,0,0]
-        x1  #ffffff [rgb 255,255,255]
+        x5  #ffffff [rgb 255,255,255]
     part "dormer_roof": 6 face(s), 0 sub-group(s)
         x6  InteriorPro_Roof_shingle_7f8385 [TEXTURE roof_shingle.jpg]
     part "dormer_roof": 6 face(s), 0 sub-group(s)
@@ -44,6 +49,8 @@ dormer #0 style="gable"
     part "dormer_soffit": 11 face(s), 0 sub-group(s)
         x11  #ffffff [rgb 255,255,255]
     part "dormer_window": 0 face(s), 3 sub-group(s)
+    part "ridge_cap": 12 face(s), 0 sub-group(s)
+        x12  InteriorPro_Roof_shingle_7f8385 [TEXTURE roof_shingle.jpg]
     part "ridge_cap": 12 face(s), 0 sub-group(s)
         x12  InteriorPro_Roof_shingle_7f8385 [TEXTURE roof_shingle.jpg]
     part "ridge_cap": 12 face(s), 0 sub-group(s)
