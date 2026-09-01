@@ -268,19 +268,40 @@ STRAIGHT-TO-STRAIGHT CORNERS ARE UNTOUCHED. Everything above sits behind
 `curved_corner`, so a corner with no curve in it runs the identical old
 code. `tests/rt22.rb` guards this.
 
-### Curved walls - NOT wired up yet (deliberate, do not treat as bugs)
+### Curved walls - what is wired up (re-measured 2026-09-13)
 
-- Openings. A wall with doors or windows refuses to curve and says so.
-- Butt joints (interior wall meeting an exterior one) still use the straight
-  line, not the tangent.
-- Board and Batten strips are left off a curved wall.
-- `plan_generator.rb` draws it as a straight line in the 2D plan.
-- `RoofManager.eave_polygon` treats it as a straight segment. (NEXT UP -
-  the user asked for roof over a curved wall after corners closed.)
+The old list here said openings, battens and roofs were "not wired up yet".
+That list was from 2026-08-10 and had gone STALE - three of its five items
+were built in the weeks after and nobody came back to cross them off. It
+sent a later chat looking for bugs that did not exist. Measured against the
+live code:
 
-(The 2D editor DOES draw and bend curved walls now, 2026-08-12: typed bow
-in the עובי·קשת panel - typed plus = OUTWARD, stored sag is the negative,
-see uiSagToModel/modelSagToUi and tests/t33.js.)
+- Openings on a curved wall - BUILT. `read_door_openings` feeds
+  `curved_footprint_xy`, `punch_curved_openings!` cuts them,
+  `RESEAT_OPENINGS_ON_CURVE` carries doors and windows onto the new shape.
+- Board and Batten on a curved wall - BUILT. `curved_batten_stations` /
+  `batten_stations` walk the arc, `batten_z_bands` breaks a batten around
+  an opening.
+- Roof over a curved wall - BUILT. `RoofManager.wall_center_arc` returns
+  the centreline as an arc and the eave edge is an arc, not a segment.
+- The 2D editor draws and bends curved walls (2026-08-12): typed bow in the
+  עובי·קשת panel - typed plus = OUTWARD, stored sag is the negative, see
+  uiSagToModel/modelSagToUi and `tests/t33.js`.
+
+Still straight, genuinely:
+
+- `plan_generator.rb` - the PRINTED plan (a different file from the 2D
+  editor, which is fine). `wall_plan_data` reads only `start_x/y` and
+  `end_x/y` and builds `u`, `len`, `seg_points` off the straight line;
+  `arc_sag` does not appear in the file at all. A curved wall prints as a
+  straight poche band.
+- Butt joints (interior wall meeting an exterior one) still use the
+  straight line, not the tangent. Not re-measured.
+- An INWARD-bulging arc meeting a wall at a shallow angle can leave a
+  tooth-sized overlap on the outside - accepted, see the weld rule above.
+
+If you change any of this, fix THIS list in the same step. A stale list
+costs a whole chat.
 
 ### Curved walls - the 3-click Arc tool (2026-08-11)
 
