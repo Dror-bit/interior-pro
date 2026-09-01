@@ -442,6 +442,54 @@ module InteriorPro
       File.join(File.dirname(__FILE__), 'textures', fname.to_s)
     end
 
+    # A GRAIN, NOT A PATTERN (2026-09-11, the user: "אולי אפילו אפשר
+    # לייצר טקסטור שיתאים לספניש ולריבועים של הטיל. משהו כמו בטון כזה או
+    # סטאקו"). The photographed tile pictures were switched off on
+    # 2026-08-21 because a picture OF tiles under a 3D tile is two
+    # patterns fighting. This is not that: roof_grain_concrete.jpg is a
+    # seamless concrete/stucco grain with NO grid in it at all, so the
+    # only pattern on the roof is still the modelled one - the grain just
+    # stops the clay reading as flat plastic. Greyscale and light (mean
+    # ~205), so the style colour tints it without going muddy. He
+    # approved it on a tinted preview of both families before it was
+    # wired in.
+    #
+    # Kill switch, CLAUDE.md convention: false = every tile is a flat
+    # colour again, exactly as it was this morning.
+    USE_ROOF_GRAIN = true unless const_defined?(:USE_ROOF_GRAIN, false)
+
+    # 36" of grain across a 7" Spanish module and a 13" flat tile: no
+    # feature in it is big enough to read as a repeat at either size.
+    def self.roof_grain
+      return {} unless USE_ROOF_GRAIN
+      {
+        'metaltile' => { file: 'roof_grain_concrete.jpg', size: [36.0, 36.0] },
+        'slate'     => { file: 'roof_grain_concrete.jpg', size: [36.0, 36.0] }
+      }
+    end
+
+    # One textured material, tinted by the roof colour. nil when the file
+    # is missing, so the caller can fall back to the plain colour and a
+    # roof is never left unbuilt over a texture.
+    def self.tinted_texture(model, name, spec, color)
+      path = texture_path(spec[:file])
+      unless File.exist?(path)
+        puts "[Roof] texture missing: #{path} - falling back to colour"
+        return nil
+      end
+      m = model.materials[name]
+      return m if m
+      m = model.materials.add(name)
+      begin
+        m.texture = path
+        m.texture.size = spec[:size] if m.texture
+      rescue StandardError => e
+        puts "[Roof] texture #{spec[:file]}: #{e.message}"
+      end
+      m.color = hex_to_color(color) # tints the greyscale sheet
+      m
+    end
+
     # What the roof SURFACE is painted with: a plain colour, or a textured
     # family tinted by that same colour. Falls back to the plain colour if
     # the family is unknown or its file is missing, so a bad setting can
@@ -518,6 +566,13 @@ module InteriorPro
       # both painted from here and the user asked for both - so this is
       # also the one place the style default is resolved (2026-09-11).
       s = s.merge(roof_color: roof_surface_color(s))
+      hexc = s[:roof_color].to_s.gsub('#', '').downcase
+      grain = roof_grain[s[:roof_material].to_s]
+      if grain
+        gm = tinted_texture(model, "InteriorPro_Roof_grain_#{s[:roof_material]}_#{hexc}",
+                            grain, s[:roof_color])
+        return gm if gm
+      end
       return color_material(model, s[:roof_color]) unless textured?(s[:roof_material])
       if defined?(InteriorPro::RoofTileMath) &&
          InteriorPro::RoofTileMath.flat_color?(s[:roof_material])
@@ -525,24 +580,9 @@ module InteriorPro
       end
       spec = roof_textures[s[:roof_material].to_s]
       return color_material(model, s[:roof_color]) if spec.nil?
-      path = texture_path(spec[:file])
-      unless File.exist?(path)
-        puts "[Roof] texture missing: #{path} - falling back to colour"
-        return color_material(model, s[:roof_color])
-      end
-      hex = s[:roof_color].to_s.gsub('#', '').downcase
-      name = "InteriorPro_Roof_#{s[:roof_material]}_#{hex}"
-      m = model.materials[name]
-      return m if m
-      m = model.materials.add(name)
-      begin
-        m.texture = path
-        m.texture.size = spec[:size] if m.texture
-      rescue StandardError => e
-        puts "[Roof] texture #{spec[:file]}: #{e.message}"
-      end
-      m.color = hex_to_color(s[:roof_color]) # tints the greyscale tile
-      m
+      m = tinted_texture(model, "InteriorPro_Roof_#{s[:roof_material]}_#{hexc}",
+                         spec, s[:roof_color])
+      m || color_material(model, s[:roof_color])
     end
 
     # ---------- footprint: true outline + overhang ----------

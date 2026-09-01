@@ -117,8 +117,10 @@ ok('shingle KEEPS its texture - it is the one family that still has one',
    !RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' }).texture.nil?)
 ok('and it is the only one on the list', RF.textured_families == ['shingle'],
    RF.textured_families)
+# 'slate' used to be the example here; since 2026-09-11 it wears the
+# concrete GRAIN (rt131), so the example is a family that wears neither.
 ok('a family not on the list takes the colour',
-   RF.surface_material(model, { roof_material: 'slate', roof_color: '#584e4a' }).texture.nil?)
+   RF.surface_material(model, { roof_material: 'barrel', roof_color: '#584e4a' }).texture.nil?)
 ok('so does a tile family', have_file &&
    RF.surface_material(model, { roof_material: 'roman', roof_color: '#584e4a' }).texture.nil?)
 # THE OLD DEFAULT NOW MEANS "NOT PICKED" (2026-09-11). #584e4a is the
@@ -160,10 +162,16 @@ if have_file
   m5 = RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
   ok('switch on: same request reuses the material', m5.equal?(m3))
 
-  # Spanish Tile says flat_color on its own shape, so it stays flat even here
-  ok('switch on: Spanish Tile is STILL flat - its own shape says so',
-     RF.surface_material(model, { roof_material: 'metaltile',
-                                 roof_color: '#584e4a' }).texture.nil?)
+  # Spanish Tile says flat_color on its own shape, so it never takes its
+  # own PHOTOGRAPHED tile picture - not even with the switch on. Since
+  # 2026-09-11 it wears the concrete GRAIN instead, which has no grid to
+  # fight the 3D with; rt131 pins that. Here we only pin that the tile
+  # picture itself is still refused: the material it gets is the grain's,
+  # never roof_metal_tile.jpg.
+  msp = RF.surface_material(model, { roof_material: 'metaltile',
+                                     roof_color: '#584e4a' })
+  ok('switch on: Spanish Tile still refuses its own tile PICTURE',
+     msp.texture.nil? || msp.name.include?('grain'), msp.name)
 
   RF.send(:remove_const, :USE_ROOF_TEXTURES)
   RF.const_set(:USE_ROOF_TEXTURES, false)
