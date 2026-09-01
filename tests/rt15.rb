@@ -487,8 +487,15 @@ ok('marking works even in Hip style', RF.settings[:style] == 'hip')
 ok('one gable end = 63 faces (no triangle)',
    rm1.entities.grep(Sketchup::Face).length == 63,
    rm1.entities.grep(Sketchup::Face).length)
+# ONE BUTTON, THREE STATES (2026-09-11): hip -> gable -> Dutch -> hip.
+# The second click no longer un-marks; it makes the end DUTCH, and the
+# wall stays in the gable list because a Dutch end IS a gable end.
 RF.toggle_gable_wall!(w1)
-ok('second click un-marks', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
+ok('second click marks it DUTCH', RF.dutch_wall_ids == ['e1'], RF.dutch_wall_ids)
+ok('and it is still a gable end', RF.gable_wall_ids == ['e1'], RF.gable_wall_ids)
+RF.toggle_gable_wall!(w1)
+ok('third click un-marks', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
+ok('and the dutch list empties with it', RF.dutch_wall_ids.empty?, RF.dutch_wall_ids)
 ok('and the roof is a full hip again', top_faces(RF.roofs.first).length == 4,
    top_faces(RF.roofs.first).length)
 

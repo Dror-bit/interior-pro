@@ -257,7 +257,10 @@ ok('and nothing was written to the model', RF.gable_wall_ids.empty?,
    RF.gable_wall_ids)
 ok('the straight wall can still be marked', RF.toggle_gable_wall!(g_str) == true)
 ok('and it really is marked', RF.gable_wall_ids.include?('s1'), RF.gable_wall_ids)
-ok('marking it a second time un-marks it', RF.toggle_gable_wall!(g_str) == true)
+ok('marking it a second time makes it DUTCH', RF.toggle_gable_wall!(g_str) == true)
+ok('and it is still in the gable list', RF.gable_wall_ids.include?('s1'),
+   RF.gable_wall_ids)
+ok('a third click un-marks it', RF.toggle_gable_wall!(g_str) == true)
 ok('so the list is empty again', RF.gable_wall_ids.empty?, RF.gable_wall_ids)
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")

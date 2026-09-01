@@ -1574,7 +1574,8 @@ module InteriorPro
         # the wall under the roof all moved. The Dutch end is built
         # INSIDE the over-framing now (build_main_rect!), and this line
         # is exactly what it was before that mistake.
-        framed = framed_plan(poly, wall_ids, marked, s[:style]) \
+        dutch_marked = dutch_wall_ids & marked
+        framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked) \
                  if want_gable && abut_ids.empty? && s[:style] != 'shed'
         if framed
           gables = framed[:edges]
@@ -1775,7 +1776,11 @@ module InteriorPro
       # (framed_gable_face!). Emptying the list here is what says all of
       # that, in one place. The rake boards that climb the Dutch gable's
       # own two sloping edges are still to come.
-      gables = [] if framed && s[:dutch_depth].to_f > 0.01
+      # ...and ONLY the Dutch edges (2026-09-11). This used to empty the
+      # whole list, which was right while every gable end went Dutch
+      # together. Now a plain gable end can stand beside a Dutch one on
+      # the same roof, and it must keep its rake board.
+      gables -= (framed[:dutch_edges] || []) if framed && s[:dutch_depth].to_f > 0.01
       lvl_edges = framed || cells.nil? ? [] : level_gable_edges(poly, gables, cells)
       rakes = gables - lvl_edges
       gable_flags = Array.new(poly.length, false)
@@ -3867,6 +3872,14 @@ module InteriorPro
       Sketchup.active_model.get_attribute('InteriorPro', 'roof_gable_wall_ids') || []
     end
 
+    # WHICH gable ends are Dutch (2026-09-11). A subset of gable_wall_ids -
+    # a Dutch end IS a gable end, it just stops short of the eave. Empty
+    # by default, so a model that never used the click tool builds exactly
+    # the roof it built yesterday.
+    def self.dutch_wall_ids
+      Sketchup.active_model.get_attribute('InteriorPro', 'roof_dutch_wall_ids') || []
+    end
+
     # Every wall id that actually exists in the model right now.
     def self.live_wall_ids
       InteriorPro::LevelManager.all_walls.map do |w|
@@ -3893,12 +3906,36 @@ module InteriorPro
       false
     end
 
-    # Toggle a wall's roof end between hip and gable; saved by wall id on
-    # the model, so it survives every rebuild. The CLICK POINT is saved
-    # too — on a long wall the gable applies to the roof section under the
-    # click (user 2026-08-05: no guessing). Rebuilds the roof if one
-    # exists. Called by RoofGableTool.
+    # What this wall's roof end is RIGHT NOW: :hip, :gable or :dutch.
+    # One place to ask, so the tool's highlight, its menu and the cycle
+    # can never disagree about what a wall is.
+    def self.roof_end_of(id)
+      return :dutch if dutch_wall_ids.include?(id)
+      return :gable if gable_wall_ids.include?(id)
+      :hip
+    end
+
+    # Step the end on by one: hip -> gable -> Dutch gable -> hip. The
+    # click tool opens a menu instead (2026-09-11, the user: "צריך
+    # להיפתח תפריט לאותה הצלע ואז לבחור איזה סוג של גימור של גג") and
+    # calls set_roof_end! straight; this stays for everything that
+    # already asks for the next state.
     def self.toggle_gable_wall!(wall, click = nil)
+      return false unless wall && wall.valid?
+      id = wall.get_attribute('InteriorPro', 'id')
+      return false if id.nil?
+      nxt = { hip: :gable, gable: :dutch, dutch: :hip }[roof_end_of(id)]
+      set_roof_end!(wall, nxt, click)
+    end
+
+    # Set a wall's roof end to :hip, :gable or :dutch; saved by wall id on
+    # the model, so it survives every rebuild. The CLICK POINT is saved
+    # too — on a long wall the end applies to the roof section under the
+    # click (user 2026-08-05: no guessing) — and it is REFRESHED on every
+    # pick, so choosing from the menu over a different section of a long
+    # wall moves the end there. Rebuilds the roof if one exists.
+    def self.set_roof_end!(wall, kind, click = nil)
+      kind = :hip unless %i[hip gable dutch].include?(kind)
       return false unless wall && wall.valid? &&
                           wall.get_attribute('InteriorPro', 'type') == 'wall'
       id = wall.get_attribute('InteriorPro', 'id')
@@ -3910,7 +3947,7 @@ module InteriorPro
       # BEFORE anything is saved - exactly the way a wall with a door in it
       # refuses to bend. Un-marking a wall that was already marked and then
       # bent still works, so nobody gets stuck.
-      if gable_refused?(wall) && !gable_wall_ids.include?(id)
+      if kind != :hip && gable_refused?(wall)
         msg = 'A curved wall cannot have a gable end. Straighten it first, ' \
               'or leave this end as a hip.'
         puts "[Roof] gable refused on curved wall #{id}"
@@ -3937,20 +3974,38 @@ module InteriorPro
         end
         puts "[Roof] dropped #{stale.length} stale gable mark(s)"
       end
+      # THREE KINDS OF END, ONE PER WALL (2026-09-11). A Dutch end is a
+      # KIND of gable end, so its id STAYS in the gable list and only
+      # joins a second, smaller one - everything that already reads the
+      # gable marks keeps working untouched. The depth still comes from
+      # the roof dialog; this only says which ends use it.
+      dids = dutch_wall_ids.dup & live
       idx = ids.index(id)
-      if idx
-        ids.delete_at(idx)
-        pts.delete_at(idx)
-        on = false
+      if kind == :hip
+        unless idx.nil?
+          ids.delete_at(idx)
+          pts.delete_at(idx)
+        end
+        dids.delete(id)
       else
-        ids.push(id)
-        pts.push(click ? [click[0].to_f, click[1].to_f] : [1e9, 1e9])
-        on = true
+        if idx.nil?
+          ids.push(id)
+          pts.push(click ? [click[0].to_f, click[1].to_f] : [1e9, 1e9])
+        elsif click
+          pts[idx] = [click[0].to_f, click[1].to_f]
+        end
+        if kind == :dutch
+          dids.push(id) unless dids.include?(id)
+        else
+          dids.delete(id)
+        end
       end
+      state = { hip: 'hip end', gable: 'GABLE end', dutch: 'DUTCH gable end' }[kind]
       m = Sketchup.active_model
       m.set_attribute('InteriorPro', 'roof_gable_wall_ids', ids)
       m.set_attribute('InteriorPro', 'roof_gable_click_xy', pts.flatten)
-      puts "[Roof] wall #{id}: #{on ? 'GABLE end' : 'hip end'} (#{ids.length} marked)"
+      m.set_attribute('InteriorPro', 'roof_dutch_wall_ids', dids)
+      puts "[Roof] wall #{id}: #{state} (#{ids.length} gable, #{dids.length} dutch)"
       unless roofs.empty?
         # Rebuild the roof that OWNS this wall, and only it (2026-08-26,
         # step 3) - a gable click on the ADU must not flatten the house.
@@ -5673,14 +5728,15 @@ module InteriorPro
     # Choose the best rect decomposition and resolve which ends are
     # gabled. Returns { main:, g:, wings: [{rect:, mouth:, gabled:}],
     # edges: [poly edge indices on gabled ends] } or nil (fallback).
-    def self.framed_plan(poly, wall_ids, marked, style)
+    def self.framed_plan(poly, wall_ids, marked, style, dutch_marked = [])
       return nil unless rectilinear?(poly)
       rects = grid_rects(poly)
       return nil unless rects
-      assemble_framed_plan(rects, poly, wall_ids, marked, style)
+      assemble_framed_plan(rects, poly, wall_ids, marked, style, dutch_marked)
     end
 
-    def self.assemble_framed_plan(rects, poly, wall_ids, marked, style)
+    def self.assemble_framed_plan(rects, poly, wall_ids, marked, style,
+                                  dutch_marked = [])
       return nil if rects.empty? || rects.length > 8
       main_i = rects.each_index.max_by { |i| (rects[i][2] - rects[i][0]) * (rects[i][3] - rects[i][1]) }
       main = rects[main_i]
@@ -5741,9 +5797,20 @@ module InteriorPro
         yn = g[:n] ? main[3] : main[3] - half
         return nil if yn - ys < -0.5
       end
+      # WHICH of those ends is DUTCH (2026-09-11). The same question the
+      # gable marks answer, asked of a second list - so a side is Dutch
+      # only if it is a gable end AND he clicked it one more time. No
+      # marks = every value false = the plain gable roof, unchanged.
+      # Wings are never Dutch: build_wing_rect! has no Dutch branch.
+      d = {}
+      [:n, :s, :e, :w].each do |sd|
+        d[sd] = g[sd] && side_gabled?(main, sd, poly, wall_ids, dutch_marked)
+      end
       score = g.values.count(true) + wings.count { |w| w[:gabled] }
-      plan = { main: main, g: g, wings: wings, score: score, nrects: rects.length }
+      plan = { main: main, g: g, d: d, wings: wings, score: score,
+               nrects: rects.length }
       plan[:edges] = framed_gable_edges(poly, plan)
+      plan[:dutch_edges] = framed_gable_edges(poly, { main: main, g: d, wings: [] })
       plan
     end
 
@@ -6033,7 +6100,8 @@ module InteriorPro
 
     # Main rectangle: plain prism — gable triangle on gabled ends, hip
     # plane on the others.
-    def self.build_main_rect!(st, rect, g)
+    def self.build_main_rect!(st, rect, g, d = nil)
+      d ||= {}
       x0, y0, x1, y1 = rect
       z0d = st[:z0] + st[:delta]
       sl = st[:slope]
@@ -6051,8 +6119,8 @@ module InteriorPro
         # the wall, a hip apron climbs to it, and the two side planes are
         # cut back by the apron's own hip lines. dw = 0 is the plain
         # gable, and every list below collapses to what it always was.
-        dwf = dutch_reach(st, g[:w], yr - y0)   # where the FASCIA stands
-        def_ = dutch_reach(st, g[:e], yr - y0)
+        dwf = dutch_reach(st, g[:w] && d[:w], yr - y0) # where the FASCIA stands
+        def_ = dutch_reach(st, g[:e] && d[:e], yr - y0)
         dw = dwf > 0.0 ? dwf + DUTCH_SET_IN : 0.0   # where the ROOF is cut
         de = def_ > 0.0 ? def_ + DUTCH_SET_IN : 0.0
         xw = g[:w] ? x0 + dw : x0 + (yr - y0)
@@ -6111,8 +6179,8 @@ module InteriorPro
       else
         xr = (x0 + x1) / 2.0
         zr = z0d + sl * (xr - x0)
-        dsf = dutch_reach(st, g[:s], xr - x0)
-        dnf = dutch_reach(st, g[:n], xr - x0)
+        dsf = dutch_reach(st, g[:s] && d[:s], xr - x0)
+        dnf = dutch_reach(st, g[:n] && d[:n], xr - x0)
         ds = dsf > 0.0 ? dsf + DUTCH_SET_IN : 0.0
         dn = dnf > 0.0 ? dnf + DUTCH_SET_IN : 0.0
         ys = g[:s] ? y0 + ds : y0 + (xr - x0)
@@ -6301,7 +6369,7 @@ module InteriorPro
              roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
              valleys: valleys, dutch: dutch.to_f, dutch_dz: dutch_dz,
              dutch_dep: dutch_dep.to_f }
-      build_main_rect!(st, plan[:main], plan[:g])
+      build_main_rect!(st, plan[:main], plan[:g], plan[:d])
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
         build_wing_rect!(st, w[:rect], w[:mouth], w[:gabled], cov)
