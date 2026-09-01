@@ -128,6 +128,38 @@ Before adding any new trim piece, ask: which existing piece does each of
 its ends run into, and is it cut to end exactly there?
 `RoofManager.rake_meet_span` is the helper for rake-vs-band corners.
 
+## כל קרש בקבוצה משלו (חוק, 2026-09-12 — זה הפיל את סקצ'אפ)
+
+שני גופים שנוגעים פאה בפאה על אותו מישור, בתוך אותה קבוצה, הם לא רק
+מכוערים — סקצ'אפ ממזג פאות חופפות, ו-pushpull לתוך המיזוג הזה **מפיל
+את התוכנה**. קרה בסיידינג האופקי על משולש הגמלון: במקום שהרייק חותך
+את השורה, הקרשים השכנים יושבים זה לצד זה.
+
+קבוצה היא החומה של סקצ'אפ עצמו בין שני גופים. כשבונים סדרה של גופים
+קטנים שנוגעים — כל אחד בקבוצה משלו. אל תאחד אותם חזרה "כדי לחסוך
+קבוצות". (הקיר עצמו לא נתקל בזה כי השורות שלו חתוכות על ידי חלונות
+ולא מונחות זו לצד זו.)
+
+זה לא סותר את חוק "הקרשים נפגשים ולא נכנסים אחד לתוך השני" — הוא על
+חפיפת נפח, וזה על מיזוג פאות. שניהם חייבים להתקיים.
+
+## קריסה לא משאירה שגיאה — משאירים עקבות בדיסק (2026-09-12)
+
+כשסקצ'אפ נופל אין backtrace ואין קונסול. הדרך היחידה למצוא איפה: קובץ
+שכותב שורה לדיסק לפני כל צעד ועושה `flush` + `fsync`, ואז בונים פעמיים
+— פעם עם התכונה החדשה כבויה ופעם דלוקה. השורה האחרונה שנשארה בקובץ
+מצביעה על הצעד. `debug_apply_probe.rb` בשורש הוא התבנית.
+
+לכן כל תכונה חדשה שבונה גיאומטריה מקבלת דגל כיבוי מיד — הוא מה שמאפשר
+את הבידוד הזה. הנוכחיים למטה.
+
+## מדידה על קומה שנייה, לא רק על קומת קרקע (2026-09-12)
+
+`group.bounds` הוא בקואורדינטות של ההורה; מה שבונים בתוך הקבוצה הוא
+בקואורדינטות שלה. בקומת קרקע שני המספרים זהים, אז באג כזה שורד שנים
+ומתגלה רק כשמישהו בונה קומה שנייה. כל חישוב שמערבב bounds עם גיאומטריה
+פנימית — לבדוק אותו על קיר עם `base_z` שאינו אפס.
+
 ## Current phase: curved walls, then 2D plans to PDF
 
 (The old "doors only" restriction is retired - it was from the 2026-04 phase
@@ -167,6 +199,9 @@ building anything twice.
   cap the top edge.
 
 ## Kill switches (turn a feature off without deleting it)
+
+- `InteriorPro::RoofManager::USE_GABLE_SIDING = false` - the gable
+  triangle keeps its white face and gets no boards (2026-09-12).
 
 - `InteriorPro::WallTool::USE_CURVED_WALLS = false` - every wall builds
   straight again, `arc_sag` ignored.
