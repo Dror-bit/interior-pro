@@ -1,0 +1,23 @@
+Interior Pro - why the dormer FRONT wall has no boards
+model: claud cold   time: 2026-09-01 11:10:47 -0700
+USE_DORMER_SIDING = true
+BATTEN_SPACING=16.0 WIDTH=1.5
+
+dormer #0  wall_material="Board and Batten"
+  into_xy = [1.0, 0.0]
+
+  dormer_front: 11 face(s), 0 sub-group(s)
+      outer_skin: 1447.42 sq in, t 0.0..50.0, z 213.88..253.79
+      outline (t,z): (50.0,213.88) (0.0,213.88) (0.0,243.38) (25.0,253.79) (50.0,243.38)
+      holes found: 1
+        t 16.0..34.0  z 223.96..239.96
+      batten stations: [8.0, 24.0, 40.0]
+        t=8.0: foot 213.88 top 246.4 -> bands ["213.88..246.4 (32.52 tall)"]
+        t=24.0: foot 213.88 top 253.06 -> bands ["213.88..223.96 (10.08 tall)", "239.96..253.06 (13.1 tall)"]
+        t=40.0: foot 213.88 top 247.23 -> bands ["213.88..247.23 (33.35 tall)"]
+
+  dormer_cheek: 5 face(s), 1 sub-group(s)
+      sub-group "InteriorPro_GableSiding" part="gable_wall_siding" 24 face(s) 0 group(s)
+
+  dormer_cheek: 5 face(s), 1 sub-group(s)
+      sub-group "InteriorPro_GableSiding" part="gable_wall_siding" 24 face(s) 0 group(s)
