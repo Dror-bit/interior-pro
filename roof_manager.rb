@@ -5049,6 +5049,10 @@ module InteriorPro
     # then the same boards on top of it.
     SIDING_3D_NAMES = ['Board and Batten', 'Horizontal Siding'].freeze
 
+    # How far a batten's slanted foot is buried in the roof it stands on,
+    # so the cut cannot show a hairline of its own (2026-09-13).
+    BATTEN_FOOT_TUCK = 0.25 unless const_defined?(:BATTEN_FOOT_TUCK, false)
+
     # QUICK OFF SWITCH (2026-09-12). Set it false in the Ruby Console and
     # rebuild: the triangle keeps the white face (which is right on its
     # own) and simply gets no boards.
@@ -5092,6 +5096,31 @@ module InteriorPro
     # PURE: the highest point of a (t, z) outline at t. The outline is the
     # gable wall's own outer face - flat along the bottom, cut by the roof
     # along the top - so this is "how tall is the wall here".
+    # PURE: the LOWEST point of a (t, z) outline at t - the mirror of
+    # tz_top_at below. A gable triangle sits flat on the wall under it, so
+    # this is the same number all the way across and nothing changes. A
+    # DORMER CHEEK sits on the roof, and its bottom edge climbs with the
+    # slope: measured 2026-09-13 off his screenshot of the attic, every
+    # batten started at the cheek's lowest corner and ran straight down
+    # through the roof into the room.
+    def self.tz_bot_at(tz, t)
+      best = nil
+      n = tz.length
+      n.times do |i|
+        a = tz[i]
+        b = tz[(i + 1) % n]
+        lo, hi = a[0] <= b[0] ? [a, b] : [b, a]
+        next if t < lo[0] - 1.0e-9 || t > hi[0] + 1.0e-9
+        z = if (hi[0] - lo[0]).abs < 1.0e-9
+              [lo[1], hi[1]].min
+            else
+              lo[1] + (hi[1] - lo[1]) * (t - lo[0]) / (hi[0] - lo[0])
+            end
+        best = z if best.nil? || z < best
+      end
+      best
+    end
+
     def self.tz_top_at(tz, t)
       best = nil
       n = tz.length
@@ -5125,6 +5154,14 @@ module InteriorPro
         tz.each { |p| zs << tz_top_at(tz, p[0]) if p[0] > t && p[0] < te }
         top = zs.compact.min
         zt = top.nil? ? nil : [z1, top].min
+        # and the FLOOR of the outline in this step, for a wall whose
+        # bottom is not flat - a dormer cheek standing on the slope. A
+        # gable triangle's bottom is level, so bs == z0 and this is the
+        # same list it always was.
+        bl = [tz_bot_at(tz, t + 1.0e-6), tz_bot_at(tz, te - 1.0e-6)]
+        tz.each { |p| bl << tz_bot_at(tz, p[0]) if p[0] > t && p[0] < te }
+        bot = bl.compact.max
+        zt = nil if !bot.nil? && bot > z0 + 0.05
         segs << [t, te, zt] if zt && zt - z0 > 0.5
         t = te
       end
@@ -5159,10 +5196,57 @@ module InteriorPro
       out
     end
 
+    # PURE: [a, b] with every span in `cuts` taken out of it. Used to
+    # walk a course of siding around a window (2026-09-13).
+    def self.subtract_span(a, b, cuts)
+      out = [[a, b]]
+      cuts.each do |c0, c1|
+        nxt = []
+        out.each do |s0, s1|
+          if c1 <= s0 + 1.0e-9 || c0 >= s1 - 1.0e-9
+            nxt << [s0, s1]
+          else
+            nxt << [s0, c0] if c0 - s0 > 1.0e-9
+            nxt << [c1, s1] if s1 - c1 > 1.0e-9
+          end
+        end
+        out = nxt
+      end
+      out
+    end
+
+    # PURE: the z bands a batten standing between ta and tb may occupy -
+    # the whole height, minus any opening it would cross.
+    def self.batten_bands(z_lo, z_hi, holes, ta, tb)
+      cuts = holes.select { |h| h[1] > ta + 1.0e-9 && h[0] < tb - 1.0e-9 }
+                  .map { |h| [h[2], h[3]] }
+      subtract_span(z_lo, z_hi, cuts)
+    end
+
+    # PURE: every opening on a face, as [t0, t1, z0, z1] in the same
+    # (t, z) the outline is measured in. A face with no hole gives [].
+    def self.face_holes_tz(face, p0, d)
+      return [] unless face.respond_to?(:loops)
+      out = []
+      face.loops.each do |lp|
+        next if !lp.respond_to?(:outer?) || lp.outer?
+        pts = lp.vertices.map(&:position)
+        next if pts.length < 3
+        ts = pts.map { |q| (q.x - p0.x) * d[0] + (q.y - p0.y) * d[1] }
+        zs = pts.map { |q| q.z.to_f }
+        out << [ts.min, ts.max, zs.min, zs.max]
+      end
+      out
+    rescue StandardError
+      []
+    end
+
     # The boards themselves. `outer` is the triangle's outward face - the
     # one already painted white - and everything is measured off ITS own
     # outline, so this works the same for a plain gable prism and for a
-    # mitred shed corner.
+    # mitred shed corner - and, since 2026-09-13, for a dormer front wall
+    # with a window punched in it: the openings are read off the face's
+    # own inner loops, so nothing has to be told where the window is.
     def self.build_gable_top_siding!(sub, outer, d, inw, ext_name, wall, white)
       return false unless outer && outer.valid?
       wt = InteriorPro::WallTool
@@ -5176,6 +5260,7 @@ module InteriorPro
       zb = tz.map { |a| a[1] }.min
       zt = tz.map { |a| a[1] }.max
       return false if t1 - t0 < 1.0 || zt - zb < 1.0
+      holes = face_holes_tz(outer, p0, d)
       at = lambda { |t| [p0.x + d[0] * t, p0.y + d[1] * t] }
       out2 = [-inw[0], -inw[1]]
 
@@ -5210,20 +5295,25 @@ module InteriorPro
           courses = wt.siding_courses(zb, zt, wt::HSIDING_EXPOSURE)
           courses.each do |c0, c1|
             gable_course_runs(tz, t0, t1, c0, c1, wt::HSIDING_EXPOSURE).each do |ta, tb, ztop|
-              break if built > wt::MAX_SIDING_PIECES
-              begin
-                bg = sg.entities.add_group
-                builder.build_siding_board!(
-                  bg, at.call(ta), at.call(tb), c0, ztop,
-                  wt::HSIDING_DEPTH_BOTTOM, wt::HSIDING_DEPTH_TOP
-                )
-                if bg.valid? && bg.entities.length.zero?
-                  bg.erase!
-                else
-                  built += 1
+              cuts = holes.select { |h| h[3] > c0 + 1.0e-9 && h[2] < ztop - 1.0e-9 }
+                          .map { |h| [h[0], h[1]] }
+              subtract_span(ta, tb, cuts).each do |ra, rb|
+                break if built > wt::MAX_SIDING_PIECES
+                next if rb - ra < 0.5
+                begin
+                  bg = sg.entities.add_group
+                  builder.build_siding_board!(
+                    bg, at.call(ra), at.call(rb), c0, ztop,
+                    wt::HSIDING_DEPTH_BOTTOM, wt::HSIDING_DEPTH_TOP
+                  )
+                  if bg.valid? && bg.entities.length.zero?
+                    bg.erase!
+                  else
+                    built += 1
+                  end
+                rescue StandardError => e
+                  puts "[Roof] gable board skipped: #{e.message}"
                 end
-              rescue StandardError => e
-                puts "[Roof] gable board skipped: #{e.message}"
               end
             end
           end
@@ -5234,23 +5324,57 @@ module InteriorPro
             tops = [tz_top_at(tz, t - half_w), tz_top_at(tz, t),
                     tz_top_at(tz, t + half_w)].compact
             next if tops.empty?
-            h = tops.min - zb
-            next if h < 1.0
-            c = at.call(t)
-            p1 = Geom::Point3d.new(c[0] - d[0] * half_w, c[1] - d[1] * half_w, zb)
-            p2 = Geom::Point3d.new(c[0] + d[0] * half_w, c[1] + d[1] * half_w, zb)
-            p3 = Geom::Point3d.new(c[0] + d[0] * half_w + out2[0] * wt::BATTEN_DEPTH,
-                                   c[1] + d[1] * half_w + out2[1] * wt::BATTEN_DEPTH, zb)
-            p4 = Geom::Point3d.new(c[0] - d[0] * half_w + out2[0] * wt::BATTEN_DEPTH,
-                                   c[1] - d[1] * half_w + out2[1] * wt::BATTEN_DEPTH, zb)
-            fc = begin
-              sg.entities.add_face(p1, p2, p3, p4)
-            rescue StandardError
-              nil
+            # WHERE THIS BATTEN STANDS. On a gable triangle the floor is
+            # level and this is the outline's own zb; on a dormer cheek
+            # it is the roof under that batten (2026-09-13).
+            # ITS FOOT IS CUT ON THE SLOPE (2026-09-13). Standing every
+            # batten on the HIGHEST corner of its own width left a wedge
+            # of daylight under it on a dormer cheek - he sent the photo:
+            # "הם צריכים להיכנס טיפה לתוך הגג או להיחתך באלכסון". So the
+            # two ends of the foot get their own z, off the outline, and
+            # the cut lies along the roof. On a gable triangle the floor
+            # is level, both numbers are the same, and the batten is the
+            # square-footed one it always was.
+            zl = tz_bot_at(tz, t - half_w) || zb
+            zr = tz_bot_at(tz, t + half_w) || zb
+            ztop = tops.min
+            # a hair into the roof, so the diagonal cannot show a seam of
+            # its own - and only when there IS a diagonal.
+            if (zr - zl).abs > 0.01
+              zl -= BATTEN_FOOT_TUCK
+              zr -= BATTEN_FOOT_TUCK
             end
-            next unless fc && fc.valid?
-            fc.pushpull(fc.normal.z >= 0 ? h : -h)
-            built += 1
+            next if ztop - [zl, zr].max < 1.0
+            cl = at.call(t - half_w)
+            cr = at.call(t + half_w)
+            outn = Geom::Vector3d.new(out2[0], out2[1], 0)
+            # ROUND THE WINDOW (2026-09-13). A batten that would cross an
+            # opening is cut into the pieces above and below it. With no
+            # opening this is one band and the batten is exactly what it
+            # was.
+            bands = batten_bands([zl, zr].max, ztop, holes,
+                                 t - half_w, t + half_w)
+            bands.each do |ba, bb|
+              break if built > wt::MAX_SIDING_PIECES
+              next if bb - ba < 1.0
+              # only the band that starts at the foot keeps the slanted cut
+              foot = (ba - [zl, zr].max).abs < 1.0e-6
+              zla = foot ? zl : ba
+              zra = foot ? zr : ba
+              q1 = Geom::Point3d.new(cl[0], cl[1], zla)
+              q2 = Geom::Point3d.new(cr[0], cr[1], zra)
+              q3 = Geom::Point3d.new(cr[0], cr[1], bb)
+              q4 = Geom::Point3d.new(cl[0], cl[1], bb)
+              fc = begin
+                sg.entities.add_face(q1, q2, q3, q4)
+              rescue StandardError
+                nil
+              end
+              next unless fc && fc.valid?
+              fc.pushpull((fc.normal % outn) >= 0 ? wt::BATTEN_DEPTH :
+                          -wt::BATTEN_DEPTH)
+              built += 1
+            end
           end
         end
       rescue StandardError => e

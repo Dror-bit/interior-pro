@@ -41,6 +41,16 @@ module InteriorPro
     # sizes, so the dormer reads as part of the house. Kill switch:
     # InteriorPro::DormerManager::USE_DORMER_TRIM = false.
     USE_DORMER_TRIM   = true unless const_defined?(:USE_DORMER_TRIM, false)
+    # REAL BOARDS ON THE GABLET'S WALLS (2026-09-13). Board and Batten
+    # and Horizontal Siding are not textures - they are little solids -
+    # so a wall wearing one gets a white face and the boards screwed on,
+    # exactly the way the house wall and the gable triangle do it.
+    # Off switch:
+    #   InteriorPro::DormerManager.send(:remove_const, :USE_DORMER_SIDING)
+    #   InteriorPro::DormerManager::USE_DORMER_SIDING = false
+    # and the walls go back to the plain white face, which is right on
+    # its own.
+    USE_DORMER_SIDING = true unless const_defined?(:USE_DORMER_SIDING, false)
     TRIM_THICK        = 0.75 unless const_defined?(:TRIM_THICK, false)
     TRIM_DRIP_THICK   = 0.1  unless const_defined?(:TRIM_DRIP_THICK, false)
     TRIM_DRIP_DEPTH   = 2.0  unless const_defined?(:TRIM_DRIP_DEPTH, false)
@@ -721,6 +731,13 @@ module InteriorPro
           grp.set_attribute('InteriorPro', 'window_h', wr[:height])
         end
       end
+      # THE FRONT WALL'S BOARDS COME LAST (2026-09-13). They have to,
+      # because the board builder reads the openings off the face's own
+      # inner loops - and the hole does not exist until punch_window! has
+      # run. The cheeks are done inside paint_wall!, where there is never
+      # a window.
+      build_wall_siding!(wall, Array(spec[:wall_names]).first,
+                         [-into[0], -into[1], 0.0]) if wall && wall.valid?
       grp
     rescue StandardError => e
       puts "[Dormer] build_dormer!: #{e.class}: #{e.message}"
@@ -1746,6 +1763,10 @@ module InteriorPro
       return warn_nil('the front wall could not be rebuilt') if wall.nil?
       punch_window!(wall, fr, at, r)
       build_window_body!(dormer, fr, at, r, spec.merge(window_type: type))
+      into = Array(spec[:into])
+      build_wall_siding!(wall, Array(names).first,
+                         [-into[0].to_f, -into[1].to_f, 0.0]) if
+        into.length >= 2 && wall.valid?
 
       dormer.set_attribute('InteriorPro', 'window', true)
       dormer.set_attribute('InteriorPro', 'window_type', type)
@@ -3409,8 +3430,69 @@ module InteriorPro
         f.material = m
         f.back_material = m
       end
+      # THE BOARDS. The cheeks get theirs here; the front wall waits
+      # until its window has been punched, because the board builder
+      # reads the opening off the face's own inner loop (2026-09-13).
+      build_wall_siding!(sub, ext_name, outward) if
+        sub.get_attribute('InteriorPro', 'part').to_s == 'dormer_cheek'
     rescue StandardError => e
       puts "[Dormer] paint_wall!: #{e.message}"
+    end
+
+    # THE BOARDS ON ONE WALL PART (2026-09-13). The roof already owns a
+    # board builder that measures everything off the outer face's own
+    # outline - which is why it works on a plain gable prism and on a
+    # mitred shed corner alike - so the gablet borrows it instead of
+    # growing a second one that can drift.
+    #
+    # `outward` is the way this wall faces; the boards stand proud of it.
+    def self.build_wall_siding!(sub, ext_name, outward)
+      return false unless USE_DORMER_SIDING
+      return false unless siding_3d?(ext_name)
+      return false if outward.nil? || sub.nil?
+      return false unless defined?(InteriorPro::RoofManager) &&
+                          InteriorPro::RoofManager.respond_to?(:build_gable_top_siding!)
+      outer = outer_skin(sub, outward)
+      return false if outer.nil?
+      # along the wall = turn `outward` a quarter turn in plan; the board
+      # builder wants the INWARD normal, which is `outward` reversed.
+      d   = [-outward[1], outward[0]]
+      inw = [-outward[0], -outward[1]]
+      white = InteriorPro::WallTool.new.load_or_create_material('#ffffff')
+      InteriorPro::RoofManager.build_gable_top_siding!(sub, outer, d, inw,
+                                                      ext_name, nil, white)
+    rescue StandardError => e
+      puts "[Dormer] wall siding: #{e.message}"
+      false
+    end
+
+    # The one big skin facing outdoors. Asked by POSITION, never by
+    # normal - the two cheeks are built from the same point order at
+    # mirrored w, so one of them comes out wound the other way (the same
+    # trap paint_wall! documents above).
+    def self.outer_skin(sub, outward)
+      mid = sub.bounds.center
+      best = nil
+      best_p = nil
+      best_a = nil
+      sub.entities.grep(Sketchup::Face).each do |f|
+        c = f.bounds.center
+        pr = (c.x - mid.x) * outward[0] + (c.y - mid.y) * outward[1] +
+             (c.z - mid.z) * outward[2].to_f
+        next if pr < 0.05
+        ar = begin
+          f.area
+        rescue StandardError
+          0.0
+        end
+        if best_p.nil? || pr > best_p + 0.01 ||
+           ((pr - best_p).abs <= 0.01 && ar > best_a)
+          best = f
+          best_p = pr
+          best_a = ar
+        end
+      end
+      best
     end
 
     # The dormer's two horizontal axes in the world, read off the same
