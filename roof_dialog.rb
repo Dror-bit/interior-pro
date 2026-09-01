@@ -250,6 +250,13 @@ module InteriorPro
                    : (RoofManager.soffit_colors[s[:soffit].to_s] || s[:fascia_color].to_s)
       soffit_defs = RoofManager.soffit_colors.reject { |_, v| v.nil? }
                                .map { |k, v| "\"#{k}\":\"#{v}\"" }.join(',')
+      # ...and the same for the roof surface (2026-09-11): the swatch shows
+      # the chosen style's own colour until he picks one himself.
+      roof_picked = RoofManager.roof_color_picked?(s)
+      roof_col = roof_picked ? s[:roof_color].to_s
+                 : RoofManager.roof_color_default(s[:roof_material])
+      roof_defs = RoofManager.roof_colors.reject { |_, v| v.nil? }
+                             .map { |k, v| "\"#{k}\":\"#{v}\"" }.join(',')
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -308,8 +315,8 @@ module InteriorPro
 
           <div class="section-title">Surface</div>
           <div class="row"><label>Roof material</label>
-            <select id="roofMat" style="width:112px">#{mat_options}</select>
-            <input type="color" id="roofColor" value="#{s[:roof_color]}"></div>
+            <select id="roofMat" style="width:112px" onchange="roofMatChanged()">#{mat_options}</select>
+            <input type="color" id="roofColor" value="#{roof_col}" oninput="roofPicked()"></div>
           <div class="row"><label>Roof thickness</label>
             <input type="number" id="thickness" step="0.25" min="0" value="#{s[:thickness]}"> in</div>
           <div class="row"><label><input type="checkbox" id="ridgeCap"#{s[:ridge_cap] ? ' checked' : ''}> Ridge cap</label></div>
@@ -335,6 +342,19 @@ module InteriorPro
               document.getElementById('gutterWidth').disabled = !on;
               document.getElementById('gutterColor').disabled = !on;
               document.getElementById('downspouts').disabled = !on;
+            }
+            // A ROOF STYLE CARRIES ITS OWN COLOUR (2026-09-11). Same rule
+            // the soffit already follows: choosing a style hands the look
+            // back to the style, and the picker still wins if it is used
+            // AFTER. On load the flag is true only if a colour really was
+            // picked, so a hand-picked roof survives opening the panel.
+            var ROOF_DEF = {#{roof_defs}};
+            var roofPickedFlag = #{roof_picked ? 'true' : 'false'};
+            function roofPicked() { roofPickedFlag = true; }
+            function roofMatChanged() {
+              var v = document.getElementById('roofMat').value;
+              roofPickedFlag = false;
+              if (ROOF_DEF[v]) { document.getElementById('roofColor').value = ROOF_DEF[v]; }
             }
             var SOFFIT_DEF = {#{soffit_defs}};
             var soffitPickedFlag = #{soffit_picked ? 'true' : 'false'};

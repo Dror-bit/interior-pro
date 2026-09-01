@@ -478,9 +478,46 @@ module InteriorPro
       USE_ROOF_TEXTURES || textured_families.include?(name.to_s)
     end
 
+    # THE DEFAULT COLOUR OF EACH ROOF SURFACE (2026-09-11). The user named
+    # them one by one: shingles grey, metal almost black charcoal, Roman
+    # and Spanish the same red-orange clay, and the square flat tile a grey
+    # leaning slightly purple. The tiles are modelled in 3D and painted
+    # with ONE flat colour (a greyscale sheet tinted by it), so this map is
+    # most of what a roof style looks like. nil = no colour of its own.
+    def self.roof_colors
+      {
+        'color'     => nil,       # Solid color: the picker IS the style
+        'shingle'   => '#7f8385', # weathered asphalt grey
+        'seam'      => '#33383b', # standing seam metal, charcoal
+        'roman'     => '#b0552f', # terracotta
+        'metaltile' => '#b0552f', # Spanish - the same clay
+        'slate'     => '#7b7681'  # flat slate, grey leaning purple
+      }
+    end
+
+    def self.roof_color_default(mat)
+      roof_colors[mat.to_s] || DEFAULT_ROOF_COLOR
+    end
+
+    # Did he pick this colour by hand? The OLD global default counts as
+    # NOT picked, so every roof built before these defaults existed takes
+    # its style's colour on the next build instead of staying brown.
+    def self.roof_color_picked?(s)
+      c = s[:roof_color].to_s.downcase
+      return false if c.empty? || c == DEFAULT_ROOF_COLOR
+      c != roof_color_default(s[:roof_material]).to_s.downcase
+    end
+
+    # A hand-picked colour always wins; otherwise the style's own.
+    def self.roof_surface_color(s)
+      roof_color_picked?(s) ? s[:roof_color].to_s : roof_color_default(s[:roof_material])
+    end
+
     def self.surface_material(model, s)
       # One place answers this, because the deck and the tile instances are
-      # both painted from here and the user asked for both.
+      # both painted from here and the user asked for both - so this is
+      # also the one place the style default is resolved (2026-09-11).
+      s = s.merge(roof_color: roof_surface_color(s))
       return color_material(model, s[:roof_color]) unless textured?(s[:roof_material])
       if defined?(InteriorPro::RoofTileMath) &&
          InteriorPro::RoofTileMath.flat_color?(s[:roof_material])

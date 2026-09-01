@@ -121,9 +121,13 @@ ok('a family not on the list takes the colour',
    RF.surface_material(model, { roof_material: 'slate', roof_color: '#584e4a' }).texture.nil?)
 ok('so does a tile family', have_file &&
    RF.surface_material(model, { roof_material: 'roman', roof_color: '#584e4a' }).texture.nil?)
+# THE OLD DEFAULT NOW MEANS "NOT PICKED" (2026-09-11). #584e4a is the
+# colour every roof was born with before each style got its own, so it
+# reads as "give me the style's colour" and the material is named after
+# THAT. rt130 pins the resolution rule itself.
 ok('and the colour still names the material',
    RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
-     .name.include?('584e4a'))
+     .name.include?(RF.roof_colors['shingle'].delete('#')))
 ok('the colour still tints the greyscale tile',
    !RF.surface_material(model, { roof_material: 'shingle', roof_color: '#584e4a' })
       .color.nil?)
@@ -143,7 +147,8 @@ if have_file
      m3.texture && m3.texture.size == [48.0, 24.0], m3.texture && m3.texture.size)
   ok('switch on: greyscale tile is tinted by the roof colour', !m3.color.nil?)
   ok('switch on: name carries family and colour',
-     m3.name == 'InteriorPro_Roof_shingle_584e4a', m3.name)
+     m3.name == "InteriorPro_Roof_shingle_#{RF.roof_colors['shingle'].delete('#')}",
+     m3.name)
 
   # a second colour must NOT reuse the first colour's material
   m4 = RF.surface_material(model, { roof_material: 'shingle', roof_color: '#8a2b2b' })
