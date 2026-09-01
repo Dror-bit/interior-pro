@@ -199,6 +199,15 @@ module InteriorPro
       # heeled `length` - not one number of it changed - and the GROUP
       # remembers the asked one, so the heel is added exactly once.
       length_asked = length
+      # THE HEIGHT THAT WAS ASKED FOR (2026-09-13). Exactly the trap the
+      # length fell into (rt122), one attribute over. A typed height is
+      # not the height that gets built: the heel below makes the gablet
+      # taller, build_dormer! saved THAT number, and the panel handed it
+      # straight back as the next Apply's typed height - so Edit showed
+      # 30 for a wall he had typed 22 as, and then refused its own number
+      # ("אז הוא לא מראה לי 22 מהתחלה"). The geometry still uses the
+      # built height; only what is written down changes.
+      height_asked = spec[:height].to_f > 0.0 ? spec[:height].to_f : nil
       heel = dormer_heel(oh, style_now, pitch, slope, spec)
       if heel > 0.0
         den = if style_now == 'shed'
@@ -224,7 +233,10 @@ module InteriorPro
       if style == 'shed' || style == 'flat'
         sfr = shed_frame(spec, z0, slope, setback, width, length, th, rt, oh,
                          half, s_front, s_ridge, z_front, z_ridge, style)
-        sfr[:length_asked] = length_asked if sfr
+        if sfr
+          sfr[:length_asked] = length_asked
+          sfr[:height_asked] = height_asked
+        end
         return sfr
       end
       z_eave   = z_ridge - half * pitch    # the dormer's own side eaves
@@ -291,6 +303,7 @@ module InteriorPro
       { z0: z0, slope: slope, pitch: pitch, setback: setback, style: style,
         s_hip: s_hip,
         width: width, length: length, length_asked: length_asked,
+        height_asked: height_asked,
         half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_eave, s_cheek: s_cheek,
@@ -662,6 +675,9 @@ module InteriorPro
       # gablet. rt122 pins that a rebuild changes nothing.
       grp.set_attribute('InteriorPro', 'length',
                         (fr[:length_asked] || fr[:length]).to_f)
+      # and the same for the height, for the same reason (2026-09-13)
+      grp.set_attribute('InteriorPro', 'height',
+                        (fr[:height_asked] || fr[:height]).to_f)
       grp.set_attribute('InteriorPro', 'base_xy', [base[0], base[1]])
       grp.set_attribute('InteriorPro', 'along_xy', along)
       grp.set_attribute('InteriorPro', 'into_xy', into)
