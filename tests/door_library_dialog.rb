@@ -949,6 +949,15 @@ module InteriorPro
             }
           }
 
+var ipFitTimer = null;
+function ipFitSoon() {
+  if (ipFitTimer) clearTimeout(ipFitTimer);
+  ipFitTimer = setTimeout(resizeDialogToContent, 60);
+}
+if (window.ResizeObserver) {
+  try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+}
+
           function bootstrapDoorForm() {
             var s = initialSettings || {};
             var cat = s.door_category || 'exterior';

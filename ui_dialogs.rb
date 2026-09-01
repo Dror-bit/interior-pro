@@ -19,6 +19,20 @@ module InteriorPro
       html = build_wall_html(tool.height, tool.thickness, tool.exterior_material, tool.interior_material,
                              false, tool.wall_category || 'exterior',
                              tool.side_a_color || '#ffffff', tool.side_b_color || '#ffffff')
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1200 if want > 1200
+          dialog.set_size(340, want)
+        rescue StandardError => e
+          puts "[WallSettings] fit_height: #{e.message}"
+        end
+      end
+
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         tool.height = params['height'].to_f
@@ -47,6 +61,20 @@ module InteriorPro
         resizable: true
       )
       html = build_wall_html(96.0, 6.0, 'Stucco', '#ffffff')
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1200 if want > 1200
+          dialog.set_size(340, want)
+        rescue StandardError => e
+          puts "[WallSettings] fit_height: #{e.message}"
+        end
+      end
+
       dialog.set_html(html)
       force_dialog_size(dialog, 340, 700)
       dialog.show
@@ -79,6 +107,20 @@ module InteriorPro
       base_z = group.get_attribute('InteriorPro', 'base_z').to_f
       cur_trim = group.get_attribute('InteriorPro', 'corner_trim_width')
       html = build_wall_html(height, thickness, ext_mat, int_mat, true, category, side_a, side_b, cur_length, base_z, cur_trim)
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1200 if want > 1200
+          dialog.set_size(360, want)
+        rescue StandardError => e
+          puts "[EditWall] fit_height: #{e.message}"
+        end
+      end
+
       dialog.set_html(html)
       dialog.add_action_callback('apply') { |_, params|
         model = Sketchup.active_model
@@ -190,7 +232,44 @@ module InteriorPro
       html += "</div>"
       html += "<script>function applyMove(){sketchup.apply({distance:document.getElementById('distance').value});}"
       html += "document.getElementById('distance').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyMove();}});</script>"
+      html += <<~'FITJS'
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
+        </script>
+      FITJS
       html += "</body></html>"
+
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 260 if want < 260
+          want = 800 if want > 800
+          dialog.set_size(360, want)
+        rescue StandardError => e
+          puts "[MoveWall] fit_height: #{e.message}"
+        end
+      end
 
       dialog.set_html(html)
 
@@ -500,7 +579,44 @@ module InteriorPro
       html += "});}"
       html += "function syncSame(){var r=document.getElementById('sideBRow');if(r){r.style.display=document.getElementById('sameColors').checked?'none':'flex';}}"
       html += "function selectAllCategory(){sketchup.select_all_category();}</script>"
+      html += <<~'FITJS'
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
+        </script>
+      FITJS
       html += "</body></html>"
+
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1200 if want > 1200
+          dialog.set_size(380, want)
+        rescue StandardError => e
+          puts "[EditWalls] fit_height: #{e.message}"
+        end
+      end
 
       dialog.set_html(html)
 
@@ -643,6 +759,29 @@ module InteriorPro
       html += "sketchup.apply({wall_category:wallType,height:document.getElementById('height').value,thickness:document.getElementById('thickness').value,exterior:document.getElementById('exterior').value,interior:document.getElementById('intColor').value,side_a:sa,side_b:sb,length:(lenEl?lenEl.value:''),base:(baseEl?baseEl.value:''),corner_trim:(trimEl?trimEl.value:'')});}"
       html += "syncSections();syncSame();"
       html += "</script>"
+      html += <<~'FITJS'
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
+        </script>
+      FITJS
       html += "</body></html>"
       html
     end

@@ -21,6 +21,20 @@ module InteriorPro
       # that was once squashed opens squashed for ever. Force it open.
       dialog.set_size(420, 760)
 
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1100 if want > 1100
+          dialog.set_size(420, want)
+        rescue StandardError => e
+          puts "[WallLibrary] fit_height: #{e.message}"
+        end
+      end
+
       dialog.add_action_callback('get_library') { |action_context|
         library = InteriorPro::WallLibrary.load
         dialog.execute_script("loadLibrary(#{library.to_json})")
@@ -303,6 +317,27 @@ module InteriorPro
             sketchup.save_wall(JSON.stringify(wall));
             hideForm();
           }
+        </script>
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
         </script>
         </body>
         </html>

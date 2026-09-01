@@ -51,6 +51,20 @@ module InteriorPro
         Sketchup.active_model.select_tool(tool)
       }
 
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1100 if want > 1100
+          dialog.set_size(400, want)
+        rescue StandardError => e
+          puts "[Window] fit_height: #{e.message}"
+        end
+      end
+
       dialog.set_size(400, 720)
       dialog.show
     end
@@ -97,6 +111,20 @@ module InteriorPro
         dialog.close
         InteriorPro::WindowManager.update_window(window, settings)
       }
+
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 340 if want < 340
+          want = 1100 if want > 1100
+          dialog.set_size(400, want)
+        rescue StandardError => e
+          puts "[EditWindow] fit_height: #{e.message}"
+        end
+      end
 
       dialog.set_size(400, 720)
       dialog.show
@@ -154,6 +182,20 @@ module InteriorPro
       }
 
       dialog.add_action_callback('cancel_dormer_window') { |_ctx| dialog.close }
+
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dialog.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 260 if want < 260
+          want = 900 if want > 900
+          dialog.set_size(360, want)
+        rescue StandardError => e
+          puts "[DormerWindow] fit_height: #{e.message}"
+        end
+      end
 
       dialog.set_size(360, 330)
       dialog.show
@@ -240,6 +282,27 @@ module InteriorPro
             };
             sketchup.apply_dormer_window(JSON.stringify(d));
           }
+        </script>
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
         </script>
         </body>
         </html>
@@ -426,6 +489,27 @@ module InteriorPro
             };
             sketchup.place_window(JSON.stringify(win));
           }
+        </script>
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
         </script>
         </body>
         </html>

@@ -93,6 +93,20 @@ module InteriorPro
         show
       end
       dlg.set_html(build_html(data, types, textures))
+      # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
+      # got: the PAGE measures itself once it is laid out and the window
+      # follows, so a row added later can never push a button under the scroll.
+      dlg.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 380 if want < 380
+          want = 1000 if want > 1000
+          dlg.set_size(470, want)
+        rescue StandardError => e
+          puts "[Floors] fit_height: #{e.message}"
+        end
+      end
+
       dlg.show
       @dialog = dlg
     end
@@ -271,6 +285,27 @@ module InteriorPro
             }
             render();
           </script>
+        <script>
+          var ipFitLast = 0, ipFitTimer = null;
+          function ipFitWindow() {
+            if (!window.sketchup || !sketchup.fit_height) return;
+            var b = document.body, d = document.documentElement;
+            var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+            if (Math.abs(h - ipFitLast) < 3) return;
+            ipFitLast = h;
+            sketchup.fit_height(h);
+          }
+          function ipFitSoon() {
+            if (ipFitTimer) clearTimeout(ipFitTimer);
+            ipFitTimer = setTimeout(ipFitWindow, 60);
+          }
+          window.addEventListener('load', ipFitSoon);
+          if (window.ResizeObserver) {
+            try { new ResizeObserver(ipFitSoon).observe(document.body); } catch (e) {}
+          }
+          ipFitSoon();
+          setTimeout(ipFitSoon, 250);
+        </script>
         </body></html>
       HTML
     end
