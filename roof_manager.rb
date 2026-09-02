@@ -102,6 +102,71 @@ module InteriorPro
       ext.empty? ? ws : ext
     end
 
+    # THE BUILDINGS ON A STOREY (2026-09-14). Walls that touch end to end
+    # are one building; the groups come back largest first. Uses the same
+    # graph the eave polygon is traced from, so "touching" means exactly
+    # what it means there (RoomManager.node_id's corner tolerance).
+    def self.buildings_of(walls)
+      rm = InteriorPro::RoomManager
+      segs = walls.map { |w| rm.centerline(w) }.compact
+      return [walls] if segs.length < 3
+      nodes, edges = rm.build_graph(segs)
+      parent = (0...nodes.length).to_a
+      find = lambda { |i| parent[i] == i ? i : (parent[i] = find.call(parent[i])) }
+      edges.each do |e|
+        a = find.call(e[:a])
+        b = find.call(e[:b])
+        parent[a] = b if a != b
+      end
+      by_root = Hash.new { |h, k| h[k] = [] }
+      edges.each { |e| by_root[find.call(e[:a])] << e[:wall] }
+      groups = by_root.values.map { |ws| ws.compact.uniq }
+      # a wall the graph dropped (a tee split, a stub) stays with the
+      # building it came from: put every wall not yet placed into the
+      # largest group, which is the old behaviour for it
+      placed = groups.flatten
+      rest = walls.reject { |w| placed.include?(w) }
+      groups = groups.sort_by { |g| -g.length }
+      groups[0] = (groups[0] || []) + rest unless rest.empty?
+      groups.reject(&:empty?)
+    rescue StandardError => e
+      puts "[Roof] buildings_of: #{e.message}"
+      [walls]
+    end
+
+    # The upper-storey walls that belong to a building standing over
+    # THESE walls: each upper building is tested against the base outline
+    # (any of its corners inside the base, or the base's centre inside
+    # it). A storey with one upper building comes back exactly as given.
+    def self.upper_over(walls, uppers)
+      groups = buildings_of(uppers)
+      return uppers if groups.length <= 1
+      base = eave_polygon(walls, 0.0)
+      return uppers if base.nil?
+      bpts = base[:pts]
+      bc = [bpts.map { |p| p[0] }.sum / bpts.length, bpts.map { |p| p[1] }.sum / bpts.length]
+      keep = groups.select do |g|
+        up = g.length >= 3 ? eave_polygon(g, 0.0) : nil
+        next false if up.nil?
+        up[:pts].any? { |p| point_in_poly?(bpts, p[0], p[1]) } ||
+          point_in_poly?(up[:pts], bc[0], bc[1])
+      end
+      keep.flatten
+    rescue StandardError => e
+      puts "[Roof] upper_over: #{e.message}"
+      uppers
+    end
+
+    # Does this roof stand on any of these walls? (by the ids it saved)
+    def self.roof_on_walls?(roof, walls)
+      own = Array(roof.get_attribute('InteriorPro', 'set_walls'))
+      return true if own.empty?
+      ids = walls.map { |w| w.get_attribute('InteriorPro', 'id') }.compact
+      (own & ids).any?
+    rescue StandardError
+      true
+    end
+
     def self.top_walls
       walls_of(top_level)
     end
@@ -1588,7 +1653,7 @@ module InteriorPro
                          gutter_width: nil, gutter_color: nil,
                          downspouts: nil, abut_headroom: nil,
                          dutch_depth: nil,
-                         level: nil, replace: nil)
+                         level: nil, replace: nil, building: nil)
       model = Sketchup.active_model
       # `replace` (2026-08-26, step 3 of Edit Roof) - rebuild THIS roof:
       # its settings are the starting point (keywords below still override,
@@ -1633,6 +1698,50 @@ module InteriorPro
       lvl = (level || (replace && replace.get_attribute('InteriorPro', 'level')) ||
              top_level).to_i
       walls = walls_of(lvl)
+      # ONE ROOF PER BUILDING (2026-09-14, the user: "צריך לייצר גג נגיד
+      # לעוד בית בצד או ADU כי כרגע שאני עושה גג הוא מייחס את זה רק
+      # למבנה אחד"). eave_polygon traces the LARGEST loop of the storey's
+      # walls, so a second building on the same storey - a detached
+      # garage, an ADU - never got a roof at all. The storey's walls are
+      # split into buildings first (walls that touch end to end), and:
+      #   * a plain `level:` build builds one roof per building, each
+      #     with its own walls, marks, dormers and skylights;
+      #   * a `replace:` rebuild keeps to the building the old roof stood
+      #     on (its saved set_walls say which);
+      #   * `building:` is the walls of ONE building - the recursive call
+      #     below, or a caller that already knows.
+      # A storey with a single building goes through none of this and is
+      # byte-for-byte what it was.
+      bldgs = building.nil? ? buildings_of(walls) : [Array(building)]
+      many = bldgs.length > 1
+      if many
+        if replace
+          own = Array(replace.get_attribute('InteriorPro', 'set_walls'))
+          mine = bldgs.find do |b|
+            b.any? { |w| own.include?(w.get_attribute('InteriorPro', 'id')) }
+          end
+          bldgs = [mine || bldgs.max_by(&:length)]
+        else
+          kw = { style: style, pitch: pitch, overhang: overhang,
+                 fascia: fascia, fascia_depth: fascia_depth, drip: drip,
+                 roof_color: roof_color, fascia_color: fascia_color,
+                 roof_material: roof_material, thickness: thickness,
+                 ridge_cap: ridge_cap, gable_walls: gable_walls,
+                 soffit: soffit, soffit_color: soffit_color,
+                 soffit_slope: soffit_slope, gutter: gutter,
+                 gutter_profile: gutter_profile, gutter_width: gutter_width,
+                 gutter_color: gutter_color, downspouts: downspouts,
+                 abut_headroom: abut_headroom, dutch_depth: dutch_depth }
+          puts "[Roof] level #{lvl}: #{bldgs.length} buildings - one roof each"
+          made = bldgs.sort_by { |b| -b.length }.map do |b|
+            build_roof!(**kw, level: lvl, building: b)
+          end
+          return made.compact.last
+        end
+      end
+      # only a storey with several buildings, or a named one, changes the
+      # wall list - a single building keeps the very same list as before
+      walls = bldgs.first if (many || !building.nil?) && bldgs.first
       # A storey with another storey above it only gets a roof over the
       # part that is open to the sky (2026-08-26, user: "הוא בנה על כל
       # הקומה כולל בתוך הבית"). When the storey above crosses this one,
@@ -1645,6 +1754,13 @@ module InteriorPro
         (w.get_attribute('InteriorPro', 'level') || 1).to_i > lvl &&
           (w.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior'
       end
+      # ...and only the upper building that stands OVER THIS one
+      # (2026-09-14). eave_polygon picks the largest loop, so with a
+      # second building on the storey above (or a detached one drawn on
+      # level 2 by mistake) the house's ground floor was measured against
+      # the WRONG upper outline, came out "not covered", and grew a roof
+      # band under its own second storey again.
+      uppers = upper_over(walls, uppers) if uppers.length >= 3
       if walls.length >= 3 && !uppers.empty?
         ep = exposed_polygon(walls, uppers, s[:overhang])
         if ep
@@ -1898,7 +2014,11 @@ module InteriorPro
                  [replace]
                elsif level
                  roofs.select do |r|
-                   (r.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+                   next false unless (r.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+                   # named building: only a roof standing on ITS walls
+                   # goes. A roof with no saved walls (older model) is
+                   # taken by the first building built, as before.
+                   building.nil? || roof_on_walls?(r, walls)
                  end
                else
                  roofs

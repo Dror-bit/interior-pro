@@ -382,8 +382,8 @@ module InteriorPro
       }
       sky_cmd.tooltip = 'Skylight - size and colour, then click a roof slope'
       sky_cmd.status_bar_text = 'Open the skylight panel and place one on a roof'
-      sky_cmd.small_icon = icon_path('dormer_tool')
-      sky_cmd.large_icon = icon_path('dormer_tool')
+      sky_cmd.small_icon = icon_path('skylight_tool')
+      sky_cmd.large_icon = icon_path('skylight_tool')
       # ITS OWN FAMILY (the user, 2026-09-14: "אולי אפילו עמודה משלו כי
       # צריך גם כפתור עריכה וגם הזזה"). Place, Edit, Move, Delete - read
       # left to right, between two separators.
@@ -395,8 +395,8 @@ module InteriorPro
       }
       sedit_cmd.tooltip = 'Edit Skylight - click a skylight to open its panel'
       sedit_cmd.status_bar_text = 'Click a skylight to change its size or colour'
-      sedit_cmd.small_icon = icon_path('dormer_edit')
-      sedit_cmd.large_icon = icon_path('dormer_edit')
+      sedit_cmd.small_icon = icon_path('skylight_edit')
+      sedit_cmd.large_icon = icon_path('skylight_edit')
       tb.add_item(sedit_cmd)
 
       smove_cmd = UI::Command.new('Move Skylight') {
@@ -404,8 +404,8 @@ module InteriorPro
       }
       smove_cmd.tooltip = 'Move Skylight - click it, then click where it goes'
       smove_cmd.status_bar_text = 'Move a skylight to another place on the roof'
-      smove_cmd.small_icon = icon_path('dormer_move')
-      smove_cmd.large_icon = icon_path('dormer_move')
+      smove_cmd.small_icon = icon_path('skylight_move')
+      smove_cmd.large_icon = icon_path('skylight_move')
       tb.add_item(smove_cmd)
 
       sdel_cmd = UI::Command.new('Delete Skylight') {
@@ -413,8 +413,8 @@ module InteriorPro
       }
       sdel_cmd.tooltip = 'Delete Skylight - click a skylight; its hole is closed'
       sdel_cmd.status_bar_text = 'Delete a skylight and close the holes it cut'
-      sdel_cmd.small_icon = icon_path('dormer_delete')
-      sdel_cmd.large_icon = icon_path('dormer_delete')
+      sdel_cmd.small_icon = icon_path('skylight_delete')
+      sdel_cmd.large_icon = icon_path('skylight_delete')
       tb.add_item(sdel_cmd)
 
 

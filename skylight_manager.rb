@@ -26,6 +26,7 @@ module InteriorPro
   module SkylightManager
     USE_SKYLIGHTS      = true unless const_defined?(:USE_SKYLIGHTS, false)
     USE_SKYLIGHT_SHAFT = true unless const_defined?(:USE_SKYLIGHT_SHAFT, false)
+    USE_SKYLIGHT_FLASHING = false unless const_defined?(:USE_SKYLIGHT_FLASHING, false) # OFF: he saw it and said no (2026-09-14)
 
     # Methods, not constants: a constant is not re-read by reload!.
     def self.default_width;  30.0; end   # across the slope
@@ -36,6 +37,9 @@ module InteriorPro
     def self.frame_width;     2.0; end   # the border round the glass
     def self.default_color;  '#ffffff'; end
     def self.min_size;       12.0; end
+    def self.flashing_apron;  4.0; end   # up and down the slope, past the frame
+    def self.flashing_side;   6.0; end   # across the slope when the roof has no tile pitch
+    def self.flashing_lift;   0.06; end  # a hair off the deck, so it does not fight it
     def self.max_size;      120.0; end
 
     def self.last_reason; @last_reason; end
@@ -182,6 +186,7 @@ module InteriorPro
       grp = roof.entities.add_group
       grp.name = 'InteriorPro_Skylight'
       build_body!(grp, top_ring, under_ring, n, sp[:color], model)
+      build_flashing!(grp, plan, at, z_at, n, sp[:color], model, roof, face) if USE_SKYLIGHT_FLASHING
 
       shaft = 0
       if USE_SKYLIGHT_SHAFT
@@ -271,6 +276,84 @@ module InteriorPro
       pane.material = glass_mat
       pane.back_material = glass_mat
       true
+    end
+
+    # PURE: how far the flashing reaches past the hole, [up/down, across].
+    # Across the slope it reaches one tile PITCH: a run that had to come
+    # out because the frame took a bite of it leaves bare deck up to the
+    # next run, and that is exactly the strip a real flashing apron hides
+    # (2026-09-14, his Roman roof: a 14" run with 6" under the window went
+    # whole, and he asked for flashing before a lengthwise cut).
+    def self.flashing_reach(shape)
+      side = flashing_side
+      if shape.is_a?(Hash)
+        p = shape[:run_pitch].to_f
+        p = shape[:tile_w].to_f if p <= 0.0
+        side = [p, side].max if p > 0.0
+      end
+      [flashing_apron, side]
+    end
+
+    # PURE: the plan ring grown by [apron, side] in the roof frame.
+    def self.grow_plan(plan, apron, side)
+      s0 = plan.map(&:first).min - apron
+      s1 = plan.map(&:first).max + apron
+      w0 = plan.map(&:last).min - side
+      w1 = plan.map(&:last).max + side
+      [[s0, w0], [s0, w1], [s1, w1], [s1, w0]]
+    end
+
+    # A flat apron round the frame, lying on the deck, in the frame's
+    # colour. Four quads between the hole ring and the grown ring - a
+    # band, not a face with a hole - lifted a hair off the deck.
+    def self.build_flashing!(grp, plan, at, z_at, n, hex, model, roof, face = nil)
+      shape = nil
+      if roof && defined?(InteriorPro::RoofTileMath)
+        name = roof.get_attribute('InteriorPro', 'roof_material').to_s
+        shape = InteriorPro::RoofTileMath.shape(name) rescue nil
+      end
+      apron, side = flashing_reach(shape)
+      # the apron must stay on this same slope - past its edge it would
+      # float in the air. Halved until it fits; nothing at all if even a
+      # thin one runs off.
+      outer_plan = nil
+      6.times do
+        try = grow_plan(plan, apron, side)
+        if face.nil? || corners_on_face?(face, at, try)
+          outer_plan = try
+          break
+        end
+        apron /= 2.0
+        side /= 2.0
+      end
+      return false if outer_plan.nil? || (apron < 0.5 && side < 0.5)
+      ring = lambda do |pl|
+        pl.map do |sq, wq|
+          q = at.call(sq, wq, 0.0)
+          Geom::Point3d.new(q.x, q.y, z_at.call(q.x, q.y)).offset(n, flashing_lift)
+        end
+      end
+      inner = ring.call(plan)
+      outer = ring.call(outer_plan)
+      mat = get_material(model, "InteriorPro_Skylight_#{hex.delete('#')}",
+                         Sketchup::Color.new(hex))
+      made = 0
+      inner.length.times do |i|
+        j = (i + 1) % inner.length
+        f = begin
+          grp.entities.add_face([inner[i], inner[j], outer[j], outer[i]])
+        rescue StandardError
+          nil
+        end
+        next unless f && f.valid?
+        f.material = mat
+        f.back_material = mat
+        made += 1
+      end
+      made.positive?
+    rescue StandardError => e
+      puts "[Skylight] build_flashing!: #{e.class}: #{e.message}"
+      false
     end
 
     # THE HOLE IN THE CEILING AND THE SHAFT UP TO THE ROOF. The ceiling

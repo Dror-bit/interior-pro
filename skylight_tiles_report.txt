@@ -1,0 +1,28 @@
+TIME 2026-09-02 15:59:21 -0700
+
+== roof 0: material="shingle" runs?=false run_flat?=false
+
+== roof 1: material="roman" runs?=true run_flat?=false
+   shape: {:tile_w=>13.0, :exposure=>14.0, :relief=>1.0, :scallop=>0.45, :stagger=>false, :texture=>"roof_roman_tile.jpg", :label=>"Roman Tile (flat pan)", :run_pitch=>10.0, :run_cover=>1.4, :run_rise=>0.2742857142857143, :cap_w=>13.0, :cap_crown=>1.42, :cap_round=>true}
+
+-- skylight 0: hole x 1120.7..1175.7  y 335.7..375.7  z 202.0..228.8
+   19 piece(s) within 40" (sorted by y then x):
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 287.5..301.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 297.5..311.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 307.5..321.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 317.5..331.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 327.5..341.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 327.5..341.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 337.5..351.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 337.5..351.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 347.5..361.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 347.5..361.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 357.5..371.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 357.5..371.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 367.5..381.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 367.5..381.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1121.8  y 377.5..391.5  z 227.8..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1176.0..1204.2  y 377.5..391.5  z 207.2..218.1
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 387.5..401.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 397.5..411.5  z 207.2..247.3
+     inst:IP_TileRun_roman_14.00_3.84_0.33_10.00_8 x 1059.0..1204.2  y 407.5..421.5  z 207.2..247.3

@@ -248,5 +248,24 @@ dl_src = File.read('skylight_dialog.rb', encoding: 'UTF-8')
 ok('the panel opened on a skylight rebuilds THAT one instead of placing',
    dl_src.include?('InteriorPro::SkylightManager.replace!(tgt, sp)'), nil)
 
+# ---- flashing (2026-09-14, "בוא ננסה פלאשינג קודם") ----------------------
+ok('there is a kill switch for the flashing', SM.const_defined?(:USE_SKYLIGHT_FLASHING), nil)
+r_roman = SM.flashing_reach(run_pitch: 10.0, tile_w: 13.0)
+ok('on a Roman roof the apron reaches one run pitch across the slope',
+   r_roman == [SM.flashing_apron, 10.0], r_roman)
+r_none = SM.flashing_reach(nil)
+ok('on a roof with no tile pitch it keeps a plain width',
+   r_none == [SM.flashing_apron, SM.flashing_side], r_none)
+ok('a pitch narrower than the plain width never shrinks the apron',
+   SM.flashing_reach(run_pitch: 2.0) == [SM.flashing_apron, SM.flashing_side], nil)
+gp = SM.grow_plan([[77.0, -15.0], [77.0, 15.0], [123.0, 15.0], [123.0, -15.0]], 4.0, 10.0)
+ok('the grown ring reaches 4" up and down and 10" across',
+   gp == [[73.0, -25.0], [73.0, 25.0], [127.0, 25.0], [127.0, -25.0]], gp)
+fl = File.read('skylight_manager.rb', encoding: 'UTF-8')[/def self\.build_flashing!.*?\n    end\n/m].to_s
+ok('the flashing is a band of four quads lifted a hair off the deck',
+   fl.include?('offset(n, flashing_lift)') && fl.include?('[inner[i], inner[j], outer[j], outer[i]]'), nil)
+ok('...and it is halved until it stays on the slope',
+   fl.include?('corners_on_face?(face, at, try)') && fl.include?('apron /= 2.0'), nil)
+
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
