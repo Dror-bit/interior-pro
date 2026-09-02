@@ -1913,6 +1913,14 @@ module InteriorPro
                      else
                        []
                      end
+      # SKYLIGHTS SURVIVE TOO (2026-09-14). Same shape as the dormers, one
+      # line up: read off the doomed roofs before they go, put back below.
+      kept_skylights = if defined?(InteriorPro::SkylightManager) &&
+                          InteriorPro::SkylightManager.respond_to?(:harvest)
+                         InteriorPro::SkylightManager.harvest(doomed)
+                       else
+                         []
+                       end
       doomed.each { |r| r.erase! if r.valid? }
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Roof'
@@ -2746,6 +2754,13 @@ module InteriorPro
           InteriorPro::DormerManager.replant!(grp, kept_dormers)
         rescue StandardError => e
           puts "[Roof] putting the dormers back: #{e.message}"
+        end
+      end
+      unless kept_skylights.empty?
+        begin
+          InteriorPro::SkylightManager.replant!(grp, kept_skylights)
+        rescue StandardError => e
+          puts "[Roof] putting the skylights back: #{e.message}"
         end
       end
       model.commit_operation

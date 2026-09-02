@@ -415,6 +415,17 @@ module InteriorPro
       dmove_cmd.large_icon = icon_path('dormer_move')
       tb.add_item(dmove_cmd)
 
+      # Skylight (2026-09-14). A hole in the slope with a low curb and one
+      # sheet of glass - "כמו חלון תמונה רק להחליף צבעים". Click a roof.
+      sky_cmd = UI::Command.new('Skylight') {
+        InteriorPro::SkylightDialog.show
+      }
+      sky_cmd.tooltip = 'Skylight - size and colour, then click a roof slope'
+      sky_cmd.status_bar_text = 'Open the skylight panel and place one on a roof'
+      sky_cmd.small_icon = icon_path('dormer_tool')
+      sky_cmd.large_icon = icon_path('dormer_tool')
+      tb.add_item(sky_cmd)
+
       ddel_cmd = UI::Command.new('Delete Dormer') {
         Sketchup.active_model.select_tool(InteriorPro::DormerDeleteTool.new)
       }

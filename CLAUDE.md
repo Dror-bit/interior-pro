@@ -200,6 +200,11 @@ building anything twice.
 
 ## Kill switches (turn a feature off without deleting it)
 
+- `InteriorPro::SkylightManager::USE_SKYLIGHTS = false` - no skylight can
+  be placed; nothing standing is touched (2026-09-14).
+- `InteriorPro::SkylightManager::USE_SKYLIGHT_SHAFT = false` - a skylight
+  cuts the roof only; the ceiling under it is left whole (2026-09-14).
+
 - `InteriorPro::RoofManager::USE_GABLE_SIDING = false` - the gable
   triangle keeps its white face and gets no boards (2026-09-12).
 
