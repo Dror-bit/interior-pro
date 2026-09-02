@@ -24,6 +24,12 @@ ENV['REAL_ROOMS'] = '1'
 require './sketchup_stub'
 require './roof_manager'
 require './dormer_manager'
+# 2026-09-13B: this suite pins the RAW gablet formulas, so the 6" the roof
+# now rides above the window is switched off here - exactly the way the
+# raised heel is kept out of these same formulas. rt148 pins the headroom.
+InteriorPro::DormerManager.send(:remove_const, :USE_DORMER_HEADROOM)
+InteriorPro::DormerManager.const_set(:USE_DORMER_HEADROOM, false)
+
 
 $fails = 0
 def ok(n, c, x = nil)

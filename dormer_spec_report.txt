@@ -1,0 +1,83 @@
+TIME 2026-09-01 17:31:35 -0700
+headroom method: 6.0
+dormers: 1
+
+== dormer 0
+-- attributes on the group --
+   along_xy = [-0.0, 1.0]
+   base_xy = [907.0, 368.39901460214026]
+   fascia_depth = 8.0
+   height = 40.0
+   into_xy = [1.0, 0.0]
+   length = 75.62500000000001
+   overhang = 6.0
+   pitch = 0.4166666666666667
+   place_mode = "depth"
+   roof_cut = 2
+   roof_thickness = 0.5
+   setback = 20.0
+   slope = 0.6666666666666666
+   style = "gable"
+   thickness = 5.0
+   type = "dormer"
+   wall_material = "Horizontal Siding"
+   width = 50.0
+   window = true
+   window_color = ""
+   window_h = 24.0
+   window_type = "Picture"
+   window_w = 38.0
+   z0 = 202.60092521257732
+   z_top = 300.93425854591067
+-- what dormer_spec hands over --
+   along = [-0.0, 1.0]
+   base = [907.0, 368.39901460214026]
+   fascia_depth = 8.0
+   into = [1.0, 0.0]
+   length = 75.62500000000001
+   overhang = 6.0
+   pitch = 0.4166666666666667
+   place_mode = "depth"
+   roof_thickness = 0.5
+   setback = 20.0
+   slope = 0.6666666666666666
+   style = "gable"
+   thickness = 5.0
+   wall_names = ["Horizontal Siding", nil]
+   width = 50.0
+   window = true
+   window_color = ""
+   window_h = 24.0
+   window_type = "Picture"
+   window_w = 38.0
+   z0 = 202.60092521257732
+   z_top = 300.93425854591067
+-- what frame() gives back for that spec --
+   length = 96.625
+   length_asked = 75.625
+   height = 54.0
+   height_asked = nil
+   headroom = 6.0
+   z0 = 202.601
+   z_front = 215.934
+   z_eave = 269.934
+   z_ridge = 280.351
+   s_front = 20.0
+   s_ridge = 116.625
+   setback = 20.0
+   width = 50.0
+   pitch = 0.417
+   slope = 0.667
+   style = "gable"
+-- what is actually standing --
+   InteriorPro_DormerWall: z 215.93 .. 279.85
+   InteriorPro_DormerWall: z 215.93 .. 269.43
+   InteriorPro_DormerWall: z 215.93 .. 269.43
+   InteriorPro_DormerRoof: z 266.89 .. 280.35
+   InteriorPro_DormerRoof: z 266.89 .. 280.35
+   InteriorPro_DormerFascia: z 258.93 .. 266.93
+   InteriorPro_DormerDrip: z 264.93 .. 279.85
+   InteriorPro_DormerSoffit: z 258.93 .. 262.18
+   InteriorPro_DormerRake: z 258.93 .. 279.85
+   InteriorPro_DormerSoffit: z 261.43 .. 272.6
+   InteriorPro_DormerWindow: z 228.93 .. 252.93

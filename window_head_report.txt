@@ -1,0 +1,21 @@
+TIME 2026-09-01 17:24:41 -0700
+headroom = 6.0
+dormers: 1
+
+== dormer 0
+   height = 30.0
+   length = 63.4
+   height_asked = nil
+   length_asked = nil
+   width = 50.0
+   setback = 20.0
+   style = "gable"
+   pitch = 0.4166666666666667
+   dormer bounds z 213.88 .. 256.3
+   InteriorPro_DormerWall: z 213.88 .. 253.79
+     WINDOW HOLE: z 219.88 .. 233.88  (height 14.0)
+     WINDOW HOLE: z 219.88 .. 233.88  (height 14.0)
+   InteriorPro_DormerWall: z 213.88 .. 243.38
+   InteriorPro_DormerWall: z 213.88 .. 243.38
+   InteriorPro_DormerRoof: z 240.83 .. 254.29
+   InteriorPro_DormerRoof: z 240.83 .. 254.29

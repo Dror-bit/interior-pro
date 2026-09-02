@@ -5193,8 +5193,19 @@ module InteriorPro
         # same list it always was.
         bl = [tz_bot_at(tz, t + 1.0e-6), tz_bot_at(tz, te - 1.0e-6)]
         tz.each { |p| bl << tz_bot_at(tz, p[0]) if p[0] > t && p[0] < te }
-        bot = bl.compact.max
-        zt = nil if !bot.nil? && bot > z0 + 0.05
+        # THE BOARD RUNS INTO THE ROOF, IT IS NOT CUT SHORT ABOVE IT
+        # (2026-09-13B). The first cut dropped the whole bite as soon as the
+        # roof had climbed past the course bottom, and that is what left the
+        # staircase of square ends hanging in the air - he drew the red line
+        # along them. A course cut on the diagonal instead was tried and
+        # looked worse (thick slabs standing off the wall), so the rule he
+        # asked for is the builder's own: let the board run on under the
+        # roof and let the roof cover it. A bite is kept while ANY of it is
+        # still above the roof, and dropped once the roof has swallowed it.
+        # A gable triangle's floor is level and far below, so every bite is
+        # kept exactly as before.
+        bot = bl.compact.min
+        zt = nil if !zt.nil? && !bot.nil? && bot > zt - 0.5
         segs << [t, te, zt] if zt && zt - z0 > 0.5
         t = te
       end

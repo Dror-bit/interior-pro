@@ -50,9 +50,16 @@ ok('the floor is never above the ceiling',
 # ---- horizontal courses do not hang below the floor ------------------
 # a course sitting at z=10 may only be laid where the floor is <= 10.
 runs = RF.gable_course_runs(CHEEK, 0.0, 120.0, 10.0, 16.0, 6.0)
-ok('a low course is laid only where the wall is still there',
-   runs.all? { |ta, _tb, _z| RF.tz_bot_at(CHEEK, ta + 0.001) <= 10.05 },
-   runs)
+# 2026-09-13B: the rule CHANGED here. It used to stop a course as soon as
+# the roof had climbed past its bottom, and that is what left the staircase
+# of square ends floating above the roof in his photo. Now the board RUNS
+# ON UNDER THE ROOF and the roof covers it. What must still hold is what
+# this test was really guarding: a board the roof has completely swallowed
+# is never built, so nothing hangs in the room below.
+ok('a course is laid only while some of it is still above the roof',
+   runs.all? do |ta, tb, z|
+     [RF.tz_bot_at(CHEEK, ta + 0.001), RF.tz_bot_at(CHEEK, tb - 0.001)].min < z
+   end, runs)
 ok('and it does not run the whole length',
    runs.empty? || runs.map { |_a, b, _z| b }.max < 120.0, runs)
 

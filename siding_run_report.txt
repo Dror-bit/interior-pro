@@ -1,0 +1,26 @@
+TIME 2026-09-01 15:25:05 -0700
+RoofManager loaded: true
+gable_course_runs synthetic -> [[0.0, 42.0, 16.0]]
+reach = 42.0   (OLD code stops at 24.0, NEW code reaches ~42.0)
+LOADED CODE IS: NEW
+model: claud cold
+top-level roof groups: 2
+--- walk ---
+  SIDING GROUP /InteriorPro_Roof/InteriorPro_GableWall/InteriorPro_GableSiding  pieces=102  z 202.0..265.9
+  SIDING GROUP /InteriorPro_Roof/InteriorPro_GableWall/InteriorPro_GableSiding  pieces=102  z 202.0..265.9
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer  wall_material="Horizontal Siding"
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall  wall_material=nil
+  SIDING GROUP /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall/InteriorPro_GableSiding  pieces=17  z 213.9..251.7
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall  wall_material=nil
+  SIDING GROUP /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall/InteriorPro_GableSiding  pieces=4  z 219.9..243.4
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall  wall_material=nil
+  SIDING GROUP /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWall/InteriorPro_GableSiding  pieces=4  z 219.9..243.4
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerRoof  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerRoof  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerFascia  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerDrip  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerSoffit  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerRake  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerWindow  wall_material=nil
+  DORMER /InteriorPro_Roof/InteriorPro_Dormer/InteriorPro_DormerSoffit  wall_material=nil
+wall exterior materials: {"Board and Batten"=>8}

@@ -51,6 +51,7 @@ module InteriorPro
     # and the walls go back to the plain white face, which is right on
     # its own.
     USE_DORMER_SIDING = true unless const_defined?(:USE_DORMER_SIDING, false)
+    USE_DORMER_HEADROOM = true unless const_defined?(:USE_DORMER_HEADROOM, false)
     TRIM_THICK        = 0.75 unless const_defined?(:TRIM_THICK, false)
     TRIM_DRIP_THICK   = 0.1  unless const_defined?(:TRIM_DRIP_THICK, false)
     TRIM_DRIP_DEPTH   = 2.0  unless const_defined?(:TRIM_DRIP_DEPTH, false)
@@ -91,6 +92,22 @@ module InteriorPro
     # How far the gablet's own eave tail falls below the wall it stands
     # on: its overhang times ITS OWN pitch. A shed's pitch is its own
     # (default: half the roof's); a flat gablet has none at all.
+    # SIX INCHES OF WALL ABOVE THE WINDOW (2026-09-13B). "תרים את הגג 6
+    # אינץ' כדי שהוא לא ישב על החלון", and when asked which of the two to
+    # move he chose the roof: "להעלות את הגג למעלה".
+    #
+    # The roof rides up by this much on top of the heel and the walls grow
+    # with it. THE WINDOW IS NOT TOUCHED: its size still comes off the
+    # real wall top, exactly as before, and only where it is CENTRED uses
+    # the wall top less this number - so the window stays where it was and
+    # the six inches all land above it. The first cut of this subtracted
+    # the headroom from the size as well and his window came back 10"
+    # shorter, which is the opposite of what he asked for.
+    # Kill switch: InteriorPro::DormerManager::USE_DORMER_HEADROOM = false.
+    def self.dormer_headroom
+      USE_DORMER_HEADROOM ? 6.0 : 0.0
+    end
+
     def self.dormer_heel(overhang, style, pitch, slope, spec)
       return 0.0 unless USE_DORMER_HEEL
       # A flat gablet has no pitch and so no falling tail - but its fascia
@@ -209,21 +226,22 @@ module InteriorPro
       # built height; only what is written down changes.
       height_asked = spec[:height].to_f > 0.0 ? spec[:height].to_f : nil
       heel = dormer_heel(oh, style_now, pitch, slope, spec)
-      if heel > 0.0
+      hr = dormer_headroom
+      if heel > 0.0 || hr > 0.0
         den = if style_now == 'shed'
                 p2 = spec.key?(:pitch) ? spec[:pitch].to_f : slope / 2.0
                 slope - p2
               else
                 slope
               end
-        length += heel / den if den > 0.0001
+        length += (heel + hr) / den if den > 0.0001
       end
 
       half     = width / 2.0
       s_front  = setback
       s_ridge  = setback + length          # the ridge dies here
       cap = ridge_cap_check(spec, z0, slope, setback, half, pitch, s_ridge,
-                            style_now, width, heel)
+                            style_now, width, heel + hr)
       return nil unless cap.nil?
       z_front  = z0 + s_front * slope      # roof surface at the front wall
       z_ridge  = z0 + s_ridge * slope
@@ -236,6 +254,7 @@ module InteriorPro
         if sfr
           sfr[:length_asked] = length_asked
           sfr[:height_asked] = height_asked
+          sfr[:headroom] = hr
         end
         return sfr
       end
@@ -303,7 +322,7 @@ module InteriorPro
       { z0: z0, slope: slope, pitch: pitch, setback: setback, style: style,
         s_hip: s_hip,
         width: width, length: length, length_asked: length_asked,
-        height_asked: height_asked,
+        height_asked: height_asked, headroom: hr,
         half: half, overhang: oh,
         thickness: th, roof_thickness: rt,
         s_front: s_front, s_ridge: s_ridge, s_eave: s_eave, s_cheek: s_cheek,
@@ -1538,7 +1557,8 @@ module InteriorPro
       # centred in the clear wall: the two margins come out equal, which
       # is what he drew back at me.
       { w: 0.0, width: width, height: height,
-        z: (fr[:z_front].to_f + wall_top_over(fr, width / 2.0)) / 2.0 }
+        z: (fr[:z_front].to_f +
+            wall_top_over(fr, width / 2.0) - fr[:headroom].to_f) / 2.0 }
     end
 
     # The hole itself: the rectangle is drawn on the outer face and on the
