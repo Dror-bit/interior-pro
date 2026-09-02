@@ -195,7 +195,17 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'curb', curb_height)
       grp.set_attribute('InteriorPro', 'at_xy', [x.to_f, y.to_f])
       grp.set_attribute('InteriorPro', 'shaft', shaft)
+      grp.set_attribute('InteriorPro', 'plan_xy',
+                        top_ring.flat_map { |p| [p.x.to_f, p.y.to_f] })
       grp.set_attribute('InteriorPro', 'created_at', Time.now.to_s)
+      # THE TILES ARE LAID AGAIN AROUND THE HOLE (2026-09-14, the user:
+      # "הוא לא חוצה את הגגות האחרים אלא רק את השינגלס"). Shingles are a
+      # texture on the deck, so cutting the deck cut them. Clay, metal and
+      # every other run material is real pieces standing ON the deck, and
+      # those stayed put over the opening. The dormer has the same problem
+      # and the same answer: RoofTilePlace.relay_runs! reads the deck's
+      # holes and lays the field again around them.
+      relay_tiles!(roof) unless (spec || {})[:no_relay]
       puts "[Skylight] placed #{sp[:width].round}\" x #{sp[:height].round}\" " \
            "#{sp[:color]} (#{rings.length} skin(s) cut, shaft to " \
            "#{shaft} ceiling(s))"
@@ -436,6 +446,163 @@ module InteriorPro
       []
     end
 
+    # WHICH HOLES ARE OURS (2026-09-14). The tile machine grows a dormer's
+    # hole out to the wall face and lets a run hide under the wall; a
+    # skylight's frame stands ON the deck's own edge, so its hole must
+    # not grow and nothing may cross it. This answers 0.0 for a hole whose
+    # centre is a skylight's click point, nil for anything else - see
+    # RoofTilePlace.hole_th_for. Pure apart from reading the attributes.
+    def self.hole_th_proc(roof)
+      pts = skylight_points(roof)
+      lambda do |hole|
+        next nil if pts.empty? || hole.nil? || hole.length < 3
+        cx = hole.map { |p| p.x.to_f }.sum / hole.length
+        cy = hole.map { |p| p.y.to_f }.sum / hole.length
+        near = pts.any? { |x, y| Math.sqrt((x - cx)**2 + (y - cy)**2) <= hole_match_tol }
+        near ? 0.0 : nil
+      end
+    end
+
+    def self.hole_match_tol
+      3.0
+    end
+
+    # the click points of every skylight standing on this roof
+    def self.skylight_points(roof)
+      return [] if roof.nil? || !roof.respond_to?(:entities)
+      roof.entities.grep(Sketchup::Group).map do |g|
+        next nil unless g.get_attribute('InteriorPro', 'type') == 'skylight'
+        xy = g.get_attribute('InteriorPro', 'at_xy')
+        xy.is_a?(Array) && xy.length == 2 ? [xy[0].to_f, xy[1].to_f] : nil
+      end.compact
+    rescue StandardError
+      []
+    end
+
+    def self.relay_tiles!(roof)
+      return 0 unless defined?(InteriorPro::RoofTilePlace) &&
+                      InteriorPro::RoofTilePlace.respond_to?(:relay_runs!)
+      InteriorPro::RoofTilePlace.relay_runs!(roof)
+    rescue StandardError => e
+      puts "[Skylight] relay_tiles!: #{e.message}"
+      0
+    end
+
+    # ---------- EDIT / MOVE / DELETE -----------------------------------
+
+    # The roof group this skylight stands in.
+    def self.roof_of(g)
+      return nil if g.nil? || !g.valid?
+      Sketchup.active_model.entities.grep(Sketchup::Group).find do |r|
+        r.valid? && r.get_attribute('InteriorPro', 'type') == 'roof' &&
+          r.entities.include?(g)
+      end
+    rescue StandardError
+      nil
+    end
+
+    def self.spec_of(g)
+      clean_spec(width: g.get_attribute('InteriorPro', 'width'),
+                 height: g.get_attribute('InteriorPro', 'height'),
+                 color: g.get_attribute('InteriorPro', 'color'))
+    end
+
+    # The hole's own ring in plan, as it was cut - saved on the group so
+    # Delete closes the hole that is really there, not one recomputed
+    # from a roof that may have changed since.
+    def self.plan_xy_of(g)
+      flat = g.get_attribute('InteriorPro', 'plan_xy')
+      return nil unless flat.is_a?(Array) && flat.length >= 6
+      flat.each_slice(2).map { |x, y| [x.to_f, y.to_f] }
+    end
+
+    # PURE: is (x, y) inside the ring, or within `slack` of it?
+    def self.in_ring?(ring, x, y, slack = 0.5)
+      return true if InteriorPro::DormerManager.point_in_ring?(ring, x, y)
+      InteriorPro::DormerManager.ring_distance(ring, x, y) <= slack
+    end
+
+    # THE INVERSE OF THE CUT. Every inner loop lying inside the ring, on a
+    # face of the right kind, is skinned again and its rim taken down -
+    # through the dormer's own close_loop!, which is where the three hard
+    # lessons of 2026-09-02B live (find_faces not add_face; rim after
+    # skin; erase the seam). Returns how many openings were closed.
+    def self.heal_ring!(ents, ring, level_only)
+      return 0 if ents.nil? || ring.nil?
+      found = []
+      ents.grep(Sketchup::Face).each do |f|
+        next unless f.valid? && f.respond_to?(:loops)
+        nz = f.normal.z.abs
+        next if level_only ? nz < 0.9 : nz < 0.2
+        next if f.loops.length < 2
+        f.loops.each do |lp|
+          next if lp.outer?
+          pts = lp.vertices.map(&:position)
+          next unless pts.all? { |p| in_ring?(ring, p.x, p.y, 0.5) }
+          found << [lp, f]
+        end
+      end
+      done = 0
+      found.each do |lp, host|
+        done += 1 if InteriorPro::DormerManager.close_loop!(ents, lp, host, nil)
+      end
+      stray = ents.grep(Sketchup::Edge).select do |e|
+        next false unless e.valid? && e.faces.empty?
+        in_ring?(ring, e.start.position.x, e.start.position.y, 0.5) &&
+          in_ring?(ring, e.end.position.x, e.end.position.y, 0.5)
+      end
+      ents.erase_entities(stray) unless stray.empty?
+      done
+    rescue StandardError => e
+      puts "[Skylight] heal_ring!: #{e.class}: #{e.message}"
+      0
+    end
+
+    # Take one skylight out and close the holes it cut - in the roof and
+    # in the ceiling under it. Returns true when the group is gone.
+    def self.remove!(g, opts = {})
+      return false if g.nil? || !g.valid?
+      return false unless g.get_attribute('InteriorPro', 'type') == 'skylight'
+      roof = roof_of(g)
+      ring = plan_xy_of(g)
+      model = Sketchup.active_model
+      g.erase! if g.valid?
+      closed = 0
+      if ring
+        closed += heal_ring!(roof.entities, ring, false) if roof
+        model.entities.grep(Sketchup::Group).each do |c|
+          next unless c.valid? && c.get_attribute('InteriorPro', 'type') == 'ceiling'
+          closed += heal_ring!(c.entities, ring, true)
+        end
+      end
+      puts "[Skylight] removed, #{closed} opening(s) closed"
+      relay_tiles!(roof) if roof && !opts[:no_relay]
+      true
+    rescue StandardError => e
+      puts "[Skylight] remove!: #{e.class}: #{e.message}"
+      false
+    end
+
+    # Edit: the same place, new numbers. Returns the new group.
+    def self.replace!(g, spec)
+      roof = roof_of(g)
+      xy = g.get_attribute('InteriorPro', 'at_xy')
+      return warn_nil('that skylight has no place saved on it') unless
+        roof && xy.is_a?(Array) && xy.length == 2
+      sp = clean_spec(spec)
+      return nil unless remove!(g, no_relay: true)
+      place_on_roof!(roof, xy[0].to_f, xy[1].to_f, sp)
+    end
+
+    # Move: the same numbers, a new place. Returns the new group.
+    def self.move!(g, x, y)
+      roof = roof_of(g)
+      return warn_nil('that skylight is not on a roof') if roof.nil?
+      sp = spec_of(g)
+      return nil unless remove!(g, no_relay: true)
+      place_on_roof!(roof, x.to_f, y.to_f, sp)
+    end
+
     # ---------- SURVIVING A ROOF REBUILD ------------------------------
 
     # Every skylight on these roofs, as {x:, y:, spec:} - enough to put it
@@ -464,8 +631,11 @@ module InteriorPro
       return 0 if roof.nil? || saved.nil? || saved.empty?
       back = 0
       saved.each do |d|
-        back += 1 unless place_on_roof!(roof, d[:x], d[:y], d[:spec]).nil?
+        back += 1 unless place_on_roof!(roof, d[:x], d[:y],
+                                        d[:spec].merge(no_relay: true)).nil?
       end
+      # one relay for all of them, after every hole is cut
+      relay_tiles!(roof) if back.positive?
       lost = saved.length - back
       puts "[Skylight] #{back} skylight(s) put back on the new roof" if back.positive?
       puts "[Skylight] #{lost} skylight(s) could not be put back" if lost.positive?

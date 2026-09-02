@@ -42,6 +42,43 @@ module InteriorPro
     # the moment Spanish Tile shrank, and a brake that fires in NORMAL use is
     # not a brake - it is a roof with no tiles on it and no visible reason why.
     # It is still here for a runaway; it is no longer here for a big house.
+    # WHICH HOLE IS THIS (2026-09-14). Until today every hole in the deck
+    # was a dormer's: the deck's opening sits one wall thickness INSIDE
+    # where the tiles must stop, so the outline is pushed out by that much
+    # and a run may hide that far under the wall. A SKYLIGHT's hole is
+    # different - its frame stands exactly on the deck's own edge, so
+    # nothing may cross the line. On his Spanish and Roman roofs the
+    # pieces ran into the frame ("הספניש והרומן חותך את החלון").
+    #
+    # opts[:hole_th] is a proc: given a hole (its world points) it answers
+    # the thickness a piece may hide under, or nil for "the roof's usual".
+    # SkylightManager.hole_th_proc supplies one; a call without it - every
+    # old caller - behaves exactly as before.
+    def self.hole_th_for(h, opts)
+      p = opts[:hole_th]
+      if p.respond_to?(:call)
+        v = p.call(h)
+        return v.to_f unless v.nil?
+      end
+      (opts[:wall_th] || opts[:hole_grow] || 0.0).to_f
+    end
+
+    # How far a hole's outline is pushed out before a piece is cut to it.
+    # A hole the proc claims is pushed out by a hair of clearance instead
+    # of the roof's usual, so a flat plate stops just clear of the lip.
+    def self.hole_grow_for(h, opts, usual = nil)
+      p = opts[:hole_th]
+      if p.respond_to?(:call)
+        v = p.call(h)
+        return skylight_clear unless v.nil?
+      end
+      (usual || opts[:hole_grow] || 0.0).to_f
+    end
+
+    def self.skylight_clear
+      0.25
+    end
+
     def self.max_instances
       16_000
     end
@@ -315,7 +352,7 @@ module InteriorPro
             h.map do |q|
               pr = InteriorPro::RoofTileMath.project(q, pu[:origin], pu[:u], pu[:v])
               [pr[0], pr[1]]
-            end, grow, :walls
+            end, hole_grow_for(h, opts, grow), :walls
           )
         end
         # The columns are the same list every course; only the phase moves.
@@ -816,7 +853,7 @@ module InteriorPro
             h.map do |q|
               pr = InteriorPro::RoofTileMath.project(q, pu[:origin], pu[:u], pu[:v])
               [pr[0], pr[1]]
-            end, grow, :walls
+            end, hole_grow_for(h, opts, grow), :walls
           )
         end
         # The columns are the same list every course; only the phase moves.
@@ -1321,14 +1358,16 @@ module InteriorPro
         # thickness. The deck's hole now stops on the wall's OUTER face, so
         # a piece may reach as far as the wall is thick and no further -
         # past that it is out the other side, in the room.
-        extra = half_piece - (opts[:wall_th] || opts[:hole_grow] || 0.0).to_f
-        extra = 0.0 if extra.negative?
+        # PER HOLE (2026-09-14): a dormer's hole may hide a piece under its
+        # wall, a SKYLIGHT's may not - see hole_th_for.
         holes_uv = (pl[:holes] || []).map do |h|
+          extra = half_piece - hole_th_for(h, opts)
+          extra = 0.0 if extra.negative?
           flat = h.map do |p|
             InteriorPro::RoofTileMath.project(p, pu[:origin], pu[:u], pu[:v])
           end
           flat = InteriorPro::RoofTileMath.grow_poly(
-            flat, (opts[:hole_grow] || 0.0).to_f, :walls
+            flat, hole_grow_for(h, opts), :walls
           )
           InteriorPro::RoofTileMath.grow_poly(flat, extra, :sides)
         end
@@ -1598,10 +1637,16 @@ module InteriorPro
       end
       ents.erase_entities(old) unless old.empty?
       faces = ents.grep(Sketchup::Face).select { |f| f.normal.z > 0.2 }
+      hole_th = opts[:hole_th]
+      if hole_th.nil? && defined?(InteriorPro::SkylightManager) &&
+         InteriorPro::SkylightManager.respond_to?(:hole_th_proc)
+        hole_th = InteriorPro::SkylightManager.hole_th_proc(roof)
+      end
       place_runs!(roof, planes_from_faces(faces), name,
                   model: opts[:model], material: mat,
                   hole_grow: opts[:hole_grow] || 0.0,
-                  wall_th: opts[:wall_th] || dormer_wall_thickness(roof))
+                  wall_th: opts[:wall_th] || dormer_wall_thickness(roof),
+                  hole_th: hole_th)
     rescue StandardError => e
       puts "[RoofTiles] relay_runs!: #{e.message}"
       0

@@ -1,0 +1,22 @@
+TIME 2026-09-02 15:36:49 -0700
+roofs: 2
+
+== roof 0: 0 skylight(s)
+   173 x Edge
+   98 x Face
+   18 x Group:InteriorPro_RidgeCap
+   4 x Group:InteriorPro_Downspout
+
+== roof 1: 1 skylight(s)
+   215 x Edge
+   111 x Face
+   32 x Group:InteriorPro_RidgeCap
+   4 x Group:InteriorPro_Downspout
+   2 x Group:InteriorPro_GableWall
+   1 x Group:InteriorPro_Skylight
+   1 x Group:InteriorPro_Dormer
+
+-- skylight 0 at (1136.2, 421.7) width=30.0 shaft=1
+   z 202.6..300.9  nz=0.83  holes=1  mat=InteriorPro_Roof_shingle_7f8385  path=(roof itself)
+   z 202.0..300.3  nz=0.83  holes=1  mat=InteriorPro_Roof_shingle_7f8385  path=(roof itself)
+   (2 face(s) over the point; a face with holes=1 was cut, holes=0 was NOT)

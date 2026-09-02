@@ -137,3 +137,135 @@ module InteriorPro
     end
   end
 end
+
+# ---------------------------------------------------------------------
+# Edit / Move / Delete (2026-09-14). Same click-to-pick shape as the
+# dormer's three tools, one type further in. Each tool owns no maths:
+# Edit opens the panel ON the skylight, Move and Delete call the manager.
+module InteriorPro
+  module SkylightPick
+    def pick_skylight(view, x, y)
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        path.each do |ent|
+          next unless ent.is_a?(Sketchup::Group)
+          return ent if ent.get_attribute('InteriorPro', 'type') == 'skylight'
+        end
+      end
+      nil
+    end
+
+    def onKeyDown(key, _repeat, _flags, _view)
+      Sketchup.active_model.select_tool(nil) if key == 27
+    end
+  end
+
+  class SkylightEditTool
+    include SkylightPick
+
+    def activate
+      Sketchup.set_status_text('Click a skylight to edit it (Esc to cancel)', SB_PROMPT)
+    end
+
+    def onLButtonDown(_flags, x, y, view)
+      g = pick_skylight(view, x, y)
+      return UI.messagebox('Click a skylight') if g.nil?
+      InteriorPro::SkylightDialog.show(g)
+      Sketchup.active_model.select_tool(nil)
+      view.invalidate
+    rescue StandardError => e
+      puts "[SkylightEditTool] #{e.class}: #{e.message}"
+    end
+
+    def getInstructions
+      'Click a skylight to open its panel.'
+    end
+  end
+
+  class SkylightDeleteTool
+    include SkylightPick
+
+    def activate
+      Sketchup.set_status_text('Click a skylight to delete it (Esc to cancel)', SB_PROMPT)
+    end
+
+    def onLButtonDown(_flags, x, y, view)
+      g = pick_skylight(view, x, y)
+      return UI.messagebox('Click a skylight') if g.nil?
+      model = Sketchup.active_model
+      model.start_operation('Delete Skylight', true)
+      ok = InteriorPro::SkylightManager.remove!(g)
+      model.commit_operation
+      UI.messagebox('The skylight could not be removed - see the Ruby Console.') unless ok
+      view.invalidate
+    rescue StandardError => e
+      puts "[SkylightDeleteTool] #{e.class}: #{e.message}"
+    end
+
+    def getInstructions
+      'Click a skylight to delete it and close its hole.'
+    end
+  end
+
+  # Click the skylight, then click where it goes. Between the two clicks
+  # the SkylightTool's own ghost is drawn, with the picked skylight's
+  # numbers, so what he sees is what will be built.
+  class SkylightMoveTool < SkylightTool
+    include SkylightPick
+
+    def initialize
+      super({})
+      @target = nil
+    end
+
+    def activate
+      super
+      @target = nil
+      Sketchup.set_status_text('Click the skylight to move (Esc to cancel)', SB_PROMPT)
+    end
+
+    def onMouseMove(flags, x, y, view)
+      return super if @target
+      view.invalidate
+    end
+
+    def draw(view)
+      super if @target
+    end
+
+    def onLButtonDown(_flags, x, y, view)
+      if @target.nil?
+        g = pick_skylight(view, x, y)
+        return UI.messagebox('Click a skylight') if g.nil?
+        @target = g
+        @spec = InteriorPro::SkylightManager.spec_of(g)
+        Sketchup.set_status_text('Now click where it goes (Esc to cancel)', SB_PROMPT)
+        return
+      end
+      roof, pt = pick_roof(view, x, y)
+      return UI.messagebox('Click a roof slope') if roof.nil? || pt.nil?
+      if ghost(roof, pt).nil?
+        why = InteriorPro::SkylightManager.last_reason
+        return UI.messagebox(why ? "The skylight #{why}" : 'It does not fit there.')
+      end
+      model = Sketchup.active_model
+      model.start_operation('Move Skylight', true)
+      g = InteriorPro::SkylightManager.move!(@target, pt.x, pt.y)
+      model.commit_operation
+      UI.messagebox('The skylight could not be moved - see the Ruby Console.') if g.nil?
+      @target = nil
+      Sketchup.active_model.select_tool(nil)
+      view.invalidate
+    rescue StandardError => e
+      puts "[SkylightMoveTool] #{e.class}: #{e.message}"
+      puts e.backtrace.first(5) if e.backtrace
+    end
+
+    def getInstructions
+      'Click a skylight, then click where it goes.'
+    end
+  end
+end

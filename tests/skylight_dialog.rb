@@ -6,7 +6,11 @@
 # and takes one click. Nothing else - "החלון עצמו פשוט".
 module InteriorPro
   module SkylightDialog
-    def self.show
+    # `target` (2026-09-14): the panel opened ON one skylight by the Edit
+    # tool. Its own numbers fill the controls and the button rebuilds THAT
+    # skylight where it stands, instead of starting a placing tool.
+    def self.show(target = nil)
+      @target = target && target.respond_to?(:valid?) && target.valid? ? target : nil
       if @dialog
         begin
           @dialog.close
@@ -16,7 +20,7 @@ module InteriorPro
         @dialog = nil
       end
       dlg = UI::HtmlDialog.new(
-        dialog_title: 'Interior Pro - Skylight',
+        dialog_title: @target ? 'Interior Pro - Edit Skylight' : 'Interior Pro - Skylight',
         preferences_key: 'InteriorPro_Skylight',
         width: 360, height: 330, resizable: true,
         min_width: 320, min_height: 280,
@@ -26,7 +30,22 @@ module InteriorPro
         sp = InteriorPro::SkylightManager.save_settings!(
           width: width.to_f, height: height.to_f, color: color.to_s
         )
-        Sketchup.active_model.select_tool(InteriorPro::SkylightTool.new(sp))
+        tgt = @target && @target.respond_to?(:valid?) && @target.valid? ? @target : nil
+        if tgt
+          model = Sketchup.active_model
+          model.start_operation('Edit Skylight', true)
+          g = InteriorPro::SkylightManager.replace!(tgt, sp)
+          model.commit_operation
+          if g.nil?
+            why = InteriorPro::SkylightManager.last_reason
+            UI.messagebox(why ? "The skylight #{why}" :
+                          'That change could not be built - see the Ruby Console.')
+          else
+            @target = g
+          end
+        else
+          Sketchup.active_model.select_tool(InteriorPro::SkylightTool.new(sp))
+        end
       end
       dlg.add_action_callback('close_dialog') do |_|
         begin
@@ -35,7 +54,9 @@ module InteriorPro
           nil
         end
       end
-      dlg.set_html(build_html(InteriorPro::SkylightManager.settings))
+      vals = @target ? InteriorPro::SkylightManager.spec_of(@target) :
+                       InteriorPro::SkylightManager.settings
+      dlg.set_html(build_html(vals, edit: !@target.nil?))
       begin
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError
@@ -45,7 +66,7 @@ module InteriorPro
       @dialog = dlg
     end
 
-    def self.build_html(s)
+    def self.build_html(s, edit: false)
       sm = InteriorPro::SkylightManager
       <<~HTML
         <!DOCTYPE html>
@@ -68,7 +89,7 @@ module InteriorPro
           button.go { background: #2b6cb0; color: #fff; border-color: #2b6cb0;
                       font-weight: 600; }
         </style></head><body>
-        <h3>Skylight</h3>
+        <h3>#{edit ? 'Edit Skylight' : 'Skylight'}</h3>
         <div class="row"><label>Width across the slope (in)</label>
           <input type="number" id="w" min="#{sm.min_size.to_i}" max="#{sm.max_size.to_i}"
                  step="1" value="#{s[:width].to_f.round(1)}"></div>
@@ -81,7 +102,7 @@ module InteriorPro
           ceiling under it, with a white shaft up to the roof.</div>
         <div class="btns">
           <button onclick="sketchup.close_dialog()">Close</button>
-          <button class="go" onclick="go()">Place on roof</button>
+          <button class="go" onclick="go()">#{edit ? 'Apply' : 'Place on roof'}</button>
         </div>
         <script>
           function go() {

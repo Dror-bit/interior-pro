@@ -142,5 +142,111 @@ ok('the frame lines the hole from the underside up to the lip',
 ok('...and no 4" curb stands on the roof any more', !bd.include?('curb_height'), nil)
 ok('the glass never hangs below a thin slab', bd.include?('depth * 0.5'), nil)
 
+# ---- the tiles are laid again around the hole (2026-09-14, "חותך רק את השינגלס")
+src3 = File.read('skylight_manager.rb', encoding: 'UTF-8')
+pl = src3[/def self\.place_on_roof!.*?\n    end\n/m].to_s
+ok('placing a skylight lays the tile field again around the new hole',
+   pl.include?('relay_tiles!(roof) unless (spec || {})[:no_relay]'), nil)
+ok('...through the same RoofTilePlace.relay_runs! the dormer uses',
+   src3.include?('InteriorPro::RoofTilePlace.relay_runs!(roof)'), nil)
+rp = src3[/def self\.replant!.*?\n    end\n/m].to_s
+ok('a rebuild relays ONCE after all of them, not once per skylight',
+   rp.include?('no_relay: true') && rp.include?('relay_tiles!(roof) if back.positive?'), nil)
+
+# ---- the tiles stop AT the frame, they do not run into it ----------------
+# (2026-09-14, his Spanish and Roman roofs: "הספניש והרומן חותך את החלון")
+require './roof_tile_place'
+TP = InteriorPro::RoofTilePlace
+Sketchup.reset_model! if Sketchup.respond_to?(:reset_model!)
+roof2 = Sketchup.active_model.entities.add_group
+roof2.set_attribute('InteriorPro', 'type', 'roof')
+sk2 = roof2.entities.add_group
+sk2.set_attribute('InteriorPro', 'type', 'skylight')
+sk2.set_attribute('InteriorPro', 'at_xy', [200.0, 300.0])
+proc2 = SM.hole_th_proc(roof2)
+sky_hole = [Geom::Point3d.new(185, 277, 0), Geom::Point3d.new(215, 277, 0),
+            Geom::Point3d.new(215, 323, 0), Geom::Point3d.new(185, 323, 0)]
+dor_hole = [Geom::Point3d.new(500, 100, 0), Geom::Point3d.new(560, 100, 0),
+            Geom::Point3d.new(560, 180, 0), Geom::Point3d.new(500, 180, 0)]
+ok('a hole centred on the skylight is ours: nothing may hide under it',
+   proc2.call(sky_hole) == 0.0, proc2.call(sky_hole))
+ok("any other hole is the roof usual (nil = as before)",
+   proc2.call(dor_hole).nil?, proc2.call(dor_hole))
+ok('a roof with no skylight claims nothing',
+   SM.hole_th_proc(Sketchup.active_model.entities.add_group).call(sky_hole).nil?, nil)
+
+opts = { wall_th: 5.0, hole_grow: 5.0, hole_th: proc2 }
+ok('the tile machine lets a run hide 5" under a dormer wall, as before',
+   TP.hole_th_for(dor_hole, opts) == 5.0, TP.hole_th_for(dor_hole, opts))
+ok('...and NOTHING under a skylight frame',
+   TP.hole_th_for(sky_hole, opts) == 0.0, TP.hole_th_for(sky_hole, opts))
+ok('a dormer hole still grows out to the wall face',
+   TP.hole_grow_for(dor_hole, opts) == 5.0, TP.hole_grow_for(dor_hole, opts))
+ok('a skylight hole grows only by a hair of clearance',
+   TP.hole_grow_for(sky_hole, opts) == TP.skylight_clear && TP.skylight_clear < 1.0,
+   TP.hole_grow_for(sky_hole, opts))
+ok('without the proc every hole behaves exactly as it always did',
+   TP.hole_th_for(sky_hole, wall_th: 5.0) == 5.0 &&
+   TP.hole_grow_for(sky_hole, hole_grow: 5.0) == 5.0 &&
+   TP.hole_grow_for(sky_hole, {}, 2.0) == 2.0, nil)
+tp_src = File.read('roof_tile_place.rb', encoding: 'UTF-8')
+ok('relay_runs! asks the skylights for the proc when none is given',
+   tp_src.include?('InteriorPro::SkylightManager.hole_th_proc(roof)'), nil)
+ok('...and both the run path and the flat-plate path use it',
+   tp_src.scan('hole_grow_for(h, opts').length >= 3 &&
+   tp_src.include?('extra = half_piece - hole_th_for(h, opts)'), nil)
+
+# ---- Edit / Move / Delete (2026-09-14, "צריך גם כפתור עריכה וגם הזזה") ----
+Sketchup.reset_model! if Sketchup.respond_to?(:reset_model!)
+roof3 = Sketchup.active_model.entities.add_group
+roof3.set_attribute('InteriorPro', 'type', 'roof')
+sk3 = roof3.entities.add_group
+sk3.set_attribute('InteriorPro', 'type', 'skylight')
+sk3.set_attribute('InteriorPro', 'width', 30.0)
+sk3.set_attribute('InteriorPro', 'height', 46.0)
+sk3.set_attribute('InteriorPro', 'color', '#abcdef')
+sk3.set_attribute('InteriorPro', 'at_xy', [100.0, 200.0])
+sk3.set_attribute('InteriorPro', 'plan_xy', [85.0, 177.0, 115.0, 177.0, 115.0, 223.0, 85.0, 223.0])
+ok('the roof a skylight stands in is found', SM.roof_of(sk3) == roof3, SM.roof_of(sk3))
+ok('a group that is not on a roof gives nil',
+   SM.roof_of(Sketchup.active_model.entities.add_group).nil?, nil)
+ok('its own numbers are read back as a clean spec',
+   SM.spec_of(sk3) == { width: 30.0, height: 46.0, color: '#abcdef' }, SM.spec_of(sk3))
+ring3 = SM.plan_xy_of(sk3)
+ok('the hole it cut is read back as a ring', ring3 == [[85.0, 177.0], [115.0, 177.0], [115.0, 223.0], [85.0, 223.0]], ring3)
+ok('a point inside the ring is inside', SM.in_ring?(ring3, 100.0, 200.0), nil)
+ok('a point a hair outside still counts, a foot outside does not',
+   SM.in_ring?(ring3, 115.3, 200.0, 0.5) && !SM.in_ring?(ring3, 127.0, 200.0, 0.5), nil)
+ok('a skylight with no saved ring gives nil, not a crash',
+   SM.plan_xy_of(Sketchup.active_model.entities.add_group).nil?, nil)
+
+sm_src = File.read('skylight_manager.rb', encoding: 'UTF-8')
+ok('the cut saves its ring on the group, so Delete closes the real hole',
+   sm_src.include?("grp.set_attribute('InteriorPro', 'plan_xy',"), nil)
+ok('Delete heals through the dormer\x27s own close_loop!, not a new one',
+   sm_src.include?('InteriorPro::DormerManager.close_loop!(ents, lp, host, nil)'), nil)
+rm = sm_src[/def self\.remove!.*?\n    end\n/m].to_s
+ok('Delete closes the roof AND the ceiling under it',
+   rm.include?('heal_ring!(roof.entities, ring, false)') &&
+   rm.include?('heal_ring!(c.entities, ring, true)'), nil)
+ok('Move and Edit are remove-then-place, relaying the tiles once',
+   sm_src[/def self\.move!.*?\n    end\n/m].to_s.include?('remove!(g, no_relay: true)') &&
+   sm_src[/def self\.replace!.*?\n    end\n/m].to_s.include?('remove!(g, no_relay: true)'), nil)
+
+tb_src = File.read('toolbar.rb', encoding: 'UTF-8')
+fam = tb_src[/tb\.add_separator.*?tb\.add_item\(sky_cmd\).*?tb\.add_item\(sdel_cmd\).*?tb\.add_separator/m]
+ok('the four skylight buttons sit in their own family between two separators',
+   !fam.nil? && fam.include?('sedit_cmd') && fam.include?('smove_cmd') &&
+   !fam.include?('dormer_cmd'), nil)
+ok('...and it comes before the dormer family, with the roof tools',
+   tb_src.index('tb.add_item(sky_cmd)') > tb_src.index('tb.add_item(dspout_cmd)') &&
+   tb_src.index('tb.add_item(sky_cmd)') < tb_src.index('tb.add_item(dormer_cmd)'), nil)
+tl_src = File.read('skylight_tool.rb', encoding: 'UTF-8')
+ok('the three tools exist',
+   %w[SkylightEditTool SkylightMoveTool SkylightDeleteTool].all? { |c| tl_src.include?("class #{c}") }, nil)
+dl_src = File.read('skylight_dialog.rb', encoding: 'UTF-8')
+ok('the panel opened on a skylight rebuilds THAT one instead of placing',
+   dl_src.include?('InteriorPro::SkylightManager.replace!(tgt, sp)'), nil)
+
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
