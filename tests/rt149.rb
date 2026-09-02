@@ -131,5 +131,16 @@ ok('a ring too small to inset gives nil',
    SM.inset_ring([Geom::Point3d.new(0, 0, 0), Geom::Point3d.new(3, 0, 0),
                   Geom::Point3d.new(3, 3, 0), Geom::Point3d.new(0, 3, 0)], 2.0).nil?, nil)
 
+# ---- the window sits INSIDE the hole (2026-09-14, "צריך ליצור את החלון בתוך החור")
+ok('the frame stands only a lip above the roof', SM.lip_height > 0.0 && SM.lip_height <= 1.5, SM.lip_height)
+ok('the glass sits below the roof face', SM.glass_drop > 0.0, SM.glass_drop)
+src2 = File.read('skylight_manager.rb', encoding: 'UTF-8')
+bd = src2[/def self\.build_body!.*?\n    end\n/m].to_s
+ok('the frame lines the hole from the underside up to the lip',
+   bd.include?('band.call(lip_inner, inner_under, frame_mat)') &&
+   bd.include?('band.call(under_ring, inner_under, frame_mat)'), nil)
+ok('...and no 4" curb stands on the roof any more', !bd.include?('curb_height'), nil)
+ok('the glass never hangs below a thin slab', bd.include?('depth * 0.5'), nil)
+
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

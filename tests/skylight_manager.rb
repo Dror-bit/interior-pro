@@ -30,7 +30,9 @@ module InteriorPro
     # Methods, not constants: a constant is not re-read by reload!.
     def self.default_width;  30.0; end   # across the slope
     def self.default_height; 46.0; end   # up the slope
-    def self.curb_height;     4.0; end   # how far it stands off the roof
+    def self.lip_height;      1.0; end   # how far the frame stands above the roof
+    def self.glass_drop;      1.0; end   # how far the glass sits below the roof face
+    def self.curb_height;    lip_height; end   # old name, same number
     def self.frame_width;     2.0; end   # the border round the glass
     def self.default_color;  '#ffffff'; end
     def self.min_size;       12.0; end
@@ -179,7 +181,7 @@ module InteriorPro
 
       grp = roof.entities.add_group
       grp.name = 'InteriorPro_Skylight'
-      build_body!(grp, top_ring, n, sp[:color], model)
+      build_body!(grp, top_ring, under_ring, n, sp[:color], model)
 
       shaft = 0
       if USE_SKYLIGHT_SHAFT
@@ -204,56 +206,60 @@ module InteriorPro
       nil
     end
 
-    # The curb and the glass. Straight off the ring the hole was cut on,
-    # pushed out along the roof's own normal - so on a 5:12 slope it
-    # stands square to the roof, not to the world.
-    def self.build_body!(grp, ring, n, hex, model)
+    # THE WINDOW SITS INSIDE THE HOLE (2026-09-14, the user: "צריך ליצור
+    # את החלון בתוך החור"). The first cut stood a 4" curb ON the roof
+    # around the opening; now the frame lines the opening like a jamb in
+    # a wall - from the underside of the slab up to a 1" lip above the
+    # roof face - and the glass sits 1" below the roof face inside it.
+    #
+    # Every ring here is the hole's own ring pulled in by the frame width
+    # (inset_ring), or pushed along the roof's normal, so the frame stays
+    # square to the slope. Rings, not faces with holes: each band is four
+    # quads, so nothing has an inner loop SketchUp could heal shut.
+    def self.build_body!(grp, top_ring, under_ring, n, hex, model)
       frame_mat = get_material(model, "InteriorPro_Skylight_#{hex.delete('#')}",
                                Sketchup::Color.new(hex))
       glass_mat = get_material(model, 'InteriorPro_Glass',
                                Sketchup::Color.new(180, 180, 180), 0.4)
-      top = ring.map { |p| p.offset(n, curb_height) }
+      under_ring = top_ring if under_ring.nil? || under_ring.length != top_ring.length
+      inner_top   = inset_ring(top_ring, frame_width)
+      inner_under = inset_ring(under_ring, frame_width)
+      return false if inner_top.nil? || inner_under.nil?
+      lip_outer = top_ring.map   { |p| p.offset(n, lip_height) }
+      lip_inner = inner_top.map  { |p| p.offset(n, lip_height) }
+      # never below the slab's own underside - on a thin roof the glass
+      # would hang in the shaft
+      depth = (top_ring[0] - under_ring[0]) % n
+      drop = depth > 0.2 ? [glass_drop, depth * 0.5].min : 0.0
+      glass     = inner_top.map  { |p| p.offset(n, -drop) }
 
-      ring.length.times do |i|
-        j = (i + 1) % ring.length
-        f = begin
-          grp.entities.add_face([ring[i], ring[j], top[j], top[i]])
-        rescue StandardError
-          nil
+      band = lambda do |a, b, mat|
+        a.length.times do |i|
+          j = (i + 1) % a.length
+          f = begin
+            grp.entities.add_face([a[i], a[j], b[j], b[i]])
+          rescue StandardError
+            nil
+          end
+          next unless f && f.valid?
+          f.material = mat
+          f.back_material = mat
         end
-        next unless f && f.valid?
-        f.material = frame_mat
-        f.back_material = frame_mat
       end
 
-      # the lid: one face, then the glass rectangle drawn ON it so the
-      # face splits into a border and a pane. Nothing is erased - both
-      # halves are wanted - so this cannot heal shut the way a hole does.
-      lid = begin
-        grp.entities.add_face(top)
+      band.call(top_ring, lip_outer, frame_mat)     # the lip's outer side
+      band.call(lip_outer, lip_inner, frame_mat)    # the top of the frame
+      band.call(lip_inner, inner_under, frame_mat)  # the reveal, lip to underside
+      band.call(under_ring, inner_under, frame_mat) # the frame's underside
+
+      pane = begin
+        grp.entities.add_face(glass)
       rescue StandardError
         nil
       end
-      return false unless lid && lid.valid?
-      lid.material = frame_mat
-      lid.back_material = frame_mat
-
-      inner = inset_ring(top, frame_width)
-      return true if inner.nil?
-      begin
-        grp.entities.add_face(inner)
-      rescue StandardError
-        return true
-      end
-      pane = grp.entities.grep(Sketchup::Face).find do |f|
-        next false unless f.valid?
-        pts = f.outer_loop.vertices.map(&:position)
-        pts.length == 4 && pts.all? { |p| inner.any? { |q| q.distance(p) < 0.01 } }
-      end
-      if pane
-        pane.material = glass_mat
-        pane.back_material = glass_mat
-      end
+      return true unless pane && pane.valid?
+      pane.material = glass_mat
+      pane.back_material = glass_mat
       true
     end
 
