@@ -1,0 +1,51 @@
+TIME  = 2026-09-03 15:14:30 -0700
+USE_ROOF_VALLEY = true
+
+===== HOUSE roof (ridge ~ 14' 7 1/2") =====
+loose faces touching the zone: 16
+   n=( 0.00,-0.24, 0.97)  x  -618.51..   12.00  y  -12.00.. 261.91  z  107.52.. 175.99  area=170298.2  InteriorPro_Roof_grain_metaltile_b0552f
+   n=( 0.00,-0.24, 0.97)  x  -617.76..   11.25  y  -12.00.. 261.91  z  107.00.. 175.48  area=169874.7  InteriorPro_Roof_grain_metaltile_b0552f
+   n=(-0.00,-0.24, 0.97)  x  -617.76.. -606.51  y    0.00.. 261.91  z  102.00.. 167.48  area=  3037.2  InteriorPro_Roof_ffffff
+   n=(-0.00,-0.24, 0.97)  x  -617.76.. -606.51  y    0.00.. 261.91  z  102.75.. 168.23  area=  3037.2  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00,-0.00)  x  -618.51.. -618.51  y  -12.00.. 261.91  z   99.00.. 175.48  area=  2191.3  InteriorPro_Roof_ffffff
+   n=(-1.00,-0.00, 0.00)  x  -617.76.. -617.76  y  -12.00.. 261.91  z   99.00.. 175.48  area=  2191.3  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -618.51..   12.00  y  -12.00.. -12.00  z  107.00.. 107.52  area=   325.0  InteriorPro_Roof_grain_metaltile_b0552f
+   n=(-0.00,-0.24, 0.97)  x  -618.51.. -617.76  y  -12.00.. 261.91  z   99.00.. 167.48  area=   211.8  InteriorPro_Roof_ffffff
+   n=( 0.00,-0.24, 0.97)  x  -618.51.. -617.76  y  -12.00.. 261.91  z  107.00.. 175.48  area=   211.8  InteriorPro_Roof_grain_metaltile_b0552f
+   n=(-1.00,-0.00,-0.00)  x  -606.51.. -606.51  y    0.00.. 261.91  z  102.00.. 168.23  area=   196.4  InteriorPro_Roof_ffffff
+   n=(-1.00,-0.00,-0.00)  x  -617.76.. -617.76  y    0.00.. 261.91  z  102.00.. 168.23  area=   196.4  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -618.51.. -618.51  y  -12.00.. 261.91  z  107.00.. 175.99  area=   141.2  InteriorPro_Roof_grain_metaltile_b0552f
+   n=( 0.00, 1.00, 0.00)  x  -617.76.. -606.51  y    0.00..   0.00  z   99.75.. 102.00  area=    25.3  InteriorPro_Roof_ffffff
+   n=(-1.00,-0.00, 0.00)  x  -617.76.. -617.76  y   -9.00..   0.00  z   99.75.. 102.00  area=    10.1  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -617.76.. -606.51  y    0.00..   0.00  z  102.00.. 102.75  area=     8.4  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -618.51.. -617.76  y  -12.00.. -12.00  z   99.00.. 107.00  area=     6.0  InteriorPro_Roof_ffffff
+tile/component instances touching the zone: 39
+   their overall box: x  -618.51.. -513.51  y  -13.64..  28.59  z  107.21.. 119.37
+sub-groups touching the zone: 1
+   InteriorPro_GableWall        x  -606.51.. -601.51  y    0.00.. 523.82  z  102.00.. 175.48
+
+===== GARAGE roof (ridge 128.6338911758681) =====
+loose faces touching the zone: 19
+   n=(-0.24, 0.00, 0.97)  x  -618.51.. -459.97  y -379.20..  17.00  z   89.52.. 129.15  area= 64534.0  InteriorPro_Roof_grain_metaltile_b0552f
+   n=(-0.24, 0.00, 0.97)  x  -618.51.. -459.97  y -378.45..  17.00  z   89.00.. 128.63  area= 64411.5  InteriorPro_Roof_grain_metaltile_b0552f
+   n=( 1.00, 0.00, 0.00)  x  -618.51.. -618.51  y -378.45..   0.00  z   81.00..  89.00  area=  3027.6  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -617.76.. -617.76  y -378.45..   0.00  z   81.75..  89.00  area=  2743.7  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00, 1.00)  x  -622.51.. -618.51  y -379.20..   0.00  z   84.90..  84.90  area=  1516.8  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00, 1.00)  x  -622.36.. -618.66  y -379.20..   0.00  z   85.05..  85.05  area=  1403.0  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -618.51.. -618.51  y -379.20..   0.00  z   84.90..  88.50  area=  1365.1  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -622.51.. -622.51  y -379.20..   0.00  z   84.90..  88.50  area=  1365.1  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -622.36.. -622.36  y -379.20..   0.00  z   85.05..  88.50  area=  1308.2  InteriorPro_Roof_ffffff
+   n=(-1.00, 0.00, 0.00)  x  -618.66.. -618.66  y -379.20..   0.00  z   85.05..  88.50  area=  1308.2  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00, 1.00)  x  -618.51.. -617.76  y -379.20..   0.00  z   89.00..  89.00  area=   284.1  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00)  x  -618.51.. -618.51  y -379.20..  17.00  z   89.00..  89.52  area=   204.2  InteriorPro_Roof_grain_metaltile_b0552f
+   n=( 0.00,-1.00, 0.00)  x  -618.51.. -606.51  y   17.00..  17.00  z   81.00..  92.00  area=   114.0  InteriorPro_Roof_ffffff
+   n=( 0.00,-1.00, 0.00)  x  -618.51.. -459.97  y   17.00..  17.00  z   89.00.. 129.15  area=    81.7  InteriorPro_Roof_grain_metaltile_b0552f
+   n=( 0.00, 0.00, 1.00)  x  -618.66.. -618.51  y -379.20..   0.00  z   88.50..  88.50  area=    56.9  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00, 1.00)  x  -622.51.. -622.36  y -379.20..   0.00  z   88.50..  88.50  area=    56.9  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -622.51.. -618.51  y    0.00..   0.00  z   84.90..  88.50  area=    14.4  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -618.51.. -617.76  y    0.00..   0.00  z   81.00..  89.00  area=     6.0  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00)  x  -622.51.. -618.51  y    0.00..   0.00  z   84.90..  88.50  area=     1.6  InteriorPro_Roof_ffffff
+tile/component instances touching the zone: 46
+   their overall box: x  -620.15.. -505.62  y  -25.00..  17.00  z   89.21.. 119.44
+sub-groups touching the zone: 1
+   InteriorPro_Downspout        x  -621.51.. -606.88  y   -2.50..   0.50  z  -12.71..  84.90

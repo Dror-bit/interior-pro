@@ -826,14 +826,108 @@ module InteriorPro
           corners = [a2, b2,
                      [b2[0] + inw[0] * oh, b2[1] + inw[1] * oh],
                      [a2[0] + inw[0] * oh, a2[1] + inw[1] * oh]]
+          # the two lines the strip is cut on (valley_low_strip_sweep!):
+          # the WALL line across the eave (at the span end that is not
+          # the polygon corner) and the strip's INNER line along it.
+          wt = t0 > 0.5 ? t0 : t1
+          wp = [el[0][0] + el[1][0] * wt, el[0][1] + el[1][1] * wt]
           out << { poly: corners.map { |p| [p[0], p[1], plane_z(pl, p[0], p[1])] },
-                   plane: pl }
+                   plane: pl,
+                   wall: [wp, [wp[0] + inw[0] * oh, wp[1] + inw[1] * oh]],
+                   along: [el[1][0], el[1][1]],
+                   inner: [corners[2], corners[3]], inw: [inw[0], inw[1]] }
         end
       end
       out
     rescue StandardError => e
       puts "[Roof] valley_low_deck_cuts: #{e.message}"
       []
+    end
+
+    # THE STRIP IS A BOX, NOT A PLANE (2026-09-03, his green plate).
+    # valley_cut_deck! takes the strip out of the shells PARALLEL to the
+    # roof plane and nothing else. Every VERTICAL face in the strip stayed
+    # standing (measured, valley7_report.txt): the deck's own 1/2" edge
+    # face running 17" past the fascia's end, and the west 12" of the
+    # deck's end face. Here every face crossing the wall line or the
+    # strip's inner line inside the strip is split on that line, and
+    # every face whose plan centre then sits in the strip past the wall
+    # line is taken out, stray edges after it. Faces ON the wall line -
+    # the fascia's and soffit's own end caps - are left alone.
+    # Plan test is the strip's bounding box (+0.05"), exact for an
+    # axis-aligned strip like his; a rotated strip gets a slightly wider
+    # net, still bounded by the wall-line side test.
+    def self.valley_low_strip_sweep!(grp, v)
+      plan = v[:poly].map { |p| [p[0], p[1]] }
+      return 0 if v[:wall].nil? || v[:along].nil?
+      lines = [[v[:wall][0], v[:along]]]
+      lines << [v[:inner][0], v[:inw]] if v[:inner] && v[:inw]
+      wx, wy = v[:wall][0]
+      side = lambda { |x, y| (x - wx) * v[:along][0] + (y - wy) * v[:along][1] }
+      cxs = plan.map { |p| p[0] }.inject(:+) / plan.length
+      cys = plan.map { |p| p[1] }.inject(:+) / plan.length
+      sgn = side.call(cxs, cys) <=> 0.0
+      return 0 if sgn.zero?
+      xs = plan.map { |p| p[0] }
+      ys = plan.map { |p| p[1] }
+      x0 = xs.min - 0.05
+      x1 = xs.max + 0.05
+      y0 = ys.min - 0.05
+      y1 = ys.max + 0.05
+      inbox = lambda { |x, y| x >= x0 && x <= x1 && y >= y0 && y <= y1 }
+      lines.each do |(lp, ln)|
+        dist = lambda { |p| (p.x - lp[0]) * ln[0] + (p.y - lp[1]) * ln[1] }
+        grp.entities.grep(Sketchup::Face).each do |f|
+          next unless f.valid?
+          vs = f.outer_loop.vertices.map(&:position)
+          next unless vs.any? { |p| inbox.call(p.x, p.y) }
+          ds = vs.map { |p| dist.call(p) }
+          next unless ds.any? { |d| d > 0.05 } && ds.any? { |d| d < -0.05 }
+          # a cut point is where an outline edge crosses the line - OR a
+          # vertex already sitting ON it: the deck cut before us drew
+          # its lines on the shells, and their end points split the
+          # deck's edge faces exactly on the wall line (measured
+          # 2026-09-03, valley7_report.txt: the 1/2" edge face had 7
+          # vertices, two of them at y=0, and no edge crossed). With
+          # only crossings counted that face was never split.
+          hits = []
+          vs.each_index do |i2|
+            p = vs[i2]
+            q = vs[(i2 + 1) % vs.length]
+            dp = ds[i2]
+            dq = ds[(i2 + 1) % vs.length]
+            hits << p if dp.abs <= 0.05
+            next unless (dp > 0.05 && dq < -0.05) || (dp < -0.05 && dq > 0.05)
+            t = dp / (dp - dq)
+            hits << Geom::Point3d.new(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t,
+                                      p.z + (q.z - p.z) * t)
+          end
+          next unless hits.length == 2
+          next if hits[0].distance(hits[1]) < 0.05
+          begin
+            grp.entities.add_line(hits[0], hits[1])
+          rescue StandardError
+            nil
+          end
+        end
+      end
+      doomed = grp.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid?
+        vs = f.outer_loop.vertices.map(&:position)
+        cx = vs.map(&:x).inject(:+) / vs.length
+        cy = vs.map(&:y).inject(:+) / vs.length
+        next false unless inbox.call(cx, cy)
+        d = side.call(cx, cy)
+        (d <=> 0.0) == sgn && d.abs > 0.25
+      end
+      edges = doomed.flat_map(&:edges).uniq
+      doomed.each { |f| f.erase! if f.valid? }
+      edges.each { |e2| e2.erase! if e2.valid? && e2.faces.empty? }
+      puts "[Roof] valley: #{doomed.length} face(s) swept out of the overhang strip past the wall" if doomed.length.positive?
+      doomed.length
+    rescue StandardError => e
+      puts "[Roof] valley_low_strip_sweep!: #{e.message}"
+      0
     end
 
     # The 3D tile pieces are PLACED, not grown off the deck - the eave
@@ -1626,6 +1720,41 @@ module InteriorPro
       nil
     end
 
+    # PURE (2026-09-03, his green plate). build_end_caps! stands the
+    # closing plate at the roof polygon's CORNER. Where the valley has
+    # pulled this roof's trim back to the taller wall (valley_low_spans)
+    # the fascia now ends at the WALL LINE, 17" short of that corner - and
+    # the plate went on standing at the corner, in mid air, with the
+    # deck's 1/2" edge sliver running back from it to the fascia's end
+    # ("היא לא אמורה להיות שם, זה יתרה מהפשייה"). Given corner `c` of
+    # neighbour edge `j` and the skip spans of that edge, answer where the
+    # plate belongs: the INNER end of the span that swallows the corner,
+    # or `c` itself when no span touches it. Pinned by tests/rt152.rb.
+    def self.cap_corner_pull_back(poly, j, c, spans)
+      sp = spans && spans[j]
+      return c if sp.nil? || sp.empty?
+      a = poly[j]
+      b = poly[(j + 1) % poly.length]
+      dx = b[0] - a[0]
+      dy = b[1] - a[1]
+      len = Math.hypot(dx, dy)
+      return c if len < 1.0e-6
+      ux = dx / len
+      uy = dy / len
+      tc = (c[0] - a[0]) * ux + (c[1] - a[1]) * uy
+      head = tc < 0.5
+      tail = tc > len - 0.5
+      return c unless head || tail
+      sp.each do |(t0, t1)|
+        if head && t0 <= 0.5 && t1 > 0.5 && t1 < len - 0.5
+          return [a[0] + ux * t1, a[1] + uy * t1]
+        elsif tail && t1 >= len - 0.5 && t0 < len - 0.5 && t0 > 0.5
+          return [a[0] + ux * t0, a[1] + uy * t0]
+        end
+      end
+      c
+    end
+
     # THE EAVE END CAP (2026-08-26B, the user's red circle). An eave that
     # dies against the upper wall stops mid-air for the part of it that
     # stands OUTSIDE that wall - the overhang. There its whole cross
@@ -1663,7 +1792,7 @@ module InteriorPro
     # closes the last 3/4". BOARDS MEET.
     def self.build_end_caps!(grp, poly, cap_flags, s, band_top, slope,
                              trim_mat = nil, zmap: nil, rake_flags: nil,
-                             surface: nil)
+                             surface: nil, pull_back: nil)
       oh = s[:overhang].to_f
       return if oh < 1.0
       k_lo = -oh
@@ -1684,8 +1813,13 @@ module InteriorPro
       n.times do |i|
         next unless cap_flags[i]
         # the two corners of this capped edge, each shared with a neighbour
-        [[(i - 1) % n, poly[i]], [(i + 1) % n, poly[(i + 1) % n]]].each do |j, c|
+        [[(i - 1) % n, poly[i]], [(i + 1) % n, poly[(i + 1) % n]]].each do |j, c0|
           next if cap_flags[j] # capped on both sides - no hole between them
+          # the plate stands where the neighbour's trim ENDS - at the
+          # corner, or at the wall line the valley pulled it back to
+          # (2026-09-03, cap_corner_pull_back). head/tail below still
+          # read off the true corner c0.
+          c = cap_corner_pull_back(poly, j, c0, pull_back)
           a = poly[j]
           b = poly[(j + 1) % n]
           dx = b[0] - a[0]
@@ -1699,7 +1833,7 @@ module InteriorPro
           if rake_flags && rake_flags[j] && zmap
             chain = edge_profile_chain(poly, j, zmap, surface: surface)
             next if chain.nil?
-            head = (c[0] - a[0]).abs < NODE_TOL && (c[1] - a[1]).abs < NODE_TOL
+            head = (c0[0] - a[0]).abs < NODE_TOL && (c0[1] - a[1]).abs < NODE_TOL
             zt = head ? chain.first[2] : chain.last[2]
             k_hi = s[:fascia] ? RAKE_K_IN : 0.0
             z_lo = zt - s[:fascia_depth].to_f
@@ -3255,6 +3389,7 @@ module InteriorPro
         end
         (defined?(lcuts) && lcuts ? lcuts : []).each do |v|
           valley_cut_deck!(grp, v[:poly], v[:plane])
+          valley_low_strip_sweep!(grp, v)
           cutplans << v[:poly].map { |p| [p[0], p[1]] }
         end
         valley_cull_pieces!(grp, cutplans) unless cutplans.empty?
@@ -3652,7 +3787,8 @@ module InteriorPro
         rake_flags = Array.new(poly.length, false)
         rakes.each { |ri| rake_flags[ri] = true }
         build_end_caps!(grp, poly, cap_flags, s, band_top, slope, trim_mat,
-                        zmap: zmap, rake_flags: rake_flags, surface: surf)
+                        zmap: zmap, rake_flags: rake_flags, surface: surf,
+                        pull_back: (defined?(lspans) && lspans ? lspans : nil))
       end
       # Real gable walls (2026-08-08): the wall itself rises into the
       # triangle - wall-thick prisms at the WALL line (overhang back from
