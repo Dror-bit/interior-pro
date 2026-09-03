@@ -30,6 +30,11 @@ def near(a, b, tol = 0.01)
 end
 
 RF = InteriorPro::RoofManager
+# The kill switch ships OFF. Remember what it shipped as, then turn it on
+# for this suite - every branch below only exists when it is on.
+ORIG_VALLEY = RF::USE_ROOF_VALLEY
+RF.send(:remove_const, :USE_ROOF_VALLEY)
+RF.const_set(:USE_ROOF_VALLEY, true)
 
 SLOPE = 0.25          # 3:12
 HOUSE_EAVE_Y = -12.0  # the house's south fascia line
@@ -130,10 +135,82 @@ ok('...and picks the house SOUTH plane, the one actually overhead',
 ok('a roof no lower than us is not a partner',
    RF.valley_partner(hg, hgm, [-459.975, 41.0])[0].nil?)
 
+# ---- step 3: what the valley cuts out of the HOUSE eave --------------
+# The garage roof has THREE non-gable edges - its two sides and the abut
+# line it dies on - so the pair has to be chosen, not assumed.
+pair = RF.two_side_planes(lgm)
+ok("the garage's two SIDE planes are picked out, not its abut edge",
+   pair && pair.length == 2 &&
+   [pair[0][2], pair[1][2]].map { |c| c.round(2) }.sort == [13.64, 243.63],
+   pair)
+ok('a roof whose ridge does not stand where its planes meet is refused',
+   RF.two_side_planes(lgm.merge(ridge_z: 200.0)).nil?)
+
+HOUSE_GABLE_FLAGS = [false, true, false, true]
+sp = RF.valley_eave_spans(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:slope],
+                          hgm[:deck_z], hgm[:ridge_z], 1, hg)
+ok('exactly ONE house edge is cut', sp.keys.length == 1, sp.keys)
+ok('...and it is edge 2, the SOUTH eave the garage runs into',
+   sp.keys.first == 2, sp.keys)
+ok('the cut runs from 72.0" to 245.07" along that edge',
+   sp[2] && near(sp[2][0][0], 72.0) && near(sp[2][0][1], 245.07), sp[2])
+ok('which is the same 173.07" the maths gave',
+   sp[2] && near(sp[2][0][1] - sp[2][0][0], 173.07), sp[2] && sp[2][0][1] - sp[2][0][0])
+ok('THE NORTH EAVE IS LEFT ALONE - a mirror apex is not a valley',
+   sp[0].nil?, sp[0])
+ok('the house does not cut itself against a roof no lower than it is',
+   RF.valley_eave_spans(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:slope],
+                        hgm[:deck_z], hgm[:ridge_z], 1, lg).empty?)
+ok('...nor against a roof on another storey',
+   RF.valley_eave_spans(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:slope],
+                        hgm[:deck_z], hgm[:ridge_z], 7, hg).empty?)
+
+# ---- the triangle the deck cut is fed --------------------------------
+vc = RF.valley_cuts(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:slope],
+                    hgm[:deck_z], hgm[:ridge_z], 1, hg)
+tri = vc[2] && vc[2][0] && vc[2][0][:tri]
+ok('the deck-cut triangle: two feet ON the eave line at deck height',
+   tri && near(tri[0][0], -546.51) && near(tri[0][1], -12.0) && near(tri[0][2], 107.0) &&
+   near(tri[1][0], -373.44) && near(tri[1][1], -12.0) && near(tri[1][2], 107.0), tri)
+ok('...and its tip is the apex itself',
+   tri && near(tri[2][0], -459.975) && near(tri[2][1], 74.535) && near(tri[2][2], 128.63375),
+   tri && tri[2])
+ok('the spans wrapper still answers the same shape as before',
+   RF.valley_eave_spans(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:slope],
+                        hgm[:deck_z], hgm[:ridge_z], 1, hg) == { 2 => vc[2].map { |v| v[:span] } })
+
+# ---- the gutter goes from the WHOLE stretch over the garage ----------
+ok('the over-the-garage stretch of the south eave is 0..317.07',
+   vc[2][0][:over] && near(vc[2][0][:over][0], 0.0) && near(vc[2][0][:over][1], 317.07),
+   vc[2][0][:over])
+
+# ---- and the garage's own trim stops at the house wall ---------------
+GAR_GABLE_FLAGS = [false, false, false, true]
+ls = RF.valley_low_spans(lgm[:pts], GAR_GABLE_FLAGS, lgm[:ridge_z], 1, lg)
+ok('the garage WEST eave loses its last 17", up to the house wall',
+   ls[2] && near(ls[2][0][0], 0.0) && near(ls[2][0][1], 17.0), ls[2])
+ok('...and the EAST eave the same, at its own end',
+   ls[0] && near(ls[0][0][0], 379.2) && near(ls[0][0][1], 396.2), ls[0])
+ok('the house itself loses nothing to a lower roof',
+   RF.valley_low_spans(hgm[:pts], HOUSE_GABLE_FLAGS, hgm[:ridge_z], 1, hg).empty?)
+
+# ---- the garage's own overhang strip lines up with its trim ----------
+lc = RF.valley_low_deck_cuts(lgm[:pts], GAR_GABLE_FLAGS, lgm[:slope],
+                             lgm[:deck_z], lgm[:ridge_z], 1, lg, 12.0)
+ok('TWO strips are pulled back - one per side eave, never the abut tuck',
+   lc.length == 2, lc.length)
+w = lc.find { |v| v[:poly][0][0] < -400 }
+ok('the west strip: eave edge y 17..0, one overhang (12") deep',
+   w && near(w[:poly][0][0], -618.51) && near(w[:poly][0][1], 17.0) &&
+   near(w[:poly][1][1], 0.0) && near(w[:poly][2][0], -606.51), w && w[:poly])
+ok('...standing on the west slope plane (z 89 at the eave, 92 at the wall)',
+   w && near(w[:poly][0][2], 89.0) && near(w[:poly][2][2], 92.0),
+   w && w[:poly].map { |p| p[2] })
+
 # ---- the kill switch is there, and it is OFF -------------------------
 ok('USE_ROOF_VALLEY exists', RF.const_defined?(:USE_ROOF_VALLEY))
-ok('...and starts OFF, so nothing he has built moves today',
-   RF::USE_ROOF_VALLEY == false, RF::USE_ROOF_VALLEY)
+ok('...and it SHIPS OFF, so nothing he has built moves today',
+   ORIG_VALLEY == false, ORIG_VALLEY)
 
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

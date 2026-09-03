@@ -1,0 +1,7 @@
+TIME NOW      = 2026-09-03 21:47:28 UTC
+code has valley_low_deck_cuts: true
+USE_ROOF_VALLEY = true
+roof 0: ridge=175.5  built_at=2026-09-03T21:44:18Z
+roof 1: ridge=128.6  built_at=2026-09-03T21:44:19Z
+LOW roof faces whose centre is INSIDE the west strip (x -618..-606, y 0..17): 0
+LOW roof tile pieces centred in that strip: 2

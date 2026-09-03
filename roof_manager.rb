@@ -395,7 +395,7 @@ module InteriorPro
       slope = grp.get_attribute('InteriorPro', 'pitch').to_f / 12.0
       return nil if slope <= VALLEY_EPS
       oh = grp.get_attribute('InteriorPro', 'overhang_in').to_f
-      { pts: pts, slope: slope,
+      { pts: pts, slope: slope, oh: oh,
         deck_z: grp.get_attribute('InteriorPro', 'eave_z').to_f - slope * oh,
         ridge_z: grp.get_attribute('InteriorPro', 'ridge_z').to_f,
         gables: Array(grp.get_attribute('InteriorPro', 'gable_edges')).map(&:to_i),
@@ -512,6 +512,351 @@ module InteriorPro
         best = [r, g, pick[1], pick[0]] if best.nil? || pick[0] < best[3]
       end
       best.nil? ? [nil, nil, nil] : [best[0], best[1], best[2]]
+    end
+
+    # The two planes a plain two-sided roof rises on: the pair of eave
+    # edges that FACE each other, whose ridge stands at the roof's own
+    # saved ridge height. The second half of that is the check as much as
+    # the choice - it is exactly what rt151 pins - and it is what keeps
+    # an abut edge (a third, perpendicular "eave") out of the pair.
+    # nil for a hip, a tangle, or anything else we cannot run a valley
+    # into yet.
+    def self.two_side_planes(g)
+      idx = (0...g[:pts].length).reject { |i| g[:gables].include?(i) }
+      found = nil
+      idx.combination(2).each do |i, j|
+        di = edge_line(g[:pts], i)
+        dj = edge_line(g[:pts], j)
+        next if di.nil? || dj.nil?
+        next if di[1][0] * dj[1][0] + di[1][1] * dj[1][1] > -0.9
+        pi = edge_plane(g, i)
+        pj = edge_plane(g, j)
+        next if pi.nil? || pj.nil?
+        ln = planes_meet(pi, pj)
+        next if ln.nil?
+        next if (plane_z(pi, ln[0][0], ln[0][1]) - g[:ridge_z]).abs > 1.0
+        found = [pi, pj]
+      end
+      found
+    end
+
+    # PURE. The centre of a plan polygon, and the midpoint of edge i.
+    def self.poly_centre(pts)
+      [pts.map { |p| p[0] }.inject(:+) / pts.length,
+       pts.map { |p| p[1] }.inject(:+) / pts.length]
+    end
+
+    # ---------- STEP 3: the valley cuts this roof's eave dressing ------
+    # (2026-09-15) Where a LOWER roof rises into this one, the fascia,
+    # the drip edge, the soffit and the gutter have to STOP between the
+    # two legs of the valley. Left standing they hang in mid air inside
+    # the low roof's own roof space - which is exactly what he saw.
+    # build_band! already knows how to skip a stretch of an edge (the
+    # rake spans use it), so the valley hands it one more span and no new
+    # geometry code is written at all.
+    # Returns { edge index => [[t0, t1]] }, the shape gable_spans has.
+    def self.valley_cuts(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+      out = {}
+      return out unless USE_ROOF_VALLEY
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      hi_g = { pts: pts, slope: slope, deck_z: deck_z, ridge_z: ridge_z,
+               gables: gidx }
+      roofs.each do |lo_grp|
+        next if lo_grp == skip_grp || !lo_grp.valid?
+        lo = roof_geom(lo_grp)
+        next if lo.nil?
+        next unless lo[:level] == lvl
+        next unless lo[:ridge_z] < ridge_z - 0.5
+        pair = two_side_planes(lo)
+        next if pair.nil?
+        lo_a, lo_b = pair
+        lc = poly_centre(lo[:pts])
+        (0...pts.length).each do |e|
+          next if gidx.include?(e)
+          el = edge_line(pts, e)
+          next if el.nil?
+          # ...and only the edge that FACES the low roof. Without this the
+          # far eave picks up a mirror-image apex of its own: the maths is
+          # happy to meet two planes anywhere, and the roof opposite is
+          # just as good a place as this one.
+          nb = pts[(e + 1) % pts.length]
+          mid = [(pts[e][0] + nb[0]) / 2.0, (pts[e][1] + nb[1]) / 2.0]
+          inw = edge_inward(pts, e)
+          next if inw.nil?
+          next if (lc[0] - mid[0]) * -inw[0] + (lc[1] - mid[1]) * -inw[1] <= 0.0
+          hp = edge_plane(hi_g, e)
+          next if hp.nil?
+          apex = planes_apex(lo_a, lo_b, hp)
+          next if apex.nil?
+          next unless point_in_poly?(pts, apex[0], apex[1])
+          len = vlen(vsub(nb, pts[e]))
+          ts = [lo_a, lo_b].map do |pl|
+            vl = planes_meet(pl, hp)
+            next nil if vl.nil?
+            f = lines_meet_xy(vl[0], vl[1], el[0], el[1])
+            next nil if f.nil?
+            (f[0] - el[0][0]) * el[1][0] + (f[1] - el[0][1]) * el[1][1]
+          end
+          next if ts.any?(&:nil?)
+          t0 = [ts.min, 0.0].max
+          t1 = [ts.max, len].min
+          next if t1 - t0 < 1.0
+          feet = [t0, t1].map do |tv|
+            fx = el[0][0] + el[1][0] * tv
+            fy = el[0][1] + el[1][1] * tv
+            [fx, fy, plane_z(hp, fx, fy)]
+          end
+          # ...and the whole stretch of this eave that stands OVER the low
+          # roof (its footprint projected onto the edge): a gutter there
+          # hangs above a roof and drains onto it, and a downspout there
+          # lands inside the room below - both go (2026-09-03, his list).
+          ovr = lo[:pts].map do |p|
+            (p[0] - el[0][0]) * el[1][0] + (p[1] - el[0][1]) * el[1][1]
+          end
+          ov = [[ovr.min, 0.0].max, [ovr.max, len].min]
+          (out[e] ||= []) << { span: [t0, t1], plane: hp,
+                               over: (ov[1] - ov[0] > 1.0 ? ov : nil),
+                               tri: [feet[0], feet[1], apex] }
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_cuts: #{e.message}"
+      {}
+    end
+
+    # The old name, kept for anything that only wants the skip spans -
+    # rt151 pins this exact shape.
+    def self.valley_eave_spans(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+      cuts = valley_cuts(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+      out = {}
+      cuts.each { |e, list| out[e] = list.map { |v| v[:span] } }
+      out
+    end
+
+    # Cut THIS roof's deck back on the valley triangle. The two leg lines
+    # are drawn onto the deck (they lie exactly in its plane, so SketchUp
+    # embeds them and splits the faces they cross) and every face that
+    # then sits inside the triangle ON that plane is taken out, stray
+    # edges after it. Runs BEFORE the tile courses are laid - the placer
+    # reads the faces as they then are, so the tiles never grow into the
+    # triangle at all and nothing needs trimming afterwards.
+    # The underside shells and the dressing are NOT on this plane and are
+    # not touched here.
+    def self.valley_cut_deck!(grp, tri, hp, inset = 0.0)
+      # THE DECK IS A SANDWICH (measured 2026-09-03, valley2_report.txt:
+      # the first cut took only the underside at 107 and the brown top
+      # surface at 108 sailed on into the garage). Every shell parallel
+      # to the cut plane within a few inches of it gets the same triangle
+      # taken out, each at its own height.
+      un = [-hp[0], -hp[1], 1.0]
+      ul = Math.sqrt(un[0] * un[0] + un[1] * un[1] + 1.0)
+      un = un.map { |v| v / ul }
+      offs = {}
+      grp.entities.grep(Sketchup::Face).each do |f|
+        fn = f.normal
+        next if (fn.x * un[0] + fn.y * un[1] + fn.z * un[2]).abs < 0.999
+        v = f.vertices.first.position
+        c2 = v.z - hp[0] * v.x - hp[1] * v.y
+        next if (c2 - hp[2]).abs > 4.0
+        # the EXACT height of the first face seen on this shell, never a
+        # rounded one: the tile field sits at 110.52, the cut lines were
+        # drawn at a rounded 110.5, and 0.02" was enough for SketchUp to
+        # refuse to embed them - the face never split and never fell
+        # (measured 2026-09-03, valley3_report.txt: "returned: 0").
+        key = (c2 * 2).round / 2.0
+        offs[key] = c2 unless offs.key?(key)
+      end
+      # BEFORE the tiles the triangle is pulled IN a little, so what is
+      # erased is an interior HOLE and the face keeps its rectangular
+      # outline. The tile placer knows holes - the dormer and the
+      # skylight live on that - but a notch in the OUTLINE broke it: the
+      # runs vanished from a whole stretch of his roof (2026-09-03, his
+      # picture). The second, post-tile pass runs with inset 0 and takes
+      # the remaining sliver together with the field.
+      cut = tri
+      if inset > 0.0
+        cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0
+        cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3.0
+        cut = tri.map do |p|
+          d = Math.hypot(cx - p[0], cy - p[1])
+          next p if d < 1.0e-6
+          [p[0] + (cx - p[0]) / d * inset, p[1] + (cy - p[1]) / d * inset, p[2]]
+        end
+      end
+      total = 0
+      offs.values.sort.each do |c2|
+        total += valley_cut_one_plane!(grp, cut, [hp[0], hp[1], c2])
+      end
+      puts "[Roof] valley: #{total} deck face(s) cut back on #{offs.length} shell(s)"
+      total
+    rescue StandardError => e
+      puts "[Roof] valley_cut_deck!: #{e.message}"
+      0
+    end
+
+    # One shell: the two leg lines are drawn onto it (they lie exactly in
+    # its plane, so SketchUp embeds them and splits the faces they cross)
+    # and every face then inside the triangle ON that plane is taken out,
+    # stray edges after it - including the two legs themselves on a shell
+    # the triangle never actually touched.
+    def self.valley_cut_one_plane!(grp, ppoly, pl)
+      pts3 = ppoly.map { |p| Geom::Point3d.new(p[0], p[1], plane_z(pl, p[0], p[1])) }
+      drawn = []
+      pts3.each_index do |i2|
+        begin
+          e2 = grp.entities.add_line(pts3[i2], pts3[(i2 + 1) % pts3.length])
+          drawn << e2 if e2
+        rescue StandardError
+          nil
+        end
+      end
+      plan = ppoly.map { |p| [p[0], p[1]] }
+      doomed = grp.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid?
+        vs = f.outer_loop.vertices.map(&:position)
+        cx = vs.map(&:x).inject(:+) / vs.length
+        cy = vs.map(&:y).inject(:+) / vs.length
+        next false unless point_in_poly?(plan, cx, cy)
+        vs.all? { |v| (plane_z(pl, v.x, v.y) - v.z).abs < 0.25 }
+      end
+      edges = (doomed.flat_map(&:edges) + drawn).uniq
+      doomed.each { |f| f.erase! if f.valid? }
+      edges.each { |e2| e2.erase! if e2.valid? && e2.faces.empty? }
+      doomed.length
+    rescue StandardError => e
+      puts "[Roof] valley_cut_one_plane!: #{e.message}"
+      0
+    end
+
+    # THE LOW ROOF'S OWN TRIM STOPS AT THE TALLER WALL (2026-09-03, his
+    # picture: the garage fascia and gutter sail 17" past the house wall
+    # and hang inside the room). For every taller roof on the storey, the
+    # facing wall line is its eave edge pushed back in by its own
+    # overhang; whatever stretch of OUR eave edges lies past that line is
+    # handed to the same skip machinery the rakes use. Returns
+    # { edge index => [[t0, t1]] }.
+    def self.valley_low_spans(pts, gable_flags, ridge_z, lvl, skip_grp)
+      out = {}
+      return out unless USE_ROOF_VALLEY
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      my_c = poly_centre(pts)
+      roofs.each do |hi_grp|
+        next if hi_grp == skip_grp || !hi_grp.valid?
+        hg2 = roof_geom(hi_grp)
+        next if hg2.nil?
+        next unless hg2[:level] == lvl
+        next unless hg2[:ridge_z] > ridge_z + 0.5
+        hc = poly_centre(hg2[:pts])
+        best = nil
+        (0...hg2[:pts].length).each do |i|
+          next if hg2[:gables].include?(i)
+          el = edge_line(hg2[:pts], i)
+          inw = edge_inward(hg2[:pts], i)
+          next if el.nil? || inw.nil?
+          nb = hg2[:pts][(i + 1) % hg2[:pts].length]
+          mid = [(hg2[:pts][i][0] + nb[0]) / 2.0, (hg2[:pts][i][1] + nb[1]) / 2.0]
+          d = (my_c[0] - mid[0]) * -inw[0] + (my_c[1] - mid[1]) * -inw[1]
+          next if d <= 0.0
+          best = [el, inw, d] if best.nil? || d < best[2]
+        end
+        next if best.nil?
+        el, inw, = best
+        wall_pt = [el[0][0] + inw[0] * hg2[:oh].to_f,
+                   el[0][1] + inw[1] * hg2[:oh].to_f]
+        (0...pts.length).each do |e|
+          next if gidx.include?(e)
+          a = pts[e]
+          b = pts[(e + 1) % pts.length]
+          sa = (a[0] - wall_pt[0]) * inw[0] + (a[1] - wall_pt[1]) * inw[1]
+          sb = (b[0] - wall_pt[0]) * inw[0] + (b[1] - wall_pt[1]) * inw[1]
+          next if sa <= 0.1 && sb <= 0.1
+          len = Math.hypot(b[0] - a[0], b[1] - a[1])
+          span = if sa > 0.1 && sb > 0.1
+                   [0.0, len]
+                 else
+                   tc = sa / (sa - sb) * len
+                   sa > 0 ? [0.0, tc] : [tc, len]
+                 end
+          next if span[1] - span[0] < 1.0
+          # a half-plane reaches for ever - make sure the skipped stretch
+          # really lies against THAT building, not across the street
+          tm = (span[0] + span[1]) / 2.0
+          dd = Math.hypot(b[0] - a[0], b[1] - a[1])
+          mx = a[0] + (b[0] - a[0]) * tm / dd
+          my = a[1] + (b[1] - a[1]) * tm / dd
+          gl = Math.hypot(hc[0] - mx, hc[1] - my)
+          nx = mx + (hc[0] - mx) / gl * 2.0
+          ny = my + (hc[1] - my) / gl * 2.0
+          next unless point_in_poly?(hg2[:pts], nx, ny)
+          (out[e] ||= []) << span
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_low_spans: #{e.message}"
+      {}
+    end
+
+    # THE LOW ROOF'S OVERHANG STOPS AT THE TALLER WALL TOO (2026-09-03,
+    # his picture: the garage's tiles and deck sailed on past the line
+    # where the fascia now ends - "הרעפים והשכבה שמתחת צריכים ליישר קו
+    # עם הפשייה והאיבס"). For every eave stretch valley_low_spans already
+    # takes the trim off, the DECK strip one overhang deep is cut back
+    # the same way, so roof, tiles, fascia and gutter all end together on
+    # the wall line. The abut stretch itself is skipped - that tuck into
+    # the wall is what the roof dies against.
+    def self.valley_low_deck_cuts(pts, gable_flags, slope, deck_z, ridge_z,
+                                  lvl, skip_grp, oh)
+      out = []
+      return out unless USE_ROOF_VALLEY
+      return out if oh.to_f < 1.0
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      g = { pts: pts, slope: slope, deck_z: deck_z, gables: gidx }
+      valley_low_spans(pts, gable_flags, ridge_z, lvl, skip_grp).each do |e, sps|
+        len = vlen(vsub(pts[(e + 1) % pts.length], pts[e]))
+        el = edge_line(pts, e)
+        inw = edge_inward(pts, e)
+        pl = edge_plane(g, e)
+        next if el.nil? || inw.nil? || pl.nil?
+        sps.each do |(t0, t1)|
+          next if t1 - t0 >= len - 1.0 # the whole edge = the abut tuck
+          a2 = [el[0][0] + el[1][0] * t0, el[0][1] + el[1][1] * t0]
+          b2 = [el[0][0] + el[1][0] * t1, el[0][1] + el[1][1] * t1]
+          corners = [a2, b2,
+                     [b2[0] + inw[0] * oh, b2[1] + inw[1] * oh],
+                     [a2[0] + inw[0] * oh, a2[1] + inw[1] * oh]]
+          out << { poly: corners.map { |p| [p[0], p[1], plane_z(pl, p[0], p[1])] },
+                   plane: pl }
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_low_deck_cuts: #{e.message}"
+      []
+    end
+
+    # The 3D tile pieces are PLACED, not grown off the deck - the eave
+    # course walks the eave edge on its own - so a cut in the deck does
+    # not move them (measured 2026-09-03, valley4_report.txt: 0 faces
+    # left in the strip, 2 tile pieces still standing in it). After the
+    # final cuts, any piece whose plan centre sits inside a cut region is
+    # taken out with it.
+    def self.valley_cull_pieces!(grp, plans)
+      gone = 0
+      grp.entities.grep(Sketchup::ComponentInstance).each do |c|
+        b = c.bounds
+        cx = (b.min.x + b.max.x) / 2.0
+        cy = (b.min.y + b.max.y) / 2.0
+        next unless plans.any? { |pl| point_in_poly?(pl, cx, cy) }
+        c.erase!
+        gone += 1
+      end
+      puts "[Roof] valley: #{gone} tile piece(s) taken out of the cut regions" if gone.positive?
+      gone
+    rescue StandardError => e
+      puts "[Roof] valley_cull_pieces!: #{e.message}"
+      0
     end
 
     # Does this roof stand on any of these walls? (by the ids it saved)
@@ -2790,6 +3135,39 @@ module InteriorPro
                            .map { |rg| [rg.first[0], rg.last[0]] }
         end
       end
+      # THE VALLEY CUTS THE EAVE DRESSING (2026-09-15, step 3 of the
+      # valley). Where the garage roof rises into this one, the fascia,
+      # the drip, the soffit and the gutter stop between the two legs -
+      # left standing they hang in mid air under the low roof. One more
+      # skip span on an edge that already knows how to skip; no new
+      # geometry code, and with USE_ROOF_VALLEY off not even this.
+      valley_over = nil
+      if USE_ROOF_VALLEY
+        vcuts = valley_cuts(poly, gable_flags, slope, band_top,
+                            ridge.to_f, lvl, grp)
+        unless vcuts.empty?
+          gable_spans ||= {}
+          valley_over = {}
+          vcuts.each do |e2, list|
+            gable_spans[e2] = (gable_spans[e2] || []) + list.map { |v| v[:span] }
+            list.each { |v| (valley_over[e2] ||= []) << v[:over] if v[:over] }
+            list.each { |v| valley_cut_deck!(grp, v[:tri], v[:plane], 0.35) }
+          end
+          puts "[Roof] valley: eave dressing + deck cut on #{vcuts.length} edge(s)"
+        end
+        lspans = valley_low_spans(poly, gable_flags, ridge.to_f, lvl, grp)
+        unless lspans.empty?
+          gable_spans ||= {}
+          lspans.each { |e2, sp| gable_spans[e2] = (gable_spans[e2] || []) + sp }
+          puts "[Roof] valley: this roof's trim stops at the taller wall (#{lspans.length} edge(s))"
+        end
+        lcuts = valley_low_deck_cuts(poly, gable_flags, slope, band_top,
+                                     ridge.to_f, lvl, grp, s[:overhang].to_f)
+        unless lcuts.empty?
+          lcuts.each { |v| valley_cut_deck!(grp, v[:poly], v[:plane], 0.35) }
+          puts "[Roof] valley: #{lcuts.length} overhang strip(s) pulled back to the wall"
+        end
+      end
       # ---- eave tiles (2026-08-19, ROOF_TILES_PROPOSAL.md step 4) -------
       # 3D ONLY WHERE THE SILHOUETTE SHOWS, and on a roof that is the eave.
       # The field above it is seen against the roof itself, where the texture
@@ -2860,6 +3238,27 @@ module InteriorPro
         end
       end
 
+      # ...and the valley cutter once more AFTER the tile field is laid:
+      # the field is one big quad per plane, half an inch above the deck,
+      # drawn from the plane's own rectangle - it does not read the
+      # deck's notch and sailed straight over the valley (measured
+      # 2026-09-03, the c=110.5 face in valley2_report.txt). The shells
+      # cut before have nothing left inside the triangle and come through
+      # untouched.
+      if USE_ROOF_VALLEY
+        cutplans = []
+        (defined?(vcuts) && vcuts ? vcuts : {}).each do |_e2, list|
+          list.each do |v|
+            valley_cut_deck!(grp, v[:tri], v[:plane])
+            cutplans << v[:tri].map { |p| [p[0], p[1]] }
+          end
+        end
+        (defined?(lcuts) && lcuts ? lcuts : []).each do |v|
+          valley_cut_deck!(grp, v[:poly], v[:plane])
+          cutplans << v[:poly].map { |p| [p[0], p[1]] }
+        end
+        valley_cull_pieces!(grp, cutplans) unless cutplans.empty?
+      end
       if s[:fascia]
         build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth],
                     gable_flags, gable_spans)
@@ -2988,8 +3387,13 @@ module InteriorPro
         if gsec
           had_edges = grp.entities.grep(Sketchup::Edge).map(&:object_id)
           had_faces = grp.entities.grep(Sketchup::Face).map(&:object_id)
+          gspans = gable_spans
+          if valley_over && !valley_over.empty?
+            gspans = (gable_spans || {}).dup
+            valley_over.each { |e2, sp| gspans[e2] = (gspans[e2] || []) + sp }
+          end
           build_profile_band!(grp, poly, gsec, band_top, rake_corners,
-                              gable_spans, rake_corners,
+                              gspans, rake_corners,
                               s[:fascia] ? RAKE_K_OUT : 0.0,
                               gutter_outer_len(s[:gutter_profile], gw, gh))
           soften_shallow_edges!(grp.entities, had_edges)
@@ -3043,7 +3447,7 @@ module InteriorPro
             end
             build_downspouts!(grp, poly, gable_flags, rings_at,
                               gmat || trim_mat, ds_off, nil,
-                              s[:overhang].to_f)
+                              s[:overhang].to_f, valley_over)
           end
         end
       end
@@ -7932,8 +8336,31 @@ module InteriorPro
             next if tb - ta < 0.5
             # ring_at, not a plain fraction - a mid-edge end cuts SQUARE
             # on the meet line (2026-09-08); corner ends are unchanged.
-            quad = [ring_at(poly, i, inner, ta, len), ring_at(poly, i, inner, tb, len),
-                    ring_at(poly, i, outer, tb, len), ring_at(poly, i, outer, ta, len)]
+            a_in = ring_at(poly, i, inner, ta, len)
+            b_in = ring_at(poly, i, inner, tb, len)
+            a_out = ring_at(poly, i, outer, ta, len)
+            b_out = ring_at(poly, i, outer, tb, len)
+            # A SPAN THAT STILL REACHES A REAL CORNER KEEPS THAT CORNER
+            # (2026-09-15). Until today the spans branch ignored
+            # square_flags altogether, so the moment ANY span was put on
+            # an edge its corners fell back to the plain mitred ring and
+            # the fascia and the gutter came out cut on a diagonal - which
+            # is exactly what the valley's own skip span did to the far
+            # corner of his south eave. A span end AT a corner is not a
+            # cut at all, it is that corner, and it is treated here the
+            # same way the whole-edge branch below treats it.
+            if square_flags
+              prev = (i - 1) % n
+              if ta <= NODE_TOL && corner_flag(square_flags[prev], true)
+                a_in = band_square_corner(poly, i, prev, k_in, square_k) || a_in
+                a_out = band_square_corner(poly, i, prev, k_out, square_k) || a_out
+              end
+              if tb >= len - NODE_TOL && corner_flag(square_flags[j], false)
+                b_in = band_square_corner(poly, i, j, k_in, square_k) || b_in
+                b_out = band_square_corner(poly, i, j, k_out, square_k) || b_out
+              end
+            end
+            quad = [a_in, b_in, b_out, a_out]
             add_prism!(grp.entities, quad, z_top, z_bot, lift)
           end
           next
@@ -8179,8 +8606,21 @@ module InteriorPro
             next if tb - ta < 0.5
             # ring_at, same reason as build_band! - a mid-edge gutter end
             # cuts square on the meet line (2026-09-08).
-            a = section.map { |(k, z)| section_point(ring_at(poly, i, ring.call(k), ta, len), z_ref + z) }
-            b = section.map { |(k, z)| section_point(ring_at(poly, i, ring.call(k), tb, len), z_ref + z) }
+            # ...and a span end that IS a corner keeps that corner square,
+            # exactly as the whole-edge branch below (2026-09-15).
+            prev2 = (i - 1) % n
+            sq_a2 = square_flags && ta <= NODE_TOL && corner_flag(square_flags[prev2], true)
+            sq_b2 = square_flags && tb >= len - NODE_TOL && corner_flag(square_flags[j], false)
+            a = section.map do |(k, z)|
+              p = ring_at(poly, i, ring.call(k), ta, len)
+              p = band_square_corner(poly, i, prev2, k, square_k) || p if sq_a2
+              section_point(p, z_ref + z)
+            end
+            b = section.map do |(k, z)|
+              p = ring_at(poly, i, ring.call(k), tb, len)
+              p = band_square_corner(poly, i, j, k, square_k) || p if sq_b2
+              section_point(p, z_ref + z)
+            end
             # A MID-EDGE end is exposed and gets the end cap; an end on
             # the poly corner meets the next edge's run and stays open
             # (2026-09-08 - the open gutter mouth at the break point).
@@ -8503,12 +8943,20 @@ module InteriorPro
     # vertical run stands, so each pipe can end at its own ground
     # (2026-09-11). nil from the lambda = no pipe there.
     def self.build_downspouts!(grp, poly, skip_flags, rings, mat, skip = [],
-                               inner = nil, overhang = 0.0)
+                               inner = nil, overhang = 0.0, avoid = nil)
       made = 0
       n = poly.length
       downspout_spots(poly, skip_flags, overhang).each do |(at, edge)|
         key = downspout_key(at)
         next if skip.include?(key)
+        # a pipe on a stretch that stands over a lower roof would come
+        # down inside the room below it (2026-09-03, his picture)
+        if avoid && avoid[edge % n]
+          i2 = edge % n
+          d2 = vnorm(vsub(poly[(i2 + 1) % n], poly[i2]))
+          tt = (at[0] - poly[i2][0]) * d2[0] + (at[1] - poly[i2][1]) * d2[1]
+          next if avoid[i2].any? { |(t0, t1)| tt >= t0 - 0.5 && tt <= t1 + 0.5 }
+        end
         rg = rings
         inn = inner
         if rings.respond_to?(:call)

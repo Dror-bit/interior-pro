@@ -1,0 +1,33 @@
+TIME 2026-09-03 14:01:47 -0700
+unit south normal = [-0.0, -0.242536, 0.970143]
+
+== the shell scan, exactly as valley_cut_deck! does it
+   dot=1.000000  passes_0.999=true  c2=  110.52  key=110.5  x   -618.5..    12.0  n=(-0.0000,-0.2425,0.9701)
+   dot=1.000000  passes_0.999=true  c2=  110.00  key=110.0  x   -617.8..    11.2  n=(0.0000,-0.2425,0.9701)
+   dot=0.970143  passes_0.999=false c2=  109.81  key=110.0  x   -618.5..  -546.5  n=(-0.0000,-0.0000,1.0000)
+   dot=0.970143  passes_0.999=false c2=  109.81  key=110.0  x   -373.4..    12.0  n=(-0.0000,-0.0000,1.0000)
+   dot=1.000000  passes_0.999=true  c2=  110.00  key=110.0  x   -618.5..  -617.8  n=(0.0000,-0.2425,0.9701)
+   dot=1.000000  passes_0.999=true  c2=  110.00  key=110.0  x     11.2..    12.0  n=(-0.0000,-0.2425,0.9701)
+   dot=0.970143  passes_0.999=false c2=  105.90  key=106.0  x   -618.5..  -546.5  n=(-0.0000,-0.0000,1.0000)
+   dot=-0.970143  passes_0.999=false c2=  110.50  key=110.5  x   -618.5..  -546.5  n=(0.0000,0.0000,-1.0000)
+   dot=-0.970143  passes_0.999=false c2=  107.01  key=107.0  x   -618.5..  -546.5  n=(0.0000,0.0000,-1.0000)
+   dot=-0.970143  passes_0.999=false c2=  109.54  key=109.5  x   -618.5..  -546.5  n=(0.0000,0.0000,-1.0000)
+   dot=0.970143  passes_0.999=false c2=  105.90  key=106.0  x   -373.4..    12.0  n=(-0.0000,-0.0000,1.0000)
+   dot=0.970143  passes_0.999=false c2=  110.46  key=110.5  x   -373.4..    12.0  n=(-0.0000,-0.0000,1.0000)
+   dot=0.970143  passes_0.999=false c2=  106.09  key=106.0  x   -373.4..    12.0  n=(-0.0000,-0.0000,1.0000)
+   dot=0.970143  passes_0.999=false c2=  109.50  key=109.5  x   -373.4..    12.0  n=(-0.0000,-0.0000,1.0000)
+
+== live try: valley_cut_deck! on the HIGH roof, one undo step
+returned: 0
+
+== south-parallel faces AFTER
+   c=  110.5 verts= 4 x   -618.5..    12.0 covers(-460,20)=true
+   c=  110.0 verts= 7 x   -617.8..    11.2 covers(-460,20)=false
+   c=  110.0 verts= 4 x   -618.5..  -617.8 covers(-460,20)=false
+   c=  102.0 verts= 6 x   -618.5..  -617.8 covers(-460,20)=false
+   c=  110.0 verts= 4 x     11.2..    12.0 covers(-460,20)=false
+   c=  102.0 verts= 6 x     11.2..    12.0 covers(-460,20)=false
+   c=  102.0 verts= 4 x   -617.8..  -606.5 covers(-460,20)=false
+   c=  102.7 verts= 4 x   -617.8..  -606.5 covers(-460,20)=false
+   c=  102.0 verts= 4 x      0.0..    11.2 covers(-460,20)=false
+   c=  102.7 verts= 4 x      0.0..    11.2 covers(-460,20)=false

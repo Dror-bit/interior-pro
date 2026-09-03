@@ -1,0 +1,36 @@
+TIME 2026-09-03 13:58:19 -0700
+USE_ROOF_VALLEY = true
+loaded code has valley_cut_one_plane!: true
+roofs: 2  hi ridge=~ 14' 7 1/2"  lo ridge=128.6338911758681
+valley_cuts on the LIVE model: {2=>[{:span=>[72.00000000000011, 245.0711294069448], :plane=>[-0.0, 0.25, 110.0], :tri=>[[-546.5067845778066, -12.0, 107.0], [-373.4356551708619, -12.0, 107.0], [-459.97121987433434, 74.53556470347235, 128.6338911758681]]}]}
+
+== HIGH roof faces near plane z=110+0.25y (tol 0.5), with plan bbox
+   face x   -617.8..    11.2  y    -12.0..   261.9  centre(  -370.4,    78.6) inside_tri=false  verts=7
+   face x   -618.5..  -546.5  y    -12.0..   -11.2  centre(  -589.4,   -11.7) inside_tri=false  verts=5
+   face x   -373.4..    12.0  y    -12.0..   -11.2  centre(  -142.5,   -11.7) inside_tri=false  verts=5
+   face x   -618.5..  -617.8  y    -12.0..   261.9  centre(  -618.1,   125.0) inside_tri=false  verts=4
+   face x     11.2..    12.0  y    -12.0..   261.9  centre(    11.6,   125.0) inside_tri=false  verts=4
+vertices AT the apex point: 1
+
+== who is standing over these probe points (plan), any z, HIGH roof
+   ( -460.0,   0.0): F(InteriorPro_Ro) z108..176 | Sketch z107..129 | Sketch z107..129 | F(InteriorPro_Ro) z107..175
+   ( -460.0,  40.0): F(InteriorPro_Ro) z108..176 | Sketch z107..129 | Sketch z107..129 | F(InteriorPro_Ro) z107..175
+   ( -500.0,  -8.0): F(InteriorPro_Ro) z108..176 | Sketch z107..129 | F(InteriorPro_Ro) z107..175
+   ( -400.0,  -8.0): F(InteriorPro_Ro) z108..176 | Sketch z107..129 | F(InteriorPro_Ro) z107..175
+   ( -460.0, -11.0): F(InteriorPro_Ro) z108..176 | Sketch z107..129 | Sketch z107..129 | F(InteriorPro_Ro) z107..175
+
+== SOUTH-PARALLEL faces of HIGH roof, by c = z - 0.25y
+   c=  102.0  mat=InteriorPro_Roof_ffffff    verts= 6  x   -618.5..  -617.8  y    -12.0..   261.9  covers(-460,20)=false
+   c=  102.0  mat=InteriorPro_Roof_ffffff    verts= 6  x     11.2..    12.0  y    -12.0..   261.9  covers(-460,20)=false
+   c=  102.0  mat=InteriorPro_Roof_ffffff    verts= 4  x   -617.8..  -606.5  y      0.0..   261.9  covers(-460,20)=false
+   c=  102.0  mat=InteriorPro_Roof_ffffff    verts= 4  x      0.0..    11.2  y      0.0..   261.9  covers(-460,20)=false
+   c=  102.7  mat=InteriorPro_Roof_ffffff    verts= 4  x   -617.8..  -606.5  y      0.0..   261.9  covers(-460,20)=false
+   c=  102.7  mat=InteriorPro_Roof_ffffff    verts= 4  x      0.0..    11.2  y      0.0..   261.9  covers(-460,20)=false
+   c=  110.0  mat=InteriorPro_Roof_b0552f    verts= 7  x   -617.8..    11.2  y    -12.0..   261.9  covers(-460,20)=false
+   c=  110.0  mat=InteriorPro_Roof_b0552f    verts= 4  x   -618.5..  -617.8  y    -12.0..   261.9  covers(-460,20)=false
+   c=  110.0  mat=InteriorPro_Roof_b0552f    verts= 4  x     11.2..    12.0  y    -12.0..   261.9  covers(-460,20)=false
+   c=  110.5  mat=InteriorPro_Roof_b0552f    verts= 4  x   -618.5..    12.0  y    -12.0..   261.9  covers(-460,20)=true
+
+tile/components of HIGH roof whose CENTRE is inside the triangle: 0
+
+LOW roof: highest face vertex y = 74.54 (74.5 = extension standing)
