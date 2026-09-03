@@ -578,7 +578,11 @@ module InteriorPro
     # rake spans use it), so the valley hands it one more span and no new
     # geometry code is written at all.
     # Returns { edge index => [[t0, t1]] }, the shape gable_spans has.
-    def self.valley_cuts(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+    # `oh` is this roof's own overhang - only the dressing strip needs it,
+    # so it defaults to 0 and the old six-argument call still means what
+    # it always did (rt151).
+    def self.valley_cuts(pts, gable_flags, slope, deck_z, ridge_z, lvl,
+                         skip_grp, oh = 0.0)
       out = {}
       return out unless USE_ROOF_VALLEY
       gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
@@ -637,8 +641,30 @@ module InteriorPro
             (p[0] - el[0][0]) * el[1][0] + (p[1] - el[0][1]) * el[1][1]
           end
           ov = [[ovr.min, 0.0].max, [ovr.max, len].min]
+          # THE HOUSE'S FASCIA IS CUT ON THE GARAGE'S PLANE (2026-09-18,
+          # his rule: "נפגשים, לא נכנסים"). Outside the two legs the eave
+          # dressing is NOT skipped and stays built - and in his model the
+          # garage's plane runs straight through it for 32" on each side
+          # (west x -578.51..-546.51, between z 99 and 107). The dressing
+          # strip over the low roof, and the low roof's own two planes,
+          # are handed out here; valley_sweep_under! does the cutting.
+          eo = ov[1] - ov[0] > 1.0 ? ov : nil
+          strip = nil
+          if eo
+            sa = [el[0][0] + el[1][0] * eo[0], el[0][1] + el[1][1] * eo[0]]
+            sb = [el[0][0] + el[1][0] * eo[1], el[0][1] + el[1][1] * eo[1]]
+            # out past the edge for the fascia, the drip and the gutter,
+            # and in by the overhang for the soffit and the deck strip
+            oo = 8.0
+            di = oh.to_f
+            strip = [[sa[0] - inw[0] * oo, sa[1] - inw[1] * oo],
+                     [sb[0] - inw[0] * oo, sb[1] - inw[1] * oo],
+                     [sb[0] + inw[0] * di, sb[1] + inw[1] * di],
+                     [sa[0] + inw[0] * di, sa[1] + inw[1] * di]]
+          end
           (out[e] ||= []) << { span: [t0, t1], plane: hp,
-                               over: (ov[1] - ov[0] > 1.0 ? ov : nil),
+                               over: eo,
+                               lo: [lo_a, lo_b], strip: strip,
                                tri: [feet[0], feet[1], apex] }
         end
       end
@@ -3466,7 +3492,7 @@ module InteriorPro
       valley_over = nil
       if USE_ROOF_VALLEY
         vcuts = valley_cuts(poly, gable_flags, slope, band_top,
-                            ridge.to_f, lvl, grp)
+                            ridge.to_f, lvl, grp, s[:overhang].to_f)
         unless vcuts.empty?
           gable_spans ||= {}
           valley_over = {}
@@ -4010,6 +4036,27 @@ module InteriorPro
       # the eave's upper end on the exterior wall, and that is the whole
       # change. (The gable triangles above are the old ones; they are not
       # this, and they stay.)
+      # THE EAVE DRESSING MEETS THE LOW ROOF, IT DOES NOT RUN INTO IT
+      # (2026-09-18). LAST, because the fascia, the drip, the soffit and
+      # the gutter are all built above this line - a cut any earlier has
+      # nothing to cut. Each of the low roof's two planes takes its own
+      # half of the dressing strip (split on the low roof's ridge) and
+      # whatever hangs BELOW that plane comes off. West of the band the
+      # plane is under the soffit and nothing is touched; between the two
+      # legs the dressing was never built.
+      if USE_ROOF_VALLEY && defined?(vcuts) && vcuts
+        vcuts.each do |_e3, list|
+          list.each do |v|
+            next if v[:strip].nil? || v[:lo].nil?
+            v[:lo].each_index do |k|
+              rg = clip_under(v[:strip], v[:lo][k], v[:lo][1 - k])
+              next if rg.length < 3
+              valley_sweep_under!(grp, { poly: rg.map { |q| [q[0], q[1], 0.0] },
+                                         hp: v[:lo][k] })
+            end
+          end
+        end
+      end
       grp.entities.grep(Sketchup::Face).each do |f|
         next if f.material
         f.material = trim_mat
