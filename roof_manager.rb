@@ -252,6 +252,268 @@ module InteriorPro
       Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
     end
 
+    # ---------- VALLEY: a LOW roof running into a HIGH one -------------
+    # (2026-09-15, the user: "צריך שהגגות יתחברו, כרגע זה שני גגות
+    # נפרדים"). Today the low garage roof dies vertically into the house
+    # wall (an abut edge) and the house keeps its eave, fascia and gutter
+    # running right over it. The real detail: the low roof's two planes
+    # carry ON into the high roof's plane and meet it on two VALLEYS, and
+    # the high roof's eave trim is cut away between the two legs.
+    #
+    # Everything here is PURE - plain numbers in, plain numbers out, no
+    # SketchUp API - so tests/rt151.rb pins it with the real measurements
+    # off his model (valley_report.txt, 2026-09-03).
+    #
+    # A sloped roof plane is written z = a*x + b*y + c, as [a, b, c].
+    VALLEY_EPS = 1.0e-9 unless const_defined?(:VALLEY_EPS, false)
+
+    # Kill switch. While this is false nothing below is CALLED by the
+    # builder and both roofs come out exactly as they do today.
+    USE_ROOF_VALLEY = false unless const_defined?(:USE_ROOF_VALLEY, false)
+
+    # PURE. The plane of one roof side, from its EAVE line: `pt` any point
+    # on that line in plan, `up` a plan vector pointing INBOARD (towards
+    # the ridge), `z0` the deck height ON the eave line, `slope` rise/run.
+    def self.plane_abc(pt, up, slope, z0)
+      n = Math.hypot(up[0].to_f, up[1].to_f)
+      return nil if n < VALLEY_EPS
+      u = [up[0].to_f / n, up[1].to_f / n]
+      [slope * u[0], slope * u[1],
+       z0 - slope * (u[0] * pt[0].to_f + u[1] * pt[1].to_f)]
+    end
+
+    # PURE. The height of plane `p` over (x, y).
+    def self.plane_z(p, x, y)
+      p[0] * x + p[1] * y + p[2]
+    end
+
+    # PURE. Where two planes meet, as a line in plan: [[x, y], [dx, dy]]
+    # with a unit direction. nil when the two are parallel.
+    def self.planes_meet(p1, p2)
+      da = p1[0] - p2[0]
+      db = p1[1] - p2[1]
+      dc = p1[2] - p2[2]
+      len = Math.hypot(da, db)
+      return nil if len < VALLEY_EPS
+      # da*x + db*y + dc = 0; the point returned is the one nearest 0,0
+      [[-dc * da / (len * len), -dc * db / (len * len)], [-db / len, da / len]]
+    end
+
+    # PURE. The one point all three planes share. For us that is the
+    # APEX: where the low roof's ridge dies into the high roof's plane.
+    def self.planes_apex(p1, p2, p3)
+      a1 = p1[0] - p2[0]
+      b1 = p1[1] - p2[1]
+      c1 = p1[2] - p2[2]
+      a2 = p1[0] - p3[0]
+      b2 = p1[1] - p3[1]
+      c2 = p1[2] - p3[2]
+      det = a1 * b2 - a2 * b1
+      return nil if det.abs < VALLEY_EPS
+      x = (b1 * c2 - b2 * c1) / det
+      y = (a2 * c1 - a1 * c2) / det
+      [x, y, plane_z(p1, x, y)]
+    end
+
+    # PURE. Where the line [pt, dir] crosses the line [qt, qdir], in plan.
+    def self.lines_meet_xy(pt, dir, qt, qdir)
+      det = qdir[0] * dir[1] - dir[0] * qdir[1]
+      return nil if det.abs < VALLEY_EPS
+      rx = qt[0] - pt[0]
+      ry = qt[1] - pt[1]
+      t = (qdir[0] * ry - rx * qdir[1]) / det
+      [pt[0] + dir[0] * t, pt[1] + dir[1] * t]
+    end
+
+    # PURE. THE WHOLE ANSWER for one low roof running into one high roof.
+    #   lo_a, lo_b - the low roof's two slope planes
+    #   hi         - the high roof's plane it runs into
+    #   eave       - that high roof's eave line in plan, [pt, dir]: the
+    #                line the two legs are cut back to
+    # Returns nil, or
+    #   { apex: [x, y, z],
+    #     legs: [[foot, apex], [foot, apex]]   (each point [x, y, z]),
+    #     cut:  [[x, y], [x, y]]               on the eave line,
+    #     cut_len: }
+    # `cut` is the piece of the high roof's eave - fascia, gutter, soffit
+    # - that has to go; everything outside it stays.
+    def self.roof_valley(lo_a, lo_b, hi, eave)
+      apex = planes_apex(lo_a, lo_b, hi)
+      return nil if apex.nil?
+      legs = []
+      foot = []
+      [lo_a, lo_b].each do |lo|
+        ln = planes_meet(lo, hi)
+        return nil if ln.nil?
+        f = lines_meet_xy(ln[0], ln[1], eave[0], eave[1])
+        return nil if f.nil?
+        foot << f
+        legs << [[f[0], f[1], plane_z(hi, f[0], f[1])], apex]
+      end
+      { apex: apex, legs: legs, cut: foot,
+        cut_len: Math.hypot(foot[1][0] - foot[0][0], foot[1][1] - foot[0][1]) }
+    end
+
+    # PURE. Is this plan polygon wound counter-clockwise?
+    def self.poly_ccw?(pts)
+      s = 0.0
+      pts.each_index do |i|
+        a = pts[i]
+        b = pts[(i + 1) % pts.length]
+        s += a[0] * b[1] - b[0] * a[1]
+      end
+      s > 0.0
+    end
+
+    # PURE. The plan normal of edge i pointing INBOARD, towards the ridge.
+    def self.edge_inward(pts, i)
+      a = pts[i]
+      b = pts[(i + 1) % pts.length]
+      dx = b[0] - a[0]
+      dy = b[1] - a[1]
+      n = Math.hypot(dx, dy)
+      return nil if n < VALLEY_EPS
+      poly_ccw?(pts) ? [-dy / n, dx / n] : [dy / n, -dx / n]
+    end
+
+    # PURE. The edge as a line in plan: [point, unit direction].
+    def self.edge_line(pts, i)
+      a = pts[i]
+      b = pts[(i + 1) % pts.length]
+      n = Math.hypot(b[0] - a[0], b[1] - a[1])
+      return nil if n < VALLEY_EPS
+      [[a[0], a[1]], [(b[0] - a[0]) / n, (b[1] - a[1]) / n]]
+    end
+
+    # What a roof group knows about its own shape. `deck_z` is the deck
+    # height ON the eave line - eave_z is measured at the WALL, so the
+    # overhang's drop comes off it.
+    def self.roof_geom(grp)
+      pts = Array(grp.get_attribute('InteriorPro', 'footprint_xy'))
+            .map(&:to_f).each_slice(2).to_a
+      return nil if pts.length < 3
+      slope = grp.get_attribute('InteriorPro', 'pitch').to_f / 12.0
+      return nil if slope <= VALLEY_EPS
+      oh = grp.get_attribute('InteriorPro', 'overhang_in').to_f
+      { pts: pts, slope: slope,
+        deck_z: grp.get_attribute('InteriorPro', 'eave_z').to_f - slope * oh,
+        ridge_z: grp.get_attribute('InteriorPro', 'ridge_z').to_f,
+        gables: Array(grp.get_attribute('InteriorPro', 'gable_edges')).map(&:to_i),
+        level: (grp.get_attribute('InteriorPro', 'level') || 1).to_i }
+    end
+
+    # The plane of the roof side that rises off edge i of `g`.
+    def self.edge_plane(g, i)
+      up = edge_inward(g[:pts], i)
+      return nil if up.nil?
+      plane_abc(g[:pts][i], up, g[:slope], g[:deck_z])
+    end
+
+    # ---------- STEP 2: carry the LOW roof on to the valley ------------
+    # (2026-09-15) The low roof stops dead on its abut line today. Here
+    # its two slope planes are carried ON past that line until they meet
+    # the plane of the roof above, on the two valley legs. NOTHING that
+    # is already there is touched: two triangles are added, on the low
+    # roof's OWN planes, sharing the abut line with the deck already
+    # built and the ridge line with each other.
+    # `abut_e` are the indices of the roof's abut edges - handed in by
+    # the builder, which knows them; never guessed here.
+    def self.valley_extend!(grp, roof_mat, under_mat, abut_e)
+      return nil unless USE_ROOF_VALLEY
+      lo = roof_geom(grp)
+      return nil if lo.nil?
+      # the two sides the low roof's planes rise off: everything that is
+      # neither a gable end nor the abut line. Anything but a plain two
+      # sided roof is left alone for now.
+      sides = (0...lo[:pts].length).reject do |i|
+        lo[:gables].include?(i) || abut_e.include?(i)
+      end
+      return nil unless sides.length == 2 && abut_e.length == 1
+      lo_a = edge_plane(lo, sides[0])
+      lo_b = edge_plane(lo, sides[1])
+      return nil if lo_a.nil? || lo_b.nil?
+      ae = abut_e.first
+      abut = edge_line(lo[:pts], ae)
+      inw = edge_inward(lo[:pts], ae)
+      return nil if abut.nil? || inw.nil?
+      out = [-inw[0], -inw[1]] # away from the low roof, into the house
+      a2 = lo[:pts][(ae + 1) % lo[:pts].length]
+      mid = [(abut[0][0] + a2[0]) / 2.0, (abut[0][1] + a2[1]) / 2.0]
+      probe = [mid[0] + out[0] * 24.0, mid[1] + out[1] * 24.0]
+
+      hi_grp, hi, hi_edge = valley_partner(grp, lo, probe)
+      return nil if hi_grp.nil?
+      hi_plane = edge_plane(hi, hi_edge)
+      return nil if hi_plane.nil?
+
+      apex = planes_apex(lo_a, lo_b, hi_plane)
+      return nil if apex.nil?
+      # the apex has to lie PAST the abut line, on the house's side -
+      # otherwise the two roofs never meet and there is no valley here.
+      reach = (apex[0] - mid[0]) * out[0] + (apex[1] - mid[1]) * out[1]
+      return nil if reach <= 0.5
+
+      ridge = planes_meet(lo_a, lo_b)
+      return nil if ridge.nil?
+      b = lines_meet_xy(ridge[0], ridge[1], abut[0], abut[1])
+      return nil if b.nil?
+
+      made = []
+      [lo_a, lo_b].each do |pl|
+        vl = planes_meet(pl, hi_plane)
+        next if vl.nil?
+        a = lines_meet_xy(vl[0], vl[1], abut[0], abut[1])
+        next if a.nil?
+        # the leg must actually land ON the abut edge, between its ends
+        t = (a[0] - abut[0][0]) * abut[1][0] + (a[1] - abut[0][1]) * abut[1][1]
+        len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
+        next if t < -0.5 || t > len + 0.5
+        tri = [a, b, [apex[0], apex[1]]]
+        area2 = ((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) -
+                 (tri[2][0] - tri[0][0]) * (tri[1][1] - tri[0][1])).abs
+        next if area2 < 1.0
+        pts3 = tri.map { |p| Geom::Point3d.new(p[0], p[1], plane_z(pl, p[0], p[1])) }
+        f = grp.entities.add_face(pts3)
+        next if f.nil?
+        paint_surface!(f, roof_mat, under_mat)
+        made << f
+      end
+      puts "[Roof] valley: #{made.length} plane(s) carried on to the roof above"
+      made.empty? ? nil : { apex: apex, faces: made }
+    rescue StandardError => e
+      puts "[Roof] valley_extend!: #{e.message}"
+      nil
+    end
+
+    # The roof this low one runs into: another roof on the same storey,
+    # standing higher, whose footprint covers the probe point just past
+    # the abut line. Returns [group, its geom, the index of the edge whose
+    # plane is the one overhead there].
+    def self.valley_partner(grp, lo, probe)
+      best = nil
+      roofs.each do |r|
+        next if r == grp || !r.valid?
+        g = roof_geom(r)
+        next if g.nil?
+        next unless g[:level] == lo[:level]
+        next unless g[:ridge_z] > lo[:ridge_z] + 0.5
+        next unless point_in_poly?(g[:pts], probe[0], probe[1])
+        # for a gable or hip roof the SURFACE over a point is the lowest
+        # of the planes rising off its eave edges
+        pick = nil
+        (0...g[:pts].length).each do |i|
+          next if g[:gables].include?(i)
+          pl = edge_plane(g, i)
+          next if pl.nil?
+          z = plane_z(pl, probe[0], probe[1])
+          pick = [z, i] if pick.nil? || z < pick[0]
+        end
+        next if pick.nil?
+        best = [r, g, pick[1], pick[0]] if best.nil? || pick[0] < best[3]
+      end
+      best.nil? ? [nil, nil, nil] : [best[0], best[1], best[2]]
+    end
+
     # Does this roof stand on any of these walls? (by the ids it saved)
     def self.roof_on_walls?(roof, walls)
       own = Array(roof.get_attribute('InteriorPro', 'set_walls'))
@@ -3041,6 +3303,13 @@ module InteriorPro
       save_roof_marks!(grp, wall_ids - abut_ids)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
+      # THE VALLEY INTO THE ROOF ABOVE (2026-09-15, step 2 of the valley).
+      # Kill switch FIRST: with USE_ROOF_VALLEY false nothing below is
+      # entered and this roof is exactly the one it was yesterday.
+      if USE_ROOF_VALLEY && !abut_ids.empty?
+        abut_e = wall_ids.each_index.select { |i| abut_ids.include?(wall_ids[i]) }
+        valley_extend!(grp, roof_mat, trim_mat, abut_e)
+      end
       unless kept_dormers.empty?
         begin
           InteriorPro::DormerManager.replant!(grp, kept_dormers)

@@ -1,0 +1,91 @@
+TIME 2026-09-03 09:17:08 -0700
+MODEL claud cold
+roofs: 2
+
+== roof 0 style=gable level=1
+   eave_z=110.0  ridge_z=175.48  pitch=3.0  overhang=12.0
+   set_walls=["ae14faf8", "a6abfc52", "a74f9c4e", "2e880a38"]
+   gable_edges=[1, 3]   (index i = edge from corner i to corner i+1)
+   transformation.origin=[0.0, 0.0, 0.0] identity=true
+   footprint (4 corners, plan coords):
+      0 (    12.00,    535.82) -> edge eave  len   630.51  dir   180.0 deg
+      1 (  -618.51,    535.82) -> edge GABLE len   547.82  dir   -90.0 deg
+      2 (  -618.51,    -12.00) -> edge eave  len   630.51  dir     0.0 deg
+      3 (    12.00,    -12.00) -> edge GABLE len   547.82  dir    90.0 deg
+
+== roof 1 style=gable level=1
+   eave_z=92.0  ridge_z=128.63  pitch=3.0  overhang=12.0
+   set_walls=["1ff49109", "a6abfc52", "60fd5480"]
+   gable_edges=[3]   (index i = edge from corner i to corner i+1)
+   transformation.origin=[0.0, 0.0, 0.0] identity=true
+   footprint (4 corners, plan coords):
+      0 (  -301.44,   -379.20) -> edge eave  len   396.20  dir    90.0 deg
+      1 (  -301.44,     17.00) -> edge eave  len   317.07  dir   180.0 deg
+      2 (  -618.51,     17.00) -> edge eave  len   396.20  dir   -90.0 deg
+      3 (  -618.51,   -379.20) -> edge GABLE len   317.07  dir     0.0 deg
+
+== roof 0 faces by plane (world)
+   n=( 0.00,-0.24, 0.97) d=     107  x6    area=    358734  x   -618.5..    12.0  y    -12.0..   261.9  z   107.0..  176.0  InteriorPro_Roof_b0552f,Stucco
+   n=( 0.00, 0.24, 0.97) d=     234  x6    area=    358734  x   -618.5..    12.0  y    261.9..   535.8  z   107.0..  176.0  InteriorPro_Roof_b0552f,Stucco
+   n=(-1.00, 0.00, 0.00) d=     607  x4    area=     21738  x   -606.5..  -606.5  y      0.0..   523.8  z   102.0..  178.0  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=(-1.00, 0.00, 0.00) d=       5  x1    area=     21340  x     -5.0..    -5.0  y      0.0..   523.8  z   102.0..  175.5  #ffffff
+   n=( 1.00, 0.00, 0.00) d=    -602  x1    area=     21340  x   -601.5..  -601.5  y      0.0..   523.8  z   102.0..  175.5  #ffffff
+   n=( 1.00, 0.00, 0.00) d=       0  x1    area=     21340  x      0.0..     0.0  y      0.0..   523.8  z   102.0..  175.5  Stucco
+   n=( 0.00, 0.00,-1.00) d=     -99  x4    area=     15097  x   -618.5..    12.0  y    -12.0..   535.8  z    99.0..   99.0  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00,-1.00) d=    -100  x2    area=     14153  x   -617.8..    11.2  y    -11.2..   535.1  z    99.8..   99.8  InteriorPro_Roof_ffffff
+   n=( 0.00,-1.00, 0.00) d=    -536  x6    area=      9814  x   -618.5..    12.0  y    535.8..   536.0  z    99.0..  107.5  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00) d=     -12  x6    area=      9814  x   -618.5..    12.0  y    -12.2..   -12.0  z    99.0..  107.5  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00,-1.00) d=    -103  x4    area=      9710  x   -618.5..    12.0  y    -16.0..   539.8  z   102.9..  103.0  InteriorPro_Roof_ffffff
+   n=( 0.00,-0.24, 0.97) d=     100  x2    area=      6074  x   -617.8..    11.2  y      0.0..   261.9  z   102.7..  168.2  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.24, 0.97) d=     227  x2    area=      6074  x   -617.8..    11.2  y    261.9..   523.8  z   102.8..  168.2  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00,-1.00) d=    -102  x2    area=      5238  x   -606.5..     0.0  y      0.0..   523.8  z   102.0..  102.0  Stucco
+   n=( 0.00, 1.00, 0.00) d=     -11  x2    area=      5032  x   -617.8..    11.2  y    -11.2..   -11.2  z    99.0..  107.0  InteriorPro_Roof_ffffff
+   n=( 0.00,-1.00, 0.00) d=    -535  x2    area=      5032  x   -617.8..    11.2  y    535.1..   535.1  z    99.0..  107.0  InteriorPro_Roof_ffffff
+   n=(-1.00, 0.00, 0.00) d=     -11  x8    area=      4813  x     11.2..    11.2  y    -12.0..   535.8  z    99.0..  175.5  InteriorPro_Roof_ffffff
+   n=(-1.00, 0.00, 0.00) d=     618  x4    area=      4775  x   -617.8..  -617.8  y    -12.0..   535.8  z    99.0..  175.5  InteriorPro_Roof_ffffff
+
+== roof 1 faces by plane (world)
+   n=(-0.24, 0.00, 0.97) d=     236  x4    area=     67193  x   -618.5..  -460.0  y   -379.2..    74.5  z    89.0..  128.6  InteriorPro_Roof_b0552f,Stucco
+   n=( 0.24, 0.00, 0.97) d=      13  x4    area=     67188  x   -460.0..  -301.4  y   -379.2..    74.5  z    89.0..  128.6  InteriorPro_Roof_b0552f,Stucco
+   n=(-0.24, 0.00, 0.97) d=     237  x1    area=     64744  x   -618.5..  -460.0  y   -379.2..    17.0  z    89.5..  129.1  InteriorPro_Roof_b0552f
+   n=( 0.24, 0.00, 0.97) d=      14  x1    area=     64744  x   -460.0..  -301.4  y   -379.2..    17.0  z    89.5..  129.1  InteriorPro_Roof_b0552f
+   n=( 0.00, 0.00,-1.00) d=     -81  x4    area=      9474  x   -618.5..  -301.4  y   -379.2..    17.0  z    81.0..   81.0  InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00,-1.00) d=     -82  x2    area=      8881  x   -617.8..  -302.2  y   -378.4..    16.2  z    81.8..   81.8  InteriorPro_Roof_ffffff
+   n=( 0.00,-1.00, 0.00) d=     367  x2    area=      7716  x   -606.5..  -313.4  y   -367.2..  -367.2  z    84.0..  131.2  InteriorPro_Roof_b0552f,Stucco
+   n=( 0.00, 1.00, 0.00) d=    -362  x1    area=      7711  x   -606.5..  -313.4  y   -362.2..  -362.2  z    84.0..  128.0  #ffffff
+   n=(-1.00, 0.00, 0.00) d=     301  x5    area=      6167  x   -301.4..  -301.3  y   -379.2..    17.0  z    81.0..   89.5  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00) d=    -619  x4    area=      4800  x   -618.5..  -618.5  y   -379.2..    17.0  z    81.0..   89.5  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=( 0.00, 0.00,-1.00) d=     -85  x3    area=      4635  x   -622.5..  -297.4  y   -379.2..    17.0  z    84.9..   85.0  InteriorPro_Roof_ffffff
+   n=( 1.00, 0.00, 0.00) d=    -618  x2    area=      3158  x   -617.8..  -617.8  y   -378.4..    16.2  z    81.0..   89.0  InteriorPro_Roof_ffffff
+   n=(-1.00, 0.00, 0.00) d=     302  x2    area=      3158  x   -302.2..  -302.2  y   -378.4..    16.2  z    81.0..   89.0  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00) d=    -378  x8    area=      2793  x   -618.5..  -301.4  y   -378.4..  -378.4  z    81.0..  128.6  InteriorPro_Roof_ffffff
+   n=( 0.00, 1.00, 0.00) d=    -379  x8    area=      2732  x   -622.5..  -297.4  y   -379.2..  -379.2  z    81.0..  129.1  InteriorPro_Roof_b0552f,InteriorPro_Roof_ffffff
+   n=( 0.24, 0.00,-0.97) d=    -229  x2    area=      1822  x   -618.5..  -460.0  y   -379.2..  -367.2  z    81.0..  120.6  InteriorPro_Roof_ffffff
+   n=(-0.24, 0.00,-0.97) d=      -5  x2    area=      1822  x   -460.0..  -301.4  y   -379.2..  -367.2  z    81.0..  120.6  InteriorPro_Roof_ffffff
+   n=(-0.24, 0.00, 0.97) d=     229  x1    area=      1699  x   -606.5..  -460.0  y   -378.4..  -367.2  z    84.8..  121.4  InteriorPro_Roof_ffffff
+
+== HIGH roof = 0   LOW roof = 1
+   high footprint  x -618.5..12.0  y -12.0..535.8
+   low  footprint  x -618.5..-301.4  y -379.2..17.0
+   plan overlap    x -618.5..-301.4  y -12.0..17.0
+   low roof centre (plan) = (-459.97, -181.1)
+   distance from that centre to each HIGH edge:
+     edge  0 eave   (    12.00,   535.82)->(  -618.51,   535.82)  dist    716.92
+     edge  1 GABLE  (  -618.51,   535.82)->(  -618.51,   -12.00)  dist    231.79
+     edge  2 eave   (  -618.51,   -12.00)->(    12.00,   -12.00)  dist    169.10
+     edge  3 GABLE  (    12.00,   -12.00)->(    12.00,   535.82)  dist    501.35
+   distance from HIGH centre to each LOW edge (which low edge is the abut):
+     edge  0 eave   (  -301.44,  -379.20)->(  -301.44,    17.00)  dist    244.92
+     edge  1 eave   (  -301.44,    17.00)->(  -618.51,    17.00)  dist    244.91
+     edge  2 eave   (  -618.51,    17.00)->(  -618.51,  -379.20)  dist    399.21
+     edge  3 GABLE  (  -618.51,  -379.20)->(  -301.44,  -379.20)  dist    641.11
+
+== walls
+   2e880a38   cat=exterior base=    0.0 top=  102.0 th= 5.0  (     0.0,     0.0)->(     0.0,   523.8)
+   ae14faf8   cat=exterior base=    0.0 top=  102.0 th= 5.0  (     0.0,   523.8)->(  -606.5,   523.8)
+   60fd5480   cat=exterior base=  -18.0 top=   84.0 th= 5.0  (  -606.5,  -367.2)->(  -313.4,  -367.2)
+   1ff49109   cat=exterior base=  -18.0 top=   84.0 th= 5.0  (  -313.4,  -367.2)->(  -313.4,     0.0)
+   a74f9c4e   cat=exterior base=    0.0 top=  102.0 th= 5.0  (  -313.4,     0.0)->(     0.0,     0.0)
+   0f1dc634   cat=interior base=    0.0 top=   96.0 th= 4.5  (  -318.4,     5.0)->(  -601.5,     5.0)
+   a6abfc52   cat=exterior base=    0.0 top=  102.0 th= 5.0  (  -606.5,   523.8)->(  -606.5,     0.5)
+   a6abfc52   cat=exterior base=  -18.0 top=   84.0 th= 5.0  (  -606.5,     0.5)->(  -606.5,  -367.2)
