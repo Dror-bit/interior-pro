@@ -1,0 +1,22 @@
+TIME 2026-09-03 16:21:38 -0700
+MODEL claud cold
+
+== roof 0  ridge_z=175.47741645478283  regions=0
+
+== roof 1  ridge_z=128.6338911758681  regions=2
+   region 0: (-301.44,0.00,89.00) (-301.44,17.00,89.00) (-402.44,17.00,114.25) (-385.44,0.00,110.00)
+   region 1: (-517.51,17.00,114.25) (-618.51,17.00,89.00) (-618.51,0.00,89.00) (-534.51,0.00,110.00)
+   faces in or beside the regions: 12
+   INSIDE  n=(-0.00, 1.00,-0.00) area=     6.0  x  -302.19.. -301.44  y     0.00..    0.00  z   81.00..  89.00  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   INSIDE  n=(-0.00, 1.00,-0.00) area=     6.0  x  -618.51.. -617.76  y     0.00..    0.00  z   81.00..  89.00  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   INSIDE  n=(-0.00, 1.00,-0.00) area=     8.4  x  -313.44.. -302.19  y     0.00..    0.00  z   81.00..  81.75  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   INSIDE  n=(-0.00, 1.00,-0.00) area=     8.4  x  -617.76.. -606.51  y     0.00..    0.00  z   81.00..  81.75  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   INSIDE  n=(-0.00, 1.00,-0.00) area=   114.0  x  -313.44.. -301.44  y     0.00..    0.00  z   81.00..  92.00  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   INSIDE  n=(-0.00, 1.00,-0.00) area=   114.0  x  -618.51.. -606.51  y     0.00..    0.00  z   81.00..  92.00  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   edge    n=( 0.00,-1.00, 0.00) area=    75.5  x  -459.97.. -313.44  y    17.00..   17.00  z   92.00.. 129.15  InteriorPro_Roof_grain_metaltile_b0552f,InteriorPro_Roof_grain_metaltile_b0552f
+   edge    n=( 0.00,-1.00, 0.00) area=    75.5  x  -606.51.. -459.97  y    17.00..   17.00  z   92.00.. 129.15  InteriorPro_Roof_grain_metaltile_b0552f,InteriorPro_Roof_grain_metaltile_b0552f
+   edge    n=(-0.00, 1.00,-0.00) area=     1.6  x  -301.44.. -297.44  y     0.00..    0.00  z   84.90..  88.50  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   edge    n=(-0.00, 1.00,-0.00) area=     1.6  x  -622.51.. -618.51  y     0.00..    0.00  z   84.90..  88.50  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   edge    n=(-0.00, 1.00,-0.00) area=    14.4  x  -301.44.. -297.44  y     0.00..    0.00  z   84.90..  88.50  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   edge    n=(-0.00, 1.00,-0.00) area=    14.4  x  -622.51.. -618.51  y     0.00..    0.00  z   84.90..  88.50  InteriorPro_Roof_ffffff,InteriorPro_Roof_ffffff
+   tile pieces still inside: 0

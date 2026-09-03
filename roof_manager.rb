@@ -354,6 +354,29 @@ module InteriorPro
         cut_len: Math.hypot(foot[1][0] - foot[0][0], foot[1][1] - foot[0][1]) }
     end
 
+    # PURE. Twice the signed area of a plan polygon.
+    def self.poly_area2(pts)
+      s = 0.0
+      pts.each_index do |i|
+        a = pts[i]
+        b = pts[(i + 1) % pts.length]
+        s += a[0] * b[1] - b[0] * a[1]
+      end
+      s
+    end
+
+    # PURE. The part of a plan polygon where plane `pl` runs at or BELOW
+    # plane `qz`. The boundary is where the two meet - a valley leg, or
+    # the ridge between this roof's own two sides. Parallel planes have
+    # no boundary: the polygon is kept whole or dropped whole.
+    def self.clip_under(pts, pl, qz)
+      ln = planes_meet(pl, qz)
+      if ln.nil?
+        return (pl[2] - qz[2]) <= 1.0e-9 ? pts : []
+      end
+      clip_halfplane(pts, ln[0], [pl[0] - qz[0], pl[1] - qz[1]], false)
+    end
+
     # PURE. Is this plan polygon wound counter-clockwise?
     def self.poly_ccw?(pts)
       s = 0.0
@@ -676,8 +699,8 @@ module InteriorPro
       # the remaining sliver together with the field.
       cut = tri
       if inset > 0.0
-        cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0
-        cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3.0
+        cx = tri.map { |p| p[0] }.inject(:+) / tri.length
+        cy = tri.map { |p| p[1] }.inject(:+) / tri.length
         cut = tri.map do |p|
           d = Math.hypot(cx - p[0], cy - p[1])
           next p if d < 1.0e-6
@@ -842,6 +865,171 @@ module InteriorPro
     rescue StandardError => e
       puts "[Roof] valley_low_deck_cuts: #{e.message}"
       []
+    end
+
+    # THE ONE RULE HE SET (2026-09-17): "החיתוך של הגגות צריך להיות
+    # במפגש. גג הגראז' נכנס לתוך הבית". The low roof exists only where it
+    # stands ABOVE the roof above it, or OUTSIDE that roof's wall line.
+    # Everything else is inside the house and is cut away ON the meeting
+    # line - the valley. In his model that is the two trapezoids in the
+    # attic: 72" on the wall line, 89" at the polygon's edge, 17" deep.
+    #
+    # PURE apart from `roofs` - plain numbers in, plan polygons out, no
+    # SketchUp API - so tests/rt153.rb pins it on his own measurements.
+    # For each of this roof's two slope planes the region is its own
+    # footprint clipped by three half planes:
+    #   1. past the taller roof's WALL line (its eave pushed in by its
+    #      own overhang) - south of that line the roof runs on under the
+    #      eave and is KEPT;
+    #   2. BELOW the taller roof's plane - that boundary IS the valley leg;
+    #   3. on this plane's own side of the ridge, so the two regions meet
+    #      on the ridge and never overlap.
+    # Returns [{ poly: [[x,y,z]..], plane: [a,b,c] }] - the shape
+    # valley_cut_deck! and valley_cull_pieces! already eat.
+    def self.valley_inside_regions(pts, gable_flags, slope, deck_z,
+                                   ridge_z, lvl, skip_grp)
+      out = []
+      return out unless USE_ROOF_VALLEY
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      g = { pts: pts, slope: slope, deck_z: deck_z, ridge_z: ridge_z,
+            gables: gidx }
+      pair = two_side_planes(g)
+      return out if pair.nil?
+      my_c = poly_centre(pts)
+      roofs.each do |hi_grp|
+        next if hi_grp == skip_grp || !hi_grp.valid?
+        hg = roof_geom(hi_grp)
+        next if hg.nil?
+        next unless hg[:level] == lvl
+        next unless hg[:ridge_z] > ridge_z + 0.5
+        # the taller roof's edge that FACES us, and the plane over it
+        best = nil
+        (0...hg[:pts].length).each do |i|
+          next if hg[:gables].include?(i)
+          el = edge_line(hg[:pts], i)
+          inw = edge_inward(hg[:pts], i)
+          next if el.nil? || inw.nil?
+          nb = hg[:pts][(i + 1) % hg[:pts].length]
+          mid = [(hg[:pts][i][0] + nb[0]) / 2.0, (hg[:pts][i][1] + nb[1]) / 2.0]
+          d = (my_c[0] - mid[0]) * -inw[0] + (my_c[1] - mid[1]) * -inw[1]
+          next if d <= 0.0
+          hp = edge_plane(hg, i)
+          next if hp.nil?
+          best = [el, inw, d, hp] if best.nil? || d < best[2]
+        end
+        next if best.nil?
+        el, inw, = best
+        hp = best[3]
+        wall = [el[0][0] + inw[0] * hg[:oh].to_f,
+                el[0][1] + inw[1] * hg[:oh].to_f]
+        pair.each_index do |k|
+          pl = pair[k]
+          other = pair[1 - k]
+          rg = pts.map { |p| [p[0].to_f, p[1].to_f] }
+          # 1. past the taller roof's wall line
+          rg = clip_halfplane(rg, wall, inw, true)
+          # 2. under its plane, and 3. this plane's own side of the ridge
+          rg = clip_under(rg, pl, hp)
+          rg = clip_under(rg, pl, other)
+          next if rg.length < 3
+          next if poly_area2(rg).abs < 2.0
+          out << { poly: rg.map { |p| [p[0], p[1], plane_z(pl, p[0], p[1])] },
+                   plane: pl, hp: hp, wall: wall, inw: [inw[0], inw[1]] }
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_inside_regions: #{e.message}"
+      []
+    end
+
+    # THE FRAME UNDER THE TILES STAYED ON THE OLD LINE (2026-09-17, his
+    # picture + valley8_report.txt). valley_cut_deck! only takes the
+    # shells PARALLEL to the roof plane. What was left standing was the
+    # deck's own 1/2" edge band at the polygon's old edge (y=17 in his
+    # model, x -606.51..-313.44, z 92..129.15, in the tile material) -
+    # a thin frame running right across the opening we just cut.
+    #
+    # Same rule, applied to the faces that are NOT parallel to the plane:
+    # they are split ON the taller roof's plane and whatever then hangs
+    # BELOW it inside the region comes off. Faces sitting on the taller
+    # roof's wall line are left alone - those are the end plates that
+    # close the cut, exactly as valley_low_strip_sweep! leaves them.
+    def self.valley_sweep_under!(grp, v)
+      hp = v[:hp]
+      return 0 if hp.nil?
+      plan = v[:poly].map { |p| [p[0], p[1]] }
+      xs = plan.map { |p| p[0] }
+      ys = plan.map { |p| p[1] }
+      x0 = xs.min - 0.05
+      x1 = xs.max + 0.05
+      y0 = ys.min - 0.05
+      y1 = ys.max + 0.05
+      inbox = lambda { |x, y| x >= x0 && x <= x1 && y >= y0 && y <= y1 }
+      # inside the region, or on its outline: the frame band lies exactly
+      # ON the old edge, so a plain point-in-polygon says neither yes nor
+      # no there.
+      inreg = lambda do |x, y|
+        next false unless inbox.call(x, y)
+        next true if point_in_poly?(plan, x, y)
+        p = Geom::Point3d.new(x, y, 0)
+        plan.each_index.any? do |i|
+          q = plan[(i + 1) % plan.length]
+          seg_dist_xy(Geom::Point3d.new(plan[i][0], plan[i][1], 0),
+                      Geom::Point3d.new(q[0], q[1], 0), p) < 0.1
+        end
+      end
+      onwall = lambda do |x, y|
+        next false if v[:wall].nil? || v[:inw].nil?
+        ((x - v[:wall][0]) * v[:inw][0] + (y - v[:wall][1]) * v[:inw][1]).abs < 0.1
+      end
+      under = lambda { |p| p.z - plane_z(hp, p.x, p.y) }
+      grp.entities.grep(Sketchup::Face).each do |f|
+        next unless f.valid?
+        vs = f.outer_loop.vertices.map(&:position)
+        next unless vs.any? { |p| inbox.call(p.x, p.y) }
+        ds = vs.map { |p| under.call(p) }
+        next unless ds.any? { |d| d > 0.05 } && ds.any? { |d| d < -0.05 }
+        hits = []
+        vs.each_index do |i|
+          p = vs[i]
+          q = vs[(i + 1) % vs.length]
+          dp = ds[i]
+          dq = ds[(i + 1) % vs.length]
+          hits << p if dp.abs <= 0.05
+          next unless (dp > 0.05 && dq < -0.05) || (dp < -0.05 && dq > 0.05)
+          t = dp / (dp - dq)
+          hits << Geom::Point3d.new(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t,
+                                    p.z + (q.z - p.z) * t)
+        end
+        next unless hits.length == 2
+        next if hits[0].distance(hits[1]) < 0.05
+        begin
+          grp.entities.add_line(hits[0], hits[1])
+        rescue StandardError
+          nil
+        end
+      end
+      doomed = grp.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid?
+        vs = f.outer_loop.vertices.map(&:position)
+        cx = vs.map(&:x).inject(:+) / vs.length
+        cy = vs.map(&:y).inject(:+) / vs.length
+        cz = vs.map(&:z).inject(:+) / vs.length
+        next false unless inreg.call(cx, cy)
+        next false if onwall.call(cx, cy)
+        cz - plane_z(hp, cx, cy) < -0.25
+      end
+      edges = doomed.flat_map(&:edges).uniq
+      doomed.each { |f| f.erase! if f.valid? }
+      edges.each { |e| e.erase! if e.valid? && e.faces.empty? }
+      if doomed.length.positive?
+        puts "[Roof] valley: #{doomed.length} face(s) swept out from under the roof above"
+      end
+      doomed.length
+    rescue StandardError => e
+      puts "[Roof] valley_sweep_under!: #{e.message}"
+      0
     end
 
     # THE STRIP IS A BOX, NOT A PLANE (2026-09-03, his green plate).
@@ -3301,6 +3489,15 @@ module InteriorPro
           lcuts.each { |v| valley_cut_deck!(grp, v[:poly], v[:plane], 0.35) }
           puts "[Roof] valley: #{lcuts.length} overhang strip(s) pulled back to the wall"
         end
+        # THE CUT IS ON THE MEETING LINE (2026-09-17, his rule). Whatever
+        # of this roof stands INSIDE the roof above - past its wall line
+        # and under its plane - comes off on the two valley legs.
+        icuts = valley_inside_regions(poly, gable_flags, slope, band_top,
+                                      ridge.to_f, lvl, grp)
+        unless icuts.empty?
+          icuts.each { |v| valley_cut_deck!(grp, v[:poly], v[:plane], 0.35) }
+          puts "[Roof] valley: #{icuts.length} region(s) cut off on the meeting line"
+        end
       end
       # ---- eave tiles (2026-08-19, ROOF_TILES_PROPOSAL.md step 4) -------
       # 3D ONLY WHERE THE SILHOUETTE SHOWS, and on a roof that is the eave.
@@ -3390,6 +3587,11 @@ module InteriorPro
         (defined?(lcuts) && lcuts ? lcuts : []).each do |v|
           valley_cut_deck!(grp, v[:poly], v[:plane])
           valley_low_strip_sweep!(grp, v)
+          cutplans << v[:poly].map { |p| [p[0], p[1]] }
+        end
+        (defined?(icuts) && icuts ? icuts : []).each do |v|
+          valley_cut_deck!(grp, v[:poly], v[:plane])
+          valley_sweep_under!(grp, v)
           cutplans << v[:poly].map { |p| [p[0], p[1]] }
         end
         valley_cull_pieces!(grp, cutplans) unless cutplans.empty?
