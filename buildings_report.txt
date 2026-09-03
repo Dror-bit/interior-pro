@@ -1,0 +1,23 @@
+TIME 2026-09-02 21:30:22 -0700
+
+== level 1: 7 exterior wall(s), 1 interior
+   EXT 2e880a38-f5f3- top= 102.0  base=   0.0  (   -2.5,    0.0)->(   -2.5,  523.8) th=5.0
+   EXT ae14faf8-5a78- top= 102.0  base=   0.0  (    0.0,  521.3)->( -606.5,  521.3) th=5.0
+   EXT 60fd5480-2e85- top=  84.0  base= -18.0  ( -606.5, -364.7)->( -313.4, -364.7) th=5.0
+   EXT 1ff49109-7567- top=  84.0  base= -18.0  ( -315.9, -367.2)->( -315.9,    0.0) th=5.0
+   EXT a74f9c4e-b8e6- top= 102.0  base=   0.0  ( -313.4,    2.5)->(    0.0,    2.5) th=5.0
+   int 0f1dc634-7b21- top=  96.0  base=   0.0  ( -318.4,    2.8)->( -601.5,    2.8) th=4.5
+   EXT a6abfc52-f1e2- top= 102.0  base=   0.0  ( -604.0,  523.8)->( -604.0,    0.5) th=5.0
+   EXT a6abfc52-f1e2- top=  84.0  base= -18.0  ( -604.0,    0.5)->( -604.0, -367.2) th=5.0
+   buildings_of -> 1 group(s): [7]
+   building 0: walls=["ae14faf8-5", "a6abfc52-f", "a74f9c4e-b", "2e880a38-f"] closers=[] eave_z=102.0
+     eave_polygon: NIL - no closed loop
+     graph: 5 node(s), 4 edge(s)
+       node 0 (0.0, 521.3) degree 2
+       node 1 (-606.5, 521.3) degree 2
+       node 2 (-604.0, 0.5) degree 1
+       node 3 (-313.4, 2.5) degree 1
+       node 4 (0.0, 2.5) degree 2
+     faces: [0]
+   building 1: walls=["1ff49109-7", "a6abfc52-f", "60fd5480-2"] closers=["a74f9c4e-b", "a6abfc52-f", "0f1dc634-7"] eave_z=84.0
+     eave_polygon: 4 corner(s), ids=["1ff49109-7", "0f1dc634-7", "a6abfc52-f", "60fd5480-2"]

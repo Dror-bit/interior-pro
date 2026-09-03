@@ -1,0 +1,19 @@
+TIME 2026-09-02 21:40:01 -0700
+
+== roof 0: level=1 style=gable set_walls=["ae14faf8", "a6abfc52", "0f1dc634", "a74f9c4e", "2e880a38"]
+   C:IP_TileRun_roman_14.             x177    x -621..16  y -14..538  z 107.2..178.9
+   F:InteriorPro_Roof_fffff           x104    x -7178..2127  y -16..540  z 99.0..175.5
+   G:InteriorPro_RidgeCap             x73     x -619..12  y -12..536  z 107.5..182.9
+   F:InteriorPro_Roof_b0552           x15     x -619..12  y -12..536  z 107.0..176.0
+   G:InteriorPro_Downspout            x5      x -622..-5  y -15..539  z -12.7..102.9
+   G:InteriorPro_GableWall            x2      x -602..0  y 0..524  z 96.0..175.0
+   fascia-material faces: 0
+
+== roof 1: level=1 style=gable set_walls=["1ff49109", "a6abfc52", "60fd5480"]
+   C:IP_TileRun_roman_14.             x78     x -621..-299  y -379..17  z 89.2..132.1
+   F:InteriorPro_Roof_fffff           x74     x -623..-297  y -379..17  z 81.0..128.6
+   G:InteriorPro_RidgeCap             x25     x -466..-453  y -379..17  z 127.5..136.1
+   F:InteriorPro_Roof_b0552           x12     x -619..-301  y -379..17  z 89.0..129.1
+   G:InteriorPro_Downspout            x4      x -622..-298  y -363..1  z -12.7..84.9
+   G:InteriorPro_GableWall            x1      x -607..-313  y -367..-362  z 84.0..128.0
+   fascia-material faces: 0

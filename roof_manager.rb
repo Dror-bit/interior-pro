@@ -157,6 +157,101 @@ module InteriorPro
       uppers
     end
 
+    # ONE BUILDING PER WALL-TOP HEIGHT (2026-09-14). Each connected group
+    # is split by the height of its walls' tops (base_z + height, 1"
+    # tolerance). The tallest run keeps its loop as it is. Every LOWER run
+    # comes back as its own building with `closers`: the taller walls of
+    # the same group that touch it, which close its loop and become abut
+    # edges - the roof dies into them. A lower run too small to close a
+    # loop even with its closers stays with the tallest run, as before.
+    # Groups with one height come back untouched: {walls: g, closers: []}.
+    # `pool` (2026-09-14, measured on his house): every wall of the storey,
+    # INTERIOR ones too. A dropped garage is a ROOM of the house, so the
+    # wall between them is interior and never reached the roof - and once
+    # the garage's low walls are their own building, neither loop closes
+    # without it. So a building's closers are taken from the whole storey:
+    # any wall at least as tall as the building that touches an end of it.
+    # For the tallest building they only close the loop (plain edges); for
+    # a lower one they are the walls its roof dies into (abut edges).
+    def self.storeys_of(groups, pool = nil)
+      rm = InteriorPro::RoomManager
+      out = []
+      pool = Array(pool)
+      groups.each do |g|
+        tops = g.map { |w| [w, w.get_attribute('InteriorPro', 'base_z').to_f +
+                               w.get_attribute('InteriorPro', 'height').to_f] }
+        clusters = []
+        tops.sort_by { |_w, t| -t }.each do |w, t|
+          c = clusters.find { |cl| (cl[:top] - t).abs <= 1.0 }
+          c ? c[:walls] << w : clusters << { top: t, walls: [w] }
+        end
+        if clusters.length <= 1
+          out << { walls: g, closers: [] }
+          next
+        end
+        main = clusters.first
+        rest = []
+        clusters.drop(1).each do |cl|
+          taller = tops.select { |_w, t| t > cl[:top] + 1.0 }.map(&:first)
+          taller += pool.select do |w|
+            next false if g.include?(w)
+            w.get_attribute('InteriorPro', 'base_z').to_f +
+              w.get_attribute('InteriorPro', 'height').to_f > cl[:top] + 1.0
+          end
+          closers = touching(cl[:walls], taller.uniq, rm)
+          if cl[:walls].length + closers.length >= 3 && !closers.empty?
+            rest << { walls: cl[:walls], closers: closers, abut: true }
+          else
+            main[:walls].concat(cl[:walls])
+          end
+        end
+        # the tallest run lost its lower walls - whatever of the storey
+        # closes its loop again (the interior wall between house and
+        # garage) comes in as a plain edge, not one the roof dies into
+        main_closers = if rest.empty?
+                         []
+                       else
+                         # any height: the interior wall between house and
+                         # garage is 96" under a 102" house (measured), and
+                         # it only closes the loop - the eave height comes
+                         # off the roof's own walls
+                         cand = pool.reject { |w| g.include?(w) }
+                         touching(main[:walls], cand, rm)
+                       end
+        out << { walls: main[:walls], closers: main_closers, abut: false }
+        out.concat(rest)
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] storeys_of: #{e.message}"
+      groups.map { |g| { walls: g, closers: [] } }
+    end
+
+    # The walls of `pool` that a wall of `low` runs into: an end of a low
+    # wall lying ON the taller wall's line - at its corner or, as a garage
+    # hanging off the side of a house, anywhere along it (a tee).
+    def self.touching(low, pool, rm)
+      ends = low.map { |w| rm.centerline(w) }.compact.flat_map { |c| [c[:s], c[:e]] }
+      pool.select do |w|
+        c = rm.centerline(w)
+        next false if c.nil?
+        tol = 0.75 * c[:th].to_f + 2.0
+        ends.any? { |p| seg_dist_xy(c[:s], c[:e], p) < tol }
+      end
+    end
+
+    # PURE: distance from p to the segment a-b, in plan.
+    def self.seg_dist_xy(a, b, p)
+      dx = b.x - a.x
+      dy = b.y - a.y
+      l2 = dx * dx + dy * dy
+      return Math.hypot(p.x - a.x, p.y - a.y) if l2 < 1.0e-9
+      t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2
+      t = 0.0 if t < 0.0
+      t = 1.0 if t > 1.0
+      Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    end
+
     # Does this roof stand on any of these walls? (by the ids it saved)
     def self.roof_on_walls?(roof, walls)
       own = Array(roof.get_attribute('InteriorPro', 'set_walls'))
@@ -656,7 +751,7 @@ module InteriorPro
     # offset OUTWARD to the exterior faces plus the overhang.
     # Returns { pts: [[x, y], ...], wall_ids: [id per edge] } or nil —
     # edge i runs pts[i] -> pts[i+1] and belongs to wall_ids[i].
-    def self.eave_polygon(walls, overhang)
+    def self.eave_polygon(walls, overhang, flat_tol = nil)
       rm = InteriorPro::RoomManager
       segs = walls.map { |w| rm.centerline(w) }.compact
       return nil if segs.length < 3
@@ -674,6 +769,15 @@ module InteriorPro
       return nil unless best
       poly  = best[:node_ids].map { |i| nodes[i] }
       edata = best[:edge_ids].map { |i| edges[i] }
+      # A NEARLY STRAIGHT CORNER IS NO CORNER (2026-09-14). Where an
+      # interior wall closes a loop it meets the exterior run with a jog
+      # of an inch or two - measured on his house: the divider at y 2.8
+      # against the front wall at y 2.5. Offsetting two rails that are
+      # 0.3" apart puts their "corner" 7000" down the road, and the fascia
+      # ran off to it (roof_parts_report: a trim face x -7178..2127). Only
+      # a caller that knows it added closers asks for this; every old
+      # call passes nil and gets the polygon it always got.
+      poly, edata = drop_flat_corners(poly, edata, flat_tol) if flat_tol
       out = outer_offset(poly, edata, overhang)
       return nil unless out
       pts = out.map { |p| [p[0].x.to_f, p[0].y.to_f] }
@@ -683,6 +787,45 @@ module InteriorPro
         ids = ids.reverse.rotate(1) # keep edge i -> wall alignment
       end
       { pts: pts, wall_ids: ids }
+    end
+
+    # PURE: the loop with every corner that turns less than `tol_deg`
+    # taken out; the two edges either side become one, keeping the longer
+    # edge's wall. Runs until nothing is left to take out.
+    def self.drop_flat_corners(poly, edata, tol_deg)
+      poly = poly.dup
+      edata = edata.dup
+      loop do
+        n = poly.length
+        break if n < 4
+        hit = nil
+        n.times do |i|
+          a = poly[(i - 1) % n]
+          b = poly[i]
+          c = poly[(i + 1) % n]
+          v1 = Geom::Vector3d.new(b.x - a.x, b.y - a.y, 0)
+          v2 = Geom::Vector3d.new(c.x - b.x, c.y - b.y, 0)
+          next if v1.length < 0.01 || v2.length < 0.01
+          cosang = (v1.x * v2.x + v1.y * v2.y) / (v1.length * v2.length)
+          cosang = 1.0 if cosang > 1.0
+          cosang = -1.0 if cosang < -1.0
+          ang = Math.acos(cosang) * 180.0 / Math::PI
+          if ang < tol_deg
+            hit = i
+            break
+          end
+        end
+        break if hit.nil?
+        i = hit
+        prev = (i - 1) % n
+        l_prev = poly[prev].distance(poly[i])
+        l_next = poly[i].distance(poly[(i + 1) % n])
+        keep = l_prev >= l_next ? edata[prev] : edata[i]
+        edata[prev] = keep
+        poly.delete_at(i)
+        edata.delete_at(i)
+      end
+      [poly, edata]
     end
 
     # How close (x, y) is to the nearest edge of pts. PURE, pinned by rt86.
@@ -1712,15 +1855,30 @@ module InteriorPro
       #     below, or a caller that already knows.
       # A storey with a single building goes through none of this and is
       # byte-for-byte what it was.
-      bldgs = building.nil? ? buildings_of(walls) : [Array(building)]
+      # ...AND ONE PER WALL HEIGHT (2026-09-14, his dropped garage: "אני
+      # רוצה שהגג ירד לגובה הקירות כי אם אני ארצה להגביה את הגג אני אגביה
+      # את הקירות"). eave_z takes the TALLEST wall of the building, so
+      # the roof over a garage dropped 18" floated 18" above its walls.
+      # Walls that touch AND share a top are one building; a lower run is
+      # its own, roofed at ITS OWN height, and the taller walls it butts
+      # against close its loop as abut edges - the same "roof dies into
+      # a wall" the lower storey already knows. See storeys_of.
+      bldgs = if building.nil?
+                storeys_of(buildings_of(walls),
+                           InteriorPro::LevelManager.walls_of_level(lvl))
+              elsif building.is_a?(Hash)
+                [building]
+              else
+                [{ walls: Array(building), closers: [] }]
+              end
       many = bldgs.length > 1
       if many
         if replace
           own = Array(replace.get_attribute('InteriorPro', 'set_walls'))
           mine = bldgs.find do |b|
-            b.any? { |w| own.include?(w.get_attribute('InteriorPro', 'id')) }
+            b[:walls].any? { |w| own.include?(w.get_attribute('InteriorPro', 'id')) }
           end
-          bldgs = [mine || bldgs.max_by(&:length)]
+          bldgs = [mine || bldgs.max_by { |b| b[:walls].length }]
         else
           kw = { style: style, pitch: pitch, overhang: overhang,
                  fascia: fascia, fascia_depth: fascia_depth, drip: drip,
@@ -1733,15 +1891,27 @@ module InteriorPro
                  gutter_color: gutter_color, downspouts: downspouts,
                  abut_headroom: abut_headroom, dutch_depth: dutch_depth }
           puts "[Roof] level #{lvl}: #{bldgs.length} buildings - one roof each"
-          made = bldgs.sort_by { |b| -b.length }.map do |b|
+          made = bldgs.sort_by { |b| -b[:walls].length }.map do |b|
             build_roof!(**kw, level: lvl, building: b)
           end
           return made.compact.last
         end
       end
       # only a storey with several buildings, or a named one, changes the
-      # wall list - a single building keeps the very same list as before
-      walls = bldgs.first if (many || !building.nil?) && bldgs.first
+      # wall list - a single building keeps the very same list as before.
+      # `own_walls` are the walls this roof STANDS on (its height, its
+      # saved ids); the closers only close the loop and become abut edges.
+      own_walls = walls
+      forced_abut = []
+      closers = []
+      if (many || !building.nil?) && bldgs.first
+        cur = bldgs.first
+        own_walls = cur[:walls]
+        closers = cur[:closers] || []
+        walls = own_walls + closers
+        forced_abut = cur[:abut] == false ? [] :
+                      closers.map { |w| w.get_attribute('InteriorPro', 'id') }.compact
+      end
       # A storey with another storey above it only gets a roof over the
       # part that is open to the sky (2026-08-26, user: "הוא בנה על כל
       # הקומה כולל בתוך הבית"). When the storey above crosses this one,
@@ -1789,7 +1959,9 @@ module InteriorPro
           return nil
         end
       end
-      ep ||= walls.length >= 3 ? eave_polygon(walls, s[:overhang]) : nil
+      ep ||= walls.length >= 3 ? eave_polygon(walls, s[:overhang],
+                                               closers.empty? ? nil : 3.0) : nil
+      abut_ids = (abut_ids + forced_abut).uniq unless forced_abut.empty?
       if ep.nil?
         UI.messagebox('No closed loop of exterior walls to roof yet')
         return nil
@@ -1978,7 +2150,7 @@ module InteriorPro
             }.map { |w2| w2.get_attribute('InteriorPro', 'base_z').to_f }.min
             unless floor_z.nil?
               cap = slope_for_limit(cell_reach(poly, cells), s[:overhang],
-                                    eave_z(walls),
+                                    eave_z(own_walls),
                                     floor_z + s[:abut_headroom].to_f)
               if cap && cap < slope
                 slope = [cap, min_abut_slope].max
@@ -1993,7 +2165,7 @@ module InteriorPro
 
       save_settings!(s)
       # the wall top, plus the raised heel (see heel_lift).
-      z0 = eave_z(walls) + heel_lift(s[:overhang], slope, eave_drop(s))
+      z0 = eave_z(own_walls) + heel_lift(s[:overhang], slope, eave_drop(s))
 
       # the Dutch gable faces this build makes, so they can be painted
       # with the house's siding once the shell is finished, and the two
@@ -2018,7 +2190,7 @@ module InteriorPro
                    # named building: only a roof standing on ITS walls
                    # goes. A roof with no saved walls (older model) is
                    # taken by the first building built, as before.
-                   building.nil? || roof_on_walls?(r, walls)
+                   building.nil? || roof_on_walls?(r, own_walls)
                  end
                else
                  roofs
