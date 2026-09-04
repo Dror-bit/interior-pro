@@ -4177,7 +4177,51 @@ module InteriorPro
       # entered and this roof is exactly the one it was yesterday.
       if USE_ROOF_VALLEY && !abut_ids.empty?
         abut_e = wall_ids.each_index.select { |i| abut_ids.include?(wall_ids[i]) }
-        valley_extend!(grp, roof_mat, trim_mat, abut_e)
+        ext = valley_extend!(grp, roof_mat, trim_mat, abut_e)
+        # THE RIDGE CAP RUNS ON TO THE APEX (2026-09-18, his list: "רידג'
+        # קאפ לגראז' נעלם אחרי ההארכה"). Measured on his model
+        # (ridge_report.txt): the garage's cap stops at t=-17, the
+        # polygon's own edge, and the apex is at t=-74.54 - 91.5" of
+        # ridge with nothing on it. The cap walk runs BEFORE this point,
+        # so the two triangles carried on to the valley were never in the
+        # shell it read. Here the SAME walk is handed just those two
+        # faces: they share exactly one edge, the ridge from the abut
+        # line to the apex, and both sides fall away from it - so it
+        # comes back as one ridge line and the same builder caps it.
+        # RIDGE_CAP_OVERSHOOT is 0, so the new run meets the old one on
+        # the abut line and does not run into it.
+        if ext && ext[:faces] && ext[:faces].length == 2 &&
+           s[:ridge_cap] && !%w[flat shed].include?(s[:style])
+          begin
+            xl = ridge_lines(ext[:faces])
+            unless xl.empty?
+              build_ridge_caps!(grp, xl, slope, roof_mat, s[:roof_material])
+              puts format('[Roof] valley: %.0f" of ridge cap carried on to the apex',
+                          xl.sum { |l| vlen(vsub(l[2], l[0])) })
+            end
+          rescue StandardError => e
+            puts "[Roof] valley ridge cap: #{e.message}"
+          end
+          # ...AND THE TILES ON THEM (2026-09-18, his picture: the cap ran
+          # on to the apex over two BARE triangles). Same reason as the
+          # cap: the tile placer read the shell before these two faces
+          # existed. Same call the field uses, handed just these two - the
+          # runs are clipped to each face's own outline, so nothing grows
+          # past the valley legs. Guards are the field's, word for word.
+          if USE_ROOF_TILE_RUNS && s[:style] != 'flat' &&
+             defined?(InteriorPro::RoofTilePlace) &&
+             InteriorPro::RoofTilePlace.respond_to?(:place_runs!) &&
+             InteriorPro::RoofTileMath.runs?(s[:roof_material])
+            begin
+              InteriorPro::RoofTilePlace.place_runs!(
+                grp, InteriorPro::RoofTilePlace.planes_from_faces(ext[:faces]),
+                s[:roof_material], model: model, material: roof_mat
+              )
+            rescue StandardError => e
+              puts "[Roof] valley tiles: #{e.message}"
+            end
+          end
+        end
       end
       unless kept_dormers.empty?
         begin

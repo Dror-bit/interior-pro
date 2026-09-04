@@ -1,0 +1,102 @@
+TIME 2026-09-03 17:07:00 -0700
+
+== roof 0  ridge_z=175.48  oh=12.0
+   ridge line: through (-0.00, 261.91) dir (1.000, 0.000)
+   footprint spans t -618.51 .. 12.00  (631" of ridge)
+   footprint ends in plan: (-618.51, 261.91) .. (12.00, 261.91)
+   groups/components within 12" of the ridge: 235
+   InteriorPro_RidgeCap         t  -618.51.. -603.51  z  175.14.. 177.95
+   IP_TileSheet_metaltile_7.00_ t  -618.51.. -611.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -618.00.. -611.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -611.51.. -604.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -611.00.. -604.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -606.51.. -591.51  z  175.14.. 178.51
+   InteriorPro_GableWall        t  -606.51.. -601.51  z  102.00.. 175.48
+   IP_TileSheet_metaltile_7.00_ t  -604.51.. -597.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -604.00.. -597.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -597.51.. -590.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -597.00.. -590.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -594.51.. -579.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -590.51.. -583.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -590.00.. -583.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -583.51.. -576.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -583.00.. -576.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -582.51.. -567.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -576.51.. -569.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -576.00.. -569.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -570.51.. -555.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -569.51.. -562.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -569.00.. -562.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -562.51.. -555.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -562.00.. -555.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -558.51.. -543.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -555.51.. -548.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -555.00.. -548.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -548.51.. -541.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -548.00.. -541.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -546.51.. -531.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -541.51.. -534.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -541.00.. -534.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -534.51.. -519.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -534.51.. -527.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -534.00.. -527.00  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -527.51.. -520.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -527.00.. -520.00  z  171.78.. 176.87
+   InteriorPro_RidgeCap         t  -522.51.. -507.51  z  175.14.. 178.51
+   IP_TileSheet_metaltile_7.00_ t  -520.51.. -513.51  z  171.78.. 176.87
+   IP_TileSheet_metaltile_7.00_ t  -520.00.. -513.00  z  171.78.. 176.87
+   loose faces within 12" of the ridge: 4
+      n=(-0.00, 1.00, 0.00) area=     6.0 x  -618.51.. -617.76 y   261.91..  261.91 z  167.48.. 175.48  InteriorPro_Roof_ffffff
+      n=(-0.00, 1.00,-0.00) area=     8.4 x  -617.76.. -606.51 y   261.91..  261.91 z  167.48.. 168.23  InteriorPro_Roof_ffffff
+      n=(-0.00, 1.00,-0.00) area=     8.4 x     0.00..   11.25 y   261.91..  261.91 z  167.48.. 168.23  InteriorPro_Roof_ffffff
+      n=( 0.00, 1.00, 0.00) area=     6.0 x    11.25..   12.00 y   261.91..  261.91 z  167.48.. 175.48  InteriorPro_Roof_ffffff
+
+== roof 1  ridge_z=128.63  oh=12.0
+   ridge line: through (-459.97, 0.00) dir (-0.000, -1.000)
+   footprint spans t -17.00 .. 379.20  (396" of ridge)
+   footprint ends in plan: (-459.97, 17.00) .. (-459.97, -379.20)
+   APEX on that roof's edge 2: (-459.97, 74.54, 128.63)  t=-74.54
+   groups/components within 12" of the ridge: 148
+   IP_TileSheet_metaltile_7.00_ t   -19.80..  -12.80  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t   -17.00..   -4.80  z  128.40.. 131.67
+   IP_TileSheet_metaltile_7.00_ t   -17.00..  -10.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t   -12.80..   -5.80  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t   -10.00..   -3.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    -7.80..    7.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    -5.80..    1.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    -3.00..    4.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t     1.20..    8.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t     4.00..   11.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t     4.20..   19.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t     8.20..   15.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    11.00..   18.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    15.20..   22.20  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    16.20..   31.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    18.00..   25.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    22.20..   29.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    25.00..   32.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    28.20..   43.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    29.20..   36.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    32.00..   39.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    36.20..   43.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    39.00..   46.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    40.20..   55.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    43.20..   50.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    46.00..   53.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    50.20..   57.20  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    52.20..   67.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    53.00..   60.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    57.20..   64.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    60.00..   67.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    64.20..   79.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    64.20..   71.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    67.00..   74.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    71.20..   78.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    74.00..   81.00  z  124.79.. 130.03
+   InteriorPro_RidgeCap         t    76.20..   91.20  z  128.29.. 131.67
+   IP_TileSheet_metaltile_7.00_ t    78.20..   85.20  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    81.00..   88.00  z  124.79.. 130.03
+   IP_TileSheet_metaltile_7.00_ t    85.20..   92.20  z  124.79.. 130.03
+   loose faces within 12" of the ridge: 2
+      n=( 1.00,-0.00,-0.00) area=     8.4 x  -459.97.. -459.97 y  -378.45.. -367.20 z  120.63.. 121.38  InteriorPro_Roof_ffffff
+      n=( 1.00,-0.00, 0.00) area=     6.0 x  -459.97.. -459.97 y  -379.20.. -378.45 z  120.63.. 128.63  InteriorPro_Roof_ffffff
