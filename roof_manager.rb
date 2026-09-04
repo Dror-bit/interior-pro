@@ -1058,6 +1058,76 @@ module InteriorPro
       0
     end
 
+    # THE TRIANGULAR HOLE BY THE HOUSE WALL (2026-09-18, his picture and
+    # his red hatching on the section). ABOVE the garage roof, not under
+    # it: between this roof's own plane and the plane of the roof above,
+    # on the taller roof's wall line. On his model, from the garage's
+    # wall face to the valley leg - 72" long, 18" tall at the wall,
+    # closing to nothing at the leg, on both sides of the house. Open air
+    # today; it shows from outside only, and he asked for it closed "in
+    # continuation of the wall", in the wall's own material.
+    #
+    # It starts at this roof's WALL FACE, one overhang in from the
+    # outline - a wall does not stand out in the overhang.
+
+    # PURE. The two ends of the region on the wall line: [outer, leg,
+    # unit direction outer -> leg, run]. The LEG is the end where this
+    # roof's plane meets the one above; the other sits on the outline.
+    def self.valley_wall_end_pair(v)
+      return nil if v[:wall].nil? || v[:inw].nil? || v[:plane].nil? || v[:hp].nil?
+      wl = v[:wall]
+      inw = v[:inw]
+      ends = v[:poly].select do |p|
+        ((p[0] - wl[0]) * inw[0] + (p[1] - wl[1]) * inw[1]).abs < 0.05
+      end
+      return nil unless ends.length == 2
+      li = ends.index do |p|
+        (plane_z(v[:plane], p[0], p[1]) - plane_z(v[:hp], p[0], p[1])).abs < 0.05
+      end
+      return nil if li.nil?
+      leg = ends[li]
+      outer = ends[1 - li]
+      run = Math.hypot(leg[0] - outer[0], leg[1] - outer[1])
+      return nil if run < 1.0e-6
+      [outer, leg, [(leg[0] - outer[0]) / run, (leg[1] - outer[1]) / run], run]
+    end
+
+    # PURE. The closing triangle: at the wall face it spans from this
+    # roof's plane up to the plane above; at the leg the two planes are
+    # the same height and it closes to a point. nil when there is nothing
+    # to close.
+    def self.valley_wall_end_tri(v, oh)
+      pr = valley_wall_end_pair(v)
+      return nil if pr.nil?
+      outer, leg, dir, run = pr
+      return nil if run <= oh.to_f + 1.0
+      st = [outer[0] + dir[0] * oh.to_f, outer[1] + dir[1] * oh.to_f]
+      zl = plane_z(v[:plane], st[0], st[1])
+      zh = plane_z(v[:hp], st[0], st[1])
+      return nil if zh - zl < 0.5
+      [[st[0], st[1], zl],
+       [leg[0], leg[1], plane_z(v[:plane], leg[0], leg[1])],
+       [st[0], st[1], zh]]
+    end
+
+    def self.valley_close_wall_end!(grp, v, oh, mat = nil)
+      tri = valley_wall_end_tri(v, oh)
+      return 0 if tri.nil?
+      f = grp.entities.add_face(tri.map { |p| Geom::Point3d.new(p[0], p[1], p[2]) })
+      return 0 if f.nil?
+      if mat
+        f.material = mat
+        f.back_material = mat
+      end
+      puts format('[Roof] valley: closed the triangle on the wall line, %.0f" x %.0f"',
+                  Math.hypot(tri[1][0] - tri[0][0], tri[1][1] - tri[0][1]),
+                  tri[2][2] - tri[0][2])
+      1
+    rescue StandardError => e
+      puts "[Roof] valley_close_wall_end!: #{e.message}"
+      0
+    end
+
     # THE STRIP IS A BOX, NOT A PLANE (2026-09-03, his green plate).
     # valley_cut_deck! takes the strip out of the shells PARALLEL to the
     # roof plane and nothing else. Every VERTICAL face in the strip stayed
@@ -4044,6 +4114,16 @@ module InteriorPro
       # whatever hangs BELOW that plane comes off. West of the band the
       # plane is under the soffit and nothing is touched; between the two
       # legs the dressing was never built.
+      # ...and the triangle above this roof on the wall line (his hole).
+      if USE_ROOF_VALLEY && defined?(icuts) && icuts && !icuts.empty?
+        wnm = (defined?(walls) && walls && walls.first &&
+               InteriorPro::WallTool.respond_to?(:wall_side_material_names)) ?
+              InteriorPro::WallTool.wall_side_material_names(walls.first) : [nil, nil]
+        wnm2 = wnm[0] || wnm[1]
+        wmat = (wnm2 && InteriorPro::WallTool.respond_to?(:new)) ?
+               InteriorPro::WallTool.new.load_or_create_material(wnm2) : nil
+        icuts.each { |v| valley_close_wall_end!(grp, v, s[:overhang].to_f, wmat) }
+      end
       if USE_ROOF_VALLEY && defined?(vcuts) && vcuts
         vcuts.each do |_e3, list|
           list.each do |v|
