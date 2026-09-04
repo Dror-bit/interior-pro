@@ -1,0 +1,16 @@
+TIME 2026-09-04 12:40:28 -0700
+model: claud cold
+materials used: 10
+total: 30919.68 sq ft
+
+   material                                      sq ft      sq in   faces
+   InteriorPro_Roof_grain_metaltile_b0552     10564.73    1521321  144376
+   InteriorPro_FloorTex_white_oak_planks       4268.46     614659       7
+   (no material)                               4099.07     590266      66
+   #ffffff                                     3247.96     467706      13
+   Stucco                                      2580.16     371543      28
+   Color F05                                   1981.46     285330       1
+   InteriorPro_FloorTex_concrete               1432.68     206306       6
+   InteriorPro_Roof_ffffff                     1262.88     181855     382
+   InteriorPro_Foundation                      1051.29     151385      48
+   Brick                                        430.99      62062       1

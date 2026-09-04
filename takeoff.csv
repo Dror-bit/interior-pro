@@ -1,0 +1,11 @@
+material_id,name,area_sqft,area_sqin,faces
+IP_MAT_0091,InteriorPro_Roof_grain_metaltile_b0552f,10564.73,1521320.53,144376
+IP_MAT_0102,InteriorPro_FloorTex_white_oak_planks,4268.46,614658.92,7
+(no material),(no material),4099.07,590266.32,66
+IP_MAT_0020,#ffffff,3247.96,467706.21,13
+IP_MAT_0019,Stucco,2580.16,371543.06,28
+IP_MAT_0106,Color F05,1981.46,285330.08,1
+IP_MAT_0104,InteriorPro_FloorTex_concrete,1432.68,206306.34,6
+IP_MAT_0022,InteriorPro_Roof_ffffff,1262.88,181854.66,382
+IP_MAT_0105,InteriorPro_Foundation,1051.29,151385.05,48
+IP_MAT_0071,Brick,430.99,62062.0,1

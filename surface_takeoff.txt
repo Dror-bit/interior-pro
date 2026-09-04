@@ -1,0 +1,30 @@
+TIME 2026-09-04 14:58:38 -0700
+model: claud cold
+
+FLOORS (net - the room boundary)
+   name                     material           tile            sq ft
+   Room 1                   Hardwood                         2128.45
+   Room 2                   Hardwood                          712.98
+   total                                                     2841.43
+
+WALLS (net - openings taken off)
+   name           wall is   face     material                  sq ft
+   19e23489       exterior  outside  Brick                    430.99
+   19e23489       exterior  inside   #ffffff                  430.99
+   ae14faf8       exterior  inside   #ffffff                  429.61
+   ae14faf8       exterior  outside  Stucco                   429.61
+   2e880a38       exterior  outside  Stucco                   371.04
+   2e880a38       exterior  inside   #ffffff                  371.04
+   a6abfc52       exterior  outside  Stucco                   370.68
+   a6abfc52       exterior  inside   #ffffff                  370.68
+   a6abfc52       exterior  inside   #ffffff                  260.45
+   a6abfc52       exterior  outside  Stucco                   260.45
+   1ff49109       exterior  inside   #ffffff                  260.10
+   1ff49109       exterior  outside  Stucco                   260.10
+   a74f9c4e       exterior  outside  Stucco                   222.02
+   a74f9c4e       exterior  inside   #ffffff                  222.02
+   60fd5480       exterior  inside   #ffffff                  207.59
+   60fd5480       exterior  outside  Stucco                   207.59
+   0f1dc634       interior  outside  Brick                    188.71
+   0f1dc634       interior  inside   #ffffff                  188.71
+   total                                                      5482.38

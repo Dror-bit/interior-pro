@@ -1,0 +1,36 @@
+TIME 2026-09-04 12:46:53 -0700
+model: claud cold
+
+-- what Interior Pro built in this model --
+   wall                  9
+   foundation            8
+   roof                  2
+   floor                 2
+   room                  2
+
+-- ROOMS (these already carry a name) --
+   Room 1                   area_sqft=2128.44942617679 level=1   id=room-tkrh62-
+   Room 2                   area_sqft=712.9780719116267 level=1   id=room-tkrh62-
+   (2 rooms)
+
+-- FLOORS --
+   room_id=room-tkrh62-87 type=Hardwood           th=0.75   area_sqft=2128.44942617679 level=1
+   room_id=room-tkrh62-14 type=Hardwood           th=0.75   area_sqft=712.9780719116267 level=1
+   (2 floors)
+
+-- WALLS: id, category, thickness, length, height, materials --
+   2e880a38-f exterior  th=5.0   len=   523.8" h=102.0   ext=Stucco                 int=#ffffff
+   ae14faf8-5 exterior  th=5.0   len=   606.5" h=102.0   ext=Stucco                 int=#ffffff
+   60fd5480-2 exterior  th=5.0   len=   293.1" h=102.0   ext=Stucco                 int=#ffffff
+   1ff49109-7 exterior  th=5.0   len=   367.2" h=102.0   ext=Stucco                 int=#ffffff
+   a74f9c4e-b exterior  th=5.0   len=   313.4" h=102.0   ext=Stucco                 int=#ffffff
+   0f1dc634-7 interior  th=4.5   len=   283.1" h=96.0    ext=Brick                  int=#ffffff
+   a6abfc52-f exterior  th=5.0   len=   523.3" h=102.0   ext=Stucco                 int=#ffffff
+   a6abfc52-f exterior  th=5.0   len=   367.7" h=102.0   ext=Stucco                 int=#ffffff
+   19e23489-a exterior  th=6.0   len=   646.5" h=96.0    ext=Brick                  int=#ffffff
+   (9 walls)
+
+-- every InteriorPro key seen on a floor / room / wall --
+   room   : area_sqft, boundary_xy, bounding_wall_ids, created_at, id, level, name, number, plugin_version, type
+   floor  : area_sqft, created_at, drop_walls, floor_level, floor_spec, floor_texture, floor_type, grout_spec, id, level, pattern, pattern_angle, pattern_center, pattern_grout, pattern_grout_color, pattern_ox, pattern_oy, plugin_version, room_id, thickness_in, type, unit_l, unit_w
+   wall   : anchor, base_z, corners_xy, created_at, end_x, end_y, exterior_material, gross_area_sqft, height, id, interior_material, length_in, level, mark, plugin_version, side_a_color, side_b_color, start_x, start_y, thickness, type, volume_cuft, wall_category, wall_type

@@ -38,6 +38,9 @@ module InteriorPro
       door_delete_tool.rb
       window_manager.rb
       material_ids.rb
+      material_takeoff.rb
+      surface_takeoff.rb
+      sync_bridge.rb
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb

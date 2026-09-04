@@ -1,0 +1,19 @@
+TIME 2026-09-04 14:56:13 -0700
+model.title="claud cold"
+model.path="C:\\Users\\rordt\\OneDrive\\Desktop\\Clients\\claud cold.skp"
+top level entities: 34
+top level by type: [["wall", 9], ["foundation", 8], ["Edge", 8], ["roof", 2], ["floor", 2], ["Face", 2], ["room", 2], ["SectionPlane", 1]]
+doors/windows found anywhere (depth<=4): 0
+
+   path                         type    name                   host_wall_id area_sqft width    height   kind
+
+-- what each WALL says it is connected to --
+   2e880a38-f5f gross=371.03869324376933 doors=0 windows=0  
+   ae14faf8-5a7 gross=429.6089724092797 doors=0 windows=0  
+   60fd5480-2e8 gross=207.59204999658584 doors=0 windows=0  
+   1ff49109-756 gross=260.0973568524021 doors=0 windows=0  
+   a74f9c4e-b8e gross=222.0169224126939 doors=0 windows=0  
+   0f1dc634-7b2 gross=188.71408627129645 doors=0 windows=0  
+   a6abfc52-f1e gross=370.6845265771027 doors=0 windows=0  
+   a6abfc52-f1e gross=260.4515235190687 doors=0 windows=0  
+   19e23489-a8e gross=430.98611693630636 doors=0 windows=0  

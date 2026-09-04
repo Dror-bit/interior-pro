@@ -118,6 +118,25 @@ end
     Vertex = Struct.new(:position) unless const_defined?(:Vertex, false)
     def vertices; @points.map { |p| Vertex.new(p) }; end
 
+    # A real face knows its own area, and MaterialTakeoff counts with it
+    # (2026-09-18). Newell's formula: works for any planar polygon in 3D.
+    # The transformation argument is accepted and applied as a uniform
+    # scale only - enough for a stub, and the tests say so.
+    def area(tr = nil)
+      pts = @points
+      return 0.0 if pts.length < 3
+      n = [0.0, 0.0, 0.0]
+      pts.each_with_index do |p, i|
+        q = pts[(i + 1) % pts.length]
+        n[0] += p.y * q.z - p.z * q.y
+        n[1] += p.z * q.x - p.x * q.z
+        n[2] += p.x * q.y - p.y * q.x
+      end
+      a = 0.5 * Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
+      s = tr && tr.respond_to?(:uniform_scale) ? tr.uniform_scale.to_f : 1.0
+      a * s * s
+    end
+
     # Where the outline sits, for tests that check heights.
     def z_range
       zs = @points.map(&:z)
@@ -199,6 +218,9 @@ end
 
   class Group
     attr_accessor :name
+    # a real group can be painted, and a face with no material of its own
+    # then wears the group's (2026-09-18, MaterialTakeoff)
+    attr_accessor :material
     attr_reader :entities, :parent_list
     def initialize; @attrs = {}; @entities = Entities.new; @valid = true; @name = ''; end
     def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
@@ -427,6 +449,21 @@ end
     def vcb_value=(_v); _v; end
     def format_length(v); v.to_s; end
     def platform; :platform_win; end
+    # Settings that live with the INSTALLATION, not with the model.
+    # The plugin never used these before the Invoice Studio bridge
+    # (2026-09-18); the stub keeps them in a hash.
+    def read_default(sec, key, dflt = nil)
+      @defaults ||= {}
+      ((@defaults[sec] || {}).key?(key)) ? @defaults[sec][key] : dflt
+    end
+
+    def write_default(sec, key, val)
+      @defaults ||= {}
+      (@defaults[sec] ||= {})[key] = val
+      true
+    end
+
+    def clear_defaults!; @defaults = {}; end
   end
 end
 
