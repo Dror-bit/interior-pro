@@ -160,20 +160,21 @@ its ends run into, and is it cut to end exactly there?
 ומתגלה רק כשמישהו בונה קומה שנייה. כל חישוב שמערבב bounds עם גיאומטריה
 פנימית — לבדוק אותו על קיר עם `base_z` שאינו אפס.
 
-## Current phase: curved walls, then 2D plans to PDF
+## Current phase: the RENDERING program (set by the user, 2026-09-18)
 
 (The old "doors only" restriction is retired - it was from the 2026-04 phase
 and no longer applies. Doors, windows, walls, floors, roofs, moldings and the
 2D editor are all live code now.)
 
-Priority 1 - CURVED WALLS. Both entry points are wanted: dragging an existing
-wall's middle to bow it, AND a 3-click arc tool. Both in the 2D editor and in
-SketchUp itself.
+CURVED WALLS and 2D PLANS TO PDF are DONE and off the list - he closed both
+himself: "קירות מעוגלים כבר קיימים וגם PDF, תעיף אותם מהרשימה של המטלות".
+Do not re-open either as a priority; a bug in one is a bug, not a phase.
 
-Priority 2 - 2D PLANS TO PDF. Exterior plans first, no elevations yet. Needs a
-page template, page size (Arch D / Arch E / A1...), a fixed scale, images and
-dimensions. Check what the 2D editor and `plan_generator.rb` already do before
-building anything twice.
+The valley - the garage roof running into the house - was closed on
+2026-09-18, all five steps. See `HANDOFF_2026-09-18.md`.
+
+Next: the rendering program. Nothing about it is written down yet - ASK HIM
+what it is before assuming, and write the answer here.
 
 ## TODO the user asked to come back to (do not lose)
 
