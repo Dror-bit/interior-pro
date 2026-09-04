@@ -1,0 +1,249 @@
+TIME 2026-09-04 09:53:43 -0700
+SketchUp 24.0.594  (platform_win)
+Ruby 3.2.2
+model: claud cold
+
+=============== 1. VERIFIED - what is on this machine ===========
+
+-- extensions SketchUp knows about (name / version / loaded) --
+   (total extensions installed: 27)
+
+-- every extension, for the record (name only) --
+   ConDoc Tools
+   Bevel
+   Profile Builder 3
+   SketchPlus
+   Artisan 2
+   Fredo6 LibFredo6
+   Fredo6 FredoScale
+   Fredo6 Fredo Tools
+   GKWare8 CabMaker v8
+   PDFImport
+   SketchUcation
+   Add Location
+   identic AI 3D
+   Interior Pro
+   Lumion® LiveSync® for SketchUp
+   Medeek Truss
+   Medeek Wall
+   Poliigon Import
+   Rayon
+   AI Assistant
+   Dynamic Components
+   Sandbox Tools
+   Trimble Connect
+
+-- loaded ruby files with vray/chaos in the path --
+   0 file(s)
+
+-- vray folders under the Plugins directory --
+   Plugins: "C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins"
+
+-- top level constants that look like V-Ray --
+   VRAYISH                      Array
+
+-- VRAYISH: what it offers --
+   constants (0): 
+   module/class methods (154):
+      &  *  +  -
+      <<  []  []=  all?
+      any?  append  assoc  at
+      bsearch  bsearch_index  chain  chunk
+      chunk_while  clear  collect  collect!
+      collect_concat  combination  compact  compact!
+      concat  count  cross  cycle
+      deconstruct  delete  delete_at  delete_if
+      detect  difference  dig  distance
+      distance_to_line  distance_to_plane  dot  drop
+      drop_while  each  each_cons  each_entry
+      each_index  each_slice  each_with_index  each_with_object
+      empty?  entries  fetch  fill
+      filter  filter!  filter_map  find
+      find_all  find_index  first  flat_map
+      flatten  flatten!  grep  grep_v
+      group_by  index  inject  insert
+      intersect?  intersection  join  keep_if
+      last  lazy  length  map
+      map!  max  max_by  member?
+      min  min_by  minmax  minmax_by
+      none?  normalize  normalize!  offset
+      offset!  on_line?  on_plane?  one?
+      pack  partition  permutation  pop
+      product  project_to_line  project_to_plane  push
+      rassoc  reduce  reject  reject!
+      repeated_combination  repeated_permutation  replace  reverse
+      reverse!  reverse_each  rindex  rotate
+      rotate!  sample  select  select!
+      shift  shuffle  shuffle!  size
+      slice  slice!  slice_after  slice_before
+      slice_when  sort  sort!  sort_by
+      sort_by!  sum  take  take_while
+      tally  to_a  to_ary  to_h
+      to_set  transform  transform!  transpose
+      union  uniq  uniq!  unshift
+      values_at  vector_to  x  x=
+      y  y=  z  z=
+      zip  |
+
+=============== 2. NOT FOUND on this machine ====================
+(names the Chaos docs and the plan mention - checked, not assumed)
+   VRay                     not found
+   VRayForSketchUp          not found
+   VRaySketchUp             not found
+   VRayUtils                not found
+   VRayRender               not found
+   VRayScene                not found
+   VRayAppSDK               not found
+   Chaos                    not found
+   ChaosGroup               not found
+   VRAY                     not found
+   VRayForSketchUpTools     not found
+
+=============== 3. TO CHECK - found, but NOT called =============
+Nothing above was executed. Before we lean on any of it we run it
+once, on purpose, and see. Open questions for that step:
+   - which call opens/queries the V-Ray scene without rendering
+   - whether a SketchUp material can be reached as a V-Ray material
+   - whether roughness / reflection can be READ back after a write
+   - whether a render can be started, and how it reports back
+
+=============== 4. MATERIALS - how V-Ray tags them ==============
+Step 1 has to find a material WITHOUT using its name. The only
+durable handle is an attribute dictionary, so here is what is
+actually written on this model.
+
+-- attribute dictionaries on the MODEL --
+   GeoReference                             7 key(s)
+   temp                                     1 key(s)
+   InteriorPro                              44 key(s)
+   GSU_ContributorsInfo                     2 key(s)
+   medeek_wall                              1 key(s)
+   medeek_truss                             1 key(s)
+
+-- materials in the model: 106 --
+   Teddy_Glasses                      dicts=[]  texture=-
+   Teddy_BookCover                    dicts=[]  texture=-
+   Teddy_Shoes                        dicts=[]  texture=-
+   Teddy_BookJacket                   dicts=[]  texture=-
+   Teddy_Bracelet                     dicts=[]  texture=-
+   Teddy_HairLight                    dicts=[]  texture=-
+   Teddy_Hair                         dicts=[]  texture=-
+   Teddy_SkinShadow                   dicts=[]  texture=-
+   Teddy_Paper                        dicts=[]  texture=-
+   Teddy_BraceletShadow               dicts=[]  texture=-
+   Teddy_Brim                         dicts=[]  texture=-
+   Teddy_Brim2                        dicts=[]  texture=-
+   Teddy_DressDepth                   dicts=[]  texture=-
+   Teddy_Dress                        dicts=[]  texture=-
+   Teddy_Hat                          dicts=[]  texture=-
+   Teddy_Skin                         dicts=[]  texture=-
+   Teddy_DressShadow                  dicts=[]  texture=-
+   InteriorPro_Preview                dicts=[]  texture=-
+   Stucco                             dicts=[]  texture=stucco.jpg
+   #ffffff                            dicts=[]  texture=-
+   InteriorPro_Roof_584e4a            dicts=[]  texture=-
+   InteriorPro_Roof_ffffff            dicts=[]  texture=-
+   medeek_lumber                      dicts=[]  texture=-
+   medeek_lumber_horz                 dicts=[]  texture=LUMBERHORZ.jpg
+   medeek_lumber_vert                 dicts=[]  texture=LUMBERVERT.jpg
+   medeek_lumber_end                  dicts=[]  texture=LUMBER_GRAIN_END.jpg
+   medeek_cfs                         dicts=[]  texture=-
+   medeek_cfs_2x6                     dicts=[]  texture=STEEL_STUD_2X6.png
+   medeek_cfs_2x4                     dicts=[]  texture=STEEL_STUD_2X4.png
+   medeek_steel                       dicts=[]  texture=-
+   medeek_brick_red                   dicts=[]  texture=BRICK_RED.jpg
+   medeek_lumberpt                    dicts=[]  texture=-
+   medeek_lsl                         dicts=[]  texture=WOOD_OSB.jpg
+   medeek_lsl_horz                    dicts=[]  texture=WOOD_LSL_HORZ.jpg
+   medeek_lsl_vert                    dicts=[]  texture=WOOD_LSL_VERT.jpg
+   medeek_lsl_edge_horz               dicts=[]  texture=WOOD_LSL_EDGE_HORZ.jpg
+   medeek_lsl_edge_vert               dicts=[]  texture=WOOD_LSL_EDGE_VERT.jpg
+   medeek_psl_horz                    dicts=[]  texture=WOOD_PSL_GRAIN_HORZ.jpg
+   medeek_psl_vert                    dicts=[]  texture=WOOD_PSL_GRAIN_VERT.jpg
+   medeek_psl_end_horz                dicts=[]  texture=WOOD_PSL_END_HORZ.jpg
+   medeek_psl_end_vert                dicts=[]  texture=WOOD_PSL_END_VERT.jpg
+   medeek_label                       dicts=[]  texture=-
+   medeek_2d_wall                     dicts=[]  texture=-
+   medeek_2d_feature                  dicts=[]  texture=-
+   medeek_hw                          dicts=[]  texture=-
+   medeek_insul_pfg                   dicts=[]  texture=PINK_FIBERGLASS.jpg
+   medeek_osb                         dicts=[]  texture=WOOD_OSB.jpg
+   medeek_wall_stucco_light_tan       dicts=[]  texture=STUCCO_LIGHT_TAN.jpg
+   medeek_gypsum                      dicts=[]  texture=-
+   medeek_gypsum2                     dicts=[]  texture=-
+   medeek_gypsum_edge                 dicts=[]  texture=GYPSUM_EDGE.jpg
+   InteriorPro_Roof_shingle_584e4a    dicts=[]  texture=roof_shingle.jpg
+   InteriorPro_Roof_8b5a2b            dicts=[]  texture=-
+   InteriorPro_Roof_efeae1            dicts=[]  texture=-
+   WOOD                               dicts=[]  texture=WoodPlanksClean0062_11_S.jpg
+   wood1                              dicts=[]  texture=wood_texture_by_rifificz-d75q0g6.jpg
+   wood2                              dicts=[VRayInfo, VRayPlugins, Enscape.Material]  texture=0b4418fcb8dbb8e570b17509310e3521.jpg
+      class                    = "MtlSingleBRDF"
+      main_plugin              = "/wood"
+      type                     = "material"
+      version                  = 40002
+      /wood                    = "{\"name\":\"/wood\",\"class\":\"MtlSingleBRDF\",\"type\":\"material\",\"v..."
+      /wood/Base               = "{\"name\":\"/wood/Base\",\"class\":\"BRDFLayered\",\"type\":\"BRDF\",\"ve..."
+      /wood/Base/V-Ray BRDF    = "{\"name\":\"/wood/Base/V-Ray BRDF\",\"class\":\"BRDFVRayMtl\",\"type\"..."
+      /wood/Base/V-Ray BRDF/TexBitmap = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap\",\"class\":\"TexBitmap..."
+      /wood/Base/V-Ray BRDF/TexBitmap/BitmapBuffer = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap/BitmapBuffer\",\"clas..."
+      /wood/Base/V-Ray BRDF/TexBitmap/UVWGenChannel = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap/UVWGenChannel\",\"cla..."
+      /wood/Base/V-Ray BRDF/opacity_custom_source = "{\"name\":\"/wood/Base/V-Ray BRDF/opacity_custom_source\",\"class..."
+      /wood/Bump               = "{\"name\":\"/wood/Bump\",\"class\":\"BRDFBump\",\"type\":\"BRDF\",\"versi..."
+      /wood/Displacement       = "{\"name\":\"/wood/Displacement\",\"class\":\"GeomDisplacedMesh\",\"ty..."
+      /wood/MaterialID         = "{\"name\":\"/wood/MaterialID\",\"class\":\"MtlMaterialID\",\"type\":\"m..."
+      /wood/RenderStats        = "{\"name\":\"/wood/RenderStats\",\"class\":\"MtlRenderStats\",\"type\":..."
+   InteriorPro_Soffit_wood            dicts=[]  texture=soffit_wood.jpg
+   InteriorPro_Soffit_stucco          dicts=[]  texture=stucco.jpg
+   InteriorPro_Soffit_beams           dicts=[]  texture=soffit_wood.jpg
+   InteriorPro_Soffit_spanish         dicts=[]  texture=stucco.jpg
+   InteriorPro_Roof_4e342e            dicts=[]  texture=-
+   InteriorPro_Ceiling                dicts=[]  texture=-
+   InteriorPro_Subfloor               dicts=[]  texture=-
+   InteriorPro_Plan_Exterior          dicts=[]  texture=-
+   InteriorPro_Plan_Line              dicts=[]  texture=-
+   Board and Batten                   dicts=[]  texture=-
+   Vertical Siding                    dicts=[]  texture=vertical_siding.jpg
+   Plaster                            dicts=[]  texture=plaster.jpg
+   Horizontal Siding                  dicts=[]  texture=horizontal_siding.jpg
+   Brick                              dicts=[]  texture=brick.jpg
+   InteriorPro_Roof_9f5132            dicts=[]  texture=-
+   InteriorPro_Roof_shingle_9f5132    dicts=[]  texture=roof_shingle.jpg
+   Color A05                          dicts=[]  texture=-
+   Color E04                          dicts=[]  texture=-
+   #8b5a2b                            dicts=[]  texture=-
+   Material                           dicts=[]  texture=-
+   Color F03                          dicts=[]  texture=-
+   InteriorPro_Roof_2b2827            dicts=[]  texture=-
+   InteriorPro_Roof_c16e53            dicts=[]  texture=-
+   InteriorPro_Window_Frame           dicts=[]  texture=-
+   InteriorPro_Glass                  dicts=[]  texture=-
+   InteriorPro_Roof_shingle_c16e53    dicts=[]  texture=roof_shingle.jpg
+   #efeae1                            dicts=[]  texture=-
+   InteriorPro_Roof_b0552f            dicts=[]  texture=-
+   InteriorPro_Roof_7b7681            dicts=[]  texture=-
+   InteriorPro_Roof_33383b            dicts=[]  texture=-
+   InteriorPro_Roof_shingle_7f8385    dicts=[]  texture=roof_shingle.jpg
+   InteriorPro_Roof_shingle_515558    dicts=[]  texture=roof_shingle.jpg
+   InteriorPro_Roof_grain_slate_7b768 dicts=[]  texture=roof_grain_concrete.jpg
+   InteriorPro_Roof_grain_metaltile_b dicts=[]  texture=roof_grain_concrete.jpg
+   InteriorPro_FloorTex_White         dicts=[]  texture=-
+   InteriorPro_Door_Frame_f5f5f0      dicts=[]  texture=-
+   Screenshot 2026-07-10 122154       dicts=[]  texture=Screenshot 2026-07-10 122154.png
+   Screenshot 2026-07-10 123052       dicts=[]  texture=Screenshot 2026-07-10 123052.png
+   Color M00                          dicts=[]  texture=-
+   Screenshot 2026-07-10 124153       dicts=[]  texture=Screenshot 2026-07-10 124153.png
+   Screenshot 2026-07-10 124228       dicts=[]  texture=Screenshot 2026-07-10 124228.png
+   Stone                              dicts=[]  texture=stone.jpg
+   InteriorPro_FloorTex_oak_veneer    dicts=[]  texture=oak_veneer.jpg
+   InteriorPro_FloorTex_oak_light     dicts=[]  texture=oak_light.jpg
+   InteriorPro_FloorTex_white_oak_pla dicts=[]  texture=white_oak_planks.jpg
+   InteriorPro_Skylight_ffffff        dicts=[]  texture=-
+   InteriorPro_FloorTex_concrete      dicts=[]  texture=concrete.jpg
+   InteriorPro_Foundation             dicts=[]  texture=-
+   Color F05                          dicts=[]  texture=-
+
+-- what Interior Pro already writes on a material, for comparison --
+   Enscape.Material                         on 1 material(s)
+   VRayInfo                                 on 1 material(s)
+   VRayPlugins                              on 1 material(s)
