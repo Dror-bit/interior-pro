@@ -1,0 +1,29 @@
+TIME 2026-09-04 07:41:31 -0700
+DS_INSET=6.0  DS_WIDTH=3.0
+
+== roof 0  overhang=12.0  ridge_z=175.48
+   corner 0: (    12.00,    535.82)
+   corner 1: (  -618.51,    535.82)   (gable edge starts here)
+   corner 2: (  -618.51,    -12.00)
+   corner 3: (    12.00,    -12.00)   (gable edge starts here)
+   downspouts: 3
+   pipe at (    -6.00,    531.51)  z  -12.71.. 102.90  key=-6.0,531.5
+        on edge 0, 18.00" from its start corner (edge is 630.5" long), 4.31" off the line
+   pipe at (  -600.51,    531.51)  z  -12.71.. 102.90  key=-600.5,531.5
+        on edge 0, 612.51" from its start corner (edge is 630.5" long), 4.31" off the line
+   pipe at (    -6.00,     -7.69)  z  -12.71.. 102.90  key=-6.0,-7.7
+        on edge 2, 612.51" from its start corner (edge is 630.5" long), 4.31" off the line
+
+== roof 1  overhang=12.0  ridge_z=128.63
+   corner 0: (  -301.44,   -379.20)
+   corner 1: (  -301.44,     17.00)
+   corner 2: (  -618.51,     17.00)
+   corner 3: (  -618.51,   -379.20)   (gable edge starts here)
+   downspouts: 3
+   pipe at (  -305.75,   -361.20)  z  -12.71..  84.90  key=-305.7,-361.2
+        on edge 0, 18.00" from its start corner (edge is 396.2" long), 4.31" off the line
+   pipe at (  -614.19,     -1.00)  z  -12.71..  84.90  key=-614.2,-1.0
+        on edge 2, 18.00" from its start corner (edge is 396.2" long), 4.31" off the line
+   pipe at (  -614.19,   -361.20)  z  -12.71..  84.90  key=-614.2,-361.2
+        on edge 2, 378.20" from its start corner (edge is 396.2" long), 4.31" off the line
+   taken off by hand: ["-301.4,-1.0"]

@@ -3880,7 +3880,8 @@ module InteriorPro
             end
             build_downspouts!(grp, poly, gable_flags, rings_at,
                               gmat || trim_mat, ds_off, nil,
-                              s[:overhang].to_f, valley_over)
+                              s[:overhang].to_f, valley_over,
+                              (defined?(lspans) && lspans ? lspans : nil))
           end
         end
       end
@@ -9186,6 +9187,12 @@ module InteriorPro
     # "רבע או חצי אינצ מרווח ממנו לקיר").
     DS_GAP    = 0.375 unless const_defined?(:DS_GAP, false)
     DS_INSET  = 6.0 unless const_defined?(:DS_INSET, false)   # back from the corner
+    # ...and 4" MORE where the valley took the gutter off (2026-09-18, his
+    # number). Measured on his model: the garage's west pipe stood at
+    # y=-1, one inch clear of where the gutter now ends on the house wall
+    # line - it read as jammed against the house. "תעשה את הדאון ספוט
+    # אפילו 4 אינץ' דרומה" -> y=-5.
+    DS_VALLEY_BACK = 4.0 unless const_defined?(:DS_VALLEY_BACK, false)
 
     # The pipe's cross section as [along-the-eave, across] pairs, closed.
     # Round when the gutter is round and rectangular otherwise - the pair
@@ -9360,11 +9367,18 @@ module InteriorPro
     # the wall, hanging in the air beside the building - which is exactly
     # what the user photographed: "זה עדיין לא יושב על הקיר". The set
     # back is measured from the WALL corner, so overhang comes first.
+    # `pull` is { edge index => [[t0, t1]] } - the stretches the valley
+    # took this roof's trim off (valley_low_spans). A pipe at a corner
+    # whose stretch is one of those backs off DS_VALLEY_BACK further, so
+    # it does not stand jammed against the taller building. Each spot
+    # comes back as [point, edge, point_before_that_shift]: the shifted
+    # pipe has a new key, and the caller still has to recognise one the
+    # user took off by hand under its OLD key.
     def self.downspout_spots(poly, skip_flags = nil, overhang = 0.0,
-                             inset = DS_INSET)
+                             inset = DS_INSET, pull = nil)
       n = poly.length
       return [] if n < 3
-      back = overhang.to_f + inset.to_f
+      back0 = overhang.to_f + inset.to_f
       out = []
       n.times do |v|
         prev = (v - 1) % n
@@ -9374,10 +9388,21 @@ module InteriorPro
         e = on_this ? v : prev
         j = (e + 1) % n
         len = vlen(vsub(poly[j], poly[e]))
-        next if len < back * 2.0
+        next if len < back0 * 2.0
         d = vnorm(vsub(poly[j], poly[e]))
+        back = back0
+        if pull && pull[e]
+          nearby = if on_this
+                     pull[e].any? { |(t0, _t1)| t0 <= 0.5 }
+                   else
+                     pull[e].any? { |(_t0, t1)| t1 >= len - 0.5 }
+                   end
+          back += DS_VALLEY_BACK if nearby
+        end
+        next if len < back * 2.0
+        p0 = on_this ? vadd(poly[e], vmul(d, back0)) : vsub(poly[j], vmul(d, back0))
         p = on_this ? vadd(poly[e], vmul(d, back)) : vsub(poly[j], vmul(d, back))
-        out << [p, e]
+        out << [p, e, p0]
       end
       out
     end
@@ -9452,12 +9477,17 @@ module InteriorPro
     # vertical run stands, so each pipe can end at its own ground
     # (2026-09-11). nil from the lambda = no pipe there.
     def self.build_downspouts!(grp, poly, skip_flags, rings, mat, skip = [],
-                               inner = nil, overhang = 0.0, avoid = nil)
+                               inner = nil, overhang = 0.0, avoid = nil,
+                               pull = nil)
       made = 0
       n = poly.length
-      downspout_spots(poly, skip_flags, overhang).each do |(at, edge)|
+      downspout_spots(poly, skip_flags, overhang, DS_INSET, pull).each do |(at, edge, at0)|
         key = downspout_key(at)
+        # a pipe the user took off KEEPS being off after it moves: his
+        # click stored WHERE it stood, and the valley back-off moves it
+        # (2026-09-18 - without this the east pipe he removed came back).
         next if skip.include?(key)
+        next if at0 && skip.include?(downspout_key(at0))
         # a pipe on a stretch that stands over a lower roof would come
         # down inside the room below it (2026-09-03, his picture)
         if avoid && avoid[edge % n]
