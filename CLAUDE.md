@@ -173,8 +173,14 @@ Do not re-open either as a priority; a bug in one is a bug, not a phase.
 The valley - the garage roof running into the house - was closed on
 2026-09-18, all five steps. See `HANDOFF_2026-09-18.md`.
 
-Next: the rendering program. Nothing about it is written down yet - ASK HIM
-what it is before assuming, and write the answer here.
+Next: the rendering program = **Interior Pro ↔ Claude API ↔ V-Ray**. It IS
+written down now: `VRAY_POC_PLAN.md` in the project root (2026-09-15) -
+what it is, who controls what (he designs, Claude tunes V-Ray, V-Ray
+renders), the one architecture rule (Claude returns NUMBERS, never code;
+the plugin validates and calls predefined V-Ray functions), why it comes
+BEFORE the Tile system, the smallest POC, and what was agreed on cost and
+quality. Read it before the first step. The first step is a measuring
+file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 ## TODO the user asked to come back to (do not lose)
 
