@@ -1,0 +1,41 @@
+TIME 2026-09-04 12:25:34 -0700
+model.title="claud cold"  path="C:\\Users\\rordt\\OneDrive\\Desktop\\Clients\\claud cold.skp"
+model.object_id=640
+model.guid=6691c891-3e2a-46cd-9d87-358a3c764725
+USE_MATERIAL_IDS=true
+watching?=true
+pending=0
+materials in model: 106
+audit: {:count=>106, :without_id=>[], :duplicates=>[], :next_number=>107}
+
+-- the last 12 materials in the model, newest last --
+   Screenshot 2026-07-10 123052       id="IP_MAT_0095"
+   Color M00                          id="IP_MAT_0096"
+   Screenshot 2026-07-10 124153       id="IP_MAT_0097"
+   Screenshot 2026-07-10 124228       id="IP_MAT_0098"
+   Stone                              id="IP_MAT_0099"
+   InteriorPro_FloorTex_oak_veneer    id="IP_MAT_0100"
+   InteriorPro_FloorTex_oak_light     id="IP_MAT_0101"
+   InteriorPro_FloorTex_white_oak_pla id="IP_MAT_0102"
+   InteriorPro_Skylight_ffffff        id="IP_MAT_0103"
+   InteriorPro_FloorTex_concrete      id="IP_MAT_0104"
+   InteriorPro_Foundation             id="IP_MAT_0105"
+   Color F05                          id="IP_MAT_0106"
+
+-- materials with a green-ish colour --
+   Teddy_BookCover                    rgb=(50,131,50) id="IP_MAT_0002"
+   Teddy_Bracelet                     rgb=(145,141,147) id="IP_MAT_0005"
+   Plaster                            rgb=(157,139,120) id="IP_MAT_0069"
+   InteriorPro_Roof_shingle_7f8385    rgb=(127,131,133) id="IP_MAT_0088"
+   InteriorPro_Foundation             rgb=(150,148,145) id="IP_MAT_0105"
+   Color F05                          rgb=(127,255,0) id="IP_MAT_0106"
+
+-- LIVE TEST: add a material and see if the hook fires --
+   added IP_PROBE_MAT: materials 106 -> 107
+   pending right after the add = 1  (the hook noted it)
+   its id right after the add  = nil  (should be nil - we do not write inside the callback)
+   drain! stamped 1
+   its id after the drain      = "IP_MAT_0107"
+
+If pending was 0 the observer is NOT attached to this model.
+Delete IP_PROBE_MAT from the Materials window when you are done.

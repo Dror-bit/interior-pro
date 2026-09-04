@@ -334,14 +334,31 @@ end
   class Material
     attr_accessor :color, :alpha, :name
     attr_reader :texture
-    def initialize(n); @name = n; end
+    def initialize(n); @name = n; @attrs = {}; end
     def texture=(f); @texture = f.nil? ? nil : Texture.new(f); end
+    # a real material carries attribute dictionaries like anything else;
+    # the stub had none at all, and MaterialIds lives on them (2026-09-18)
+    def display_name; @name; end
+    def set_attribute(d, k, v); (@attrs[d] ||= {})[k] = v; v; end
+    def get_attribute(d, k, dflt = nil)
+      (@attrs[d] || {}).key?(k) ? @attrs[d][k] : dflt
+    end
+    def delete_attribute(d, k = nil)
+      k.nil? ? @attrs.delete(d) : (@attrs[d] || {}).delete(k)
+    end
   end
   class Materials
+    include Enumerable
     def initialize; @h = {}; end
     def [](n); @h[n]; end
     def add(n); @h[n] = Material.new(n); end
-    def remove(n); @h.delete(n); end
+    def remove(n); @h.delete(n.respond_to?(:name) ? n.name : n); end
+    # a real Materials is enumerable and counts
+    def each(&b); @h.values.each(&b); self; end
+    def length; @h.length; end
+    def size; @h.length; end
+    def count(*a, &b); a.empty? && b.nil? ? @h.length : super; end
+    def to_a; @h.values; end
   end
 
   class Model

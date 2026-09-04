@@ -37,6 +37,7 @@ module InteriorPro
       door_move_tool.rb
       door_delete_tool.rb
       window_manager.rb
+      material_ids.rb
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb
