@@ -30,7 +30,13 @@ module InteriorPro
     USE_SYNC_BRIDGE = true unless const_defined?(:USE_SYNC_BRIDGE, false)
 
     ROOMS_FILE = 'rooms.json'.freeze
-    TAKEOFF_FILE = 'surface_takeoff.csv'.freeze
+    # ONE CSV PER PROJECT (their update, 2026-09-18): the csv has no
+    # project column and their importer DELETES and REPLACES every row of
+    # one project, so the project's UUID goes in the FILENAME. Their
+    # "read from folder" looks for exactly this name and has no fallback
+    # to a shared file - on purpose, so one project can never import
+    # another's quantities.
+    TAKEOFF_PREFIX = 'surface_takeoff_'.freeze
     DEFAULT_FOLDER_NAME = 'InteriorPro'.freeze
     # where the binding lives on a SketchUp room group
     DICT = 'InteriorPro'.freeze
@@ -43,9 +49,34 @@ module InteriorPro
 
     # ---- the folder --------------------------------------------------
 
-    # PURE. The default exchange folder for a home directory.
-    def self.default_folder(home)
-      File.join(home.to_s, 'OneDrive', DEFAULT_FOLDER_NAME)
+    # NOTHING IS HARDCODED (their update, 2026-09-18). There is no
+    # OneDrive folder under C:\Users\rordt on his machine - a business
+    # account gives "OneDrive - <Org>", and it can sit on another drive.
+    # The web app lets him pick the folder in a browser; the extension is
+    # the only side where a wrong path breaks the bridge in silence. So
+    # the path is a SETTING with a picker, and the guesses below are only
+    # offered, never assumed.
+    #
+    # PURE. Folders worth trying, best first, for a home directory.
+    def self.candidate_folders(home, entries = nil)
+      h = home.to_s
+      out = []
+      list = entries || (Dir.entries(h) rescue [])
+      list.sort.each do |n|
+        next unless n.to_s.start_with?('OneDrive')
+        out << File.join(h, n, DEFAULT_FOLDER_NAME)
+      end
+      out << File.join(h, 'OneDrive', DEFAULT_FOLDER_NAME)
+      out << File.join(h, 'Documents', DEFAULT_FOLDER_NAME)
+      out.uniq
+    end
+
+    # The first candidate whose PARENT really exists - we are willing to
+    # create InteriorPro inside an existing OneDrive, never to invent a
+    # OneDrive that is not there.
+    def self.guess_folder(home = nil)
+      home ||= home_dir
+      candidate_folders(home).find { |c| File.directory?(File.dirname(c)) }
     end
 
     def self.home_dir
@@ -56,10 +87,32 @@ module InteriorPro
 
     # The folder in use: what he set, else the default. Never created
     # here - see ensure_folder!.
+    # What he chose, or nil. NEVER a guess - a guessed path that does not
+    # exist is exactly the silent breakage their spec warns about.
     def self.folder
       saved = (Sketchup.read_default(PREF_SECTION, PREF_FOLDER, nil) rescue nil)
       return saved.to_s if saved && !saved.to_s.empty?
-      default_folder(home_dir)
+      nil
+    end
+
+    def self.folder?
+      f = folder
+      !f.nil? && File.directory?(f)
+    end
+
+    # Ask him where it is. Starts at the best guess so the usual case is
+    # one click.
+    def self.choose_folder!
+      start = guess_folder
+      start = File.dirname(start) if start && !File.directory?(start)
+      picked = UI.select_directory(title: 'Interior Pro <-> Invoice Studio folder',
+                                   directory: start)
+      return nil if picked.nil? || picked.to_s.empty?
+      self.folder = picked.to_s
+      picked.to_s
+    rescue StandardError => e
+      puts "[SyncBridge] choose_folder!: #{e.message}"
+      nil
     end
 
     def self.folder=(path)
@@ -69,19 +122,47 @@ module InteriorPro
 
     def self.ensure_folder!
       d = folder
+      if d.nil?
+        puts '[SyncBridge] no exchange folder set yet - run choose_folder!'
+        return nil
+      end
       Dir.mkdir(d) unless File.directory?(d)
       d
     rescue StandardError => e
-      puts "[SyncBridge] could not make #{folder}: #{e.message}"
+      puts "[SyncBridge] could not make #{d}: #{e.message}"
       nil
     end
 
     def self.rooms_path
-      File.join(folder, ROOMS_FILE)
+      d = folder
+      d.nil? ? nil : File.join(d, ROOMS_FILE)
     end
 
-    def self.takeoff_path
-      File.join(folder, TAKEOFF_FILE)
+    # PURE. The one filename their importer looks for.
+    def self.takeoff_name(project_id)
+      "#{TAKEOFF_PREFIX}#{project_id}.csv"
+    end
+
+    def self.takeoff_path(project_id)
+      d = folder
+      return nil if d.nil? || project_id.to_s.empty?
+      File.join(d, takeoff_name(project_id))
+    end
+
+    # Which Studio project this MODEL belongs to. Stored on the model, so
+    # it travels with the .skp.
+    def self.project_id(model = nil)
+      model ||= Sketchup.active_model
+      v = model.get_attribute(DICT, KEY_PROJECT).to_s
+      v.empty? ? nil : v
+    rescue StandardError
+      nil
+    end
+
+    def self.set_project!(model, id, name = nil)
+      model.set_attribute(DICT, KEY_PROJECT, id.to_s)
+      model.set_attribute(DICT, 'studio_project_name', name.to_s) if name
+      id.to_s
     end
 
     # ---- reading rooms.json ------------------------------------------
@@ -118,6 +199,9 @@ module InteriorPro
     def self.read_rooms(path = nil)
       return { ok: false, projects: [], error: 'switched off' } unless USE_SYNC_BRIDGE
       path ||= rooms_path
+      if path.nil?
+        return { ok: false, projects: [], error: :no_folder }
+      end
       unless File.file?(path)
         return { ok: false, projects: [], error: :missing, path: path }
       end
@@ -200,11 +284,128 @@ module InteriorPro
       [moved, lost]
     end
 
+    # ---- the pickers -------------------------------------------------
+    # THE NAMES ARE NOT CLEANED (their update, 2026-09-05). Real project
+    # names carry a DOUBLE SPACE ("...Hacienda Heights, CA  91745") and a
+    # room is called "Bathroom 2 (scond floor)". Both are correct as far
+    # as the bridge is concerned - matching is exact, so trimming,
+    # collapsing spaces or fixing a typo would silently break the link.
+    # Nothing here calls strip, squeeze or capitalize. Ever.
+
+    # PURE. The lines a dropdown shows, and the objects behind them.
+    # SketchUp's inputbox separates its choices with "|", so a name
+    # holding one is numbered instead of being altered.
+    def self.menu_lines(items)
+      names = items.map { |i| i[:name].to_s }
+      if names.any? { |n| n.include?('|') }
+        names.each_with_index.map { |n, i| "#{i + 1}. #{n.tr('|', '/')}" }
+      else
+        names
+      end
+    end
+
+    # PURE. Which item a chosen line belongs to - by POSITION, never by
+    # comparing the text back, so a numbered or "|"-swapped line still
+    # lands on the right object.
+    def self.item_for_line(items, line)
+      idx = menu_lines(items).index(line.to_s)
+      idx.nil? ? nil : items[idx]
+    end
+
+    # Pick the project this MODEL belongs to.
+    def self.pick_project!(model = nil)
+      model ||= Sketchup.active_model
+      r = read_rooms
+      unless r[:ok]
+        UI.messagebox(rooms_problem(r))
+        return nil
+      end
+      projs = r[:projects]
+      if projs.empty?
+        UI.messagebox('rooms.json has no active projects in it.')
+        return nil
+      end
+      lines = menu_lines(projs)
+      cur = project_id(model)
+      here = projs.index { |p| p[:id] == cur }
+      res = UI.inputbox(['Project'], [lines[here || 0]], [lines.join('|')],
+                        'Invoice Studio - which project is this model?')
+      return nil unless res
+      pr = item_for_line(projs, res[0])
+      return nil if pr.nil?
+      set_project!(model, pr[:id], pr[:name])
+      pr
+    rescue StandardError => e
+      puts "[SyncBridge] pick_project!: #{e.message}"
+      nil
+    end
+
+    # Pick the Studio room for one SketchUp room group.
+    def self.pick_room!(group, model = nil)
+      return nil if group.nil?
+      model ||= Sketchup.active_model
+      pid = project_id(model)
+      if pid.nil?
+        UI.messagebox('Pick the project first.')
+        return nil
+      end
+      r = read_rooms
+      unless r[:ok]
+        UI.messagebox(rooms_problem(r))
+        return nil
+      end
+      pr = r[:projects].find { |p| p[:id] == pid }
+      if pr.nil?
+        UI.messagebox("This model is linked to a project that is not in " \
+                      "rooms.json any more (#{pid}).")
+        return nil
+      end
+      rooms = pr[:rooms]
+      if rooms.empty?
+        UI.messagebox("#{pr[:name]} has no rooms in rooms.json.")
+        return nil
+      end
+      lines = menu_lines(rooms)
+      b = binding_of(group)
+      here = b ? rooms.index { |x| x[:id] == b[:room_id] } : nil
+      res = UI.inputbox(['Room'], [lines[here || 0]], [lines.join('|')],
+                        "#{pr[:name]} - which room is this?")
+      return nil unless res
+      rm = item_for_line(rooms, res[0])
+      return nil if rm.nil?
+      bind_room!(group, pr[:id], rm[:id], rm[:name])
+      rm
+    rescue StandardError => e
+      puts "[SyncBridge] pick_room!: #{e.message}"
+      nil
+    end
+
+    # PURE. What to tell him when rooms.json will not read.
+    def self.rooms_problem(res)
+      case res[:error]
+      when :no_folder
+        'No exchange folder chosen yet. Run SyncBridge.choose_folder!'
+      when :missing
+        "rooms.json is not in the folder yet:\n#{res[:path]}\n" \
+        'Link the folder in Invoice Studio (Settings -> Interior Pro Sync).'
+      when :malformed
+        "rooms.json is there but is not valid JSON:\n#{res[:detail]}"
+      else
+        "rooms.json could not be read: #{res[:error]} #{res[:detail]}"
+      end
+    end
+
     # ---- writing, atomically -----------------------------------------
 
     # Temp file then rename, for the same reason the other side does it:
     # nobody ever reads half a file. Same folder, so the rename cannot
     # cross a device.
+    # PURE. Every line ending becomes CRLF, and one that already is is
+    # not doubled.
+    def self.crlf(text)
+      text.to_s.gsub(/\r\n|\r|\n/, "\r\n")
+    end
+
     def self.write_atomic(path, text)
       dir = File.dirname(path)
       tmp = File.join(dir, ".#{File.basename(path)}.tmp#{Process.pid}")
@@ -227,8 +428,18 @@ module InteriorPro
       return nil unless USE_SYNC_BRIDGE
       model ||= Sketchup.active_model
       return nil unless ensure_folder!
+      pid = project_id(model)
+      if pid.nil?
+        puts '[SyncBridge] this model is not linked to an Invoice Studio ' \
+             'project yet - nothing written (their importer needs the ' \
+             'project UUID in the filename)'
+        return nil
+      end
       rows = InteriorPro::SurfaceTakeoff.take(model)
-      write_atomic(takeoff_path, InteriorPro::SurfaceTakeoff.to_csv(rows) + "\n")
+      # CRLF, because their spec asks for it (2026-09-05). The csv is
+      # built with plain newlines and converted once, here.
+      write_atomic(takeoff_path(pid),
+                   crlf(InteriorPro::SurfaceTakeoff.to_csv(rows) + "\n"))
     end
   end
 end

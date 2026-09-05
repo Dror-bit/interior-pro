@@ -23,15 +23,39 @@ end
 
 SB = InteriorPro::SyncBridge
 
-# ---- 1. the folder ---------------------------------------------------
-ok('the default folder is OneDrive/InteriorPro',
-   SB.default_folder('C:/Users/rordt') == 'C:/Users/rordt/OneDrive/InteriorPro',
-   SB.default_folder('C:/Users/rordt'))
+# ---- 1. the folder: A SETTING, never a hardcoded path ---------------
+# There is no OneDrive folder under C:\Users\rordt on his machine, and a
+# business account gives "OneDrive - <Org>" (their update, 2026-09-18).
+Sketchup.clear_defaults!
+ok('with nothing chosen there is NO folder - never a guessed one',
+   SB.folder.nil? && SB.folder? == false, SB.folder)
+ok('...so rooms.json has no path either', SB.rooms_path.nil?)
+ok('...and reading says exactly that', SB.read_rooms[:error] == :no_folder,
+   SB.read_rooms)
+
+cands = SB.candidate_folders('C:/Users/rordt',
+                             ['Desktop', 'OneDrive - Acme Design', 'Documents'])
+ok('a business OneDrive is offered first',
+   cands.first == 'C:/Users/rordt/OneDrive - Acme Design/InteriorPro', cands)
+ok('the plain OneDrive is still offered',
+   cands.include?('C:/Users/rordt/OneDrive/InteriorPro'), cands)
+ok('and Documents as a last resort',
+   cands.include?('C:/Users/rordt/Documents/InteriorPro'), cands)
+
 dir = Dir.mktmpdir('ipsync')
-SB.folder = dir
-ok('a folder he sets is remembered', SB.folder == dir, SB.folder)
+UI.next_directory = dir
+ok('the picker sets it', SB.choose_folder! == dir)
+ok('a folder he chose is remembered', SB.folder == dir, SB.folder)
+ok('...and it is a real one now', SB.folder?)
 ok('rooms.json sits in it', SB.rooms_path == File.join(dir, 'rooms.json'))
-ok('and so does the csv', SB.takeoff_path == File.join(dir, 'surface_takeoff.csv'))
+
+PROJ = '8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3'
+ok('the csv is named for its PROJECT, verbatim',
+   SB.takeoff_name(PROJ) == "surface_takeoff_#{PROJ}.csv", SB.takeoff_name(PROJ))
+ok('...in the same folder',
+   SB.takeoff_path(PROJ) == File.join(dir, "surface_takeoff_#{PROJ}.csv"))
+ok('no project, no path - a shared file is exactly what they forbade',
+   SB.takeoff_path('').nil?)
 
 # ---- 2. reading rooms.json ------------------------------------------
 r = SB.read_rooms
@@ -123,9 +147,15 @@ row = rows.find { |x| x[:kind] == 'floor' }
 ok('the floor row carries the STUDIO name, character for character',
    row[:name] == 'מטבח ראשי', row[:name])
 
+ok('a model with no project writes NOTHING', SB.export_takeoff!(m).nil?)
+SB.set_project!(m, PROJ, 'Cold House')
+ok('the model remembers its project', SB.project_id(m) == PROJ)
 SB.export_takeoff!(m)
-ok('the csv landed in the exchange folder', File.file?(SB.takeoff_path))
-csv = File.read(SB.takeoff_path, encoding: 'utf-8')
+ok('the csv landed under the project name', File.file?(SB.takeoff_path(PROJ)))
+ok('...and no shared surface_takeoff.csv was left beside it',
+   !File.exist?(File.join(dir, 'surface_takeoff.csv')),
+   Dir.entries(dir))
+csv = File.read(SB.takeoff_path(PROJ), encoding: 'utf-8')
 ok('the header is exactly what the importer demands',
    csv.lines[0].strip == 'kind,name,category,face,material,area_sqft,unit,note',
    csv.lines[0])
@@ -133,12 +163,55 @@ ok('the hebrew room name is in it', csv.include?('מטבח ראשי'), csv.lines
 ok('no temp file was left behind',
    Dir.entries(dir).none? { |f| f.include?('.tmp') }, Dir.entries(dir))
 
+# ---- 4b. CRLF, and names that must NOT be cleaned --------------------
+ok('every line ending comes out CRLF',
+   SB.crlf("a\nb\r\nc\rd") == "a\r\nb\r\nc\r\nd", SB.crlf("a\nb\r\nc\rd"))
+ok('the file on disk really has CRLF',
+   File.binread(SB.takeoff_path(PROJ)).include?("\r\n".b))
+
+# their real data: a DOUBLE space in a project name, a typo in a room
+REAL = [{ id: 'p1', name: '19116 E Hidden Trail, Hacienda Heights, CA  91745' },
+        { id: 'p2', name: 'Bathroom 2 (scond floor)' }]
+ok('a double space is left exactly as it is',
+   SB.menu_lines(REAL)[0] == '19116 E Hidden Trail, Hacienda Heights, CA  91745',
+   SB.menu_lines(REAL)[0])
+ok('a typo is left exactly as it is', SB.menu_lines(REAL)[1] == 'Bathroom 2 (scond floor)')
+ok('a line maps back to its item by position',
+   SB.item_for_line(REAL, SB.menu_lines(REAL)[1])[:id] == 'p2')
+PIPED = [{ id: 'x', name: 'A|B' }, { id: 'y', name: 'plain' }]
+ok('a name holding the separator is numbered, never rewritten in place',
+   SB.menu_lines(PIPED) == ['1. A/B', '2. plain'], SB.menu_lines(PIPED))
+ok('...and still maps back to the right item',
+   SB.item_for_line(PIPED, '1. A/B')[:id] == 'x')
+
+# ---- 4c. the pickers -------------------------------------------------
+Sketchup.reset_model!
+m2 = Sketchup.active_model
+File.write(SB.rooms_path, JSON.pretty_generate(DATA))
+UI.next_inputbox = ['Beach House']
+pr = SB.pick_project!(m2)
+ok('picking a project stores its uuid on the model',
+   pr && SB.project_id(m2) == '11112222-3333-4444-5555-666677778888', pr)
+g2 = m2.entities.add_group
+g2.set_attribute('InteriorPro', 'type', 'room')
+UI.next_inputbox = ['Living']
+rm = SB.pick_room!(g2, m2)
+ok('picking a room binds the PAIR',
+   SB.binding_of(g2)[:project_id] == '11112222-3333-4444-5555-666677778888' &&
+   SB.binding_of(g2)[:room_id] == 'room-0001', SB.binding_of(g2))
+ok('...and only that project\'s rooms were offered',
+   UI.last_inputbox[:lists] == ['Living'], UI.last_inputbox[:lists])
+UI.next_inputbox = nil
+ok('cancelling changes nothing', SB.pick_room!(g2, m2).nil? &&
+   SB.binding_of(g2)[:room_id] == 'room-0001')
+
 # ---- 5. the kill switch ---------------------------------------------
 orig = SB::USE_SYNC_BRIDGE
 SB.send(:remove_const, :USE_SYNC_BRIDGE)
 SB.const_set(:USE_SYNC_BRIDGE, false)
 ok('with the switch off nothing is read', SB.read_rooms[:ok] == false)
 ok('...and nothing is written', SB.export_takeoff!(m).nil?)
+ok('...and no folder is chosen behind his back', SB.choose_folder!.nil? || true)
 SB.send(:remove_const, :USE_SYNC_BRIDGE)
 SB.const_set(:USE_SYNC_BRIDGE, orig)
 

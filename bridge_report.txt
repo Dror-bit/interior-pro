@@ -1,0 +1,20 @@
+TIME 2026-09-04 17:41:49 -0700
+folder setting = "C:/Users/rordt/OneDrive/InteriorPro"
+raw read_default = "C:/Users/rordt/OneDrive/InteriorPro"
+read_default with a string default = "C:/Users/rordt/OneDrive/InteriorPro"
+folder exists  = true
+
+-- everything in it --
+   README-sample-files.txt                                     932 bytes  2026-09-04 16:01
+   surface_takeoff_8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3.csv        345 bytes  2026-09-04 16:01
+
+-- rooms.json NOT there (looked at "C:/Users/rordt/OneDrive/InteriorPro/rooms.json") --
+
+-- surface_takeoff_8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3.csv: 345 bytes, BOM=false, CRLF=true --
+   kind,name,category,face,material,area_sqft,unit,note
+   floor,Kitchen,,,Porcelain,184.20,24x48,
+   floor,מטבח,,,Wood,96.00,,
+   floor,פטיו,,,Concrete,240.00,,exterior slab
+   wall,W-01,exterior,outside,Stucco,96.40,,"openings deducted, 2 doors"
+   wall,W-01,exterior,inside,"Dry ""wall""",102.10,,
+   wall,W-02,interior,inside,Drywall,64.50,,gross

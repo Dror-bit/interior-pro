@@ -468,6 +468,22 @@ end
 end
 
 module UI
+  # The folder picker the Invoice Studio bridge opens (2026-09-18). A
+  # test sets what it should answer; nothing pops up in the cloud.
+  class << self
+    attr_accessor :next_directory
+    def select_directory(_opts = {}); @next_directory; end
+    # The dropdowns the Invoice Studio pickers open. A test sets the
+    # answer; nothing pops up in the cloud.
+    attr_accessor :next_inputbox
+    attr_reader :last_inputbox
+    def inputbox(prompts, defaults, lists, title = '')
+      @last_inputbox = { prompts: prompts, defaults: defaults,
+                         lists: lists, title: title }
+      @next_inputbox
+    end
+  end
+
   class HtmlDialog
     attr_reader :callbacks, :scripts
     def initialize(_opts = {}); @callbacks = {}; @scripts = []; end
