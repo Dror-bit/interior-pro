@@ -1,10 +1,20 @@
-TIME 2026-09-06 12:13:18 -0700
+TIME 2026-09-06 12:20:00 -0700
 model: claud cold
 a leftover under 20.0% of a tile is waste - never paired
 
 Room 1  -  Hardwood  -  2128.4 sq ft
-   laid without a unit size - area only, nothing to count
+   tile 24x48
+     whole tiles               207
+     cut pieces                 68  (from 68 tiles, 0 taken from offcuts)
+     pieces under 20%            0  (each one its own tile)
+     TILES TO BUY              275
+   pattern None, joint 0.25"
 
 Room 2  -  Hardwood  -  713.0 sq ft
-   laid without a unit size - area only, nothing to count
+   tile 48x24
+     whole tiles                75
+     cut pieces                 30  (from 15 tiles, 15 taken from offcuts)
+     pieces under 20%           14  (each one its own tile)
+     TILES TO BUY              104
+   pattern Tile
 
