@@ -270,16 +270,16 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 5
+      return if tb.length >= 4
 
-      rooms_cmd = UI::Command.new('Sync Rooms') {
-        InteriorPro::RoomManager.sync_rooms!
-      }
-      rooms_cmd.tooltip = 'Detect Rooms - update room labels'
-      rooms_cmd.status_bar_text = 'Detect closed wall loops and create/update room entities'
-      rooms_cmd.small_icon = icon_path('rooms_sync')
-      rooms_cmd.large_icon = icon_path('rooms_sync')
-      tb.add_item(rooms_cmd)
+      # THE "Sync Rooms" BUTTON IS GONE (2026-09-06). He said it was not
+      # usable - "אי אפשר בכלל להשתמש בו" - and the measurement says why:
+      # RoomManager.sync_rooms! is already called automatically from 13
+      # places (every wall build, delete, split, stretch, curve, the 2D
+      # editor, the floors dialog). The rooms are always up to date, so
+      # the button had nothing to do and looked broken.
+      # His own rule: if something already does the job, do not add a
+      # second way to do it.
 
       # The room table: which room in the model is which room in Invoice
       # Studio, or a name of his own (2026-09-06). Next to Sync Rooms,
@@ -290,8 +290,8 @@ module InteriorPro
       link_cmd.tooltip = 'Room Names - link each room to Invoice Studio'
       link_cmd.status_bar_text = 'One table: every room in the model, ' \
                                  'linked to a room in the chosen project or named by hand'
-      link_cmd.small_icon = icon_path('rooms_sync')
-      link_cmd.large_icon = icon_path('rooms_sync')
+      link_cmd.small_icon = icon_path('room_names')
+      link_cmd.large_icon = icon_path('room_names')
       tb.add_item(link_cmd)
 
       floors_cmd = UI::Command.new('Build Floors') {

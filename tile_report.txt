@@ -1,0 +1,10 @@
+TIME 2026-09-06 12:13:18 -0700
+model: claud cold
+a leftover under 20.0% of a tile is waste - never paired
+
+Room 1  -  Hardwood  -  2128.4 sq ft
+   laid without a unit size - area only, nothing to count
+
+Room 2  -  Hardwood  -  713.0 sq ft
+   laid without a unit size - area only, nothing to count
+
