@@ -48,6 +48,8 @@ module InteriorPro
                  grout: g.get_attribute(DICT, 'pattern_grout').to_f,
                  ox: g.get_attribute(DICT, 'pattern_ox').to_f,
                  oy: g.get_attribute(DICT, 'pattern_oy').to_f,
+                 angle: g.get_attribute(DICT, 'pattern_angle').to_f,
+                 centered: g.get_attribute(DICT, 'pattern_center') ? true : false,
                  pattern: g.get_attribute(DICT, 'pattern').to_s }
       end
       out.sort_by { |f| -f[:area] }
@@ -89,6 +91,8 @@ module InteriorPro
       return nil unless countable?(f)
       InteriorPro::TileCount.plan(f[:poly], f[:tw], f[:tl],
                                   grout: f[:grout], ox: f[:ox], oy: f[:oy],
+                                  angle: f[:angle].to_f,
+                                  centered: f[:centered] ? true : false,
                                   stagger: stagger_for(f[:pattern]), pct: pct)
     end
 
@@ -112,8 +116,12 @@ module InteriorPro
           t << '   ' + why_not(f).to_s
         else
           InteriorPro::TileCount.lines(res, f[:tw], f[:tl]).each { |l| t << '   ' + l }
-          t << format('   pattern %s%s', f[:pattern].empty? ? 'grid' : f[:pattern],
-                      f[:grout] > 0 ? format(', joint %g"', f[:grout]) : '')
+          cov = InteriorPro::TileGrid.coverage(f[:tw], f[:tl], f[:grout])
+          t << format('   one tile is %g x %g, covers %g x %g = %.4f sq ft',
+                      f[:tw], f[:tl], cov[0], cov[1], cov[0] * cov[1] / 144.0)
+          t << format('   pattern %s%s%s', f[:pattern].empty? ? 'grid' : f[:pattern],
+                      f[:grout] > 0 ? format(', joint %g"', f[:grout]) : '',
+                      f[:angle].to_f.abs > 0.001 ? format(', angle %g', f[:angle]) : '')
         end
         t << ''
       end

@@ -16,9 +16,17 @@
 # SketchUp API - so tests/rt164.rb pins it. The layout is a grid of tile
 # cells laid over the room's own outline; a cell is a FULL tile only
 # where the room covers the whole of it.
+require_relative 'tile_grid'
+
 module InteriorPro
   module TileCount
     MIN_REUSE_PCT = 20.0 unless const_defined?(:MIN_REUSE_PCT, false)
+    # Kill switch (2026-09-06). ON: the layout comes from
+    # tile_grid.rb - the same one the drawer will read, so the
+    # count knows about the angle, the centring and the room's own
+    # edge. OFF: the old grid in layout_legacy, which knew none of
+    # them and anchored itself on the model's zero point.
+    USE_SHARED_GRID = true unless const_defined?(:USE_SHARED_GRID, false)
     EPS = 1.0e-6 unless const_defined?(:EPS, false)
 
     # ---- small pure geometry -----------------------------------------
@@ -80,7 +88,7 @@ module InteriorPro
     #   stagger how far each row is pushed along - 0.5 is a running bond
     # Returns [full_count, cuts] where a cut is [w, h] of the piece that
     # actually has to be cut, rounded to 1/16".
-    def self.layout(poly, tw, tl, grout: 0.0, ox: 0.0, oy: 0.0, stagger: 0.0)
+    def self.layout_legacy(poly, tw, tl, grout, ox, oy, stagger)
       return [0, []] if poly.nil? || poly.length < 3 || tw <= 0 || tl <= 0
       x0, y0, x1, y1 = bbox(poly)
       pitch_x = tw + grout
@@ -109,6 +117,89 @@ module InteriorPro
         row += 1
       end
       [full, cuts]
+    end
+
+    # Keep the part of `poly` inside the CONVEX polygon `clipper`. The
+    # clipper is one tile - convex even when the layout is turned - so
+    # this is exact for an L-shaped room too. clip_rect above is the
+    # axis-aligned special case the legacy grid needs.
+    def self.clip_convex(poly, clipper)
+      return [] if poly.nil? || poly.length < 3
+      a2 = 0.0
+      clipper.each_index do |i|
+        a = clipper[i]
+        b = clipper[(i + 1) % clipper.length]
+        a2 += a[0] * b[1] - b[0] * a[1]
+      end
+      clipper = clipper.reverse if a2 < 0
+      out = poly
+      clipper.length.times do |i|
+        return [] if out.length < 3
+        ax, ay = clipper[i]
+        bx, by = clipper[(i + 1) % clipper.length]
+        ex = bx - ax
+        ey = by - ay
+        inside = lambda { |q| ex * (q[1] - ay) - ey * (q[0] - ax) >= -EPS }
+        inp = out
+        out = []
+        inp.each_index do |j|
+          q = inp[j]
+          r = inp[(j + 1) % inp.length]
+          qin = inside.call(q)
+          rin = inside.call(r)
+          out << q if qin
+          next if qin == rin
+          dx = r[0] - q[0]
+          dy = r[1] - q[1]
+          den = ex * dy - ey * dx
+          next if den.abs < 1.0e-12
+          t = (ey * (q[0] - ax) - ex * (q[1] - ay)) / den
+          out << [q[0] + dx * t, q[1] + dy * t]
+        end
+      end
+      out
+    end
+
+    # The layout, from the one place everybody reads. A cut piece is
+    # measured in the TILE'S OWN frame, not the model's - a turned tile
+    # cut by a wall is still cut across its own width.
+    def self.layout_shared(poly, tw, tl, grout, ox, oy, stagger, angle, centered)
+      cells = InteriorPro::TileGrid.cells(poly, u_size: tw, v_size: tl,
+                                                grout: grout, angle: angle,
+                                                ox: ox, oy: oy,
+                                                centered: centered,
+                                                stagger: stagger)
+      return nil if cells.nil?
+      fr = InteriorPro::TileGrid.degrees(angle)
+      cell_area = tw * tl
+      full = 0
+      cuts = []
+      cells.each do |c|
+        piece = clip_convex(poly, c[:quad])
+        a = area(piece)
+        next if a <= cell_area * 0.0005
+        if a >= cell_area - EPS * 100
+          full += 1
+          next
+        end
+        uv = piece.map { |q| InteriorPro::TileGrid.to_uv(q[0], q[1], fr) }
+        us = uv.map { |q| q[0] }
+        vs = uv.map { |q| q[1] }
+        cuts << [r16(us.max - us.min), r16(vs.max - vs.min)]
+      end
+      [full, cuts]
+    end
+
+    # THE ONE ENTRY POINT. Same answer as before for a plain grid; it also
+    # knows the angle and the centring now, which the old one never did.
+    def self.layout(poly, tw, tl, grout: 0.0, ox: 0.0, oy: 0.0, stagger: 0.0,
+                    angle: 0.0, centered: false)
+      return [0, []] if poly.nil? || poly.length < 3 || tw <= 0 || tl <= 0
+      if USE_SHARED_GRID
+        r = layout_shared(poly, tw, tl, grout, ox, oy, stagger, angle, centered)
+        return r unless r.nil?
+      end
+      layout_legacy(poly, tw, tl, grout, ox, oy, stagger)
     end
 
     def self.r16(v)
@@ -172,9 +263,10 @@ module InteriorPro
 
     # Everything, from a room outline.
     def self.plan(poly, tw, tl, grout: 0.0, ox: 0.0, oy: 0.0, stagger: 0.0,
-                  pct: MIN_REUSE_PCT)
+                  angle: 0.0, centered: false, pct: MIN_REUSE_PCT)
       full, cuts = layout(poly, tw, tl, grout: grout, ox: ox, oy: oy,
-                                stagger: stagger)
+                                stagger: stagger, angle: angle,
+                                centered: centered)
       count(full, cuts, tw, tl, pct)
     end
 

@@ -18,6 +18,19 @@ module InteriorPro
     PATTERNS = ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron'].freeze unless const_defined?(:PATTERNS, false)
     LINE_Z = 0.05 unless const_defined?(:LINE_Z, false) # above floor top (z=0)
 
+    # Kill switch (2026-09-06). ON: the Tile pattern is laid out by
+    # tile_grid.rb - the SAME calculation tile_count.rb counts, so the
+    # drawing and the quantity can no longer drift apart. OFF: the old
+    # grid below, which kept the pitch at the tile size and shrank the
+    # tile by the joint instead of pushing the layout along.
+    # Straight / Herringbone / Chevron are NOT touched by this.
+    USE_SHARED_GRID = true unless const_defined?(:USE_SHARED_GRID, false)
+    # Which typed size runs along the layout direction. true = unit_w,
+    # which is what the COUNT has always done (and what his 104 in
+    # Bathroom 2 was verified against). Flip this one word to turn every
+    # tile floor 90 degrees.
+    UNIT_W_ALONG_LAYOUT = true unless const_defined?(:UNIT_W_ALONG_LAYOUT, false)
+
     def self.patterns_in_model
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'floor_pattern'
@@ -107,7 +120,7 @@ module InteriorPro
                when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout) : nil
                end
       if pattern == 'Tile' && mat.nil?
-        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb)
+        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb, grout)
       elsif planks
         if mat
           # Tiles with grout: a grout-colored backing face under the tiles
@@ -234,6 +247,24 @@ module InteriorPro
     # its texture is anchored so the IMAGE maps exactly onto the tile —
     # no random offset (every tile shows the full image).
     def self.tile_planks(poly, ang, w, l, ox, oy, centered, grout = 0.0)
+      unless USE_SHARED_GRID
+        return tile_planks_legacy(poly, ang, w, l, ox, oy, centered, grout)
+      end
+      deg = ang * 180.0 / Math::PI
+      us, vs = UNIT_W_ALONG_LAYOUT ? [w, l] : [l, w]
+      cells = InteriorPro::TileGrid.cells(poly, u_size: us, v_size: vs,
+                                                grout: grout, angle: deg,
+                                                ox: ox, oy: oy,
+                                                centered: centered)
+      return nil if cells.nil?
+      fr = InteriorPro::TileGrid.degrees(deg)
+      cells.map do |c|
+        { c: c[:quad], origin: c[:quad][0], dir: [fr[:ux], fr[:uy]],
+          tex_w: us, tex_h: vs, no_rand: true }
+      end
+    end
+
+    def self.tile_planks_legacy(poly, ang, w, l, ox, oy, centered, grout = 0.0)
       fr = frame(poly, ang)
       o_u = (centered ? fr[:cu] - l / 2.0 : fr[:u_min]) + ox
       o_v = (centered ? fr[:cv] - w / 2.0 : fr[:v_min]) + oy
@@ -529,7 +560,21 @@ module InteriorPro
 
     # ---------- tile lines (unchanged behavior) ----------
 
-    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z)
+    # The line layer and the tile faces now come from the SAME cells,
+    # so a floor with no texture draws exactly the joints the takeoff
+    # counted - including the real joint width.
+    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z, grout = 0.0)
+      if USE_SHARED_GRID
+        tiles = tile_planks(poly, ang, w, l, ox, oy, centered, grout)
+        if tiles
+          emit_plank_edges!(ge, tiles, poly, z)
+          return
+        end
+      end
+      draw_tile_lines_legacy!(ge, poly, ang, w, l, ox, oy, centered, z)
+    end
+
+    def self.draw_tile_lines_legacy!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z)
       fr = frame(poly, ang)
       o_u = (centered ? fr[:cu] - l / 2.0 : fr[:u_min]) + ox
       o_v = (centered ? fr[:cv] - w / 2.0 : fr[:v_min]) + oy
