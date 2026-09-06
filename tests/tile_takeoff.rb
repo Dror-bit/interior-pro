@@ -53,16 +53,36 @@ module InteriorPro
       out.sort_by { |f| -f[:area] }
     end
 
-    # PURE. A running bond is staggered half a tile; everything else is
-    # laid straight. (Herringbone and the rest are not counted yet - see
-    # the note in the report.)
+    # The patterns the floors dialog really offers: None, Tile, Straight,
+    # Herringbone, Chevron (measured 2026-09-06 - there is no "running
+    # bond" in this plugin at all, so the guess that looked for one never
+    # fired). The first three are a straight grid and count exactly.
+    GRID = %w[none tile straight].freeze
+    # PURE. Laid on the diagonal - the grid count would be a WRONG number,
+    # so it is refused rather than guessed.
+    def self.diagonal?(pattern)
+      %w[herringbone chevron].include?(pattern.to_s.strip.downcase)
+    end
+
+    # PURE. Half-tile stagger. Nothing in the dialog asks for one today;
+    # kept because a bond pattern is the obvious next option.
     def self.stagger_for(pattern)
-      pattern.to_s =~ /run|brick|offset|stagger/i ? 0.5 : 0.0
+      pattern.to_s =~ /run|brick|offset|stagger|bond/i ? 0.5 : 0.0
     end
 
     # PURE. Can this floor be counted at all?
     def self.countable?(f)
+      return false if diagonal?(f[:pattern])
       f[:tw].to_f > 0.5 && f[:tl].to_f > 0.5 && f[:poly].length >= 3
+    end
+
+    # PURE. Why a floor was not counted - said plainly, never covered up.
+    def self.why_not(f)
+      return "#{f[:pattern]} is laid on the diagonal - not counted yet" if diagonal?(f[:pattern])
+      return 'laid without a unit size - area only, nothing to count' if
+        f[:tw].to_f <= 0.5 || f[:tl].to_f <= 0.5
+      return 'the room has no outline saved' if f[:poly].length < 3
+      nil
     end
 
     def self.count_floor(f, pct = InteriorPro::TileCount::MIN_REUSE_PCT)
@@ -89,7 +109,7 @@ module InteriorPro
         t << format('%s  -  %s  -  %.1f sq ft', f[:name], f[:type], f[:area])
         res = count_floor(f, pct)
         if res.nil?
-          t << '   laid without a unit size - area only, nothing to count'
+          t << '   ' + why_not(f).to_s
         else
           InteriorPro::TileCount.lines(res, f[:tw], f[:tl]).each { |l| t << '   ' + l }
           t << format('   pattern %s%s', f[:pattern].empty? ? 'grid' : f[:pattern],

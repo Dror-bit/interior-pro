@@ -25,14 +25,26 @@ ok('nil is nothing', TT.outline(nil) == [])
 # ---- 2. what can be counted ------------------------------------------
 sq = [[0.0, 0.0], [60.0, 0.0], [60.0, 96.0], [0.0, 96.0]]
 ok('a floor with a tile size and an outline counts',
-   TT.countable?({ tw: 24.0, tl: 48.0, poly: sq }))
+   TT.countable?({ tw: 24.0, tl: 48.0, poly: sq, pattern: 'Tile' }))
 ok('a floor with no unit size does not',
-   !TT.countable?({ tw: 0.0, tl: 0.0, poly: sq }))
-ok('nor one with no outline', !TT.countable?({ tw: 24.0, tl: 48.0, poly: [] }))
+   !TT.countable?({ tw: 0.0, tl: 0.0, poly: sq, pattern: 'Tile' }))
+ok('nor one with no outline',
+   !TT.countable?({ tw: 24.0, tl: 48.0, poly: [], pattern: 'Tile' }))
 
-ok('a running bond is staggered half a tile', TT.stagger_for('running bond') == 0.5)
-ok('a stack bond is not', TT.stagger_for('stack') == 0.0)
-ok('no pattern at all is not', TT.stagger_for('') == 0.0)
+# the patterns the dialog really offers: None, Tile, Straight,
+# Herringbone, Chevron (measured 2026-09-06)
+ok('None is a straight grid', !TT.diagonal?('None'))
+ok('Tile is a straight grid', !TT.diagonal?('Tile'))
+ok('Straight is a straight grid', !TT.diagonal?('Straight'))
+ok('Herringbone is diagonal', TT.diagonal?('Herringbone'))
+ok('Chevron is diagonal', TT.diagonal?('Chevron'))
+ok('a diagonal floor is NOT counted - a grid count there is a wrong number',
+   !TT.countable?({ tw: 24.0, tl: 48.0, poly: sq, pattern: 'Herringbone' }))
+ok('...and it says why', TT.why_not({ tw: 24.0, tl: 48.0, poly: sq, pattern: 'Chevron' }) =~
+   /diagonal - not counted yet/)
+ok('a floor with no unit says why too',
+   TT.why_not({ tw: 0.0, tl: 0.0, poly: sq, pattern: 'Tile' }) =~ /without a unit size/)
+ok('a bond pattern would be staggered half a tile', TT.stagger_for('running bond') == 0.5)
 
 # ---- 3. a real model --------------------------------------------------
 Sketchup.reset_model!

@@ -236,10 +236,28 @@ module InteriorPro
       # the label is COPIED, never retyped - the importer matches it
       # character for character
       group.set_attribute(DICT, KEY_NAME, room_name.to_s)
-      group.set_attribute(DICT, 'name', room_name.to_s)
+      rename_room!(group, room_name.to_s)
       true
     rescue StandardError => e
       puts "[SyncBridge] bind_room!: #{e.message}"
+      false
+    end
+
+    # THE NAME ON THE FLOOR IS REDRAWN TOO (2026-09-06, his picture: the
+    # table said "Bathroom 2" and the model still read "Room 2"). The
+    # label is 3D text built by RoomManager, so setting the attribute
+    # alone changes nothing anyone can see.
+    def self.rename_room!(group, name)
+      group.set_attribute(DICT, 'name', name.to_s)
+      if defined?(InteriorPro::RoomManager) &&
+         InteriorPro::RoomManager.respond_to?(:build_label!)
+        InteriorPro::RoomManager.build_label!(
+          group, name.to_s, group.get_attribute(DICT, 'area_sqft').to_f
+        )
+      end
+      true
+    rescue StandardError => e
+      puts "[SyncBridge] rename_room!: #{e.message}"
       false
     end
 
@@ -475,7 +493,7 @@ module InteriorPro
         when :name
           g.delete_attribute(DICT, KEY_ROOM) rescue nil
           g.delete_attribute(DICT, KEY_NAME) rescue nil
-          g.set_attribute(DICT, 'name', typed)
+          rename_room!(g, typed)
           named += 1
         else
           cleared += 1
