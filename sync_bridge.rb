@@ -365,11 +365,22 @@ module InteriorPro
         UI.messagebox("#{pr[:name]} has no rooms in rooms.json.")
         return nil
       end
+      # SHOW HIM WHICH ROOM HE IS NAMING (2026-09-06, he asked: "how do
+      # I know which room"). The group is selected before the dropdown
+      # opens, so it is highlighted in the model behind the dialog.
+      begin
+        model.selection.clear
+        model.selection.add(group)
+      rescue StandardError
+        nil
+      end
       lines = menu_lines(rooms)
       b = binding_of(group)
       here = b ? rooms.index { |x| x[:id] == b[:room_id] } : nil
+      own = group.get_attribute(DICT, 'name').to_s
+      own = 'the highlighted room' if own.empty?
       res = UI.inputbox(['Room'], [lines[here || 0]], [lines.join('|')],
-                        "#{pr[:name]} - which room is this?")
+                        "#{own} (highlighted) - which room in #{pr[:name]}?")
       return nil unless res
       rm = item_for_line(rooms, res[0])
       return nil if rm.nil?
@@ -393,6 +404,107 @@ module InteriorPro
       else
         "rooms.json could not be read: #{res[:error]} #{res[:detail]}"
       end
+    end
+
+    # ---- the room table ----------------------------------------------
+    # He did not want to hunt for groups in the model ("זה פשוט מלא
+    # קבוצות" - a room is not one group; its walls and its floor are
+    # separate). What he asked for is ONE table: every room in the model
+    # on a line, and per line either a room from the chosen Invoice
+    # Studio project, or a name he types himself.
+
+    # Every room entity in the model, as the table shows it.
+    def self.model_rooms(model = nil)
+      model ||= Sketchup.active_model
+      out = []
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next unless g.get_attribute(DICT, 'type').to_s == 'room'
+        b = binding_of(g)
+        out << { gid: g.get_attribute(DICT, 'id').to_s,
+                 name: g.get_attribute(DICT, 'name').to_s,
+                 area: g.get_attribute(DICT, 'area_sqft').to_f.round(1),
+                 level: g.get_attribute(DICT, 'level').to_i,
+                 room_id: (b ? b[:room_id] : nil),
+                 group: g }
+      end
+      out.sort_by { |r| [-r[:area], r[:name]] }
+    end
+
+    def self.room_group(model, gid)
+      model.entities.grep(Sketchup::Group).find do |g|
+        g.valid? && g.get_attribute(DICT, 'type').to_s == 'room' &&
+          g.get_attribute(DICT, 'id').to_s == gid.to_s
+      end
+    end
+
+    # PURE. What one line of the table decides:
+    #   :link  - a room was chosen from the project (bind, copy its name)
+    #   :name  - he typed a name (no link, his text is the label)
+    #   :clear - neither
+    def self.choice_kind(room_id, typed)
+      return :link unless room_id.to_s.empty?
+      return :name unless typed.to_s.empty?
+      :clear
+    end
+
+    # Apply the whole table. `choices` is [{gid:, room_id:, name:}].
+    # Returns [linked, named, cleared].
+    def self.apply_choices!(model, choices, projects = nil)
+      pid = project_id(model)
+      if projects.nil?
+        r = read_rooms
+        projects = r[:ok] ? r[:projects] : []
+      end
+      pr = projects.find { |p| p[:id] == pid }
+      linked = 0
+      named = 0
+      cleared = 0
+      Array(choices).each do |c|
+        g = room_group(model, c[:gid] || c['gid'])
+        next if g.nil?
+        rid = (c[:room_id] || c['room_id']).to_s
+        typed = (c[:name] || c['name']).to_s
+        case choice_kind(rid, typed)
+        when :link
+          rm = pr && pr[:rooms].find { |x| x[:id] == rid }
+          next if rm.nil?
+          # the name is COPIED from rooms.json, never retyped
+          bind_room!(g, pr[:id], rm[:id], rm[:name])
+          linked += 1
+        when :name
+          g.delete_attribute(DICT, KEY_ROOM) rescue nil
+          g.delete_attribute(DICT, KEY_NAME) rescue nil
+          g.set_attribute(DICT, 'name', typed)
+          named += 1
+        else
+          cleared += 1
+        end
+      end
+      [linked, named, cleared]
+    rescue StandardError => e
+      puts "[SyncBridge] apply_choices!: #{e.message}"
+      [0, 0, 0]
+    end
+
+    # Which rooms of the project are already taken by another line - the
+    # table greys those out so two model rooms cannot claim one.
+    def self.taken_room_ids(rooms, choices, skip_gid = nil)
+      Array(choices).each_with_object([]) do |c, acc|
+        next if (c[:gid] || c['gid']).to_s == skip_gid.to_s
+        rid = (c[:room_id] || c['room_id']).to_s
+        acc << rid unless rid.empty?
+      end
+    end
+
+    def self.highlight!(model, gid)
+      g = room_group(model, gid)
+      return false if g.nil?
+      model.selection.clear
+      model.selection.add(g)
+      true
+    rescue StandardError
+      false
     end
 
     # ---- writing, atomically -----------------------------------------

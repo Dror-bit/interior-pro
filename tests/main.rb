@@ -41,6 +41,7 @@ module InteriorPro
       material_takeoff.rb
       surface_takeoff.rb
       sync_bridge.rb
+      room_link_dialog.rb
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb

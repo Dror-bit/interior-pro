@@ -1,0 +1,4 @@
+model=claud cold
+project="81350fbd-6610-45f6-976e-aa9755f979a2"
+rooms=2
+bound=0

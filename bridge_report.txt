@@ -1,4 +1,4 @@
-TIME 2026-09-04 17:41:49 -0700
+TIME 2026-09-06 11:22:28 -0700
 folder setting = "C:/Users/rordt/OneDrive/InteriorPro"
 raw read_default = "C:/Users/rordt/OneDrive/InteriorPro"
 read_default with a string default = "C:/Users/rordt/OneDrive/InteriorPro"
@@ -6,9 +6,230 @@ folder exists  = true
 
 -- everything in it --
    README-sample-files.txt                                     932 bytes  2026-09-04 16:01
+   rooms.json                                                 8208 bytes  2026-09-04 17:47
+   surface_takeoff_76784c62-921a-4857-be23-db1f5d266019.csv        388 bytes  2026-09-04 17:47
+   surface_takeoff_81350fbd-6610-45f6-976e-aa9755f979a2.csv        983 bytes  2026-09-06 11:22
    surface_takeoff_8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3.csv        345 bytes  2026-09-04 16:01
 
--- rooms.json NOT there (looked at "C:/Users/rordt/OneDrive/InteriorPro/rooms.json") --
+-- rooms.json: 8208 bytes --
+   starts with BOM: false
+   has CRLF: false
+
+-- the first 1500 characters, exactly as written --
+{
+  "version": 1,
+  "updated_at": "2026-09-05T00:45:41Z",
+  "projects": [
+    {
+      "id": "81350fbd-6610-45f6-976e-aa9755f979a2",
+      "name": "11339 Lakeland Rd, Norwalk, CA 90650",
+      "rooms": [
+        { "id": "room-0001", "name": "Kitchen" },
+        { "id": "room-0002", "name": "Bathroom" },
+        { "id": "room-0003", "name": "Master Bathroom" },
+        { "id": "room-0004", "name": "Master Bedroom" },
+        { "id": "room-0005", "name": "Bedroom" },
+        { "id": "room-0006", "name": "Living Room" },
+        { "id": "room-0007", "name": "Powder Room" },
+        { "id": "room-0008", "name": "Entrance" },
+        { "id": "room-0009", "name": "General" }
+      ]
+    },
+    {
+      "id": "c6dfcf65-878b-48e4-9c9d-06587fb4ba0d",
+      "name": "123 TEST",
+      "rooms": [
+        { "id": "room-0001", "name": "Kitchen" },
+        { "id": "room-0002", "name": "Bathroom" },
+        { "id": "room-0003", "name": "Master Bathroom" },
+        { "id": "room-0004", "name": "Master Bedroom" },
+        { "id": "room-0005", "name": "Bedroom" },
+        { "id": "room-0006", "name": "Living Room" },
+        { "id": "room-0007", "name": "Powder Room" },
+        { "id": "room-0008", "name": "Entrance" },
+        { "id": "room-0009", "name": "General" }
+      ]
+    },
+    {
+      "id": "da6f9acf-aae3-4b32-980b-c7de2e915f4a",
+      "name": "1309 Vienna Way, Venice, CA 90291",
+      "rooms": [
+        { "id": "room-0001", "name": "Kitchen" },
+        { "id": "room-0002", "name": "Bath
+
+-- what our parser makes of it --
+   ok=true  error=nil  updated_at="2026-09-05T00:45:41Z"
+   project 11339 Lakeland Rd, Norwalk, CA 90650     81350fbd-6610-45f6-976e-aa9755f979a2  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 123 TEST                                 c6dfcf65-878b-48e4-9c9d-06587fb4ba0d  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 1309 Vienna Way, Venice, CA 90291        da6f9acf-aae3-4b32-980b-c7de2e915f4a  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 15723 La Belle St Hacienda Heights, CA  91745 United States ec9fdec7-25cf-4170-a4c9-06c9e5e45ebd  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 21151 Cupar Ln, Huntington Beach, CA 92646 d05a4bbe-5785-4d14-aa1f-1fd8dc02d1a0  (8 rooms)
+      room-0001    Master Bathroom
+      room-0002    Master Bedroom
+      room-0003    Powder Room
+      room-0004    Bathroom 2
+      room-0005    Bathroom 1
+      room-0006    Bathroom 2 (scond floor)
+      room-0007    Outdoors
+      room-0008    Kitchen / Living Room
+   project 2212 Navy St, Santa Monica, CA 90405     610a614f-7788-4e2e-8fb0-919baef32b04  (1 rooms)
+      room-0001    Bathroom
+   project 226 Madre St, Pasadena, CA 91107         76784c62-921a-4857-be23-db1f5d266019  (8 rooms)
+      room-0001    Kitchen
+      room-0002    Master Bedroom
+      room-0003    Living Room
+      room-0004    ADU Powder room
+      room-0005    Bathroom - 2
+      room-0006    kitchen ADU
+      room-0007    Guest Bathroom
+      room-0008    Master Bathroom ADU
+   project 2702 185th St, Redondo Beach, CA 90278   08a015ed-7384-463d-8922-3b4bbc7f05aa  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 3549 Wesley St, Culver City, CA 90232    69f43651-60c2-4c77-a7b1-1cce74a196fc  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 3601 Ave Cumbre, Calabasas, CA 91302     0288bceb-1b8e-496a-a03b-6dd4184b1bcb  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 3667 Berryman Ave, Los Angeles, CA 90066 848f58c8-a5b9-4dde-8776-17702d25f255  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 3808 E Summitridge Ln, Orange, CA 92867  e6810226-fc17-44b7-a772-5dd5370e88a3  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 6 Bronco Ln, Bell Canyon, CA 91307       707bc0f4-5e4c-43d1-85c8-9415e55b3cff  (9 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Master Bedroom
+      room-0005    Bedroom
+      room-0006    Living Room
+      room-0007    Powder Room
+      room-0008    Entrance
+      room-0009    General
+   project 7640 Jellico Ave, Northridge, CA 91325   0268b407-1a93-4ce3-8675-3adbcb9c913f  (8 rooms)
+      room-0001    Kitchen
+      room-0002    Bathroom
+      room-0003    Master Bathroom
+      room-0004    Bedroom
+      room-0005    Living Room
+      room-0006    Powder Room
+      room-0007    Entrance
+      room-0008    General
+
+-- README-sample-files.txt --
+Interior Pro <-> Invoice Studio exchange folder
+================================================
+
+surface_takeoff_8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3.csv
+    A SAMPLE takeoff file that matches the agreed contract exactly:
+      - header: kind,name,category,face,material,area_sqft,unit,note
+      - Hebrew room names, UTF-8
+      - a quoted field containing a comma  ("openings deducted, 2 doors")
+      - an escaped double quote           ("Dry ""wall""")
+      - CRLF line endings
+    The UUID in the filename is a PLACEHOLDER. Real files must be named
+    surface_takeoff_<project-uuid>.csv using a projects[].id value taken
+    verbatim from rooms.json.
+
+rooms.json
+    Written by Invoice Studio itself, not by hand. In the web app open
+    Settings -> Interior Pro Sync -> "Choose the InteriorPro folder" and
+    pick this folder. rooms.json then appears here immediately and is
+    rewritten on every room or project change.
+
+
+-- surface_takeoff_76784c62-921a-4857-be23-db1f5d266019.csv: 388 bytes, BOM=false, CRLF=true --
+   kind,name,category,face,material,area_sqft,unit,note
+   floor,Kitchen,,,Porcelain,184.20,24x48,
+   floor,Bathroom - 2,,,Slate,52.75,12x24,
+   floor,kitchen ADU,,,Vinyl,96.00,,
+   floor,Guest Bathroom,,,Porcelain,41.30,12x24,
+   wall,W-01,exterior,outside,Stucco,96.40,,"openings deducted, 2 doors"
+   wall,W-01,exterior,inside,"Dry ""wall""",102.10,,
+   wall,W-02,interior,inside,Drywall,64.50,,gross
+
+-- surface_takeoff_81350fbd-6610-45f6-976e-aa9755f979a2.csv: 983 bytes, BOM=false, CRLF=true --
+   kind,name,category,face,material,area_sqft,unit,note
+   floor,Room 1,,,Hardwood,2128.45,,
+   floor,Room 2,,,Hardwood,712.98,,
+   wall,19e23489,exterior,outside,Brick,430.99,,
+   wall,19e23489,exterior,inside,#ffffff,430.99,,
+   wall,ae14faf8,exterior,inside,#ffffff,429.61,,
+   wall,ae14faf8,exterior,outside,Stucco,429.61,,
+   wall,2e880a38,exterior,outside,Stucco,371.04,,
 
 -- surface_takeoff_8f3a1c22-7b0e-4d51-9a2f-1e6c4b98d7a3.csv: 345 bytes, BOM=false, CRLF=true --
    kind,name,category,face,material,area_sqft,unit,note

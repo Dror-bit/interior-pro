@@ -270,7 +270,7 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 4
+      return if tb.length >= 5
 
       rooms_cmd = UI::Command.new('Sync Rooms') {
         InteriorPro::RoomManager.sync_rooms!
@@ -280,6 +280,19 @@ module InteriorPro
       rooms_cmd.small_icon = icon_path('rooms_sync')
       rooms_cmd.large_icon = icon_path('rooms_sync')
       tb.add_item(rooms_cmd)
+
+      # The room table: which room in the model is which room in Invoice
+      # Studio, or a name of his own (2026-09-06). Next to Sync Rooms,
+      # because that is the button that CREATES the rooms this one names.
+      link_cmd = UI::Command.new('Room Names') {
+        InteriorPro::RoomLinkDialog.show
+      }
+      link_cmd.tooltip = 'Room Names - link each room to Invoice Studio'
+      link_cmd.status_bar_text = 'One table: every room in the model, ' \
+                                 'linked to a room in the chosen project or named by hand'
+      link_cmd.small_icon = icon_path('rooms_sync')
+      link_cmd.large_icon = icon_path('rooms_sync')
+      tb.add_item(link_cmd)
 
       floors_cmd = UI::Command.new('Build Floors') {
         InteriorPro::FloorDialog.show
