@@ -193,6 +193,44 @@ module InteriorPro
           end
         end
 
+        # Claude reads the page (2026-09-22). The PNG goes over in slices, the
+        # call blocks for a few seconds, and what comes back has already been
+        # range-checked by ClaudePlan before the window ever sees it.
+        # #dbg is wiped by the next mouse move, so anything worth reading goes
+        # to the Ruby Console instead (2026-09-22).
+        dlg.add_action_callback('claude_log') do |_, msg|
+          puts "[ClaudePlan] #{msg}"
+        end
+
+        dlg.add_action_callback('claude_walls_begin') do |_, _|
+          @claude_parts = []
+        end
+
+        dlg.add_action_callback('claude_walls_part') do |_, part|
+          (@claude_parts ||= []) << part.to_s
+        end
+
+        dlg.add_action_callback('claude_walls_done') do |_, json|
+          begin
+            meta = JSON.parse(json)
+            puts "[ClaudePlan] MEASURE sent=#{meta['w']}x#{meta['h']} k=#{meta['k']} " \
+                 "crop=#{meta['ox']}.,#{meta['oy']}. #{meta['sw']}x#{meta['sh']} " \
+                 "img=#{meta['iw']}x#{meta['ih']} under=(#{meta['ux']},#{meta['uy']}) " \
+                 "scale=#{meta['us']} rot=#{meta['rot']}"
+            rows = InteriorPro::ClaudePlan.read_walls((@claude_parts || []).join,
+                                                      meta['w'].to_i, meta['h'].to_i,
+                                                      meta['media'].to_s)
+            back = JSON.generate('walls' => rows, 'k' => meta['k'],
+                                 'ox' => meta['ox'], 'oy' => meta['oy'])
+            dlg.execute_script("claudeWallsBack(#{back});")
+          rescue StandardError => e
+            puts "[PlanEditor] claude_walls: #{e.class}: #{e.message}"
+            dlg.execute_script("claudeWallsBack(#{JSON.generate('error' => e.message)});")
+          ensure
+            @claude_parts = nil
+          end
+        end
+
         dlg.add_action_callback('remove_underlay_3d') do |_|
           begin
             n = remove_underlay_3d
@@ -2689,6 +2727,7 @@ module InteriorPro
                 </div>
                 <div id="underRow" style="display:none">
                   <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="startCalib()">כייל לפי מידה</button></div>
+                  <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="askClaudeWalls()">בקש קירות מקלוד</button></div>
                   <label>שקיפות</label>
                   <input type="range" id="underOp" min="10" max="100" value="55" style="width:100%" oninput="setUnderOpacity(this.value)">
                   <div style="margin-top:6px; color:#777; font-size:12px">
@@ -3653,10 +3692,12 @@ module InteriorPro
                 var cx = c.getContext('2d');
                 cx.fillStyle = '#fff';
                 cx.fillRect(0, 0, c.width, c.height);
+                pdfImgScale = s;
                 pg.render({ canvasContext: cx, viewport: vp }).promise.then(function() {
                   try {
                     loadUnderlay(c.toDataURL('image/png'), keep, true);
                     pdfMsg('');
+                    pdfExtractSegments(pg);
                   } catch (e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); }
                 }).catch(function(e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); });
               } catch (e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); }
@@ -3685,6 +3726,127 @@ module InteriorPro
               }).catch(function(e) { pdfMsg('PDF page: ' + e.message); });
             }
 
+            // ---- the REAL lines inside the PDF (2026-09-22) ---------------
+            // A CAD-exported PDF is not a picture: every wall line in it is a
+            // vector with exact coordinates. So Claude is only asked WHERE a
+            // wall is - within a few inches - and the wall is then snapped
+            // onto the two lines that actually draw it. The precision comes
+            // from the file, never from the model's eye.
+            var pdfSegs = null;      // [x1,y1,x2,y2] in the underlay's own pixels
+            var pdfImgScale = 1;     // the scale the page was rendered at
+
+            function claudeLog(t) {
+              try { sketchup.claude_log(String(t)); } catch (e) {}
+              pdfMsg(t);
+            }
+
+            function pdfExtractSegments(pg) {
+              pdfSegs = null;
+              if (!pg) return;
+              var vp = pg.getViewport({ scale: pdfImgScale });
+              pg.getOperatorList().then(function(ol) {
+                try {
+                  pdfSegs = opsToSegments(ol, vp);
+                  claudeLog('PDF vector lines read: ' + pdfSegs.length +
+                            ' (render scale ' + pdfImgScale.toFixed(3) + ')');
+                } catch (e) { pdfSegs = null; claudeLog('PDF lines FAILED: ' + e.message); }
+              }).catch(function(e) { pdfSegs = null; claudeLog('PDF lines FAILED: ' + e.message); });
+            }
+
+            function opsToSegments(ol, vp) {
+              var OPS = pdfjsLib.OPS;
+              var segs = [], ctm = [1, 0, 0, 1, 0, 0], stack = [];
+              // comp(A, B) = apply A, then B
+              function comp(A, B) {
+                return [A[0]*B[0] + A[1]*B[2], A[0]*B[1] + A[1]*B[3],
+                        A[2]*B[0] + A[3]*B[2], A[2]*B[1] + A[3]*B[3],
+                        A[4]*B[0] + A[5]*B[2] + B[4], A[4]*B[1] + A[5]*B[3] + B[5]];
+              }
+              function P(m, x, y) { return [m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]]; }
+              for (var i = 0; i < ol.fnArray.length; i++) {
+                var fn = ol.fnArray[i], ar = ol.argsArray[i];
+                if (fn === OPS.save) { stack.push(ctm.slice()); continue; }
+                if (fn === OPS.restore) { ctm = stack.pop() || [1, 0, 0, 1, 0, 0]; continue; }
+                if (fn === OPS.transform) { ctm = comp(ar, ctm); continue; }
+                if (fn !== OPS.constructPath) continue;
+                var m = comp(ctm, vp.transform);
+                var ops = ar[0], cc = ar[1], j = 0, cur = null, first = null;
+                for (var k2 = 0; k2 < ops.length; k2++) {
+                  var o = ops[k2];
+                  if (o === OPS.moveTo) { cur = P(m, cc[j], cc[j+1]); j += 2; first = cur; }
+                  else if (o === OPS.lineTo) {
+                    var nx2 = P(m, cc[j], cc[j+1]); j += 2;
+                    if (cur) segs.push([cur[0], cur[1], nx2[0], nx2[1]]);
+                    cur = nx2;
+                  }
+                  else if (o === OPS.curveTo) { j += 6; cur = null; }
+                  else if (o === OPS.curveTo2 || o === OPS.curveTo3) { j += 4; cur = null; }
+                  else if (o === OPS.closePath) {
+                    if (cur && first) segs.push([cur[0], cur[1], first[0], first[1]]);
+                    cur = first;
+                  }
+                  else if (o === OPS.rectangle) {
+                    var rx = cc[j], ry = cc[j+1], rw = cc[j+2], rh = cc[j+3]; j += 4;
+                    var q1 = P(m, rx, ry), q2 = P(m, rx+rw, ry),
+                        q3 = P(m, rx+rw, ry+rh), q4 = P(m, rx, ry+rh);
+                    segs.push([q1[0],q1[1],q2[0],q2[1]]);
+                    segs.push([q2[0],q2[1],q3[0],q3[1]]);
+                    segs.push([q3[0],q3[1],q4[0],q4[1]]);
+                    segs.push([q4[0],q4[1],q1[0],q1[1]]);
+                    cur = null;
+                  }
+                }
+              }
+              return segs;
+            }
+
+            // How far from Claude's guess to look for the two faces, and what
+            // counts as a believable wall, both in inches.
+            var SNAP_LOOK_IN = 14, SNAP_TH_MIN = 2.5, SNAP_TH_MAX = 16;
+
+            // w is a centreline in the underlay's pixels. Returns the shift
+            // that puts it exactly between the two lines that draw the wall,
+            // plus the thickness those two lines measure - or null.
+            function snapWallToPdf(w) {
+              if (!pdfSegs || !pdfSegs.length) return null;
+              var pxPerIn = 1 / underScale;
+              var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+              var len = Math.hypot(dx, dy);
+              if (len < 4) return null;
+              var ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+              var cx0 = (w.x1 + w.x2) / 2, cy0 = (w.y1 + w.y2) / 2;
+              var look = SNAP_LOOK_IN * pxPerIn;
+              var offs = [];
+              for (var i = 0; i < pdfSegs.length; i++) {
+                var g = pdfSegs[i];
+                var gx = g[2] - g[0], gy = g[3] - g[1];
+                var gl = Math.hypot(gx, gy);
+                if (gl < len * 0.25) continue;
+                if (Math.abs((gx * ux + gy * uy) / gl) < 0.999) continue;   // parallel only
+                var d1 = (g[0] - cx0) * nx + (g[1] - cy0) * ny;
+                var d2 = (g[2] - cx0) * nx + (g[3] - cy0) * ny;
+                if (Math.abs(d1 - d2) > 1 || Math.abs(d1) > look) continue;
+                var t1 = (g[0] - cx0) * ux + (g[1] - cy0) * uy;
+                var t2 = (g[2] - cx0) * ux + (g[3] - cy0) * uy;
+                var ov = Math.min(Math.max(t1, t2), len / 2) - Math.max(Math.min(t1, t2), -len / 2);
+                if (ov < len * 0.5) continue;                                // must run alongside
+                offs.push((d1 + d2) / 2);
+              }
+              if (offs.length < 2) return null;
+              offs.sort(function(a, b) { return a - b; });
+              var best = null;
+              for (var a2 = 0; a2 < offs.length; a2++) {
+                for (var b2 = a2 + 1; b2 < offs.length; b2++) {
+                  var th = (offs[b2] - offs[a2]) / pxPerIn;
+                  if (th < SNAP_TH_MIN || th > SNAP_TH_MAX) continue;
+                  var mid = (offs[a2] + offs[b2]) / 2;
+                  if (!best || Math.abs(mid) < Math.abs(best.mid)) best = { mid: mid, th: th };
+                }
+              }
+              if (!best) return null;
+              return { dx: nx * best.mid, dy: ny * best.mid, th: best.th };
+            }
+
             function pdfGo(n) {
               if (!pdfDoc) return;
               n = parseInt(n, 10);
@@ -3699,7 +3861,7 @@ module InteriorPro
 
             function loadUnderlay(src, place, isPdf) {
               if (!isPdf) {
-                pdfDoc = null;
+                pdfDoc = null; pdfSegs = null;
                 document.getElementById('underPdfRow').style.display = 'none';
               }
               if (!src) {
@@ -3799,6 +3961,164 @@ module InteriorPro
             // Drop the traced image into the 3D model, exactly where and at
             // the size it sits here (2026-08-07). Optional - the editor works
             // fine without it; this is for when you want to trace in 3D too.
+            // ---- Claude reads the plan (2026-09-22) ----------------------
+            // Claude is shown the SAME page that is on the canvas, shrunk to
+            // 1568px - the size the API works at anyway, so it costs less and
+            // loses nothing. It answers in PIXELS of that image, and the
+            // conversion to inches happens HERE, off the calibration the user
+            // did by hand. Claude never sees an inch and never picks a scale.
+            var claudeBusy = false;
+
+            function underPxToWorld(px, py) {
+              var wx = underX + px * underScale, wy = underY - py * underScale;
+              if (!underRot) return { x: wx, y: wy };
+              // the picture turns about its centre on screen, so a point on it
+              // has to turn about the same centre
+              var c = underCentre();
+              var a = underRot * Math.PI / 180;
+              var dx = wx - c.x, dy = wy - c.y;
+              return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a),
+                       y: c.y + dx * Math.sin(a) + dy * Math.cos(a) };
+            }
+
+            // 2576 is Claude's own ceiling: a bigger picture is shrunk to it
+            // on arrival, so sending more pixels costs and buys nothing.
+            // The pixels that matter are spent on WHAT IS ON SCREEN - zoom to
+            // one floor plan and only that goes over, which on a full sheet
+            // is worth about five times the detail.
+            var CLAUDE_MAX_PX = 2576;
+
+            function askClaudeWalls() {
+              if (!underImg) { alert('קודם טען תוכנית ברקע'); return; }
+              if (claudeBusy) return;
+              claudeBusy = true;
+              pdfMsg('שולח לקלוד... זה לוקח כמה שניות');
+              try {
+                var srcX = 0, srcY = 0, srcW = underImg.width, srcH = underImg.height;
+                // A rotated background would need the crop rotated with it;
+                // not worth it yet, so a turned page sends whole.
+                if (!underRot) {
+                  var xa = (mx(0) - underX) / underScale;
+                  var xb = (mx(cv.width) - underX) / underScale;
+                  var ya = (underY - my(0)) / underScale;
+                  var yb = (underY - my(cv.height)) / underScale;
+                  var x0 = Math.max(0, Math.min(xa, xb));
+                  var x1 = Math.min(underImg.width, Math.max(xa, xb));
+                  var y0 = Math.max(0, Math.min(ya, yb));
+                  var y1 = Math.min(underImg.height, Math.max(ya, yb));
+                  if (x1 - x0 > 40 && y1 - y0 > 40) {
+                    srcX = x0; srcY = y0; srcW = x1 - x0; srcH = y1 - y0;
+                  }
+                }
+                var k = Math.min(1, CLAUDE_MAX_PX / Math.max(srcW, srcH));
+                var c = document.createElement('canvas');
+                c.width = Math.round(srcW * k);
+                c.height = Math.round(srcH * k);
+                var cx = c.getContext('2d');
+                cx.fillStyle = '#fff';
+                cx.fillRect(0, 0, c.width, c.height);
+                cx.drawImage(underImg, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+                // The API refuses anything over 10MB of base64. Line art
+                // stays small as PNG, but a scanned sheet does not, so a fat
+                // one goes as JPEG instead of failing.
+                var url = c.toDataURL('image/png');
+                var b64 = url.substring(url.indexOf(',') + 1);
+                var media = 'png';
+                if (b64.length > 9000000) {
+                  url = c.toDataURL('image/jpeg', 0.9);
+                  b64 = url.substring(url.indexOf(',') + 1);
+                  media = 'jpeg';
+                }
+                sketchup.claude_walls_begin('');
+                for (var i = 0; i < b64.length; i += 120000) {
+                  sketchup.claude_walls_part(b64.substr(i, 120000));
+                }
+                sketchup.claude_walls_done(JSON.stringify({ w: c.width, h: c.height, k: k,
+                                                            ox: srcX, oy: srcY, media: media,
+                                                            sw: srcW, sh: srcH,
+                                                            iw: underImg.width, ih: underImg.height,
+                                                            ux: underX, uy: underY, us: underScale,
+                                                            rot: underRot }));
+              } catch (e) { claudeBusy = false; pdfMsg('קלוד: ' + e.message); }
+            }
+
+            // Ruby hands back only what passed its range checks. The walls
+            // land in "pending" - the same blue walls a hand-drawn one lands
+            // in - so nothing reaches the model until Apply is pressed.
+            function claudeWallsBack(d) {
+              claudeBusy = false;
+              if (!d || d.error) {
+                pdfMsg('קלוד: ' + ((d && d.error) || 'תשובה ריקה'));
+                alert('קלוד: ' + ((d && d.error) || 'תשובה ריקה'));
+                return;
+              }
+              var rows = d.walls || [];
+              if (!rows.length) { pdfMsg('קלוד לא מצא קירות'); return; }
+              var inv = 1 / (d.k || 1);
+              var ox = d.ox || 0, oy = d.oy || 0;
+              var hh = parseLen(document.getElementById('hh').value) || 96;
+              histLocal('walls from Claude');
+
+              // Claude answers with the CENTRELINE of the wall. A wall drawn
+              // here is stored by one FACE (ha 'left' puts the whole band on
+              // the +n side of the line), so pushing the centreline straight
+              // in shifted every wall by half its thickness - that was the
+              // gap the user saw against his plan.
+              //
+              // So the line is moved OUT by half a thickness and the wall
+              // direction is set so the band grows back INWARD over the
+              // centreline. Chosen that way on purpose: autoOrientExterior
+              // flips a wall whose band points away from the middle of the
+              // plan, and a flip would move it by a whole thickness.
+              // Claude's answer is in the pixels of the crop it was sent, so
+              // it comes back to the underlay's own pixels first. THERE it is
+              // snapped onto the real lines in the PDF - the whole reason the
+              // model only has to be roughly right.
+              var snapped = 0;
+              var pts = [];
+              for (var i = 0; i < rows.length; i++) {
+                var g = { x1: ox + rows[i].x1 * inv, y1: oy + rows[i].y1 * inv,
+                          x2: ox + rows[i].x2 * inv, y2: oy + rows[i].y2 * inv };
+                var fix = snapWallToPdf(g);
+                if (fix) {
+                  g.x1 += fix.dx; g.y1 += fix.dy;
+                  g.x2 += fix.dx; g.y2 += fix.dy;
+                  rows[i].th = fix.th;
+                  snapped++;
+                }
+                pts.push(underPxToWorld(g.x1, g.y1));
+                pts.push(underPxToWorld(g.x2, g.y2));
+              }
+              var mid = { x: 0, y: 0 };
+              pts.forEach(function(p) { mid.x += p.x; mid.y += p.y; });
+              mid.x /= pts.length; mid.y /= pts.length;
+
+              for (var i = 0; i < rows.length; i++) {
+                var r = rows[i];
+                var a1 = pts[i * 2], b1 = pts[i * 2 + 1];
+                var dx = b1.x - a1.x, dy = b1.y - a1.y;
+                var len = Math.hypot(dx, dy);
+                if (len < 1) continue;
+                var nx = -dy / len, ny = dx / len;
+                var cxm = (a1.x + b1.x) / 2, cym = (a1.y + b1.y) / 2;
+                if ((mid.x - cxm) * nx + (mid.y - cym) * ny < 0) {
+                  var t = a1; a1 = b1; b1 = t;          // n now points inward
+                  nx = -nx; ny = -ny;
+                }
+                var off = -r.th / 2;                     // step out by half
+                pending.push({ sx: a1.x + nx * off, sy: a1.y + ny * off,
+                               ex: b1.x + nx * off, ey: b1.y + ny * off,
+                               th: r.th, ha: 'left',
+                               cat: r.kind === 'interior' ? 'interior' : 'exterior',
+                               ops: [], h: hh, lib: curWallLib,
+                               anchor: 'bottom-left' });
+              }
+              claudeLog(rows.length + ' walls from Claude, ' + snapped + ' snapped to PDF lines' +
+                        (pdfSegs ? ' (' + pdfSegs.length + ' lines available)' : ' (NO PDF lines)'));
+              updateStatus();
+              draw();
+            }
+
             function sendUnderlayTo3D() {
               if (!underImg) return;
               var s6 = underSizeWorld();

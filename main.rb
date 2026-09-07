@@ -42,6 +42,7 @@ module InteriorPro
       surface_takeoff.rb
       sync_bridge.rb
       claude_api.rb
+      claude_plan.rb
       room_link_dialog.rb
       tile_grid.rb
       tile_count.rb
