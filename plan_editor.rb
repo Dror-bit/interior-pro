@@ -35,6 +35,34 @@ module InteriorPro
     end
 
     class << self
+      # How solid a wall's inside looks on the 2D canvas (2026-09-23).
+      # 0 = hollow (outline only), 1 = fully solid. Default 0.3.
+      #   InteriorPro::PlanEditor.wall_fill_alpha!(0.15)
+      def wall_fill_alpha!(v)
+        unless @dialog
+          puts '[PlanEditor] the 2D editor is not open'
+          return nil
+        end
+        @dialog.execute_script("setWallFillAlpha(#{v.to_f})")
+        nil
+      end
+
+      # MEASURE ONLY (2026-09-23). Does "a wall is always two parallel
+      # lines" hold on his plan? Counts every parallel pair inside the PDF's
+      # own vectors and prints a thickness histogram to the Ruby Console.
+      # Changes nothing. Run it after the PDF is loaded AND calibrated:
+      #   InteriorPro::PlanEditor.measure_pdf_pairs!
+      def measure_pdf_pairs!(min_len = 8.0, th_min = 1.5, th_max = 26.0, overlap = 0.5)
+        unless @dialog
+          puts '[PlanEditor] the 2D editor is not open'
+          return nil
+        end
+        @dialog.execute_script(
+          "measurePdfPairs(#{min_len.to_f},#{th_min.to_f},#{th_max.to_f},#{overlap.to_f})"
+        )
+        nil
+      end
+
       def show
         if @dialog
           begin; @dialog.close; rescue StandardError; end
@@ -3847,6 +3875,125 @@ module InteriorPro
               return { dx: nx * best.mid, dy: ny * best.mid, th: best.th };
             }
 
+            // ---- MEASURE ONLY (2026-09-23) ----------------------------
+            // Does "a wall is always two parallel lines" hold on HIS plan?
+            // This counts every parallel pair in the PDF's own vectors and
+            // prints a thickness histogram to the Ruby Console. It changes
+            // nothing on the canvas and nothing in the model.
+            // Real walls should pile up on 2-3 repeated thicknesses;
+            // furniture and dimension lines should be scattered.
+            var PAIR_MIN_LEN_IN = 8;    // shorter than this is not a wall face
+            var PAIR_TH_MIN_IN  = 1.5;  // thinnest believable wall
+            var PAIR_TH_MAX_IN  = 26;   // thickest
+            var PAIR_OVERLAP    = 0.5;  // must run alongside for half its length
+
+            function measurePdfPairs(minLenIn, thMinIn, thMaxIn, ovFrac) {
+              if (!pdfSegs || !pdfSegs.length) {
+                claudeLog('MEASURE: no PDF vector lines - load a PDF page first');
+                return;
+              }
+              if (!underImg) { claudeLog('MEASURE: no underlay image'); return; }
+              minLenIn = minLenIn || PAIR_MIN_LEN_IN;
+              thMinIn  = thMinIn  || PAIR_TH_MIN_IN;
+              thMaxIn  = thMaxIn  || PAIR_TH_MAX_IN;
+              ovFrac   = ovFrac   || PAIR_OVERLAP;
+
+              var pxPerIn = 1 / underScale;
+              var minLen = minLenIn * pxPerIn;
+              var thMin = thMinIn * pxPerIn, thMax = thMaxIn * pxPerIn;
+
+              var S = [], i, LB = [0, 0, 0, 0, 0, 0];
+              for (i = 0; i < pdfSegs.length; i++) {
+                var g = pdfSegs[i];
+                var dx = g[2] - g[0], dy = g[3] - g[1];
+                var L = Math.hypot(dx, dy);
+                var ft = L * underScale / 12;
+                if (ft < 1) LB[0]++; else if (ft < 2) LB[1]++; else if (ft < 4) LB[2]++;
+                else if (ft < 8) LB[3]++; else if (ft < 16) LB[4]++; else LB[5]++;
+                if (L < minLen) continue;
+                var a = Math.atan2(dy, dx) * 180 / Math.PI;
+                while (a < 0) a += 180;
+                while (a >= 180) a -= 180;
+                S.push({ x: g[0], y: g[1], dx: dx, dy: dy, len: L, a: a });
+              }
+
+              var seen = {}, hist = {}, nPairs = 0;
+
+              function pass(off) {
+                var bins = {}, k;
+                for (k = 0; k < S.length; k++) {
+                  var b = Math.floor((((S[k].a + off) % 180) + 180) % 180 / 2);
+                  if (!bins[b]) bins[b] = [];
+                  bins[b].push(k);
+                }
+                for (var key in bins) {
+                  var idx = bins[key];
+                  if (idx.length < 2) continue;
+                  var th0 = ((parseInt(key, 10) * 2 + 1) - off) * Math.PI / 180;
+                  var ux = Math.cos(th0), uy = Math.sin(th0), nx = -uy, ny = ux;
+                  var arr = [];
+                  for (var q = 0; q < idx.length; q++) {
+                    var s = S[idx[q]];
+                    var c1 = s.x * nx + s.y * ny;
+                    var c2 = (s.x + s.dx) * nx + (s.y + s.dy) * ny;
+                    var t1 = s.x * ux + s.y * uy;
+                    var t2 = (s.x + s.dx) * ux + (s.y + s.dy) * uy;
+                    arr.push({ i: idx[q], c: (c1 + c2) / 2,
+                               ta: Math.min(t1, t2), tb: Math.max(t1, t2), len: s.len });
+                  }
+                  arr.sort(function (p, r) { return p.c - r.c; });
+                  for (var m = 0; m < arr.length; m++) {
+                    for (var n2 = m + 1; n2 < arr.length; n2++) {
+                      var d = arr[n2].c - arr[m].c;
+                      if (d > thMax) break;
+                      if (d < thMin) continue;
+                      var ov = Math.min(arr[m].tb, arr[n2].tb) -
+                               Math.max(arr[m].ta, arr[n2].ta);
+                      if (ov < ovFrac * Math.min(arr[m].len, arr[n2].len)) continue;
+                      var lo = Math.min(arr[m].i, arr[n2].i);
+                      var hi = Math.max(arr[m].i, arr[n2].i);
+                      var kk = lo + ':' + hi;
+                      if (seen[kk]) continue;
+                      seen[kk] = 1; nPairs++;
+                      var bkt = (Math.round((d / pxPerIn) * 4) / 4).toFixed(2);
+                      if (!hist[bkt]) hist[bkt] = { n: 0, ft: 0 };
+                      hist[bkt].n++;
+                      hist[bkt].ft += ov * underScale / 12;
+                    }
+                  }
+                }
+              }
+
+              pass(0);
+              pass(1);
+
+              // Sorted by TOTAL RUNNING LENGTH, not by count: a wall is long,
+              // furniture and text are short, so length separates them where
+              // a plain count does not (2026-09-23).
+              var keys = Object.keys(hist).sort(function (p, r) {
+                return hist[r].ft - hist[p].ft;
+              });
+              claudeLog('MEASURE pairs: segments=' + pdfSegs.length +
+                        ' long-enough=' + S.length +
+                        ' pairs=' + nPairs +
+                        ' thicknesses=' + keys.length);
+              claudeLog('MEASURE args: min-len ' + minLenIn + '" range ' +
+                        thMinIn + '"-' + thMaxIn + '" overlap ' + ovFrac +
+                        ' | 1px = ' + underScale.toFixed(4) + '"');
+              claudeLog('MEASURE segment lengths (ft): <1=' + LB[0] + ' 1-2=' + LB[1] +
+                        ' 2-4=' + LB[2] + ' 4-8=' + LB[3] + ' 8-16=' + LB[4] +
+                        ' 16+=' + LB[5]);
+              claudeLog('MEASURE top thicknesses by TOTAL LENGTH:');
+              var top = Math.min(15, keys.length);
+              for (var z = 0; z < top; z++) {
+                var h = hist[keys[z]];
+                claudeLog('   ' + keys[z] + '"  x' + h.n +
+                          '  total ' + h.ft.toFixed(1) + 'ft' +
+                          '  avg ' + (h.ft / h.n).toFixed(1) + 'ft');
+              }
+              if (!keys.length) claudeLog('   (no pair found - check the calibration)');
+            }
+
             function pdfGo(n) {
               if (!pdfDoc) return;
               n = parseInt(n, 10);
@@ -6822,17 +6969,31 @@ module InteriorPro
               return a.concat(b2.reverse());
             }
 
+            // How solid a wall's INSIDE is drawn (2026-09-23). The outline
+            // stays fully opaque, only the fill is see-through, so the plan
+            // under the wall stays readable while a window is placed.
+            // Change it live:  InteriorPro::PlanEditor.wall_fill_alpha!(0.5)
+            var WALL_FILL_ALPHA = 0.3;
+
+            function setWallFillAlpha(v) {
+              v = parseFloat(v);
+              if (isNaN(v)) return;
+              WALL_FILL_ALPHA = Math.max(0, Math.min(1, v));
+              draw();
+            }
+
             function drawWallBand(w, fillEx, fillIn, alpha, all) {
               // Curved wall: draw the real outline and stop - the straight
               // band maths below would flatten it back into a line.
               var co = (w.fp || (w.sag && Math.abs(w.sag) >= 0.0625)) ? curvedOutline(w) : null;
               if (co) {
-                ctx.globalAlpha = alpha;
                 ctx.fillStyle = (w.cat === 'interior') ? fillIn : fillEx;
                 ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8;
                 ctx.beginPath();
                 co.forEach(function(p, i) { i ? ctx.lineTo(sx(p.x), sy(p.y)) : ctx.moveTo(sx(p.x), sy(p.y)); });
-                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.closePath();
+                ctx.globalAlpha = alpha * WALL_FILL_ALPHA; ctx.fill();
+                ctx.globalAlpha = alpha; ctx.stroke();
                 ctx.globalAlpha = 1;
                 return;
               }
@@ -6847,7 +7008,6 @@ module InteriorPro
               });
               if (b.len - pos > 0.5) segs.push([pos, b.len]);
               if (!segs.length) segs = [[0, b.len]];
-              ctx.globalAlpha = alpha;
               ctx.fillStyle = (w.cat === 'interior') ? fillIn : fillEx;
               ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8;
               segs.forEach(function(sg){
@@ -6863,7 +7023,9 @@ module InteriorPro
                 ctx.lineTo(sx(P2.x), sy(P2.y));
                 ctx.lineTo(sx(Q2.x), sy(Q2.y));
                 ctx.lineTo(sx(Q1.x), sy(Q1.y));
-                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.closePath();
+                ctx.globalAlpha = alpha * WALL_FILL_ALPHA; ctx.fill();
+                ctx.globalAlpha = alpha; ctx.stroke();
               });
               ctx.globalAlpha = 1;
             }
