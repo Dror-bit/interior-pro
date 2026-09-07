@@ -13,6 +13,10 @@ require 'json'
 
 module InteriorPro
   module PlanEditor
+    # Kill switch (2026-09-21): false = a PDF can no longer be chosen as a
+    # background and every path behaves exactly as it did before.
+    USE_PDF_UNDERLAY = true
+    PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
     # Edit menu. The timer defers the refresh out of the observer callback.
@@ -36,6 +40,7 @@ module InteriorPro
           begin; @dialog.close; rescue StandardError; end
           @dialog = nil
         end
+        @pdfjs_sent = false
         dlg = UI::HtmlDialog.new(
           dialog_title: 'Interior Pro - 2D Editor',
           preferences_key: 'InteriorPro_PlanEditor',
@@ -112,21 +117,37 @@ module InteriorPro
         # drawn over. It lives ONLY in the editor - it is never geometry and
         # never reaches the model or the plans.
         dlg.add_action_callback('pick_underlay') do |_|
-          path = UI.openpanel('Choose a background image', '', 'Images|*.jpg;*.jpeg;*.png;*.gif||')
+          filter = if USE_PDF_UNDERLAY
+                     'Images and PDF|*.jpg;*.jpeg;*.png;*.gif;*.pdf||'
+                   else
+                     'Images|*.jpg;*.jpeg;*.png;*.gif||'
+                   end
+          path = UI.openpanel('Choose a background image or PDF', '', filter)
           if path && File.exist?(path)
             begin
-              require 'base64'
-              ext = File.extname(path).downcase.delete('.')
-              ext = 'jpeg' if ext == 'jpg'
-              data = Base64.strict_encode64(File.binread(path))
               store_underlay(path)
-              dlg.execute_script("loadUnderlay('data:image/#{ext};base64,#{data}')")
+              if pdf_underlay?(path)
+                push_pdf_underlay(dlg, path)
+              else
+                require 'base64'
+                ext = File.extname(path).downcase.delete('.')
+                ext = 'jpeg' if ext == 'jpg'
+                data = Base64.strict_encode64(File.binread(path))
+                dlg.execute_script("loadUnderlay('data:image/#{ext};base64,#{data}')")
+              end
               puts "[PlanEditor] underlay: #{File.basename(path)}"
             rescue StandardError => e
               puts "[PlanEditor] underlay failed: #{e.message}"
               UI.messagebox("Could not read the image: #{e.message}")
             end
           end
+        end
+
+        # Which page of the PDF the user is looking at. Kept on the model next
+        # to underlay_path, otherwise re-opening the editor always came back
+        # on page 1.
+        dlg.add_action_callback('set_underlay_page') do |_, n|
+          store_underlay_page(n)
         end
 
         dlg.add_action_callback('clear_underlay') do |_|
@@ -148,6 +169,27 @@ module InteriorPro
           rescue StandardError => e
             puts "[PlanEditor] place_underlay_3d: #{e.message}"
             UI.messagebox("לא הצלחתי להניח את התמונה במודל: #{e.message}")
+          end
+        end
+
+        # A PDF page has no file on disk, so it comes back from the window in
+        # base64 slices and is put together here before it is placed.
+        dlg.add_action_callback('underlay_png_begin') do |_, _|
+          @png_parts = []
+        end
+
+        dlg.add_action_callback('underlay_png_part') do |_, part|
+          (@png_parts ||= []) << part.to_s
+        end
+
+        dlg.add_action_callback('underlay_png_done') do |_, json|
+          begin
+            place_underlay_3d(JSON.parse(json), (@png_parts || []).join)
+          rescue StandardError => e
+            puts "[PlanEditor] underlay_png_done: #{e.message}"
+            UI.messagebox("לא הצלחתי להניח את הדף במודל: #{e.message}")
+          ensure
+            @png_parts = nil
           end
         end
 
@@ -1273,7 +1315,10 @@ module InteriorPro
         old = model.get_attribute('InteriorPro', 'underlay_path').to_s
         if path
           model.set_attribute('InteriorPro', 'underlay_path', path.to_s)
-          clear_underlay_placement if old != path.to_s
+          if old != path.to_s
+            clear_underlay_placement
+            model.set_attribute('InteriorPro', 'underlay_page', 1)
+          end
         else
           begin
             model.set_attribute('InteriorPro', 'underlay_path', '')
@@ -1356,10 +1401,22 @@ module InteriorPro
 
       # r = { 'x','y' } top-left corner in editor world inches (y up),
       # 'w','h' the size in inches, 'rot' degrees counter-clockwise.
-      def place_underlay_3d(r)
+      def place_underlay_3d(r, png_b64 = nil)
         path = Sketchup.active_model.get_attribute('InteriorPro', 'underlay_path').to_s
+        # A PDF page arrives as PNG from the window. SketchUp copies the pixels
+        # into the model when it imports an image, so a temp file is enough and
+        # nothing is left behind in the user's folders (2026-09-21).
+        if png_b64 && !png_b64.empty?
+          require 'base64'
+          path = File.join(Sketchup.temp_dir, "ip_underlay_#{Time.now.to_i}.png")
+          File.binwrite(path, Base64.decode64(png_b64))
+        end
         if path.empty? || !File.exist?(path)
           UI.messagebox('אין תמונת רקע טעונה')
+          return nil
+        end
+        if pdf_underlay?(path)
+          UI.messagebox('שליחה ל-3D עובדת רק עם תמונה, לא עם PDF')
           return nil
         end
         w = r['w'].to_f
@@ -1391,9 +1448,74 @@ module InteriorPro
         img
       end
 
+      # ---- PDF background (2026-09-21) -------------------------------------
+      # The editor window is Chromium, so pdf.js draws the chosen page into a
+      # canvas and that canvas becomes the very same data URL an image would
+      # have produced. Nothing downstream of loadUnderlay knows a PDF was
+      # involved, so calibration, rotation and opacity are untouched.
+      def pdf_underlay?(path)
+        USE_PDF_UNDERLAY && File.extname(path.to_s).downcase == '.pdf'
+      end
+
+      def pdfjs_ready?
+        File.exist?(File.join(PDFJS_DIR, 'pdf.min.js')) &&
+          File.exist?(File.join(PDFJS_DIR, 'pdf.worker.min.js'))
+      end
+
+      # execute_script chokes on a multi-megabyte call, so a big payload goes
+      # over in base64 slices and is joined on the far side.
+      def send_chunks(dlg, var, b64, chunk = 120_000)
+        dlg.execute_script("window.#{var}='';")
+        i = 0
+        while i < b64.length
+          dlg.execute_script("window.#{var}+='#{b64[i, chunk]}';")
+          i += chunk
+        end
+      end
+
+      def inject_pdfjs(dlg)
+        return false unless pdfjs_ready?
+        return true if @pdfjs_sent
+        require 'base64'
+        dlg.execute_script(File.read(File.join(PDFJS_DIR, 'pdf.min.js')))
+        send_chunks(dlg, '__ipPdfWorkerB64',
+                    Base64.strict_encode64(File.binread(File.join(PDFJS_DIR, 'pdf.worker.min.js'))))
+        dlg.execute_script('setPdfWorkerFromB64();')
+        @pdfjs_sent = true
+        true
+      end
+
+      def underlay_page(model = Sketchup.active_model)
+        p = model.get_attribute('InteriorPro', 'underlay_page').to_i
+        p < 1 ? 1 : p
+      end
+
+      def store_underlay_page(n)
+        n = n.to_i
+        n = 1 if n < 1
+        Sketchup.active_model.set_attribute('InteriorPro', 'underlay_page', n)
+      rescue StandardError => e
+        puts "[PlanEditor] store_underlay_page: #{e.message}"
+      end
+
+      def push_pdf_underlay(dlg, path)
+        unless inject_pdfjs(dlg)
+          UI.messagebox("חסרה תיקיית pdf.js בתוסף:\n#{PDFJS_DIR}")
+          return
+        end
+        require 'base64'
+        send_chunks(dlg, '__ipPdfB64', Base64.strict_encode64(File.binread(path)))
+        place = underlay_placement
+        arg = place ? JSON.generate(place) : 'null'
+        dlg.execute_script("loadUnderlayPdf(#{underlay_page}, #{arg});")
+      rescue StandardError => e
+        puts "[PlanEditor] push_pdf_underlay: #{e.message}"
+      end
+
       def push_underlay(dlg)
         path = Sketchup.active_model.get_attribute('InteriorPro', 'underlay_path').to_s
         return if path.empty? || !File.exist?(path)
+        return push_pdf_underlay(dlg, path) if pdf_underlay?(path)
         require 'base64'
         ext = File.extname(path).downcase.delete('.')
         ext = 'jpeg' if ext == 'jpg'
@@ -2558,6 +2680,13 @@ module InteriorPro
                   <button onclick="sendUnderlayTo3D()">שלח ל-3D</button>
                   <button onclick="sketchup.remove_underlay_3d()">הסר מ-3D</button>
                 </div>
+                <div id="underPdfRow" class="seg" style="display:none; margin-top:6px; align-items:center">
+                  <button onclick="pdfStep(-1)">&#8249;</button>
+                  <input id="underPdfPage" type="number" min="1" value="1"
+                         style="width:54px; text-align:center" onchange="pdfGo(this.value)">
+                  <span id="underPdfCount" style="color:#777">/ 1</span>
+                  <button onclick="pdfStep(1)">&#8250;</button>
+                </div>
                 <div id="underRow" style="display:none">
                   <div style="margin-top:6px"><button class="blue" style="width:100%" onclick="startCalib()">כייל לפי מידה</button></div>
                   <label>שקיפות</label>
@@ -3458,7 +3587,121 @@ module InteriorPro
               } catch (e) {}
             }
 
-            function loadUnderlay(src, place) {
+            // ---- PDF background (2026-09-21) ------------------------------
+            // pdf.js and its worker are handed over from Ruby in base64
+            // slices, so the plugin needs no internet. A page is drawn into an
+            // off-screen canvas and handed to loadUnderlay as a PNG data URL -
+            // the identical path an image takes.
+            var pdfDoc = null, pdfPage = 1, pdfPlace = null;
+
+            function pdfMsg(t) {
+              var d = document.getElementById('dbg');
+              if (d) d.textContent = t;
+            }
+
+            function b64ToBytes(b64) {
+              var bin = atob(b64), n = bin.length, a = new Uint8Array(n);
+              for (var i = 0; i < n; i++) a[i] = bin.charCodeAt(i);
+              return a;
+            }
+
+            function setPdfWorkerFromB64() {
+              try {
+                var url = URL.createObjectURL(new Blob([b64ToBytes(window.__ipPdfWorkerB64)],
+                                                       { type: 'application/javascript' }));
+                pdfjsLib.GlobalWorkerOptions.workerSrc = url;
+                window.__ipPdfWorkerB64 = '';
+              } catch (e) { pdfMsg('pdf worker: ' + e.message); }
+            }
+
+            function loadUnderlayPdf(page, place) {
+              pdfPlace = place || null;
+              pdfPage = page > 0 ? page : 1;
+              try {
+                var bytes = b64ToBytes(window.__ipPdfB64);
+                window.__ipPdfB64 = '';
+                pdfjsLib.getDocument({ data: bytes }).promise.then(function(doc) {
+                  pdfDoc = doc;
+                  if (pdfPage > doc.numPages) pdfPage = 1;
+                  document.getElementById('underPdfRow').style.display = '';
+                  document.getElementById('underPdfCount').textContent = '/ ' + doc.numPages;
+                  document.getElementById('underPdfPage').max = doc.numPages;
+                  renderPdfPage();
+                }).catch(function(e) { pdfMsg('PDF: ' + e.message); });
+              } catch (e) { pdfMsg('PDF: ' + e.message); }
+            }
+
+            // How sharp the page is drawn (2026-09-21). LONG_SIDE is what we
+            // aim for; MAX_PIXELS is the real limit, because a canvas costs
+            // 4 bytes a pixel and Chromium refuses very large ones outright.
+            // 30M pixels on a letter sheet is about 180 DPI - sharp enough to
+            // trace a dimension line, and roughly 120MB while the page loads.
+            // If the machine says no, we halve and try again rather than
+            // leaving the user with a blank background.
+            var PDF_LONG_SIDE = 8000, PDF_MAX_PIXELS = 30000000;
+
+            function drawPdfAt(pg, longSide, maxPx, keep) {
+              try {
+                var v1 = pg.getViewport({ scale: 1 });
+                var s = Math.max(1, longSide / Math.max(v1.width, v1.height));
+                var area = v1.width * v1.height;
+                if (area * s * s > maxPx) s = Math.sqrt(maxPx / area);
+                var vp = pg.getViewport({ scale: s });
+                var c = document.createElement('canvas');
+                c.width = Math.round(vp.width);
+                c.height = Math.round(vp.height);
+                var cx = c.getContext('2d');
+                cx.fillStyle = '#fff';
+                cx.fillRect(0, 0, c.width, c.height);
+                pg.render({ canvasContext: cx, viewport: vp }).promise.then(function() {
+                  try {
+                    loadUnderlay(c.toDataURL('image/png'), keep, true);
+                    pdfMsg('');
+                  } catch (e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); }
+                }).catch(function(e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); });
+              } catch (e) { retryPdfSmaller(pg, longSide, maxPx, keep, e); }
+            }
+
+            function retryPdfSmaller(pg, longSide, maxPx, keep, e) {
+              if (longSide <= 1500) { pdfMsg('PDF: ' + (e && e.message ? e.message : e)); return; }
+              pdfMsg('הדף גדול מדי, מנסה קטן יותר...');
+              drawPdfAt(pg, Math.round(longSide / 2), Math.round(maxPx / 4), keep);
+            }
+
+            // Turning the page must NOT move or re-fit the drawing: the
+            // placement in force stays in force, so a calibrated PDF keeps its
+            // scale from page to page.
+            function renderPdfPage() {
+              if (!pdfDoc) return;
+              document.getElementById('underPdfPage').value = pdfPage;
+              var keep = pdfPlace;
+              pdfPlace = null;
+              if (!keep && underImg) {
+                keep = { x: underX, y: underY, scale: underScale,
+                         opacity: underOpacity, locked: underLocked, rot: underRot };
+              }
+              pdfDoc.getPage(pdfPage).then(function(pg) {
+                drawPdfAt(pg, PDF_LONG_SIDE, PDF_MAX_PIXELS, keep);
+              }).catch(function(e) { pdfMsg('PDF page: ' + e.message); });
+            }
+
+            function pdfGo(n) {
+              if (!pdfDoc) return;
+              n = parseInt(n, 10);
+              if (!n || n < 1) n = 1;
+              if (n > pdfDoc.numPages) n = pdfDoc.numPages;
+              pdfPage = n;
+              try { sketchup.set_underlay_page(n); } catch (e) {}
+              renderPdfPage();
+            }
+
+            function pdfStep(d) { pdfGo(pdfPage + d); }
+
+            function loadUnderlay(src, place, isPdf) {
+              if (!isPdf) {
+                pdfDoc = null;
+                document.getElementById('underPdfRow').style.display = 'none';
+              }
               if (!src) {
                 underImg = null; calib = null;
                 document.getElementById('underRow').style.display = 'none';
@@ -3559,9 +3802,27 @@ module InteriorPro
             function sendUnderlayTo3D() {
               if (!underImg) return;
               var s6 = underSizeWorld();
-              sketchup.place_underlay_3d(JSON.stringify({
-                x: underX, y: underY, w: s6.w, h: s6.h, rot: underRot
-              }));
+              var payload = { x: underX, y: underY, w: s6.w, h: s6.h, rot: underRot };
+              // A PDF has no image file on disk for SketchUp to open, so the
+              // page as it is drawn right now goes back to Ruby as PNG and is
+              // written out there (2026-09-21).
+              if (pdfDoc) { sendPdfPngToRuby(underImg.src, payload); return; }
+              sketchup.place_underlay_3d(JSON.stringify(payload));
+            }
+
+            // A callback argument has a size ceiling in this direction too, so
+            // the PNG travels in slices and is joined on the Ruby side.
+            function sendPdfPngToRuby(dataUrl, payload) {
+              try {
+                var b64 = dataUrl.substring(dataUrl.indexOf(',') + 1), step = 120000;
+                pdfMsg('שולח ל-3D...');
+                sketchup.underlay_png_begin('');
+                for (var i = 0; i < b64.length; i += step) {
+                  sketchup.underlay_png_part(b64.substr(i, step));
+                }
+                sketchup.underlay_png_done(JSON.stringify(payload));
+                pdfMsg('');
+              } catch (e) { pdfMsg('3D: ' + e.message); }
             }
 
             function showUnderAngle() {
@@ -5309,6 +5570,18 @@ module InteriorPro
               if (gsel.length) {
                 deleteGuides(gsel);
                 selList = selList.filter(function(o) { return o.type !== 'guide'; });
+                sel = selList.length ? selList[selList.length - 1] : null;
+                updateSelPanel(); draw();
+                if (!sel) return;
+              }
+              // the background (image or PDF) is editor-only too: Delete takes
+              // it out exactly like the "הסר" button (2026-09-21). It has to
+              // come out of selList before the loops below, which expect every
+              // remaining item to be a wall, an opening or a shape.
+              var usel = selList.filter(function(o) { return o.type === 'under'; });
+              if (usel.length) {
+                try { sketchup.clear_underlay(); } catch (e) {}
+                selList = selList.filter(function(o) { return o.type !== 'under'; });
                 sel = selList.length ? selList[selList.length - 1] : null;
                 updateSelPanel(); draw();
                 if (!sel) return;

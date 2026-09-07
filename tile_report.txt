@@ -1,4 +1,4 @@
-TIME 2026-09-06 12:20:00 -0700
+TIME 2026-09-06 14:30:38 -0700
 model: claud cold
 a leftover under 20.0% of a tile is waste - never paired
 
@@ -8,13 +8,15 @@ Room 1  -  Hardwood  -  2128.4 sq ft
      cut pieces                 68  (from 68 tiles, 0 taken from offcuts)
      pieces under 20%            0  (each one its own tile)
      TILES TO BUY              275
+   one tile is 24 x 48, covers 24.25 x 48.25 = 8.1254 sq ft
    pattern None, joint 0.25"
 
-Room 2  -  Hardwood  -  713.0 sq ft
+Bathroom 2  -  Hardwood  -  713.0 sq ft
    tile 48x24
      whole tiles                75
      cut pieces                 30  (from 15 tiles, 15 taken from offcuts)
      pieces under 20%           14  (each one its own tile)
      TILES TO BUY              104
+   one tile is 48 x 24, covers 48 x 24 = 8.0000 sq ft
    pattern Tile
 

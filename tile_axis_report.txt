@@ -1,0 +1,34 @@
+TIME 2026-09-06 14:06:04 -0700
+model: claud cold
+MEASURES ONLY - nothing was built or changed.
+
+Room 1   2128.4 sq ft   pattern None
+   attributes: unit_w 24  unit_l 48  grout 0.25  angle 0  ox 0  oy 0  centered true
+   one tile is 24 x 48, covers 24.25 x 48.25 = 8.1254 sq ft
+   room box x -601.507..-5.000   y 5.000..518.819
+   TODAY's first grid line: x -606.250  y 0.000  (anchored on world zero)
+   A first grid line: u -606.253  v -3.340   (room edge u -601.507 v 5.000, middle u -303.253 v 261.910)
+   TODAY (tile_count.rb: no angle, no centring, joint added):
+      whole 207   cut pieces 68 (from 68 tiles, 0 reused)   under 20%: 0   TO BUY 275
+   A - unit_w runs ALONG the layout direction (what the counter does today):
+      whole 207   cut pieces 68 (from 68 tiles, 0 reused)   under 20%: 0   TO BUY 275
+   B - unit_l runs ALONG the layout direction (what the DRAWER does today):
+      whole 231   cut pieces 42 (from 42 tiles, 0 reused)   under 20%: 26   TO BUY 299
+   A with the angle and the centring switched off (to show what they cost):
+      whole 240   cut pieces 35 (from 35 tiles, 0 reused)   under 20%: 0   TO BUY 275
+
+Bathroom 2   713.0 sq ft   pattern Tile
+   attributes: unit_w 48  unit_l 24  grout 0  angle 0  ox 0  oy 0  centered true
+   one tile is 48 x 24, covers 48 x 24 = 8.0000 sq ft
+   room box x -601.507..-318.436   y -362.196..0.500
+   TODAY's first grid line: x -624.000  y -384.000  (anchored on world zero)
+   A first grid line: u -627.971  v -384.848   (room edge u -601.507 v -362.196, middle u -459.971 v -180.848)
+   TODAY (tile_count.rb: no angle, no centring, joint added):
+      whole 75   cut pieces 30 (from 15 tiles, 15 reused)   under 20%: 14   TO BUY 104
+   A - unit_w runs ALONG the layout direction (what the counter does today):
+      whole 75   cut pieces 30 (from 15 tiles, 15 reused)   under 20%: 14   TO BUY 104
+   B - unit_l runs ALONG the layout direction (what the DRAWER does today):
+      whole 77   cut pieces 36 (from 18 tiles, 18 reused)   under 20%: 4   TO BUY 99
+   A with the angle and the centring switched off (to show what they cost):
+      whole 75   cut pieces 15 (from 15 tiles, 0 reused)   under 20%: 6   TO BUY 96
+

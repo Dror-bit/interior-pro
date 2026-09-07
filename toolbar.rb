@@ -270,7 +270,7 @@ module InteriorPro
     # Separate toolbar for rooms/floors (per user request 2026-07-15).
     def self.setup_floors_toolbar
       tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 4
+      return if tb.length >= 5
 
       # THE "Sync Rooms" BUTTON IS GONE (2026-09-06). He said it was not
       # usable - "אי אפשר בכלל להשתמש בו" - and the measurement says why:
@@ -322,6 +322,28 @@ module InteriorPro
       ceilings_cmd.small_icon = icon_path('ceiling_tool')
       ceilings_cmd.large_icon = icon_path('ceiling_tool')
       tb.add_item(ceilings_cmd)
+
+      # The tile layout drawing (2026-09-06). One .svg per floor that is
+      # laid in a unit, written next to the .skp file: the layout, the
+      # room's dimensions, and the number of tiles to order. It only READS
+      # the model - no geometry is built and nothing is changed.
+      # No cut schedule, by his instruction: "אני רק מזמין את החומר אני לא
+      # אומר לו איך לחתוך... ניתן לקבלן להסתדר עם זה בעצמו".
+      # How many tiles to order (2026-09-07). A WINDOW, not a file: he asked
+      # for the file-writing version to be stopped - "כרגע זה כמו שולח לי
+      # אתזה כPDF או פותח קובץ בראוזר חדש כל הזמן" - because the quantities
+      # are for him while he designs, not something to hand over.
+      # The layout DRAWING (tile_sheet.rb) is a different job for a different
+      # day: it goes to the contractor after the render and the approval, and
+      # it belongs in the plans. It is not wired to a button on purpose.
+      tile_count_cmd = UI::Command.new('Tiles') {
+        InteriorPro::TileCountDialog.show
+      }
+      tile_count_cmd.tooltip = 'Tiles - how many tiles to order'
+      tile_count_cmd.status_bar_text = 'Open the tile quantities for every floor in this model - reads only'
+      tile_count_cmd.small_icon = icon_path('tile_sheet')
+      tile_count_cmd.large_icon = icon_path('tile_sheet')
+      tb.add_item(tile_count_cmd)
 
       tb.restore
     end

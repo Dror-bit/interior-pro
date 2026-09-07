@@ -42,8 +42,11 @@ module InteriorPro
       surface_takeoff.rb
       sync_bridge.rb
       room_link_dialog.rb
+      tile_grid.rb
       tile_count.rb
       tile_takeoff.rb
+      tile_sheet.rb
+      tile_count_dialog.rb
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb
