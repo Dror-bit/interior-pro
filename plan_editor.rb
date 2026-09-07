@@ -35,6 +35,44 @@ module InteriorPro
     end
 
     class << self
+      # שני הכלים החדשים של 2026-09-23 יצאו שבורים והוסתרו. ראה
+      # HANDOFF_2026-09-23.md.  InteriorPro::PlanEditor.show_new_tools!(true)
+      def show_new_tools!(on = true)
+        unless @dialog
+          puts '[PlanEditor] the 2D editor is not open'
+          return nil
+        end
+        @dialog.execute_script("showNewTools(#{on ? 'true' : 'false'})")
+        nil
+      end
+
+      # How far off a right angle a wall may be drawn and still lock onto it,
+      # in degrees either way (2026-09-23). Default 12.
+      #   InteriorPro::PlanEditor.ortho_snap_deg!(15)
+      def ortho_snap_deg!(deg, diag = nil)
+        unless @dialog
+          puts '[PlanEditor] the 2D editor is not open'
+          return nil
+        end
+        @dialog.execute_script(
+          "setOrthoSnapDeg(#{deg.to_f},#{diag.nil? ? 'null' : diag.to_f})"
+        )
+        nil
+      end
+
+      # The 2D editor used to flip every exterior wall so its thickness
+      # pointed at the middle of the building - which moved a wall traced onto
+      # the plan by a full thickness (2026-09-23). Off by default now.
+      #   InteriorPro::PlanEditor.auto_orient_exterior!(true)   # old behaviour
+      def auto_orient_exterior!(on = true)
+        unless @dialog
+          puts '[PlanEditor] the 2D editor is not open'
+          return nil
+        end
+        @dialog.execute_script("setAutoOrientExterior(#{on ? 'true' : 'false'})")
+        nil
+      end
+
       # How solid a wall's inside looks on the 2D canvas (2026-09-23).
       # 0 = hollow (outline only), 1 = fully solid. Default 0.3.
       #   InteriorPro::PlanEditor.wall_fill_alpha!(0.15)
@@ -57,8 +95,11 @@ module InteriorPro
           puts '[PlanEditor] the 2D editor is not open'
           return nil
         end
+        js = "measurePdfPairs(#{min_len.to_f},#{th_min.to_f}," \
+             "#{th_max.to_f},#{overlap.to_f})"
+        puts "[PlanEditor] measure -> #{js}"
         @dialog.execute_script(
-          "measurePdfPairs(#{min_len.to_f},#{th_min.to_f},#{th_max.to_f},#{overlap.to_f})"
+          "try{#{js}}catch(e){sketchup.claude_log('MEASURE CRASH: '+e.message)}"
         )
         nil
       end
@@ -859,6 +900,20 @@ module InteriorPro
             puts "[PlanEditor] move_selection: #{e.message}"
           end
           UI.start_timer(0.2, false) { push_walls(dlg) }
+        end
+
+        # יישור כל הפינות ל-90 בבת אחת (2026-09-23). החלון כבר פתר את כל
+        # הלולאה יחד - כאן רק כותבים את הקצוות החדשים, בונים מחדש ומחברים
+        # פינות, בדיוק כמו מסלול ההזזה (translate_walls!).
+        dlg.add_action_callback('square_up_walls') do |_, json|
+          begin
+            n = square_up_walls!(JSON.parse(json))
+            puts "[PlanEditor] square up: #{n} wall(s) set to a right angle"
+          rescue StandardError => e
+            puts "[PlanEditor] square_up_walls: #{e.class}: #{e.message}\n  " +
+                 Array(e.backtrace).first(4).join("\n  ")
+          end
+          push_walls(dlg)
         end
 
         dlg.add_action_callback('move_wall') do |_, json|
@@ -2036,10 +2091,37 @@ module InteriorPro
             end
           end
 
+          # THE NEIGHBOUR STAYS STRAIGHT (2026-09-24, his choice). A partner's
+          # end was set straight onto the new corner while its far end stayed,
+          # so the partner tilted - lengthen one wall by an inch and its square
+          # neighbour read 89.9. Now the end slides along the partner's OWN
+          # line to the point nearest the new corner: longer or shorter, never
+          # crooked. A square neighbour does not move; the miter closes the
+          # corner. Same rule as slideEndAlong in the window.
           if keep_corners
             partners.each do |p|
-              p[:wall].set_attribute('InteriorPro', p[:kx], nx)
-              p[:wall].set_attribute('InteriorPro', p[:ky], ny)
+              g = p[:wall]
+              far_kx, far_ky = p[:kx] == 'start_x' ? %w[end_x end_y] : %w[start_x start_y]
+              fx = g.get_attribute('InteriorPro', far_kx).to_f
+              fy = g.get_attribute('InteriorPro', far_ky).to_f
+              mx0 = g.get_attribute('InteriorPro', p[:kx]).to_f
+              my0 = g.get_attribute('InteriorPro', p[:ky]).to_f
+              dx = mx0 - fx
+              dy = my0 - fy
+              d = Math.sqrt(dx * dx + dy * dy)
+              if d < 1e-6
+                puts "[PlanEditor] stretch: partner #{g.get_attribute('InteriorPro', 'id')} has no length - left alone"
+                next
+              end
+              ux = dx / d
+              uy = dy / d
+              t = (nx - fx) * ux + (ny - fy) * uy
+              if t < 6.0
+                puts "[PlanEditor] stretch: partner #{g.get_attribute('InteriorPro', 'id')} would collapse (#{t.round(2)}in) - left alone"
+                next
+              end
+              g.set_attribute('InteriorPro', p[:kx], fx + ux * t)
+              g.set_attribute('InteriorPro', p[:ky], fy + uy * t)
             end
           end
 
@@ -2084,6 +2166,75 @@ module InteriorPro
       # Walls moved TOGETHER keep their shared corners (the miters travel
       # as-is); their door/window bodies ride along. Rooms, molding and
       # foundation refresh at the end.
+      # Rewrite the ends of walls already in the model, in ONE pass. The
+      # window works out every new endpoint together (squareUpWalls), because
+      # fixing one corner at a time can never converge - each wall touches two
+      # corners, so straightening one moves an end the neighbour shares.
+      # Same machinery as translate_walls!: attributes, rebuild, join_corners.
+      def square_up_walls!(rows)
+        model = Sketchup.active_model
+        pairs = rows.map { |r| [find_wall(r['id'].to_s), r] }.reject { |w, _| w.nil? }
+        return 0 if pairs.empty?
+        wt = InteriorPro::WallTool.new
+        model.start_operation('2D Editor Square Corners', true)
+        pairs.each do |w, r|
+          old_mx = (w.get_attribute('InteriorPro', 'start_x').to_f +
+                    w.get_attribute('InteriorPro', 'end_x').to_f) / 2.0
+          old_my = (w.get_attribute('InteriorPro', 'start_y').to_f +
+                    w.get_attribute('InteriorPro', 'end_y').to_f) / 2.0
+          w.set_attribute('InteriorPro', 'start_x', r['sx'].to_f)
+          w.set_attribute('InteriorPro', 'start_y', r['sy'].to_f)
+          w.set_attribute('InteriorPro', 'end_x', r['ex'].to_f)
+          w.set_attribute('InteriorPro', 'end_y', r['ey'].to_f)
+          w.delete_attribute('InteriorPro', 'corners_xy')
+          data = wt.wall_data(w)
+          next unless data
+          c2 = wt.compute_perpendicular_corners_from_data(data)
+          wt.rebuild_wall_geometry(w, c2, data) if c2
+          # The correction is a fraction of an inch, so a door or window on
+          # this wall travels with its middle. Nothing here is a real move.
+          dx = (r['sx'].to_f + r['ex'].to_f) / 2.0 - old_mx
+          dy = (r['sy'].to_f + r['ey'].to_f) / 2.0 - old_my
+          next if dx.abs < 1e-6 && dy.abs < 1e-6
+          vec = Geom::Vector3d.new(dx, dy, 0)
+          wid = w.get_attribute('InteriorPro', 'id')
+          model.entities.to_a.each do |e|
+            next unless (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid?
+            tp = e.get_attribute('InteriorPro', 'type')
+            next unless tp == 'door' || tp == 'window'
+            next unless e.get_attribute('InteriorPro', 'host_wall_id') == wid
+            e.transform!(Geom::Transformation.translation(vec))
+            fx = e.get_attribute('InteriorPro', 'face_x')
+            e.set_attribute('InteriorPro', 'face_x', fx.to_f + dx) unless fx.nil?
+            fy = e.get_attribute('InteriorPro', 'face_y')
+            e.set_attribute('InteriorPro', 'face_y', fy.to_f + dy) unless fy.nil?
+          end
+        end
+        pairs.each do |w, _|
+          begin
+            InteriorPro::WallTool.join_corners(w, model)
+          rescue StandardError => e
+            puts "[PlanEditor] square up join_corners: #{e.message}"
+          end
+        end
+        model.commit_operation
+        begin
+          InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+        rescue StandardError => e
+          puts "[PlanEditor] square up rooms sync: #{e.message}"
+        end
+        begin
+          InteriorPro::MoldingManager.refresh! if defined?(InteriorPro::MoldingManager)
+        rescue StandardError => e
+          puts "[PlanEditor] square up molding: #{e.message}"
+        end
+        pairs.length
+      rescue StandardError => e
+        begin; model.abort_operation; rescue StandardError; end
+        puts "[PlanEditor] square_up_walls!: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        0
+      end
+
       def translate_walls!(ids, dx, dy)
         model = Sketchup.active_model
         walls = ids.map { |id| find_wall(id) }.compact
@@ -2482,6 +2633,10 @@ module InteriorPro
             <button id="applyBtn" class="blue" onclick="applyPending()">Apply to Model</button>
             <button class="gray" onclick="sketchup.build_plan()">Plans (2D)</button>
             <button class="gray" onclick="sketchup.open_sheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
+            <button id="squareBtn" class="gray" style="display:none" onclick="squareUpCorners()"
+                    title="מיישר את כל הפינות ל-90 מעלות בבת אחת">פינות 90°</button>
+            <button id="originBtn" class="gray" style="display:none" onclick="toggleOriginMode()"
+                    title="עיגון: פינה אחת של הקומה + כיוון -> הקומה יושבת על ראשית הצירים">עיגון (0,0)</button>
             <button class="gray" onclick="sketchup.sync_model()">Sync</button>
           </div>
           <div id="main">
@@ -3887,7 +4042,28 @@ module InteriorPro
             var PAIR_TH_MAX_IN  = 26;   // thickest
             var PAIR_OVERLAP    = 0.5;  // must run alongside for half its length
 
+            // The part of the underlay that is on screen right now, in the
+            // image's own pixels - the same crop askClaudeWalls sends
+            // (2026-09-23). A sheet holds far more than the one plan: title
+            // block, schedules, other views, the page border. Measuring the
+            // whole sheet measured all of that.
+            function viewportCropPx() {
+              if (!underImg || underRot) return null;
+              var xa = (mx(0) - underX) / underScale;
+              var xb = (mx(cv.width) - underX) / underScale;
+              var ya = (underY - my(0)) / underScale;
+              var yb = (underY - my(cv.height)) / underScale;
+              var x0 = Math.max(0, Math.min(xa, xb));
+              var x1 = Math.min(underImg.width, Math.max(xa, xb));
+              var y0 = Math.max(0, Math.min(ya, yb));
+              var y1 = Math.min(underImg.height, Math.max(ya, yb));
+              if (x1 - x0 <= 40 || y1 - y0 <= 40) return null;
+              return { x0: x0, y0: y0, x1: x1, y1: y1 };
+            }
+
             function measurePdfPairs(minLenIn, thMinIn, thMaxIn, ovFrac) {
+              claudeLog('MEASURE start (' + minLenIn + ',' + thMinIn + ',' +
+                        thMaxIn + ',' + ovFrac + ')');
               if (!pdfSegs || !pdfSegs.length) {
                 claudeLog('MEASURE: no PDF vector lines - load a PDF page first');
                 return;
@@ -3902,9 +4078,19 @@ module InteriorPro
               var minLen = minLenIn * pxPerIn;
               var thMin = thMinIn * pxPerIn, thMax = thMaxIn * pxPerIn;
 
+              // Only what is on screen. Both ends must be inside, so a line
+              // that runs off across the sheet is dropped, not clipped.
+              var crop = viewportCropPx(), nOut = 0;
+              function inCrop(g) {
+                if (!crop) return true;
+                return g[0] >= crop.x0 && g[0] <= crop.x1 && g[1] >= crop.y0 && g[1] <= crop.y1 &&
+                       g[2] >= crop.x0 && g[2] <= crop.x1 && g[3] >= crop.y0 && g[3] <= crop.y1;
+              }
+
               var S = [], i, LB = [0, 0, 0, 0, 0, 0];
               for (i = 0; i < pdfSegs.length; i++) {
                 var g = pdfSegs[i];
+                if (!inCrop(g)) { nOut++; continue; }
                 var dx = g[2] - g[0], dy = g[3] - g[1];
                 var L = Math.hypot(dx, dy);
                 var ft = L * underScale / 12;
@@ -3974,9 +4160,15 @@ module InteriorPro
                 return hist[r].ft - hist[p].ft;
               });
               claudeLog('MEASURE pairs: segments=' + pdfSegs.length +
+                        ' off-screen-dropped=' + nOut +
                         ' long-enough=' + S.length +
                         ' pairs=' + nPairs +
                         ' thicknesses=' + keys.length);
+              claudeLog('MEASURE crop: ' + (crop ? Math.round(crop.x1 - crop.x0) + 'x' +
+                        Math.round(crop.y1 - crop.y0) + 'px = ' +
+                        ((crop.x1 - crop.x0) * underScale / 12).toFixed(1) + 'ft x ' +
+                        ((crop.y1 - crop.y0) * underScale / 12).toFixed(1) + 'ft'
+                        : 'WHOLE SHEET (rotated or zoomed out)'));
               claudeLog('MEASURE args: min-len ' + minLenIn + '" range ' +
                         thMinIn + '"-' + thMaxIn + '" overlap ' + ovFrac +
                         ' | 1px = ' + underScale.toFixed(4) + '"');
@@ -4515,6 +4707,204 @@ module InteriorPro
               setStatusHint(guideMode ? guideHint() : null);
               markGuideBox();
               draw();
+            }
+
+            // ---- עיגון קומה לראשית הצירים (2026-09-23) --------------------
+            // He draws each floor somewhere else on the same sheet and needs
+            // them to end up exactly on top of each other. So: on each floor
+            // he picks the SAME corner and the SAME direction, and the blue
+            // (pending) drawing is moved onto the origin before it is applied.
+            // Done on the pending walls on purpose - "אני מסרטט את הקומה לפני
+            // שהיא נכנסת למודל" - so nothing in the model and no other
+            // callback is touched.
+            var originMode = false, originPick = null, originHover = null;
+
+            function originHint() {
+              return originPick
+                ? 'עכשיו לחץ על נקודה שקובעת את הכיוון (לאורך הקיר שיהיה על ציר X)'
+                : 'לחץ על הפינה שתשב על ראשית הצירים';
+            }
+
+            function toggleOriginMode() {
+              if (!USE_FLOOR_ANCHOR && !originMode) { claudeLog('floor anchor is switched off'); return; }
+              var was = originMode;
+              cancelOps();
+              originMode = !was;
+              originPick = null;
+              originHover = null;
+              if (originMode && guideMode) toggleGuideMode();
+              var b = document.getElementById('originBtn');
+              if (b) b.className = originMode ? 'gray on' : 'gray';
+              setStatusHint(originMode ? originHint() : null);
+              draw();
+            }
+
+            function originClick(p) {
+              if (!originPick) {
+                originPick = { x: p.x, y: p.y };
+                setStatusHint(originHint());
+                draw();
+                return;
+              }
+              var dx = p.x - originPick.x, dy = p.y - originPick.y;
+              if (Math.hypot(dx, dy) < 1) { setStatusHint('הנקודה השנייה קרובה מדי - בחר נקודה רחוקה יותר'); return; }
+              alignPendingToOrigin(originPick, { x: p.x, y: p.y });
+              originPick = null;
+              toggleOriginMode();
+            }
+
+            // Move + turn every BLUE wall (and pending shape) so that `corner`
+            // lands on (0,0) and `dirPt` lies on the +X axis. A rigid move:
+            // lengths, thicknesses, openings and bows are all untouched.
+            function alignPendingToOrigin(corner, dirPt) {
+              var a = Math.atan2(dirPt.y - corner.y, dirPt.x - corner.x);
+              var ca = Math.cos(-a), sa = Math.sin(-a);
+              function T(x, y) {
+                var vx = x - corner.x, vy = y - corner.y;
+                return { x: vx * ca - vy * sa, y: vx * sa + vy * ca };
+              }
+              pending.forEach(function(w) {
+                var s1 = T(w.sx, w.sy), e1 = T(w.ex, w.ey);
+                w.sx = s1.x; w.sy = s1.y; w.ex = e1.x; w.ey = e1.y;
+              });
+              pendingSketches.forEach(function(sk) {
+                if (!sk.pts) return;
+                for (var i = 0; i + 1 < sk.pts.length; i += 2) {
+                  var q = T(sk.pts[i], sk.pts[i + 1]);
+                  sk.pts[i] = q.x; sk.pts[i + 1] = q.y;
+                }
+              });
+              saveDraft(true);
+              fitView();
+              draw();
+              claudeLog('עוגן: ' + pending.length + ' קירות כחולים הוזזו לראשית הצירים, סיבוב ' +
+                        (-a * 180 / Math.PI).toFixed(2) + ' מעלות');
+            }
+
+            // ---- יישור כל הפינות ל-90 בבת אחת (2026-09-23) ----------------
+            //
+            // בלשונו: *"עכשיו אני מנסה לכוון אחת מהן ל-90 והשנייה יוצאת
+            // מכיוון... תטפל בזה אחת ולתמיד."* ותיקון פינה אחת בכל פעם באמת
+            // לא יכול לעבוד: כל קיר נוגע בשתי פינות, אז ליישר פינה אחת מזיז
+            // קצה ששייך גם לשכנה. הפתרון היחיד הוא לפתור את **כל** הלולאה
+            // יחד: כל קיר מקבל את הציר הקרוב לו (אופקי או אנכי) דרך האמצע
+            // שלו, וכל פינה משותפת נוחתת על **נקודת החיתוך** של שני הצירים.
+            // התזוזה מינימלית והלולאה יוצאת ישרה לגמרי.
+            //
+            // קיר שסוטה יותר מהטולרנס נשאר כמו שהוא - "אם אני ארצה משהו אחר
+            // אני אשנה את זה ידנית". גם קיר מעוגל לא נוגעים בו.
+            // KILL SWITCHES (2026-09-23). Both of these shipped broken and are
+            // hidden until the next chat fixes them - see HANDOFF_2026-09-23.md.
+            //   InteriorPro::PlanEditor.show_new_tools!(true)
+            var USE_SQUARE_UP = false;      // the "פינות 90°" button
+            var USE_FLOOR_ANCHOR = false;   // the "עיגון (0,0)" button
+
+            function showNewTools(on) {
+              USE_SQUARE_UP = !!on; USE_FLOOR_ANCHOR = !!on;
+              var a = document.getElementById('squareBtn');
+              var b = document.getElementById('originBtn');
+              if (a) a.style.display = on ? '' : 'none';
+              if (b) b.style.display = on ? '' : 'none';
+              if (!on && originMode) toggleOriginMode();
+              claudeLog('new tools ' + (on ? 'ON' : 'OFF'));
+            }
+
+            var SQUARE_JOIN_IN = 18;   // שני קצוות קרובים מזה = אותה פינה
+
+            function squareUpWalls(ws, tolDeg) {
+              if (tolDeg === undefined || tolDeg === null) tolDeg = ORTHO_SNAP_DEG;
+              var tol = tolDeg * Math.PI / 180;
+              var info = ws.map(function(w) {
+                var a = Math.atan2(w.ey - w.sy, w.ex - w.sx);
+                var qa = Math.round(a / (Math.PI / 2)) * (Math.PI / 2);
+                var horiz = Math.abs(Math.cos(qa)) > 0.5;
+                var curved = w.sag !== undefined && w.sag !== null &&
+                             Math.abs(w.sag) >= 0.0625;
+                return { fix: Math.abs(a - qa) < tol && !curved,
+                         horiz: horiz,
+                         axis: horiz ? (w.sy + w.ey) / 2 : (w.sx + w.ex) / 2 };
+              });
+              var out = ws.map(function(w) {
+                return { sx: w.sx, sy: w.sy, ex: w.ex, ey: w.ey };
+              });
+              // 1. every wall onto its own axis, turning about its middle
+              info.forEach(function(it, i) {
+                if (!it.fix) return;
+                if (it.horiz) { out[i].sy = it.axis; out[i].ey = it.axis; }
+                else { out[i].sx = it.axis; out[i].ex = it.axis; }
+              });
+              // 2. every shared corner onto the crossing of the two axes
+              var ends = [];
+              ws.forEach(function(w, i) {
+                ends.push({ i: i, k: 's', x: w.sx, y: w.sy });
+                ends.push({ i: i, k: 'e', x: w.ex, y: w.ey });
+              });
+              var used = ends.map(function() { return false; });
+              ends.forEach(function(a, ia) {
+                if (used[ia]) return;
+                var grp = [ia];
+                used[ia] = true;
+                ends.forEach(function(b, ib) {
+                  if (used[ib] || ib === ia) return;
+                  if (Math.hypot(b.x - a.x, b.y - a.y) < SQUARE_JOIN_IN) {
+                    grp.push(ib); used[ib] = true;
+                  }
+                });
+                if (grp.length < 2) return;
+                var hy = null, vx = null;
+                grp.forEach(function(gi) {
+                  var it = info[ends[gi].i];
+                  if (!it.fix) return;
+                  if (it.horiz) { if (hy === null) hy = it.axis; }
+                  else if (vx === null) vx = it.axis;
+                });
+                if (hy === null || vx === null) return;   // a straight run, not a corner
+                grp.forEach(function(gi) {
+                  var e = ends[gi];
+                  if (!info[e.i].fix) return;
+                  if (e.k === 's') { out[e.i].sx = vx; out[e.i].sy = hy; }
+                  else { out[e.i].ex = vx; out[e.i].ey = hy; }
+                });
+              });
+              return out;
+            }
+
+            // The button. Blue walls are fixed here and now; walls already in
+            // the model go to Ruby, which rewrites their ends the same way the
+            // Move Selection path does.
+            function squareUpCorners() {
+              if (!USE_SQUARE_UP) { claudeLog('square up is switched off'); return; }
+              var n = 0;
+              if (pending.length) {
+                histLocal('square_up');
+                var fixed = squareUpWalls(pending, ORTHO_SNAP_DEG);
+                pending.forEach(function(w, i) {
+                  if (w.sx !== fixed[i].sx || w.sy !== fixed[i].sy ||
+                      w.ex !== fixed[i].ex || w.ey !== fixed[i].ey) n++;
+                  w.sx = fixed[i].sx; w.sy = fixed[i].sy;
+                  w.ex = fixed[i].ex; w.ey = fixed[i].ey;
+                });
+                saveDraft(true);
+                draw();
+              }
+              var mw = walls.filter(function(w) { return w.id; });
+              if (!mw.length) {
+                claudeLog('יישור פינות: ' + n + ' קירות כחולים יושרו');
+                return;
+              }
+              var f2 = squareUpWalls(mw, ORTHO_SNAP_DEG);
+              var rows = [];
+              mw.forEach(function(w, i) {
+                if (Math.abs(w.sx - f2[i].sx) < 0.0005 && Math.abs(w.sy - f2[i].sy) < 0.0005 &&
+                    Math.abs(w.ex - f2[i].ex) < 0.0005 && Math.abs(w.ey - f2[i].ey) < 0.0005) return;
+                rows.push({ id: w.id, sx: f2[i].sx, sy: f2[i].sy, ex: f2[i].ex, ey: f2[i].ey });
+              });
+              if (!rows.length) {
+                claudeLog('יישור פינות: הכל כבר ישר (' + n + ' כחולים יושרו)');
+                return;
+              }
+              histModel('square_up_walls');
+              sketchup.square_up_walls(JSON.stringify(rows));
             }
 
             function clearGuides() { guides = []; markGuideBox(); draw(); }
@@ -5226,10 +5616,32 @@ module InteriorPro
               if (movingEnd === 'end') { pw.ex = pw.sx + b.ux*len; pw.ey = pw.sy + b.uy*len; }
               else { pw.sx = pw.ex - b.ux*len; pw.sy = pw.ey - b.uy*len; }
               var np = movingEnd === 'end' ? { x:pw.ex, y:pw.ey } : { x:pw.sx, y:pw.sy };
-              partners.forEach(function(p2){
-                if (p2.k === 's') { p2.w.sx = np.x; p2.w.sy = np.y; } else { p2.w.ex = np.x; p2.w.ey = np.y; }
-              });
+              partners.forEach(function(p2){ slideEndAlong(p2.w, p2.k, np); });
               updateSelPanel(); draw();
+            }
+
+            // THE NEIGHBOUR STAYS STRAIGHT (2026-09-24, his choice: "the
+            // neighbour must stay stable"). A partner's end used to be set
+            // straight onto the stretched wall's new point - but its other
+            // end stayed where it was, so the partner TILTED. Lengthen the
+            // left wall by an inch and the top wall came out 89.9. That was
+            // the crooked corner he could never explain.
+            // Now the partner's end slides along the partner's OWN line to
+            // the point nearest the new corner: a wall only ever gets longer
+            // or shorter, never crooked (same rule the green handle has). A
+            // square neighbour therefore does not move at all, and the
+            // corner is closed by the miter like every other corner.
+            function slideEndAlong(w, k, np) {
+              var fx = k === 's' ? w.ex : w.sx, fy = k === 's' ? w.ey : w.sy;   // the far end stays
+              var mx0 = k === 's' ? w.sx : w.ex, my0 = k === 's' ? w.sy : w.ey;
+              var dx = mx0 - fx, dy = my0 - fy, d = Math.hypot(dx, dy);
+              if (d < 1e-6) return false;
+              var ux = dx / d, uy = dy / d;
+              var t = (np.x - fx) * ux + (np.y - fy) * uy;
+              if (t < 6) return false;                     // never collapse a wall
+              if (k === 's') { w.sx = fx + ux * t; w.sy = fy + uy * t; }
+              else           { w.ex = fx + ux * t; w.ey = fy + uy * t; }
+              return true;
             }
 
             // Out / In are relative to the BUILDING (away from / toward the
@@ -7710,7 +8122,44 @@ module InteriorPro
               drawShapeDims();
               drawRooms();
               drawShapeAreas();
+              drawOriginPick();
               updateStatus();
+            }
+
+            // The corner picked for the origin, and the arrow to the direction
+            // point that is still being chosen (2026-09-23).
+            function drawOriginPick() {
+              if (!originMode) return;
+              var h = originHover || cursor;
+              ctx.save();
+              if (originPick) {
+                var px = sx(originPick.x), py = sy(originPick.y);
+                if (h) {
+                  ctx.strokeStyle = '#e07b00'; ctx.lineWidth = 1.8;
+                  ctx.setLineDash([6, 4]);
+                  ctx.beginPath();
+                  ctx.moveTo(px, py); ctx.lineTo(sx(h.x), sy(h.y));
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                }
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#e07b00'; ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+              }
+              if (h) {
+                // The lock is SHOWN, in the same colours as everywhere else:
+                // green on a corner / wall end, magenta on an edge, cyan on a
+                // midpoint. No ring means nothing was caught.
+                if (snapInd) {
+                  ctx.beginPath(); ctx.arc(sx(snapInd.x), sy(snapInd.y), 9, 0, Math.PI * 2);
+                  ctx.strokeStyle = snapColor(snapInd.kind); ctx.lineWidth = 2.5; ctx.stroke();
+                }
+                ctx.beginPath(); ctx.arc(sx(h.x), sy(h.y), 5, 0, Math.PI * 2);
+                ctx.fillStyle = snapInd ? snapColor(snapInd.kind) : '#e07b00';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+              }
+              ctx.restore();
             }
 
             function outlineBand(w, color) {
@@ -8137,8 +8586,28 @@ module InteriorPro
               return '#00b8d9';
             }
 
+            // How far off a right angle a wall may be drawn and still lock
+            // onto it (degrees, either way), and the narrower window for the
+            // 45-degree diagonals. Live:
+            //   InteriorPro::PlanEditor.ortho_snap_deg!(15)
+            var ORTHO_SNAP_DEG = 12, DIAG_SNAP_DEG = 5;
+            var orthoNow = false;   // the last snapPoint locked onto 0/90/180/270
+
+            function setOrthoSnapDeg(d, diag) {
+              d = parseFloat(d);
+              if (!isNaN(d) && d >= 0 && d < 44) ORTHO_SNAP_DEG = d;
+              diag = parseFloat(diag);
+              if (!isNaN(diag) && diag >= 0 && diag < 22) DIAG_SNAP_DEG = diag;
+              claudeLog('ortho snap = ' + ORTHO_SNAP_DEG + 'deg, diagonal = ' +
+                        DIAG_SNAP_DEG + 'deg');
+            }
+
             function snapPoint(p, from) {
               snapInd = null;
+              // Cleared HERE, at the top: every point snap below returns early,
+              // so clearing it further down left the flag standing from the
+              // previous mouse move (2026-09-23).
+              orthoNow = false;
               // Releasing the direction lock is part of a plain inference. It was
               // cleared ONLY at the top of chainEnd, so one line drawn with Shift -
               // or one automatic parallel lock - left it true for the rest of the
@@ -8149,6 +8618,59 @@ module InteriorPro
               lockedNow = false;
               var r = 14 / scale;
               var bestEnd = null, bestEndD = r, bestMid = null, bestMidD = r;
+
+              // THE RIGHT ANGLE WINS OVER THE POINT (2026-09-24, his law).
+              //
+              // Every point snap below used to RETURN straight out of here,
+              // above the angle snap. So the moment the cursor caught a
+              // corner, a midpoint, a wall face - or any of the thousands of
+              // endpoints a traced PDF drops on the canvas - the wall took
+              // whatever angle that point happened to give, and came out 89.
+              // That is why he could never say WHEN it happened: it happened
+              // whenever he aimed at something, which is always.
+              //
+              // The point is NOT thrown away - it still sets the LENGTH. The
+              // axis sets the direction, exactly like a SketchUp inference
+              // lock. On a wall FACE we go one better and intersect the axis
+              // with that face, so the point lands on the wall AND square.
+              // snapInd moves to where the point really landed: the ring he
+              // sees and the wall he gets must be the same point.
+              function pointHit(hx, hy, kind, seg) {
+                var q = { x: hx, y: hy, snapped: true };
+                if (from) {
+                  var ldx = hx - from.x, ldy = hy - from.y;
+                  var ld = Math.hypot(ldx, ldy);
+                  if (ld > 0.5) {
+                    var la = Math.atan2(ldy, ldx);
+                    var lq = Math.round(la / (Math.PI / 2)) * (Math.PI / 2);
+                    if (Math.abs(la - lq) < ORTHO_SNAP_DEG * Math.PI / 180) {
+                      var lux = Math.cos(lq), luy = Math.sin(lq);
+                      if (Math.abs(lux) < 1e-9) lux = 0;
+                      if (Math.abs(luy) < 1e-9) luy = 0;
+                      if (Math.abs(Math.abs(lux) - 1) < 1e-9) lux = lux > 0 ? 1 : -1;
+                      if (Math.abs(Math.abs(luy) - 1) < 1e-9) luy = luy > 0 ? 1 : -1;
+                      var lt = ldx * lux + ldy * luy;
+                      if (seg) {
+                        var sex = seg.bx - seg.ax, sey = seg.by - seg.ay;
+                        var den = lux * sey - luy * sex;
+                        if (Math.abs(den) > 1e-6) {
+                          var tt = ((seg.ax - from.x) * sey - (seg.ay - from.y) * sex) / den;
+                          if (isFinite(tt) && Math.abs(tt - lt) < 60) lt = tt;
+                        }
+                      }
+                      if (Math.abs(lt) > 0.5) {
+                        q.x = from.x + lux * lt;
+                        q.y = from.y + luy * lt;
+                        q.exact = true;
+                        orthoNow = true;
+                      }
+                    }
+                  }
+                }
+                snapInd = { x: q.x, y: q.y, kind: kind };
+                if (seg) snapInd.seg = seg;
+                return q;
+              }
               // Sketch corners and line ends snap exactly like wall ends do.
               function eyeSketch(flat) {
                 if (!flat) return;
@@ -8240,14 +8762,8 @@ module InteriorPro
                   if (dm < bestMidD) { bestMid = m; bestMidD = dm; }
                 });
               });
-              if (bestEnd) {
-                snapInd = { x:bestEnd.x, y:bestEnd.y, kind:'end' };
-                return { x:bestEnd.x, y:bestEnd.y, snapped:true };
-              }
-              if (bestMid) {
-                snapInd = { x:bestMid.x, y:bestMid.y, kind:'mid' };
-                return { x:bestMid.x, y:bestMid.y, snapped:true };
-              }
+              if (bestEnd) return pointHit(bestEnd.x, bestEnd.y, 'end', null);
+              if (bestMid) return pointHit(bestMid.x, bestMid.y, 'mid', null);
               // no corner and no midpoint nearby - fall back to the edge body
               guides.forEach(function(g) { eyeEdge([g.x1, g.y1, g.x2, g.y2], false); });
               sketches.forEach(function(sk) { eyeEdge(sk.pts, sk.closed); });
@@ -8268,24 +8784,54 @@ module InteriorPro
                   }
                 }
               });
-              if (bestEdge) {
-                snapInd = { x:bestEdge.x, y:bestEdge.y, kind:'edge', seg:bestEdge.seg };
-                return { x:bestEdge.x, y:bestEdge.y, snapped:true };
-              }
+              if (bestEdge) return pointHit(bestEdge.x, bestEdge.y, 'edge', bestEdge.seg);
               var out = { x:p.x, y:p.y, snapped:false };
               if (from) {
                 var dx = p.x - from.x, dy = p.y - from.y;
                 var ang = Math.atan2(dy, dx), d = Math.hypot(dx, dy);
-                var step = Math.PI / 4;
-                var snapAng = Math.round(ang / step) * step;
-                if (Math.abs(ang - snapAng) < 0.12) {
-                  out.x = from.x + Math.cos(snapAng) * d;
-                  out.y = from.y + Math.sin(snapAng) * d;
+                // 2026-09-23, his law: a wall lands on the RIGHT ANGLE first,
+                // with a WIDE window. He was straightening corners by hand
+                // every time: "it has to lock onto 90 even if it is 10 degrees
+                // off either way - if I want something else I will change it
+                // myself". Until today the only snap was to 45-degree steps
+                // with a 7-degree window, so a line 20 degrees off a wall
+                // locked onto the DIAGONAL instead of the right angle.
+                // The 45s keep a narrow window, so a deliberate diagonal is
+                // still reachable.
+                var qa = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
+                var da = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
+                var snapAng = null;
+                if (Math.abs(ang - qa) < ORTHO_SNAP_DEG * Math.PI / 180) {
+                  snapAng = qa; orthoNow = true;
+                } else if (Math.abs(ang - da) < DIAG_SNAP_DEG * Math.PI / 180) {
+                  snapAng = da;
+                }
+                if (snapAng !== null) {
+                  // THE 0.2-DEGREE BUG (2026-09-23). The angle was snapped
+                  // exactly and then BOTH coordinates were rounded to the
+                  // nearest 1/2" - and half an inch across a 22ft wall is
+                  // atan(0.5/264) = 0.11 degrees. That is where his 89.8 and
+                  // 90.2 corners came from: the walls WERE drawn square and
+                  // the rounding bent them. So the LENGTH is rounded and the
+                  // direction is kept exact, and the coordinates are left
+                  // alone below.
+                  var ux = Math.cos(snapAng), uy = Math.sin(snapAng);
+                  if (Math.abs(ux) < 1e-9) ux = 0;
+                  if (Math.abs(uy) < 1e-9) uy = 0;
+                  if (Math.abs(Math.abs(ux) - 1) < 1e-9) ux = ux > 0 ? 1 : -1;
+                  if (Math.abs(Math.abs(uy) - 1) < 1e-9) uy = uy > 0 ? 1 : -1;
+                  var dd = Math.round(d * 2) / 2;
+                  out.x = from.x + ux * dd;
+                  out.y = from.y + uy * dd;
+                  out.exact = true;
                 }
               }
               // Free movement rounds to 1/2 in; anything that landed on a real
-              // point or a typed length is left exactly where it is.
-              out.x = Math.round(out.x * 2) / 2; out.y = Math.round(out.y * 2) / 2;
+              // point, a typed length or an exact angle is left exactly where
+              // it is.
+              if (!out.exact) {
+                out.x = Math.round(out.x * 2) / 2; out.y = Math.round(out.y * 2) / 2;
+              }
               return out;
             }
 
@@ -8392,7 +8938,13 @@ module InteriorPro
               var q9 = snapPoint(cursor, dir ? null : anch);
 
               if (!dir) {
-                if (!q9.snapped) {
+                if (orthoNow) {
+                  // Already square. The parallel lock hunts for ANY existing
+                  // wall within 4 degrees, so next to a wall standing at 88
+                  // degrees it used to drag the fresh right angle off it
+                  // (2026-09-23).
+                  parInd = null;
+                } else if (!q9.snapped) {
                   var pq = applyParallel(anch, q9);
                   if (parInd) dir = { x: parInd.dx, y: parInd.dy };
                   q9 = pq;
@@ -8685,6 +9237,12 @@ module InteriorPro
                 if (!offOp.start) offStart(p); else { offMove(); offCommit(); }
                 return;
               }
+              if (originMode) {
+                cursor = p;
+                originHover = snapPoint(p, null);
+                originClick(originHover);
+                return;
+              }
               if (guideMode) { cursor = p; guideClick(snapPoint(p, null)); return; }
               if (mode === 'sel') {
                 if (ghostCopy) { placeGhostCopy(); return; }
@@ -8922,6 +9480,15 @@ module InteriorPro
               if (offOp) {
                 cursor = { x:mx(px), y:my(py) };
                 if (!offOp.start) { snapPoint(cursor, null); draw(); } else offMove();
+                return;
+              }
+              if (originMode) {
+                cursor = { x:mx(px), y:my(py) };
+                // THE LAW: a tool that takes a point takes the SNAPPED point,
+                // and shows where it locked. Anything less and he is aiming
+                // at a corner while the tool quietly uses the raw cursor.
+                originHover = snapPoint(cursor, null);
+                draw();
                 return;
               }
               if (guideMode) { cursor = { x:mx(px), y:my(py) }; draw(); return; }
@@ -9175,6 +9742,7 @@ module InteriorPro
               //   any other tool    -> back to Select
               //   already in Select -> drop the selection
               if (ev.key === 'Escape') {
+                if (originMode) { toggleOriginMode(); return; }
                 if (guideMode) { toggleGuideMode(); return; }
                 if (rotOp) { rotCancel(); return; }
                 if (moveOp) { moveCancel(); return; }
@@ -9495,7 +10063,19 @@ module InteriorPro
             // Exterior walls always face OUT of the building, regardless of the
             // direction they were drawn in: if a wall's band points away from
             // the drawing's center, flip it (anchor stays bottom-left).
+            // Kill switch (2026-09-23). The flip itself is right - an exterior
+            // wall's outside must face out - it just used to MOVE the wall.
+            // Off only for debugging:
+            //   InteriorPro::PlanEditor.auto_orient_exterior!(false)
+            var AUTO_ORIENT_EXTERIOR = true;
+
+            function setAutoOrientExterior(on) {
+              AUTO_ORIENT_EXTERIOR = !!on;
+              claudeLog('autoOrientExterior = ' + AUTO_ORIENT_EXTERIOR);
+            }
+
             function autoOrientExterior() {
+              if (!AUTO_ORIENT_EXTERIOR) return;
               var ext = pending.filter(function(w){ return w.cat === 'exterior'; });
               if (ext.length < 3) return;
               var cx = 0, cy = 0, n = 0;
@@ -9507,8 +10087,18 @@ module InteriorPro
                 var lx = (w.sx + w.ex)/2, ly = (w.sy + w.ey)/2;
                 var bx = lx + b.nx*mid, by = ly + b.ny*mid;
                 if (Math.hypot(bx - cx, by - cy) > Math.hypot(lx - cx, ly - cy)) {
+                  // Reversing the direction alone moved the wall by a FULL
+                  // thickness, because 'left' measures the whole width off one
+                  // side of the line: turn the wall round and the width lands
+                  // on the other side (2026-09-23, he traced the plan exactly
+                  // and watched the walls jump inward when he pressed Window).
+                  // So slide the line by b.p along the ORIGINAL normal in the
+                  // same breath - the band then covers the identical strip of
+                  // floor, only the direction of travel is reversed.
+                  var ox = b.nx * b.p, oy = b.ny * b.p;
                   var t = {x:w.sx, y:w.sy};
-                  w.sx = w.ex; w.sy = w.ey; w.ex = t.x; w.ey = t.y;
+                  w.sx = w.ex + ox; w.sy = w.ey + oy;
+                  w.ex = t.x + ox;  w.ey = t.y + oy;
                   w.ha = 'left';
                 }
               });
@@ -9526,6 +10116,17 @@ module InteriorPro
               applyBusy(true);            // the button shows it was pressed
               if (pendingSketches.length) sketchup.apply_sketches(JSON.stringify(pendingSketches));
               if (!pending.length) { setTimeout(function() { applyBusy(false); }, 250); return; }
+              // Which code is actually running, and what angle every blue wall
+              // has the moment before it is handed to Ruby. Two rounds were
+              // lost to not knowing whether a reopened dialog had the new JS,
+              // and to not knowing whether a crooked wall was drawn crooked or
+              // bent later (2026-09-24).
+              claudeLog('editor build 2026-09-24 axis-wins | angles: ' +
+                        pending.map(function(pw) {
+                          var pa = Math.atan2(pw.ey - pw.sy, pw.ex - pw.sx) * 180 / Math.PI;
+                          pa = (pa + 360) % 360;
+                          return pa.toFixed(3);
+                        }).join('  '));
               autoOrientExterior();
               histModel('apply_walls');
               sketchup.apply_walls(JSON.stringify(pending));

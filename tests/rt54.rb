@@ -127,8 +127,11 @@ p3 = wall!(m, 'p3', 122, 96, 240, 96)         # hangs off p2's far end
 PE.send(:turn_wall!, p2, p1, :start, 90.0)
 moved = pts(p2)[2, 2]
 ok('the wall turned', (angle_at(p2, :start, p1, :end) - 90).abs < 1e-6)
-ok('and the wall attached to its far end followed the corner',
-   (pts(p3)[0] - moved[0]).abs < 1e-6 && (pts(p3)[1] - moved[1]).abs < 1e-6,
+# 2026-09-24: p3 follows along its OWN line (it stays level at y=96 and
+# slides to x=120); it is not pulled the last 0.02" up onto the corner,
+# because that would tilt it. See THE NEIGHBOUR STAYS STRAIGHT below.
+ok('and the wall attached to its far end followed the corner along its own line',
+   (pts(p3)[0] - moved[0]).abs < 1e-6 && (pts(p3)[1] - 96.0).abs < 1e-9,
    [pts(p3)[0, 2], moved])
 
 # with keep_corners off it lets go instead
@@ -174,20 +177,23 @@ ok('shortening from the start still moves the start',
 # Every other position scan in the plugin already filters by level
 # (find_neighbor_at, weld_drifted_end!, wall_stretch_tool, move_wall_sideways).
 # This one was the last one that did not.
+# (2026-09-24: the partners here run at 45 degrees, not square. A square
+# partner no longer moves at all - see THE NEIGHBOUR STAYS STRAIGHT below -
+# so a square one could not tell a followed corner from an ignored one.)
 Sketchup.reset_model!
 m = Sketchup.active_model
 up   = wall!(m, 'up',   0, 0, 120, 0)
-up_p = wall!(m, 'up_p', 120, 0, 120, 90)
+up_p = wall!(m, 'up_p', 120, 0, 210, 90)
 dn   = wall!(m, 'dn',   0, 0, 120, 0)
-dn_p = wall!(m, 'dn_p', 120, 0, 120, 90)
+dn_p = wall!(m, 'dn_p', 120, 0, 210, 90)
 [up, up_p].each { |g| g.set_attribute('InteriorPro', 'level', 2) }
 [dn, dn_p].each { |g| g.set_attribute('InteriorPro', 'level', 1) }
 
 PE.send(:stretch_wall!, up, 200.0, :end, true)
 
 ok('the upstairs wall itself stretched', pts(up) == [0.0, 0.0, 200.0, 0.0], pts(up))
-ok('its own upstairs partner followed the corner',
-   pts(up_p)[0, 2] == [200.0, 0.0], pts(up_p))
+ok('its own upstairs partner followed the corner along its own line',
+   (pts(up_p)[0] - 160.0).abs < 1e-6 && (pts(up_p)[1] - 40.0).abs < 1e-6, pts(up_p))
 ok('>>> THE BUG: the downstairs wall did NOT move',
    pts(dn) == [0.0, 0.0, 120.0, 0.0], pts(dn))
 ok('    and neither did the downstairs partner',
@@ -198,10 +204,38 @@ ok('    and neither did the downstairs partner',
 Sketchup.reset_model!
 m = Sketchup.active_model
 a = wall!(m, 'a', 0, 0, 120, 0)
-b = wall!(m, 'b', 120, 0, 120, 90)
+b = wall!(m, 'b', 120, 0, 210, 90)
 PE.send(:stretch_wall!, a, 200.0, :end, true)
 ok('a wall with no level is still level 1 and still follows',
-   pts(b)[0, 2] == [200.0, 0.0], pts(b))
+   (pts(b)[0] - 160.0).abs < 1e-6 && (pts(b)[1] - 40.0).abs < 1e-6, pts(b))
+
+# ------------------------- THE NEIGHBOUR STAYS STRAIGHT (2026-09-24, his call)
+#
+# He drew a room, lengthened one wall by a hair to reach the outer corner, and
+# the SQUARE wall next to it read 89.9. Cause: the partner's end was set
+# straight onto the new corner while its far end stayed put - so it tilted.
+# His choice, in his words: "the neighbour must stay stable". A partner's end
+# now slides along the partner's OWN line; a square one does not move at all.
+def ang_deg(g)
+  a = pts(g)
+  Math.atan2(a[3] - a[1], a[2] - a[0]) * 180.0 / Math::PI
+end
+Sketchup.reset_model!
+m = Sketchup.active_model
+base = wall!(m, 'base', 0, 0, 120, 0)
+side = wall!(m, 'side', 120, 0, 120, 96)
+PE.send(:stretch_wall!, base, 121.0, :end, true)
+ok('lengthening a wall by an inch stretches that wall', pts(base) == [0.0, 0.0, 121.0, 0.0], pts(base))
+ok('>>> the square neighbour did not tilt', (ang_deg(side) - 90.0).abs < 1e-9, ang_deg(side))
+ok('    and it did not move either', pts(side) == [120.0, 0.0, 120.0, 96.0], pts(side))
+
+# a partner that would be shortened below 6" is left alone, with a note
+Sketchup.reset_model!
+m = Sketchup.active_model
+long = wall!(m, 'long', 0, 0, 120, 0)
+tiny = wall!(m, 'tiny', 120, 0, 130, 0)
+PE.send(:stretch_wall!, long, 128.0, :end, true)
+ok('a collinear partner that would collapse is left alone', pts(tiny) == [120.0, 0.0, 130.0, 0.0], pts(tiny))
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
