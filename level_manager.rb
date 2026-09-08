@@ -16,6 +16,14 @@ module InteriorPro
     DEFAULT_JOIST_DEPTH = 9.25 unless const_defined?(:DEFAULT_JOIST_DEPTH, false) # 2x10 actual
     DEFAULT_SUBFLOOR    = 0.75 unless const_defined?(:DEFAULT_SUBFLOOR, false)    # plywood
 
+    # Kill switch (2026-09-23, he asked for it): the tan subfloor deck used to
+    # appear by itself the moment a second level had walls. He never asked for
+    # it, and while the two floors are still drawn apart it lands beside the
+    # building as a floating orange square. Nothing else about the level-2
+    # structure changed - exterior walls still grow to the level-2 floor.
+    #   InteriorPro::LevelManager::USE_LEVEL2_SUBFLOOR = true   # bring it back
+    USE_LEVEL2_SUBFLOOR = false unless const_defined?(:USE_LEVEL2_SUBFLOOR, false)
+
     # ---------- The levels registry (model attributes) ----------
 
     def self.wall_height
@@ -159,23 +167,44 @@ module InteriorPro
     # subfloor deck closes the gap. Called AFTER the wall operation
     # commits (build_level2_structure! opens its own operation).
     def self.ensure_structure_below!
-      return 0 if active_level <= 1
-      return 0 if exterior_walls.empty?
-      build_level2_structure!
+      n = active_level
+      return 0 if n <= 1
+      # Level 3 (2026-09-24): every storey below the active one carries the
+      # one above it - level-1 walls rise to the level-2 floor, level-2
+      # walls to the level-3 floor.
+      raised = 0
+      (2..n).each do |k|
+        next if exterior_walls_of(k - 1).empty?
+        raised += build_structure_below!(k)
+      end
+      raised
     end
 
-    # Every exterior wall grows to the level-2 floor. Running it again
-    # after changing the structure numbers just re-tops the walls.
+    # Exterior walls of one storey.
+    def self.exterior_walls_of(n)
+      walls_of_level(n).select do |g|
+        (g.get_attribute('InteriorPro', 'wall_category') || 'exterior') == 'exterior'
+      end
+    end
+
+    # Kept for the toolbar: the level-2 case of build_structure_below!.
     def self.build_level2_structure!
+      build_structure_below!(2)
+    end
+
+    # Every exterior wall of level n-1 grows to the level-n floor. Running
+    # it again after changing the structure numbers just re-tops the walls.
+    def self.build_structure_below!(n)
       model = Sketchup.active_model
-      ws = exterior_walls
+      n = n.to_i
+      ws = n == 2 ? exterior_walls : exterior_walls_of(n - 1)
       if ws.empty?
         UI.messagebox('No exterior walls found')
         return 0
       end
-      target_top = level_base(2)
+      target_top = level_base(n)
       raised = 0
-      model.start_operation('InteriorPro Level 2 Structure', true)
+      model.start_operation("InteriorPro Level #{n} Structure", true)
       ensure_ceilings_below!
       ws.each do |w|
         cur_h = w.get_attribute('InteriorPro', 'height').to_f
@@ -190,14 +219,14 @@ module InteriorPro
         rebuild_wall!(w)
         raised += 1
       end
-      built = build_subfloor!
+      built = (USE_LEVEL2_SUBFLOOR && n == 2) ? build_subfloor! : nil
       model.commit_operation
       refresh_molding!
-      puts "[Levels] level 2 structure: #{raised} wall(s) raised to #{target_top}\"#{built ? ', subfloor built' : ''}"
+      puts "[Levels] level #{n} structure: #{raised} wall(s) raised to #{target_top}\"#{built ? ', subfloor built' : ''}"
       raised
     rescue StandardError => e
       model.abort_operation rescue nil
-      puts "[Levels] build_level2_structure! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      puts "[Levels] build_structure_below!(#{n}) failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
       0
     end
 
@@ -232,6 +261,26 @@ module InteriorPro
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'subfloor'
       end
+    end
+
+    # Erase a subfloor that an older run already built, without touching the
+    # walls (2026-09-23).  InteriorPro::LevelManager.remove_subfloors!
+    def self.remove_subfloors!
+      model = Sketchup.active_model
+      subs = subfloors
+      if subs.empty?
+        puts '[Levels] no subfloor in the model'
+        return 0
+      end
+      model.start_operation('InteriorPro Remove Subfloor', true)
+      subs.each { |s| s.erase! if s.valid? }
+      model.commit_operation
+      puts "[Levels] erased #{subs.length} subfloor(s)"
+      subs.length
+    rescue StandardError => e
+      model.abort_operation rescue nil
+      puts "[Levels] remove_subfloors! failed: #{e.message}"
+      0
     end
 
     def self.subfloor_material(model)

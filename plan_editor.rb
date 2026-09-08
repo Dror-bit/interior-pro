@@ -902,6 +902,31 @@ module InteriorPro
           UI.start_timer(0.2, false) { push_walls(dlg) }
         end
 
+        # עיגון קומה לראשית הצירים (2026-09-24): הקירות שכבר במודל בקומה
+        # הפעילה עוברים את אותה הזזה+סיבוב שהחלון עשה לקירות הכחולים.
+        # cx/cy = הפינה שנוחתת על (0,0); ang = הסיבוב ברדיאנים.
+        dlg.add_action_callback('align_walls') do |_, json|
+          begin
+            r = JSON.parse(json)
+            ids = r['ids'] || []
+            cx = r['cx'].to_f
+            cy = r['cy'].to_f
+            ang = r['ang'].to_f
+            tx = r['tx'].to_f     # target corner (2026-09-24); missing = the origin
+            ty = r['ty'].to_f
+            if ids.any?
+              tr = Geom::Transformation.translation(Geom::Vector3d.new(tx, ty, 0)) *
+                   Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0), Geom::Vector3d.new(0, 0, 1), ang) *
+                   Geom::Transformation.translation(Geom::Vector3d.new(-cx, -cy, 0))
+              n = transform_walls!(ids, tr)
+              puts "[PlanEditor] עוגן: #{n} קירות במודל הוזזו ל-(#{tx.round(1)}, #{ty.round(1)}), סיבוב #{(ang * 180.0 / Math::PI).round(2)} מעלות"
+            end
+          rescue StandardError => e
+            puts "[PlanEditor] align_walls: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+          UI.start_timer(0.2, false) { push_walls(dlg) }
+        end
+
         # יישור כל הפינות ל-90 בבת אחת (2026-09-23). החלון כבר פתר את כל
         # הלולאה יחד - כאן רק כותבים את הקצוות החדשים, בונים מחדש ומחברים
         # פינות, בדיוק כמו מסלול ההזזה (translate_walls!).
@@ -2236,27 +2261,46 @@ module InteriorPro
       end
 
       def translate_walls!(ids, dx, dy)
+        transform_walls!(ids, Geom::Transformation.translation(Geom::Vector3d.new(dx, dy, 0)))
+      end
+
+      # A RIGID move of whole walls - every point goes through `tr`, a turn
+      # about Z and/or a shift (2026-09-24). translate_walls! is the
+      # shift-only case and comes through here, bit-identical (tests/rt14).
+      # The floor anchor needs the turn: he draws each floor somewhere else
+      # on the sheet and may pick the direction along the other axis.
+      # Attributes, the FLAT corners_xy, rebuild, the doors and windows that
+      # ride on the wall, join_corners, rooms / molding / foundation refresh.
+      def transform_walls!(ids, tr)
         model = Sketchup.active_model
         walls = ids.map { |id| find_wall(id) }.compact
         return 0 if walls.empty?
         wt = InteriorPro::WallTool.new
-        vec = Geom::Vector3d.new(dx, dy, 0)
+        xy = lambda do |x, y|
+          q = Geom::Point3d.new(x.to_f, y.to_f, 0).transform(tr)
+          [q.x, q.y]
+        end
         model.start_operation('2D Editor Move Selection', true)
         walls.each do |w|
-          w.set_attribute('InteriorPro', 'start_x', w.get_attribute('InteriorPro', 'start_x').to_f + dx)
-          w.set_attribute('InteriorPro', 'start_y', w.get_attribute('InteriorPro', 'start_y').to_f + dy)
-          w.set_attribute('InteriorPro', 'end_x', w.get_attribute('InteriorPro', 'end_x').to_f + dx)
-          w.set_attribute('InteriorPro', 'end_y', w.get_attribute('InteriorPro', 'end_y').to_f + dy)
-          # corners_xy is stored FLAT [x1,y1,...,x4,y4] - shift it as-is.
+          s2 = xy.call(w.get_attribute('InteriorPro', 'start_x'), w.get_attribute('InteriorPro', 'start_y'))
+          e2 = xy.call(w.get_attribute('InteriorPro', 'end_x'), w.get_attribute('InteriorPro', 'end_y'))
+          w.set_attribute('InteriorPro', 'start_x', s2[0])
+          w.set_attribute('InteriorPro', 'start_y', s2[1])
+          w.set_attribute('InteriorPro', 'end_x', e2[0])
+          w.set_attribute('InteriorPro', 'end_y', e2[1])
+          # corners_xy is stored FLAT [x1,y1,...,x4,y4] - move it as-is.
           # (read_corners_attr returns point PAIRS - not what set_attribute
           # stores. Reading the raw attribute avoids that mismatch.)
           flat = w.get_attribute('InteriorPro', 'corners_xy')
           if flat.is_a?(Array) && flat.length == 8
             w.set_attribute('InteriorPro', 'corners_xy',
-                            flat.each_slice(2).flat_map { |x, y| [x.to_f + dx, y.to_f + dy] })
+                            flat.each_slice(2).flat_map { |x, y| xy.call(x, y) })
           end
           data = wt.wall_data(w)
-          next unless data
+          unless data
+            puts "[PlanEditor] move: wall #{w.get_attribute('InteriorPro', 'id')} has no wall_data - attributes moved, geometry and openings NOT rebuilt"
+            next
+          end
           c2 = wt.read_corners_attr(w) || wt.compute_perpendicular_corners_from_data(data)
           wt.rebuild_wall_geometry(w, c2, data) if c2
           wid = w.get_attribute('InteriorPro', 'id')
@@ -2265,11 +2309,14 @@ module InteriorPro
             tp = e.get_attribute('InteriorPro', 'type')
             next unless tp == 'door' || tp == 'window'
             next unless e.get_attribute('InteriorPro', 'host_wall_id') == wid
-            e.transform!(Geom::Transformation.translation(vec))
+            e.transform!(tr)
             fx = e.get_attribute('InteriorPro', 'face_x')
-            e.set_attribute('InteriorPro', 'face_x', fx.to_f + dx) unless fx.nil?
             fy = e.get_attribute('InteriorPro', 'face_y')
-            e.set_attribute('InteriorPro', 'face_y', fy.to_f + dy) unless fy.nil?
+            unless fx.nil? || fy.nil?
+              f2 = xy.call(fx, fy)
+              e.set_attribute('InteriorPro', 'face_x', f2[0])
+              e.set_attribute('InteriorPro', 'face_y', f2[1])
+            end
           end
         end
         walls.each do |w|
@@ -2298,7 +2345,7 @@ module InteriorPro
         walls.length
       rescue StandardError => e
         begin; model.abort_operation; rescue StandardError; end
-        puts "[PlanEditor] translate_walls!: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        puts "[PlanEditor] transform_walls!: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
         0
       end
 
@@ -2635,7 +2682,7 @@ module InteriorPro
             <button class="gray" onclick="sketchup.open_sheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
             <button id="squareBtn" class="gray" style="display:none" onclick="squareUpCorners()"
                     title="מיישר את כל הפינות ל-90 מעלות בבת אחת">פינות 90°</button>
-            <button id="originBtn" class="gray" style="display:none" onclick="toggleOriginMode()"
+            <button id="originBtn" class="gray" onclick="toggleOriginMode()"
                     title="עיגון: פינה אחת של הקומה + כיוון -> הקומה יושבת על ראשית הצירים">עיגון (0,0)</button>
             <button class="gray" onclick="sketchup.sync_model()">Sync</button>
           </div>
@@ -2827,6 +2874,7 @@ module InteriorPro
                 <div class="seg">
                   <button id="lv1" class="on" onclick="setLevel(1)">קומה 1</button>
                   <button id="lv2" onclick="setLevel(2)">קומה 2</button>
+                  <button id="lv3" onclick="setLevel(3)">קומה 3</button>
                 </div>
               </div>
               <div id="dimBox" class="foldBox">
@@ -4717,12 +4765,104 @@ module InteriorPro
             // Done on the pending walls on purpose - "אני מסרטט את הקומה לפני
             // שהיא נכנסת למודל" - so nothing in the model and no other
             // callback is touched.
+            // 2026-09-24, four clicks instead of two: corner + direction on THIS
+            // floor, then corner + direction on the TARGET (the grey floor
+            // below, or anywhere). Enter after the first two = the origin,
+            // as before. With walls SELECTED only they move - a two-storey
+            // house and a two-storey ADU on the same sheet each go to their
+            // own place. Nothing selected = the whole level, as before.
+            //
+            // 2026-09-24, later, HIS design - "like a walkie-talkie": click a
+            // corner, type a NUMBER, Enter. A number nobody has used yet
+            // becomes anchor N right there (nothing moves). A number that
+            // exists pulls the building under the corner onto anchor N. So
+            // floor 1 of the house says "1", floor 2 of the house says "1"
+            // and lands on it; the ADU says "2" on both floors. Anchor 0 is
+            // always the origin. The anchors are drawn on every level and
+            // survive closing the editor (they ride in the draft).
             var originMode = false, originPick = null, originHover = null;
+            var anchors = {};          // { '1': {x, y}, '2': {x, y} }  ('0' = the origin, always)
+
+            function anchorAt(n) {
+              if (String(n) === '0') return { x: 0, y: 0 };
+              return anchors[String(n)] || null;
+            }
+
+            function anchorList() {
+              var ks = Object.keys(anchors).sort(function(a, b) { return Number(a) - Number(b); });
+              return ks.length ? ks.join(', ') : 'אין';
+            }
+
+            // Which walls move: the SELECTED ones if there is a selection;
+            // otherwise THE BUILDING under the picked corner - every wall
+            // that touches it, end to end or end to body (an interior wall
+            // ending on an exterior one), and so on outward; and only when
+            // the corner is on no wall at all, the whole level.
+            // (2026-09-24. His words after two buildings on one storey:
+            // "when I added another building it undid the anchoring of the
+            // first and assembled the second". Selection alone was not
+            // enough - the corner he clicks says which building he means.)
+            function buildingAt(pt) {
+              var items = [];
+              pending.forEach(function(w) { items.push({ pw: w }); });
+              walls.forEach(function(w) { if (w.id) items.push({ w: w }); });
+              var W = function(it) { return it.pw || it.w; };
+              function segDist(px, py, ax, ay, bx, by) {
+                var vx = bx - ax, vy = by - ay, L = vx * vx + vy * vy;
+                if (L < 1e-9) return Math.hypot(px - ax, py - ay);
+                var t = ((px - ax) * vx + (py - ay) * vy) / L;
+                if (t < 0) t = 0; else if (t > 1) t = 1;
+                return Math.hypot(px - (ax + vx * t), py - (ay + vy * t));
+              }
+              function touch(a, b) {
+                var tol = ((a.th || 5) + (b.th || 5)) / 2 + 1;
+                var ea = [[a.sx, a.sy], [a.ex, a.ey]], eb = [[b.sx, b.sy], [b.ex, b.ey]];
+                for (var i = 0; i < 2; i++) {
+                  if (segDist(ea[i][0], ea[i][1], b.sx, b.sy, b.ex, b.ey) < tol) return true;
+                  if (segDist(eb[i][0], eb[i][1], a.sx, a.sy, a.ex, a.ey) < tol) return true;
+                }
+                return false;
+              }
+              var stack = [], seen = {};
+              items.forEach(function(it, i) {
+                var w = W(it), tol = (w.th || 5) * 1.5 + 1;   // the mitered outer corner sits up to th*1.42 off the drawn end
+                if (Math.hypot(w.sx - pt.x, w.sy - pt.y) < tol || Math.hypot(w.ex - pt.x, w.ey - pt.y) < tol) stack.push(i);
+              });
+              if (!stack.length) return null;
+              while (stack.length) {
+                var i = stack.pop();
+                if (seen[i]) continue;
+                seen[i] = true;
+                var a = W(items[i]);
+                items.forEach(function(it, j) { if (!seen[j] && touch(a, W(it))) stack.push(j); });
+              }
+              var pw = [], ids = [];
+              items.forEach(function(it, i) { if (!seen[i]) return; if (it.pw) pw.push(it.pw); else ids.push(it.w.id); });
+              return { pw: pw, ids: ids, all: false, how: 'building' };
+            }
+
+            function originScope(pt) {
+              var pw = [], ids = [];
+              selList.forEach(function(o) {
+                if (o.type === 'pending' && pending[o.i]) pw.push(pending[o.i]);
+                else if (o.type === 'wall' && o.w && o.w.id) ids.push(o.w.id);
+              });
+              if (pw.length || ids.length) return { pw: pw, ids: ids, all: false, how: 'selected' };
+              if (pt) { var b = buildingAt(pt); if (b) return b; }
+              walls.forEach(function(w) { if (w.id) ids.push(w.id); });
+              return { pw: pending.slice(), ids: ids, all: true, how: 'level' };
+            }
+
+            function scopeName(sc) {
+              if (sc.how === 'selected') return (sc.pw.length + sc.ids.length) + ' קירות מסומנים';
+              if (sc.how === 'building') return 'המבנה שבפינה (' + (sc.pw.length + sc.ids.length) + ' קירות)';
+              return 'כל הקומה';
+            }
 
             function originHint() {
-              return originPick
-                ? 'עכשיו לחץ על נקודה שקובעת את הכיוון (לאורך הקיר שיהיה על ציר X)'
-                : 'לחץ על הפינה שתשב על ראשית הצירים';
+              if (!originPick) return 'עיגון, שלב 1 מתוך 2: לחץ על פינה · עוגנים קיימים: ' + anchorList() + ' · 0 = ראשית הצירים';
+              return 'שלב 2 מתוך 2: הקלד מספר ואז Enter · חדש = הפינה נהיית העוגן · קיים = ' +
+                     scopeName(originScope(originPick)) + ' עובר אליו';
             }
 
             function toggleOriginMode() {
@@ -4740,45 +4880,128 @@ module InteriorPro
             }
 
             function originClick(p) {
-              if (!originPick) {
-                originPick = { x: p.x, y: p.y };
-                setStatusHint(originHint());
-                draw();
-                return;
-              }
-              var dx = p.x - originPick.x, dy = p.y - originPick.y;
-              if (Math.hypot(dx, dy) < 1) { setStatusHint('הנקודה השנייה קרובה מדי - בחר נקודה רחוקה יותר'); return; }
-              alignPendingToOrigin(originPick, { x: p.x, y: p.y });
-              originPick = null;
-              toggleOriginMode();
+              // a second click re-picks the corner; the number comes from the keyboard
+              originPick = { x: p.x, y: p.y };
+              typed = ''; updateVcb();
+              setStatusHint(originHint());
+              draw();
             }
 
-            // Move + turn every BLUE wall (and pending shape) so that `corner`
-            // lands on (0,0) and `dirPt` lies on the +X axis. A rigid move:
-            // lengths, thicknesses, openings and bows are all untouched.
-            function alignPendingToOrigin(corner, dirPt) {
-              var a = Math.atan2(dirPt.y - corner.y, dirPt.x - corner.x);
-              var ca = Math.cos(-a), sa = Math.sin(-a);
-              function T(x, y) {
-                var vx = x - corner.x, vy = y - corner.y;
-                return { x: vx * ca - vy * sa, y: vx * sa + vy * ca };
+            // Enter with a number typed: define the anchor, or go to it.
+            function originEnter() {
+              if (!originMode || !originPick) return false;
+              var n = String(typed || '').trim();
+              typed = ''; updateVcb();
+              if (!/^[0-9]+$/.test(n)) { setStatusHint('הקלד מספר (0, 1, 2...) ואז Enter'); return true; }
+              anchorCommit(n, originPick);
+              // Leave the tool, then say what happened - toggleOriginMode
+              // clears the hint, and with the result wiped he did the whole
+              // thing a second time (2026-09-24: "it asks me twice").
+              var said = anchorMsg;
+              toggleOriginMode();
+              setStatusHint(said);
+              return true;
+            }
+            var anchorMsg = null;
+
+            function anchorCommit(n, pick) {
+              n = String(Number(n));
+              var at = anchorAt(n);
+              if (!at) {
+                anchors[n] = { x: pick.x, y: pick.y };
+                saveDraft(true);
+                anchorMsg = 'עוגן ' + n + ' נקבע כאן (כתום). בקומה הבאה: עיגון → אותה פינה → ' + n + ' → Enter';
+                claudeLog('עוגן ' + n + ' נקבע ב-(' + pick.x.toFixed(1) + ', ' + pick.y.toFixed(1) + ')');
+                draw();
+                return 'set';
               }
-              pending.forEach(function(w) {
+              if (Math.hypot(at.x - pick.x, at.y - pick.y) < 0.001) {
+                anchorMsg = 'הפינה כבר יושבת על עוגן ' + n + ' - אין מה להזיז';
+                return 'same';
+              }
+              // A straight shift, no turn: the walls are square to the axes on
+              // every floor, so the corner alone says where the building goes.
+              var who = scopeName(originScope(pick));
+              alignFloor(pick, { x: pick.x + 1, y: pick.y }, at, { x: at.x + 1, y: at.y });
+              anchorMsg = who + ' הועבר לעוגן ' + n;
+              return 'moved';
+            }
+
+            // Kept for the tests and for the Enter path: target = the origin.
+            function alignPendingToOrigin(corner, dirPt) {
+              alignFloor(corner, dirPt, { x: 0, y: 0 }, { x: 1, y: 0 });
+            }
+
+            // A direction picked by two clicks, as an angle. The walls are
+            // square to the axes now, so a click that missed the wall by a
+            // hair must not turn the floor by that hair: within
+            // ORTHO_SNAP_DEG it is an exact quarter (2026-09-24).
+            function pickedAngle(c, d) {
+              var a = Math.atan2(d.y - c.y, d.x - c.x);
+              var qa = Math.round(a / (Math.PI / 2)) * (Math.PI / 2);
+              if (Math.abs(a - qa) < ORTHO_SNAP_DEG * Math.PI / 180) a = qa;
+              return a;
+            }
+
+            // Move + turn the floor (or the selected walls) so that corner c1
+            // lands on c2 and the direction c1->d1 runs along c2->d2. A rigid
+            // move: lengths, thicknesses, openings and bows are untouched.
+            // Blue walls are moved here; the walls already in the model get
+            // the same move from Ruby (transform_walls!) - a click on the
+            // door/window button runs Apply by itself, so by the time he
+            // anchors most of the floor is in the model. Moving only the blue
+            // ones "sent each floor somewhere different" (2026-09-23).
+            function alignFloor(c1, d1, c2, d2) {
+              var rot = pickedAngle(c2, d2) - pickedAngle(c1, d1);
+              var ca = Math.cos(rot), sa = Math.sin(rot);
+              if (Math.abs(ca) < 1e-12) ca = 0;
+              if (Math.abs(sa) < 1e-12) sa = 0;
+              if (Math.abs(Math.abs(ca) - 1) < 1e-12) ca = ca > 0 ? 1 : -1;
+              if (Math.abs(Math.abs(sa) - 1) < 1e-12) sa = sa > 0 ? 1 : -1;
+              function T(x, y) {
+                var vx = x - c1.x, vy = y - c1.y;
+                return { x: c2.x + vx * ca - vy * sa, y: c2.y + vx * sa + vy * ca };
+              }
+              var sc = originScope(c1);
+              // A blue shape travels with the walls it sits among: all of
+              // them when the whole level moves, otherwise those inside the
+              // box of the moving walls (a foot of slack).
+              var bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+              var boxW = sc.pw.slice();
+              walls.forEach(function(w) { if (sc.ids.indexOf(w.id) >= 0) boxW.push(w); });
+              boxW.forEach(function(w) {
+                bx0 = Math.min(bx0, w.sx, w.ex); bx1 = Math.max(bx1, w.sx, w.ex);
+                by0 = Math.min(by0, w.sy, w.ey); by1 = Math.max(by1, w.sy, w.ey);
+              });
+              function inBox(sk) {
+                if (sc.all) return true;
+                for (var i = 0; i + 1 < sk.pts.length; i += 2) {
+                  if (sk.pts[i] < bx0 - 12 || sk.pts[i] > bx1 + 12 || sk.pts[i + 1] < by0 - 12 || sk.pts[i + 1] > by1 + 12) return false;
+                }
+                return true;
+              }
+              sc.pw.forEach(function(w) {
                 var s1 = T(w.sx, w.sy), e1 = T(w.ex, w.ey);
                 w.sx = s1.x; w.sy = s1.y; w.ex = e1.x; w.ey = e1.y;
               });
               pendingSketches.forEach(function(sk) {
-                if (!sk.pts) return;
+                if (!sk.pts || !inBox(sk)) return;
                 for (var i = 0; i + 1 < sk.pts.length; i += 2) {
                   var q = T(sk.pts[i], sk.pts[i + 1]);
                   sk.pts[i] = q.x; sk.pts[i + 1] = q.y;
                 }
               });
+              if (sc.ids.length) {
+                histModel('align_walls');
+                sketchup.align_walls(JSON.stringify({ ids: sc.ids, cx: c1.x, cy: c1.y, ang: rot, tx: c2.x, ty: c2.y }));
+              }
               saveDraft(true);
               fitView();
               draw();
-              claudeLog('עוגן: ' + pending.length + ' קירות כחולים הוזזו לראשית הצירים, סיבוב ' +
-                        (-a * 180 / Math.PI).toFixed(2) + ' מעלות');
+              claudeLog('עוגן (' + scopeName(sc) + '): ' + sc.pw.length +
+                        ' קירות כחולים + ' + sc.ids.length + ' קירות במודל הוזזו ל-(' +
+                        c2.x.toFixed(1) + ', ' + c2.y.toFixed(1) + '), סיבוב ' +
+                        (rot * 180 / Math.PI).toFixed(2) + ' מעלות');
             }
 
             // ---- יישור כל הפינות ל-90 בבת אחת (2026-09-23) ----------------
@@ -4796,17 +5019,18 @@ module InteriorPro
             // KILL SWITCHES (2026-09-23). Both of these shipped broken and are
             // hidden until the next chat fixes them - see HANDOFF_2026-09-23.md.
             //   InteriorPro::PlanEditor.show_new_tools!(true)
+            // "פינות 90°" was DROPPED by him on 2026-09-24 ("סתם מסובך") -
+            // the drawing itself locks square now. Stays off; do not re-open.
             var USE_SQUARE_UP = false;      // the "פינות 90°" button
-            var USE_FLOOR_ANCHOR = false;   // the "עיגון (0,0)" button
+            // The floor anchor is ON since 2026-09-24: it moves the model
+            // walls of the level as well as the blue ones.
+            var USE_FLOOR_ANCHOR = true;    // the "עיגון (0,0)" button
 
             function showNewTools(on) {
-              USE_SQUARE_UP = !!on; USE_FLOOR_ANCHOR = !!on;
+              USE_SQUARE_UP = !!on;
               var a = document.getElementById('squareBtn');
-              var b = document.getElementById('originBtn');
               if (a) a.style.display = on ? '' : 'none';
-              if (b) b.style.display = on ? '' : 'none';
-              if (!on && originMode) toggleOriginMode();
-              claudeLog('new tools ' + (on ? 'ON' : 'OFF'));
+              claudeLog('square-up button ' + (on ? 'ON' : 'OFF'));
             }
 
             var SQUARE_JOIN_IN = 18;   // שני קצוות קרובים מזה = אותה פינה
@@ -8122,29 +8346,53 @@ module InteriorPro
               drawShapeDims();
               drawRooms();
               drawShapeAreas();
+              drawAnchors();
               drawOriginPick();
               updateStatus();
             }
 
             // The corner picked for the origin, and the arrow to the direction
             // point that is still being chosen (2026-09-23).
+            // The anchors, on every level, so everyone knows which corner is
+            // which: a small orange target with its number.
+            function drawAnchors() {
+              var ks = Object.keys(anchors);
+              if (!ks.length) return;
+              ctx.save();
+              ks.forEach(function(k) {
+                var a = anchors[k];
+                var px = sx(a.x), py = sy(a.y);
+                ctx.strokeStyle = '#e07b00'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px - 11, py); ctx.lineTo(px + 11, py);
+                ctx.moveTo(px, py - 11); ctx.lineTo(px, py + 11); ctx.stroke();
+                ctx.fillStyle = '#e07b00'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'left';
+                ctx.fillText(k, px + 9, py - 9);
+              });
+              ctx.restore();
+            }
+
             function drawOriginPick() {
               if (!originMode) return;
               var h = originHover || cursor;
               ctx.save();
-              if (originPick) {
-                var px = sx(originPick.x), py = sy(originPick.y);
-                if (h) {
-                  ctx.strokeStyle = '#e07b00'; ctx.lineWidth = 1.8;
-                  ctx.setLineDash([6, 4]);
-                  ctx.beginPath();
-                  ctx.moveTo(px, py); ctx.lineTo(sx(h.x), sy(h.y));
-                  ctx.stroke();
-                  ctx.setLineDash([]);
-                }
-                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#e07b00'; ctx.fill();
+              // orange = this floor's corner + direction, blue = the target's.
+              // The dashed line runs from the last fixed point to the cursor.
+              function dot(pt, col) {
+                ctx.beginPath(); ctx.arc(sx(pt.x), sy(pt.y), 6, 0, Math.PI * 2);
+                ctx.fillStyle = col; ctx.fill();
                 ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+              }
+              function dash(a, b, col) {
+                ctx.strokeStyle = col; ctx.lineWidth = 1.8;
+                ctx.setLineDash([6, 4]);
+                ctx.beginPath(); ctx.moveTo(sx(a.x), sy(a.y)); ctx.lineTo(sx(b.x), sy(b.y)); ctx.stroke();
+                ctx.setLineDash([]);
+              }
+              if (originPick) {
+                dot(originPick, '#e07b00');
+                ctx.fillStyle = '#e07b00'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+                ctx.fillText(typed ? ('עוגן ' + typed) : 'מספר?', sx(originPick.x) + 10, sy(originPick.y) - 10);
               }
               if (h) {
                 // The lock is SHOWN, in the same colours as everywhere else:
@@ -9741,6 +9989,11 @@ module InteriorPro
               //   drawing a chain   -> end the chain, stay in the tool
               //   any other tool    -> back to Select
               //   already in Select -> drop the selection
+              if (originMode && originPick) {   // the anchor number
+                if (ev.key === 'Enter') { originEnter(); ev.preventDefault(); return; }
+                if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
+                if (/^[0-9]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
+              }
               if (ev.key === 'Escape') {
                 if (originMode) { toggleOriginMode(); return; }
                 if (guideMode) { toggleGuideMode(); return; }
@@ -10157,11 +10410,14 @@ module InteriorPro
               applyPending();            // blue walls land on their own level
               sketchup.set_level(String(n));
             }
+            var MAX_LEVEL = 3;         // level 3 added 2026-09-24
             function loadLevel(n) {
-              activeLevel = (n === 2) ? 2 : 1;
-              var b1 = document.getElementById('lv1'), b2 = document.getElementById('lv2');
-              if (b1) b1.className = (activeLevel === 1) ? 'on' : '';
-              if (b2) b2.className = (activeLevel === 2) ? 'on' : '';
+              n = Number(n) || 1;
+              activeLevel = (n >= 1 && n <= MAX_LEVEL) ? n : 1;
+              for (var k = 1; k <= MAX_LEVEL; k++) {
+                var bk = document.getElementById('lv' + k);
+                if (bk) bk.className = (activeLevel === k) ? 'on' : '';
+              }
             }
             // Selection to restore after a model round-trip (edit/move/resize),
             // so the panel stays open on the same wall/opening.
@@ -10212,7 +10468,7 @@ module InteriorPro
             var lastDraft = '';
             function draftJson() {
               return JSON.stringify({ pending: pending, sketches: pendingSketches,
-                                      guides: guides, dims: dims });
+                                      guides: guides, dims: dims, anchors: anchors });
             }
             function saveDraft(force) {
               var j = draftJson();
@@ -10231,6 +10487,7 @@ module InteriorPro
                 }
                 if (d.guides && d.guides.length) guides = d.guides;
                 if (d.dims && d.dims.length) dims = d.dims;
+                if (d.anchors && typeof d.anchors === 'object') anchors = d.anchors;
                 lastDraft = draftJson();
                 markGuideBox(); updateStatus(); draw();
               } catch (e) {}

@@ -82,8 +82,15 @@ ok('second run raises nothing new', n2 == 0, n2)
 ok('and the ceiling memory survives', ext.all? { |w| w.get_attribute('InteriorPro', 'ceiling_h') == 96.0 })
 
 # ---- the subfloor deck ---------------------------------------------------
+# 2026-09-23: the deck is no longer built by ITSELF - the user asked for that
+# to stop (USE_LEVEL2_SUBFLOOR = false), because while two floors are still
+# drawn apart it lands beside the building as a floating orange square.
+# Everything below still pins the deck itself; it is just asked for by name.
+ok('build_level2_structure! no longer makes a deck by itself',
+   LM.subfloors.empty?, LM.subfloors.length)
+LM.build_subfloor!
 subs = LM.subfloors
-ok('one subfloor deck exists', subs.length == 1, subs.length)
+ok('one subfloor deck exists once it is asked for', subs.length == 1, subs.length)
 deck = subs.first
 ok('deck level is 2', deck.get_attribute('InteriorPro', 'level') == 2)
 face = deck.entities.grep(Sketchup::Face).first
@@ -178,6 +185,29 @@ n9 = LM.ensure_structure_below!
 ok('on level 2 the hook builds the structure', n9 == 4, n9)
 ok('exterior walls rose to 106', LM.exterior_walls.all? { |w| w.get_attribute('InteriorPro', 'height') == 106.0 },
    LM.exterior_walls.map { |w| w.get_attribute('InteriorPro', 'height') })
+LM.set_active_level!(1)
+
+# ---------------- level 3 (2026-09-24): every storey carries the one above
+Sketchup.reset_model!
+m = Sketchup.active_model
+square_building(m)                                   # level 1
+%w[u1 u2 u3 u4].zip([[[0, 0], [240, 0]], [[240, 0], [240, 240]], [[240, 240], [0, 240]], [[0, 240], [0, 0]]]).each do |id, (a, b)|
+  w = make_wall(m, id, a, b)
+  w.set_attribute('InteriorPro', 'level', 2)
+  w.set_attribute('InteriorPro', 'base_z', LM.level_base(2))
+end
+ok('level 3 base = 2 storeys', LM.level_base(3) == 212.0, LM.level_base(3))
+LM.set_active_level!(3)
+n3 = LM.ensure_structure_below!
+ok('going to level 3 raises the level-1 AND the level-2 exterior walls', n3 == 8, n3)
+up = LM.exterior_walls_of(2)
+ok('level-2 walls now reach the level-3 floor',
+   up.all? { |w| (w.get_attribute('InteriorPro', 'base_z').to_f + w.get_attribute('InteriorPro', 'height').to_f - 212.0).abs < 0.001 },
+   up.map { |w| w.get_attribute('InteriorPro', 'height') })
+ok('level-1 walls reach the level-2 floor, as before',
+   LM.exterior_walls.all? { |w| w.get_attribute('InteriorPro', 'height') == 106.0 },
+   LM.exterior_walls.map { |w| w.get_attribute('InteriorPro', 'height') })
+ok('a second run raises nothing new', LM.ensure_structure_below! == 0)
 LM.set_active_level!(1)
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
