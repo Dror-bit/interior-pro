@@ -1,0 +1,30 @@
+walls: 8
+
+id                 len      angle    off90   sag    anchor      level
+------------------------------------------------------------------------------
+daa40d18-3db7-4277  233.00  270.000    0.000    0.0  bottom-left 1
+8c18acb0-76a0-486b  273.00    0.000    0.000    0.0  bottom-left 1
+346ee4ea-a972-4ea5  233.00   90.000    0.000    0.0  bottom-left 1
+22fbe024-2d43-4cf0  273.00  180.000    0.000    0.0  bottom-left 1
+b61ad0d1-7473-400e  273.00  180.000    0.000    0.0  bottom-left 2
+ca01429d-b2d5-4473  233.00  270.000    0.000    0.0  bottom-left 2
+12ccc44a-073a-4b1a  273.00    0.000    0.000    0.0  bottom-left 2
+7d672e15-95df-4c55  233.00   90.000    0.000    0.0  bottom-left 2
+
+off90: min 0.000  max 0.000  mean 0.000  spread(sd) 0.000
+
+READING IT:
+  spread near 0 and mean far from 0  -> the WHOLE HOUSE is rotated
+                                        by that many degrees.
+  spread large                       -> each wall is off on its own.
+
+CORNERS (ends closer than 12in), angle between the two walls:
+------------------------------------------------------------------------------
+daa40d18-3db7-42 22fbe024-2d43-4c  gap 0.000   between  90.000   off90   0.000
+daa40d18-3db7-42 8c18acb0-76a0-48  gap 0.000   between  90.000   off90   0.000
+8c18acb0-76a0-48 346ee4ea-a972-4e  gap 0.000   between  90.000   off90   0.000
+346ee4ea-a972-4e 22fbe024-2d43-4c  gap 0.000   between  90.000   off90   0.000
+b61ad0d1-7473-40 7d672e15-95df-4c  gap 0.000   between  90.000   off90   0.000
+b61ad0d1-7473-40 ca01429d-b2d5-44  gap 0.000   between  90.000   off90   0.000
+ca01429d-b2d5-44 12ccc44a-073a-4b  gap 0.000   between  90.000   off90   0.000
+12ccc44a-073a-4b 7d672e15-95df-4c  gap 0.000   between  90.000   off90   0.000

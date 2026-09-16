@@ -1,0 +1,24 @@
+==== 2026-09-15 20:47:07 -0700 ====
+material: Stucco
+
+1. what the import side wants
+  VRay.method(:import_material).arity -> 2
+  VRay.method(:import_material).parameters -> "[[:req], [:req]]"
+  VRay.respond_to?(:export_material) -> false
+  VRay.respond_to?(:save_material) -> false
+  VRay.respond_to?(:material_file) -> false
+  VRay.respond_to?(:vrmat) -> false
+
+2. what the handle offers
+  Material.load(mat) -> #<VRay::Material(124):0x69040>
+  vm.method(:export).arity -> -2
+  vm.method(:export).parameters -> "[[:req, :plugin], [:opt, :clear]]"
+  VRay::Material.method(:translate).parameters -> "[[:req, :keys], [:key, :language]]"
+
+3. try exporting to a file
+  vm.export(path) !! NoMethodError: undefined method `category' for "C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/ip_test_material.vrmat":String
+  no file was written by export(path)
+  vm.export(DIR) !! NoMethodError: undefined method `category' for "C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro":String
+  .vrmat files now in the folder: []
+
+END.

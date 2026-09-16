@@ -1,0 +1,34 @@
+TIME 2026-09-15 12:57:44 -0700
+   fresh material: IP_VRAY_T2264
+   klass before -> "_HostMaterial"
+   OK   vm.convert_to_vray -> #<VRay::Scene::Plugin:0x0000021b6a07b958>
+   plugin class -> VRay::Scene::Plugin
+
+=========== 1. everything this plugin object can do ============
+   OK   methods -> "[] []= category dump duplicate each each_child each_parent name serialize subscribe top_level? type unsubscribe valid?"
+   OK   plug.name -> "/IP_VRAY_T2264"
+   OK   plug.klass -> nil
+   OK   plug.type -> :MtlSingleBRDF
+   OK   plug.id -> nil
+   OK   plug.scene -> nil
+   OK   plug.model -> nil
+
+=========== 2. read a parameter straight off it ================
+   --   plug[brdf] : TypeError wrong argument type String (expected Symbol)
+   --   plug[diffuse] : TypeError wrong argument type String (expected Symbol)
+   --   plug[reflect] : TypeError wrong argument type String (expected Symbol)
+   --   plug[reflect_glossiness] : TypeError wrong argument type String (expected Symbol)
+   --   plug[roughness] : TypeError wrong argument type String (expected Symbol)
+
+=========== 3. the BRDF child ==================================
+   OK   plug.scene[/IP_VRAY_T2264/BRDFVRayMtl] -> nil
+   OK   plug.fetch(/IP_VRAY_T2264/BRDFVRayMtl) -> nil
+   --   plug["brdf"] resolved : TypeError wrong argument type String (expected Symbol)
+
+=========== 4. where does a VRay::Scene come from? =============
+   OK   VRay::VRayScene.load(model) -> #<VRay::Settings(Model):0x173600>
+   OK   VRay::VRayScene.resolve_model(m) -> #<Sketchup::Model:0x0000021b53d33450>
+   OK   VRay::ContextFactory methods -> "allocate create_context"
+   OK   VRay::Context methods -> "active allocate fetch handle_error instances subscribe unsubscribe"
+   OK   VRay::Context inst -> "activate activation_guid deactivate delete end_session model overlays propagate_event ref_cache renderer scene session start_session subscribe unsubscribe"
+   OK   VRay::Settings.load(m) -> #<VRay::Settings(Model):0x173640>

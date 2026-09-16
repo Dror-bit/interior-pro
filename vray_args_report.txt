@@ -1,0 +1,110 @@
+TIME 2026-09-15 12:23:17 -0700
+
+=========== 1. the shape of every method we care about ==========
+
+-- VRay (module) --
+   start_render               arity=3    params=[[:req], [:req], [:req]]
+   configure_renderer         arity=4    params=[[:req], [:req], [:req], [:req]]
+   import_material            arity=2    params=[[:req], [:req]]
+   get_texture_dimensions     arity=1    params=[[:req]]
+   get_compute_devices        arity=2    params=[[:req], [:req]]
+   set_model_path             arity=1    params=[[:req]]
+
+-- VRay::Material (class) --
+   find                       arity=-2   params=[[:req, :plugin_name], [:key, :context]]
+   load                       arity=-2   params=[[:req, :entity], [:opt, :scene]]
+   translate                  arity=-2   params=[[:req, :keys], [:key, :language]]
+   resolve_model              arity=1    params=[[:req, :entity]]
+   host_material?             arity=1    params=[[:req, :skp_material]]
+   find_users                 arity=-2   params=[[:req, :plugin_name], [:opt, :context]]
+   each_potential             arity=1    params=[[:req, :model], [:block, :block]]
+   valid?                     arity=1    params=[[:req, :skp_material]]
+
+-- VRay::Material (inst) --
+   convert_to_host            arity=-1   params=[[:key, :context]]
+   convert_to_vray            arity=-1   params=[[:key, :context]]
+   entity                     arity=0    params=[]
+   export                     arity=-2   params=[[:req, :plugin], [:opt, :clear]]
+   info_dictionary            arity=0    params=[]
+   plugins_dictionary         arity=0    params=[]
+   main_plugin                arity=0    params=[]
+   klass                      arity=0    params=[]
+   type                       arity=0    params=[]
+   update_preview             arity=-1   params=[[:rest, :args]]
+
+-- VRay::MaterialsHelper --
+   find_skp_material          arity=-2   params=[[:req, :display_name], [:opt, :materials]]
+   find_skp_material_by_id    arity=1    params=[[:req, :id]]
+   used?                      arity=1    params=[[:req, :material]]
+   rename                     arity=2    params=[[:req, :skp_material], [:req, :new_name]]
+   remove                     arity=1    params=[[:req, :display_name]]
+   ensure_unique_names        arity=1    params=[[:req, :materials]]
+   perform_sanity_check       arity=2    params=[[:req, :sketchup_materials], [:req, :scene]]
+
+-- VRay::MaterialSync --
+   convert_to_vray            arity=1    params=[[:req, :sk_material]]
+   to_sketchup                arity=-2   params=[[:req, :plugin_name], [:key, :should_trigger_sanity_check]]
+   to_vray                    arity=-2   params=[[:req, :sk_material], [:key, :should_trigger_sanity_check], [:key, :should_serialize]]
+   trigger_sanity_check       arity=2    params=[[:req, :materials], [:req, :scene]]
+
+-- VRay::MaterialTranslate --
+   binding_info               arity=2    params=[[:req, :vr_material], [:req, :sk_material]]
+   find_brdf                  arity=-2   params=[[:req, :material], [:opt, :refraction]]
+   find_color_slot            arity=1    params=[[:req, :brdf]]
+   find_opacity_slot          arity=1    params=[[:req, :plugin]]
+   find_texture_slot          arity=1    params=[[:req, :brdf]]
+   get_binding_options        arity=1    params=[[:req, :material]]
+   get_brdfs                  arity=1    params=[[:req, :plugin]]
+
+=========== 2. VRay::Scene / VRayScene / Settings ===============
+
+-- VRay::Scene (Class) --
+   class methods (2): allocate  zip
+   instance      (25): []  add_search_path  apply_supported_enscape_settings  change  clear!  clear_options_plugins  create  create_enscape_material_keyword  create_enscape_material_serialized  delete  dump  each  explode_cosmos_asset  fetch  grep  id  import  import_buffer  import_plugins  plugins_version  relink_files  rename_plugin  subscribe  unique_name  unsubscribe
+
+-- VRay::VRayScene (Class) --
+   class methods (8): allocate  each_potential  find  find_users  load  resolve_model  translate  valid?
+   instance      (12): entity  entity=  export  include?  info_dictionary  klass  main_plugin  model  plugins_dictionary  requires_preview_update?  type  update_preview
+
+-- VRay::Settings (Class) --
+   class methods (15): allocate  apply_settings_vfb  apply_supported_enscape_settings  candidate?  each_potential  ensure_settings_options_is_unique  fill_settings_vfb  find  find_users  get_serialized_enscape_settings  load  load_defaults  resolve_model  translate  valid?
+   instance      (11): entity  export  include?  info_dictionary  klass  main_plugin  model  plugins_dictionary  requires_preview_update?  type  update_preview
+
+-- VRay::SceneLoader (Class) --
+   class methods (1): allocate
+   instance      (1): load
+
+-- VRay::RenderSession (Class) --
+   class methods (1): allocate
+   instance      (10): animation_enabled?  bootstrap  camera_locked?  configure_resumable_rendering  discard_denoiser_data?  report  start  stop  toggle_camera_locked  translate
+
+-- VRay::VRayRenderer (Class) --
+   class methods (2): allocate  hook
+   instance      (77): []  active_hosts  add_hosts  all_hosts  apply_settings_vfb  auto_exposure_result  change  clear!  continue_sequence  create  current_time  current_time=  delete  denoise  destruct  disable_dr_client  dr_client_enabled?  dr_enabled=  dr_enabled?  dump  each  enable_dr_client  enable_live_link_client  export  fetch  fill_settings_vfb  get_compute_devices  get_persistent_state  grep  hide_vfb  image  in_process=  in_process?  inactive_hosts  interactive_statistics  keep_interactive_running=  keep_interactive_running?  load  load_color_corrections_preset  parent_vfb  project_path=  remove_hosts  render_mode  render_mode=  reset_vfb  save_caustics_file  save_color_corrections_preset  save_irradiance_map_file  save_light_cache_file  save_vfb_image  sequence_ended?  set_compute_devices  set_denoiser_options  set_persistent_state  set_resumable_rendering  show_vfb  start  state  stop  subscribe  thread_count  thread_count=  unsubscribe  update_available=  update_lighting_analysis  use_animated_values=  use_animated_values?  user_scene_name  user_scene_name=  vfb_persistent_state  vfb_persistent_state=  vfb_progress_text=  vfb_progress_value=  vfb_settings  vfb_settings=  vfb_visible?  wait
+
+=========== 3. plausible calls, all read-only ==================
+   plain material     = "wood2"
+   converted material = "Teddy_Glasses"
+
+-- VRay::Material.find, every shape --
+   OK   find(conv) -> nil
+   --   find(model, conv) : ArgumentError wrong number of arguments (given 2, expected 1)
+   OK   find(conv.name) -> nil
+   --   find(model, conv.name) : ArgumentError wrong number of arguments (given 2, expected 1)
+   OK   find("/wood") -> nil
+   --   find(model, "/wood") : ArgumentError wrong number of arguments (given 2, expected 1)
+   --   new(conv) : ArgumentError wrong number of arguments (given 1, expected 2)
+   --   new(model, conv) : NoMethodError undefined method `category' for #<Sketchup::Model:0x0000021b53d33450>
+
+-- resolve_model / host_material? / each_potential --
+   --   resolve_model() : ArgumentError wrong number of arguments (given 0, expected 1)
+   OK   resolve_model(m) -> #<Sketchup::Model:0x0000021b53d33450>
+   OK   host_material?(conv) -> false
+   --   each_potential -> count : ArgumentError wrong number of arguments (given 0, expected 1)
+   OK   each_potential(m) -> count -> 149
+
+-- MaterialsHelper --
+   OK   find_skp_material("/wood") -> nil
+   --   find_skp_material(m, "/wood") : NoMethodError undefined method `each' for "/wood":String
+   OK   find_skp_material_by_id("/wood") -> nil
+   OK   used?(conv) -> true

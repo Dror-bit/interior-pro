@@ -183,9 +183,22 @@ module InteriorPro
 
     # Why the last read gave what it gave - so "no numbers" is never silent.
     LAST_TRACE = [] unless const_defined?(:LAST_TRACE)
+    # Also on DISK. He does not paste console output back - a report file in
+    # the plugin folder is how every diagnosis in this project actually gets
+    # read (CLAUDE.md, "\u05ea\u05de\u05d3\u05d5\u05d3, \u05d0\u05dc \u05ea\u05e0\u05d7\u05e9").
+    TRACE_LOG = File.join(File.dirname(__FILE__), 'material_library_log.txt')
     def self.trace(value, why)
       LAST_TRACE << why.to_s
       puts "[MaterialLibrary] #{why}"
+      begin
+        File.open(TRACE_LOG, 'a') do |f|
+          f.puts("#{Time.now.strftime('%H:%M:%S')}  #{why}")
+          f.flush
+          begin ; f.fsync ; rescue StandardError ; nil ; end
+        end
+      rescue StandardError
+        nil
+      end
       value
     end
 
@@ -210,6 +223,113 @@ module InteriorPro
       nil
     rescue StandardError
       nil
+    end
+
+    # ---- WRITING the card's V-Ray numbers onto a material ------------
+    # THE CARD IS THE SOURCE OF TRUTH (measured 2026-09-16). V-Ray gives
+    # NO way to read the current numbers back: convert_to_vray answers nil
+    # on a material it already owns, find(main_plugin) gives no top plugin,
+    # and the VRayPlugins dictionary is written once at conversion time and
+    # never refreshed - it still said 1.0 after the number was changed in
+    # V-Ray's own Asset Editor (vray_save_report.txt). So we stopped trying
+    # to learn numbers from V-Ray and write them TO it instead.
+    #
+    # The write path itself is the one proven in debug_vray_apply.rb on
+    # 2026-09-15. It never touches VRay::Context - that crashes SketchUp.
+    #
+    # Call this AFTER commit_operation, never inside one: a V-Ray failure
+    # must not be able to roll back the paint the user already saw.
+    # Returns true only if a number actually landed.
+    # Hands back the top V-Ray plugin for a material, or nil. Converting is
+    # what creates it: on a material V-Ray already owns, convert_to_vray
+    # answers nil and Material.find(main_plugin) gives back another Material,
+    # not a Plugin (measured 2026-09-16) - so nil here means "no way in".
+    def self.reach_brdf_owner(mat)
+      unless (VRay::Material.valid?(mat) rescue false)
+        # a plain SketchUp material must be handed to V-Ray first, or
+        # Material.load raises "Failed to load special object"
+        (VRay::MaterialSync.to_vray(mat) rescue nil)
+      end
+      vm = (VRay::Material.load(mat) rescue nil)
+      return nil if vm.nil?
+      plug = (vm.convert_to_vray rescue nil)
+      return nil unless plug.respond_to?(:[])
+      plug
+    rescue StandardError
+      nil
+    end
+
+    # Makes V-Ray forget it owns this material: its whole claim is these two
+    # attribute dictionaries on the SketchUp material (VRayInfo carries
+    # class / main_plugin / type / version, VRayPlugins the serialised graph).
+    # Only ever called on a material the library itself just built from a
+    # card, never on one the user tuned by hand.
+    def self.forget_vray!(mat)
+      dicts = (mat.attribute_dictionaries rescue nil)
+      return trace(false, 'no attribute dictionaries to drop') if dicts.nil?
+      %w[VRayPlugins VRayInfo].each do |name|
+        next if dicts[name].nil?
+        dicts.delete(name)
+        puts "[MaterialLibrary] dropped #{name} from #{mat.display_name}"
+      end
+      true
+    rescue StandardError => e
+      trace(false, "forget_vray!: #{e.class} #{e.message}")
+    end
+
+    def self.apply_vray_numbers!(mat, nums)
+      LAST_TRACE.clear
+      return trace(false, 'kill switch off') unless USE_MATERIAL_LIBRARY
+      return trace(false, 'no material') if mat.nil?
+      return trace(false, 'card has no vray numbers') if nums.nil? || nums.empty?
+      return trace(false, 'VRay not loaded') unless Object.const_defined?(:VRay)
+
+      plug = reach_brdf_owner(mat)
+      if plug.nil?
+        # SECOND TRY - the one that makes this work at all. A material V-Ray
+        # already owns hands back no plugin, and writing into its VRayPlugins
+        # JSON does nothing: V-Ray ignored it completely (measured 2026-09-16,
+        # Reflection Color stayed black in its own Asset Editor). But V-Ray's
+        # claim on a material lives in exactly two attribute dictionaries on
+        # the SketchUp material. Drop them and it is a plain material again,
+        # which converts - and converting is the only path that writes.
+        forget_vray!(mat)
+        plug = reach_brdf_owner(mat)
+      end
+      return trace(false, 'no top plugin - V-Ray already owns this material') if plug.nil?
+
+      brdf = (plug[:brdf] rescue nil)   # SYMBOL, never a string - a string raises TypeError
+      if brdf.nil?
+        plug.each_child { |c| brdf = c if c.respond_to?(:type) && c.type == :BRDFVRayMtl }
+      end
+      return trace(false, 'no BRDFVRayMtl under the plugin') if brdf.nil?
+
+      wrote = []
+      g = num(nums['reflect_glossiness'])
+      if g
+        brdf[:reflect_glossiness] = g rescue nil
+        wrote << "gloss=#{g}"
+      end
+      r = num(nums['roughness'])
+      if r
+        brdf[:roughness] = r rescue nil
+        wrote << "rough=#{r}"
+      end
+      u = nums['option_use_roughness']
+      unless u.nil?
+        brdf[:option_use_roughness] = (num(u).to_f > 0.5) rescue nil
+        wrote << "use_rough=#{num(u).to_f > 0.5}"
+      end
+      c = nums['reflect']
+      if c.is_a?(Array) && c.length >= 3
+        brdf[:reflect] = VRay::Color.new(c[0].to_f, c[1].to_f, c[2].to_f) rescue nil
+        wrote << "reflect=#{c[0, 3].inspect}"
+      end
+
+      return trace(false, 'card had no usable number') if wrote.empty?
+      trace(true, "wrote #{wrote.join(', ')} onto #{mat.display_name}")
+    rescue StandardError => e
+      trace(false, "#{e.class}: #{e.message}")
     end
 
     # ---- saving one material into the library ------------------------

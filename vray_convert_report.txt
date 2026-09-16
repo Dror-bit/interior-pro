@@ -1,0 +1,30 @@
+TIME 2026-09-15 12:53:05 -0700
+model: claud cold
+materials before: 112
+
+=========== 1. our own test material on our own face ===========
+   material: IP_VRAY_TEST  face area=576.0
+
+=========== 2. the conversion =================================
+   OK   MaterialSync.to_vray(mat) -> 31282
+   valid?         -> true
+   host_material? -> true
+   dictionaries now: ["VRayInfo", "VRayPlugins"]
+
+=========== 3. the handle =====================================
+   OK   VRay::Material.load(mat) -> #<VRay::Material(67305):0x172880>
+   OK     klass -> "_HostMaterial"
+   OK     type -> "material"
+   OK     main_plugin -> "/IP_VRAY_TEST"
+   OK     main_plugin class -> "String"
+   OK     main_plugin methods -> "% * + +@ -@ < << <= =~ > >= [] []= ascii_only? b between? byteindex byterindex bytes bytesize byteslice bytesplice capitalize capitalize! casecmp casecmp? center chars chomp chomp! chop chop! chr clamp clear codepoints concat count crypt dedup delete delete! delete_prefix delete_prefix! delete_suffix delete_suffix! downcase downcase! dump each_byte each_char each_codepoint each_grapheme_cluster e ...
+
+=========== 4. the knobs ======================================
+   OK   find_brdf(vm) -> nil
+   OK   binding_info(vm, mat) -> {}
+
+=========== 5. the serialized graph we ended up with ==========
+   /IP_VRAY_TEST  (123 chars)
+
+materials after abort: 113
+(the operation was ABORTED on purpose - the test face and material are gone)

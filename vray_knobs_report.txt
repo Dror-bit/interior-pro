@@ -1,0 +1,22 @@
+TIME 2026-09-15 12:54:23 -0700
+
+=========== 1. host material -> real V-Ray material ===========
+   OK   MaterialSync.to_vray(mat) -> 31257
+   OK   Material.load(mat) -> #<VRay::Material(67305):0x173040>
+   klass before -> "_HostMaterial"
+   OK   vm.convert_to_vray -> #<VRay::Scene::Plugin:0x0000021b0a3a5dc8>
+   OK   Material.load(mat) again -> #<VRay::Material(67305):0x173080>
+   klass after  -> "MtlSingleBRDF"
+   main_plugin  -> "/IP_VRAY_TEST"
+
+=========== 2. the plugin graph we now have ===================
+   /IP_VRAY_TEST  (526 chars)
+   /IP_VRAY_TEST/BRDFVRayMtl  (7161 chars)
+
+=========== 3. find_brdf and what it hands back ===============
+   OK   find_brdf(vm2) -> nil
+
+   find_brdf is still nil. Falling back: what does the scene hold?
+   OK   VRay::Material.find("/IP_VRAY_TEST") -> #<VRay::Material(67305):0x173120>
+   --   vm2.plugins_dictionary keys : NoMethodError protected method `plugins_dictionary' called for #<VRay::Material(67305):0x173080>
+   OK   vm2 methods -> "convert_to_host convert_to_vray entity export host_material? include? info_dictionary klass main_plugin model plugins_dictionary requires_preview_update? type update_preview"

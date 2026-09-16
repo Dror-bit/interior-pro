@@ -1,0 +1,7 @@
+==== 2026-09-15 13:31:26 -0700 ====
+13:31:26  folder now: "C:/Users/rordt/OneDrive/InteriorPro/materials"
+13:31:26  folder: C:/Users/rordt/OneDrive/InteriorPro/materials
+13:31:26  material: Stucco
+13:31:26  wrote C:/Users/rordt/OneDrive/InteriorPro/materials/IP_MAT_0019.json
+13:31:26  1 חומרים ב-C:/Users/rordt/OneDrive/InteriorPro/materials
+13:33:34  END

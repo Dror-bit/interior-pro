@@ -1,0 +1,30 @@
+==== 2026-09-15 20:57:19 -0700 ====
+
+=== A: hand the material to V-Ray first ===
+START  A MaterialSync.to_vray
+  ok   A MaterialSync.to_vray -> 27741
+START  A valid? before import
+  ok   A valid? before import -> true
+START  A import_material
+  ok   A import_material -> nil
+  A RESULT: valid?=true dictKeys=1 texture=nil
+
+=== B: rename the scene plugin to match the material ===
+  B plugins before: ["/Stucco", "/Stucco/BRDFVRayMtl", "/Stucco/BRDFVRayMtl/SUDiffuse", "/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer", "/Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel", "/Stucco/BRDFVRayMtl/opacity_custom_source"]
+START  B rename_plugin("/Stucco", "/IP_VRMAT_B_#{stamp}")
+  ok   B rename_plugin("/Stucco", "/IP_VRMAT_B_#{stamp}") -> true
+  B plugins after: ["/IP_VRMAT_B_1789531039", "/IP_VRMAT_B_1789531039/BRDFVRayMtl", "/IP_VRMAT_B_1789531039/BRDFVRayMtl/SUDiffuse", "/IP_VRMAT_B_1789531039/BRDFVRayMtl/SUDiffuse/BitmapBuffer", "/IP_VRMAT_B_1789531039/BRDFVRayMtl/SUDiffuse/UVWGenChannel", "/IP_VRMAT_B_1789531039/BRDFVRayMtl/opacity_custom_source"]
+START  B import_material
+  ok   B import_material -> nil
+  B RESULT: valid?=true dictKeys=1 texture=nil
+
+=== C: convert AND rename ===
+START  C MaterialSync.to_vray
+  ok   C MaterialSync.to_vray -> 27721
+START  C rename_plugin
+  ok   C rename_plugin -> true
+START  C import_material
+  ok   C import_material -> nil
+  C RESULT: valid?=true dictKeys=1 texture=nil
+
+END. Three throwaway materials were added - they get deleted later.

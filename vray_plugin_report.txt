@@ -1,0 +1,24 @@
+TIME 2026-09-15 12:56:22 -0700
+
+=========== 1. the plugin object ===============================
+   class -> NilClass
+   OK   methods -> "& =~ ^ rationalize to_a to_c to_f to_h to_i to_r |"
+   OK   plug.name -> nil
+   OK   plug.klass -> nil
+   OK   plug.type -> nil
+   OK   plug.scene -> nil
+   OK   plug.model -> nil
+   OK   plug.params -> nil
+
+=========== 2. its scene, and every plugin in it ===============
+   OK   plug.scene -> nil
+   OK   plug.context -> nil
+   OK   plug.container -> nil
+   OK   VRay::Scene instance methods -> "[] add_search_path apply_supported_enscape_settings change clear! clear_options_plugins create create_enscape_material_keyword create_enscape_material_serialized delete dump each explode_cosmos_asset fetch grep id import import_buffer import_plugins plugins_version relink_files rename_plugin subscribe unique_name unsubscribe"
+   OK   plug singleton -> ""
+
+=========== 3. reach the BRDF plugin by name ===================
+   OK   scene["/IP_VRAY_TEST/BRDFVRayMtl"] -> nil
+   OK   VRay::Material.find("/IP_VRAY_TEST/BRDFVRayMtl") -> nil
+   OK   plug["brdf"] -> nil
+   could not reach the BRDF plugin by any route above.

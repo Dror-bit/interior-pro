@@ -1,0 +1,1 @@
+18:10:13  wrote gloss=0.95, rough=0.05, use_rough=true, reflect=[1.0, 1.0, 1.0] onto Stucco

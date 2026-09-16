@@ -1,0 +1,12 @@
+==== 2026-09-15 20:53:43 -0700 ====
+file: true (108237 bytes)
+throwaway material: IP_VRMAT_PROBE_1789530823
+
+  import_material(mat, path) !! StandardError: Expected VRay::Scene but got String
+
+after the import:
+  VRay::Material.valid?(mat) -> false
+  no VRayPlugins dictionary on it
+  texture: nil
+
+END. The throwaway material is still in the model - delete it later.

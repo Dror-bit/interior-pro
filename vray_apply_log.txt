@@ -1,0 +1,29 @@
+==== 2026-09-15 13:07:53 -0700 ====
+13:07:53  material: Stucco
+13:07:53  START  valid? already
+13:07:53    ok   valid? already -> true
+13:07:53  START  Material.load
+13:07:53    ok   Material.load -> #<VRay::Material(124):0x68480>
+13:07:53  START  convert_to_vray
+13:07:53    ok   convert_to_vray -> #<VRay::Scene::Plugin:0x000001f7cd6a52e0>
+13:07:53  START  plug[:brdf]
+13:07:53    ok   plug[:brdf] -> #<VRay::Scene::Plugin:0x000001f7ccd5de08>
+13:07:53  brdf /Stucco/BRDFVRayMtl
+13:07:53  START  BEFORE reflect_glossiness
+13:07:53    ok   BEFORE reflect_glossiness -> 1.0
+13:07:53  START  BEFORE roughness
+13:07:53    ok   BEFORE roughness -> 0.0
+13:07:53  START  SET reflect_glossiness = 0.75
+13:07:53    ok   SET reflect_glossiness = 0.75 -> 0.75
+13:07:53  START  SET roughness = 0.15
+13:07:53    ok   SET roughness = 0.15 -> 0.15
+13:07:53  START  SET reflect = grey 0.35
+13:07:53    ok   SET reflect = grey 0.35 -> #<VRay::Color:0x000001f7ccd5c990>
+13:07:53  START  AFTER reflect_glossiness
+13:07:53    ok   AFTER reflect_glossiness -> 0.75
+13:07:53  START  AFTER roughness
+13:07:53    ok   AFTER roughness -> 0.15000000596046448
+13:07:53  START  commit
+13:07:53    ok   commit -> true
+13:07:53  DONE - now press V-Ray Render and look.
+13:08:02  END

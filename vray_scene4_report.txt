@@ -1,0 +1,61 @@
+==== 2026-09-15 20:58:05 -0700 ====
+
+--- Stucco
+  valid? true
+  VRayInfo class = "MtlSingleBRDF"
+  VRayInfo main_plugin = "/Stucco"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /Stucco (508 chars)
+  key /Stucco/BRDFVRayMtl (7237 chars)
+      reflect = "Color(0,0,0)"
+      reflect_glossiness = "1"
+      roughness = "0"
+      option_use_roughness = "1"
+      diffuse = "/Stucco/BRDFVRayMtl/SUDiffuse"
+  key /Stucco/BRDFVRayMtl/SUDiffuse (1178 chars)
+  key /Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer (717 chars)
+  key /Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel (600 chars)
+  key /Stucco/BRDFVRayMtl/opacity_custom_source (217 chars)
+
+--- IP_VRMAT_PROBE_1789530823
+  valid? true
+  VRayInfo class = "_HostMaterial"
+  VRayInfo main_plugin = "/IP_VRMAT_PROBE_1789530823"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /IP_VRMAT_PROBE_1789530823 (136 chars)
+
+--- IP_VRMAT_1789530955
+  valid? true
+  VRayInfo class = "_HostMaterial"
+  VRayInfo main_plugin = "/IP_VRMAT_1789530955"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /IP_VRMAT_1789530955 (130 chars)
+
+--- IP_VRMAT_A_1789531039
+  valid? true
+  VRayInfo class = "_HostMaterial"
+  VRayInfo main_plugin = "/IP_VRMAT_A_1789531039"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /IP_VRMAT_A_1789531039 (132 chars)
+
+--- IP_VRMAT_B_1789531039
+  valid? true
+  VRayInfo class = "_HostMaterial"
+  VRayInfo main_plugin = "/IP_VRMAT_B_1789531039"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /IP_VRMAT_B_1789531039 (132 chars)
+
+--- IP_VRMAT_C_1789531039
+  valid? true
+  VRayInfo class = "_HostMaterial"
+  VRayInfo main_plugin = "/IP_VRMAT_C_1789531039"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+  key /IP_VRMAT_C_1789531039 (132 chars)
+
+END.

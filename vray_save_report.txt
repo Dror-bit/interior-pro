@@ -1,0 +1,16 @@
+==== 2026-09-15 20:44:42 -0700 ====
+material: Stucco
+
+A. from the VRayPlugins dictionary (what save! uses today):
+   {"reflect_glossiness"=>1.0, "roughness"=>0.0, "option_use_roughness"=>1.0, "reflect"=>[0.0, 0.0, 0.0], "diffuse_is_texture"=>1}
+
+B. live, off the V-Ray plugin:
+   (convert_to_vray gave nil - trying find(main_plugin))
+   error = "no top plugin"
+
+DIFF  reflect_glossiness: dict=1.0  live=nil
+DIFF  roughness: dict=0.0  live=nil
+DIFF  option_use_roughness: dict=1.0  live=nil
+DIFF  reflect: dict=[0.0, 0.0, 0.0]  live=nil
+
+END - nothing was changed.

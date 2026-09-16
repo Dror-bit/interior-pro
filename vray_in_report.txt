@@ -1,0 +1,42 @@
+==== 2026-09-15 17:36:53 -0700 ====
+material: Stucco
+
+1. what VRay itself offers (module level)
+  VRay.methods -> "app_quit, check_dr_host, configure_renderer, dr2?, focus_sketchup, generate_random_pastel, get_compute_devices, get_installation_info, get_texture_dimensions, host_service=, hostapp_string, import_material, init, match_photo?, open_file_window, pump_message, reparent_window_handle, reparent_window_ ...
+  VRay.constants -> "AColor, API_VERSION, ARM, Agreements, AppObserver, AspectRatioManager, BaseObserver, BaseSerializer, BasicWidget, BatchExporter, Bitmask, CHAOS_GROUP_CACHE, CORE_VERSION, CORE_VERSION_DETAILS, CallbackHandler, CameraTools, ChaosAccountDialog, Clipper, Color, Command, ComputeDevice, Config, Containe ...
+
+2. VRay::Material class methods
+  Material.methods -> "each_potential, find, find_users, host_material?, load, resolve_model, translate, valid?"
+
+  Material.load(mat) -> #<VRay::Material(124):0x68960>
+
+3. the handle itself
+  vm.methods -> "convert_to_host, convert_to_vray, entity, export, host_material?, include?, info_dictionary, klass, main_plugin, model, plugins_dictionary, requires_preview_update?, type, update_preview"
+  vm.main_plugin -> "/Stucco"
+  vm.main_plugin.class -> "String"
+  vm.klass -> "MtlSingleBRDF"
+  vm.convert_to_vray (expected nil) -> nil
+
+4. ways to reach the plugin WITHOUT Context
+  vm.plugin -> nil
+  vm.plugins -> nil
+  vm.scene -> nil
+  vm.each_child -> ""
+  Material.find(mp) no context -> #<VRay::Material(124):0x69000>
+  Scene constants -> "ChangeSet, Plugin"
+  Scene methods -> "zip"
+  Scene::Plugin methods -> ""
+
+5. the dictionary V-Ray keeps on the material
+  key /Stucco  (508 chars)
+  key /Stucco/BRDFVRayMtl  (7237 chars)
+  key /Stucco/BRDFVRayMtl/SUDiffuse  (1187 chars)
+  key /Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer  (717 chars)
+  key /Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel  (600 chars)
+  key /Stucco/BRDFVRayMtl/opacity_custom_source  (199 chars)
+  VRayInfo class = "MtlSingleBRDF"
+  VRayInfo main_plugin = "/Stucco"
+  VRayInfo type = "material"
+  VRayInfo version = 74002
+
+END - nothing was changed.

@@ -1,0 +1,23 @@
+==== 2026-09-15 20:55:55 -0700 ====
+START  full instance method list
+  ok   full instance method list -> "[], add_search_path, apply_supported_enscape_settings, change, clear!, clear_options_plugins, create, create_enscape_material_keyword, create_enscape_material_serialized, delete, dump, each, explode_cosmos_asset, fetch, grep, id, import, import_buffer, import_plugins, plugins_version, relink_files, rename_plugin, subscribe, unique_name, unsubscribe"
+START  Scene.new
+  ok   Scene.new -> #<VRay::Scene:0x000001c52a832480>
+START  empty scene contents
+  ok   empty scene contents -> "0 plugins, first: []"
+START  sc.import(FILE)
+  ok   sc.import(FILE) -> #<VRay::Scene::Plugin:0x000001c52a8301f8>
+START  after import
+  ok   after import -> "6 plugins, first: [\"/Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel\", \"/Stucco/BRDFVRayMtl/SUDiffuse\", \"/Stucco/BRDFVRayMtl/opacity_custom_source\", \"/Stucco\", \"/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer\", \"/Stucco/BRDFVRayMtl\"]"
+
+throwaway material: IP_VRMAT_1789530955
+START  import_material(mat, scene)
+  ok   import_material(mat, scene) -> nil
+START  valid? after
+  ok   valid? after -> false
+START  texture after
+  ok   texture after -> nil
+START  VRayPlugins keys
+  ok   VRayPlugins keys -> "none"
+
+END.

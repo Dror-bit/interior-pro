@@ -1,0 +1,44 @@
+==== 2026-09-15 13:03:41 -0700 ====
+13:03:41  fresh material: IP_VRAY_T2621
+13:03:41  START  materials.add
+13:03:41    ok   materials.add -> #<Sketchup::Material:0x000001f7da6585c8>
+13:03:41  START  colour
+13:03:41    ok   colour -> #<Sketchup::Color:0x000001f7da658258>
+13:03:41  START  add_group
+13:03:41    ok   add_group -> #<Sketchup::Group:0x000001f7da657df8>
+13:03:41  START  add_face
+13:03:41    ok   add_face -> #<Sketchup::Face:0x000001f7da657998>
+13:03:41  START  paint the face
+13:03:41    ok   paint the face -> #<Sketchup::Material:0x000001f7da6585c8>
+13:03:41  START  MaterialSync.to_vray
+13:03:43    ok   MaterialSync.to_vray -> 30930
+13:03:43  START  Material.load
+13:03:43    ok   Material.load -> #<VRay::Material(35598):0x68440>
+13:03:43  START  convert_to_vray
+13:03:43    ok   convert_to_vray -> #<VRay::Scene::Plugin:0x000001f7d51465f8>
+13:03:44  plugin /IP_VRAY_T2621 type=MtlSingleBRDF
+13:03:44  START  each_child
+13:03:44    ok   each_child -> ["/IP_VRAY_T2621/BRDFVRayMtl(BRDFVRayMtl)"]
+13:03:44  START  plug[:brdf]
+13:03:44    ok   plug[:brdf] -> #<VRay::Scene::Plugin:0x000001f7aa8b8ff0>
+13:03:44  brdf /IP_VRAY_T2621/BRDFVRayMtl type=BRDFVRayMtl
+13:03:44  START  READ  brdf[:reflect]
+13:03:44    ok   READ  brdf[:reflect] -> #<VRay::Color:0x000001f7aa8b5ee0>
+13:03:44  START  READ  brdf[:reflect_glossiness]
+13:03:44    ok   READ  brdf[:reflect_glossiness] -> 1.0
+13:03:44  START  READ  brdf[:option_use_roughness]
+13:03:44    ok   READ  brdf[:option_use_roughness] -> true
+13:03:44  START  READ  brdf[:roughness]
+13:03:44    ok   READ  brdf[:roughness] -> 0.0
+13:03:44  START  READ  brdf[:diffuse]
+13:03:44    ok   READ  brdf[:diffuse] -> #<VRay::Color:0x000001f7aa865648>
+13:03:44  START  WRITE brdf[:reflect_glossiness] = 0.6
+13:03:44    ok   WRITE brdf[:reflect_glossiness] = 0.6 -> 0.6
+13:03:44  START  READ  it back
+13:03:44    ok   READ  it back -> 0.6000000238418579
+13:03:44  DONE - everything above survived
+13:03:44  START  abort_operation
+13:03:44    ok   abort_operation -> true
+13:03:44  START  remove the test material
+13:03:44    ok   remove the test material -> true
+13:03:44  END

@@ -179,6 +179,7 @@ module InteriorPro
       return UI.messagebox('סמן קודם פאה או קבוצה.') if faces.empty?
 
       model.start_operation('Interior Pro: apply material', true)
+      mat = nil
       begin
         mat = material_from_card(model, card)
         faces.each { |f| f.material = mat }
@@ -187,7 +188,22 @@ module InteriorPro
         model.abort_operation
         return UI.messagebox("נכשל: #{e.message}")
       end
-      UI.messagebox("#{card['name']} הוחל על #{faces.length} פאות.")
+
+      # The V-Ray numbers ride along, but OUTSIDE the operation on purpose:
+      # V-Ray gives no way to read them back (measured 2026-09-16), so the
+      # card is the source of truth - and a V-Ray failure must never roll
+      # back the paint he already saw. MaterialLibrary.LAST_TRACE says why
+      # when nothing landed, so it is never a silent skip.
+      vray_ok = (InteriorPro::MaterialLibrary.apply_vray_numbers!(mat, card['vray']) rescue false)
+      why = (InteriorPro::MaterialLibrary::LAST_TRACE.last.to_s rescue '')
+      line = if vray_ok
+               "\nמספרי V-Ray הוחלו."
+             elsif card['vray'].nil? || card['vray'].empty?
+               ''
+             else
+               "\nמספרי V-Ray לא הוחלו: #{why}"
+             end
+      UI.messagebox("#{card['name']} הוחל על #{faces.length} פאות.#{line}")
     end
 
     def self.faces_in_selection(model)

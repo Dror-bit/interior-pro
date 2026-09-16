@@ -1,0 +1,11 @@
+TIME 2026-09-15 12:52:24 -0700
+model: claud cold
+
+=========== 1. what each_potential actually hands us ============
+   OK   each_potential(model) - first 3 -> {:count=>298, :first3=>[["Sketchup::Model", "#<Sketchup::Model:0x0000021b53d33450>"], ["Sketchup::ComponentDefinition", "#<Sketchup::ComponentDefinition:0x0000021b0a3c7270>"], ["Sketchup::ComponentDefinition", "#<Sketchup::ComponentDefinition:0x0000021b0a3c7108>"]]}
+
+=========== 2. load() on a plain SketchUp material ==============
+   target material: "InteriorPro_Roof_shingle_584e4a"
+   valid?          -> false
+   host_material?  -> false
+   --   VRay::Material.load(target) : VRay::UserFriendlyError Failed to load special object:   #<Sketchup::Material:0x0000021b0a568598>:InteriorPro_Roof_shingle_584e4a

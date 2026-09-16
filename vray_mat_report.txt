@@ -1,0 +1,126 @@
+TIME 2026-09-15 12:18:03 -0700
+SketchUp 24.0.594
+model: claud cold
+
+=============== 1. every VRay constant (nothing cut off) ========
+   total: 186
+   AColor(Class)               API_VERSION(String)         ARM(FalseC)                 Agreements(Class)           
+   AppObserver(Class)          AspectRatioManager(Class)   BaseObserver(Class)         BaseSerializer(Class)       
+   BasicWidget(Class)          BatchExporter(Class)        Bitmask(Class)              CHAOS_GROUP_CACHE(String)   
+   CORE_VERSION(String)        CORE_VERSION_DETAILS(String)CallbackHandler(Class)      CameraTools(Module)         
+   ChaosAccountDialog(Class)   Clipper(Class)              Color(Class)                Command(Module)             
+   ComputeDevice(Module)       Config(Module)              Container(Class)            Context(Class)              
+   ContextActivator(Class)     ContextFactory(Class)       ControllableObject(Class)   CosmosDefinitionAsset(Class)
+   CylinderLight(Class)        DEFAULTS_NAME(String)       Decal(Class)                DefferedEntitiesObserver(Class)
+   DefinitionListHelper(Class) DefinitionObserver(Class)   DefinitionsObserver(Class)  DomeLight(Class)            
+   ENV(Module)                 EXTENSION_PATH(String)      Enmesh(Class)               EntitiesObserver(Class)     
+   EnvironmentTool(Class)      EnvironmentTranslator(Class)EnvironmentsObserver(Class) EnvisionLiveLink(Class)     
+   FileTools(Module)           Fur(Class)                  GUI(Module)                 Galaxy(Module)              
+   GeomDisplacedMesh(Class)    GeomGaussians(Class)        GeomMeshFile(Class)         GeomScatter(Class)          
+   GeomUtils(Module)           IESLight(Class)             INFO_DICTIONARY_NAME(String)INSTALL_PATH(String)        
+   Importers(Module)           InfinitePlane(Class)        InteractiveHandler(Class)   InteractiveObserver(Class)  
+   Legacy(Module)              Licensing(Module)           LightLuminaire(Class)       LightUtils(Module)          
+   LiveLink(Class)             Logger(Module)              Logging(Module)             Material(Class)             
+   MaterialSync(Class)         MaterialTranslate(Module)   MaterialsHelper(Class)      MaterialsObserver(Class)    
+   Matrix(Class)               MeshClipper(Class)          MeshLight(Class)            ModelExporter(Class)        
+   ModelObserver(Class)        NativeComponentDefinition(Class)NativeImageRep(Class)       NativeModel(Class)          
+   NativeOverlaysManager(Class)NativeView(Class)           NeUI(Module)                Notification(Module)        
+   OBJECT_PROPERTIES_DICTIONARY_NAME(String)OSX(FalseC)                 ObjectProperties(Module)    OmniLight(Class)            
+   Operation(Class)            Overlays(Class)             OverwriteWarningDialog(Class)PLUGINS_DICTIONARY_NAME(String)
+   PRODUCT_NAME(String)        PagesObserver(Class)        PeriodicThrottle(Class)     PersistentStorage(Class)    
+   PreviewGenerator(Module)    ProjectorOverlay(Class)     Proxy(Module)               RENDER_MODE_INTERACTIVE(Intege)
+   RENDER_MODE_INTERACTIVE_CUDA(Intege)RENDER_MODE_INTERACTIVE_HIP(Intege)RENDER_MODE_INTERACTIVE_OPTIX(Intege)RENDER_MODE_PRODUCTION(Intege)
+   RENDER_MODE_PRODUCTION_CUDA(Intege)RENDER_MODE_PRODUCTION_HIP(Intege)RENDER_MODE_PRODUCTION_OPTIX(Intege)RESOURCES_PATH(String)      
+   RectangleLight(Class)       RecursiveMessagePumpingError(Class)RefReactor(Class)           RefResolver(Class)          
+   Refinements(Module)         RenderOverlay(Class)        RenderSession(Class)        RenderSessionBatch(Class)   
+   RenderSessionExport(Class)  RenderSessionInteractive(Class)RenderSessionLiveLink(Class)RenderSessionProduction(Class)
+   RenderSessionViewport(Class)RendererSubscriber(Class)   SKETCHUP_VERSION(Intege)    SKETCHUP_VERSION_BUILD(Intege)
+   SKETCHUP_VERSION_MAJOR(Intege)SKETCHUP_VERSION_MINOR(Intege)SLASH(String)               SafeSize(Module)            
+   Scatter(Module)             Scene(Class)                SceneLoader(Class)          ScenePreview(Class)         
+   SecureRandom(Module)        SelectionObserver(Class)    Settings(Class)             SketchUpToVRayMaterialSyncer(Class)
+   SketchupEntitlements(Module)SketchupToVRayMaterialTranslator(Class)SpecialObject(Class)        SpecialObjectPreview(Class) 
+   SphereLight(Class)          SpotLight(Class)            StringTools(Module)         SunHelper(Module)           
+   SyncableThrottle(Class)     Telemetry(Class)            TextureHelper(Class)        TextureSimulator(Class)     
+   Throttle(Class)             ToolbarRefresher(Class)     Tools(Module)               ToolsObserver(Class)        
+   Transform(Class)            Translator(Module)          ULAClient(Module)           UVTextureSampler(Class)     
+   UpdateManager(Module)       Upgrader(Class)             UserAbortError(Class)       UserFriendlyError(Class)    
+   Util(Module)                VERSION(Intege)             VERSION_FULL(String)        VFBState(Module)            
+   VFB_PRESETS_PATH(String)    VRAY_DEV(FalseC)            VRAY_INIT(VRay::)           VRMeshBuilder(Class)        
+   VRMeshPreview(Class)        VRSceneBuilder(Class)       VRay3Upgrader(Class)        VRayImage(Class)            
+   VRayInit(Class)             VRayRenderer(Class)         VRayRendererOverlay(Class)  VRayScene(Class)            
+   VRayToSketchUpMaterialSyncer(Class)VRayToSketchupMaterialTranslator(Class)VantageLiveLink(Class)      Vector(Class)               
+   VisionLiveLink(Class)       WINDOWS(TrueCl)             WITH_NATIVE_OVERLAY(TrueCl) WITH_VPP(TrueCl)            
+   WindowManager(Module)       WrapperWidget(Class)        
+
+=============== 2. the material side of the API =================
+
+-- VRay::Material --
+   module/class methods (9):
+      allocate  each_potential  find  find_users
+      host_material?  load  resolve_model  translate
+      valid?
+   instance methods (14):
+      convert_to_host  convert_to_vray  entity  export
+      host_material?  include?  info_dictionary  klass
+      main_plugin  model  plugins_dictionary  requires_preview_update?
+      type  update_preview
+
+-- VRay::MaterialsHelper --
+   module/class methods (8):
+      allocate  ensure_unique_names  find_skp_material  find_skp_material_by_id
+      perform_sanity_check  remove  rename  used?
+   instance methods (0):
+
+-- VRay::MaterialSync --
+   module/class methods (5):
+      allocate  convert_to_vray  to_sketchup  to_vray
+      trigger_sanity_check
+   instance methods (0):
+
+-- VRay::MaterialTranslate --
+   module/class methods (7):
+      binding_info  find_brdf  find_color_slot  find_opacity_slot
+      find_texture_slot  get_binding_options  get_brdfs
+
+-- VRay::MaterialsObserver --
+   module/class methods (1):
+      allocate
+   instance methods (10):
+      disable!  disabled?  onMaterialAdd  onMaterialChange
+      onMaterialRemove  onMaterialSetCurrent  onMaterialUndoRedo  on_asset_selected
+      update_cache  without
+
+=============== 3. read-only calls, actually CALLED =============
+(the first report listed these as "found, not called")
+   get_installation_info -> {:installation_href=>"C:/Program Files/Chaos/V-Ray/V-Ray for SketchUp/extension", :vray_lib_href=>"C:\\Program Files\\Chaos\\V-Ray\\V-Ray for SketchUp\\extension\\vray\\bin\\vray.dll", :vray_sdk_href=>"C:\\Program Files\\Chaos\\V-Ray\\V-Ray for SketchUp\\extension\\vray\\bin\\VRaySDKLibrary.dll", :cgauth_lib_href=>"C:\\Program Files\\Chaos\\V-Ray\\V-Ray for SketchUp\\extension\\vray\\bin\\cgauth.d ...
+   hostapp_string -> "V-Ray 7.40.02 for SketchUp Pro 2024 2e5807af1c2262f8fbc8b15d62668fff03b4e0b1"
+   !! get_compute_devices: ArgumentError wrong number of arguments (given 0, expected 2)
+   dr2? -> true
+   !! match_photo?: ArgumentError wrong number of arguments (given 0, expected 1)
+
+=============== 4. what V-Ray writes ON a material ==============
+The name-free handle step 1 needs. Dumped from every material that
+already carries a V-Ray dictionary in THIS model.
+
+   material: wood2   (dicts: VRayInfo, VRayPlugins, Enscape.Material, InteriorPro_Material)
+     [VRayInfo]
+        class = "MtlSingleBRDF"
+        main_plugin = "/wood"
+        type = "material"
+        version = 40002
+     [VRayPlugins]
+        /wood = "{\"name\":\"/wood\",\"class\":\"MtlSingleBRDF\",\"type\":\"material\",\"version\":13,\"params\":{\"allow_negative_colors\":\"0\",\"brdf\":\"/wood/MaterialID\",\"double_sided\":\"1\",\"filter\":\"Color(1,1,1)\"},\"userData\":{\"bind_all_on\":\"1\",\"bind_color_on\":\"1\",\"bind_opacity_on\":\"1\",\" ...
+        /wood/Base = "{\"name\":\"/wood/Base\",\"class\":\"BRDFLayered\",\"type\":\"BRDF\",\"version\":13,\"params\":{\"additive_mode\":\"0\",\"brdfs\":\"List(/wood/Base/V-Ray BRDF)\",\"channels\":\"\",\"transparency\":\"Color(0, 0, 0)\",\"transparency_tex\":\"\",\"transparency_tex_mult\":\"1\",\"weights\":\"List(1)\"}, ...
+        /wood/Base/V-Ray BRDF = "{\"name\":\"/wood/Base/V-Ray BRDF\",\"class\":\"BRDFVRayMtl\",\"type\":\"BRDF\",\"version\":13,\"params\":{\"anisotropy\":\"0\",\"anisotropy_axis\":\"2\",\"anisotropy_derivation\":\"0\",\"anisotropy_rotation\":\"0\",\"anisotropy_uvwgen\":\"\",\"brdf_type\":\"4\",\"diffuse\":\"/wood/Base/V-Ray BRDF/ ...
+        /wood/Base/V-Ray BRDF/TexBitmap = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap\",\"class\":\"TexBitmap\",\"type\":\"texture\",\"version\":13,\"params\":{\"alpha_from_intensity\":\"0\",\"alpha_mult\":\"1\",\"alpha_offset\":\"0\",\"bitmap\":\"/wood/Base/V-Ray BRDF/TexBitmap/BitmapBuffer\",\"color\":\"\",\"color_mult\":\"Color(1,1,1)\" ...
+        /wood/Base/V-Ray BRDF/TexBitmap/BitmapBuffer = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap/BitmapBuffer\",\"class\":\"BitmapBuffer\",\"type\":\"bitmap\",\"version\":13,\"params\":{\"allow_negative_colors\":\"0\",\"color_space\":\"2\",\"file\":\"D:\\\\Calismalar\\\\Texture\\\\Ahsap\\\\0b4418fcb8dbb8e570b17509310e3521.jpg\",\"filter_blur\":\"0.15 ...
+        /wood/Base/V-Ray BRDF/TexBitmap/UVWGenChannel = "{\"name\":\"/wood/Base/V-Ray BRDF/TexBitmap/UVWGenChannel\",\"class\":\"UVWGenChannel\",\"type\":\"uvw\",\"version\":13,\"params\":{\"coverage\":\"Vector(1,1,1)\",\"crop_u\":\"0\",\"crop_v\":\"0\",\"crop_w\":\"0\",\"duvw_scale\":\"1\",\"nsamples\":\"0\",\"tex_transform\":\"Transform(Matrix(Vector(1 ...
+        /wood/Base/V-Ray BRDF/opacity_custom_source = "{\"name\":\"/wood/Base/V-Ray BRDF/opacity_custom_source\",\"class\":\"TexAColorChannel\",\"type\":\"texture\",\"version\":13,\"params\":{\"color_a\":\"/wood/Base/V-Ray BRDF/TexBitmap\",\"mode\":\"3\"},\"userData\":{\"auto_gen\":\"1\"}}"
+        /wood/Bump = "{\"name\":\"/wood/Bump\",\"class\":\"BRDFBump\",\"type\":\"BRDF\",\"version\":13,\"params\":{\"additional_bump\":\"\",\"base_brdf\":\"\",\"bump_delta_scale\":\"1\",\"bump_map_mult\":\"1\",\"bump_shadows\":\"0\",\"bump_tex\":\"\",\"bump_tex_color\":\"Color(0.5,0.5,0.5)\",\"bump_tex_float\":\"\",\"bu ...
+        /wood/Displacement = "{\"name\":\"/wood/Displacement\",\"class\":\"GeomDisplacedMesh\",\"type\":\"geometry\",\"version\":13,\"params\":{\"cache_normals\":\"0\",\"displace_2d\":\"0\",\"displace_2d_multi_tile\":\"0\",\"displace_2d_transform\":\"Transform(Matrix(Vector(1,0,0),Vector(0,1,0),Vector(0,0,1)),Vector(0,0,0))\",\ ...
+        /wood/MaterialID = "{\"name\":\"/wood/MaterialID\",\"class\":\"MtlMaterialID\",\"type\":\"material\",\"version\":13,\"params\":{\"base_mtl\":\"/wood/Base\",\"material_id_color\":\"Color(0.789331, 0.458449, 0.0510269)\",\"material_id_number\":\"0\"},\"userData\":{\"effected_by_mtl_override\":\"1\",\"swatch_type\":\"gen ...
+        /wood/RenderStats = "{\"name\":\"/wood/RenderStats\",\"class\":\"MtlRenderStats\",\"type\":\"material\",\"version\":13,\"params\":{\"base_mtl\":\"\",\"camera_visibility\":\"1\",\"gi_visibility\":\"1\",\"reflections_visibility\":\"1\",\"refractions_visibility\":\"1\",\"shadows_receive\":\"1\",\"shadows_visibility\":\"1\ ...
+
+=============== 5. V-Ray dictionaries elsewhere =================
+   on the MODEL: GeoReference, temp, InteriorPro, GSU_ContributorsInfo, medeek_wall, medeek_truss
+   (no V-Ray dictionary on the model)

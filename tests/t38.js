@@ -38,7 +38,7 @@ const ESC = JS.slice(at, end + 1);
 // Run it with everything around it faked, and report where it went.
 function press(state) {
   const s = Object.assign({
-    guideMode: false, rotOp: null, moveOp: null, offOp: null,
+    guideMode: false, originMode: false, rotOp: null, moveOp: null, offOp: null,
     ghostCopy: null, ghostOpen: null, dimPlace: null,
     typed: '', drawing: false, curLine: null, dragEnd: null,
     arcPts: [], circC: null, measA: null,
@@ -48,6 +48,7 @@ function press(state) {
   const fn = new Function('ev', 'S', 'did', `
     with (S) {
       var toggleGuideMode = function(){ did.push('guide off'); };
+      var toggleOriginMode = function(){ did.push('origin off'); };
       var rotCancel = function(){ did.push('rotate cancelled'); };
       var moveCancel = function(){ did.push('move cancelled'); };
       var offCancel = function(){ did.push('offset cancelled'); };
@@ -140,5 +141,11 @@ ok('and the default shape is still set up for when he wants it',
 ok('the Select button is still there', JS.includes("document.getElementById('modeSel')"));
 ok('and the S shortcut still works', /ev\.code === 'KeyS'[\s\S]{0,80}mk = 'sel'/.test(JS));
 
+// The origin tool (2026-09-23) is a half-done state like the guide tool, so
+// Escape puts it down first and does not fall through to Select.
+went({ originMode: true }, 'origin off', 'Escape leaves the origin tool first');
+didNot({ originMode: true }, 'mode sel', 'and does not skip straight to Select');
+
 console.log(fails ? `\n*** ${fails} FAILED ***` : '\nALL PASS');
+
 process.exit(fails ? 1 : 0);

@@ -1,0 +1,21 @@
+==== 2026-09-15 17:43:02 -0700 ====
+material: Stucco
+key: /Stucco/BRDFVRayMtl
+backup written (7250 chars) -> vray_dict_backup.json
+
+BEFORE:
+  reflect_glossiness = "0.6"  (String)
+  roughness = "0"  (String)
+  option_use_roughness = "1"  (String)
+  reflect = "Color(0.35, 0.35, 0.35)"  (String)
+
+params has 118 keys
+first 30 keys: anisotropy, anisotropy_axis, anisotropy_derivation, anisotropy_rotation, anisotropy_uvwgen, brdf_type, bump_amount, bump_map, bump_type, channels, coat_amount, coat_anisotropy, coat_anisotropy_rotation, coat_bump_amount, coat_bump_lock, coat_bump_map, coat_bump_type, coat_color, coat_darkening, coat_glossiness, coat_ior, compensate_camera_exposure, diffuse, dispersion, dispersion_on, environment_override, environment_priority, fog_bias, fog_color, fog_color_tex
+
+WROTE reflect_glossiness=0.6, reflect=Color(1,1,1)
+
+AFTER (read back off the material):
+  reflect_glossiness = "0.6"
+  reflect = "Color(1,1,1)"
+
+END. Now open the V-Ray Asset Editor and look at Stucco.

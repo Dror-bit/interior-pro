@@ -1,0 +1,49 @@
+==== 2026-09-15 21:30:49 -0700 ====
+material: Stucco
+START  Material.load
+  ok   Material.load -> #<VRay::Material(124):0x69520>
+START  vm.main_plugin
+  ok   vm.main_plugin -> "/Stucco"
+START  Context.singleton_methods
+  ok   Context.singleton_methods -> "active, fetch, handle_error, instances, subscribe, unsubscribe, yaml_tag"
+START  VRay::Context.active
+  ok   VRay::Context.active -> #<VRay::Context:0x000001c532d97260>
+START  ctx methods
+  ok   ctx methods -> "activate, activation_guid, deactivate, delete, end_session, model, overlays, propagate_event, ref_cache, renderer, scene, session, start_session, subscribe, unsubscribe"
+START  ctx.scene
+  ok   ctx.scene -> #<VRay::Scene:0x000001c5369adf60>
+START  scene.class
+  ok   scene.class -> "VRay::Scene"
+START  scene plugin count
+  ok   scene plugin count -> 162
+START  scene['/Stucco']
+  ok   scene['/Stucco'] -> #<VRay::Scene::Plugin:0x000001c54adb6968>
+START  m[:brdf]
+  ok   m[:brdf] -> #<VRay::Scene::Plugin:0x000001c54adb6760>
+START  BEFORE reflect
+  ok   BEFORE reflect -> #<VRay::Color:0x000001c54adb6580>
+START  BEFORE fresnel
+  ok   BEFORE fresnel -> true
+START  BEFORE roughness
+  ok   BEFORE roughness -> 0.0
+START  BEFORE option_use_roughness
+  ok   BEFORE option_use_roughness -> true
+START  scene.change { m[:brdf][...] fetched INSIDE }
+    block arg: NilClass &, =~, ^, rationalize, to_a, to_c, to_f, to_h, to_i, to_r, |
+    inside block, read back: 0.05000000074505806
+  ok   scene.change { m[:brdf][...] fetched INSIDE } -> nil
+START  AFTER reflect_glossiness (old handle)
+  ok   AFTER reflect_glossiness (old handle) -> 1.0
+START  AFTER reflect_glossiness (fresh handle)
+  ok   AFTER reflect_glossiness (fresh handle) -> 1.0
+START  AFTER fresnel (fresh handle)
+  ok   AFTER fresnel (fresh handle) -> false
+START  AFTER reflect
+  ok   AFTER reflect -> #<VRay::Color:0x000001c543c77590>
+START  AFTER fresnel
+  ok   AFTER fresnel -> false
+START  AFTER roughness
+  ok   AFTER roughness -> 0.0
+START  AFTER, re-fetched from scene
+  ok   AFTER, re-fetched from scene -> 0.0
+END - now press Render.

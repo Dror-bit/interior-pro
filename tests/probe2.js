@@ -1,0 +1,16 @@
+const api = require('./run.js');
+const g=(n)=>api.get(n), c=(n,...a)=>api.call(n,...a), s=(n,v)=>api.set(n,v);
+const K = global.__listeners.__win.keydown[0];
+const key = (k) => K({ key: k, target: { tagName: 'CANVAS' }, preventDefault(){} });
+s('walls', [{ id:'h1', sx:0, sy:0, ex:240, ey:0, th:5, ha:'left', cat:'exterior', ops:[] }]);
+s('pending', []); s('anchors', {}); s('selList', []);
+console.log('USE_FLOOR_ANCHOR', g('USE_FLOOR_ANCHOR'), 'mode', g('mode'));
+c('toggleOriginMode');
+console.log('originMode', g('originMode'));
+c('originClick', { x: 0, y: 0 });
+console.log('originPick', JSON.stringify(g('originPick')), 'typed', JSON.stringify(g('typed')));
+key('1');
+console.log('after "1": typed', JSON.stringify(g('typed')));
+key('Enter');
+console.log('after Enter: anchors', JSON.stringify(g('anchors')), 'originMode', g('originMode'));
+process.exit(0);
