@@ -1,0 +1,4 @@
+==== 2026-09-16 15:33:22 -0700 ====
+material: Stucco  before: 1.0
+after: bump_amount=0.20000000298023224 twin=0.20000000298023224
+END

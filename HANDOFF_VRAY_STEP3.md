@@ -78,9 +78,46 @@ end
 3. ייבוא `.vrmat` לתוך ה-scene החי (`scene.import` / `import_buffer` /
    `import_plugins` — קיימים ב-scene methods, לא נמדדו).
 
+
+## סעיף 1.5 נסגר — מפת bump מגיעה לרינדור (15:28–15:35)
+
+- **Diffuse מגיע לבד.** V-Ray מסנכרן את הטקסטורה של סקצ'אפ בעצמו:
+  `brdf[:diffuse]` → `TexBitmap "/Stucco/BRDFVRayMtl/SUDiffuse"` →
+  `[:bitmap]` → `BitmapBuffer[:file] = ".../textures/stucco.jpg"` →
+  `[:uvwgen]` → `UVWGenChannel` (`vray_tex_report.txt`). לא צריך לעשות כלום
+  בשביל התמונה הראשית.
+- **מפה נוספת (bump) — המתכון שעבד** (`debug_vray_bump.rb`,
+  `vray_bump_report.txt`, רינדור אישר בליטות):
+  ```ruby
+  scene.change { buf = scene[buf_name].duplicate }      # BitmapBuffer#1
+  scene.change { buf[:file] = 'C:/.../maps/stucco_bump.jpg' }
+  scene.change { tex = scene[diff_name].duplicate }     # SUDiffuse#1 (TexBitmap)
+  scene.change { tex[:bitmap] = buf; tex[:uvwgen] = scene[diff_name][:uvwgen] }
+  scene.change { b = m[:brdf]; b[:bump_map_tex] = tex; b[:bump_map_tex_on] = true
+                 b[:bump_amount_float] = 0.2; b[:bump_type] = 0 }
+  ```
+  `Plugin#duplicate` בלי ארגומנטים נותן `<שם>#1`. `scene.create` קיים
+  (arity -1) אבל לא נמדד — לא היה צריך. ה-uvwgen משותף עם ה-diffuse, אז
+  קנה המידה זהה לטקסטורה.
+- `bump_amount_float` 1.0 = גס ומכוער (הוא ראה); **0.2 = "נראה יותר טוב"**
+  (`debug_vray_bump_amount.rb`). זה המספר שקלוד יכוון.
+- המפה `maps/stucco_bump.jpg` בתיקיית החומרים היא שחור-לבן מהתמונה עצמה
+  (PIL, autocontrast) — תחליף עד שיהיו מפות PBR אמיתיות.
+- ב-VRAY_POC_PLAN שלב 1 סגורים עכשיו 1–5. נשארו 6 (הגדרות סצנה),
+  7 (Render מהתוסף — הוא שאל למה; התשובה: כדי שקלוד יוכל להריץ לבד בהמשך),
+  8 (שרידות לשינויים במודל).
+
+## הצעד הבא המוצע
+
+להכניס את ה-bump לכרטיס בספרייה (`bump_file`, `bump_amount`) ול-
+`apply_vray_numbers!` — שקליק על כרטיס יעשה את כל זה לבד, כמו המספרים.
+
 ## קבצי מדידה מהיום
 
 - `debug_vray_pick.rb` — מה מסומן (פעמיים היה 0 — צריך כלי חץ + קליק).
 - `debug_vray_float.rb` — כפתור-כפתור: float חוזר, int נשאר.
 - `debug_vray_userdata.rb` — **הטוב**: כותב לתאומים, נשאר.
 - `debug_vray_after_render.rb` — קריאה בלבד אחרי רינדור (לא הורץ).
+- `debug_vray_tex.rb` — קריאה בלבד: איך V-Ray מחזיק את התמונה.
+- `debug_vray_bump.rb` — **הטוב**: מצמיד bump דרך duplicate.
+- `debug_vray_bump_amount.rb` — כפתור אחד: עוצמת bump.
