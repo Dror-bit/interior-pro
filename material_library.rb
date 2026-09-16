@@ -226,20 +226,90 @@ module InteriorPro
     end
 
     # ---- WRITING the card's V-Ray numbers onto a material ------------
-    # THE CARD IS THE SOURCE OF TRUTH (measured 2026-09-16). V-Ray gives
-    # NO way to read the current numbers back: convert_to_vray answers nil
-    # on a material it already owns, find(main_plugin) gives no top plugin,
-    # and the VRayPlugins dictionary is written once at conversion time and
-    # never refreshed - it still said 1.0 after the number was changed in
-    # V-Ray's own Asset Editor (vray_save_report.txt). So we stopped trying
-    # to learn numbers from V-Ray and write them TO it instead.
+    # THE CARD IS THE SOURCE OF TRUTH. And the write goes to the LIVE scene
+    # (HANDOFF_VRAY_STEP3.md, 2026-09-16 - the first path a render showed):
     #
-    # The write path itself is the one proven in debug_vray_apply.rb on
-    # 2026-09-15. It never touches VRay::Context - that crashes SketchUp.
+    #   scene = VRay::Context.active.scene
+    #   m     = scene[main_plugin]
+    #   scene.change { b = m[:brdf]; b[:reflect_glossiness_float] = 0.05 }
+    #
+    # Three laws, each one measured:
+    #  1. SYMBOLS ONLY inside scene.change. A string key crashes SketchUp.
+    #  2. Every knob that can take a texture has a userdata TWIN
+    #     (reflect_glossiness_float, roughness_float, reflect_color ...).
+    #     V-Ray rebuilds the real param FROM the twin after every commit, so
+    #     writing the real param is undone one step later. Write the twin.
+    #     A knob without a twin (fresnel, option_use_roughness) is written
+    #     straight. `m[:brdf].dump` shows the userdata section.
+    #  3. m[:brdf] is fetched INSIDE the block.
+    #
+    # The old convert_to_vray path stuck to a handle outside the live scene
+    # and never reached the renderer (HANDOFF_VRAY_STEP2.md).
     #
     # Call this AFTER commit_operation, never inside one: a V-Ray failure
     # must not be able to roll back the paint the user already saw.
     # Returns true only if a number actually landed.
+    def self.apply_vray_numbers!(mat, nums)
+      LAST_TRACE.clear
+      return trace(false, 'kill switch off') unless USE_MATERIAL_LIBRARY
+      return trace(false, 'no material') if mat.nil?
+      return trace(false, 'card has no vray numbers') if nums.nil? || nums.empty?
+      return trace(false, 'VRay not loaded') unless Object.const_defined?(:VRay)
+
+      unless (VRay::Material.valid?(mat) rescue false)
+        # a plain SketchUp material must be handed to V-Ray first
+        (VRay::MaterialSync.to_vray(mat) rescue nil)
+      end
+      vm = (VRay::Material.load(mat) rescue nil)
+      return trace(false, 'Material.load gave nil') if vm.nil?
+      path = (vm.main_plugin rescue nil)
+      return trace(false, 'no main_plugin') if path.nil?
+
+      ctx = (VRay::Context.active rescue nil)
+      return trace(false, 'no active V-Ray context') if ctx.nil?
+      scene = (ctx.scene rescue nil)
+      return trace(false, 'no live scene') if scene.nil?
+      m = (scene[path] rescue nil)
+      return trace(false, "#{path} not in the live scene") if m.nil?
+
+      g = num(nums['reflect_glossiness'])
+      r = num(nums['roughness'])
+      u = nums['option_use_roughness']
+      c = nums['reflect']
+      c = nil unless c.is_a?(Array) && c.length >= 3
+      return trace(false, 'card had no usable number') if g.nil? && r.nil? && u.nil? && c.nil?
+
+      wrote = []
+      scene.change do
+        b = m[:brdf]                       # inside the block, always
+        raise 'no brdf on live plugin' if b.nil?
+        unless g.nil?
+          b[:reflect_glossiness_float] = g
+          wrote << "gloss=#{g}"
+        end
+        unless r.nil?
+          b[:roughness_float] = r
+          wrote << "rough=#{r}"
+        end
+        unless u.nil?
+          b[:option_use_roughness] = (num(u).to_f > 0.5)
+          wrote << "use_rough=#{num(u).to_f > 0.5}"
+        end
+        unless c.nil?
+          b[:reflect_color] = VRay::Color.new(c[0].to_f, c[1].to_f, c[2].to_f)
+          wrote << "reflect=#{c[0, 3].inspect}"
+        end
+      end
+
+      # read back through a FRESH handle - the proof, not the intent
+      back = (scene[path][:brdf][:reflect_glossiness] rescue nil)
+      trace(true, "wrote #{wrote.join(', ')} onto #{mat.display_name} via scene.change; reflect_glossiness reads back #{back.inspect}")
+    rescue StandardError => e
+      trace(false, "#{e.class}: #{e.message}")
+    end
+
+    # LEGACY (unused since 2026-09-16): the convert_to_vray handle. Kept
+    # only so nothing else breaks; the live write above is the way.
     # Hands back the top V-Ray plugin for a material, or nil. Converting is
     # what creates it: on a material V-Ray already owns, convert_to_vray
     # answers nil and Material.find(main_plugin) gives back another Material,
@@ -275,61 +345,6 @@ module InteriorPro
       true
     rescue StandardError => e
       trace(false, "forget_vray!: #{e.class} #{e.message}")
-    end
-
-    def self.apply_vray_numbers!(mat, nums)
-      LAST_TRACE.clear
-      return trace(false, 'kill switch off') unless USE_MATERIAL_LIBRARY
-      return trace(false, 'no material') if mat.nil?
-      return trace(false, 'card has no vray numbers') if nums.nil? || nums.empty?
-      return trace(false, 'VRay not loaded') unless Object.const_defined?(:VRay)
-
-      plug = reach_brdf_owner(mat)
-      if plug.nil?
-        # SECOND TRY - the one that makes this work at all. A material V-Ray
-        # already owns hands back no plugin, and writing into its VRayPlugins
-        # JSON does nothing: V-Ray ignored it completely (measured 2026-09-16,
-        # Reflection Color stayed black in its own Asset Editor). But V-Ray's
-        # claim on a material lives in exactly two attribute dictionaries on
-        # the SketchUp material. Drop them and it is a plain material again,
-        # which converts - and converting is the only path that writes.
-        forget_vray!(mat)
-        plug = reach_brdf_owner(mat)
-      end
-      return trace(false, 'no top plugin - V-Ray already owns this material') if plug.nil?
-
-      brdf = (plug[:brdf] rescue nil)   # SYMBOL, never a string - a string raises TypeError
-      if brdf.nil?
-        plug.each_child { |c| brdf = c if c.respond_to?(:type) && c.type == :BRDFVRayMtl }
-      end
-      return trace(false, 'no BRDFVRayMtl under the plugin') if brdf.nil?
-
-      wrote = []
-      g = num(nums['reflect_glossiness'])
-      if g
-        brdf[:reflect_glossiness] = g rescue nil
-        wrote << "gloss=#{g}"
-      end
-      r = num(nums['roughness'])
-      if r
-        brdf[:roughness] = r rescue nil
-        wrote << "rough=#{r}"
-      end
-      u = nums['option_use_roughness']
-      unless u.nil?
-        brdf[:option_use_roughness] = (num(u).to_f > 0.5) rescue nil
-        wrote << "use_rough=#{num(u).to_f > 0.5}"
-      end
-      c = nums['reflect']
-      if c.is_a?(Array) && c.length >= 3
-        brdf[:reflect] = VRay::Color.new(c[0].to_f, c[1].to_f, c[2].to_f) rescue nil
-        wrote << "reflect=#{c[0, 3].inspect}"
-      end
-
-      return trace(false, 'card had no usable number') if wrote.empty?
-      trace(true, "wrote #{wrote.join(', ')} onto #{mat.display_name}")
-    rescue StandardError => e
-      trace(false, "#{e.class}: #{e.message}")
     end
 
     # ---- saving one material into the library ------------------------
