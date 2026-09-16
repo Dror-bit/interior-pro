@@ -50,13 +50,33 @@ end
   איך יודעים: `m[:brdf].dump` ולחפש ב-`userdata`.
 - `m[:brdf]` נלקח **בתוך** הבלוק.
 
+## נסגר גם דרך המסלול האמיתי (15:09, commit 1ec206b)
+
+`material_library.rb` → `apply_vray_numbers!` נכתב מחדש: `Context.active.scene`,
+`scene.change`, כתיבה לתאומים (`reflect_glossiness_float`, `roughness_float`,
+`reflect_color`), `option_use_roughness` ישר. קריאה חוזרת בידית טרייה נכתבת
+ללוג (`material_library_log.txt`: "reads back 0.05"). הכרטיס `IP_MAT_0019`
+(Stucco) שונה מ-0.95 ל-**0.05** (גיבוי `.bak_vray3` בתיקיית החומרים).
+ספרייה → קליק על הכרטיס → Render: **כל קירות ה-Stucco יצאו מראה.**
+
+זה נכון: המספרים יושבים על החומר, לא על הפאה. `material_from_card` מוצא
+את החומר הקיים לפי ה-id של הכרטיס (`MaterialIds.find`), אז כל מי שכבר
+לובש Stucco משתנה יחד. **המשתמש אישר שזה מה שהוא רוצה** ("כמו לומיון:
+אני קובע חומר פעם אחת ו-V-Ray מרנדר אותו"). לא לפתוח מחדש.
+
+`reach_brdf_owner` / `forget_vray!` נשארו בקובץ כ-LEGACY, לא בשימוש.
+`tests/run_all.sh` לא נוגע ב-`material_library.rb` בכלל (רק `ruby -c` עבר).
+
 ## הצעד הבא
 
-1. `material_library.rb` → `apply_vray_numbers!` כותב היום דרך
-   `convert_to_vray` (לא מגיע לרינדור). להחליף לקוד למעלה, מאחורי
-   `USE_MATERIAL_LIBRARY`. צעד קטן, ואז רינדור.
-2. ייבוא `.vrmat` לתוך ה-scene החי (`scene.import`? יש ב-scene methods:
-   `import, import_buffer, import_plugins`) — עדיין לא נמדד.
+ב-`VRAY_POC_PLAN.md` שלב 1 סעיפים 1–4 סגורים (מזהה על החומר, מציאה,
+שינוי reflection/roughness מהתוסף). נשארו: 5 מפת טקסטורה/PBR,
+6 הגדרות סצנה, 7 רינדור מהתוסף, 8 שרידות לשינויים במודל.
+
+1. `fresnel` לא בכרטיס עדיין — למראה אמיתית צריך `fresnel = false`
+   (בלי תאום, נכתב ישר). להוסיף לכרטיס ול-`apply_vray_numbers!`.
+3. ייבוא `.vrmat` לתוך ה-scene החי (`scene.import` / `import_buffer` /
+   `import_plugins` — קיימים ב-scene methods, לא נמדדו).
 
 ## קבצי מדידה מהיום
 
