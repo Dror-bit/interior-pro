@@ -1,0 +1,42 @@
+==== 2026-09-16 14:58:17 -0700 ====
+material: IP_FRESH_1789531182
+START  Material.load
+  ok   Material.load -> #<VRay::Material(650):0x68520>
+START  vm.main_plugin
+  ok   vm.main_plugin -> "/IP_FRESH_1789531182"
+START  Context.active.scene
+  ok   Context.active.scene -> #<VRay::Scene:0x0000018501b58470>
+START  scene['/IP_FRESH_1789531182']
+  ok   scene['/IP_FRESH_1789531182'] -> #<VRay::Scene::Plugin:0x0000018510c25e20>
+START  READ twin reflect_glossiness_float
+  ok   READ twin reflect_glossiness_float -> 1.0
+START  READ twin reflect_glossiness_tex_on
+  ok   READ twin reflect_glossiness_tex_on -> true
+START  READ twin reflect_glossiness_tex
+  ok   READ twin reflect_glossiness_tex -> nil
+START  READ twin reflect_color
+  ok   READ twin reflect_color -> "[0.0, 0.0, 0.0]"
+START  READ real reflect_glossiness
+  ok   READ real reflect_glossiness -> 1.0
+START  READ real reflect
+  ok   READ real reflect -> "[0.0, 0.0, 0.0]"
+START  CHANGE twins: reflect_glossiness_float=0.05, reflect_color=white
+    inside: twin=0.05000000074505806 real=1.0
+  ok   CHANGE twins: reflect_glossiness_float=0.05, reflect_color=white -> nil
+START  AFTER twin reflect_glossiness_float
+  ok   AFTER twin reflect_glossiness_float -> 0.05000000074505806
+START  AFTER real reflect_glossiness
+  ok   AFTER real reflect_glossiness -> 0.05000000074505806
+START  AFTER twin reflect_color
+  ok   AFTER twin reflect_color -> "[1.0, 1.0, 1.0]"
+START  AFTER real reflect
+  ok   AFTER real reflect -> "[1.0, 1.0, 1.0]"
+START  AFTER fresnel
+  ok   AFTER fresnel -> false
+START  AFTER option_use_roughness
+  ok   AFTER option_use_roughness -> true
+START  AFTER 1s: real reflect_glossiness
+  ok   AFTER 1s: real reflect_glossiness -> 0.05000000074505806
+START  AFTER 1s: real reflect
+  ok   AFTER 1s: real reflect -> "[1.0, 1.0, 1.0]"
+END

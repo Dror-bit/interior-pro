@@ -1,0 +1,55 @@
+==== 2026-09-16 14:56:24 -0700 ====
+material: Stucco
+START  Material.load
+  ok   Material.load -> #<VRay::Material(124):0x68480>
+START  vm.main_plugin
+  ok   vm.main_plugin -> "/Stucco"
+START  Context.active
+  ok   Context.active -> #<VRay::Context:0x000001853d220bf0>
+START  ctx.scene
+  ok   ctx.scene -> #<VRay::Scene:0x0000018501b58470>
+START  scene['/Stucco']
+  ok   scene['/Stucco'] -> #<VRay::Scene::Plugin:0x00000185010b25c0>
+START  A scene methods
+  ok   A scene methods -> "[], add_search_path, apply_supported_enscape_settings, change, clear!, clear_options_plugins, create, create_enscape_material_keyword, create_enscape_material_serialized, delete, dump, each, explode_cosmos_asset, fetch, grep, id, import, import_buffer, import_plugins, plugins_version, relink_files, rename_plugin, subscribe, unique_name, unsubscribe"
+START  A plugin methods
+  ok   A plugin methods -> "[], []=, category, dump, duplicate, each, each_child, each_parent, name, serialize, subscribe, top_level?, type, unsubscribe, valid?"
+START  A brdf plugin id/type
+  ok   A brdf plugin id/type -> ["/Stucco/BRDFVRayMtl", :BRDFVRayMtl, nil]
+START  A change block return
+  ok   A change block return -> 42
+START  B before reflect_glossiness
+  ok   B before reflect_glossiness -> 1.0
+START  B change ONLY reflect_glossiness=0.05
+    inside: 0.05000000074505806
+  ok   B change ONLY reflect_glossiness=0.05 -> nil
+START  B after (fresh)
+  ok   B after (fresh) -> 1.0
+START  B after 1s sleep
+  ok   B after 1s sleep -> 1.0
+START  C before metalness
+  ok   C before metalness -> 0.0
+START  C change ONLY metalness=0.5
+    inside: 0.5
+  ok   C change ONLY metalness=0.5 -> nil
+START  C after (fresh)
+  ok   C after (fresh) -> 0.0
+START  D before fresnel
+  ok   D before fresnel -> false
+START  D change fresnel=true
+  ok   D change fresnel=true -> true
+START  D after true (fresh)
+  ok   D after true (fresh) -> true
+START  D change fresnel=false
+  ok   D change fresnel=false -> false
+START  D after false (fresh)
+  ok   D after false (fresh) -> false
+START  E dictionaries on material
+  ok   E dictionaries on material -> ["InteriorPro_Material", "VRayInfo", "VRayPlugins"]
+START  E VRayPlugins keys
+  ok   E VRayPlugins keys -> ["/Stucco", "/Stucco/BRDFVRayMtl", "/Stucco/BRDFVRayMtl/SUDiffuse", "/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer", "/Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel", "/Stucco/BRDFVRayMtl/opacity_custom_source"]
+START  E reflect_glossiness in dictionary json
+  ok   E reflect_glossiness in dictionary json -> ["/Stucco/BRDFVRayMtl: ...reflect_glossiness\":\"1\",\"reflect_subdivs\":\"8\",\"reflect_trace"]
+START  E reflect color now
+  ok   E reflect color now -> "to_a=[0.0, 0.0, 0.0]"
+END

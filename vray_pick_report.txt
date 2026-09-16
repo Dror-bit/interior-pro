@@ -1,0 +1,5 @@
+==== 2026-09-16 14:54:22 -0700 ====
+selection count: 1
+active path depth: 0
+0: Sketchup::Group name="InteriorPro_Wall" faces=14 subgroups=0 facemats=["Stucco", "#ffffff"] groupmat=nil
+END
