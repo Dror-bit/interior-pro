@@ -294,6 +294,19 @@ module InteriorPro
       link_cmd.large_icon = icon_path('room_names')
       tb.add_item(link_cmd)
 
+      # The material library (2026-09-15): the wall of thumbnails he asked
+      # for - "שאני אוכל לבחור חומרים מהתיקיה בפלאג אין שמראה לי אותם
+      # כמו בכל תוכנת רינדור". Sits next to Room Names because both read
+      # the same synced OneDrive folder.
+      matlib_cmd = UI::Command.new('Materials') {
+        InteriorPro::MaterialLibraryDialog.show
+      }
+      matlib_cmd.tooltip = 'Materials - your saved material library'
+      matlib_cmd.status_bar_text = 'Open the material library: click a swatch to put it on the selection'
+      matlib_cmd.small_icon = icon_path('material_library')
+      matlib_cmd.large_icon = icon_path('material_library')
+      tb.add_item(matlib_cmd)
+
       floors_cmd = UI::Command.new('Build Floors') {
         InteriorPro::FloorDialog.show
       }
