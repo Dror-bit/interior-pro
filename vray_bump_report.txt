@@ -1,0 +1,41 @@
+==== 2026-09-16 15:28:01 -0700 ====
+material: Stucco
+START  Material.load
+  ok   Material.load -> #<VRay::Material(124):0x69160>
+START  vm.main_plugin
+  ok   vm.main_plugin -> /Stucco
+START  Context.active.scene
+  ok   Context.active.scene -> #<VRay::Scene:0x0000018501b58470>
+START  scene['/Stucco']
+  ok   scene['/Stucco'] -> #<VRay::Scene::Plugin:0x000001850449ea28>
+START  brdf name
+  ok   brdf name -> /Stucco/BRDFVRayMtl
+START  BEFORE bump_map (real)
+  ok   BEFORE bump_map (real) -> #<VRay::Color:0x000001850449e4d8>
+START  BEFORE bump_map_tex
+  ok   BEFORE bump_map_tex -> nil
+START  duplicate.parameters
+  ok   duplicate.parameters -> [[:rest]]
+START  1 change: duplicate BitmapBuffer
+    dup buffer: VRay::Scene::Plugin /Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer#1
+  ok   1 change: duplicate BitmapBuffer -> #<VRay::Scene::Plugin:0x000001850449d7b8>
+START  2 change: buf[:file] = bump
+  ok   2 change: buf[:file] = bump -> C:/Users/rordt/OneDrive/InteriorPro/materials/maps/stucco_bump.jpg
+START  3 change: duplicate TexBitmap
+    dup tex: VRay::Scene::Plugin /Stucco/BRDFVRayMtl/SUDiffuse#1
+  ok   3 change: duplicate TexBitmap -> #<VRay::Scene::Plugin:0x000001851171e458>
+START  4 change: tex[:bitmap] = buf, same uvwgen as diffuse
+  ok   4 change: tex[:bitmap] = buf, same uvwgen as diffuse -> ["/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer#1", "/Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel"]
+START  5 change: brdf bump_map_tex = tex, on, amount 1.0, type 0
+  ok   5 change: brdf bump_map_tex = tex, on, amount 1.0, type 0 -> 0
+START  AFTER bump_map (real)
+  ok   AFTER bump_map (real) -> /Stucco/BRDFVRayMtl/SUDiffuse#1
+START  AFTER bump_map_tex (twin)
+  ok   AFTER bump_map_tex (twin) -> /Stucco/BRDFVRayMtl/SUDiffuse#1
+START  AFTER bump_amount (real)
+  ok   AFTER bump_amount (real) -> 1.0
+START  AFTER buffer file
+  ok   AFTER buffer file -> C:/Users/rordt/OneDrive/InteriorPro/materials/maps/stucco_bump.jpg
+START  AFTER plugins under material
+  ok   AFTER plugins under material -> [["/Stucco/BRDFVRayMtl", :BRDFVRayMtl], ["/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer#1", :BitmapBuffer], ["/Stucco/BRDFVRayMtl/SUDiffuse", :TexBitmap], ["/Stucco/BRDFVRayMtl/SUDiffuse/BitmapBuffer", :BitmapBuffer], ["/Stucco/BRDFVRayMtl/SUDiffuse#1", :TexBitmap], ["/Stucco/BRDFVRayMtl/opacity_custom_source", :TexAColorChannel], ["/Stucco/BRDFVRayMtl/SUDiffuse/UVWGenChannel", :UVWGenChannel]]
+END - now Render.
