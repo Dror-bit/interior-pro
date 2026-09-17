@@ -1,3 +1,4 @@
 18:10:13  wrote gloss=0.95, rough=0.05, use_rough=true, reflect=[1.0, 1.0, 1.0] onto Stucco
 15:09:12  wrote gloss=0.05, rough=0.05, use_rough=true, reflect=[1.0, 1.0, 1.0] onto Stucco via scene.change; reflect_glossiness reads back 0.05000000074505806
 15:41:18  wrote gloss=0.05, rough=0.05, use_rough=true, reflect=[1.0, 1.0, 1.0], bump_file=stucco_bump.jpg, bump=0.2 onto Stucco via scene.change; reflect_glossiness reads back 0.05000000074505806
+19:43:06  card has no vray numbers
