@@ -107,10 +107,49 @@ end
   7 (Render מהתוסף — הוא שאל למה; התשובה: כדי שקלוד יוכל להריץ לבד בהמשך),
   8 (שרידות לשינויים במודל).
 
-## הצעד הבא המוצע
+## bump בכרטיס — נסגר (15:41, בדקתי לבד דרך שליטה במחשב)
 
-להכניס את ה-bump לכרטיס בספרייה (`bump_file`, `bump_amount`) ול-
-`apply_vray_numbers!` — שקליק על כרטיס יעשה את כל זה לבד, כמו המספרים.
+`apply_vray_numbers!` קורא גם `bump_file` (יחסי לתיקיית הספרייה) ו-
+`bump_amount`, ומצמיד דרך `bump_tex_for!` (duplicate של שרשרת SUDiffuse;
+אם כבר יש עותק — רק מחליף לו את הקובץ). כרטיס Stucco: `maps/stucco_bump.jpg`,
+0.2. הלוג: `wrote gloss=0.05 ... bump_file=stucco_bump.jpg, bump=0.2 onto
+Stucco via scene.change; reflect_glossiness reads back 0.05`. רינדור אחרי
+קליק על הכרטיס נראה כמו רינדור ה-0.2 הידני. גיבוי `material_library.rb.bak_vray4`.
+**חומר בלי טקסטורת סקצ'אפ** אין לו SUDiffuse להעתיק — `bump_tex_for!`
+כותב ללוג ומדלג; שם יצטרכו `scene.create` (לא נמדד).
+
+## הצעד הבא
+
+- הוא ביקש (15:37): **"לקחת את החומרים מהתוכנה ולשים אותם ברינדור"** —
+  לברר למה הכוונה (חומרי סקצ'אפ המובנים? חומרי הקירות של Interior Pro?
+  כולם כבר מגיעים ל-V-Ray כ-Diffuse לבד; מה שחסר הוא מספרים ומפות).
+  שאלה אחת קצרה לפני שבונים.
+- `fresnel` לכרטיס; ייבוא .vrmat; Render מהתוסף; קריאה לקלוד (VRAY_POC_PLAN שלב 2).
+
+## חומרים מ-Invoice Studio → ספרייה — נסגר (2026-09-17 01:50)
+
+הוא רצה "לקחת את החומרים מהתוכנה" ואז החליט: **סימון ליד כל חומר** במקום
+ניחוש לפי שם/קטגוריה (236 מתוך 249 בלי קטגוריה בכלל).
+
+צד Invoice Studio (repo `invoice-studio`, commits `e89f0ac`, `9562061` —
+**הוא מעדיף ששינויים שם יעברו דרך הפרויקט של Invoice Studio בקלוד**; מכאן
+והלאה רק לכתוב לו מה לבקש שם):
+- `materials.json` נכתב ליד `rooms.json` בתיקיית הגשר (OneDrive/InteriorPro),
+  אוטומטית אחרי כל שינוי בחומרים + כפתור "Write materials.json now" בהגדרות.
+- עמודה **3D** (checkbox) בטבלת החומרים → `materials.render` (BOOLEAN,
+  `materials-render-migration.sql`, הוא הריץ ב-Supabase) → `render: true` בקובץ.
+
+צד Interior Pro:
+- `material_import.rb` (חדש, ב-main.rb אחרי material_library_dialog.rb):
+  `flagged` (טהור) לוקח רק `render:true`; `fetch` מוריד תמונה ב-Net::HTTP
+  (עם cert store כמו claude_api.rb); כרטיס `IS_<uuid>` בתיקייה על שם
+  הפרויקט; ייבוא חוזר מעדכן ושומר vray/path/name שהוא שינה. לוג:
+  `material_import_log.txt`. דגל: `USE_MATERIAL_IMPORT`.
+- כפתור **"מהתוכנה"** בספרייה (`import_studio` ב-material_library_dialog.rb).
+- נבדק אצלו: "יובאו: 2" — שני אריחי Bedrosians בתיקיית Cupar Ln.
+
+מה חסר לאריח כזה: אין `vray` בכרטיס (רק תמונה) ומידת הטקסטורה 24" קבועה
+(`DEFAULT_TEXTURE_INCHES`) — `size` מהתוכנה ("24x48") עוד לא מפוענח למידה.
 
 ## קבצי מדידה מהיום
 

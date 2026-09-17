@@ -243,12 +243,50 @@ module InteriorPro
     #     straight. `m[:brdf].dump` shows the userdata section.
     #  3. m[:brdf] is fetched INSIDE the block.
     #
+    # Card fields read here (all optional): reflect_glossiness, roughness,
+    # option_use_roughness, reflect [r,g,b], bump_amount, bump_file (relative
+    # to the library folder, e.g. "maps/stucco_bump.jpg").
+    #
     # The old convert_to_vray path stuck to a handle outside the live scene
     # and never reached the renderer (HANDOFF_VRAY_STEP2.md).
     #
     # Call this AFTER commit_operation, never inside one: a V-Ray failure
     # must not be able to roll back the paint the user already saw.
     # Returns true only if a number actually landed.
+    # ---- a BUMP map on the live material --------------------------------
+    # THE RECIPE (debug_vray_bump.rb, 2026-09-16, render confirmed): V-Ray holds
+    # the SketchUp texture as  brdf[:diffuse] -> TexBitmap "<brdf>/SUDiffuse"
+    # -> [:bitmap] -> BitmapBuffer[:file].  A bump map is the SAME chain,
+    # copied with Plugin#duplicate, pointed at another file and hung on the
+    # bump_map_tex TWIN (the twin drives the real bump_map). The uvwgen is
+    # shared with the diffuse, so the map scales exactly like the texture.
+    # Runs INSIDE the caller's scene.change. Returns the TexBitmap or nil.
+    # Idempotent: a second call re-points the existing copy's file.
+    def self.bump_tex_for!(scene, brdf, file)
+      existing = (brdf[:bump_map_tex] rescue nil)
+      if existing.respond_to?(:[]) && (existing.type rescue nil) == :TexBitmap
+        buf = (existing[:bitmap] rescue nil)
+        if buf.respond_to?(:[]=)
+          buf[:file] = file
+          return existing
+        end
+      end
+      diff = (brdf[:diffuse_tex] rescue nil)
+      diff = (brdf[:diffuse] rescue nil) unless diff.respond_to?(:[])
+      unless diff.respond_to?(:[]) && (diff.type rescue nil) == :TexBitmap
+        trace(nil, 'bump: material has no SketchUp texture chain (SUDiffuse) to copy')
+        return nil
+      end
+      src_buf = diff[:bitmap]
+      return trace(nil, 'bump: diffuse has no BitmapBuffer') unless src_buf.respond_to?(:[])
+      buf = src_buf.duplicate
+      buf[:file] = file
+      tex = diff.duplicate
+      tex[:bitmap] = buf
+      tex[:uvwgen] = diff[:uvwgen]
+      tex
+    end
+
     def self.apply_vray_numbers!(mat, nums)
       LAST_TRACE.clear
       return trace(false, 'kill switch off') unless USE_MATERIAL_LIBRARY
@@ -277,7 +315,14 @@ module InteriorPro
       u = nums['option_use_roughness']
       c = nums['reflect']
       c = nil unless c.is_a?(Array) && c.length >= 3
-      return trace(false, 'card had no usable number') if g.nil? && r.nil? && u.nil? && c.nil?
+      ba = num(nums['bump_amount'])
+      bf = nums['bump_file'].to_s
+      bf = bf.empty? ? nil : File.join(folder.to_s, bf)
+      if bf && !File.exist?(bf)
+        trace(nil, "bump file missing, skipped: #{bf}")
+        bf = nil
+      end
+      return trace(false, 'card had no usable number') if g.nil? && r.nil? && u.nil? && c.nil? && ba.nil? && bf.nil?
 
       wrote = []
       scene.change do
@@ -298,6 +343,19 @@ module InteriorPro
         unless c.nil?
           b[:reflect_color] = VRay::Color.new(c[0].to_f, c[1].to_f, c[2].to_f)
           wrote << "reflect=#{c[0, 3].inspect}"
+        end
+        unless bf.nil?
+          tex = bump_tex_for!(scene, b, bf)
+          unless tex.nil?
+            b[:bump_map_tex]    = tex
+            b[:bump_map_tex_on] = true
+            b[:bump_type]       = 0
+            wrote << "bump_file=#{File.basename(bf)}"
+          end
+        end
+        unless ba.nil?
+          b[:bump_amount_float] = ba
+          wrote << "bump=#{ba}"
         end
       end
 

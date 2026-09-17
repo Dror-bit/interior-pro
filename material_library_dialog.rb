@@ -46,6 +46,7 @@ module InteriorPro
       dlg.add_action_callback('refresh') { |_| push(dlg) ; nil }
       dlg.add_action_callback('folder')  { |_| lib.choose_folder! ; push(dlg) ; nil }
       dlg.add_action_callback('save')    { |_| save_selected(dlg) ; nil }
+      dlg.add_action_callback('import_studio') { |_| import_studio(dlg) ; nil }
       dlg.add_action_callback('apply')   { |_, id| apply(dlg, id) ; nil }
       dlg.add_action_callback('newfolder') { |_, parent| new_folder(dlg, parent) ; nil }
       dlg.add_action_callback('delfolder') { |_, path| del_folder(dlg, path) ; nil }
@@ -108,6 +109,18 @@ module InteriorPro
         return g if g
       end
       nil
+    end
+
+    # "מהתוכנה": every material he ticked 3D in Invoice Studio becomes a
+    # card (material_import.rb). Runs outside any model operation - it only
+    # touches files. Downloads can take a few seconds; the window says so.
+    def self.import_studio(dlg)
+      return UI.messagebox('הייבוא כבוי (USE_MATERIAL_IMPORT).') unless defined?(InteriorPro::MaterialImport)
+      res = InteriorPro::MaterialImport.import!
+      push(dlg)
+      UI.messagebox(InteriorPro::MaterialImport.summary(res))
+    rescue StandardError => e
+      UI.messagebox("הייבוא נכשל: #{e.message}")
     end
 
     def self.new_folder(dlg, parent)
@@ -297,6 +310,7 @@ module InteriorPro
         </style></head><body>
         <header>
           <button onclick="saveHere()">שמור את החומר המסומן</button>
+          <button class="ghost" onclick="sketchup.import_studio()" title="מייבא את החומרים שסימנת 3D ב-Invoice Studio">מהתוכנה</button>
           <button class="ghost" onclick="sketchup.refresh()">רענן</button>
           <button class="ghost" onclick="sketchup.folder()">תיקייה בדיסק...</button>
           <span class="path" id="path"></span>
