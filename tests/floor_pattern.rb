@@ -82,11 +82,20 @@ module InteriorPro
       card = floor_card(floor)
       w = floor.get_attribute('InteriorPro', 'unit_w').to_f
       l = floor.get_attribute('InteriorPro', 'unit_l').to_f
+      img_w = img_l = nil
       if card
-        cw = card['texture_width_inches'].to_f
-        ch = card['texture_height_inches'].to_f
+        # THE TILE is what the layout repeats.
+        cw = (card['tile_w_inches'] || card['texture_width_inches']).to_f
+        ch = (card['tile_l_inches'] || card['texture_height_inches']).to_f
         w = cw if w <= 0.25 && cw > 0.25
         l = ch if l <= 0.25 && ch > 0.25
+        # THE PHOTO may cover several tiles. Mapping it at its own size
+        # over a one-tile face shows exactly one tile of it - that is the
+        # crop, and it is why the joint baked into a vendor photo is gone.
+        iw = card['texture_width_inches'].to_f
+        ih = card['texture_height_inches'].to_f
+        img_w = iw if iw > 0.25
+        img_l = ih if ih > 0.25
       end
       w = 12.0 if w <= 0.25
       if l <= 0.25
@@ -133,7 +142,7 @@ module InteriorPro
                when 'Herringbone' then herringbone_planks(poly, ang, w, l, ox, oy, centered)
                when 'Chevron'     then chevron_planks(poly, ang, w, l, ox, oy, centered)
                when 'Straight'    then straight_planks(poly, ang, w, l, ox, oy, centered)
-               when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout) : nil
+               when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout, img_w, img_l) : nil
                end
       if pattern == 'Tile' && mat.nil?
         draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb, grout)
@@ -273,12 +282,18 @@ module InteriorPro
     # Cells are l (u) x w (v); each tile is inset by grout/2 on every side and
     # its texture is anchored so the IMAGE maps exactly onto the tile —
     # no random offset (every tile shows the full image).
-    def self.tile_planks(poly, ang, w, l, ox, oy, centered, grout = 0.0)
+    # tex_w / tex_l: how much of the world the PHOTO covers. nil (or the
+    # tile size) means the photo is one tile and nothing changes.
+    def self.tile_planks(poly, ang, w, l, ox, oy, centered, grout = 0.0,
+                         tex_w = nil, tex_l = nil)
       unless USE_SHARED_GRID
         return tile_planks_legacy(poly, ang, w, l, ox, oy, centered, grout)
       end
       deg = ang * 180.0 / Math::PI
       us, vs = UNIT_W_ALONG_LAYOUT ? [w, l] : [l, w]
+      tw = (tex_w && tex_w.to_f > 0.25) ? tex_w.to_f : w
+      tl = (tex_l && tex_l.to_f > 0.25) ? tex_l.to_f : l
+      tus, tvs = UNIT_W_ALONG_LAYOUT ? [tw, tl] : [tl, tw]
       cells = InteriorPro::TileGrid.cells(poly, u_size: us, v_size: vs,
                                                 grout: grout, angle: deg,
                                                 ox: ox, oy: oy,
@@ -287,7 +302,7 @@ module InteriorPro
       fr = InteriorPro::TileGrid.degrees(deg)
       cells.map do |c|
         { c: c[:quad], origin: c[:quad][0], dir: [fr[:ux], fr[:uy]],
-          tex_w: us, tex_h: vs, no_rand: true }
+          tex_w: tus, tex_h: tvs, no_rand: true }
       end
     end
 

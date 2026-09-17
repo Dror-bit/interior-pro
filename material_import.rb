@@ -65,8 +65,76 @@ module InteriorPro
       out
     end
 
+    # PURE. "24x48" / "24 X 48" / '24" x 48"' -> [24.0, 48.0]. nil when the
+    # vendor wrote something else. NOTE: \d is written [0-9] on purpose -
+    # see the rule in CLAUDE.md.
+    def self.parse_size(s)
+      m = s.to_s.match(/([0-9]+(?:\.[0-9]+)?)\s*["\u2019\u201d]?\s*[xX]\s*([0-9]+(?:\.[0-9]+)?)/)
+      return nil unless m
+      a = m[1].to_f
+      b = m[2].to_f
+      (a > 0 && b > 0) ? [a, b] : nil
+    end
+
+    # Pixel size of a JPEG or PNG, straight out of its header. No image
+    # library anywhere near SketchUp - it reads the bytes we just fetched.
+    def self.image_pixels(bytes)
+      b = bytes.to_s.b
+      return nil if b.bytesize < 24
+      if b[0, 8] == "\x89PNG\r\n\x1a\n".b
+        return [b[16, 4].unpack1('N'), b[20, 4].unpack1('N')]
+      end
+      return nil unless b[0, 2] == "\xFF\xD8".b
+      i = 2
+      while i < b.bytesize - 9
+        return nil unless b.getbyte(i) == 0xFF
+        marker = b.getbyte(i + 1)
+        if marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].include?(marker)
+          return [b[i + 7, 2].unpack1('n'), b[i + 5, 2].unpack1('n')]
+        end
+        len = b[i + 2, 2].unpack1('n')
+        return nil if len.nil? || len < 2
+        i += 2 + len
+      end
+      nil
+    end
+
+    # PURE. A vendor photo usually shows the tile MORE THAN ONCE - two
+    # 24x48 tiles stacked is what Bedrosians ships, and the joint baked
+    # into that photo is what he saw on his floor. Nothing is read from
+    # the pixels: the SHAPE of the photo against the SHAPE of the tile
+    # says how many tiles are in it. Returns [across, down], 1..4 each,
+    # and [1, 1] when nothing fits - a crop has to be earned.
+    def self.tile_fit(tile_w, tile_l, px_w, px_h)
+      tw = tile_w.to_f; tl = tile_l.to_f
+      pw = px_w.to_f; ph = px_h.to_f
+      return [1, 1] if tw <= 0 || tl <= 0 || pw <= 0 || ph <= 0
+      want = Math.log(pw / ph)
+      best = [1, 1]
+      best_err = nil
+      (1..4).each do |nx|
+        (1..4).each do |ny|
+          err = (Math.log((tw * nx) / (tl * ny)) - want).abs
+          err += (nx + ny) * 0.001          # a tie goes to the simpler answer
+          if best_err.nil? || err < best_err
+            best_err = err
+            best = [nx, ny]
+          end
+        end
+      end
+      # 3% is the whole guard: an exact fit is 0, and the shape that
+      # fits nothing was 3.5% off. Loose here means eating his picture.
+      best_err < 0.03 ? best : [1, 1]
+    end
+
     # PURE. What a card looks like for one flagged material.
-    def self.card_for(project, m, texture_file)
+    def self.card_for(project, m, texture_file, bytes = nil)
+      tile = parse_size(m['size'])
+      tile_w, tile_l = tile || [DEFAULT_TEXTURE_INCHES, DEFAULT_TEXTURE_INCHES]
+      px = image_pixels(bytes)
+      tiles_x, tiles_y = px ? tile_fit(tile_w, tile_l, px[0], px[1]) : [1, 1]
+      log("#{m['name']}: size=#{m['size'].inspect} tile=#{tile_w}x#{tile_l} " \
+          "photo=#{px ? px.join('x') : 'unknown'} -> #{tiles_x}x#{tiles_y} tile(s) in the photo")
       {
         'card_version' => lib::CARD_VERSION,
         'id'           => "#{ID_PREFIX}#{m['id']}",
@@ -77,8 +145,15 @@ module InteriorPro
         'saved_at'     => Time.now.strftime('%Y-%m-%d %H:%M'),
         'color'        => [200, 200, 200],
         'alpha'        => 1.0,
-        'texture_width_inches'  => DEFAULT_TEXTURE_INCHES,
-        'texture_height_inches' => DEFAULT_TEXTURE_INCHES,
+        # the TILE is what the layout repeats; the TEXTURE is how much of
+        # the world the photo covers. They differ whenever the photo shows
+        # more than one tile - that is the crop, done by the mapping.
+        'tile_w_inches'  => tile_w,
+        'tile_l_inches'  => tile_l,
+        'image_tiles_x'  => tiles_x,
+        'image_tiles_y'  => tiles_y,
+        'texture_width_inches'  => tile_w * tiles_x,
+        'texture_height_inches' => tile_l * tiles_y,
         'texture_file' => texture_file,
         'source'       => { 'app' => 'invoice_studio', 'material_id' => m['id'].to_s,
                             'project_id' => project['id'], 'project_name' => project['name'],
@@ -173,7 +248,7 @@ module InteriorPro
         tex_rel = File.join('textures', "#{id}#{ext}")
         File.binwrite(File.join(dir, tex_rel), bytes)
 
-        card = card_for(p, m, tex_rel)
+        card = card_for(p, m, tex_rel, bytes)
         old = existing[id]
         if old
           # keep what he tuned: V-Ray numbers, a folder he moved it to, a name he gave
@@ -181,8 +256,11 @@ module InteriorPro
           card['path'] = old['path'] if old['path'] && !old['path'].to_s.empty?
           card['category'] = card['path']
           card['name'] = old['name'] if old['name'] && !old['name'].to_s.empty?
-          card['texture_width_inches']  = old['texture_width_inches']  if old['texture_width_inches']
-          card['texture_height_inches'] = old['texture_height_inches'] if old['texture_height_inches']
+          # sizes he corrected by hand win over what we work out
+          %w[tile_w_inches tile_l_inches image_tiles_x image_tiles_y
+             texture_width_inches texture_height_inches].each do |k|
+            card[k] = old[k] if old[k]
+          end
           res['updated'] += 1
         else
           res['imported'] += 1
