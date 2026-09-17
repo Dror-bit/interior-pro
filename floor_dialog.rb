@@ -31,6 +31,7 @@ module InteriorPro
           'texture'   => fl ? (fl.get_attribute('InteriorPro', 'floor_texture') || '') : '',
           'card'      => fl ? (fl.get_attribute('InteriorPro', 'material_card_id') || '') : '',
           'grout'     => fl ? fl.get_attribute('InteriorPro', 'pattern_grout').to_f : 0,
+          'stagger'   => fl ? fl.get_attribute('InteriorPro', 'pattern_stagger').to_f : 0,
           'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
           'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
           'grout_spec'  => fl ? (fl.get_attribute('InteriorPro', 'grout_spec') || '') : '',
@@ -150,6 +151,7 @@ module InteriorPro
             fl_grp.set_attribute('InteriorPro', 'pattern_angle', cfg['angle'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_center', cfg['center'] ? true : false)
             fl_grp.set_attribute('InteriorPro', 'pattern_grout', cfg['grout'].to_f)
+            fl_grp.set_attribute('InteriorPro', 'pattern_stagger', cfg['stagger'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_grout_color', cfg['grout_color'].to_s)
             fl_grp.set_attribute('InteriorPro', 'material_card_id', cfg['material_card_id'].to_s)
             fl_grp.set_attribute('InteriorPro', 'floor_spec', cfg['spec'].to_s)
@@ -252,6 +254,13 @@ module InteriorPro
                 return '<option value="' + o[0] + '"' + s + '>' + o[1] + '</option>';
               }).join('');
             }
+            function staggerOptions(sel) {
+              var opts = [[0, 'Stack'], [0.5, '1/2'], [0.3333, '1/3'], [0.25, '1/4']];
+              return opts.map(function(o) {
+                var s = Math.abs((sel || 0) - o[0]) < 0.01 ? ' selected' : '';
+                return '<option value="' + o[0] + '"' + s + '>' + o[1] + '</option>';
+              }).join('');
+            }
             function groutColorOptions(sel) {
               return [['white', 'White'], ['light', 'Light'], ['gray', 'Gray'], ['dark', 'Dark']].map(function(o) {
                 return '<option value="' + o[0] + '"' + (o[0] === (sel || 'light') ? ' selected' : '') + '>' + o[1] + '</option>';
@@ -298,6 +307,7 @@ module InteriorPro
                   'Ang <input type="number" id="pa_' + i + '" step="5" value="' + (r.angle || 0) + '"> ' +
                   'Grout <select id="pg_' + i + '" title="Grout width, Tile pattern only">' + groutOptions(r.grout) + '</select> ' +
                   '<select id="pgc_' + i + '" title="Grout color">' + groutColorOptions(r.grout_color) + '</select> ' +
+                  'Stagger <select id="st_' + i + '" title="Running bond: how far every second row is pushed along, as a fraction of one tile">' + staggerOptions(r.stagger) + '</select> ' +
                   '<label><input type="checkbox" id="pc_' + i + '"' + (r.center ? ' checked' : '') + '> Center</label>' +
                   '</td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
@@ -327,6 +337,7 @@ module InteriorPro
                   texture: document.getElementById('tx_' + i).value,
                   grout: parseFloat(document.getElementById('pg_' + i).value) || 0,
                   grout_color: document.getElementById('pgc_' + i).value,
+                  stagger: parseFloat(document.getElementById('st_' + i).value) || 0,
                   material_card_id: document.getElementById('mc_' + i).value,
                   spec: document.getElementById('sp_' + i).value,
                   grout_spec: document.getElementById('gs_' + i).value,

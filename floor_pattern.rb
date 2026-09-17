@@ -110,6 +110,11 @@ module InteriorPro
       ang = floor.get_attribute('InteriorPro', 'pattern_angle').to_f * Math::PI / 180.0
       centered = floor.get_attribute('InteriorPro', 'pattern_center') ? true : false
 
+      # Running bond (2026-09-17): how far every second row is pushed
+      # along, as a fraction of one tile. 0 = stack bond, as before.
+      stagger = floor.get_attribute('InteriorPro', 'pattern_stagger').to_f
+      stagger = 0.0 if stagger.negative? || stagger >= 1.0
+
       grout = floor.get_attribute('InteriorPro', 'pattern_grout').to_f
       grout = 0.0 if grout.negative?
       grout = [grout, [w, l].min * 0.4].min
@@ -142,10 +147,10 @@ module InteriorPro
                when 'Herringbone' then herringbone_planks(poly, ang, w, l, ox, oy, centered)
                when 'Chevron'     then chevron_planks(poly, ang, w, l, ox, oy, centered)
                when 'Straight'    then straight_planks(poly, ang, w, l, ox, oy, centered)
-               when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout, img_w, img_l) : nil
+               when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout, img_w, img_l, stagger) : nil
                end
       if pattern == 'Tile' && mat.nil?
-        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb, grout)
+        draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb, grout, stagger)
       elsif planks
         if mat
           # Tiles with grout: a grout-colored backing face under the tiles
@@ -285,7 +290,7 @@ module InteriorPro
     # tex_w / tex_l: how much of the world the PHOTO covers. nil (or the
     # tile size) means the photo is one tile and nothing changes.
     def self.tile_planks(poly, ang, w, l, ox, oy, centered, grout = 0.0,
-                         tex_w = nil, tex_l = nil)
+                         tex_w = nil, tex_l = nil, stagger = 0.0)
       unless USE_SHARED_GRID
         return tile_planks_legacy(poly, ang, w, l, ox, oy, centered, grout)
       end
@@ -297,7 +302,8 @@ module InteriorPro
       cells = InteriorPro::TileGrid.cells(poly, u_size: us, v_size: vs,
                                                 grout: grout, angle: deg,
                                                 ox: ox, oy: oy,
-                                                centered: centered)
+                                                centered: centered,
+                                                stagger: stagger.to_f)
       return nil if cells.nil?
       fr = InteriorPro::TileGrid.degrees(deg)
       cells.map do |c|
@@ -605,9 +611,9 @@ module InteriorPro
     # The line layer and the tile faces now come from the SAME cells,
     # so a floor with no texture draws exactly the joints the takeoff
     # counted - including the real joint width.
-    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z, grout = 0.0)
+    def self.draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, z = LINE_Z, grout = 0.0, stagger = 0.0)
       if USE_SHARED_GRID
-        tiles = tile_planks(poly, ang, w, l, ox, oy, centered, grout)
+        tiles = tile_planks(poly, ang, w, l, ox, oy, centered, grout, nil, nil, stagger)
         if tiles
           emit_plank_edges!(ge, tiles, poly, z)
           return
