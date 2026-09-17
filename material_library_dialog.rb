@@ -236,11 +236,40 @@ module InteriorPro
     # The card becomes a real SketchUp material: same id, same picture,
     # same tile size. If a material with that id is already in the model
     # we reuse it instead of making a twin.
+    # The CARD is the source of truth (2026-09-17). A material that is
+    # already in the model keeps its old picture and its old texture size
+    # for ever unless something re-reads the card - which is exactly how a
+    # tile stayed 24x24 after the card was fixed to 48x24. Never silent:
+    # it says in the console when it re-reads.
+    def self.refresh_texture!(mat, card)
+      f = card['texture_file'].to_s
+      return if f.empty?
+      path = (InteriorPro::MaterialLibrary.texture_path(card) rescue nil)
+      path ||= File.join(lib.folder.to_s, f)
+      return unless File.exist?(path)
+      w = card['texture_width_inches']
+      h = card['texture_height_inches']
+      t = mat.texture
+      same_file = t && File.basename(t.filename.to_s) == File.basename(path)
+      same_size = t && w && h &&
+                  (t.width.to_f - w.to_f).abs < 0.01 &&
+                  (t.height.to_f - h.to_f).abs < 0.01
+      return if same_file && same_size
+      mat.texture = path
+      mat.texture.size = [w, h] if w && h && mat.texture
+      puts "[MaterialLibrary] '#{mat.display_name}' re-read from its card (#{w}x#{h})"
+    rescue StandardError => e
+      puts "[MaterialLibrary] refresh_texture!: #{e.message}"
+    end
+
     def self.material_from_card(model, card)
       id = card['id'].to_s
       if defined?(InteriorPro::MaterialIds)
         found = (InteriorPro::MaterialIds.find(id, model) rescue nil)
-        return found if found
+        if found
+          refresh_texture!(found, card)
+          return found
+        end
       end
       mat = model.materials.add(card['name'].to_s)
       c = card['color']

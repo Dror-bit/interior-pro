@@ -77,8 +77,17 @@ module InteriorPro
       return false unless flat && flat.length >= 6
       poly = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
 
+      # The card IS the material (2026-09-17): picture, tile size and V-Ray
+      # numbers all come from it. A size he typed himself still wins.
+      card = floor_card(floor)
       w = floor.get_attribute('InteriorPro', 'unit_w').to_f
       l = floor.get_attribute('InteriorPro', 'unit_l').to_f
+      if card
+        cw = card['texture_width_inches'].to_f
+        ch = card['texture_height_inches'].to_f
+        w = cw if w <= 0.25 && cw > 0.25
+        l = ch if l <= 0.25 && ch > 0.25
+      end
       w = 12.0 if w <= 0.25
       if l <= 0.25
         l = case pattern
@@ -98,8 +107,15 @@ module InteriorPro
 
       # Plank/tile material: only when the floor has a chosen texture.
       mat = nil
+      planky = %w[Straight Herringbone Chevron Tile].include?(pattern)
+      if card && planky
+        m = (InteriorPro::MaterialLibraryDialog.material_from_card(
+               Sketchup.active_model, card) rescue nil)
+        puts "[FloorPattern] card '#{card['name']}' gave no material" if m.nil?
+        mat = m if m
+      end
       tex = floor.get_attribute('InteriorPro', 'floor_texture')
-      if tex && %w[Straight Herringbone Chevron Tile].include?(pattern)
+      if mat.nil? && tex && planky
         m = InteriorPro::FloorManager.texture_material(Sketchup.active_model, tex)
         mat = m if m && m.texture
       end
@@ -150,6 +166,17 @@ module InteriorPro
     rescue StandardError => e
       puts "[FloorPattern] build_for_floor!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
       false
+    end
+
+    # The material card a floor points at, or nil. Never a silent skip: a
+    # card id that is no longer in the library says so in the console.
+    def self.floor_card(floor)
+      id = floor.get_attribute('InteriorPro', 'material_card_id').to_s
+      return nil if id.empty?
+      return nil unless defined?(InteriorPro::MaterialLibrary)
+      c = (InteriorPro::MaterialLibrary.cards.find { |x| x['id'].to_s == id } rescue nil)
+      puts "[FloorPattern] material card '#{id}' is not in the library" if c.nil?
+      c
     end
 
     # ---------- frames ----------

@@ -1,0 +1,131 @@
+floor tile report 2026-09-16 20:38:39 -0700
+floors: 1
+
+floor 0 id=floor-tlhopn-9120 pattern=Tile unit_w=48.0 unit_l=24.0 grout=0.125
+  floor_texture="White"  material_card_id="IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c"
+  card: A smooth, light gray surface with subtle texture and a faint line dividing two sections.
+  card size: 24.0 x 24.0
+  card picture on disk: "C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c.jpg" exists=true bytes=556538
+  model material: 'A smooth_ light gray surface with subtle texture and a faint line dividing two sections.'
+    texture file  = C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c.jpg
+    texture size  = 24.0 x 24.0
+    image pixels  = 1320 x 1320
+
+-- all carded materials in the model --
+  IP_MAT_0001  'Teddy_Glasses'  no texture
+  IP_MAT_0002  'Teddy_BookCover'  no texture
+  IP_MAT_0003  'Teddy_Shoes'  no texture
+  IP_MAT_0004  'Teddy_BookJacket'  no texture
+  IP_MAT_0005  'Teddy_Bracelet'  no texture
+  IP_MAT_0006  'Teddy_HairLight'  no texture
+  IP_MAT_0007  'Teddy_Hair'  no texture
+  IP_MAT_0008  'Teddy_SkinShadow '  no texture
+  IP_MAT_0009  'Teddy_Paper'  no texture
+  IP_MAT_0010  'Teddy_BraceletShadow '  no texture
+  IP_MAT_0011  'Teddy_Brim'  no texture
+  IP_MAT_0012  'Teddy_Brim2'  no texture
+  IP_MAT_0013  'Teddy_DressDepth'  no texture
+  IP_MAT_0014  'Teddy_Dress'  no texture
+  IP_MAT_0015  'Teddy_Hat'  no texture
+  IP_MAT_0016  'Teddy_Skin '  no texture
+  IP_MAT_0017  'Teddy_DressShadow'  no texture
+  IP_MAT_0018  'InteriorPro_Preview'  no texture
+  IP_MAT_0019  'Stucco'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/stucco.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0020  '#ffffff'  no texture
+  IP_MAT_0021  'InteriorPro_Roof_584e4a'  no texture
+  IP_MAT_0022  'InteriorPro_Roof_ffffff'  no texture
+  IP_MAT_0023  'medeek_lumber'  no texture
+  IP_MAT_0024  'medeek_lumber_horz'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/LUMBERHORZ.jpg 120.0x5.0 px2400x100
+  IP_MAT_0025  'medeek_lumber_vert'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/LUMBERVERT.jpg 5.0x120.0 px100x2400
+  IP_MAT_0026  'medeek_lumber_end'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/LUMBER_GRAIN_END.jpg 8.0x8.0 px851x851
+  IP_MAT_0027  'medeek_cfs'  no texture
+  IP_MAT_0028  'medeek_cfs_2x6'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/STEEL_STUD_2X6.png 5.5x24.0 px220x960
+  IP_MAT_0029  'medeek_cfs_2x4'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/STEEL_STUD_2X4.png 3.5x24.0 px140x960
+  IP_MAT_0030  'medeek_steel'  no texture
+  IP_MAT_0031  'medeek_brick_red'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/BRICK_RED.jpg 58.0x37.0 px384x256
+  IP_MAT_0032  'medeek_lumberpt'  no texture
+  IP_MAT_0033  'medeek_lsl'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_OSB.jpg 36.0x4.0 px256x211
+  IP_MAT_0034  'medeek_lsl_horz'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_LSL_HORZ.jpg 30.0x30.0 px800x800
+  IP_MAT_0035  'medeek_lsl_vert'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_LSL_VERT.jpg 30.0x30.0 px800x800
+  IP_MAT_0036  'medeek_lsl_edge_horz'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_LSL_EDGE_HORZ.jpg 10.0x2.5 px800x200
+  IP_MAT_0037  'medeek_lsl_edge_vert'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_LSL_EDGE_VERT.jpg 2.5x10.0 px200x800
+  IP_MAT_0038  'medeek_psl_horz'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_PSL_GRAIN_HORZ.jpg 22.0x10.0 px1200x1800
+  IP_MAT_0039  'medeek_psl_vert'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_PSL_GRAIN_VERT.jpg 10.0x22.0 px1800x1200
+  IP_MAT_0040  'medeek_psl_end_horz'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_PSL_END_HORZ.jpg 12.0x3.0 px1000x250
+  IP_MAT_0041  'medeek_psl_end_vert'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_PSL_END_VERT.jpg 3.0x12.0 px250x1000
+  IP_MAT_0042  'medeek_label'  no texture
+  IP_MAT_0043  'medeek_2d_wall'  no texture
+  IP_MAT_0044  'medeek_2d_feature'  no texture
+  IP_MAT_0045  'medeek_hw'  no texture
+  IP_MAT_0046  'medeek_insul_pfg'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/PINK_FIBERGLASS.jpg 48.0x36.0 px1000x750
+  IP_MAT_0047  'medeek_osb'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/WOOD_OSB.jpg 12.0x9.875 px256x211
+  IP_MAT_0048  'medeek_wall_stucco_light_tan'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/STUCCO_LIGHT_TAN.jpg 24.0x24.0 px256x256
+  IP_MAT_0049  'medeek_gypsum'  no texture
+  IP_MAT_0050  'medeek_gypsum2'  no texture
+  IP_MAT_0051  'medeek_gypsum_edge'  c:/users/rordt/appdata/roaming/sketchup/sketchup 2024/sketchup/plugins/medeek_wall_ext/materials/GYPSUM_EDGE.jpg 3.0x3.0 px200x200
+  IP_MAT_0052  'InteriorPro_Roof_shingle_584e4a'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_shingle.jpg 48.0x24.0 px1152x576
+  IP_MAT_0053  'InteriorPro_Roof_8b5a2b'  no texture
+  IP_MAT_0054  'InteriorPro_Roof_efeae1'  no texture
+  IP_MAT_0055  'WOOD'  WoodPlanksClean0062_11_S.jpg 181.8181818181818x60.0 px700x700
+  IP_MAT_0056  'wood1'  wood_texture_by_rifificz-d75q0g6.jpg 59.05511811023622x314.96062992125985 px1024x960
+  IP_MAT_0057  'wood2'  0b4418fcb8dbb8e570b17509310e3521.jpg 39.37007874015748x39.37007874015748 px280x280
+  IP_MAT_0058  'InteriorPro_Soffit_wood'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/soffit_wood.jpg 72.0x72.0 px700x700
+  IP_MAT_0059  'InteriorPro_Soffit_stucco'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/stucco.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0060  'InteriorPro_Soffit_beams'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/soffit_wood.jpg 72.0x72.0 px700x700
+  IP_MAT_0061  'InteriorPro_Soffit_spanish'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/stucco.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0062  'InteriorPro_Roof_4e342e'  no texture
+  IP_MAT_0063  'InteriorPro_Ceiling'  no texture
+  IP_MAT_0064  'InteriorPro_Subfloor'  no texture
+  IP_MAT_0065  'InteriorPro_Plan_Exterior'  no texture
+  IP_MAT_0066  'InteriorPro_Plan_Line'  no texture
+  IP_MAT_0067  'Board and Batten'  no texture
+  IP_MAT_0068  'Vertical Siding'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/vertical_siding.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0069  'Plaster'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/plaster.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0070  'Horizontal Siding'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/horizontal_siding.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0071  'Brick'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/brick.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0072  'InteriorPro_Roof_9f5132'  no texture
+  IP_MAT_0073  'InteriorPro_Roof_shingle_9f5132'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_shingle.jpg 48.0x24.0 px1152x576
+  IP_MAT_0074  'Color A05'  no texture
+  IP_MAT_0075  'Color E04'  no texture
+  IP_MAT_0076  '#8b5a2b'  no texture
+  IP_MAT_0077  'Material'  no texture
+  IP_MAT_0078  'Color F03'  no texture
+  IP_MAT_0079  'InteriorPro_Roof_2b2827'  no texture
+  IP_MAT_0080  'InteriorPro_Roof_c16e53'  no texture
+  IP_MAT_0081  'InteriorPro_Window_Frame'  no texture
+  IP_MAT_0082  'InteriorPro_Glass'  no texture
+  IP_MAT_0083  'InteriorPro_Roof_shingle_c16e53'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_shingle.jpg 48.0x24.0 px1152x576
+  IP_MAT_0084  '#efeae1'  no texture
+  IP_MAT_0085  'InteriorPro_Roof_b0552f'  no texture
+  IP_MAT_0086  'InteriorPro_Roof_7b7681'  no texture
+  IP_MAT_0087  'InteriorPro_Roof_33383b'  no texture
+  IP_MAT_0088  'InteriorPro_Roof_shingle_7f8385'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_shingle.jpg 48.0x24.0 px1152x576
+  IP_MAT_0089  'InteriorPro_Roof_shingle_515558'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_shingle.jpg 48.0x24.0 px1152x576
+  IP_MAT_0090  'InteriorPro_Roof_grain_slate_7b7681'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_grain_concrete.jpg 36.0x36.0 px512x512
+  IP_MAT_0091  'InteriorPro_Roof_grain_metaltile_b0552f'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/roof_grain_concrete.jpg 36.0x36.0 px512x512
+  IP_MAT_0092  'InteriorPro_FloorTex_White'  no texture
+  IP_MAT_0093  'InteriorPro_Door_Frame_f5f5f0'  no texture
+  IP_MAT_0094  'Screenshot 2026-07-10 122154'  C:\Users\rordt\OneDrive\Desktop\Screenshots\Screenshot 2026-07-10 122154.png 585.0x544.1860465116279 px688x640
+  IP_MAT_0095  'Screenshot 2026-07-10 123052'  C:\Users\rordt\OneDrive\Desktop\Screenshots\Screenshot 2026-07-10 123052.png 730.0x705.2075471698113 px530x512
+  IP_MAT_0096  'Color M00'  no texture
+  IP_MAT_0097  'Screenshot 2026-07-10 124153'  C:\Users\rordt\OneDrive\Desktop\Screenshots\Screenshot 2026-07-10 124153.png 12.730109204368175x24.0 px340x641
+  IP_MAT_0098  'Screenshot 2026-07-10 124228'  C:\Users\rordt\OneDrive\Desktop\Screenshots\Screenshot 2026-07-10 124228.png 41.34869431643625x43.0 px626x651
+  IP_MAT_0099  'Stone'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/stone.jpg 48.0x48.0 px1024x1024
+  IP_MAT_0100  'InteriorPro_FloorTex_oak_veneer'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/floors/oak_veneer.jpg 48.0x32.016000000000005 px1000x667
+  IP_MAT_0101  'InteriorPro_FloorTex_oak_light'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/floors/oak_light.jpg 48.0x32.0 px1254x836
+  IP_MAT_0102  'InteriorPro_FloorTex_white_oak_planks'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/floors/white_oak_planks.jpg 48.0x36.02758620689655 px1740x1306
+  IP_MAT_0103  'InteriorPro_Skylight_ffffff'  no texture
+  IP_MAT_0104  'InteriorPro_FloorTex_concrete'  C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/textures/floors/concrete.jpg 48.0x45.312 px2000x1888
+  IP_MAT_0105  'InteriorPro_Foundation'  no texture
+  IP_MAT_0106  'Color F05'  no texture
+  IP_MAT_0107  'IP_PROBE_MAT'  no texture
+  IP_MAT_0108  'InteriorPro_Door_Frame'  no texture
+  IP_MAT_0109  'InteriorPro_Door_Leaf'  no texture
+  IP_MAT_0110  'Blacktop Old 02'  Blacktop Old 02.jpg 24.0x24.0 px500x500
+  IP_MAT_0111  'Vegetation Grass Artificial'  Vegetation_Grass_Artificial.jpg 24.0x24.0 px256x256
+  IP_MAT_0112  'Pavers Flagstone Gray'  Stone_Pavers_Flagstone_Gray.jpg 72.0x96.0 px384x512
+  IP_MAT_0113  'IP_VRAY_TEST'  no texture
+  IP_MAT_0121  'IP_FRESH_1789531182'  C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IP_MAT_0019.jpg 48.0x48.0 px1024x1024
+  IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b  'Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory'  C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b.jpg 48.0x24.0 px2560x1280
+  IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c  'A smooth_ light gray surface with subtle texture and a faint line dividing two sections.'  C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c.jpg 24.0x24.0 px1320x1320
+  IP_MAT_0122  'InteriorPro_Grout_Light'  no texture

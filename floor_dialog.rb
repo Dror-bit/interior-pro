@@ -29,6 +29,7 @@ module InteriorPro
           'angle'     => fl ? fl.get_attribute('InteriorPro', 'pattern_angle').to_f : 0,
           'center'    => fl ? (fl.get_attribute('InteriorPro', 'pattern_center') ? true : false) : true,
           'texture'   => fl ? (fl.get_attribute('InteriorPro', 'floor_texture') || '') : '',
+          'card'      => fl ? (fl.get_attribute('InteriorPro', 'material_card_id') || '') : '',
           'grout'     => fl ? fl.get_attribute('InteriorPro', 'pattern_grout').to_f : 0,
           'grout_color' => fl ? (fl.get_attribute('InteriorPro', 'pattern_grout_color') || 'light') : 'light',
           'spec'        => fl ? (fl.get_attribute('InteriorPro', 'floor_spec') || '') : '',
@@ -56,6 +57,16 @@ module InteriorPro
         thumb = File.join(File.dirname(f), 'thumbs', File.basename(f))
         src = File.exist?(thumb) ? thumb : f
         textures[base] = 'file:///' + src.tr('\\', '/').gsub(' ', '%20')
+      end
+
+      # The material library (2026-09-17): the CARD is the material - the
+      # picture, the tile size and the V-Ray numbers all ride on it. The old
+      # texture picker stays next to it and still works.
+      cards = []
+      if defined?(InteriorPro::MaterialLibrary) && InteriorPro::MaterialLibrary.folder?
+        cards = (InteriorPro::MaterialLibrary.cards.map do |c|
+          { 'id' => c['id'].to_s, 'name' => c['name'].to_s }
+        end rescue [])
       end
 
       if @dialog
@@ -92,7 +103,7 @@ module InteriorPro
         InteriorPro::RoomManager.sync_rooms!
         show
       end
-      dlg.set_html(build_html(data, types, textures))
+      dlg.set_html(build_html(data, types, textures, cards))
       # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
       # got: the PAGE measures itself once it is laid out and the window
       # follows, so a row added later can never push a button under the scroll.
@@ -122,7 +133,7 @@ module InteriorPro
       sel.each do |rid, cfg|
         room = rooms_by_id[rid]
         next unless room
-        if cfg['texture'].to_s.empty?
+        if cfg['texture'].to_s.empty? && cfg['material_card_id'].to_s.empty?
           InteriorPro::FloorManager.remove_floor_for_room!(rid)
         else
           th = cfg['thickness'].to_f
@@ -140,6 +151,7 @@ module InteriorPro
             fl_grp.set_attribute('InteriorPro', 'pattern_center', cfg['center'] ? true : false)
             fl_grp.set_attribute('InteriorPro', 'pattern_grout', cfg['grout'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_grout_color', cfg['grout_color'].to_s)
+            fl_grp.set_attribute('InteriorPro', 'material_card_id', cfg['material_card_id'].to_s)
             fl_grp.set_attribute('InteriorPro', 'floor_spec', cfg['spec'].to_s)
             fl_grp.set_attribute('InteriorPro', 'grout_spec', cfg['grout_spec'].to_s)
             fl_grp.set_attribute('InteriorPro', 'drop_walls', cfg['drop_walls'] ? true : false)
@@ -150,13 +162,44 @@ module InteriorPro
       InteriorPro::FloorManager.build_door_patches!
       InteriorPro::FloorPattern.refresh_all! if defined?(InteriorPro::FloorPattern)
       model.commit_operation
+      apply_card_vray!(sel)
       puts "[Floors] dialog apply: #{count} floor(s)"
     rescue StandardError => e
       model.abort_operation rescue nil
       puts "[Floors] dialog apply failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
     end
 
-    def self.build_html(rooms, types, textures = {})
+    # The card's V-Ray numbers ride OUTSIDE the operation on purpose - the
+    # same rule the material library follows (2026-09-16): V-Ray cannot be
+    # read back, and a V-Ray failure must never roll back the floor he
+    # already saw. Never a silent skip: every card says what happened.
+    def self.apply_card_vray!(sel)
+      return unless defined?(InteriorPro::MaterialLibrary)
+      model = Sketchup.active_model
+      done = {}
+      sel.each_value do |cfg|
+        id = cfg['material_card_id'].to_s
+        next if id.empty? || done[id]
+        done[id] = true
+        card = (InteriorPro::MaterialLibrary.cards.find { |c| c['id'].to_s == id } rescue nil)
+        if card.nil?
+          puts "[Floors] material card '#{id}' is not in the library"
+          next
+        end
+        mat = (InteriorPro::MaterialLibraryDialog.material_from_card(model, card) rescue nil)
+        if mat.nil?
+          puts "[Floors] card '#{card['name']}' gave no material"
+          next
+        end
+        ok = (InteriorPro::MaterialLibrary.apply_vray_numbers!(mat, card['vray']) rescue false)
+        why = (InteriorPro::MaterialLibrary::LAST_TRACE.last.to_s rescue '')
+        puts "[Floors] V-Ray for #{card['name']}: #{ok ? 'applied' : "skipped (#{why})"}"
+      end
+    rescue StandardError => e
+      puts "[Floors] apply_card_vray!: #{e.message}"
+    end
+
+    def self.build_html(rooms, types, textures = {}, cards = [])
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -187,6 +230,7 @@ module InteriorPro
             var ROOMS = #{rooms.to_json};
             var TYPES = #{types.to_json};
             var TEXTURES = #{textures.to_json};
+            var CARDS = #{cards.to_json};
 
             function patternOptions(sel) {
               return ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron'].map(function(t) {
@@ -212,6 +256,13 @@ module InteriorPro
               return [['white', 'White'], ['light', 'Light'], ['gray', 'Gray'], ['dark', 'Dark']].map(function(o) {
                 return '<option value="' + o[0] + '"' + (o[0] === (sel || 'light') ? ' selected' : '') + '>' + o[1] + '</option>';
               }).join('');
+            }
+            function cardOptions(sel) {
+              var opts = ['<option value=""' + (sel ? '' : ' selected') + '>ללא</option>'];
+              CARDS.forEach(function(c) {
+                opts.push('<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + c.name + '</option>');
+              });
+              return opts.join('');
             }
             function textureChanged(i) {
               var b = document.getElementById('tx_' + i).value;
@@ -252,6 +303,7 @@ module InteriorPro
                 rows.push('<tr class="pat"><td colspan="4">' +
                   'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height in inches, measured from THIS storey. 0 = the storey&#39;s own floor (level 2 = 106&quot;). Garage below the driveway: -18" value="' + (r.level || 0) + '"> ' +
                   '<label title="Split boundary-crossing walls and drop the room-exclusive segments to the floor level; walls shared with another room stay"><input type="checkbox" id="dw_' + i + '"' + (r.drop ? ' checked' : '') + '> Drop walls</label> ' +
+                  'חומר <select id="mc_' + i + '" style="width:120px;">' + cardOptions(r.card) + '</select> ' +
                   'Spec <input type="text" id="sp_' + i + '" style="width:130px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
                   'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +
                   '</td></tr>');
@@ -275,6 +327,7 @@ module InteriorPro
                   texture: document.getElementById('tx_' + i).value,
                   grout: parseFloat(document.getElementById('pg_' + i).value) || 0,
                   grout_color: document.getElementById('pgc_' + i).value,
+                  material_card_id: document.getElementById('mc_' + i).value,
                   spec: document.getElementById('sp_' + i).value,
                   grout_spec: document.getElementById('gs_' + i).value,
                   level: parseFloat(document.getElementById('lv_' + i).value) || 0,

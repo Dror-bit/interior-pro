@@ -40,6 +40,7 @@ module InteriorPro
       material_ids.rb
       material_library.rb
       material_library_dialog.rb
+      material_import.rb
       material_takeoff.rb
       surface_takeoff.rb
       sync_bridge.rb

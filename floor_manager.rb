@@ -149,7 +149,7 @@ module InteriorPro
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture floor_spec grout_spec floor_level drop_walls].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color floor_texture material_card_id floor_spec grout_spec floor_level drop_walls].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
         end
