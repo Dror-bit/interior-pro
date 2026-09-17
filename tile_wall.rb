@@ -32,7 +32,26 @@ module InteriorPro
     # never has to choose between two coplanar faces.
     FACE_OFF  = 0.06 unless const_defined?(:FACE_OFF, false)
     GROUT_OFF = 0.02 unless const_defined?(:GROUT_OFF, false)
+    # FLUSH (2026-09-17, his second correction: "הגראוט צריך ליישר קו עם
+    # הטיל"). Dead level with the tile face. Not zero, because two faces
+    # on exactly the same plane flicker against each other in SketchUp -
+    # 1/200 of an inch is invisible and keeps them apart.
+    GROUT_BACK = 0.005 unless const_defined?(:GROUT_BACK, false)
     MAX_CELLS = 20_000 unless const_defined?(:MAX_CELLS, false)
+    # REAL TILE STANDS OFF THE WALL (2026-09-17, his measurement): "ברוב
+    # המקלחות הטיל הוא לפחות 5/8 בולט מהקיר" - tile plus thinset. So a
+    # tiled area is SOLID by default, not a painted face: the joints are
+    # real recesses, which is also why the layout reads as tile at all
+    # instead of as one smooth material (that was the complaint).
+    DEFAULT_DEPTH = 0.625 unless const_defined?(:DEFAULT_DEPTH, false)
+    # Kill switch. false = the old flat faces, nothing solid is built.
+    USE_SOLID_TILES = true unless const_defined?(:USE_SOLID_TILES, false)
+    # Every tile is its OWN group - CLAUDE.md, the law that crashed
+    # SketchUp: two solids touching face to face inside one group get
+    # their faces merged, and pushpull into that merge takes the whole
+    # program down. Groups are not free, so past this many tiles the area
+    # falls back to flat faces and says so.
+    MAX_SOLID = 900 unless const_defined?(:MAX_SOLID, false)
     # A sliver this small is not a tile, it is float noise.
     MIN_PIECE = 0.02 unless const_defined?(:MIN_PIECE, false)
 
@@ -158,6 +177,157 @@ module InteriorPro
             us = uv.map { |q| q[0] }
             vs = uv.map { |q| q[1] }
             out << { poly: piece, full: false, cell: [c[:iu], c[:iv]],
+                     u0: c[:u0], v0: c[:v0],
+                     cut: [tc.r16(us.max - us.min), tc.r16(vs.max - vs.min)] }
+          end
+        end
+      end
+      out
+    end
+
+    # ---- one piece per tile, notch and all (pure) -----------------------
+    #
+    # THE BUG THIS FIXES (2026-09-17): he counted the cuts and said there
+    # were far too many. There were. A tile that reached PAST an opening -
+    # over it and beside it - was being cut into two separate pieces,
+    # because the area had already been broken into convex rectangles and
+    # each tile was clipped against each of them. Two solid pieces
+    # standing side by side show a seam, so one tile read as two, and the
+    # count said two tiles as well.
+    #
+    # A tile is ONE tile with a notch in it. So: lay the cell's own little
+    # grid of the lines that cross it (its edges, the area's edges, the
+    # openings' edges), mark which squares survive, and walk the boundary
+    # of what is left. One ring comes back for a notched tile, and two
+    # only when the tile really is in two separate parts.
+    #
+    # Axis aligned, which is what a wall layout is. A turned layout
+    # (angle != 0) still goes the convex way through `pieces`.
+    def self.cut(x0, y0, x1, y1, holes)
+      return [] if x1 - x0 <= MIN_PIECE || y1 - y0 <= MIN_PIECE
+      hs = Array(holes).map { |h| h.map(&:to_f) }.select do |hx0, hy0, hx1, hy1|
+        hx1 > x0 + EPS && hx0 < x1 - EPS && hy1 > y0 + EPS && hy0 < y1 - EPS
+      end
+      return [[[x0, y0], [x1, y0], [x1, y1], [x0, y1]]] if hs.empty?
+
+      xs = ([x0, x1] + hs.flat_map { |h| [h[0], h[2]] }).map { |v| v.clamp(x0, x1) }
+      ys = ([y0, y1] + hs.flat_map { |h| [h[1], h[3]] }).map { |v| v.clamp(y0, y1) }
+      xs = dedupe(xs)
+      ys = dedupe(ys)
+      return [] if xs.length < 2 || ys.length < 2
+
+      inside = Array.new(xs.length - 1) { Array.new(ys.length - 1, false) }
+      (xs.length - 1).times do |i|
+        cx = (xs[i] + xs[i + 1]) / 2.0
+        (ys.length - 1).times do |j|
+          cy = (ys[j] + ys[j + 1]) / 2.0
+          inside[i][j] = hs.none? { |hx0, hy0, hx1, hy1| cx > hx0 && cx < hx1 && cy > hy0 && cy < hy1 }
+        end
+      end
+
+      segs = []
+      on = lambda { |i, j| i >= 0 && j >= 0 && i < inside.length && j < inside[0].length && inside[i][j] }
+      (xs.length - 1).times do |i|
+        (ys.length - 1).times do |j|
+          next unless inside[i][j]
+          a = [xs[i], ys[j]]
+          b = [xs[i + 1], ys[j]]
+          c = [xs[i + 1], ys[j + 1]]
+          d = [xs[i], ys[j + 1]]
+          segs << [a, b] unless on.call(i, j - 1)
+          segs << [b, c] unless on.call(i + 1, j)
+          segs << [c, d] unless on.call(i, j + 1)
+          segs << [d, a] unless on.call(i - 1, j)
+        end
+      end
+      chain(segs)
+    end
+
+    def self.dedupe(vals)
+      out = []
+      vals.sort.each { |v| out << v if out.empty? || (v - out.last).abs > 1.0e-7 }
+      out
+    end
+
+    # Boundary segments -> closed rings, with the straight-through points
+    # dropped so a plain tile comes back as four corners.
+    def self.chain(segs)
+      left = segs.dup
+      rings = []
+      until left.empty?
+        seg = left.shift
+        ring = [seg[0], seg[1]]
+        loop do
+          idx = left.index { |a, _b| same?(a, ring.last) }
+          break if idx.nil?
+          nxt = left.delete_at(idx)
+          break if same?(nxt[1], ring.first)
+          ring << nxt[1]
+        end
+        ring = simplify(ring)
+        rings << ring if ring.length >= 3
+      end
+      rings
+    end
+
+    def self.same?(a, b)
+      (a[0] - b[0]).abs < 1.0e-7 && (a[1] - b[1]).abs < 1.0e-7
+    end
+
+    def self.simplify(ring)
+      n = ring.length
+      return ring if n < 3
+      out = []
+      n.times do |i|
+        p = ring[(i - 1) % n]
+        q = ring[i]
+        r = ring[(i + 1) % n]
+        cross = (q[0] - p[0]) * (r[1] - q[1]) - (q[1] - p[1]) * (r[0] - q[0])
+        out << q if cross.abs > 1.0e-9
+      end
+      out.length >= 3 ? out : ring
+    end
+
+    # Every tile over the marked rectangle, openings notched out of the
+    # tiles themselves. This is what build! uses.
+    def self.pieces_rect(u0, z0, w, h, holes, u_size:, v_size:, grout: 0.0,
+                         angle: 0.0, ox: 0.0, oy: 0.0, centered: false,
+                         stagger: 0.0, limit: MAX_CELLS)
+      u0 = u0.to_f; z0 = z0.to_f; w = w.to_f; h = h.to_f
+      if angle.to_f.abs > 1.0e-9
+        return pieces(area_polys(u0, z0, w, h, holes), u_size: u_size,
+                      v_size: v_size, grout: grout, angle: angle, ox: ox,
+                      oy: oy, centered: centered, stagger: stagger, limit: limit)
+      end
+      return [] if w <= 0.1 || h <= 0.1
+      u_size = u_size.to_f
+      v_size = v_size.to_f
+      return [] if u_size <= 0.01 || v_size <= 0.01
+      cells = InteriorPro::TileGrid.cells(rect(u0, z0, w, h), u_size: u_size,
+                                          v_size: v_size, grout: grout,
+                                          angle: 0.0, ox: ox, oy: oy,
+                                          centered: centered, stagger: stagger,
+                                          limit: limit)
+      return nil if cells.nil?
+      tc = InteriorPro::TileCount
+      cell_area = u_size * v_size
+      out = []
+      cells.each do |c|
+        cu0 = [c[:u0], u0].max
+        cv0 = [c[:v0], z0].max
+        cu1 = [c[:u0] + u_size, u0 + w].min
+        cv1 = [c[:v0] + v_size, z0 + h].min
+        next if cu1 - cu0 <= MIN_PIECE || cv1 - cv0 <= MIN_PIECE
+        cut(cu0, cv0, cu1, cv1, holes).each do |ring|
+          a = tc.area(ring)
+          next if a <= cell_area * 0.0005
+          if a >= cell_area - EPS * 100
+            out << { poly: ring, full: true, cell: [c[:iu], c[:iv]],
+                     u0: c[:u0], v0: c[:v0], cut: nil }
+          else
+            us = ring.map { |q| q[0] }
+            vs = ring.map { |q| q[1] }
+            out << { poly: ring, full: false, cell: [c[:iu], c[:iv]],
                      u0: c[:u0], v0: c[:v0],
                      cut: [tc.r16(us.max - us.min), tc.r16(vs.max - vs.min)] }
           end
@@ -345,6 +515,7 @@ module InteriorPro
     def self.build!(wall:, side: 'a', u0: 0.0, z0: 0.0, w: nil, h: nil,
                     card_id: nil, tile_w: nil, tile_l: nil, grout: 0.0,
                     grout_color: 'light', stagger: 0.0, angle: 0.0,
+                    depth: nil, mode: 'tiles',
                     ox: 0.0, oy: 0.0, centered: false, id: nil,
                     openings: nil, wrap_operation: true)
       model = Sketchup.active_model
@@ -383,7 +554,19 @@ module InteriorPro
       g = [g, [tw, tl].min * 0.4].min
       st = stagger.to_f
       st = 0.0 if st.negative? || st >= 1.0
+      dp = depth.nil? ? DEFAULT_DEPTH : depth.to_f
+      dp = 0.0 if dp < 0.02
+      dp = [dp, 3.0].min
 
+      # TWO WAYS TO LAY IT (2026-09-17, his call): 'tiles' cuts a solid
+      # for every tile - that is what gives real cut pieces and a real
+      # count. 'image' lays the marked area as ONE slab and repeats the
+      # photo across it at its true size, so the pattern IN the picture is
+      # the tile: star-and-cross, a diagonal chequer, painted cement
+      # tiles. Drawing those tile by tile would need a shape per tile;
+      # the photo already has them. The QUANTITIES are still counted off
+      # the real tile size either way, so the order does not change.
+      md = mode.to_s == 'image' ? 'image' : 'tiles'
       holes = openings.nil? ? openings_for(wall, fr, model) : openings
       area = area_polys(u0, z0, w, h, holes)
       if area.empty?
@@ -393,8 +576,9 @@ module InteriorPro
 
       # The tile measured ALONG the wall is `tile_w`, the same way round
       # as the floor (UNIT_W_ALONG_LAYOUT there). One word, in the open.
-      ps = pieces(area, u_size: tw, v_size: tl, grout: g, angle: angle,
-                        ox: ox, oy: oy, centered: centered, stagger: st)
+      ps = pieces_rect(u0, z0, w, h, holes, u_size: tw, v_size: tl, grout: g,
+                       angle: angle, ox: ox, oy: oy, centered: centered,
+                       stagger: st)
       if ps.nil?
         puts "[TileWall] a #{tw}x#{tl} tile needs more than #{MAX_CELLS} pieces here - too small"
         return nil
@@ -419,13 +603,34 @@ module InteriorPro
         InteriorPro.assign_tag(grp, TAG)
         ge = grp.entities
 
-        if mat && g > 0.02
-          emit_area_faces!(ge, fr, area, grout_material(model, grout_color), GROUT_OFF)
-        end
-        if mat
-          emit_tile_faces!(ge, fr, ps, mat, img_w || tw, img_l || tl)
+        if md == 'image' && mat
+          rings = angle.to_f.abs > 1.0e-9 ? area : cut(u0, z0, u0 + w, z0 + h, holes)
+          if dp > 0.02 && USE_SOLID_TILES
+            emit_slab_solids!(ge, fr, rings, mat, img_w || tw, img_l || tl, dp)
+          else
+            emit_slab_faces!(ge, fr, rings, mat, img_w || tw, img_l || tl)
+          end
         else
-          emit_tile_edges!(ge, fr, ps)
+          solid = USE_SOLID_TILES && dp > 0.02 && mat
+          if solid && ps.length > MAX_SOLID
+            puts "[TileWall] #{ps.length} tiles is past #{MAX_SOLID} - built flat instead of solid"
+            solid = false
+          end
+          # THE GROUT IS AT THE TILE'S EDGE (2026-09-17, his correction:
+          # "הגראוט צריך להיות בקצה ה-TILE"). Real grout is filled flush
+          # with the tile and tooled back a hair - not a plane sitting deep
+          # behind it, which is what half the depth looked like.
+          if mat
+            back = solid ? [dp - GROUT_BACK, GROUT_OFF].max : GROUT_OFF
+            emit_area_faces!(ge, fr, area, grout_material(model, grout_color), back)
+          end
+          if solid
+            emit_tile_solids!(ge, fr, ps, mat, img_w || tw, img_l || tl, dp)
+          elsif mat
+            emit_tile_faces!(ge, fr, ps, mat, img_w || tw, img_l || tl)
+          else
+            emit_tile_edges!(ge, fr, ps)
+          end
         end
 
         if ge.length.zero?
@@ -446,6 +651,8 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'material_card_id', card_id.to_s)
         grp.set_attribute('InteriorPro', 'tile_w', tw)
         grp.set_attribute('InteriorPro', 'tile_l', tl)
+        grp.set_attribute('InteriorPro', 'tile_depth', dp)
+        grp.set_attribute('InteriorPro', 'tile_mode', md)
         grp.set_attribute('InteriorPro', 'pattern_grout', g)
         grp.set_attribute('InteriorPro', 'pattern_grout_color', grout_color.to_s)
         grp.set_attribute('InteriorPro', 'pattern_stagger', st)
@@ -455,6 +662,7 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'pattern_center', centered ? true : false)
         model.commit_operation if wrap_operation
 
+        Watch.start! if defined?(Sketchup::ModelObserver)
         res = InteriorPro::TileCount.count(ps.count { |p| p[:full] },
                                            ps.reject { |p| p[:full] }.map { |p| p[:cut] },
                                            tw, tl)
@@ -473,30 +681,148 @@ module InteriorPro
     # opening added later, or a card that changed, lands on the wall.
     def self.refresh_all!
       n = 0
+      areas_in_model.to_a.each { |g| n += 1 if rebuild_area!(g) }
+      puts "[TileWall] #{n} area(s) rebuilt" if n > 0
+      n
+    end
+
+    # Rebuild the areas on ONE wall - what the watcher below calls when a
+    # window on that wall moves.
+    def self.refresh_wall!(wall_id)
+      n = 0
       areas_in_model.to_a.each do |g|
         next unless g.valid?
-        a = lambda { |k| g.get_attribute('InteriorPro', k) }
-        wall = wall_by_id(a.call('wall_id'))
-        if wall.nil?
-          puts "[TileWall] area #{a.call('id')} lost its wall - erased"
-          g.erase!
-          next
-        end
-        ok = build!(wall: wall, side: a.call('side'), u0: a.call('u0').to_f,
+        next unless g.get_attribute('InteriorPro', 'wall_id').to_s == wall_id.to_s
+        n += 1 if rebuild_area!(g)
+      end
+      n
+    end
+
+    def self.rebuild_area!(g)
+      return false unless g.valid?
+      a = lambda { |k| g.get_attribute('InteriorPro', k) }
+      wall = wall_by_id(a.call('wall_id'))
+      if wall.nil?
+        puts "[TileWall] area #{a.call('id')} lost its wall - erased"
+        g.erase!
+        return false
+      end
+      build!(wall: wall, side: a.call('side'), u0: a.call('u0').to_f,
                     z0: a.call('z0').to_f, w: a.call('area_w').to_f,
                     h: a.call('area_h').to_f, card_id: a.call('material_card_id'),
                     tile_w: a.call('tile_w').to_f, tile_l: a.call('tile_l').to_f,
                     grout: a.call('pattern_grout').to_f,
                     grout_color: a.call('pattern_grout_color'),
+                    depth: a.call('tile_depth'),
+                    mode: a.call('tile_mode'),
                     stagger: a.call('pattern_stagger').to_f,
                     angle: a.call('pattern_angle').to_f,
                     ox: a.call('pattern_ox').to_f, oy: a.call('pattern_oy').to_f,
                     centered: a.call('pattern_center') ? true : false,
-                    id: a.call('id'))
-        n += 1 if ok
+                    id: a.call('id')) ? true : false
+    end
+
+    # ---- the watcher ----------------------------------------------------
+    #
+    # His words (2026-09-17): "אם אני ציירתי טיל על חלון ואני מזיז את
+    # החלון הטיל צריך להשתנות בהתאם."
+    #
+    # It watches instead of hooking into the window and door tools on
+    # purpose: a window can also be moved with SketchUp's own Move tool,
+    # or by the 2D editor, or undone - and a hook in one tool would miss
+    # all of those. So after every committed change we compare a short
+    # SIGNATURE of the openings on the walls that carry tiles, and rebuild
+    # only the areas whose wall actually changed. Nothing changed = no
+    # work, so this costs nothing while he draws.
+    #
+    # The rebuild is deferred by a timer: building geometry inside a
+    # transaction callback is how you crash SketchUp.
+    module Watch
+      def self.signature(model = Sketchup.active_model)
+        tw = InteriorPro::TileWall
+        ids = tw.areas_in_model(model).map { |g| g.get_attribute('InteriorPro', 'wall_id').to_s }.uniq
+        sig = {}
+        ids.each do |wid|
+          wall = tw.wall_by_id(wid, model)
+          next if wall.nil?
+          fr = { floor_z: wall.bounds.min.z.to_f, ox: 0, oy: 0, ux: 0, uy: 0 }
+          rows = tw.openings_for(wall, fr, model).map { |r| r.map { |v| (v.to_f * 16.0).round } }
+          sig[wid] = rows.sort.to_s + wall.bounds.min.to_a.map { |v| (v.to_f * 16.0).round }.to_s
+        end
+        sig
       end
-      puts "[TileWall] #{n} area(s) rebuilt" if n > 0
-      n
+
+      def self.start!(model = Sketchup.active_model)
+        return false if model.nil?
+        @sig = signature(model)
+        return true if @observer && @model == model
+        @model = model
+        @observer = ModelWatcher.new
+        model.add_observer(@observer)
+        true
+      rescue StandardError => e
+        puts "[TileWall] the watcher did not start: #{e.message}"
+        false
+      end
+
+      def self.stop!
+        @model.remove_observer(@observer) if @model && @observer && @model.valid?
+        @observer = nil
+        @model = nil
+      rescue StandardError
+        nil
+      end
+
+      def self.schedule!
+        return if @pending || @busy
+        @pending = true
+        UI.start_timer(0.1, false) { check! }
+      rescue StandardError
+        @pending = false
+      end
+
+      def self.check!
+        @pending = false
+        return if @busy
+        model = Sketchup.active_model
+        return if model.nil?
+        now = signature(model)
+        old = @sig || {}
+        changed = now.keys.select { |k| old[k] != now[k] }
+        @sig = now
+        return if changed.empty?
+        @busy = true
+        begin
+          changed.each do |wid|
+            n = InteriorPro::TileWall.refresh_wall!(wid)
+            puts "[TileWall] an opening on wall #{wid} moved - #{n} area(s) re-laid" if n > 0
+          end
+          @sig = signature(model)
+        ensure
+          @busy = false
+        end
+      rescue StandardError => e
+        @busy = false
+        puts "[TileWall] the watcher failed: #{e.class}: #{e.message}"
+      end
+    end
+
+    # Defined only where SketchUp is - tests/rt175.rb requires this file
+    # on its own, with no SketchUp at all.
+    if defined?(Sketchup::ModelObserver)
+      class ModelWatcher < Sketchup::ModelObserver
+        def onTransactionCommit(_model)
+          InteriorPro::TileWall::Watch.schedule!
+        end
+
+        def onTransactionUndo(_model)
+          InteriorPro::TileWall::Watch.schedule!
+        end
+
+        def onTransactionRedo(_model)
+          InteriorPro::TileWall::Watch.schedule!
+        end
+      end
     end
 
     # ---- emitters --------------------------------------------------------
@@ -520,6 +846,115 @@ module InteriorPro
         f.back_material = mat
         f.edges.each { |e| e.hidden = true; e.soft = true; e.smooth = true }
       end
+    end
+
+    # THE WHOLE AREA AS ONE SLAB, with the photo repeating across it at
+    # its true size - the 'image' way. One group per ring, so a notched
+    # area is still one body.
+    def self.emit_slab_solids!(ge, fr, rings, mat, tex_u, tex_v, depth)
+      Array(rings).each do |ring|
+        next if ring.nil? || ring.length < 3
+        sub = ge.add_group
+        f = begin
+          sub.entities.add_face(pts3d(fr, ring, depth))
+        rescue StandardError
+          nil
+        end
+        if f.nil?
+          puts '[TileWall] the slab face could not be built'
+          sub.erase! if sub.valid?
+          next
+        end
+        outward = Geom::Vector3d.new(fr[:nx], fr[:ny], 0)
+        begin
+          f.pushpull(f.normal.dot(outward) > 0 ? -depth : depth)
+        rescue StandardError
+          puts '[TileWall] the slab could not be pushed out'
+        end
+        sub.entities.grep(Sketchup::Face).each do |q|
+          q.material = mat
+          q.back_material = mat
+        end
+        map_photo!(f, fr, ring, mat, tex_u, tex_v, depth) if f.valid?
+      end
+    end
+
+    def self.emit_slab_faces!(ge, fr, rings, mat, tex_u, tex_v)
+      Array(rings).each do |ring|
+        next if ring.nil? || ring.length < 3
+        f = begin
+          ge.add_face(pts3d(fr, ring, FACE_OFF))
+        rescue StandardError
+          nil
+        end
+        next if f.nil?
+        f.material = mat
+        f.back_material = mat
+        map_photo!(f, fr, ring, mat, tex_u, tex_v, FACE_OFF)
+        f.edges.each { |e| e.hidden = true; e.soft = true; e.smooth = true }
+      end
+    end
+
+    # The photo at its TRUE size, anchored on the area's own corner, so it
+    # repeats across the slab exactly as the tile does on the wall.
+    def self.map_photo!(f, fr, ring, mat, tex_u, tex_v, out)
+      au = ring.map { |q| q[0] }.min
+      av = ring.map { |q| q[1] }.min
+      ox, oy, oz = world(fr, au, av, out)
+      o  = Geom::Point3d.new(ox, oy, oz)
+      pu = Geom::Point3d.new(ox + fr[:ux] * tex_u, oy + fr[:uy] * tex_u, oz)
+      pv = Geom::Point3d.new(ox, oy, oz + tex_v)
+      f.position_material(mat, [o,  Geom::Point3d.new(0, 0, 0),
+                                pu, Geom::Point3d.new(1, 0, 0),
+                                pv, Geom::Point3d.new(0, 1, 0)], true)
+    rescue StandardError => e
+      puts "[TileWall] the photo could not be mapped: #{e.message}"
+    end
+
+    # SOLID TILE. Each tile is a little box standing `depth` off the wall,
+    # in its OWN group. The picture is anchored to the tile's own corner
+    # on the OUTER face, the same crop the floor does, and the four sides
+    # get the same material so a cut edge does not flash white.
+    def self.emit_tile_solids!(ge, fr, pieces, mat, tex_u, tex_v, depth)
+      fails = 0
+      pulls = 0
+      pieces.each do |p|
+        sub = ge.add_group
+        f = begin
+          sub.entities.add_face(pts3d(fr, p[:poly], depth))
+        rescue StandardError
+          nil
+        end
+        if f.nil?
+          fails += 1
+          sub.erase! if sub.valid?
+          next
+        end
+        outward = Geom::Vector3d.new(fr[:nx], fr[:ny], 0)
+        dist = f.normal.dot(outward) > 0 ? -depth : depth
+        begin
+          f.pushpull(dist)
+        rescue StandardError
+          pulls += 1
+        end
+        sub.entities.grep(Sketchup::Face).each do |q|
+          q.material = mat
+          q.back_material = mat
+        end
+        next unless f.valid?
+        ox, oy, oz = world(fr, p[:u0], p[:v0], depth)
+        o  = Geom::Point3d.new(ox, oy, oz)
+        pu = Geom::Point3d.new(ox + fr[:ux] * tex_u, oy + fr[:uy] * tex_u, oz)
+        pv = Geom::Point3d.new(ox, oy, oz + tex_v)
+        begin
+          f.position_material(mat, [o,  Geom::Point3d.new(0, 0, 0),
+                                    pu, Geom::Point3d.new(1, 0, 0),
+                                    pv, Geom::Point3d.new(0, 1, 0)], true)
+        rescue StandardError
+          nil
+        end
+      end
+      puts "[TileWall] solid tiles: #{fails} face fail(s), #{pulls} pushpull fail(s)" if fails > 0 || pulls > 0
     end
 
     # Each tile piece is a face, painted with the card's picture anchored
@@ -575,5 +1010,15 @@ module InteriorPro
         end
       end
     end
+  end
+end
+
+# Start watching as soon as the plugin loads, and again on reload.
+if defined?(Sketchup) && defined?(Sketchup::ModelObserver) &&
+   Sketchup.respond_to?(:active_model)
+  begin
+    InteriorPro::TileWall::Watch.start!
+  rescue StandardError => e
+    puts "[TileWall] watcher: #{e.message}"
   end
 end

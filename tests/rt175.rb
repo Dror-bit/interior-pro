@@ -111,6 +111,51 @@ ok('the plan answers with the buy line', res && res[:tiles].to_i > 0, res)
 ok('two 6" cuts are paired into one tile bought',
    res[:full] == 4 && res[:cut_pieces] == 2 && res[:tiles] == 5, res)
 
+# ---- 3b. ONE tile is one piece, notch and all ---------------------------
+# He counted them: "יש שם יותר מידי חיתוכים". A tile reaching over AND
+# beside an opening was coming back as two pieces - two solids side by
+# side, a seam he could see, and two tiles in the count.
+r = TW.cut(0.0, 0.0, 24.0, 24.0, [])
+ok('a tile with nothing in its way is one ring of four corners',
+   r.length == 1 && r.first.length == 4, r)
+
+notch = TW.cut(0.0, 0.0, 24.0, 24.0, [[12.0, 12.0, 40.0, 40.0]])
+ok('a tile with a corner bitten out is ONE ring, not two',
+   notch.length == 1, notch)
+ok('and that ring has six corners - an L',
+   notch.first.length == 6, notch.first.length)
+ok('its area is the tile minus the bite',
+   (TC.area(notch.first) - (24 * 24 - 12 * 12)).abs < 1e-6, TC.area(notch.first))
+
+thru = TW.cut(0.0, 0.0, 24.0, 24.0, [[8.0, -5.0, 16.0, 30.0]])
+ok('an opening straight through a tile really does leave two pieces',
+   thru.length == 2, thru.map { |x| TC.area(x) })
+ok('and they measure right',
+   thru.map { |x| TC.area(x).round(4) }.sort == [8 * 24.0, 8 * 24.0].sort,
+   thru.map { |x| TC.area(x) })
+
+ok('a tile completely covered is gone',
+   TW.cut(0.0, 0.0, 24.0, 24.0, [[-1.0, -1.0, 25.0, 25.0]]).empty?)
+
+# the whole path: the same window as before, now through pieces_rect
+before = TW.pieces(TW.area_polys(0.0, 0.0, 96.0, 96.0, [[36.0, 36.0, 60.0, 60.0]]),
+                   u_size: 48.0, v_size: 48.0)
+after = TW.pieces_rect(0.0, 0.0, 96.0, 96.0, [[36.0, 36.0, 60.0, 60.0]],
+                       u_size: 48.0, v_size: 48.0)
+ok('the old convex way splits four tiles into twelve pieces',
+   before.length > after.length, [before.length, after.length])
+ok('one tile is one piece now - four tiles, four pieces',
+   after.length == 4, after.length)
+ok('and every one of them is a cut tile, none is whole',
+   after.none? { |x| x[:full] }, after.map { |x| x[:full] })
+ok('so the count asks for four tiles, not twelve',
+   TW.plan(nil, u_size: 1, v_size: 1).nil? ||
+   InteriorPro::TileCount.count(0, after.map { |x| x[:cut] }, 48.0, 48.0)[:tiles] == 4,
+   InteriorPro::TileCount.count(0, after.map { |x| x[:cut] }, 48.0, 48.0))
+
+ok('with no openings at all nothing changed',
+   TW.pieces_rect(0.0, 0.0, 48.0, 24.0, [], u_size: 12.0, v_size: 12.0).length == 8)
+
 # ---- 4. the real path, not just the maths -------------------------------
 # CLAUDE.md: a test on the pure function does not prove the tool works.
 SRC = File.read('./tile_wall.rb')
@@ -126,6 +171,64 @@ ok('a curved wall is refused out loud, not skipped', SRC.include?('curved_wall?'
 ok('the wall floor is measured, not rebuilt from the anchor',
    SRC.include?('wall.bounds.min.z'))
 ok('it is registered in main.rb', File.read('./main.rb').include?('tile_wall.rb'))
+
+# ---- 5. the tile STANDS OFF the wall (2026-09-17, his 5/8") -------------
+ok('5/8 is the default, in inches',
+   (TW::DEFAULT_DEPTH - 0.625).abs < 1e-9, TW::DEFAULT_DEPTH)
+ok('a solid tile is really pushed out, not painted on', SRC.include?('f.pushpull(dist)'))
+ok('it is pushed TOWARDS the wall, off the outer face',
+   SRC.include?('f.normal.dot(outward) > 0 ? -depth : depth'))
+ok('every tile is its own group - the law that crashed SketchUp',
+   SRC =~ /pieces\.each do \|p\|\s*\n\s*sub = ge\.add_group/)
+ok('the sides get the material too, so a cut edge is not white',
+   SRC =~ /sub\.entities\.grep\(Sketchup::Face\)\.each do \|q\|\s*\n\s*q\.material = mat/)
+ok('the grout is FLUSH with the tile face, not recessed',
+   SRC.include?('back = solid ? [dp - GROUT_BACK, GROUT_OFF].max : GROUT_OFF') &&
+   TW::GROUT_BACK < 0.01 && TW::GROUT_BACK > 0.0, TW::GROUT_BACK)
+ok('build! lays the notched tiles, not the convex pieces',
+   SRC =~ /ps = pieces_rect\(u0, z0, w, h, holes/)
+ok('too many tiles falls back to flat instead of hanging',
+   SRC.include?('ps.length > MAX_SOLID'))
+ok('there is a kill switch', SRC.include?('USE_SOLID_TILES'))
+ok('the depth survives a rebuild', SRC.include?("'tile_depth'") &&
+   SRC.include?("depth: a.call('tile_depth')"))
+
+# ---- 6. the photo-as-pattern way (his idea, for star-and-cross etc) ----
+ok('there are two ways to lay it', SRC.include?("md = mode.to_s == 'image' ? 'image' : 'tiles'"))
+ok('the image way lays ONE slab per ring, not a tile at a time',
+   SRC.include?('emit_slab_solids!(ge, fr, rings, mat'))
+ok('and the openings are still notched out of it',
+   SRC.include?('cut(u0, z0, u0 + w, z0 + h, holes)'))
+ok('the photo is anchored to the area corner at its TRUE size, so it repeats',
+   SRC.include?('def self.map_photo!') && SRC.include?('fr[:ux] * tex_u'))
+ok('the way he chose survives a rebuild',
+   SRC.include?("'tile_mode'") && SRC.include?("mode: a.call('tile_mode')"))
+ok('the QUANTITIES are still counted tile by tile either way',
+   SRC =~ /ps = pieces_rect/ && SRC =~ /res = InteriorPro::TileCount\.count/)
+
+# ---- 7. a window that MOVES drags the tile with it ----------------------
+# His words: "אם אני ציירתי טיל על חלון ואני מזיז את החלון הטיל צריך
+# להשתנות בהתאם."
+ok('this file requires no SketchUp to be read - the observer is guarded',
+   SRC.include?('if defined?(Sketchup::ModelObserver)'))
+ok('it watches the model instead of hooking one tool',
+   SRC.include?('def onTransactionCommit'))
+ok('undo and redo count as changes too',
+   SRC.include?('def onTransactionUndo') && SRC.include?('def onTransactionRedo'))
+ok('nothing is rebuilt unless the openings really moved',
+   SRC.include?('changed = now.keys.select { |k| old[k] != now[k] }'))
+ok('only the wall that changed is re-laid, not the whole model',
+   SRC.include?('def self.refresh_wall!'))
+ok('the rebuild is deferred - building inside the callback crashes SketchUp',
+   SRC.include?('UI.start_timer(0.1, false)'))
+ok('the watcher cannot trigger itself in a loop', SRC.include?('@busy'))
+ok('the signature includes the wall floor, so raising a wall counts',
+   SRC.include?('wall.bounds.min.to_a'))
+
+TOOL = File.read('./tile_wall_tool.rb')
+ok('the tool asks for the stand-off and sends it',
+   TOOL.include?('DEPTH_IN') && TOOL.include?('depth: @cfg[:depth]'))
+ok('5/8 is the first choice he sees', TOOL.include?("DEPTHS   = ['5/8\"'"))
 
 puts($fails.zero? ? 'rt175 all green' : "rt175 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

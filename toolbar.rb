@@ -35,6 +35,12 @@ module InteriorPro
     LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
     CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
     TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
+    # The Build bar: 21 buttons. Bump this the moment one is added, or
+    # the new button silently never appears - the bar survives a restart,
+    # so on the next launch it is already full and the guard returns
+    # before adding anything. That trap has cost a whole chat before.
+    BUILD_TOOLBAR_NAME = 'Interior Pro Build' unless const_defined?(:BUILD_TOOLBAR_NAME, false)
+    BUILD_TOOLBAR_ITEM_COUNT = 21 unless const_defined?(:BUILD_TOOLBAR_ITEM_COUNT, false)
 
     # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
     def self.resolve_toolbar
@@ -55,13 +61,44 @@ module InteriorPro
       return if @setup_done
       @setup_done = true
 
-      setup_floors_toolbar
+      setup_surfaces_toolbar
+      setup_data_toolbar
       setup_roofs_toolbar
       setup_2d_toolbar
       setup_landscape_toolbar
+      hide_old_bars!
+      setup_build_toolbar
+    end
 
-      toolbar = resolve_toolbar
-      return if toolbar.length >= TOOLBAR_ITEM_COUNT
+    # The bars that were replaced on 2026-09-17 when the buttons were
+    # sorted by job. SketchUp cannot take a button OFF a bar, but it can
+    # hide the whole bar - which is the difference between him seeing
+    # duplicates until he restarts and not seeing them at all.
+    def self.hide_old_bars!
+      [LEGACY_TOOLBAR_NAME, CLEAN_TOOLBAR_NAME, 'Interior Pro Floors',
+       'Interior Pro Tile'].each do |name|
+        tb = UI::Toolbar.new(name)
+        tb.hide if tb.length > 0
+      end
+      nil
+    rescue StandardError => e
+      puts "[InteriorPro] could not hide an old toolbar: #{e.message}"
+    end
+
+    # THE BUILD BAR (2026-09-17). Everything that makes the shell of the
+    # house, in the order he works: walls, then the openings, then the
+    # trim, then the whole-house surfaces. Each family is fenced off with
+    # a separator - his words: "גם קו שחוצץ ביניהם".
+    #
+    # It is a NEW bar on purpose. A separator can only be appended to a
+    # bar, never inserted into one that already exists, so the lines he
+    # asked for are only possible on a bar built from scratch. Every
+    # button below is the SAME command as before - nothing about what
+    # they do changed, only which bar they sit on and the lines between
+    # them.
+    def self.setup_build_toolbar
+      toolbar = UI::Toolbar.new(BUILD_TOOLBAR_NAME)
+      return if toolbar.length >= BUILD_TOOLBAR_ITEM_COUNT
 
       # Wall Tool Button
       wall_cmd = UI::Command.new('Wall Tool') {
@@ -145,6 +182,8 @@ module InteriorPro
       wall_delete_cmd.large_icon = icon_path('wall_delete')
       toolbar.add_item(wall_delete_cmd)
 
+      toolbar.add_separator if toolbar.respond_to?(:add_separator)
+
       # Window Tool Button
       window_cmd = UI::Command.new('Window Tool') {
         tool = InteriorPro::WindowTool.new
@@ -185,6 +224,8 @@ module InteriorPro
       window_delete_cmd.small_icon = icon_path('window_delete')
       window_delete_cmd.large_icon = icon_path('window_delete')
       toolbar.add_item(window_delete_cmd)
+
+      toolbar.add_separator if toolbar.respond_to?(:add_separator)
 
       # Door Tool Button — activate tool first (viewport focus), then modeless settings panel.
       door_cmd = UI::Command.new('Door Tool') {
@@ -227,6 +268,8 @@ module InteriorPro
       door_delete_cmd.large_icon = icon_path('delete_door')
       toolbar.add_item(door_delete_cmd)
 
+      toolbar.add_separator if toolbar.respond_to?(:add_separator)
+
       # Molding (baseboard + crown) — whole-house apply/remove
       molding_cmd = UI::Command.new('Molding') {
         InteriorPro::MoldingDialog.show
@@ -264,48 +307,57 @@ module InteriorPro
       molding_refresh_cmd.large_icon = icon_path('molding_refresh')
       toolbar.add_item(molding_refresh_cmd)
 
+      # Ceilings and the foundation belt moved here on 2026-09-17, his
+      # call: they are STRUCTURE, not a finish - "לא מסתדר לי לשים את
+      # האונדיישן והתקרות עם החלונות, או כן אבל קו שחוצץ ביניהם". So
+      # they sit with the shell, behind their own line.
+      toolbar.add_separator if toolbar.respond_to?(:add_separator)
+
+      ceilings_cmd = UI::Command.new('Ceilings') {
+        InteriorPro::CeilingManager.build_ceilings!
+      }
+      ceilings_cmd.tooltip = 'Ceilings - build a ceiling for every room'
+      ceilings_cmd.status_bar_text = 'Build/update ceilings from the room boundaries; Remove via Extensions menu'
+      ceilings_cmd.small_icon = icon_path('ceiling_tool')
+      ceilings_cmd.large_icon = icon_path('ceiling_tool')
+      toolbar.add_item(ceilings_cmd)
+
+      foundation_cmd = UI::Command.new('Foundation') {
+        InteriorPro::FoundationManager.build_with_prompt!
+      }
+      foundation_cmd.tooltip = 'Foundation - stem wall belt under the exterior walls'
+      foundation_cmd.status_bar_text = 'Build/update the foundation belt (asks for height); Remove via Extensions menu'
+      foundation_cmd.small_icon = icon_path('foundation_tool')
+      foundation_cmd.large_icon = icon_path('foundation_tool')
+      toolbar.add_item(foundation_cmd)
+
       toolbar.restore
     end
 
-    # Separate toolbar for rooms/floors (per user request 2026-07-15).
-    def self.setup_floors_toolbar
-      tb = UI::Toolbar.new('Interior Pro Floors')
-      return if tb.length >= 5
+    # ---------------------------------------------- THE FIVE BARS
+    #
+    # Sorted by WHAT HE IS DOING, not by what kind of object it is - his
+    # call, 2026-09-17: "כל כפתורי הנתונים החומרים ושייוך הפרוייקטים
+    # לתוכנת ניהול העסק צריכים להיות ביחד, והתוכניות והסירטוט לחוד."
+    #
+    #   Interior Pro Tools     walls, doors, windows, molding  (untouched)
+    #   Interior Pro Surfaces  floors, tile | ceilings, foundation
+    #   Interior Pro Data      materials, room names, quantities
+    #   Interior Pro Roofs     roofs, skylights, dormers       (untouched -
+    #                          it is the big one and he asked to leave it)
+    #   Interior Pro 2D        the 2D editor and the sheet - the drawing
+    #
+    # The old "Interior Pro Floors" bar is not built any more. SketchUp
+    # cannot take a button off a bar that already exists, so his current
+    # Floors bar keeps its buttons until he closes and reopens SketchUp
+    # once; after that it is gone and these two are what is left.
 
-      # THE "Sync Rooms" BUTTON IS GONE (2026-09-06). He said it was not
-      # usable - "אי אפשר בכלל להשתמש בו" - and the measurement says why:
-      # RoomManager.sync_rooms! is already called automatically from 13
-      # places (every wall build, delete, split, stretch, curve, the 2D
-      # editor, the floors dialog). The rooms are always up to date, so
-      # the button had nothing to do and looked broken.
-      # His own rule: if something already does the job, do not add a
-      # second way to do it.
-
-      # The room table: which room in the model is which room in Invoice
-      # Studio, or a name of his own (2026-09-06). Next to Sync Rooms,
-      # because that is the button that CREATES the rooms this one names.
-      link_cmd = UI::Command.new('Room Names') {
-        InteriorPro::RoomLinkDialog.show
-      }
-      link_cmd.tooltip = 'Room Names - link each room to Invoice Studio'
-      link_cmd.status_bar_text = 'One table: every room in the model, ' \
-                                 'linked to a room in the chosen project or named by hand'
-      link_cmd.small_icon = icon_path('room_names')
-      link_cmd.large_icon = icon_path('room_names')
-      tb.add_item(link_cmd)
-
-      # The material library (2026-09-15): the wall of thumbnails he asked
-      # for - "שאני אוכל לבחור חומרים מהתיקיה בפלאג אין שמראה לי אותם
-      # כמו בכל תוכנת רינדור". Sits next to Room Names because both read
-      # the same synced OneDrive folder.
-      matlib_cmd = UI::Command.new('Materials') {
-        InteriorPro::MaterialLibraryDialog.show
-      }
-      matlib_cmd.tooltip = 'Materials - your saved material library'
-      matlib_cmd.status_bar_text = 'Open the material library: click a swatch to put it on the selection'
-      matlib_cmd.small_icon = icon_path('material_library')
-      matlib_cmd.large_icon = icon_path('material_library')
-      tb.add_item(matlib_cmd)
+    # Floors and tile are the same job - a surface with a layout on it -
+    # and ceilings and foundation are surfaces too, fenced off with a
+    # separator because they are whole-house buttons, not per-room ones.
+    def self.setup_surfaces_toolbar
+      tb = UI::Toolbar.new('Interior Pro Surfaces')
+      return if tb.length >= 2
 
       floors_cmd = UI::Command.new('Build Floors') {
         InteriorPro::FloorDialog.show
@@ -316,39 +368,57 @@ module InteriorPro
       floors_cmd.large_icon = icon_path('floor_tool')
       tb.add_item(floors_cmd)
 
-      # Foundation belt under exterior walls (2026-07-18).
-      foundation_cmd = UI::Command.new('Foundation') {
-        InteriorPro::FoundationManager.build_with_prompt!
+      # Tile on a WALL (2026-09-17): two clicks mark the rectangle - the
+      # shower wall, the fireplace face. Same grid as the floor.
+      tile_wall_cmd = UI::Command.new('Tile Wall') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallTool.new)
       }
-      foundation_cmd.tooltip = 'Foundation - stem wall belt under the exterior walls'
-      foundation_cmd.status_bar_text = 'Build/update the foundation belt (asks for height); Remove via Extensions menu'
-      foundation_cmd.small_icon = icon_path('foundation_tool')
-      foundation_cmd.large_icon = icon_path('foundation_tool')
-      tb.add_item(foundation_cmd)
+      tile_wall_cmd.tooltip = 'Tile Wall - mark an area on a wall face and tile it'
+      tile_wall_cmd.status_bar_text = 'Click one corner of the area on a wall face, then the opposite corner'
+      tile_wall_cmd.small_icon = icon_path('tile_wall')
+      tile_wall_cmd.large_icon = icon_path('tile_wall')
+      tb.add_item(tile_wall_cmd)
 
-      # Ceilings per room (2026-08-03): built only when asked, like floors.
-      ceilings_cmd = UI::Command.new('Ceilings') {
-        InteriorPro::CeilingManager.build_ceilings!
+      tb.restore
+    end
+
+    # THE DATA BAR. Materials, what a room is called in the business
+    # software, and the quantities. Nothing here builds geometry - these
+    # are the buttons that answer "what is it made of" and "how much of
+    # it do I order", which is why they belong together and not with the
+    # drawing.
+    def self.setup_data_toolbar
+      tb = UI::Toolbar.new('Interior Pro Data')
+      return if tb.length >= 3
+
+      # The material library (2026-09-15): the wall of thumbnails he asked
+      # for - "שאני אוכל לבחור חומרים מהתיקיה בפלאג אין שמראה לי אותם
+      # כמו בכל תוכנת רינדור".
+      matlib_cmd = UI::Command.new('Materials') {
+        InteriorPro::MaterialLibraryDialog.show
       }
-      ceilings_cmd.tooltip = 'Ceilings - build a ceiling for every room'
-      ceilings_cmd.status_bar_text = 'Build/update ceilings from the room boundaries; Remove via Extensions menu'
-      ceilings_cmd.small_icon = icon_path('ceiling_tool')
-      ceilings_cmd.large_icon = icon_path('ceiling_tool')
-      tb.add_item(ceilings_cmd)
+      matlib_cmd.tooltip = 'Materials - your saved material library'
+      matlib_cmd.status_bar_text = 'Open the material library: click a swatch to put it on the selection'
+      matlib_cmd.small_icon = icon_path('material_library')
+      matlib_cmd.large_icon = icon_path('material_library')
+      tb.add_item(matlib_cmd)
 
-      # The tile layout drawing (2026-09-06). One .svg per floor that is
-      # laid in a unit, written next to the .skp file: the layout, the
-      # room's dimensions, and the number of tiles to order. It only READS
-      # the model - no geometry is built and nothing is changed.
-      # No cut schedule, by his instruction: "אני רק מזמין את החומר אני לא
-      # אומר לו איך לחתוך... ניתן לקבלן להסתדר עם זה בעצמו".
-      # How many tiles to order (2026-09-07). A WINDOW, not a file: he asked
-      # for the file-writing version to be stopped - "כרגע זה כמו שולח לי
-      # אתזה כPDF או פותח קובץ בראוזר חדש כל הזמן" - because the quantities
-      # are for him while he designs, not something to hand over.
-      # The layout DRAWING (tile_sheet.rb) is a different job for a different
-      # day: it goes to the contractor after the render and the approval, and
-      # it belongs in the plans. It is not wired to a button on purpose.
+      # Which room in the model is which room in Invoice Studio, or a
+      # name of his own (2026-09-06).
+      link_cmd = UI::Command.new('Room Names') {
+        InteriorPro::RoomLinkDialog.show
+      }
+      link_cmd.tooltip = 'Room Names - link each room to Invoice Studio'
+      link_cmd.status_bar_text = 'One table: every room in the model, ' \
+                                 'linked to a room in the chosen project or named by hand'
+      link_cmd.small_icon = icon_path('room_names')
+      link_cmd.large_icon = icon_path('room_names')
+      tb.add_item(link_cmd)
+
+      # How many tiles to order (2026-09-07). A WINDOW, not a file: the
+      # quantities are for him while he designs, not something to hand
+      # over. tile_sheet.rb - the layout DRAWING for the contractor - is
+      # deliberately not wired to any button; it belongs in the plans.
       tile_count_cmd = UI::Command.new('Tiles') {
         InteriorPro::TileCountDialog.show
       }

@@ -57,7 +57,8 @@ calls = []
 module InteriorPro
   module Toolbar
     def self.setup_2d_toolbar; $rt44_calls << :two_d; end
-    def self.setup_floors_toolbar; $rt44_calls << :floors; end
+    def self.setup_surfaces_toolbar; $rt44_calls << :surfaces; end
+    def self.setup_data_toolbar; $rt44_calls << :data; end
     def self.setup_roofs_toolbar; $rt44_calls << :roofs; end
   end
 end
@@ -65,7 +66,10 @@ $rt44_calls = calls
 InteriorPro.refresh_toolbars!
 ok('the 2D toolbar is rebuilt, so a new button appears without a restart',
    calls.include?(:two_d), calls)
-ok('the floors and roofs bars too', calls.include?(:floors) && calls.include?(:roofs), calls)
+# renamed 2026-09-17 with the bar reorganisation: floors+tile became
+# Surfaces, materials+quantities became Data.
+ok('the surfaces, data and roofs bars too',
+   calls.include?(:surfaces) && calls.include?(:data) && calls.include?(:roofs), calls)
 
 # a broken toolbar must not stop the others
 module InteriorPro

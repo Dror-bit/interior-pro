@@ -55,6 +55,8 @@ module InteriorPro
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb
+      tile_wall.rb
+      tile_wall_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb
@@ -264,8 +266,8 @@ module InteriorPro
 
   def self.refresh_toolbars!
     return unless const_defined?(:Toolbar, false)
-    %i[setup_2d_toolbar setup_floors_toolbar setup_roofs_toolbar
-       setup_landscape_toolbar].each do |m|
+    %i[setup_build_toolbar setup_2d_toolbar setup_surfaces_toolbar
+       setup_data_toolbar setup_roofs_toolbar setup_landscape_toolbar].each do |m|
       next unless InteriorPro::Toolbar.respond_to?(m)
       begin
         InteriorPro::Toolbar.send(m)

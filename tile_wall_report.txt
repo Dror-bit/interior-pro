@@ -1,0 +1,28 @@
+tile_wall groups: 1
+
+== TW002 on wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d side a
+   u0 = 5.0
+   z0 = 0.0
+   area_w = 204.8094262158511
+   area_h = 82.93951928815594
+   tile_w = 48.0
+   tile_l = 24.0
+   pattern_grout = 0.125
+   pattern_grout_color = "light"
+   pattern_stagger = 0.5
+   pattern_angle = 0.0
+   material_card_id = "IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c"
+   faces = 39   edges = 152   hidden edges = 152
+   face area min/max (sqin) = 8.7 / 10259.69
+   materials on faces = {"InteriorPro_Grout_Light"=>7, "A smooth_ light gray surface with subtle texture and a faint line dividing two sections."=>32}
+   material 'InteriorPro_Grout_Light': texture=NONE size=- px=-
+   material 'A smooth_ light gray surface with subtle texture and a faint line dividing two sections.': texture=IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c.jpg size=[48.0, 24.0] px=[1320, 660]
+   CARD "A smooth, light gray surface with subtle texture and a faint line dividing two sections."
+     tile_w_inches = nil
+     tile_l_inches = nil
+     texture_width_inches = 48.0
+     texture_height_inches = 24.0
+     image_tiles_x = nil
+     image_tiles_y = nil
+     size = nil
+     file = nil
