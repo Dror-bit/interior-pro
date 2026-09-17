@@ -55,6 +55,7 @@ module InteriorPro
       room_manager.rb
       floor_manager.rb
       floor_pattern.rb
+      tile_wall.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb
