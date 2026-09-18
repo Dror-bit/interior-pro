@@ -251,12 +251,61 @@ module InteriorPro
     #
     # Axis aligned, which is what a wall layout is. A turned layout
     # (angle != 0) still goes the convex way through `pieces`.
+    # A ring that carries island holes - see cut. An Array, so every
+    # reader that only wants the corners keeps working.
+    class Ring < Array
+      attr_accessor :holes
+    end
+
+    # Is this rectangle wholly inside the ring's bounding box? Good enough
+    # for the cutter: an island hole was already checked against the tile.
+    def self.ring_holds?(ring, h)
+      us = ring.map { |q| q[0] }
+      vs = ring.map { |q| q[1] }
+      h[0] >= us.min - EPS && h[2] <= us.max + EPS && h[1] >= vs.min - EPS && h[3] <= vs.max + EPS
+    end
+
+    def self.ring_holes(ring)
+      ring.respond_to?(:holes) && ring.holes ? ring.holes : []
+    end
+
+    # The area of a ring MINUS its holes.
+    def self.ring_area(ring)
+      tc = InteriorPro::TileCount
+      tc.area(ring) - ring_holes(ring).sum { |h| tc.area(h) }
+    end
+
     def self.cut(x0, y0, x1, y1, holes)
       return [] if x1 - x0 <= MIN_PIECE || y1 - y0 <= MIN_PIECE
       hs = Array(holes).map { |h| h.map(&:to_f) }.select do |hx0, hy0, hx1, hy1|
         hx1 > x0 + EPS && hx0 < x1 - EPS && hy1 > y0 + EPS && hy0 < y1 - EPS
       end
       return [[[x0, y0], [x1, y0], [x1, y1], [x0, y1]]] if hs.empty?
+
+      # A HOLE IN THE MIDDLE OF A TILE (2026-09-18, measured with
+      # debug_tile_edit.rb: after centring, the whole window sat inside
+      # ONE 48x24 tile, and this came back as the tile untouched plus a
+      # second "tile" the size of the window - the hole's own outline,
+      # chained as a ring of its own, and then BUILT as a tile). His call
+      # on the fix, from two choices: ONE whole tile with a hole in it, no
+      # seams - not four pieces. So an island hole is taken out of the
+      # holes list, the tile is cut for whatever else it meets, and the
+      # island is handed back ON the ring as `holes`, for the builder to
+      # punch. A Ring is an Array, so everything that only reads corners
+      # is untouched; ring_area knows to take the holes off.
+      islands, hs = hs.partition do |hx0, hy0, hx1, hy1|
+        hx0 > x0 + EPS && hx1 < x1 - EPS && hy0 > y0 + EPS && hy1 < y1 - EPS
+      end
+      unless islands.empty?
+        rings = cut(x0, y0, x1, y1, hs)
+        return rings.map do |ring|
+          mine = islands.select { |h| ring_holds?(ring, h) }
+          next ring if mine.empty?
+          r = Ring.new(ring)
+          r.holes = mine.map { |hx0, hy0, hx1, hy1| [[hx0, hy0], [hx1, hy0], [hx1, hy1], [hx0, hy1]] }
+          r
+        end
+      end
 
       xs = ([x0, x1] + hs.flat_map { |h| [h[0], h[2]] }).map { |v| v.clamp(x0, x1) }
       ys = ([y0, y1] + hs.flat_map { |h| [h[1], h[3]] }).map { |v| v.clamp(y0, y1) }
@@ -367,7 +416,7 @@ module InteriorPro
         cv1 = [c[:v0] + v_size, z0 + h].min
         next if cu1 - cu0 <= MIN_PIECE || cv1 - cv0 <= MIN_PIECE
         cut(cu0, cv0, cu1, cv1, holes).each do |ring|
-          a = tc.area(ring)
+          a = ring_area(ring)
           next if a <= cell_area * 0.0005
           if a >= cell_area - EPS * 100
             out << { poly: ring, full: true, cell: [c[:iu], c[:iv]],
@@ -688,6 +737,144 @@ module InteriorPro
       0
     end
 
+    # THE WHOLE SHOWER (2026-09-18, his call: "אבל את כל הקירות של אותה
+    # המקלחת", and when asked what that means he chose the CHAIN - every
+    # tiled area joined to this one round the corners, wall after wall,
+    # not "everything in the room"). One area stands on one face; at each
+    # of its two ends neighbour_at says which face round the corner the
+    # run carries on to, and an area standing there, starting where the
+    # run picks up, is part of the same shower. Then from that one, again.
+    #
+    # PURE: `areas` is a list of {id:, wall_id:, side:, u0:, w:} and `nb`
+    # answers (wall_id, side, u) with {wall_id:, side:, u_from:, dir:} or
+    # nil - so tests/rt182.rb pins it without a model. Returns the ids,
+    # the one it started from first.
+    CHAIN_TOL = 3.0 unless const_defined?(:CHAIN_TOL, false)
+
+    def self.chain_ids(areas, start_id, nb, tol = CHAIN_TOL)
+      by_id = {}
+      Array(areas).each { |a| by_id[a[:id].to_s] = a }
+      seen  = [start_id.to_s]
+      queue = [start_id.to_s]
+      until queue.empty?
+        a = by_id[queue.shift]
+        next if a.nil?
+        [a[:u0].to_f, a[:u0].to_f + a[:w].to_f].each do |u|
+          n = nb.call(a[:wall_id].to_s, a[:side].to_s, u)
+          next if n.nil?
+          Array(areas).each do |b|
+            next if seen.include?(b[:id].to_s)
+            next unless b[:wall_id].to_s == n[:wall_id].to_s && b[:side].to_s == n[:side].to_s
+            edge = n[:dir].to_f > 0 ? b[:u0].to_f : b[:u0].to_f + b[:w].to_f
+            next unless (edge - n[:u_from].to_f).abs <= tol
+            seen << b[:id].to_s
+            queue << b[:id].to_s
+          end
+        end
+      end
+      seen
+    end
+
+    # THE SIDES FOLLOW THE WALL HE CENTRED (2026-09-18, his picture: the
+    # back wall centred, the two side walls still on their old layout, and
+    # the grout lines break at the corners. His words: "שהצדדים ילכו עם
+    # הפריסה המתאימה לשינוי הקיר שאני משנה אותו").
+    #
+    # The joint lattice of the edited area is worked out once (where its
+    # first joint sits, same as the grid does), and then walked round the
+    # corners: at each corner the tile is cut at `cut` inches, and the
+    # next wall gets a shift so that its own lattice carries that tile on
+    # - the same rule carry_ox uses for a run that wraps, only now from
+    # ANY starting layout, centred or not, and in BOTH directions. From
+    # that wall, again, to the next.
+    #
+    # PURE. `areas` as chain_ids takes them, plus bu0:/bw: (what was
+    # really built, after the corner square); the start area also carries
+    # ox: and cen_u: (its own centring along the wall). Returns
+    # { id => ox } for every OTHER area in the chain - the shift each one
+    # needs, measured from its own built edge, with its along-the-wall
+    # centring OFF (the lattice is the shift now).
+    def self.follow_layout(areas, start_id, nb, u_size, grout = 0.0, tol = CHAIN_TOL)
+      size = u_size.to_f
+      return {} if size <= 0.01
+      pitch = size + [grout.to_f, 0.0].max
+      by_id = {}
+      Array(areas).each { |a| by_id[a[:id].to_s] = a }
+      a0 = by_id[start_id.to_s]
+      return {} if a0.nil?
+      s0 = InteriorPro::TileGrid.start(a0[:bu0].to_f, a0[:bu0].to_f + a0[:bw].to_f / 2.0,
+                                       size, pitch, a0[:ox].to_f, a0[:cen_u])
+      out = {}
+      seen  = [a0[:id].to_s]
+      queue = [[a0[:id].to_s, s0]]
+      until queue.empty?
+        id, sx = queue.shift
+        a = by_id[id]
+        [a[:u0].to_f, a[:u0].to_f + a[:w].to_f].each do |u_end|
+          n = nb.call(a[:wall_id].to_s, a[:side].to_s, u_end)
+          next if n.nil?
+          # How far the corner is past the last tile start of this lattice.
+          # Unwrap the run round the corner and the next wall's lattice
+          # has a tile start exactly that far BEFORE the corner - the same
+          # sum whichever way the next wall runs (rt185 does both ways),
+          # and a corner that falls in a grout line splits the grout.
+          rem = (u_end - sx) % pitch
+          rem = 0.0 if rem < 1.0e-6 || (pitch - rem) < 1.0e-6
+          Array(areas).each do |b|
+            next if seen.include?(b[:id].to_s)
+            next unless b[:wall_id].to_s == n[:wall_id].to_s && b[:side].to_s == n[:side].to_s
+            edge = n[:dir].to_f > 0 ? b[:u0].to_f : b[:u0].to_f + b[:w].to_f
+            next unless (edge - n[:u_from].to_f).abs <= tol
+            joint = n[:u_from].to_f - rem
+            ox_b = joint - b[:bu0].to_f
+            sb = InteriorPro::TileGrid.start(b[:bu0].to_f, b[:bu0].to_f + b[:bw].to_f / 2.0,
+                                             size, pitch, ox_b, false)
+            out[b[:id].to_s] = ox_b
+            seen << b[:id].to_s
+            queue << [b[:id].to_s, sb]
+          end
+        end
+      end
+      out
+    end
+
+    # The area list and the corner lookup, off the model, for chain_ids
+    # and follow_layout.
+    def self.chain_input(model = Sketchup.active_model)
+      groups = areas_in_model(model).select(&:valid?)
+      areas = groups.map do |g|
+        a = lambda { |k| g.get_attribute('InteriorPro', k) }
+        { id: a.call('id').to_s, wall_id: a.call('wall_id').to_s, side: a.call('side').to_s,
+          u0: a.call('u0').to_f, w: a.call('area_w').to_f,
+          bu0: (a.call('built_u0') || a.call('u0')).to_f,
+          bw: (a.call('built_w') || a.call('area_w')).to_f,
+          ox: a.call('pattern_ox').to_f,
+          cen_u: axis_value(a.call('pattern_center_axis')).include?('u') ? center_value(a.call('pattern_center')) : false }
+      end
+      nb = lambda do |wall_id, side, u|
+        wall = wall_by_id(wall_id, model)
+        next nil if wall.nil?
+        fr = frame_for(wall, side)
+        next nil if fr.nil?
+        n = neighbour_at(wall, fr, u, model)
+        next nil if n.nil?
+        { wall_id: n[:wall].get_attribute('InteriorPro', 'id').to_s, side: n[:side],
+          u_from: n[:u_from], dir: n[:dir] }
+      end
+      [groups, areas, nb]
+    end
+
+    # The same, on the model: the area groups joined to `grp`, itself first.
+    def self.connected_areas(grp, model = Sketchup.active_model)
+      return [grp] unless grp && grp.valid?
+      groups, areas, nb = chain_input(model)
+      ids = chain_ids(areas, grp.get_attribute('InteriorPro', 'id'), nb)
+      ids.map { |id| groups.find { |g| g.get_attribute('InteriorPro', 'id').to_s == id } }.compact
+    rescue StandardError => e
+      puts "[TileWall] the connected areas could not be walked: #{e.message}"
+      [grp]
+    end
+
     def self.remove_for_id!(id)
       areas_in_model.each do |g|
         g.erase! if g.valid? && g.get_attribute('InteriorPro', 'id').to_s == id.to_s
@@ -752,7 +939,7 @@ module InteriorPro
                     card_id: nil, tile_w: nil, tile_l: nil, grout: 0.0,
                     grout_color: 'light', stagger: 0.0, angle: 0.0,
                     depth: nil, mode: 'tiles',
-                    ox: 0.0, oy: 0.0, centered: false, id: nil,
+                    ox: 0.0, oy: 0.0, centered: false, center_axis: 'uv', id: nil,
                     openings: nil, wrap_operation: true)
       model = Sketchup.active_model
       unless wall&.valid? && wall.get_attribute('InteriorPro', 'type') == 'wall'
@@ -831,8 +1018,9 @@ module InteriorPro
 
       # The tile measured ALONG the wall is `tile_w`, the same way round
       # as the floor (UNIT_W_ALONG_LAYOUT there). One word, in the open.
+      cen = center_for_grid(centered, center_axis)
       ps = pieces_rect(bu0, z0, bw, h, holes, u_size: tw, v_size: tl, grout: g,
-                       angle: angle, ox: ox, oy: oy, centered: centered,
+                       angle: angle, ox: ox, oy: oy, centered: cen,
                        stagger: st)
       if ps.nil?
         puts "[TileWall] a #{tw}x#{tl} tile needs more than #{MAX_CELLS} pieces here - too small"
@@ -918,7 +1106,8 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'pattern_angle', angle.to_f)
         grp.set_attribute('InteriorPro', 'pattern_ox', ox.to_f)
         grp.set_attribute('InteriorPro', 'pattern_oy', oy.to_f)
-        grp.set_attribute('InteriorPro', 'pattern_center', centered ? true : false)
+        grp.set_attribute('InteriorPro', 'pattern_center', center_value(centered))
+        grp.set_attribute('InteriorPro', 'pattern_center_axis', axis_value(center_axis))
         model.commit_operation if wrap_operation
 
         Watch.start! if defined?(Sketchup::ModelObserver)
@@ -957,6 +1146,29 @@ module InteriorPro
       n
     end
 
+    # What is centred on the middle of the area: nothing (false), a whole
+    # TILE (true), or a GROUT line ('grout'). One spelling for the
+    # attribute, the build and the window, so the three cannot disagree.
+    def self.center_value(v)
+      return 'grout' if v.to_s == 'grout'
+      v ? true : false
+    end
+
+    # WHICH WAY it is centred: 'uv' both (the default, and what every
+    # area drawn before today has), 'u' along the wall only, 'v' up the
+    # wall only. Anything else is 'uv'.
+    def self.axis_value(v)
+      %w[u v uv].include?(v.to_s) ? v.to_s : 'uv'
+    end
+
+    # What the grid gets: the centring on the axes he chose, and plain
+    # from-the-edge on the other.
+    def self.center_for_grid(centered, axis)
+      c = center_value(centered)
+      ax = axis_value(axis)
+      { u: ax.include?('u') ? c : false, v: ax.include?('v') ? c : false }
+    end
+
     def self.rebuild_area!(g, wrap_operation = true)
       return false unless g.valid?
       a = lambda { |k| g.get_attribute('InteriorPro', k) }
@@ -977,7 +1189,8 @@ module InteriorPro
                     stagger: a.call('pattern_stagger').to_f,
                     angle: a.call('pattern_angle').to_f,
                     ox: a.call('pattern_ox').to_f, oy: a.call('pattern_oy').to_f,
-                    centered: a.call('pattern_center') ? true : false,
+                    centered: center_value(a.call('pattern_center')),
+                    center_axis: axis_value(a.call('pattern_center_axis')),
                     id: a.call('id'), wrap_operation: wrap_operation) ? true : false
     end
 
@@ -1086,6 +1299,28 @@ module InteriorPro
 
     # ---- emitters --------------------------------------------------------
 
+    # A face from a ring, with the ring's island holes punched through it:
+    # an inner face is drawn on the same plane and erased, which leaves
+    # the outer face with an inner loop - SketchUp's own way to a hole.
+    # nil when the outer face could not be drawn.
+    def self.face_with_holes(ents, fr, ring, out)
+      f = begin
+        ents.add_face(pts3d(fr, ring, out))
+      rescue StandardError
+        nil
+      end
+      return nil if f.nil?
+      ring_holes(ring).each do |h|
+        begin
+          inner = ents.add_face(pts3d(fr, h, out))
+          inner.erase! if inner && inner.valid? && !inner.equal?(f)
+        rescue StandardError => e
+          puts "[TileWall] a hole could not be punched: #{e.message}"
+        end
+      end
+      f.valid? ? f : nil
+    end
+
     def self.pts3d(fr, poly, out)
       poly.map do |u, z|
         x, y, zz = world(fr, u, z, out)
@@ -1114,11 +1349,7 @@ module InteriorPro
       Array(rings).each do |ring|
         next if ring.nil? || ring.length < 3
         sub = ge.add_group
-        f = begin
-          sub.entities.add_face(pts3d(fr, ring, depth))
-        rescue StandardError
-          nil
-        end
+        f = face_with_holes(sub.entities, fr, ring, depth)
         if f.nil?
           puts '[TileWall] the slab face could not be built'
           sub.erase! if sub.valid?
@@ -1141,11 +1372,7 @@ module InteriorPro
     def self.emit_slab_faces!(ge, fr, rings, mat, tex_u, tex_v)
       Array(rings).each do |ring|
         next if ring.nil? || ring.length < 3
-        f = begin
-          ge.add_face(pts3d(fr, ring, FACE_OFF))
-        rescue StandardError
-          nil
-        end
+        f = face_with_holes(ge, fr, ring, FACE_OFF)
         next if f.nil?
         f.material = mat
         f.back_material = mat
@@ -1179,11 +1406,7 @@ module InteriorPro
       pulls = 0
       pieces.each do |p|
         sub = ge.add_group
-        f = begin
-          sub.entities.add_face(pts3d(fr, p[:poly], depth))
-        rescue StandardError
-          nil
-        end
+        f = face_with_holes(sub.entities, fr, p[:poly], depth)
         if f.nil?
           fails += 1
           sub.erase! if sub.valid?
@@ -1224,11 +1447,7 @@ module InteriorPro
       face_fails = 0
       uv_fails = 0
       pieces.each do |p|
-        f = begin
-          ge.add_face(pts3d(fr, p[:poly], FACE_OFF))
-        rescue StandardError
-          nil
-        end
+        f = face_with_holes(ge, fr, p[:poly], FACE_OFF)
         if f.nil?
           face_fails += 1
           next
@@ -1256,15 +1475,17 @@ module InteriorPro
     # quantity cannot drift apart.
     def self.emit_tile_edges!(ge, fr, pieces)
       pieces.each do |p|
-        pts = pts3d(fr, p[:poly], FACE_OFF)
-        pts.each_index do |i|
-          a = pts[i]
-          b = pts[(i + 1) % pts.length]
-          next if a.distance(b) < 0.05
-          begin
-            ge.add_edges(a, b)
-          rescue StandardError
-            nil
+        ([p[:poly]] + ring_holes(p[:poly])).each do |ring|
+          pts = pts3d(fr, ring, FACE_OFF)
+          pts.each_index do |i|
+            a = pts[i]
+            b = pts[(i + 1) % pts.length]
+            next if a.distance(b) < 0.05
+            begin
+              ge.add_edges(a, b)
+            rescue StandardError
+              nil
+            end
           end
         end
       end

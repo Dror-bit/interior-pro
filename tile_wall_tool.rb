@@ -66,6 +66,16 @@ module InteriorPro
     # cut at the corner carries on as the first piece of the next wall.
     CORNERS  = ['Start fresh', 'Carry the pattern round'].freeze unless const_defined?(:CORNERS, false)
     CORNER_V = [false, true].freeze unless const_defined?(:CORNER_V, false)
+    # CENTRE THE LAYOUT, FROM THE FIRST DRAWING (2026-09-18, his ask: "אם
+    # זה צריך להיכנס גם בסרטוט ההתחלתי"). First WHAT sits on the middle -
+    # a whole tile or a grout line - then WHICH WAY: both, only along the
+    # wall, or only up it, because sometimes only the cut at the top or
+    # the bottom matters. The same two choices as the edit window.
+    # Simple (his call, 2026-09-18): Tile or Grout for what sits on the
+    # middle, then Horizontal yes/no and Vertical yes/no. Neither = off.
+    CENTRES  = %w[Tile Grout].freeze unless const_defined?(:CENTRES, false)
+    CENTRE_V = [true, 'grout'].freeze unless const_defined?(:CENTRE_V, false)
+    YESNO    = %w[No Yes].freeze unless const_defined?(:YESNO, false)
 
     # What he chose last time, so a second area on the same wall is two
     # clicks and no dialog.
@@ -73,7 +83,8 @@ module InteriorPro
       @last ||= { card: nil, grout: 0.125, bond: 0.0, color: 'light',
                   depth: InteriorPro::TileWall::DEFAULT_DEPTH, mode: 'tiles',
                   # 96" until he says otherwise (2026-09-18, his call).
-                  height: 96.0, run: true, wrap: false, tile_txt: '' }
+                  height: 96.0, run: true, wrap: false, tile_txt: '',
+                  center: true, cen_h: true, cen_v: true }
     end
 
     def activate
@@ -171,6 +182,16 @@ module InteriorPro
     # אחרים - אני רוצה שתהיה האפשרות לקבוע בנפרד את גודל האריח").
     # '48x24' - first number ALONG the wall, second UP it. One number is a
     # square tile. Empty, or 'From material', keeps the card's own size.
+    # Two yes/no -> the stored axis. Horizontal = the horizontal LINES
+    # (rows, 'v'), Vertical = the vertical LINES (columns, 'u') - see
+    # TileWallEditDialog.axis_from. PURE.
+    def self.axis_of(h, v)
+      return 'uv' if h && v
+      return 'v' if h
+      return 'u' if v
+      'uv'
+    end
+
     def self.parse_tile(text)
       t = text.to_s.strip
       return nil if t.empty? || t =~ /material/i
@@ -254,7 +275,10 @@ module InteriorPro
       return nil unless wall&.valid?
       fr = (@frame && @wall == wall) ? @frame : nil
       if fr.nil?
-        side = side_of(wall, pos)
+        # WHICH FACE, MEASURED OFF THE FACE THE RAY REALLY HIT (2026-09-18).
+        # The inference point is asked only afterwards, as a fallback -
+        # see side_from_face for why it cannot be trusted here.
+        side = side_from_face(view, x, y, wall) || side_of(wall, pos)
         return nil if side.nil?
         fr = InteriorPro::TileWall.frame_for(wall, side)
         return nil if fr.nil?
@@ -342,17 +366,90 @@ module InteriorPro
       nil
     end
 
-    # Which of the wall's two long faces the click landed on - by
-    # measuring, not by guessing from the anchor.
+    # The wall's LEFT perpendicular - the same one TileWall.frame uses, so
+    # 'a' here and 'a' there are the same face. PURE, nil for no length.
+    def self.left_normal(sx, sy, ex, ey)
+      dx = ex.to_f - sx.to_f
+      dy = ey.to_f - sy.to_f
+      len = Math.sqrt(dx * dx + dy * dy)
+      return nil if len < 0.001
+      [-dy / len, dx / len]
+    end
+
+    # A face's own normal decides the side: it points OUT of the wall, so
+    # the face on the left of start -> end is 'a'. nil = this face is not
+    # one of the two long ones (the top, or an end cap). PURE.
+    def self.side_from_normal(nx, ny, fx, fy)
+      d = nx.to_f * fx.to_f + ny.to_f * fy.to_f
+      return nil if d.abs < 0.5
+      d > 0 ? 'a' : 'b'
+    end
+
+    # WHICH FACE HE IS POINTING AT - MEASURED OFF THE FACE THE MOUSE RAY
+    # REALLY HIT (2026-09-18, his picture: "סימנתי אותו מצד אחד של הקיר
+    # והוא צייר לי אותו מהצד השני").
+    #
+    # The side used to be worked out from the INFERENCE point, and that
+    # point is often a VERTEX - which is exactly what the point law asks
+    # for everywhere else. But a wall corner carries vertices on BOTH of
+    # its faces, and SketchUp hands back whichever one it locked. Aim at
+    # the corner of the face in front of you and you can get the vertex
+    # standing on the face behind it, 5 inches away - and the whole area
+    # was built on the far side of the wall. The ray's own face cannot
+    # lie, so it is asked first; the inference point stays as a fallback
+    # for the case where the ray hit no face at all.
+    def side_from_face(view, x, y, wall)
+      n = self.class.left_normal(
+        wall.get_attribute('InteriorPro', 'start_x'),
+        wall.get_attribute('InteriorPro', 'start_y'),
+        wall.get_attribute('InteriorPro', 'end_x'),
+        wall.get_attribute('InteriorPro', 'end_y')
+      )
+      return nil if n.nil?
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        # THIS wall, not any wall: a face belonging to something else
+        # says nothing about which of ITS two sides he is on.
+        next unless path.any? { |e| e.equal?(wall) }
+        leaf = begin
+          ph.leaf_at(i)
+        rescue StandardError
+          nil
+        end
+        next unless leaf.is_a?(Sketchup::Face)
+        fn = leaf.normal
+        begin
+          tr = ph.transformation_at(i)
+          fn = fn.transform(tr) if tr
+        rescue StandardError
+          nil
+        end
+        sd = self.class.side_from_normal(n[0], n[1], fn.x, fn.y)
+        next if sd.nil?
+        puts "[TileWall] the mouse is on face '#{sd}' of the wall - measured off that face"
+        return sd
+      end
+      nil
+    rescue StandardError => e
+      puts "[TileWall] which face the mouse is on could not be measured: #{e.message}"
+      nil
+    end
+
+    # Fallback: which of the two long faces the POINT is nearer to. Right
+    # for a point that really sits on a face, wrong for a vertex that the
+    # inference grabbed off the other one - which is why side_from_face
+    # is asked first.
     def side_of(wall, pos)
       sx = wall.get_attribute('InteriorPro', 'start_x').to_f
       sy = wall.get_attribute('InteriorPro', 'start_y').to_f
       ex = wall.get_attribute('InteriorPro', 'end_x').to_f
       ey = wall.get_attribute('InteriorPro', 'end_y').to_f
-      len = Math.sqrt((ex - sx)**2 + (ey - sy)**2)
-      return nil if len < 0.001
-      nx = -(ey - sy) / len
-      ny = (ex - sx) / len
+      n = self.class.left_normal(sx, sy, ex, ey)
+      return nil if n.nil?
+      nx, ny = n
       off = (pos.x - sx) * nx + (pos.y - sy) * ny
       o_pos, o_neg = InteriorPro::TileWall.side_offsets(
         wall.get_attribute('InteriorPro', 'thickness').to_f,
@@ -421,7 +518,9 @@ module InteriorPro
         grout_color: @cfg[:color], stagger: @cfg[:bond],
         depth: @cfg[:depth], mode: @cfg[:mode],
         tile_w: @cfg[:tile] && @cfg[:tile][0], tile_l: @cfg[:tile] && @cfg[:tile][1],
-        ox: @carry_ox.to_f
+        ox: @carry_ox.to_f,
+        centered: (@cfg[:cen_h] || @cfg[:cen_v]) ? @cfg[:center] : false,
+        center_axis: InteriorPro::TileWallTool.axis_of(@cfg[:cen_h], @cfg[:cen_v])
       )
       remember_phase!(grp)
       # The neighbour that was laid before this area existed could not pull
@@ -540,13 +639,17 @@ module InteriorPro
                   HEIGHTS[HEIGHT_V.index(last[:height]) || 0],
                   RUNS[RUN_V.index(last[:run].nil? ? true : last[:run]) || 0],
                   CORNERS[CORNER_V.index(last[:wrap] ? true : false) || 0],
+                  CENTRES[CENTRE_V.index(last[:center]) || 0],
+                  YESNO[last[:cen_h] ? 1 : 0],
+                  YESNO[last[:cen_v] ? 1 : 0],
                   last[:tile_txt].to_s.empty? ? 'From material' : last[:tile_txt].to_s]
       # The last list entry is EMPTY on purpose: an empty list makes the
       # row a plain text box, and the tile size is typed - 48x24.
       lists = [([LINES_ONLY] + names).join('|'), GROUTS.join('|'),
                BONDS.join('|'), DEPTHS.join('|'), MODES.join('|'),
-               HEIGHTS.join('|'), RUNS.join('|'), CORNERS.join('|'), '']
-      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on', 'Corner', 'Tile size'],
+               HEIGHTS.join('|'), RUNS.join('|'), CORNERS.join('|'),
+               CENTRES.join('|'), YESNO.join('|'), YESNO.join('|'), '']
+      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on', 'Corner', 'Centre', 'Horizontal', 'Vertical', 'Tile size'],
                         defaults, lists, 'Tile Wall')
       return nil unless res
       card = cards.find { |c| c['name'].to_s == res[0].to_s }
@@ -558,8 +661,11 @@ module InteriorPro
               height: HEIGHT_V[HEIGHTS.index(res[5].to_s) || 0],
               run: RUN_V[RUNS.index(res[6].to_s) || 0],
               wrap: CORNER_V[CORNERS.index(res[7].to_s) || 0],
-              tile: InteriorPro::TileWallTool.parse_tile(res[8]),
-              tile_txt: res[8].to_s =~ /material/i ? '' : res[8].to_s,
+              center: CENTRE_V[CENTRES.index(res[8].to_s) || 0],
+              cen_h: res[9].to_s == 'Yes',
+              cen_v: res[10].to_s == 'Yes',
+              tile: InteriorPro::TileWallTool.parse_tile(res[11]),
+              tile_txt: res[11].to_s =~ /material/i ? '' : res[11].to_s,
               color: last[:color] }
       InteriorPro::TileWallTool.last.merge!(cfg)
       cfg

@@ -107,8 +107,20 @@ end
     #   off       ox / oy, how far he pushes the layout from there
     # The answer is always pulled back by whole pitches, so the grid
     # covers the room from its very edge no matter what he types.
+    #   centered  'grout' - a JOINT is centred instead: the middle of the
+    #             room falls in the middle of a grout line, a whole tile
+    #             either side of it (2026-09-18, his ask for the tiled
+    #             wall: "סנטר לגראוט ליד סנטר לטיל"). Floors never pass
+    #             it today, so nothing there moves.
     def self.start(edge, centre, size, pitch, off, centered)
-      s = (centered ? centre - size / 2.0 : edge) + off.to_f
+      s = if centered.to_s == 'grout'
+            centre + (pitch - size) / 2.0
+          elsif centered
+            centre - size / 2.0
+          else
+            edge
+          end
+      s += off.to_f
       return s if pitch <= EPS
       s - ((s - edge) / pitch).ceil * pitch
     end
@@ -150,8 +162,14 @@ end
 
       fr = degrees(angle)
       ext = extent(poly, fr)
-      u0 = start(ext[:u_min], ext[:cu], u_size, pitch_u, ox, centered)
-      v0 = start(ext[:v_min], ext[:cv], v_size, pitch_v, oy, centered)
+      # ONE WAY OR BOTH (2026-09-18, his ask: "מירכוז כללי, מירכוז אופקי
+      # ומירכוז אנכי" - sometimes only the cut at the top or the bottom
+      # matters). A Hash {u:, v:} centres each direction on its own; a
+      # plain value is both, exactly as before.
+      cen_u = centered.is_a?(Hash) ? centered[:u] : centered
+      cen_v = centered.is_a?(Hash) ? centered[:v] : centered
+      u0 = start(ext[:u_min], ext[:cu], u_size, pitch_u, ox, cen_u)
+      v0 = start(ext[:v_min], ext[:cv], v_size, pitch_v, oy, cen_v)
 
       rows = ((ext[:v_max] - v0) / pitch_v).floor + 1
       cols = ((ext[:u_max] - u0) / pitch_u).floor + 2

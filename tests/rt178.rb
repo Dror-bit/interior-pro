@@ -167,7 +167,7 @@ BAR = File.read('./toolbar.rb')
 SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
 ok('the button is on the surfaces bar', SURF.include?("UI::Command.new('Stretch Tile')"))
 ok('and it is in the button list, which is what the bar is built from',
-   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd]'))
+   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd'))
 ok('the plugin loads the new file', File.read('./main.rb').include?('tile_wall_stretch_tool.rb'))
 
 
@@ -189,7 +189,7 @@ ok('the tool asks TileWall which wall is round the corner',
 ok('only what he asked for BEYOND the wall is carried on',
    SRC.include?('over = across?(edge) ? (value.to_f - stop).abs : 0.0'))
 ok('and only when there is something worth carrying',
-   SRC.include?('if built && over > MIN_SIDE && carry_on!(edge, over, cfg)'))
+   SRC.include?('if built && over > MIN_SIDE') && SRC.include?('if carry_on!(edge, over, cfg)'))
 ok('once the run has carried on, THIS area is laid again so the corner square comes back',
    SRC.include?('InteriorPro::TileWall.rebuild_area!(mine, false) if mine'))
 ok('the settings are read BEFORE the rebuild, or the group handle is stale',
@@ -200,8 +200,12 @@ ok('it cannot spill past the end of the next wall either',
    SRC.include?('w = over > room ? room : over'))
 ok('the whole thing is still ONE undo step',
    SRC.scan(/start_operation/).length == 1 && SRC.include?('carry_on!'))
-ok('every wall starts its own layout - his default',
-   !SRC.include?('pattern_ox'))
+ok('every wall starts its own layout unless he asked otherwise - his default',
+   SRC.include?('return 0.0 unless wrap'))
+ok('and the wrap setting is the ONE the drawing tool keeps, not a second copy',
+   SRC.include?('InteriorPro::TileWallTool.last[:wrap]'))
+ok('the phase is read off what was really built, not off what he asked for',
+   SRC.include?("get_attribute('InteriorPro', 'built_w')"))
 ok('no wall round the corner is said out loud, not skipped in silence',
    SRC.include?('there is no wall round that corner to carry on to'))
 

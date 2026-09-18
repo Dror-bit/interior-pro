@@ -35,12 +35,18 @@ module InteriorPro
     LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
     CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
     TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
-    # The Build bar: 21 buttons. Bump this the moment one is added, or
-    # the new button silently never appears - the bar survives a restart,
-    # so on the next launch it is already full and the guard returns
-    # before adding anything. That trap has cost a whole chat before.
+    # The Build bar. Bump this the moment a button is added, or the new
+    # button silently never appears - the bar survives a restart, so on the
+    # next launch it is already full and the guard returns before adding
+    # anything. That trap has cost a whole chat before.
+    #
+    # IT IS 25, NOT 21 (2026-09-18, measured): `toolbar.length` counts the
+    # four SEPARATORS as items too. The guard said 21 while the bar really
+    # held 25, so it was ALWAYS full - a new button there could never have
+    # appeared. rt170 now checks this number against the buttons AND the
+    # separators together, so it cannot drift again.
     BUILD_TOOLBAR_NAME = 'Interior Pro Build' unless const_defined?(:BUILD_TOOLBAR_NAME, false)
-    BUILD_TOOLBAR_ITEM_COUNT = 21 unless const_defined?(:BUILD_TOOLBAR_ITEM_COUNT, false)
+    BUILD_TOOLBAR_ITEM_COUNT = 25 unless const_defined?(:BUILD_TOOLBAR_ITEM_COUNT, false)
 
     # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
     def self.resolve_toolbar
@@ -404,7 +410,17 @@ module InteriorPro
       tile_stretch_cmd.small_icon = icon_path('stretch_wall')
       tile_stretch_cmd.large_icon = icon_path('stretch_wall')
 
-      buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd]
+      # ONE WINDOW FOR AN AREA THAT IS ALREADY THERE (2026-09-18, his
+      # words: "חלון עריכה גם לגודל וצבע וכו' והוא כולל את הפריסה").
+      tile_edit_cmd = UI::Command.new('Edit Tile') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallEditTool.new)
+      }
+      tile_edit_cmd.tooltip = 'Edit Tile - material, tile, grout, size and layout of a tiled area'
+      tile_edit_cmd.status_bar_text = 'Click a tiled area to open its edit window'
+      tile_edit_cmd.small_icon = icon_path('edit_wall')
+      tile_edit_cmd.large_icon = icon_path('edit_wall')
+
+      buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]
       have = tb.length
       buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
       tb.restore
