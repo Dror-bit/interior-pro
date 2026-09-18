@@ -165,8 +165,11 @@ ok('the count comes from tile_count', SRC.include?('InteriorPro::TileCount.count
 ok('the doors are read from the wall', SRC.include?('read_door_openings'))
 ok('the windows are read from their own groups - they are not on the wall',
    SRC.include?("'host_wall_id'") && SRC.include?("'position_along_wall_in'"))
+# bu0/bw are u0/w after the corner joint is taken off (rt177). The
+# openings still come out first, which is what this line is about.
 ok('build! subtracts the openings before laying anything',
-   SRC =~ /holes = .*openings_for.*\n.*area = area_polys\(u0, z0, w, h, holes\)/)
+   SRC =~ /holes = .*openings_for/ &&
+   SRC.include?('area = area_polys(bu0, z0, bw, h, holes)'))
 ok('a curved wall is refused out loud, not skipped', SRC.include?('curved_wall?'))
 ok('the wall floor is measured, not rebuilt from the anchor',
    SRC.include?('wall.bounds.min.z'))
@@ -186,7 +189,7 @@ ok('the grout is FLUSH with the tile face, not recessed',
    SRC.include?('back = solid ? [dp - GROUT_BACK, GROUT_OFF].max : GROUT_OFF') &&
    TW::GROUT_BACK < 0.01 && TW::GROUT_BACK > 0.0, TW::GROUT_BACK)
 ok('build! lays the notched tiles, not the convex pieces',
-   SRC =~ /ps = pieces_rect\(u0, z0, w, h, holes/)
+   SRC =~ /ps = pieces_rect\(bu0, z0, bw, h, holes/)
 ok('too many tiles falls back to flat instead of hanging',
    SRC.include?('ps.length > MAX_SOLID'))
 ok('there is a kill switch', SRC.include?('USE_SOLID_TILES'))
@@ -198,7 +201,7 @@ ok('there are two ways to lay it', SRC.include?("md = mode.to_s == 'image' ? 'im
 ok('the image way lays ONE slab per ring, not a tile at a time',
    SRC.include?('emit_slab_solids!(ge, fr, rings, mat'))
 ok('and the openings are still notched out of it',
-   SRC.include?('cut(u0, z0, u0 + w, z0 + h, holes)'))
+   SRC.include?('cut(bu0, z0, bu0 + bw, z0 + h, holes)'))
 ok('the photo is anchored to the area corner at its TRUE size, so it repeats',
    SRC.include?('def self.map_photo!') && SRC.include?('fr[:ux] * tex_u'))
 ok('the way he chose survives a rebuild',
@@ -229,6 +232,17 @@ TOOL = File.read('./tile_wall_tool.rb')
 ok('the tool asks for the stand-off and sends it',
    TOOL.include?('DEPTH_IN') && TOOL.include?('depth: @cfg[:depth]'))
 ok('5/8 is the first choice he sees', TOOL.include?("DEPTHS   = ['5/8\"'"))
+
+
+# ---- a real point anywhere in the model wins (CLAUDE.md, 2026-09-18) ----
+# "אני רוצה שיהיה אפשר לדקור פינה או סוף של קו והקיר יימתח אוטומטית לשם."
+ok('SketchUp own inference is asked whether it locked on a real point',
+   TOOL.include?('def locked_point?'))
+ok('a vertex counts, and so does a point with no freedom left',
+   TOOL.include?('ip.respond_to?(:vertex) && ip.vertex') &&
+   TOOL.include?('ip.respond_to?(:degrees_of_freedom) && ip.degrees_of_freedom.zero?'))
+ok('and such a point BEATS the tool own lines, it is not averaged with them',
+   TOOL.include?('if locked_point?(ip)'))
 
 puts($fails.zero? ? 'rt175 all green' : "rt175 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
