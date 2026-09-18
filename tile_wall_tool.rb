@@ -104,7 +104,12 @@ module InteriorPro
           Sketchup.vcb_value = fh ? Sketchup.format_length(w) : "#{Sketchup.format_length(w)} , #{Sketchup.format_length(h)}"
           view.tooltip = "#{Sketchup.format_length(w)} x #{Sketchup.format_length(h)}"
         else
-          view.tooltip = @hover[:kind] ? @hover[:kind].to_s : ''
+          tip = begin
+            @ip && @ip.valid? ? @ip.tooltip.to_s : ''
+          rescue StandardError
+            ''
+          end
+          view.tooltip = tip.empty? ? (@hover[:kind] ? @hover[:kind].to_s : '') : tip
         end
       end
       view.invalidate
@@ -179,6 +184,13 @@ module InteriorPro
         view.draw(GL_LINE_LOOP, pts)
       end
       [@first, @hover].compact.each { |p| draw_ring(view, p) }
+      # SketchUp's own lock, drawn the way SketchUp draws it, on top of our
+      # ring - so a corner he aims at is visibly caught.
+      begin
+        @ip.draw(view) if @ip && @ip.valid? && @ip.display?
+      rescue StandardError
+        nil
+      end
     end
 
     def getExtents
@@ -191,7 +203,19 @@ module InteriorPro
     # ---- the one point method: move AND click come through here --------
 
     def face_point(view, x, y)
-      ip = view.inputpoint(x, y)
+      # ONE InputPoint THAT LIVES AS LONG AS THE TOOL (2026-09-18). A fresh
+      # one made fresh on every move has no history, so SketchUp's own
+      # inference never really engages and a corner does not catch. A
+      # picked InputPoint that is kept holds onto what it locked, can be
+      # DRAWN, and carries SketchUp's own tooltip - which is what makes
+      # aiming at a corner feel like the rest of SketchUp.
+      @ip ||= Sketchup::InputPoint.new
+      ip = @ip
+      begin
+        ip.pick(view, x, y)
+      rescue StandardError
+        ip = view.inputpoint(x, y)
+      end
       pos = ip.position
       return nil unless pos
       # Once the first corner is down the face is LOCKED: hovering over

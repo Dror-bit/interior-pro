@@ -64,8 +64,10 @@ ok('loaded AFTER the module it calls',
    MAIN.index('tile_wall.rb') < MAIN.index('tile_wall_tool.rb'))
 TB = File.read('./toolbar.rb')
 ok('there is a button', TB.include?('InteriorPro::TileWallTool.new'))
+# The bar was rebuilt under a new name on 2026-09-18 - he was seeing its
+# buttons twice, and SketchUp cannot take a button off a bar (rt170).
 ok('the button lives on the Surfaces bar, next to the floors - his layout',
-   TB.include?("UI::Toolbar.new('Interior Pro Surfaces')") &&
+   TB.include?('UI::Toolbar.new(SURFACES_TOOLBAR_NAME)') &&
    TB[/def self\.setup_surfaces_toolbar.*?tb\.restore/m].to_s.include?('tile_wall_cmd'))
 ok('there is only one Tile Wall button in the whole file',
    TB.scan(/InteriorPro::TileWallTool\.new/).length == 1)

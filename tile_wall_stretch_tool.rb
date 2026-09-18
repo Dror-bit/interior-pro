@@ -189,7 +189,15 @@ module InteriorPro
 
     def edge_value(view, x, y)
       return nil unless @frame
-      ip = view.inputpoint(x, y)
+      # One InputPoint that lives as long as the tool - see the same note in
+      # tile_wall_tool.rb. Without it a corner never really catches.
+      @ip ||= Sketchup::InputPoint.new
+      ip = @ip
+      begin
+        ip.pick(view, x, y)
+      rescue StandardError
+        ip = view.inputpoint(x, y)
+      end
       pos = ip.position
       return nil unless pos
       u = (pos.x - @frame[:ox]) * @frame[:ux] + (pos.y - @frame[:oy]) * @frame[:uy]
@@ -302,6 +310,11 @@ module InteriorPro
 
       EDGES.each { |e| draw_handle(view, e, e == @grab || e == @over) }
       draw_ring(view, @hover) if @grab && @hover
+      begin
+        @ip.draw(view) if @grab && @ip && @ip.valid? && @ip.display?
+      rescue StandardError
+        nil
+      end
     end
 
     def draw_handle(view, edge, hot)

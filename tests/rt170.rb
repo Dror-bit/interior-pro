@@ -23,7 +23,7 @@ def section(name)
 end
 
 BUILD = BAR[/def self\.setup_build_toolbar.*?\n      toolbar\.restore\n    end\n/m].to_s
-SURF = section('setup_surfaces_toolbar')
+SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
 DATA = section('setup_data_toolbar')
 PLANS = section('setup_2d_toolbar')
 
@@ -66,13 +66,29 @@ ok('ceilings and foundation are last, behind their own line',
    BUILD.index('toolbar.add_item(ceilings_cmd)') > BUILD.index('toolbar.add_item(molding_refresh_cmd)'))
 ok('the old bars are hidden instead of leaving him duplicates',
    BAR.include?('def self.hide_old_bars!') && BAR.include?("'Interior Pro Floors'"))
+ok('an EMPTY old bar is hidden too - it shows as one blank button',
+   BAR[/def self\.hide_old_bars!.*?\n    end\n/m].to_s !~ /tb\.hide if tb\.length/)
 ok('every button is on exactly one bar - nothing is duplicated',
    ['Ceilings', 'Foundation', 'Tile Wall', 'Tiles', 'Materials'].all? do |n|
      BAR.scan(/UI::Command\.new\('#{n}'\)/).length == 1
    end)
 
 # ---- THE GUARD - this is what hides a new button ----------------------
-[['surfaces', SURF], ['data', DATA], ['plans', PLANS]].each do |label, sec|
+# The surfaces bar does NOT use a count guard any more (2026-09-18). He saw
+# its buttons twice: raising the guard from 2 to 3 made a bar that already
+# had 2 buttons run the whole method again and end up with 5. It now adds
+# only the buttons past what the bar already holds, so a new button is one
+# more line in the list and nothing else to remember.
+ok('the surfaces bar adds only the buttons it is missing',
+   SURF.include?('buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }'))
+ok('and it has no count guard left to fall out of step with',
+   SURF !~ /return if tb\.length >= \d+/)
+ok('the bar it builds is a NEW one, the old one cannot be cleaned up',
+   BAR.include?("SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools'"))
+ok('and the old surfaces bar is hidden, or he keeps seeing both',
+   BAR[/def self\.hide_old_bars!.*?\n    end\n/m].to_s.include?("'Interior Pro Surfaces'"))
+
+[['data', DATA], ['plans', PLANS]].each do |label, sec|
   n = sec[/return if tb\.length >= (\d+)/, 1].to_i
   adds = sec.scan(/tb\.add_item\(/).length
   ok("the #{label} bar guard matches its own buttons", n == adds, [label, n, adds])

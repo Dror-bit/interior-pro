@@ -166,9 +166,8 @@ ok('rebuild_area! can be told not to open its own operation',
 BAR = File.read('./toolbar.rb')
 SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
 ok('the button is on the surfaces bar', SURF.include?("UI::Command.new('Stretch Tile')"))
-ok('and the bar guard was bumped in the same step, or it never shows',
-   SURF[/return if tb\.length >= (\d+)/, 1].to_i == SURF.scan(/tb\.add_item\(/).length,
-   [SURF[/return if tb\.length >= (\d+)/, 1], SURF.scan(/tb\.add_item\(/).length])
+ok('and it is in the button list, which is what the bar is built from',
+   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd]'))
 ok('the plugin loads the new file', File.read('./main.rb').include?('tile_wall_stretch_tool.rb'))
 
 
@@ -216,6 +215,10 @@ ok('a vertex counts, and so does a point with no freedom left',
    SRC.include?('ip.respond_to?(:degrees_of_freedom) && ip.degrees_of_freedom.zero?'))
 ok('and such a point BEATS the tool own lines, it is not averaged with them',
    SRC.include?('if locked_point?(ip)'))
+ok('the InputPoint lives as long as the tool - a fresh one never catches a corner',
+   SRC.include?('@ip ||= Sketchup::InputPoint.new') && SRC.include?('ip.pick(view, x, y)'))
+ok('and what it locked onto is DRAWN, the way SketchUp draws it',
+   SRC.include?('@ip.draw(view)'))
 
 puts($fails.zero? ? 'rt178 all green' : "rt178 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

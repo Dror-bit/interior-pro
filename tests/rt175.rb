@@ -243,6 +243,10 @@ ok('a vertex counts, and so does a point with no freedom left',
    TOOL.include?('ip.respond_to?(:degrees_of_freedom) && ip.degrees_of_freedom.zero?'))
 ok('and such a point BEATS the tool own lines, it is not averaged with them',
    TOOL.include?('if locked_point?(ip)'))
+ok('the InputPoint lives as long as the tool - a fresh one never catches a corner',
+   TOOL.include?('@ip ||= Sketchup::InputPoint.new') && TOOL.include?('ip.pick(view, x, y)'))
+ok('and what it locked onto is DRAWN, the way SketchUp draws it',
+   TOOL.include?('@ip.draw(view)'))
 
 puts($fails.zero? ? 'rt175 all green' : "rt175 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
