@@ -54,6 +54,18 @@ module InteriorPro
     MAX_SOLID = 900 unless const_defined?(:MAX_SOLID, false)
     # A sliver this small is not a tile, it is float noise.
     MIN_PIECE = 0.02 unless const_defined?(:MIN_PIECE, false)
+    # THE CORNER IS AN EMPTY SQUARE (2026-09-18, his design, in his words:
+    # "אני רוצה ששתי הפינות שלהם יפגשו ובאמצע יהיה ריבוע שווה צלעות",
+    # "הפינות החיצוניות שלהם"). Two tiled faces that meet in an inside
+    # corner stop so that their OUTER corners land on the SAME point, and
+    # what is left between them and the wall corner is a square whose side
+    # is the tile's own stand-off depth. Nothing overlaps, and no wall has
+    # to be picked as the main one. There is no fixed number here: how far
+    # an end comes back is the neighbour's tile depth minus how far that
+    # end already stands off it, so both spellings of the same corner land
+    # on the same square.
+    # Kill switch: false = the old dead-tight corner.
+    USE_CORNER_GAP = true unless const_defined?(:USE_CORNER_GAP, false)
 
     # ---- the plane (pure) ----------------------------------------------
 
@@ -97,6 +109,14 @@ module InteriorPro
        fr[:floor_z] + z.to_f]
     end
 
+    # Where another wall's face plane crosses THIS face, as a `u` along it.
+    # nil when the two are parallel and can never cross. PURE.
+    def self.cross_u(fr, f2)
+      den = fr[:ux] * f2[:nx] + fr[:uy] * f2[:ny]
+      return nil if den.abs < 0.01
+      -((fr[:ox] - f2[:ox]) * f2[:nx] + (fr[:oy] - f2[:oy]) * f2[:ny]) / den
+    end
+
     # ---- the area (pure) ------------------------------------------------
 
     def self.rect(u0, z0, w, h)
@@ -134,6 +154,34 @@ module InteriorPro
         return [] if polys.empty?
       end
       polys
+    end
+
+    # Pull the two ends of an area back by the given amounts. PURE - HOW
+    # FAR each end has to come back is worked out by `corner_ends`, down in
+    # the model half, and is zero for an end that is not at a corner.
+    def self.trim_for_corners(u0, w, lo = 0.0, hi = 0.0)
+      l = [lo.to_f, 0.0].max
+      h = [hi.to_f, 0.0].max
+      [u0.to_f + l, w.to_f - l - h]
+    end
+
+    # CARRY THE PATTERN ROUND THE CORNER (2026-09-18). His choice was that
+    # every wall starts its own layout BY DEFAULT, "אבל יש גם אופציה
+    # לאחד אם רוצים" - one run that wraps, so the tile cut off at the
+    # corner carries on as the first piece of the next wall.
+    #
+    # `used_w` is how much of the run the wall just laid really used. What
+    # is left of the tile that was cut there is `size - cut`, so the next
+    # wall's grid is pushed by a whole pitch minus that cut. PURE.
+    def self.carry_ox(used_w, u_size, grout = 0.0)
+      size = u_size.to_f
+      return 0.0 if size <= 0.01
+      pitch = size + [grout.to_f, 0.0].max
+      return 0.0 if pitch <= 0.01
+      rem = used_w.to_f % pitch
+      return 0.0 if rem < 1.0e-6
+      cut = rem > size ? size : rem
+      (pitch - cut) % pitch
     end
 
     # ---- the tiles (pure) ------------------------------------------------
@@ -452,6 +500,194 @@ module InteriorPro
       out
     end
 
+    # Does an end of this area land on ANOTHER tiled area's face? Measured
+    # in world space, so it does not matter which wall runs into which, nor
+    # which of the two was drawn first. Returns [start end?, far end?].
+    #
+    # HOW FAR each end of this area has to come back so that its outer
+    # corner meets the neighbour's outer corner. Measured in world space,
+    # so it does not matter which wall runs into which nor which was drawn
+    # first. Returns [inches off the start, inches off the far end], 0.0
+    # for an end that is not at a corner at all.
+    #
+    # `d` is how far this end already stands off the neighbour's own wall
+    # face. An end flush against that face (d = 0) is a whole tile depth
+    # short; an end already standing on the neighbour's TILE face
+    # (d = depth) is exactly where it belongs and does not move.
+    def self.corner_ends(wall, fr, u0, w, z0 = 0.0, model = Sketchup.active_model)
+      me = wall.get_attribute('InteriorPro', 'id').to_s
+      others = []
+      areas_in_model(model).each do |g|
+        next unless g.valid?
+        wid = g.get_attribute('InteriorPro', 'wall_id').to_s
+        next if wid == me
+        ow = wall_by_id(wid, model)
+        next if ow.nil?
+        ofr = frame_for(ow, g.get_attribute('InteriorPro', 'side'))
+        next if ofr.nil?
+        # Only a wall at an angle to this one can make a corner with it.
+        next if (fr[:ux] * ofr[:ux] + fr[:uy] * ofr[:uy]).abs > 0.99
+        dp = g.get_attribute('InteriorPro', 'tile_depth').to_f
+        dp = DEFAULT_DEPTH if dp <= 0.0
+        others << { fr: ofr, u0: g.get_attribute('InteriorPro', 'u0').to_f,
+                    w: g.get_attribute('InteriorPro', 'area_w').to_f, dp: dp }
+      end
+      return [0.0, 0.0] if others.empty?
+      pull = lambda do |u|
+        x, y, = world(fr, u, z0, 0.0)
+        best = 0.0
+        others.each do |o|
+          d = (x - o[:fr][:ox]) * o[:fr][:nx] + (y - o[:fr][:oy]) * o[:fr][:ny]
+          next if d < -0.02 || d > o[:dp] + 0.02
+          ou = (x - o[:fr][:ox]) * o[:fr][:ux] + (y - o[:fr][:oy]) * o[:fr][:uy]
+          pad = o[:dp] + 0.02
+          next unless ou >= o[:u0] - pad && ou <= o[:u0] + o[:w] + pad
+          need = o[:dp] - d
+          best = need if need > best
+        end
+        best
+      end
+      [pull.call(u0), pull.call(u0 + w)]
+    rescue StandardError => e
+      puts "[TileWall] the corner test failed: #{e.message}"
+      [0.0, 0.0]
+    end
+
+    # The stretch of THIS face that another wall blocks, as [u from, u to],
+    # or nil when that wall is not in the way at all. A wall blocks only if
+    # it stands out on the side being tiled AND reaches this face - a wall
+    # behind it, or one standing free in the middle of the room, does not.
+    # PURE.
+    def self.blocked_span(fr, sx, sy, ex, ey, thickness, h_anchor)
+      fa = frame(sx, sy, ex, ey, thickness, h_anchor, 'a')
+      fb = frame(sx, sy, ex, ey, thickness, h_anchor, 'b')
+      return nil if fa.nil? || fb.nil?
+      ua = cross_u(fr, fa)
+      ub = cross_u(fr, fb)
+      return nil if ua.nil? || ub.nil?
+      d = [[sx, sy], [ex, ey]].map do |x, y|
+        (x.to_f - fr[:ox]) * fr[:nx] + (y.to_f - fr[:oy]) * fr[:ny]
+      end
+      return nil if d.max <= 0.05   # all of it is behind this face
+      return nil if d.min > 0.05    # it never reaches this face
+      [[ua, ub].min, [ua, ub].max]
+    end
+
+    # HOW FAR ALONG THIS FACE HE IS ALLOWED TO GO (2026-09-18, his words:
+    # "הטיל לא יכול לעבור דרך קירות", and then, when it still went through:
+    # "הקיר עדיין חוצה את קיר הפנים"). Two things get in the way and the
+    # first fix only caught one of them:
+    #   - the wall that CLOSES the corner at either end, and
+    #   - a wall that runs INTO the middle of this one, like the shower
+    #     wall - the stored length says nothing about that one at all.
+    # So every wall that stands on this face is turned into a blocked
+    # stretch of `u`, and what comes back is the clear run that the area
+    # he is holding actually sits in.
+    def self.face_limits(wall, fr, ref_u = nil, model = Sketchup.active_model)
+      lo = 0.0
+      hi = fr[:len]
+      ref = (ref_u || fr[:len] / 2.0).to_f
+      at = lambda { |g, k| g.get_attribute('InteriorPro', k) }
+      me = at.call(wall, 'id').to_s
+      walls_in_model(model).each do |w2|
+        next unless w2.valid?
+        next if at.call(w2, 'id').to_s == me
+        span = blocked_span(fr, at.call(w2, 'start_x').to_f, at.call(w2, 'start_y').to_f,
+                            at.call(w2, 'end_x').to_f, at.call(w2, 'end_y').to_f,
+                            at.call(w2, 'thickness').to_f, h_anchor_of(w2))
+        next if span.nil?
+        a, b = span
+        if b <= ref + 1.0e-9
+          lo = b if b > lo
+        elsif a >= ref - 1.0e-9
+          hi = a if a < hi
+        end
+      end
+      lo = 0.0 if lo < 0.0
+      hi = fr[:len] if hi > fr[:len]
+      hi = lo if hi < lo
+      [lo, hi]
+    rescue StandardError => e
+      puts "[TileWall] the face limits could not be worked out: #{e.message}"
+      [0.0, fr[:len]]
+    end
+
+    # ROUND THE CORNER (2026-09-18, his words: "אני רוצה גם שתהיה אופציה
+    # למתוח כמה קירות של טיל אחד אחרי השני והם יתחברו"). Which wall stands
+    # at `u_limit` on this face, WHICH OF ITS OWN FACES carries on into the
+    # same room, and where on that face the run picks up again.
+    #   { wall:, side:, u_from:, dir:, len: }   dir = +1 or -1 along it
+    # nil when the face simply ends and there is nothing to carry on to.
+    def self.neighbour_at(wall, fr, u_limit, model = Sketchup.active_model)
+      at = lambda { |g, k| g.get_attribute('InteriorPro', k) }
+      me = at.call(wall, 'id').to_s
+      mine = [at.call(wall, 'start_x').to_f, at.call(wall, 'start_y').to_f,
+              at.call(wall, 'end_x').to_f, at.call(wall, 'end_y').to_f,
+              at.call(wall, 'thickness').to_f, h_anchor_of(wall)]
+      walls_in_model(model).each do |w2|
+        next unless w2.valid?
+        next if at.call(w2, 'id').to_s == me
+        x1 = at.call(w2, 'start_x').to_f
+        y1 = at.call(w2, 'start_y').to_f
+        x2 = at.call(w2, 'end_x').to_f
+        y2 = at.call(w2, 'end_y').to_f
+        th = at.call(w2, 'thickness').to_f
+        anc = h_anchor_of(w2)
+        span = blocked_span(fr, x1, y1, x2, y2, th, anc)
+        next if span.nil?
+        next unless (span[0] - u_limit).abs < 0.51 || (span[1] - u_limit).abs < 0.51
+        # The face of it that the tile runs into is the one that crosses
+        # this face right where the run stopped - measured, not guessed.
+        sd = %w[a b].min_by do |q|
+          f = frame(x1, y1, x2, y2, th, anc, q)
+          f && cross_u(fr, f) ? (cross_u(fr, f) - u_limit).abs : 1.0e9
+        end
+        f2 = frame(x1, y1, x2, y2, th, anc, sd)
+        next if f2.nil?
+        # And the same question the other way round: where does THIS wall
+        # block that face, and which way from there is clear?
+        back = blocked_span(f2, mine[0], mine[1], mine[2], mine[3], mine[4], mine[5])
+        next if back.nil?
+        a2, b2 = back
+        if b2 < f2[:len] - 1.0
+          return { wall: w2, side: sd, u_from: b2, dir: 1.0, len: f2[:len] }
+        elsif a2 > 1.0
+          return { wall: w2, side: sd, u_from: a2, dir: -1.0, len: f2[:len] }
+        end
+      end
+      nil
+    rescue StandardError => e
+      puts "[TileWall] the next wall round the corner could not be found: #{e.message}"
+      nil
+    end
+
+    # AFTER AN AREA IS BUILT, LAY ITS CORNER NEIGHBOURS AGAIN (2026-09-18,
+    # he caught it twice: "שוב שברת את הפינה שצריכה להשאיר את המרובע
+    # הריק"). An area laid BEFORE its neighbour existed had nothing to
+    # pull back from, so its tile runs into the square. Whoever builds an
+    # area calls this afterwards, and the areas on the walls standing at
+    # its two ends are laid once more, now that they can see it.
+    def self.refresh_corner_neighbours!(grp, model = Sketchup.active_model)
+      return 0 unless grp && grp.valid?
+      wall = wall_by_id(grp.get_attribute('InteriorPro', 'wall_id'), model)
+      return 0 if wall.nil?
+      fr = frame_for(wall, grp.get_attribute('InteriorPro', 'side'))
+      return 0 if fr.nil?
+      u0 = grp.get_attribute('InteriorPro', 'u0').to_f
+      w  = grp.get_attribute('InteriorPro', 'area_w').to_f
+      n = 0
+      [u0, u0 + w].each do |u|
+        nb = neighbour_at(wall, fr, u, model)
+        next if nb.nil?
+        n += refresh_wall!(nb[:wall].get_attribute('InteriorPro', 'id'))
+      end
+      puts "[TileWall] #{n} neighbouring area(s) laid again for the corner square" if n > 0
+      n
+    rescue StandardError => e
+      puts "[TileWall] the corner neighbours could not be laid again: #{e.message}"
+      0
+    end
+
     def self.remove_for_id!(id)
       areas_in_model.each do |g|
         g.erase! if g.valid? && g.get_attribute('InteriorPro', 'id').to_s == id.to_s
@@ -568,7 +804,26 @@ module InteriorPro
       # the real tile size either way, so the order does not change.
       md = mode.to_s == 'image' ? 'image' : 'tiles'
       holes = openings.nil? ? openings_for(wall, fr, model) : openings
-      area = area_polys(u0, z0, w, h, holes)
+
+      # THE CORNER SQUARE. The numbers he drew are STORED untouched and
+      # only the geometry is pulled back, so rebuilding an area can never
+      # shrink it a second time.
+      bu0 = u0
+      bw  = w
+      if USE_CORNER_GAP
+        lo, hi = corner_ends(wall, fr, u0, w, z0, model)
+        if lo > 0.0 || hi > 0.0
+          bu0, bw = trim_for_corners(u0, w, lo, hi)
+          puts "[TileWall] corner square: back #{lo.round(3)} at the start, " \
+               "#{hi.round(3)} at the far end"
+        end
+      end
+      if bw <= 0.1
+        puts "[TileWall] the corner square left nothing to tile (#{bw.round(2)} wide)"
+        return nil
+      end
+
+      area = area_polys(bu0, z0, bw, h, holes)
       if area.empty?
         puts '[TileWall] the openings cover the whole area - nothing left to tile'
         return nil
@@ -576,7 +831,7 @@ module InteriorPro
 
       # The tile measured ALONG the wall is `tile_w`, the same way round
       # as the floor (UNIT_W_ALONG_LAYOUT there). One word, in the open.
-      ps = pieces_rect(u0, z0, w, h, holes, u_size: tw, v_size: tl, grout: g,
+      ps = pieces_rect(bu0, z0, bw, h, holes, u_size: tw, v_size: tl, grout: g,
                        angle: angle, ox: ox, oy: oy, centered: centered,
                        stagger: st)
       if ps.nil?
@@ -604,7 +859,7 @@ module InteriorPro
         ge = grp.entities
 
         if md == 'image' && mat
-          rings = angle.to_f.abs > 1.0e-9 ? area : cut(u0, z0, u0 + w, z0 + h, holes)
+          rings = angle.to_f.abs > 1.0e-9 ? area : cut(bu0, z0, bu0 + bw, z0 + h, holes)
           if dp > 0.02 && USE_SOLID_TILES
             emit_slab_solids!(ge, fr, rings, mat, img_w || tw, img_l || tl, dp)
           else
@@ -648,6 +903,10 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'z0', z0)
         grp.set_attribute('InteriorPro', 'area_w', w)
         grp.set_attribute('InteriorPro', 'area_h', h)
+        # What the geometry REALLY used, after the corner square came off -
+        # this is the number the next wall picks its phase up from.
+        grp.set_attribute('InteriorPro', 'built_u0', bu0)
+        grp.set_attribute('InteriorPro', 'built_w', bw)
         grp.set_attribute('InteriorPro', 'material_card_id', card_id.to_s)
         grp.set_attribute('InteriorPro', 'tile_w', tw)
         grp.set_attribute('InteriorPro', 'tile_l', tl)
@@ -698,7 +957,7 @@ module InteriorPro
       n
     end
 
-    def self.rebuild_area!(g)
+    def self.rebuild_area!(g, wrap_operation = true)
       return false unless g.valid?
       a = lambda { |k| g.get_attribute('InteriorPro', k) }
       wall = wall_by_id(a.call('wall_id'))
@@ -719,7 +978,7 @@ module InteriorPro
                     angle: a.call('pattern_angle').to_f,
                     ox: a.call('pattern_ox').to_f, oy: a.call('pattern_oy').to_f,
                     centered: a.call('pattern_center') ? true : false,
-                    id: a.call('id')) ? true : false
+                    id: a.call('id'), wrap_operation: wrap_operation) ? true : false
     end
 
     # ---- the watcher ----------------------------------------------------

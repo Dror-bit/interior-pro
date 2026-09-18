@@ -59,6 +59,13 @@ module InteriorPro
     # switch, in the same dialog as everything else.
     RUNS  = ['Wall after wall', 'One wall only'].freeze unless const_defined?(:RUNS, false)
     RUN_V = [true, false].freeze unless const_defined?(:RUN_V, false)
+    # AND WHAT THE PATTERN DOES AT THE CORNER (2026-09-18, his call:
+    # "צריך להיות שתי האופציות, ברירת המחדל צריכה להיות 2 אבל יש גם
+    # אופציה לאחד אם רוצים"). Default: every wall starts its own layout
+    # with a whole tile. The other way is one run that wraps, so the tile
+    # cut at the corner carries on as the first piece of the next wall.
+    CORNERS  = ['Start fresh', 'Carry the pattern round'].freeze unless const_defined?(:CORNERS, false)
+    CORNER_V = [false, true].freeze unless const_defined?(:CORNER_V, false)
 
     # What he chose last time, so a second area on the same wall is two
     # clicks and no dialog.
@@ -66,7 +73,7 @@ module InteriorPro
       @last ||= { card: nil, grout: 0.125, bond: 0.0, color: 'light',
                   depth: InteriorPro::TileWall::DEFAULT_DEPTH, mode: 'tiles',
                   # 96" until he says otherwise (2026-09-18, his call).
-                  height: 96.0, run: true }
+                  height: 96.0, run: true, wrap: false }
     end
 
     def activate
@@ -389,8 +396,13 @@ module InteriorPro
         wall: @wall, side: @side, u0: u0, z0: z0, w: w, h: h,
         card_id: @cfg[:card], grout: @cfg[:grout],
         grout_color: @cfg[:color], stagger: @cfg[:bond],
-        depth: @cfg[:depth], mode: @cfg[:mode]
+        depth: @cfg[:depth], mode: @cfg[:mode],
+        ox: @carry_ox.to_f
       )
+      remember_phase!(grp)
+      # The neighbour that was laid before this area existed could not pull
+      # back from it - lay it again, so the corner square is never lost.
+      InteriorPro::TileWall.refresh_corner_neighbours!(grp) if grp
       if grp.nil?
         UI.messagebox('Nothing was tiled - see the Ruby Console for the reason.')
         reset_area
@@ -400,6 +412,22 @@ module InteriorPro
       lead = b[:u] >= a[:u] ? u0 + w : u0
       hop_to_next!(lead) ? nil : reset_area
       view.invalidate
+    end
+
+    # Where the next wall has to pick the pattern up, when he asked for one
+    # run that wraps. Read off what was REALLY built, not off what he asked
+    # for, because the corner square comes off first.
+    def remember_phase!(grp)
+      @carry_ox = 0.0
+      return unless grp && @cfg && @cfg[:wrap]
+      used = grp.get_attribute('InteriorPro', 'built_w').to_f
+      tw   = grp.get_attribute('InteriorPro', 'tile_w').to_f
+      g    = grp.get_attribute('InteriorPro', 'pattern_grout').to_f
+      @carry_ox = InteriorPro::TileWall.carry_ox(used, tw, g)
+      puts "[TileWall] the pattern carries round the corner - next wall starts #{@carry_ox.round(3)} in"
+    rescue StandardError => e
+      @carry_ox = 0.0
+      puts "[TileWall] could not carry the pattern round: #{e.message}"
     end
 
     # ROUND THE CORNER AND CARRY ON. Only when the area he just drew
@@ -436,6 +464,7 @@ module InteriorPro
     # ---- state ---------------------------------------------------------
 
     def reset
+      @carry_ox = 0.0
       @wall = nil
       @side = nil
       @frame = nil
@@ -485,11 +514,12 @@ module InteriorPro
                   DEPTHS[DEPTH_IN.index(last[:depth]) || 0],
                   MODES[MODE_V.index(last[:mode].to_s) || 0],
                   HEIGHTS[HEIGHT_V.index(last[:height]) || 0],
-                  RUNS[RUN_V.index(last[:run].nil? ? true : last[:run]) || 0]]
+                  RUNS[RUN_V.index(last[:run].nil? ? true : last[:run]) || 0],
+                  CORNERS[CORNER_V.index(last[:wrap] ? true : false) || 0]]
       lists = [([LINES_ONLY] + names).join('|'), GROUTS.join('|'),
                BONDS.join('|'), DEPTHS.join('|'), MODES.join('|'),
-               HEIGHTS.join('|'), RUNS.join('|')]
-      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on'],
+               HEIGHTS.join('|'), RUNS.join('|'), CORNERS.join('|')]
+      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on', 'Corner'],
                         defaults, lists, 'Tile Wall')
       return nil unless res
       card = cards.find { |c| c['name'].to_s == res[0].to_s }
@@ -500,6 +530,7 @@ module InteriorPro
               mode: MODE_V[MODES.index(res[4].to_s) || 0],
               height: HEIGHT_V[HEIGHTS.index(res[5].to_s) || 0],
               run: RUN_V[RUNS.index(res[6].to_s) || 0],
+              wrap: CORNER_V[CORNERS.index(res[7].to_s) || 0],
               color: last[:color] }
       InteriorPro::TileWallTool.last.merge!(cfg)
       cfg

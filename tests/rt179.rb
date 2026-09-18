@@ -23,7 +23,7 @@ ok('every height on the list has a number behind it',
    T::HEIGHTS.length == T::HEIGHT_V.length, [T::HEIGHTS.length, T::HEIGHT_V.length])
 ok('dragging it is still ON the list', T::HEIGHTS.first == 'Drag it' && T::HEIGHT_V.first.nil?)
 ok('but the height the dialog opens on is 96 - his default (2026-09-18)',
-   File.read('./tile_wall_tool.rb').include?('height: 96.0, run: true }'))
+   File.read('./tile_wall_tool.rb').include?('height: 96.0, run: true, wrap: false }'))
 ok('a whole wall is on the list without him having to know its height',
    T::HEIGHT_V.include?(:full))
 ok('and the heights a tiler asks for are there',
@@ -70,7 +70,7 @@ ok('the old two-number way still works when nothing is set',
 # "בדיוק כמו ציור הקירות - אני מצייר קיר אחד, מסיים לסרטט אותו ומיד ממשיך
 # לקיר השני". On by default, off in the same dialog.
 ok('carrying on is a choice with two answers', T::RUNS.length == 2 && T::RUN_V == [true, false])
-ok('and it is ON by default, as he asked', SRC.include?('height: 96.0, run: true }'))
+ok('and it is ON by default, as he asked', SRC.include?('run: true, wrap: false }'))
 ok('the dialog has the off switch', SRC.include?("'Height', 'Carry on'"))
 ok('and remembers it', SRC.include?('run: RUN_V[RUNS.index(res[6].to_s) || 0]'))
 ok('a finished area hops round the corner instead of starting over',
@@ -90,6 +90,51 @@ ok('and the run starts at the corner, so one click says how far',
 ok('a next wall with no room left says so instead of going quiet',
    SRC.include?('has no room left - the run ends here'))
 ok('Esc still ends everything', SRC.include?('def onCancel'))
+
+
+# ---- THE PATTERN AT THE CORNER ------------------------------------------
+# "צריך להיות שתי האופציות, ברירת המחדל צריכה להיות 2 אבל יש גם אופציה
+# לאחד אם רוצים": every wall starts fresh by default, one wrapping run on
+# request.
+TWc = InteriorPro::TileWall
+ok('the corner has two answers', T::CORNERS.length == 2 && T::CORNER_V == [false, true])
+ok('and starting fresh is the default, as he asked',
+   T::CORNERS.first == 'Start fresh' && SRC.include?('run: true, wrap: false }'))
+ok('the dialog asks', SRC.include?("'Carry on', 'Corner'"))
+ok('and remembers it', SRC.include?('wrap: CORNER_V[CORNERS.index(res[7].to_s) || 0]'))
+
+# a 12" tile, no joint: 40" used leaves a 4" cut, so 8" of it carries on
+ok('a run that ends mid-tile hands the rest of that tile to the next wall',
+   (TWc.carry_ox(40.0, 12.0, 0.0) - 8.0).abs < 1e-9, TWc.carry_ox(40.0, 12.0))
+ok('a run that ends exactly on a joint starts the next wall on a whole tile',
+   TWc.carry_ox(48.0, 12.0, 0.0) == 0.0)
+# with a joint the pitch is 12.125, so 40" leaves 3.625 cut and 8.5 carries
+ok('the joint is counted in the pitch, not forgotten',
+   (TWc.carry_ox(40.0, 12.0, 0.125) - 8.5).abs < 1e-9, TWc.carry_ox(40.0, 12.0, 0.125))
+ok('nonsense in gives no shift rather than a broken layout',
+   TWc.carry_ox(40.0, 0.0, 0.0) == 0.0)
+
+ok('the phase is worked out from what was REALLY built, after the corner square',
+   SRC.include?("get_attribute('InteriorPro', 'built_w')"))
+ok('and it is handed to the build as the layout offset',
+   SRC.include?('ox: @carry_ox.to_f'))
+ok('starting over clears it, so a new run never inherits an old phase',
+   SRC =~ /def reset\n      @carry_ox = 0\.0/)
+ok('what was really built is stored on the area',
+   File.read('./tile_wall.rb').include?("set_attribute('InteriorPro', 'built_w', bw)"))
+
+
+# ---- THE CORNER SQUARE SURVIVES A RUN (2026-09-18, caught twice) --------
+# An area laid BEFORE its neighbour existed has nothing to pull back from.
+# So after every build the drawing tool lays the corner neighbours again.
+ok('after a build, the corner neighbours are laid again',
+   SRC.include?('InteriorPro::TileWall.refresh_corner_neighbours!(grp) if grp'))
+TWSRC = File.read('./tile_wall.rb')
+ok('the helper lays only the walls standing at the two ends, not the whole model',
+   TWSRC.include?('[u0, u0 + w].each do |u|') &&
+   TWSRC.include?('n += refresh_wall!(nb[:wall].get_attribute'))
+ok('and says how many it laid, never silent',
+   TWSRC.include?('neighbouring area(s) laid again for the corner square'))
 
 puts($fails.zero? ? 'rt179 all green' : "rt179 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
