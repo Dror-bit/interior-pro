@@ -73,7 +73,7 @@ module InteriorPro
       @last ||= { card: nil, grout: 0.125, bond: 0.0, color: 'light',
                   depth: InteriorPro::TileWall::DEFAULT_DEPTH, mode: 'tiles',
                   # 96" until he says otherwise (2026-09-18, his call).
-                  height: 96.0, run: true, wrap: false }
+                  height: 96.0, run: true, wrap: false, tile_txt: '' }
     end
 
     def activate
@@ -164,6 +164,29 @@ module InteriorPro
       return nil if v.nil?
       return (@hgt.to_f > 0.1 ? @hgt.to_f : nil) if v == :full
       v.to_f > 0.1 ? v.to_f : nil
+    end
+
+    # THE TILE SIZE, TYPED (2026-09-18, his words: "אם יש לי את הטיל
+    # שבתוסף שלי הוא 48 על 24 אבל אני יודע שיש אותו הצבע גם בגדלים
+    # אחרים - אני רוצה שתהיה האפשרות לקבוע בנפרד את גודל האריח").
+    # '48x24' - first number ALONG the wall, second UP it. One number is a
+    # square tile. Empty, or 'From material', keeps the card's own size.
+    def self.parse_tile(text)
+      t = text.to_s.strip
+      return nil if t.empty? || t =~ /material/i
+      nums = t.split(/[xX*,]/).map do |q|
+        q = q.to_s.strip.tr('״', '"')
+        begin
+          q.to_l.to_f
+        rescue StandardError
+          q.to_f
+        end
+      end
+      a = nums[0]
+      b = nums[1]
+      return nil if a.nil? || a <= 0.25
+      b = a if b.nil? || b <= 0.25
+      [a, b]
     end
 
     def parse_len(s)
@@ -397,6 +420,7 @@ module InteriorPro
         card_id: @cfg[:card], grout: @cfg[:grout],
         grout_color: @cfg[:color], stagger: @cfg[:bond],
         depth: @cfg[:depth], mode: @cfg[:mode],
+        tile_w: @cfg[:tile] && @cfg[:tile][0], tile_l: @cfg[:tile] && @cfg[:tile][1],
         ox: @carry_ox.to_f
       )
       remember_phase!(grp)
@@ -515,11 +539,14 @@ module InteriorPro
                   MODES[MODE_V.index(last[:mode].to_s) || 0],
                   HEIGHTS[HEIGHT_V.index(last[:height]) || 0],
                   RUNS[RUN_V.index(last[:run].nil? ? true : last[:run]) || 0],
-                  CORNERS[CORNER_V.index(last[:wrap] ? true : false) || 0]]
+                  CORNERS[CORNER_V.index(last[:wrap] ? true : false) || 0],
+                  last[:tile_txt].to_s.empty? ? 'From material' : last[:tile_txt].to_s]
+      # The last list entry is EMPTY on purpose: an empty list makes the
+      # row a plain text box, and the tile size is typed - 48x24.
       lists = [([LINES_ONLY] + names).join('|'), GROUTS.join('|'),
                BONDS.join('|'), DEPTHS.join('|'), MODES.join('|'),
-               HEIGHTS.join('|'), RUNS.join('|'), CORNERS.join('|')]
-      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on', 'Corner'],
+               HEIGHTS.join('|'), RUNS.join('|'), CORNERS.join('|'), '']
+      res = UI.inputbox(['Material', 'Grout', 'Offset', 'Stand-off', 'Layout', 'Height', 'Carry on', 'Corner', 'Tile size'],
                         defaults, lists, 'Tile Wall')
       return nil unless res
       card = cards.find { |c| c['name'].to_s == res[0].to_s }
@@ -531,6 +558,8 @@ module InteriorPro
               height: HEIGHT_V[HEIGHTS.index(res[5].to_s) || 0],
               run: RUN_V[RUNS.index(res[6].to_s) || 0],
               wrap: CORNER_V[CORNERS.index(res[7].to_s) || 0],
+              tile: InteriorPro::TileWallTool.parse_tile(res[8]),
+              tile_txt: res[8].to_s =~ /material/i ? '' : res[8].to_s,
               color: last[:color] }
       InteriorPro::TileWallTool.last.merge!(cfg)
       cfg

@@ -23,7 +23,7 @@ ok('every height on the list has a number behind it',
    T::HEIGHTS.length == T::HEIGHT_V.length, [T::HEIGHTS.length, T::HEIGHT_V.length])
 ok('dragging it is still ON the list', T::HEIGHTS.first == 'Drag it' && T::HEIGHT_V.first.nil?)
 ok('but the height the dialog opens on is 96 - his default (2026-09-18)',
-   File.read('./tile_wall_tool.rb').include?('height: 96.0, run: true, wrap: false }'))
+   File.read('./tile_wall_tool.rb').include?("height: 96.0, run: true, wrap: false, tile_txt: '' }"))
 ok('a whole wall is on the list without him having to know its height',
    T::HEIGHT_V.include?(:full))
 ok('and the heights a tiler asks for are there',
@@ -70,7 +70,7 @@ ok('the old two-number way still works when nothing is set',
 # "בדיוק כמו ציור הקירות - אני מצייר קיר אחד, מסיים לסרטט אותו ומיד ממשיך
 # לקיר השני". On by default, off in the same dialog.
 ok('carrying on is a choice with two answers', T::RUNS.length == 2 && T::RUN_V == [true, false])
-ok('and it is ON by default, as he asked', SRC.include?('run: true, wrap: false }'))
+ok('and it is ON by default, as he asked', SRC.include?("run: true, wrap: false, tile_txt: '' }"))
 ok('the dialog has the off switch', SRC.include?("'Height', 'Carry on'"))
 ok('and remembers it', SRC.include?('run: RUN_V[RUNS.index(res[6].to_s) || 0]'))
 ok('a finished area hops round the corner instead of starting over',
@@ -99,7 +99,7 @@ ok('Esc still ends everything', SRC.include?('def onCancel'))
 TWc = InteriorPro::TileWall
 ok('the corner has two answers', T::CORNERS.length == 2 && T::CORNER_V == [false, true])
 ok('and starting fresh is the default, as he asked',
-   T::CORNERS.first == 'Start fresh' && SRC.include?('run: true, wrap: false }'))
+   T::CORNERS.first == 'Start fresh' && SRC.include?("run: true, wrap: false, tile_txt: '' }"))
 ok('the dialog asks', SRC.include?("'Carry on', 'Corner'"))
 ok('and remembers it', SRC.include?('wrap: CORNER_V[CORNERS.index(res[7].to_s) || 0]'))
 
@@ -135,6 +135,30 @@ ok('the helper lays only the walls standing at the two ends, not the whole model
    TWSRC.include?('n += refresh_wall!(nb[:wall].get_attribute'))
 ok('and says how many it laid, never silent',
    TWSRC.include?('neighbouring area(s) laid again for the corner square'))
+
+
+# ---- THE TILE SIZE, TYPED (2026-09-18) ----------------------------------
+# "יש אותו הצבע גם בגדלים אחרים - אני רוצה שתהיה האפשרות לקבוע בנפרד את
+# גודל האריח." '48x24' - along the wall first, then up. One number is a
+# square. Empty or 'From material' keeps the card's own size.
+P = T.method(:parse_tile)
+ok('empty keeps the card size', P.call('').nil? && P.call('  ').nil?)
+ok("'From material' keeps the card size too", P.call('From material').nil?)
+ok('48x24 is 48 along and 24 up', P.call('48x24') == [48.0, 24.0], P.call('48x24'))
+ok('a capital X, a star and a comma all work',
+   P.call('48X24') == [48.0, 24.0] && P.call('48*24') == [48.0, 24.0] &&
+   P.call('48,24') == [48.0, 24.0])
+ok('spaces do not matter', P.call(' 48 x 24 ') == [48.0, 24.0])
+ok('one number is a square tile', P.call('24') == [24.0, 24.0])
+ok('nonsense keeps the card size instead of a broken layout', P.call('abc').nil?)
+
+SRC2 = File.read('./tile_wall_tool.rb')
+ok('the dialog has the typed size box, and it is a TEXT box',
+   SRC2.include?("'Corner', 'Tile size'") && SRC2.include?("CORNERS.join('|'), '']"))
+ok('what he typed is remembered for next time',
+   SRC2.include?("tile_txt: res[8].to_s =~ /material/i ? '' : res[8].to_s"))
+ok('the typed size is handed to the build and BEATS the card',
+   SRC2.include?('tile_w: @cfg[:tile] && @cfg[:tile][0], tile_l: @cfg[:tile] && @cfg[:tile][1]'))
 
 puts($fails.zero? ? 'rt179 all green' : "rt179 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
