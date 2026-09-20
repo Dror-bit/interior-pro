@@ -1,0 +1,36 @@
+tile edit report 2026-09-18 14:47:46 -0700
+reload: ok
+tile_wall.rb loaded on its own: ok
+loaded cutter: a hole in the middle of a tile gives 4 piece(s) (new code = 4, old code = 2)
+tile_wall.rb loaded from: ["C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/tile_wall.rb", 254]
+
+== area TW012 on wall 849179b2-8d4b-422a-bc42-de097ad6c758 side a
+   u0 68.26141898427767 z0 0.0 w 23.337185832264083 h 96.0 built_u0 68.26141898427767 built_w 22.712185832264083
+   tile 48.0 x 24.0 grout 0.125 mode tiles card IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b
+   center true axis "v" ox -24.16298778677225 oy 0.0 angle 0.0
+   openings seen: 0 -> []
+   tiles built: 5
+   row bands (z): [[0.0, 11.75], [11.87, 35.87], [36.0, 60.0], [60.12, 84.13], [84.25, 96.0]]
+   column bands (u): [[68.26, 90.97]]
+
+== area TW016 on wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d side a
+   u0 5.0 z0 0.0 w 23.337185832264083 h 96.0 built_u0 5.625 built_w 22.712185832264083
+   tile 48.0 x 24.0 grout 0.125 mode tiles card IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b
+   center true axis "v" ox -21.957173619036325 oy 0.0 angle 0.0
+   openings seen: 1 -> [[184.99, 32.0, 208.99, 80.0]]
+   tiles built: 5
+   row bands (z): [[0.0, 11.75], [11.87, 35.87], [36.0, 60.0], [60.12, 84.13], [84.25, 96.0]]
+   column bands (u): [[5.63, 28.34]]
+   tiles crossing opening [185.0, 32.0, 209.0, 80.0]: 0
+
+== area TW014 on wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b side a
+   u0 149.418 z0 0.0 w 70.082 h 96.0 built_u0 150.04282638096367 built_w 68.83217361903633
+   tile 48.0 x 24.0 grout 0.125 mode tiles card IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b
+   center true axis "uv" ox 0.0 oy 0.0 angle 0.0
+   openings seen: 3 -> [[91.24, 0.0, 123.24, 80.0], [29.19, 32.0, 53.19, 80.0], [166.0, 68.0, 202.0, 80.0]]
+   tiles built: 16
+   row bands (z): [[0.0, 11.75], [11.88, 35.88], [36.0, 60.0], [60.13, 84.13], [68.0, 80.0], [84.25, 96.0]]
+   column bands (u): [[150.04, 160.33], [160.46, 208.46], [166.0, 202.0], [208.58, 218.88]]
+   tiles crossing opening [91.2, 0.0, 123.2, 80.0]: 0
+   tiles crossing opening [29.2, 32.0, 53.2, 80.0]: 0
+   tiles crossing opening [166.0, 68.0, 202.0, 80.0]: 2

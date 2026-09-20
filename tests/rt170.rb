@@ -95,7 +95,12 @@ ok('and the old surfaces bar is hidden, or he keeps seeing both',
 end
 bn = BAR[/BUILD_TOOLBAR_ITEM_COUNT = (\d+)/, 1].to_i
 badds = BUILD.scan(/toolbar\.add_item\(/).length
-ok('the build bar guard matches its own buttons', bn == badds, [bn, badds])
+bseps = BUILD.scan(/toolbar\.add_separator/).length
+# SketchUp counts a separator as an item (2026-09-18, measured on his bar:
+# 21 buttons + 4 lines = length 25, while the guard said 21 - so the guard
+# was always satisfied and a new button could never have appeared).
+ok('the build bar guard counts the separators too, or it is always full',
+   bn == badds + bseps, [bn, badds, bseps])
 ok('and the guard is the one the method actually reads',
    BUILD.include?('return if toolbar.length >= BUILD_TOOLBAR_ITEM_COUNT'))
 

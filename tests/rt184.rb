@@ -78,8 +78,8 @@ ok('the window says the same', D.axis_from(true, false) == 'v' && D.axis_from(fa
 TSRC = File.read('./tile_wall_tool.rb')
 ok('the three rows are in the one dialog, before the tile size',
    TSRC.include?("'Corner', 'Centre', 'Horizontal', 'Vertical', 'Tile size'"))
-ok('what he picks is remembered for the next area, and a new wall starts CENTRED both ways (his call, 2026-09-18)',
-   TSRC.include?("center: true, cen_h: true, cen_v: true }"))
+ok('what he picks is remembered for the next area, and a new wall starts on a GROUT line both ways (his call, 2026-09-18 evening)',
+   TSRC.include?("center: 'grout', cen_h: true, cen_v: true }"))
 ok('and handed to the build from the first drawing - off when neither is ticked',
    TSRC.include?('centered: (@cfg[:cen_h] || @cfg[:cen_v]) ? @cfg[:center] : false') &&
    TSRC.include?('center_axis: InteriorPro::TileWallTool.axis_of(@cfg[:cen_h], @cfg[:cen_v])'))

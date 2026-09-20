@@ -57,6 +57,8 @@ module InteriorPro
       floor_pattern.rb
       tile_wall.rb
       tile_wall_tool.rb
+      tile_wall_stretch_tool.rb
+      tile_wall_edit_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb

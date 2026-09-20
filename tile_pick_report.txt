@@ -1,0 +1,30 @@
+tile pick report 2026-09-18 16:06:54 -0700
+reload: ok
+(mouse moves seen before this click: 2)
+
+== click #1 at screen 1495,709
+   pick_helper returned 1 path(s)
+   path 0 depth 2: ["wall id 849179b2-8d4b-422a-bc42-de097ad6c758"]  leaf Sketchup::Face normal (0.0,1.0,0.0)  -> wall 849179b2-8d4b-422a-bc42-de097ad6c758 cat nil th 4.5 side "a"
+   >> the tile tool would pick wall 849179b2-8d4b-422a-bc42-de097ad6c758 cat nil
+   inference point (-454.39,332.42,96.0) vertex false dof 1
+(mouse moves seen before this click: 64)
+
+== click #2 at screen 1291,749
+   pick_helper returned 4 path(s)
+   path 0 depth 3: ["tile_wall id TW034", "plain group"]  leaf Sketchup::Edge
+   path 1 depth 3: ["tile_wall id TW034", "plain group"]  leaf Sketchup::Edge
+   path 2 depth 3: ["tile_wall id TW034", "plain group"]  leaf Sketchup::Face normal (-1.0,0.0,0.0)
+   path 3 depth 2: ["tile_wall id TW034"]  leaf Sketchup::Face normal (1.0,0.0,0.0)
+   >> the tile tool would pick wall NONE
+   inference point (-443.63,343.15,48.25) vertex false dof 1
+(mouse moves seen before this click: 77)
+
+== click #3 at screen 1318,791
+   pick_helper returned 5 path(s)
+   path 0 depth 3: ["tile_wall id TW034", "plain group"]  leaf Sketchup::Edge
+   path 1 depth 3: ["tile_wall id TW034", "plain group"]  leaf Sketchup::Face normal (-1.0,0.0,0.0)
+   path 2 depth 2: ["tile_wall id TW034"]  leaf Sketchup::Face normal (1.0,0.0,0.0)
+   path 3 depth 2: ["floor_pattern id "]  leaf Sketchup::Face normal (0.0,0.0,1.0)
+   path 4 depth 2: ["floor_pattern id "]  leaf Sketchup::Face normal (0.0,0.0,1.0)
+   >> the tile tool would pick wall NONE
+   inference point (-443.63,336.42,0.0) vertex false dof 1

@@ -1,0 +1,74 @@
+== ruby syntax ==
+  OK   plan_doc.rb
+  OK   plan_tables.rb
+  OK   plan_canvas.rb
+  OK   plan_pdf.rb
+  OK   plan_editor.rb
+  OK   plan_generator.rb
+  OK   state_backup.rb
+  OK   auto_backup.rb
+  OK   door_library.rb
+  OK   door_tool.rb
+  OK   arc_math.rb
+  OK   door_manager.rb
+  OK   wall_tool.rb
+  OK   fence_math.rb
+  OK   fence_tool.rb
+  OK   fence_library.rb
+  OK   fence_library_dialog.rb
+  OK   fence_ref_tool.rb
+  OK   garden_wall_tool.rb
+== extract the editor + sheet JS from the heredocs ==
+heredoc lines 2591..10518, html 348644 B, js 317905 B
+sheet heredoc lines 875..3558, html 134466 B, js 112572 B
+  OK   out.js parses
+  OK   sheet.js parses
+== javascript suites (the 2D editor canvas) ==
+  PASS t1
+  PASS t2
+  PASS t3
+  PASS t4
+  PASS t5
+  PASS t6
+  PASS t7
+  PASS t8
+  PASS t9
+  PASS t12
+  PASS t13
+  PASS t14
+  PASS t15
+  PASS t16
+  PASS t17
+  PASS t18
+  PASS t19
+  PASS t20
+  PASS t21
+  PASS t22
+  PASS t23
+  PASS t24
+  PASS t25
+  PASS t26
+  PASS t27
+  PASS t28
+  PASS t29
+  PASS t30
+  PASS t31
+  PASS t32
+  PASS t33
+  PASS t34
+  PASS t35
+  PASS t36
+  PASS t37
+  PASS t38
+  PASS t39
+  PASS t40
+  PASS t41
+  PASS t42
+  PASS t43
+  PASS t44b
+  PASS t45
+  PASS t46
+  PASS t47
+  PASS t48
+  PASS t49
+  PASS t50

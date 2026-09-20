@@ -35,12 +35,18 @@ module InteriorPro
     LEGACY_TOOLBAR_NAME = 'Interior Pro' unless const_defined?(:LEGACY_TOOLBAR_NAME, false)
     CLEAN_TOOLBAR_NAME = 'Interior Pro Tools' unless const_defined?(:CLEAN_TOOLBAR_NAME, false)
     TOOLBAR_ITEM_COUNT = 9 unless const_defined?(:TOOLBAR_ITEM_COUNT, false)
-    # The Build bar: 21 buttons. Bump this the moment one is added, or
-    # the new button silently never appears - the bar survives a restart,
-    # so on the next launch it is already full and the guard returns
-    # before adding anything. That trap has cost a whole chat before.
+    # The Build bar. Bump this the moment a button is added, or the new
+    # button silently never appears - the bar survives a restart, so on the
+    # next launch it is already full and the guard returns before adding
+    # anything. That trap has cost a whole chat before.
+    #
+    # IT IS 25, NOT 21 (2026-09-18, measured): `toolbar.length` counts the
+    # four SEPARATORS as items too. The guard said 21 while the bar really
+    # held 25, so it was ALWAYS full - a new button there could never have
+    # appeared. rt170 now checks this number against the buttons AND the
+    # separators together, so it cannot drift again.
     BUILD_TOOLBAR_NAME = 'Interior Pro Build' unless const_defined?(:BUILD_TOOLBAR_NAME, false)
-    BUILD_TOOLBAR_ITEM_COUNT = 21 unless const_defined?(:BUILD_TOOLBAR_ITEM_COUNT, false)
+    BUILD_TOOLBAR_ITEM_COUNT = 25 unless const_defined?(:BUILD_TOOLBAR_ITEM_COUNT, false)
 
     # SketchUp cannot remove toolbar items via the API — hide bloated legacy bar and use a clean one.
     def self.resolve_toolbar
@@ -76,9 +82,14 @@ module InteriorPro
     # duplicates until he restarts and not seeing them at all.
     def self.hide_old_bars!
       [LEGACY_TOOLBAR_NAME, CLEAN_TOOLBAR_NAME, 'Interior Pro Floors',
-       'Interior Pro Tile'].each do |name|
+       'Interior Pro Tile', 'Interior Pro Surfaces'].each do |name|
         tb = UI::Toolbar.new(name)
-        tb.hide if tb.length > 0
+        # HIDE IT EVEN WHEN IT IS EMPTY (2026-09-18). He asked "מה הכלי
+        # הריק הזה?" - it was the old Surfaces bar, length 0 and still
+        # visible: an empty bar shows one blank button. The old guard only
+        # hid a bar that still had buttons on it, so an emptied one stayed
+        # on screen for good.
+        tb.hide
       end
       nil
     rescue StandardError => e
@@ -355,9 +366,21 @@ module InteriorPro
     # Floors and tile are the same job - a surface with a layout on it -
     # and ceilings and foundation are surfaces too, fenced off with a
     # separator because they are whole-house buttons, not per-room ones.
+    # A NEW NAME ON PURPOSE (2026-09-18). He saw the buttons twice, and
+    # this is why: SketchUp keeps a bar between runs, and this method adds
+    # every button it knows about. Raising the guard from 2 to 3 to make
+    # room for Stretch Tile meant a bar that already had 2 buttons ran the
+    # whole method again and ended up with 5. SketchUp cannot take a button
+    # off a bar, only hide a whole bar - so the old bar is hidden and this
+    # one is built fresh.
+    #
+    # AND SO IT CANNOT HAPPEN AGAIN: the buttons are a list, and only the
+    # ones past what the bar already holds are added. A new button from now
+    # on is one more line in the list and nothing else.
+    SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools' unless const_defined?(:SURFACES_TOOLBAR_NAME, false)
+
     def self.setup_surfaces_toolbar
-      tb = UI::Toolbar.new('Interior Pro Surfaces')
-      return if tb.length >= 2
+      tb = UI::Toolbar.new(SURFACES_TOOLBAR_NAME)
 
       floors_cmd = UI::Command.new('Build Floors') {
         InteriorPro::FloorDialog.show
@@ -366,7 +389,6 @@ module InteriorPro
       floors_cmd.status_bar_text = 'Open the floors dialog: floor type and thickness per room'
       floors_cmd.small_icon = icon_path('floor_tool')
       floors_cmd.large_icon = icon_path('floor_tool')
-      tb.add_item(floors_cmd)
 
       # Tile on a WALL (2026-09-17): two clicks mark the rectangle - the
       # shower wall, the fireplace face. Same grid as the floor.
@@ -377,8 +399,30 @@ module InteriorPro
       tile_wall_cmd.status_bar_text = 'Click one corner of the area on a wall face, then the opposite corner'
       tile_wall_cmd.small_icon = icon_path('tile_wall')
       tile_wall_cmd.large_icon = icon_path('tile_wall')
-      tb.add_item(tile_wall_cmd)
 
+      # Stretch a tiled area that is already there (2026-09-18, his call:
+      # four handles, the middle of each side, and a typed size).
+      tile_stretch_cmd = UI::Command.new('Stretch Tile') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallStretchTool.new)
+      }
+      tile_stretch_cmd.tooltip = 'Stretch Tile - drag a side of a tiled area'
+      tile_stretch_cmd.status_bar_text = 'Click a tiled area, then drag one of its four handles or type the new size'
+      tile_stretch_cmd.small_icon = icon_path('stretch_wall')
+      tile_stretch_cmd.large_icon = icon_path('stretch_wall')
+
+      # ONE WINDOW FOR AN AREA THAT IS ALREADY THERE (2026-09-18, his
+      # words: "חלון עריכה גם לגודל וצבע וכו' והוא כולל את הפריסה").
+      tile_edit_cmd = UI::Command.new('Edit Tile') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallEditTool.new)
+      }
+      tile_edit_cmd.tooltip = 'Edit Tile - material, tile, grout, size and layout of a tiled area'
+      tile_edit_cmd.status_bar_text = 'Click a tiled area to open its edit window'
+      tile_edit_cmd.small_icon = icon_path('edit_wall')
+      tile_edit_cmd.large_icon = icon_path('edit_wall')
+
+      buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]
+      have = tb.length
+      buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
       tb.restore
     end
 

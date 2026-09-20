@@ -1,0 +1,9 @@
+17:06:12 click 1524,743 dof 0 vertex true pos [-443.0, 332.42, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.0 kind :corner | first none
+17:06:16 click 1521,740 dof 0 vertex true pos [-443.0, 332.42, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.0 kind :corner | first none
+17:06:17 click 1404,766 dof 2 vertex false pos [-445.29, 353.0, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 170.0 z 0.0 kind :edge | first set
+17:07:06 click 1747,955 dof 0 vertex true pos [-443.0, 332.42, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.0 kind :corner | first none
+17:22:28 click 1661,904 dof 0 vertex false pos [-443.0, 332.42, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.05 kind :corner | first none
+17:22:31 click 1110,874 dof 2 vertex false pos [-443.1, 402.32, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 219.32 z 0.0 kind :edge | first set
+17:22:34 click 1661,908 dof 0 vertex false pos [-443.0, 332.42, 0.03] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.03 kind :corner | first none
+17:22:40 click 1630,887 dof 0 vertex false pos [-443.0, 332.42, 0.03] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.03 kind :corner | first none
+17:22:42 click 1613,1048 dof 1 vertex false pos [-488.13, 332.42, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 149.42 z 0.0 kind :edge | first set

@@ -62,7 +62,7 @@ ok("and one looking +X is 'b'",
 # ---- 3. THE REAL PATH ---------------------------------------------------
 SRC = File.read('./tile_wall_tool.rb')
 ok('the face the ray hit is asked FIRST, and the point only as a fallback',
-   SRC.include?('side = side_from_face(view, x, y, wall) || side_of(wall, pos)'))
+   SRC.include?('side = hint || side_from_face(view, x, y, wall) || side_of(wall, pos)'))
 ok('and only a face of THIS wall counts - another object says nothing',
    SRC.include?('next unless path.any? { |e| e.equal?(wall) }'))
 ok('the face is taken from the pick, with its own transformation',

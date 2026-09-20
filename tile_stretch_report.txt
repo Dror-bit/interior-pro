@@ -1,0 +1,38 @@
+tile stretch report 2026-09-20 11:32:06 -0700
+reload: ok
+tile_wall.rb loaded on its own: ok
+tile_wall.rb loaded from: ["C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/tile_wall.rb", 635]
+
+== every wall in the model
+   wall c8a403d4-de01-4c01-a8fa-f4a146cf495f cat nil (-702.0,407.5) -> (-702.0,183.0) th 5.0 anchor "left"
+   wall 045fe78b-5cb6-4ade-ace4-476ca2cfac94 cat nil (-702.0,183.0) -> (-438.0,183.0) th 5.0 anchor "left"
+   wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b cat nil (-438.0,183.0) -> (-438.0,407.5) th 5.0 anchor "left"
+   wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d cat nil (-438.0,407.5) -> (-702.0,407.5) th 5.0 anchor "left"
+   wall 740d6b05-c1b6-409e-aa14-991b817770c8 cat nil (-534.6,402.5) -> (-534.6,327.92) th 4.5 anchor "left"
+   wall 849179b2-8d4b-422a-bc42-de097ad6c758 cat nil (-534.6,327.92) -> (-443.0,327.92) th 4.5 anchor "left"
+
+== area TW006 on wall 740d6b05-c1b6-409e-aa14-991b817770c8 side a
+   face len 74.582  area u0 0.0 .. u1 70.082  (w 70.082)  ref 35.041
+   face_limits -> lo 0.0  hi 70.082
+   room to grow: to the LOW side 0.0   to the HIGH side 0.0
+   who set it:
+     wall c8a403d4-de01-4c01-a8fa-f4a146cf495f : does not stand on this face
+     wall 045fe78b-5cb6-4ade-ace4-476ca2cfac94 : blocks u 214.5 .. 219.5  -> sets HI to 214.5
+     wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b : does not stand on this face
+     wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d : blocks u -5.0 .. -0.0  -> sets LO to -0.0
+     wall 849179b2-8d4b-422a-bc42-de097ad6c758 : blocks u 70.082 .. 74.582  -> sets HI to 70.082
+   neighbour at HI: wall 849179b2-8d4b-422a-bc42-de097ad6c758 side a u_from 4.5 dir 1.0
+   neighbour at LO: wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d side a u_from 96.6 dir 1.0
+
+== area TW004 on wall 849179b2-8d4b-422a-bc42-de097ad6c758 side a
+   face len 91.599  area u0 4.5 .. u1 91.599  (w 87.099)  ref 48.049
+   face_limits -> lo 4.5  hi 91.599
+   room to grow: to the LOW side 0.0   to the HIGH side 0.0
+   who set it:
+     wall c8a403d4-de01-4c01-a8fa-f4a146cf495f : blocks u -167.401 .. -162.401  -> sets LO to -162.401
+     wall 045fe78b-5cb6-4ade-ace4-476ca2cfac94 : does not stand on this face
+     wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b : blocks u 91.599 .. 96.599  -> sets HI to 91.599
+     wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d : does not stand on this face
+     wall 740d6b05-c1b6-409e-aa14-991b817770c8 : blocks u 0.0 .. 4.5  -> sets LO to 4.5
+   neighbour at HI: wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b side a u_from 149.42 dir 1.0
+   neighbour at LO: wall 740d6b05-c1b6-409e-aa14-991b817770c8 side a u_from 70.08 dir -1.0

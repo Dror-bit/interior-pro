@@ -38,8 +38,8 @@ ok('the lock window is in PIXELS, so it works zoomed out too',
    SRC.include?('pixels_to_model(SNAP_PX'))
 
 # ---- the face is locked once the first corner is down -------------------
-ok('hovering another wall cannot move a half-drawn area',
-   SRC.include?('wall = @first ? @wall : (pick_wall(view, x, y) || @wall)'))
+ok('a half-drawn area: the wall is read AFTER the corner swap (2026-09-20)',
+   SRC.include?("swap_to_alt!(pos) if @alt\n        wall = @wall"))
 ok('the side is MEASURED off the click, not taken from the anchor',
    SRC =~ /def side_of.*side_offsets/m)
 

@@ -130,9 +130,15 @@ ok('what was really built is stored on the area',
 ok('after a build, the corner neighbours are laid again',
    SRC.include?('InteriorPro::TileWall.refresh_corner_neighbours!(grp) if grp'))
 TWSRC = File.read('./tile_wall.rb')
-ok('the helper lays only the walls standing at the two ends, not the whole model',
-   TWSRC.include?('[u0, u0 + w].each do |u|') &&
-   TWSRC.include?('n += refresh_wall!(nb[:wall].get_attribute'))
+# 2026-09-20: it now finds a corner by world-space proximity of the two
+# areas' ends (corner_neighbour_wall_ids), not neighbour_at - the old path
+# missed the corner where the last tile met only the previous TILE, 5/8"
+# in front of the wall. See rt189.
+ok('the helper lays the walls that share a corner, via corner_neighbour_wall_ids',
+   TWSRC.include?('corner_neighbour_wall_ids(grp, model).each { |wid| n += refresh_wall!(wid) }'))
+ok('the corner is judged by world-space proximity within a tile depth, not a fixed 0.51',
+   TWSRC.include?('reach = dp + 0.6') &&
+   TWSRC.include?('Math.hypot(mp[0] - tp[0], mp[1] - tp[1]) <= reach'))
 ok('and says how many it laid, never silent',
    TWSRC.include?('neighbouring area(s) laid again for the corner square'))
 

@@ -1,0 +1,26 @@
+file on disk                 true  (14724 bytes)
+file mentions clamp_value    true
+file clamps a dragged side   true
+file clamps a typed size     true
+class is loaded              true
+LOADED class has clamp_value true
+LOADED class methods         [:across?, :activate, :apply!, :clamp_value, :clear, :deactivate, :draw, :draw_handle, :draw_ring, :edge_value, :enableVCB?, :getExtents, :handle_at, :handle_uz, :load_area, :onCancel, :onLButtonDown, :onMouseMove, :onUserText, :parse_len, :pick_area, :pt3, :ring_color, :size_for, :snap, :status, :u1, :u_lines, :value_for_size, :z1, :z_lines]
+clamp_value(:u1, 500) =      96.0   (should be 96.0)
+
+tile_wall areas: 2
+
+== TW003  wall len=264.0  wall height=96.0
+   STORED u0=5.625  width=36.0  -> right edge at 41.625
+   STORED z0=0.0  height=96.0 -> top edge at 96.0
+   OFF THE WALL along it?  left false   right false
+   OFF THE WALL upwards?   bottom false   top false
+   the tiles REALLY run u=5.625..41.625  z=0.0..96.0
+   past the end of the wall by -222.375 (negative = inside)
+
+== TW001  wall len=224.5  wall height=96.0
+   STORED u0=137.49  width=82.01  -> right edge at 219.5
+   STORED z0=0.0  height=96.0 -> top edge at 96.0
+   OFF THE WALL along it?  left false   right false
+   OFF THE WALL upwards?   bottom false   top false
+   the tiles REALLY run u=137.49..218.875  z=0.0..96.0
+   past the end of the wall by -5.625 (negative = inside)

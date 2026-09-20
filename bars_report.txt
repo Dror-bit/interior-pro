@@ -1,0 +1,17 @@
+ICON_EXT = ".svg"
+
+Interior Pro                     length=0   visible=false
+Interior Pro Tools               length=0   visible=false
+Interior Pro Build               length=25  visible=true
+Interior Pro Floors              length=0   visible=false
+Interior Pro Tile                length=0   visible=false
+Interior Pro Surfaces            length=0   visible=true
+Interior Pro Surface Tools       length=3   visible=true
+Interior Pro Data                length=3   visible=true
+Interior Pro Roofs               length=14  visible=true
+Interior Pro 2D                  length=2   visible=true
+
+icon files the Surface bar asks for:
+  floor_tool     svg=true  pdf=true   icon_path -> C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/icons/floor_tool.svg  exists=true
+  tile_wall      svg=true  pdf=false  icon_path -> C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/icons/tile_wall.svg  exists=true
+  stretch_wall   svg=true  pdf=true   icon_path -> C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/icons/stretch_wall.svg  exists=true

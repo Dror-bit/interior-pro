@@ -1,0 +1,496 @@
+# encoding: utf-8
+# Interior Pro - EDIT A TILED AREA (2026-09-18)
+#
+# His words: "אני חושב שזה יהיה בכללי חלון עריכה גם לגודל וצבע וכו והוא
+# כולל את הפריסה וכן כפתור." So ONE window for everything about an area
+# that is already on the wall - the material, the tile, the grout, the
+# size, and the LAYOUT (centre the tile, shift it, turn it).
+#
+# The tool OWNS NO LAYOUT and BUILDS NO GEOMETRY. It picks an area, reads
+# the numbers already stored on it, lets him change them, and hands the
+# rebuild to TileWall.build! with the SAME id - exactly the way the
+# stretch tool does. So an edited area cannot drift away from a drawn one.
+#
+# Picking is the same pick_helper walk the stretch tool uses, so a click
+# anywhere on the tiles finds the area group.
+require 'json'
+
+module InteriorPro
+
+  # ---- the window -------------------------------------------------------
+  module TileWallEditDialog
+    # Kill switch: false = the button says so and does nothing.
+    USE_TILE_EDIT = true unless const_defined?(:USE_TILE_EDIT, false)
+
+    def self.show(area_id)
+      tw = InteriorPro::TileWall
+      g = tw.areas_in_model.find { |a| a.valid? && a.get_attribute('InteriorPro', 'id').to_s == area_id.to_s }
+      if g.nil?
+        UI.messagebox('That tiled area is not in the model any more.')
+        return
+      end
+      at = lambda { |k| g.get_attribute('InteriorPro', k) }
+
+      cards = begin
+        InteriorPro::MaterialLibrary.cards.map { |c| { 'id' => c['id'].to_s, 'name' => c['name'].to_s } }
+      rescue StandardError
+        []
+      end
+
+      data = {
+        'id'      => at.call('id').to_s,
+        'wall_id' => at.call('wall_id').to_s,
+        'side'    => at.call('side').to_s,
+        'card'    => at.call('material_card_id').to_s,
+        'tile_w'  => at.call('tile_w').to_f,
+        'tile_l'  => at.call('tile_l').to_f,
+        'depth'   => at.call('tile_depth').to_f,
+        'mode'    => at.call('tile_mode').to_s,
+        'grout'   => at.call('pattern_grout').to_f,
+        'gcolor'  => (at.call('pattern_grout_color') || 'light').to_s,
+        'stagger' => at.call('pattern_stagger').to_f,
+        'angle'   => at.call('pattern_angle').to_f,
+        'ox'      => at.call('pattern_ox').to_f,
+        'oy'      => at.call('pattern_oy').to_f,
+        'center'  => tw.center_value(at.call('pattern_center')).to_s,
+        'axis'    => tw.axis_value(at.call('pattern_center_axis')),
+        'u0'      => at.call('u0').to_f.round(3),
+        'z0'      => at.call('z0').to_f.round(3),
+        'w'       => at.call('area_w').to_f.round(3),
+        'h'       => at.call('area_h').to_f.round(3),
+        # How many areas this one is joined to round the corners - the
+        # whole shower (2026-09-18, his call).
+        'chain'   => tw.connected_areas(g).length
+      }
+
+      if @dialog
+        begin; @dialog.close; rescue StandardError; end
+        @dialog = nil
+      end
+      dlg = UI::HtmlDialog.new(
+        dialog_title: 'Interior Pro - Edit Tile',
+        preferences_key: 'InteriorPro_TileEdit',
+        width: 560, height: 560, resizable: true
+      )
+      dlg.add_action_callback('apply') do |_, json|
+        cfg = JSON.parse(json)
+        apply!(area_id, cfg)
+      end
+      dlg.add_action_callback('close_me') do |_|
+        begin; dlg.close; rescue StandardError; end
+      end
+      # IT OPENS WHOLE (CLAUDE.md law, 2026-09-18): the page measures
+      # itself once laid out and the window follows, so nothing sits
+      # under the scroll and he never has to drag the window bigger.
+      dlg.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46            # title bar + frame
+          want = 300 if want < 300
+          want = 1000 if want > 1000
+          dlg.set_size(560, want)
+        rescue StandardError => e
+          puts "[TileEdit] fit_height: #{e.message}"
+        end
+      end
+      dlg.set_html(build_html(data, cards))
+      dlg.show
+      @dialog = dlg
+    end
+
+    # Write the new numbers back by rebuilding the area under its own id.
+    def self.apply!(area_id, cfg)
+      tw = InteriorPro::TileWall
+      g = tw.areas_in_model.find { |a| a.valid? && a.get_attribute('InteriorPro', 'id').to_s == area_id.to_s }
+      if g.nil?
+        UI.messagebox('That tiled area is not in the model any more.')
+        return
+      end
+      wall = tw.wall_by_id(g.get_attribute('InteriorPro', 'wall_id'))
+      if wall.nil?
+        UI.messagebox('That tiled area has lost its wall.')
+        return
+      end
+      side = g.get_attribute('InteriorPro', 'side')
+
+      tile = InteriorPro::TileWallTool.parse_tile(cfg['tile'].to_s)
+      tw_in = tile ? tile[0] : 0.0
+      tl_in = tile ? tile[1] : 0.0
+      shared = shared_fields(cfg, tw_in, tl_in)
+
+      out = tw.build!(**shared.merge(
+        wall: wall, side: side,
+        u0: cfg['u0'].to_f, z0: cfg['z0'].to_f, w: cfg['w'].to_f,
+        angle: cfg['angle'].to_f,
+        ox: cfg['ox'].to_f, oy: cfg['oy'].to_f,
+        centered: center_from(cfg['center'], axis_from(cfg['cen_h'], cfg['cen_v'])),
+        center_axis: axis_from(axis_from(cfg['cen_h'], cfg['cen_v'])),
+        id: area_id
+      ))
+      if out.nil?
+        UI.messagebox('Nothing was built - see the Ruby Console for the reason.')
+        return
+      end
+      # The corner square: an area laid before its neighbour existed has
+      # nothing to pull back from (HANDOFF 2026-09-18B, caught twice).
+      tw.refresh_corner_neighbours!(out)
+      puts "[TileEdit] #{area_id} rebuilt"
+
+      # THE WHOLE SHOWER (2026-09-18, his call): the areas joined to this
+      # one round the corners get the SHARED things - material, tile,
+      # grout, depth, layout mode and height. Each keeps its own width,
+      # place on the wall and pattern shift.
+      # THE SIDES FOLLOW (2026-09-18, his picture): the joined walls get
+      # the shift that carries this wall's lattice round the corners, and
+      # this wall's rows - so the grout lines run on. Their own width and
+      # place stay.
+      follow = cfg['follow'] ? follow_map(out, cfg) : {}
+      return unless cfg['whole'] || cfg['follow']
+      others = tw.connected_areas(out).reject { |o| o.equal?(out) }
+      done = others.map do |o|
+        apply_shared!(o, cfg['whole'] ? shared : {}, follow[o.get_attribute('InteriorPro', 'id').to_s]) ? 1 : 0
+      end.sum
+      tw.areas_in_model.each { |o| tw.refresh_corner_neighbours!(o) if o.valid? } if done > 0
+      puts "[TileEdit] #{cfg['whole'] ? 'the whole shower' : 'the joined walls'}: #{done} more area(s) rebuilt"
+    rescue StandardError => e
+      UI.messagebox("Edit Tile failed: #{e.message}")
+      puts "[TileEdit] #{e.class}: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+    end
+
+    # SIMPLE (2026-09-18, his call: "תפריט אחד צריך להיות TILE או GROUT ...
+    # ותפריט שני - הוריזונטל או ורטיקל, זהו"): one menu for WHAT sits on
+    # the middle (tile / grout), and two ticks - Horizontal, Vertical.
+    # Neither ticked = no centring at all.
+    def self.center_from(v, axis = 'uv')
+      return false if axis.to_s == 'off' || axis.to_s.empty?
+      case v.to_s
+      when 'tile', 'true' then true
+      when 'grout' then 'grout'
+      else false
+      end
+    end
+
+    # Two ticks -> the stored axis. HORIZONTAL means the horizontal grout
+    # LINES are centred - the rows, up the wall ('v'); VERTICAL means the
+    # vertical lines - the columns, along the wall ('u'). His words
+    # (2026-09-18): "הוורטיקל פועל על ההוריזונטל ולהפך" - it was the other
+    # way round and he read it as the lines, so the lines it is.
+    # 'uv' when nothing is centred, so an area that is later switched on
+    # comes up centred both ways.
+    def self.axis_from(h, v = nil)
+      return (h.to_s == 'off' ? 'uv' : InteriorPro::TileWall.axis_value(h)) if v.nil?
+      return 'uv' if h && v
+      return 'v' if h
+      return 'u' if v
+      'off'
+    end
+
+    # What every area in the shower shares, from the window's numbers.
+    def self.shared_fields(cfg, tw_in, tl_in)
+      { card_id: cfg['card'].to_s.empty? ? nil : cfg['card'].to_s,
+        tile_w: tw_in, tile_l: tl_in,
+        grout: cfg['grout'].to_f, grout_color: cfg['gcolor'].to_s,
+        stagger: cfg['stagger'].to_f,
+        depth: cfg['depth'].to_f, mode: cfg['mode'].to_s,
+        h: cfg['h'].to_f }
+    end
+
+    # What each joined wall needs so its lines run on from this one:
+    # { id => { ox:, oy:, centered:, center_axis:, z0:, h: } }.
+    def self.follow_map(out, cfg)
+      tw = InteriorPro::TileWall
+      _groups, areas, nb = tw.chain_input
+      me = out.get_attribute('InteriorPro', 'id').to_s
+      # The lattice is read off the area as it was JUST built - its own
+      # centring and shift, its built edge - not off the window.
+      mine = areas.find { |a| a[:id] == me }
+      return {} if mine.nil?
+      oxs = tw.follow_layout(areas, me, nb, out.get_attribute('InteriorPro', 'tile_w').to_f,
+                             out.get_attribute('InteriorPro', 'pattern_grout').to_f)
+      axis = tw.axis_value(out.get_attribute('InteriorPro', 'pattern_center_axis'))
+      cen  = tw.center_value(out.get_attribute('InteriorPro', 'pattern_center'))
+      rows = { oy: out.get_attribute('InteriorPro', 'pattern_oy').to_f,
+               centered: axis.include?('v') ? cen : false, center_axis: 'v',
+               z0: out.get_attribute('InteriorPro', 'z0').to_f,
+               h: out.get_attribute('InteriorPro', 'area_h').to_f }
+      res = {}
+      oxs.each { |id, ox| res[id] = rows.merge(ox: ox) }
+      puts "[TileEdit] the joined walls follow: #{res.map { |id, v| "#{id} shift #{v[:ox].round(3)}" }.join(', ')}"
+      res
+    rescue StandardError => e
+      puts "[TileEdit] the joined walls could not follow: #{e.message}"
+      {}
+    end
+
+    # One more area of the shower: its own numbers, the shared ones on
+    # top, and - when the sides follow - the lattice from the edited wall.
+    def self.apply_shared!(g, shared, follow = nil)
+      tw = InteriorPro::TileWall
+      a = lambda { |k| g.get_attribute('InteriorPro', k) }
+      wall = tw.wall_by_id(a.call('wall_id'))
+      if wall.nil?
+        puts "[TileEdit] area #{a.call('id')} lost its wall - skipped"
+        return false
+      end
+      # EVERYTHING the area already has, so a wall that only follows the
+      # layout keeps its own material and tile (rt185 caught it: with
+      # nothing shared, no card went through and the wall came back as
+      # joint lines only).
+      own = {
+        wall: wall, side: a.call('side'),
+        u0: a.call('u0').to_f, z0: a.call('z0').to_f, w: a.call('area_w').to_f,
+        h: a.call('area_h').to_f,
+        card_id: a.call('material_card_id').to_s.empty? ? nil : a.call('material_card_id').to_s,
+        tile_w: a.call('tile_w').to_f, tile_l: a.call('tile_l').to_f,
+        grout: a.call('pattern_grout').to_f, grout_color: a.call('pattern_grout_color'),
+        stagger: a.call('pattern_stagger').to_f, depth: a.call('tile_depth'),
+        mode: a.call('tile_mode'),
+        angle: a.call('pattern_angle').to_f,
+        ox: a.call('pattern_ox').to_f, oy: a.call('pattern_oy').to_f,
+        centered: tw.center_value(a.call('pattern_center')),
+        center_axis: a.call('pattern_center_axis'),
+        id: a.call('id')
+      }
+      own.merge!(follow) if follow
+      out = tw.build!(**own.merge(shared))
+      puts "[TileEdit] area #{a.call('id')} could not be rebuilt" if out.nil?
+      !out.nil?
+    end
+
+    GROUTS   = [['0', 0.0], ['1/16"', 0.0625], ['1/8"', 0.125],
+                ['3/16"', 0.1875], ['1/4"', 0.25], ['3/8"', 0.375]].freeze unless const_defined?(:GROUTS, false)
+    GCOLORS  = %w[light gray dark white].freeze unless const_defined?(:GCOLORS, false)
+    BONDS    = [['Stack', 0.0], ['1/2', 0.5], ['1/3', 1.0 / 3.0], ['1/4', 0.25]].freeze unless const_defined?(:BONDS, false)
+    DEPTHS   = [['5/8"', 0.625], ['1/2"', 0.5], ['3/8"', 0.375], ['3/4"', 0.75],
+                ['1/4"', 0.25], ['0 (flat)', 0.0]].freeze unless const_defined?(:DEPTHS, false)
+    MODES    = [['Tile by tile', 'tiles'], ['Whole image (pattern)', 'image']].freeze unless const_defined?(:MODES, false)
+
+    def self.build_html(data, cards)
+      js_data  = data.to_json
+      js_cards = cards.to_json
+      js_grout = GROUTS.to_json
+      js_gcol  = GCOLORS.to_json
+      js_bond  = BONDS.to_json
+      js_depth = DEPTHS.to_json
+      js_mode  = MODES.to_json
+      <<-HTML
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 12px; margin: 10px; }
+  fieldset { border: 1px solid #ccc; border-radius: 4px; margin: 0 0 8px 0; padding: 6px 8px; }
+  legend { color: #555; font-weight: bold; }
+  label { display: inline-block; margin: 2px 8px 2px 0; }
+  input[type=number], input[type=text], select { padding: 2px; }
+  input[type=number] { width: 62px; }
+  .btns { margin-top: 6px; }
+  button { padding: 5px 14px; margin-right: 6px; }
+  #hint { color: #777; margin-top: 6px; }
+</style></head>
+<body>
+  <fieldset><legend>Material</legend>
+    <label>Card <select id="card" style="max-width:300px;"></select></label>
+    <label>Tile size <input type="text" id="tile" size="10" placeholder="48x24"></label>
+    <label>Layout <select id="mode"></select></label>
+  </fieldset>
+
+  <fieldset><legend>Grout &amp; depth</legend>
+    <label>Grout <select id="grout"></select></label>
+    <label>Colour <select id="gcolor"></select></label>
+    <label>Offset <select id="stagger"></select></label>
+    <label>Stand-off <select id="depth"></select></label>
+  </fieldset>
+
+  <fieldset><legend>Layout on the wall</legend>
+    <label>Centre <select id="center">
+      <option value="tile">Tile</option>
+      <option value="grout">Grout</option>
+    </select></label>
+    <label><input type="checkbox" id="cen_h"> Horizontal</label>
+    <label><input type="checkbox" id="cen_v"> Vertical</label>
+    <br>
+    <label><input type="checkbox" id="follow"> The joined walls follow this layout (grout lines run on round the corners)</label>
+    <label>Shift X <input type="number" id="ox" step="0.25"></label>
+    <label>Shift Y <input type="number" id="oy" step="0.25"></label>
+    <label>Angle <input type="number" id="angle" step="5"></label>
+  </fieldset>
+
+  <fieldset><legend>Size and place (inches)</legend>
+    <label>Width <input type="number" id="w" step="0.5"></label>
+    <label>Height <input type="number" id="h" step="0.5"></label>
+    <label>From wall start <input type="number" id="u0" step="0.5"></label>
+    <label>From floor <input type="number" id="z0" step="0.5"></label>
+  </fieldset>
+
+  <fieldset><legend>How many walls</legend>
+    <label><input type="radio" name="scope" id="scope_one" checked> This wall only</label>
+    <label><input type="radio" name="scope" id="scope_all"> The whole shower (<span id="chain_n"></span> walls joined round the corners)</label>
+    <div id="scope_hint" style="color:#777;">Material, tile, grout, depth, layout mode and height go to all of them. Each keeps its own width, place and shift.</div>
+  </fieldset>
+
+  <div class="btns">
+    <button onclick="applyNow()">Apply</button>
+    <button onclick="sketchup.close_me()">Close</button>
+  </div>
+  <div id="hint">Horizontal = the horizontal grout lines are centred (the cuts top and bottom come out equal). Vertical = the vertical grout lines are centred (the cuts left and right come out equal). Tile = a whole tile in the middle; Grout = a joint in the middle.</div>
+
+<script>
+  var D = #{js_data};
+  var CARDS = #{js_cards};
+  var GROUTS = #{js_grout};
+  var GCOLORS = #{js_gcol};
+  var BONDS = #{js_bond};
+  var DEPTHS = #{js_depth};
+  var MODES = #{js_mode};
+
+  function fillPairs(id, pairs, cur) {
+    var s = document.getElementById(id), i, o, best = 0, bd = 1e9, d;
+    for (i = 0; i < pairs.length; i++) {
+      o = document.createElement('option');
+      o.value = pairs[i][1];
+      o.text = pairs[i][0];
+      s.appendChild(o);
+      d = Math.abs(parseFloat(pairs[i][1]) - parseFloat(cur));
+      if (!isNaN(d) && d < bd) { bd = d; best = i; }
+    }
+    s.selectedIndex = best;
+  }
+  function fillText(id, list, cur) {
+    var s = document.getElementById(id), i, o;
+    for (i = 0; i < list.length; i++) {
+      o = document.createElement('option');
+      o.value = list[i]; o.text = list[i];
+      s.appendChild(o);
+      if (list[i] === cur) { s.selectedIndex = i; }
+    }
+  }
+  function init() {
+    var s = document.getElementById('card'), i, o;
+    o = document.createElement('option'); o.value = ''; o.text = '(lines only)';
+    s.appendChild(o);
+    for (i = 0; i < CARDS.length; i++) {
+      o = document.createElement('option');
+      o.value = CARDS[i].id; o.text = CARDS[i].name;
+      s.appendChild(o);
+      if (CARDS[i].id === D.card) { s.selectedIndex = i + 1; }
+    }
+    fillPairs('grout', GROUTS, D.grout);
+    fillPairs('stagger', BONDS, D.stagger);
+    fillPairs('depth', DEPTHS, D.depth);
+    fillText('gcolor', GCOLORS, D.gcolor);
+    fillText('mode', MODES.map(function (m) { return m[0]; }), MODES[0][0]);
+    var ms = document.getElementById('mode');
+    ms.innerHTML = '';
+    for (i = 0; i < MODES.length; i++) {
+      o = document.createElement('option');
+      o.value = MODES[i][1]; o.text = MODES[i][0];
+      ms.appendChild(o);
+      if (MODES[i][1] === D.mode) { ms.selectedIndex = i; }
+    }
+    document.getElementById('tile').value =
+      (D.tile_w > 0 ? (D.tile_w + 'x' + D.tile_l) : '');
+    document.getElementById('center').value = (D.center === 'grout') ? 'grout' : 'tile';
+    var on = !(D.center === 'false' || D.center === '');
+    document.getElementById('cen_h').checked = on && D.axis.indexOf('v') >= 0;
+    document.getElementById('cen_v').checked = on && D.axis.indexOf('u') >= 0;
+    document.getElementById('ox').value = D.ox;
+    document.getElementById('oy').value = D.oy;
+    document.getElementById('angle').value = D.angle;
+    document.getElementById('w').value = D.w;
+    document.getElementById('h').value = D.h;
+    document.getElementById('u0').value = D.u0;
+    document.getElementById('z0').value = D.z0;
+    document.getElementById('chain_n').textContent = D.chain;
+    if (D.chain < 2) {
+      document.getElementById('scope_all').disabled = true;
+      document.getElementById('follow').disabled = true;
+      document.getElementById('scope_hint').textContent = 'This area is not joined to another one round a corner.';
+    }
+  }
+  function num(id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; }
+  function applyNow() {
+    var cfg = {
+      card: document.getElementById('card').value,
+      tile: document.getElementById('tile').value,
+      mode: document.getElementById('mode').value,
+      grout: num('grout'),
+      gcolor: document.getElementById('gcolor').value,
+      stagger: num('stagger'),
+      depth: num('depth'),
+      center: document.getElementById('center').value,
+      cen_h: document.getElementById('cen_h').checked,
+      cen_v: document.getElementById('cen_v').checked,
+      ox: num('ox'), oy: num('oy'), angle: num('angle'),
+      w: num('w'), h: num('h'), u0: num('u0'), z0: num('z0'),
+      whole: document.getElementById('scope_all').checked,
+      follow: document.getElementById('follow').checked
+    };
+    sketchup.apply(JSON.stringify(cfg));
+  }
+  init();
+  var ipFitLast = 0, ipFitTimer = null;
+  function ipFitWindow() {
+    if (!window.sketchup || !sketchup.fit_height) return;
+    var b = document.body, d = document.documentElement;
+    var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+    if (Math.abs(h - ipFitLast) < 3) return;
+    ipFitLast = h;
+    sketchup.fit_height(h);
+  }
+  function ipFitSoon() {
+    if (ipFitTimer) clearTimeout(ipFitTimer);
+    ipFitTimer = setTimeout(ipFitWindow, 60);
+  }
+  window.addEventListener('load', ipFitSoon);
+  window.addEventListener('resize', ipFitSoon);
+  ipFitSoon();
+</script>
+</body></html>
+      HTML
+    end
+  end
+
+  # ---- the tool: click an area, the window opens -------------------------
+  class TileWallEditTool
+    def activate
+      unless InteriorPro::TileWallEditDialog::USE_TILE_EDIT
+        UI.messagebox('Edit Tile is switched off (USE_TILE_EDIT = false).')
+        Sketchup.active_model.select_tool(nil)
+        return
+      end
+      Sketchup.set_status_text('Edit Tile: click on a tiled area to open its window.', SB_PROMPT)
+    end
+
+    def onLButtonDown(_flags, x, y, view)
+      g = pick_area(view, x, y)
+      if g.nil?
+        Sketchup.set_status_text('Edit Tile: click on a tiled area.', SB_PROMPT)
+        return
+      end
+      InteriorPro::TileWallEditDialog.show(g.get_attribute('InteriorPro', 'id'))
+    end
+
+    def onCancel(_reason, _view)
+      Sketchup.active_model.select_tool(nil)
+    end
+
+    private
+
+    # The same walk the stretch tool uses - a click anywhere on the tiles
+    # finds the area group.
+    def pick_area(view, x, y)
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      found = nil
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        path.each do |e|
+          next unless e.is_a?(Sketchup::Group)
+          found = e if e.get_attribute('InteriorPro', 'type') == 'tile_wall'
+        end
+        break if found
+      end
+      found
+    end
+  end
+end

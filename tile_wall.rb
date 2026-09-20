@@ -650,6 +650,17 @@ module InteriorPro
           lo = b if b > lo
         elsif a >= ref - 1.0e-9
           hi = a if a < hi
+        else
+          # ref sits INSIDE this wall (2026-09-18: the corner vertex the
+          # drawing tool starts from stands in the interior wall's body).
+          # It used to be skipped in silence and the run went straight
+          # through. The nearer face of that wall is the limit.
+          puts "[TileWall] face_limits: ref #{ref.round(2)} is inside a wall (#{a.round(2)}..#{b.round(2)}) - stopping at its nearer face"
+          if ref - a <= b - ref
+            hi = a if a < hi
+          else
+            lo = b if b > lo
+          end
         end
       end
       lo = 0.0 if lo < 0.0
@@ -698,6 +709,21 @@ module InteriorPro
         back = blocked_span(f2, mine[0], mine[1], mine[2], mine[3], mine[4], mine[5])
         next if back.nil?
         a2, b2 = back
+        # WHICH WAY ROUND THE CORNER: THE ROOM DECIDES (2026-09-20, his
+        # picture - the run hopped round the corner and landed on the far
+        # side of the interior wall, in the next room, so nothing could be
+        # drawn at all). THIS wall blocks a2..b2 of that face; the face we
+        # are tiling crosses it at ONE of those two ends, and that end is
+        # the room we are standing in. Measured, not ordered.
+        cu = cross_u(f2, fr)
+        if cu
+          if (cu - a2).abs <= (cu - b2).abs
+            return { wall: w2, side: sd, u_from: a2, dir: -1.0, len: f2[:len] } if a2 > 1.0
+          elsif b2 < f2[:len] - 1.0
+            return { wall: w2, side: sd, u_from: b2, dir: 1.0, len: f2[:len] }
+          end
+          next
+        end
         if b2 < f2[:len] - 1.0
           return { wall: w2, side: sd, u_from: b2, dir: 1.0, len: f2[:len] }
         elsif a2 > 1.0
@@ -716,20 +742,59 @@ module InteriorPro
     # pull back from, so its tile runs into the square. Whoever builds an
     # area calls this afterwards, and the areas on the walls standing at
     # its two ends are laid once more, now that they can see it.
+    # WHICH OTHER TILED WALLS SHARE A CORNER WITH THIS AREA (2026-09-20).
+    # An area at each of its two ends may butt a perpendicular area. The
+    # old code asked neighbour_at, which matches a corner only within
+    # 0.51" - but where the LAST tile meets the PREVIOUS tile the two ends
+    # sit one tile depth (5/8") apart, so it silently skipped the re-lay
+    # and that one corner filled in solid. His picture: one square full,
+    # three empty. A corner is a corner when the two areas' ends are within
+    # a tile depth of each other in world space, on walls that cross.
+    # Returns the wall_ids to lay again. tile_corner_report.txt, rt189.
+    def self.corner_neighbour_wall_ids(grp, model = Sketchup.active_model)
+      return [] unless grp && grp.valid?
+      wall = wall_by_id(grp.get_attribute('InteriorPro', 'wall_id'), model)
+      return [] if wall.nil?
+      fr = frame_for(wall, grp.get_attribute('InteriorPro', 'side'))
+      return [] if fr.nil?
+      me = grp.get_attribute('InteriorPro', 'id').to_s
+      u0 = grp.get_attribute('InteriorPro', 'u0').to_f
+      w  = grp.get_attribute('InteriorPro', 'area_w').to_f
+      z0 = grp.get_attribute('InteriorPro', 'z0').to_f
+      dp = grp.get_attribute('InteriorPro', 'tile_depth').to_f
+      dp = DEFAULT_DEPTH if dp <= 0.0
+      mine = [u0, u0 + w].map { |u| xy = world(fr, u, z0, 0.0); [xy[0], xy[1]] }
+      reach = dp + 0.6
+      ids = []
+      areas_in_model(model).each do |og|
+        next unless og.valid?
+        next if og.get_attribute('InteriorPro', 'id').to_s == me
+        owall = wall_by_id(og.get_attribute('InteriorPro', 'wall_id'), model)
+        next if owall.nil?
+        ofr = frame_for(owall, og.get_attribute('InteriorPro', 'side'))
+        next if ofr.nil?
+        next if (fr[:ux] * ofr[:ux] + fr[:uy] * ofr[:uy]).abs > 0.99
+        ou0 = og.get_attribute('InteriorPro', 'u0').to_f
+        ow  = og.get_attribute('InteriorPro', 'area_w').to_f
+        oz0 = og.get_attribute('InteriorPro', 'z0').to_f
+        theirs = [ou0, ou0 + ow].map { |u| xy = world(ofr, u, oz0, 0.0); [xy[0], xy[1]] }
+        near = mine.any? { |mp| theirs.any? { |tp| Math.hypot(mp[0] - tp[0], mp[1] - tp[1]) <= reach } }
+        ids << og.get_attribute('InteriorPro', 'wall_id').to_s if near
+      end
+      ids.uniq
+    rescue StandardError => e
+      puts "[TileWall] the corner neighbours could not be found: #{e.message}"
+      []
+    end
+
     def self.refresh_corner_neighbours!(grp, model = Sketchup.active_model)
       return 0 unless grp && grp.valid?
       wall = wall_by_id(grp.get_attribute('InteriorPro', 'wall_id'), model)
       return 0 if wall.nil?
       fr = frame_for(wall, grp.get_attribute('InteriorPro', 'side'))
       return 0 if fr.nil?
-      u0 = grp.get_attribute('InteriorPro', 'u0').to_f
-      w  = grp.get_attribute('InteriorPro', 'area_w').to_f
       n = 0
-      [u0, u0 + w].each do |u|
-        nb = neighbour_at(wall, fr, u, model)
-        next if nb.nil?
-        n += refresh_wall!(nb[:wall].get_attribute('InteriorPro', 'id'))
-      end
+      corner_neighbour_wall_ids(grp, model).each { |wid| n += refresh_wall!(wid) }
       puts "[TileWall] #{n} neighbouring area(s) laid again for the corner square" if n > 0
       n
     rescue StandardError => e

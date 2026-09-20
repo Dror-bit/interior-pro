@@ -1,0 +1,63 @@
+walls: 6   tile_wall areas: 4
+
+== WALLS
+  c8a403d4-de01-4c01-a8fa-f4a146cf495f: start(-702.0, 407.5)  end(-702.0, 183.0)  len=224.5  thickness=5.0  anchor=left  floor_z=0.0
+  045fe78b-5cb6-4ade-ace4-476ca2cfac94: start(-702.0, 183.0)  end(-438.0, 183.0)  len=264.0  thickness=5.0  anchor=left  floor_z=0.0
+  6269165a-a04e-4623-b3f7-ff9e0ea2fe5b: start(-438.0, 183.0)  end(-438.0, 407.5)  len=224.5  thickness=5.0  anchor=left  floor_z=0.0
+  3b85b93f-2f25-4a92-afb8-e5cd56e91d6d: start(-438.0, 407.5)  end(-702.0, 407.5)  len=264.0  thickness=5.0  anchor=left  floor_z=0.0
+  740d6b05-c1b6-409e-aa14-991b817770c8: start(-534.599, 402.5)  end(-534.599, 327.918)  len=74.582  thickness=4.5  anchor=left  floor_z=0.0
+  849179b2-8d4b-422a-bc42-de097ad6c758: start(-534.599, 327.918)  end(-443.0, 327.918)  len=91.599  thickness=4.5  anchor=left  floor_z=0.0
+
+== TILED AREAS
+
+  TW019 on wall 849179b2-8d4b-422a-bc42-de097ad6c758 side a: u0=4.5 width=87.099 z0=0.0 height=96.0 depth=0.625 mode=tiles
+    wall length = 91.599   area ends at u=91.599   gap to wall end = 0.0   gap to wall start = 4.5
+    BUILT: built_u0=5.125 built_w=86.474   pulled back at start=0.625 at far end=0.0
+    NEEDED NOW (corner_ends): start=0.625 far end=0.625   <<<< MISMATCH - this end was not laid again
+    GEOMETRY: tiles reach from u=5.125 to u=91.599   (100 vertices)
+    u0 end: on the wall face (-530.099, 332.418)   outer tile face (-530.099, 333.043)
+    far end: on the wall face (-443.0, 332.418)   outer tile face (-443.0, 333.043)
+    tile sits from 0.0 to 0.625 off the wall face (negative = INSIDE the wall)   vertices=100
+
+  TW021 on wall 740d6b05-c1b6-409e-aa14-991b817770c8 side a: u0=0.0 width=70.082 z0=0.0 height=96.0 depth=0.625 mode=tiles
+    wall length = 74.582   area ends at u=70.082   gap to wall end = 4.5   gap to wall start = 0.0
+    BUILT: built_u0=0.625 built_w=68.832   pulled back at start=0.625 at far end=0.625
+    NEEDED NOW (corner_ends): start=0.625 far end=0.625
+    GEOMETRY: tiles reach from u=0.625 to u=69.457   (100 vertices)
+    u0 end: on the wall face (-530.099, 402.5)   outer tile face (-529.474, 402.5)
+    far end: on the wall face (-530.099, 332.418)   outer tile face (-529.474, 332.418)
+    tile sits from 0.0 to 0.625 off the wall face (negative = INSIDE the wall)   vertices=100
+
+  TW025 on wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b side a: u0=150.043 width=69.457 z0=0.0 height=96.0 depth=0.625 mode=tiles
+    wall length = 224.5   area ends at u=219.5   gap to wall end = 5.0   gap to wall start = 150.043
+    BUILT: built_u0=150.043 built_w=68.832   pulled back at start=0.0 at far end=0.625
+    NEEDED NOW (corner_ends): start=0.0 far end=0.625
+    GEOMETRY: tiles reach from u=150.043 to u=218.875   (164 vertices)
+    u0 end: on the wall face (-443.0, 333.043)   outer tile face (-443.625, 333.043)
+    far end: on the wall face (-443.0, 402.5)   outer tile face (-443.625, 402.5)
+    tile sits from 0.0 to 0.625 off the wall face (negative = INSIDE the wall)   vertices=164
+
+  TW023 on wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d side a: u0=5.0 width=87.099 z0=0.0 height=96.0 depth=0.625 mode=tiles
+    wall length = 264.0   area ends at u=92.099   gap to wall end = 171.901   gap to wall start = 5.0
+    BUILT: built_u0=5.625 built_w=85.849   pulled back at start=0.625 at far end=0.625
+    NEEDED NOW (corner_ends): start=0.625 far end=0.625
+    GEOMETRY: tiles reach from u=5.625 to u=91.474   (100 vertices)
+    u0 end: on the wall face (-443.0, 402.5)   outer tile face (-443.0, 401.875)
+    far end: on the wall face (-530.099, 402.5)   outer tile face (-530.099, 401.875)
+    tile sits from 0.0 to 0.625 off the wall face (negative = INSIDE the wall)   vertices=100
+
+== CORNERS BETWEEN TILED WALLS
+
+  TW019 (wall 849179b2-8d4b-422a-bc42-de097ad6c758 start) meets TW021 (wall 740d6b05-c1b6-409e-aa14-991b817770c8 end)  centre lines 0.0 apart
+    outer tile corner A = (-530.099, 333.043)
+    outer tile corner B = (-529.474, 332.418)
+    THEY ARE 0.884 APART  (0 = they touch, which is what he wants)
+    angle between the walls = 90.0 deg
+    face normals: A(-0.0, 1.0)  B(1.0, 0.0)
+
+  TW025 (wall 6269165a-a04e-4623-b3f7-ff9e0ea2fe5b end) meets TW023 (wall 3b85b93f-2f25-4a92-afb8-e5cd56e91d6d start)  centre lines 0.0 apart
+    outer tile corner A = (-443.625, 402.5)
+    outer tile corner B = (-443.0, 401.875)
+    THEY ARE 0.884 APART  (0 = they touch, which is what he wants)
+    angle between the walls = 90.0 deg
+    face normals: A(-1.0, 0.0)  B(-0.0, -1.0)

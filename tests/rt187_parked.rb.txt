@@ -1,0 +1,49 @@
+# encoding: utf-8
+# rt187 - WHICH WALL AT A T CORNER (2026-09-18).
+#
+# His words: "בגלל שהפינה הזאת נוצרת מקיר הפנים וקיר החוץ יש לו המשך לצד
+# השני הוא ננעל לי רק על קיר הפנים". The interior wall's END CAP lies
+# flat on the exterior wall's long face, the pick lists the interior wall
+# first, and pick_wall took the first wall it saw. Now a wall counts only
+# when the face the ray hit is one of its two LONG faces.
+require './tile_wall'
+require './tile_wall_tool'
+
+$fails = 0
+def ok(n, c, x = nil)
+  puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))
+  $fails += 1 unless c
+end
+
+T = InteriorPro::TileWallTool
+
+# ---- the maths the choice rests on -------------------------------------
+# Exterior wall runs north: (0,0)->(0,100). Interior wall runs east into
+# it: (0,50)->(80,50). Its end cap looks WEST (-1,0).
+ext = T.left_normal(0.0, 0.0, 0.0, 100.0)
+int = T.left_normal(0.0, 50.0, 80.0, 50.0)
+ok('the interior wall end cap (-1,0) is NOT a long face of the interior wall',
+   T.side_from_normal(int[0], int[1], -1.0, 0.0).nil?)
+ok('but the exterior wall face looking east (+1,0) IS a long face of it',
+   T.side_from_normal(ext[0], ext[1], 1.0, 0.0) == 'b')
+
+# ---- the real path ------------------------------------------------------
+SRC = File.read('./tile_wall_tool.rb')
+pw = SRC[/def pick_wall.*?\n    end\n/m]
+ok('pick_wall exists', !pw.nil?)
+ok('pick_wall keeps the first wall only as a FALLBACK',
+   pw.include?('fallback ||= wall') && pw.include?("      fallback\n    end"))
+ok('and returns a wall straight away only when its LONG face was hit',
+   pw.include?('return wall if long_face_hit?(ph, i, wall)'))
+ok('the old "first wall wins" line is gone',
+   !pw.include?("return e if e.get_attribute('InteriorPro', 'type') == 'wall'"))
+lf = SRC[/def long_face_hit\?.*?\n    end\n/m]
+ok('long_face_hit? asks the face the pick landed on, with its transformation',
+   lf && lf.include?('ph.leaf_at(i)') && lf.include?('ph.transformation_at(i)'))
+ok('and decides with side_from_normal - the same rule rt181 uses for the side',
+   lf && lf.include?('side_from_normal(n[0], n[1], fn.x, fn.y)'))
+ok('the fallback is printed, not silent (CLAUDE.md)',
+   pw.include?('took the first wall seen'))
+
+puts($fails.zero? ? 'rt187 all green' : "rt187 #{$fails} FAILED")
+exit($fails.zero? ? 0 : 1)

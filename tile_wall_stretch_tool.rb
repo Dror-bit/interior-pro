@@ -484,11 +484,17 @@ module InteriorPro
         # found nothing to pull back from. Now that the run has carried on,
         # lay it once more - the group was replaced, so it is found again
         # by its id first.
-        if built && over > MIN_SIDE && carry_on!(edge, over, cfg)
-          mine = InteriorPro::TileWall.areas_in_model.find do |g|
-            g.valid? && g.get_attribute('InteriorPro', 'id').to_s == aid
+        if built && over > MIN_SIDE
+          # Where the next wall picks the pattern up. The same one setting
+          # the drawing tool keeps, so a run laid by hand and a run
+          # stretched here cannot disagree at the corner.
+          cfg[:ox] = phase_after(aid)
+          if carry_on!(edge, over, cfg)
+            mine = InteriorPro::TileWall.areas_in_model.find do |g|
+              g.valid? && g.get_attribute('InteriorPro', 'id').to_s == aid
+            end
+            InteriorPro::TileWall.rebuild_area!(mine, false) if mine
           end
-          InteriorPro::TileWall.rebuild_area!(mine, false) if mine
         end
         model.commit_operation
         unless built
@@ -508,6 +514,27 @@ module InteriorPro
         g.valid? && g.get_attribute('InteriorPro', 'id').to_s == aid
       end
       again ? load_area(again) : clear
+    end
+
+    # Should the pattern wrap round the corner, and if so from what phase?
+    # 0.0 means every wall starts its own layout - his default.
+    def phase_after(aid)
+      wrap = begin
+        InteriorPro::TileWallTool.last[:wrap]
+      rescue StandardError
+        false
+      end
+      return 0.0 unless wrap
+      g = InteriorPro::TileWall.areas_in_model.find do |q|
+        q.valid? && q.get_attribute('InteriorPro', 'id').to_s == aid.to_s
+      end
+      return 0.0 if g.nil?
+      InteriorPro::TileWall.carry_ox(g.get_attribute('InteriorPro', 'built_w').to_f,
+                                     g.get_attribute('InteriorPro', 'tile_w').to_f,
+                                     g.get_attribute('InteriorPro', 'pattern_grout').to_f)
+    rescue StandardError => e
+      puts "[TileWallStretch] could not work out the corner phase: #{e.message}"
+      0.0
     end
 
     # Everything a carried-on run needs to look like this one.
@@ -561,7 +588,7 @@ module InteriorPro
           w: w, h: cfg[:h], card_id: cfg[:card_id],
           tile_w: cfg[:tile_w], tile_l: cfg[:tile_l], grout: cfg[:grout],
           grout_color: cfg[:grout_color], depth: cfg[:depth], mode: cfg[:mode],
-          stagger: cfg[:stagger], wrap_operation: false
+          stagger: cfg[:stagger], ox: cfg[:ox].to_f, wrap_operation: false
         )
         puts "[TileWallStretch] a new run started round the corner on wall #{wid} - #{w.round(2)} wide"
       end
