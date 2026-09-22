@@ -20,6 +20,7 @@
 # the point he is holding, the height comes from the window.
 module InteriorPro
   class TileNicheTool < TileWallTool
+    GHOST_OUT = 1.0 unless const_defined?(:GHOST_OUT, false)
     def self.last
       @last ||= { w: 12.0, h: 24.0, depth: InteriorPro::TileNiche::DEFAULT_DEPTH, sill: 48.0 }
     end
@@ -124,12 +125,23 @@ module InteriorPro
         u1 = u0 + @cfg[:w]
         z0 = @cfg[:sill]
         z1 = z0 + @cfg[:h]
-        front = [pt3(u0, z0), pt3(u1, z0), pt3(u1, z1), pt3(u0, z1)]
+        # IN FRONT OF THE TILE, NOT INSIDE IT (2026-09-22, his words: "הטיל
+        # בולט מהקיר טיפה אז לא רואים את הקופסא כי היא נבלעת בתוך הטיל").
+        # The tile stands 5/8" off the wall; the ghost's front stands a
+        # whole inch off, so it shows on a tiled wall too.
+        go = GHOST_OUT
+        front = [pt3(u0, z0, go), pt3(u1, z0, go), pt3(u1, z1, go), pt3(u0, z1, go)]
         d = -@cfg[:depth].to_f
         back = [pt3(u0, z0, d), pt3(u1, z0, d), pt3(u1, z1, d), pt3(u0, z1, d)]
-        view.drawing_color = @fits ? Sketchup::Color.new(40, 150, 60) : Sketchup::Color.new(200, 40, 40)
+        # A GHOST HE CAN SEE (2026-09-22, his ask: "כפתור הרפאים צריך
+        # להיות טיפה יותר בולט"): the front is FILLED, see-through, and
+        # the outline is thicker.
+        col = @fits ? [40, 150, 60] : [200, 40, 40]
+        view.drawing_color = Sketchup::Color.new(*col, 70)
+        view.draw(GL_QUADS, front)
+        view.drawing_color = Sketchup::Color.new(*col)
         view.line_stipple = ''
-        view.line_width = 3
+        view.line_width = 4
         view.draw(GL_LINE_LOOP, front)
         view.line_width = 1
         view.line_stipple = '-'

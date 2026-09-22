@@ -2237,6 +2237,8 @@ module InteriorPro
         paint_wall_long_faces!(group, ext_mat, int_mat)
         add_exterior_siding(group, ext_mat)
       end
+      # The niches come back from their stored numbers (2026-09-22).
+      InteriorPro::TileNiche.recut_wall!(group) if defined?(InteriorPro::TileNiche)
       true
     end
 
@@ -3441,6 +3443,8 @@ module InteriorPro
       # blank slab wearing an empty material. (2026-08-11: this is what turned
       # a shed wall black the moment a window went into it.)
       InteriorPro::WallTool.new.add_exterior_siding(wall, ext_mat)
+      # The niches come back from their stored numbers (2026-09-22).
+      InteriorPro::TileNiche.recut_wall!(wall) if defined?(InteriorPro::TileNiche)
       true
     rescue StandardError => e
       puts "[WallTool] rebuild_wall_native_geometry!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"

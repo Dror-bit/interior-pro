@@ -257,23 +257,105 @@ module InteriorPro
       0
     end
 
-    # Take the LAST niche off this face and heal the wall by rebuilding it
-    # from its own numbers, then cutting the ones that are left.
-    def self.remove_last!(wall)
+    # WHICH NICHE IS UNDER THIS WORLD POINT - on its front, on one of its
+    # lining faces, anywhere in its box. [wall, index, niche] or nil.
+    def self.niche_at(pt, model = Sketchup.active_model, slack = 0.5)
+      return nil if pt.nil?
+      best = nil
+      InteriorPro::TileWall.walls_in_model(model).each do |w|
+        ns = read(w)
+        next if ns.empty?
+        ns.each_with_index do |n, i|
+          fr = InteriorPro::TileWall.frame_for(w, n[:side])
+          next if fr.nil?
+          u = (pt.x - fr[:ox]) * fr[:ux] + (pt.y - fr[:oy]) * fr[:uy]
+          z = pt.z - fr[:floor_z]
+          out = (pt.x - fr[:ox]) * fr[:nx] + (pt.y - fr[:oy]) * fr[:ny]
+          next unless u >= n[:u0] - slack && u <= n[:u0] + n[:w] + slack
+          next unless z >= n[:z0] - slack && z <= n[:z0] + n[:h] + slack
+          next unless out >= -n[:depth] - slack && out <= 1.0 + slack
+          d = out.abs
+          best = [w, i, n, d] if best.nil? || d < best[3]
+        end
+      end
+      best && best[0, 3]
+    rescue StandardError => e
+      puts "[TileNiche] which niche is under the point could not be measured: #{e.message}"
+      nil
+    end
+
+    # TAKE ONE NICHE OFF. The wall is rebuilt whole from its own numbers
+    # (the same rebuild a window uses), which cuts the niches that are
+    # left again on its own, and the tile on that wall is laid again.
+    def self.remove_at!(wall, idx, wrap_operation: true)
       ns = read(wall)
-      if ns.empty?
-        puts '[TileNiche] this wall has no niche to take off'
+      n = ns[idx.to_i]
+      if n.nil?
+        puts "[TileNiche] there is no niche ##{idx} on this wall"
         return false
       end
-      ns.pop
-      persist!(wall, ns)
-      InteriorPro::WallTool.rebuild_wall_native_geometry!(wall)
-      recut_wall!(wall)
-      InteriorPro::TileWall.refresh_wall!(wall.get_attribute('InteriorPro', 'id'))
-      true
-    rescue StandardError => e
-      puts "[TileNiche] the niche could not be taken off: #{e.message}"
-      false
+      model = Sketchup.active_model
+      model.start_operation('Interior Pro - Delete Niche', true) if wrap_operation
+      begin
+        ns.delete_at(idx.to_i)
+        persist!(wall, ns)
+        unless InteriorPro::WallTool.rebuild_wall_native!(wall)
+          puts '[TileNiche] the wall could not be rebuilt - the niche is off the list but still in the wall'
+        end
+        model.commit_operation if wrap_operation
+        InteriorPro::TileWall.refresh_wall!(wall.get_attribute('InteriorPro', 'id'))
+        puts "[TileNiche] niche taken off wall #{wall.get_attribute('InteriorPro', 'id')}: " \
+             "#{ns.length} left"
+        true
+      rescue StandardError => e
+        model.abort_operation if wrap_operation
+        puts "[TileNiche] the niche could not be taken off: #{e.class}: #{e.message}"
+        false
+      end
+    end
+
+    # CHANGE ONE NICHE'S SIZES (2026-09-22, his ask: "כפתור עריכה"). The
+    # niche keeps its MIDDLE along the wall - a wider niche grows both
+    # ways - and its bottom is the new height off the floor. The wall is
+    # rebuilt from its numbers, which cuts every niche again, and the
+    # tile on that wall is laid again. Depth is clamped to the wall.
+    # PURE part: new_numbers.
+    def self.new_numbers(n, w:, h:, depth:, sill:, thickness: 0.0)
+      mid = n[:u0].to_f + n[:w].to_f / 2.0
+      { side: n[:side], u0: mid - w.to_f / 2.0, z0: sill.to_f,
+        w: w.to_f, h: h.to_f, depth: clamp_depth(depth, thickness) }
+    end
+
+    def self.update_at!(wall, idx, w:, h:, depth:, sill:, wrap_operation: true)
+      ns = read(wall)
+      n = ns[idx.to_i]
+      if n.nil?
+        puts "[TileNiche] there is no niche ##{idx} on this wall"
+        return false
+      end
+      nn = new_numbers(n, w: w, h: h, depth: depth, sill: sill, thickness: thickness_of(wall))
+      if nn[:w] < MIN_SIZE || nn[:h] < MIN_SIZE || nn[:depth] < 0.25
+        puts "[TileNiche] those sizes leave no niche (#{nn[:w].round(2)} x #{nn[:h].round(2)}, #{nn[:depth].round(2)} deep)"
+        return false
+      end
+      model = Sketchup.active_model
+      model.start_operation('Interior Pro - Edit Niche', true) if wrap_operation
+      begin
+        ns[idx.to_i] = nn
+        persist!(wall, ns)
+        unless InteriorPro::WallTool.rebuild_wall_native!(wall)
+          puts '[TileNiche] the wall could not be rebuilt - the new numbers are stored but not cut'
+        end
+        model.commit_operation if wrap_operation
+        InteriorPro::TileWall.refresh_wall!(wall.get_attribute('InteriorPro', 'id'))
+        puts "[TileNiche] niche changed: u #{nn[:u0].round(2)}, z #{nn[:z0].round(2)}, " \
+             "#{nn[:w].round(2)} x #{nn[:h].round(2)}, #{nn[:depth].round(2)}\" deep"
+        true
+      rescue StandardError => e
+        model.abort_operation if wrap_operation
+        puts "[TileNiche] the niche could not be changed: #{e.class}: #{e.message}"
+        false
+      end
     end
   end
 end

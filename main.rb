@@ -59,6 +59,8 @@ module InteriorPro
       tile_wall_tool.rb
       tile_niche.rb
       tile_niche_tool.rb
+      tile_niche_delete_tool.rb
+      tile_niche_edit_tool.rb
       tile_wall_stretch_tool.rb
       tile_wall_edit_tool.rb
       floor_dialog.rb
@@ -271,8 +273,7 @@ module InteriorPro
   def self.refresh_toolbars!
     return unless const_defined?(:Toolbar, false)
     %i[setup_build_toolbar setup_2d_toolbar setup_surfaces_toolbar
-       setup_data_toolbar setup_roofs_toolbar setup_landscape_toolbar
-       setup_niche_toolbar].each do |m|
+       setup_data_toolbar setup_roofs_toolbar setup_landscape_toolbar].each do |m|
       next unless InteriorPro::Toolbar.respond_to?(m)
       begin
         InteriorPro::Toolbar.send(m)

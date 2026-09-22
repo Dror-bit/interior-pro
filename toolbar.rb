@@ -72,8 +72,13 @@ module InteriorPro
       setup_roofs_toolbar
       setup_2d_toolbar
       setup_landscape_toolbar
-      setup_niche_toolbar
       hide_old_bars!
+      # AND ONCE MORE, A MOMENT LATER (2026-09-22, his picture: an empty
+      # bar with only an X, again). SketchUp puts back the bars that were
+      # OPEN when it last closed AFTER the plugins load - so a bar that was
+      # on screen yesterday (the one-day niche bar) came back over our
+      # hide. A second hide after startup wins.
+      UI.start_timer(2.0, false) { hide_old_bars! } if defined?(UI) && UI.respond_to?(:start_timer)
       setup_build_toolbar
     end
 
@@ -83,7 +88,7 @@ module InteriorPro
     # duplicates until he restarts and not seeing them at all.
     def self.hide_old_bars!
       [LEGACY_TOOLBAR_NAME, CLEAN_TOOLBAR_NAME, 'Interior Pro Floors',
-       'Interior Pro Tile', 'Interior Pro Surfaces'].each do |name|
+       'Interior Pro Tile', 'Interior Pro Surfaces', 'Interior Pro Niche'].each do |name|
         tb = UI::Toolbar.new(name)
         # HIDE IT EVEN WHEN IT IS EMPTY (2026-09-18). He asked "מה הכלי
         # הריק הזה?" - it was the old Surfaces bar, length 0 and still
@@ -378,30 +383,6 @@ module InteriorPro
     # AND SO IT CANNOT HAPPEN AGAIN: the buttons are a list, and only the
     # ones past what the bar already holds are added. A new button from now
     # on is one more line in the list and nothing else.
-    # THE NICHE HAS A BAR OF ITS OWN (2026-09-22, his words: "בסרגל זה
-    # צריך להיות שלושה כפתורים משלהם"). Its own bar, not the end of the
-    # surfaces bar: SketchUp cannot take a button OFF a bar and a reload
-    # only ADDS the ones past what is already there, so slipping a button
-    # into the middle of an existing list duplicated Edit Tile on reload
-    # and never showed the new one. A new bar has no such history.
-    # Place today; Edit and Delete are the next rounds and go on the END.
-    NICHE_TOOLBAR_NAME = 'Interior Pro Niche' unless const_defined?(:NICHE_TOOLBAR_NAME, false)
-
-    def self.setup_niche_toolbar
-      tb = UI::Toolbar.new(NICHE_TOOLBAR_NAME)
-      niche_cmd = UI::Command.new('Niche') {
-        Sketchup.active_model.select_tool(InteriorPro::TileNicheTool.new)
-      }
-      niche_cmd.tooltip = 'Niche - set the size, then place it on a wall face'
-      niche_cmd.status_bar_text = 'Type the size of the niche, then click on a wall face to place it'
-      niche_cmd.small_icon = icon_path('tile_wall')
-      niche_cmd.large_icon = icon_path('tile_wall')
-      buttons = [niche_cmd]
-      have = tb.length
-      buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
-      tb.restore
-    end
-
     SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools' unless const_defined?(:SURFACES_TOOLBAR_NAME, false)
 
     def self.setup_surfaces_toolbar
@@ -448,6 +429,47 @@ module InteriorPro
       buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]
       have = tb.length
       buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
+
+      # THE NICHE GROUP (2026-09-22, his words: "בסרגל זה צריך להיות
+      # שלושה כפתורים משלהם", and the line: "הפרדה ... קו בין הכפתורים
+      # לכפתורים האחרים באותו הסרגל"). On the END of this bar, after a
+      # separator line. Always the END: a reload only ADDS, SketchUp can
+      # never take a button off, and a button slipped into the MIDDLE of
+      # the list above duplicated Edit Tile on reload (2026-09-22). Added
+      # by NAME, not by count, so it does not matter whether SketchUp
+      # counts the separator in tb.length. Edit and Delete go on the end
+      # of niche_buttons.
+      niche_cmd = UI::Command.new('Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheTool.new)
+      }
+      niche_cmd.tooltip = 'Niche - set the size, then place it on a wall face'
+      niche_cmd.status_bar_text = 'Type the size of the niche, then click on a wall face to place it'
+      niche_cmd.small_icon = icon_path('tile_wall')
+      niche_cmd.large_icon = icon_path('tile_wall')
+      niche_del_cmd = UI::Command.new('Delete Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheDeleteTool.new)
+      }
+      niche_del_cmd.tooltip = 'Delete Niche - click a niche to take it off'
+      niche_del_cmd.status_bar_text = 'Click a niche; the wall and its tile come back whole'
+      niche_del_cmd.small_icon = icon_path('delete_door')
+      niche_del_cmd.large_icon = icon_path('delete_door')
+      niche_edit_cmd = UI::Command.new('Edit Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheEditTool.new)
+      }
+      niche_edit_cmd.tooltip = 'Edit Niche - click a niche to change its sizes'
+      niche_edit_cmd.status_bar_text = 'Click a niche and type its new width, height, depth and height off the floor'
+      niche_edit_cmd.small_icon = icon_path('edit_door')
+      niche_edit_cmd.large_icon = icon_path('edit_door')
+      # TODO icons (2026-09-22, his words: the niche and tile icons, except
+      # the main Tile Wall one, "לא טובים") - after the group is complete.
+      niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd]
+      on_bar = begin
+        tb.map { |c| c.respond_to?(:menu_text) ? c.menu_text.to_s : nil }.compact
+      rescue StandardError
+        []
+      end
+      tb.add_separator unless on_bar.include?('Niche')
+      niche_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
       tb.restore
     end
 
