@@ -57,8 +57,15 @@ module InteriorPro
       floor_pattern.rb
       tile_wall.rb
       tile_wall_tool.rb
+      tile_niche.rb
+      tile_niche_tool.rb
+      tile_niche_delete_tool.rb
+      tile_niche_edit_tool.rb
+      tile_niche_move_tool.rb
       tile_wall_stretch_tool.rb
       tile_wall_edit_tool.rb
+      shower_floor.rb
+      shower_floor_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb

@@ -229,6 +229,11 @@ module InteriorPro
           next false if floor_z && (z - floor_z.to_f).abs > 2.0
           f.classify_point(Geom::Point3d.new(c[0], c[1], z)) == Sketchup::Face::PointInside
         end
+        # DRAWN AGAIN ON THE SAME LOOP (2026-09-22, measured on his model):
+        # the middle of the loop now sits in the HOLE the first shower cut,
+        # so no face is under it and he got "no room floor". The floor that
+        # already carries this exact hole is the floor under it.
+        hit ||= holed_here?(g, pts, model)
         out << g if hit
       end
       puts '[ShowerFloor] nothing under the middle of the loop - no floor and no tile' if out.empty?
@@ -236,6 +241,19 @@ module InteriorPro
     rescue StandardError => e
       puts "[ShowerFloor] floors_under: #{e.message}"
       []
+    end
+
+    # Does this floor (or the floor behind this tile layout) already
+    # carry a shower hole on exactly this loop?
+    def self.holed_here?(g, pts, model = nil)
+      owner = g.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' ? floor_of_pattern(g, model) : g
+      return false unless owner
+      hit = holes_of(owner).any? { |h| same_loop?(h, pts) }
+      puts "[ShowerFloor] #{g.get_attribute('InteriorPro', 'type')} already has this hole - drawing over it" if hit
+      hit
+    rescue StandardError => e
+      puts "[ShowerFloor] holed_here?: #{e.message}"
+      false
     end
 
     # The top of a slab: its stored level, which is what FloorManager

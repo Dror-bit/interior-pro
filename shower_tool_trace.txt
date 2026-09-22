@@ -1,0 +1,11 @@
+14:15:00 click 674,1202 dof 0 on Edge in  raw [-486.6118, 401.875, 0.03] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:15:02 click 1372,728 dof 0 on Edge in floor raw [-486.6118, 333.0428, 0.03] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:15:06 click 1169,479 dof 1 on nothing in model raw [-443.625, 333.0428, 1.2426] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :edge | corners 2
+14:15:09 click 592,1079 dof 0 on Edge in floor raw [-443.625, 401.875, 0.05] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:15:13 click 911,1139 dof 0 on Vertex in floor raw [-486.6118, 401.875, 0.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:15:30 click 859,1127 dof 2 on Face in floor_pattern raw [-486.7366, 401.9207, 0.05] | prev [-443.625, 401.875] | kept [-486.7366, 401.875] kind nil | corners 4
+14:17:48 click 1020,906 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:17:50 click 1803,967 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:17:51 click 1816,500 dof 0 on Vertex in floor raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:17:52 click 1070,447 dof 0 on Vertex in floor raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:17:54 click 1018,909 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4

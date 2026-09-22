@@ -142,6 +142,7 @@ module InteriorPro
 
     def onLButtonDown(_flags, x, y, view)
       p = floor_point(view, x, y)
+      trace_click(x, y, p)
       if p.nil?
         Sketchup.set_status_text('Shower floor: click on the floor.', SB_PROMPT)
         return
@@ -154,6 +155,37 @@ module InteriorPro
       @pts << [p[:x], p[:y]]
       status
       view.invalidate
+    end
+
+    # MEASURE, DO NOT GUESS (2026-09-22): every click writes one line to
+    # shower_tool_trace.txt next to the code - the raw inference point, what
+    # it locked on (and whose group that is), the corner before it, and the
+    # corner the tool kept. Read it instead of asking him to paste anything.
+    TRACE_CLICKS = true unless const_defined?(:TRACE_CLICKS, false)
+    def trace_click(x, y, p)
+      return unless TRACE_CLICKS
+      ip = @ip
+      pos = ip && ip.position
+      r4 = lambda { |v| v.to_f.round(4) }
+      on = begin
+        e = ip.vertex || ip.edge || ip.face
+        par = e && e.parent
+        grp = par.respond_to?(:instances) ? par.instances.first : nil
+        typ = grp ? grp.get_attribute('InteriorPro', 'type') : nil
+        "#{e ? e.class.name.split('::').last : 'nothing'} in #{typ || (grp ? grp.name : 'model')}"
+      rescue StandardError => ex
+        "? #{ex.message}"
+      end
+      last = @pts.last
+      line = "#{Time.now.strftime('%H:%M:%S')} click #{x},#{y} " \
+             "dof #{(ip.degrees_of_freedom rescue '?')} on #{on} " \
+             "raw #{pos ? [r4.call(pos.x), r4.call(pos.y), r4.call(pos.z)].inspect : 'nil'} | " \
+             "prev #{last ? [r4.call(last[0]), r4.call(last[1])].inspect : 'none'} | " \
+             "kept #{p ? [r4.call(p[:x]), r4.call(p[:y])].inspect + " kind #{p[:kind].inspect}" : 'NIL'} " \
+             "| corners #{@pts.length}"
+      File.open(File.join(__dir__, 'shower_tool_trace.txt'), 'a:UTF-8') { |f| f.puts line }
+    rescue StandardError => e
+      puts "[ShowerFloor] trace failed: #{e.message}"
     end
 
     def onReturn(view)

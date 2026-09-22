@@ -66,6 +66,11 @@ module InteriorPro
     # on the same square.
     # Kill switch: false = the old dead-tight corner.
     USE_CORNER_GAP = true unless const_defined?(:USE_CORNER_GAP, false)
+    # TILE INSIDE THE NICHE, MITRED 45 AT THE OPENING (2026-09-22, his
+    # words: "בתוך הניצ צריך להיות אריחים", and the joint: "החיתוך בין
+    # הניש לטיל של הקירות החיבור יהיה 45 מעלות"). false = the niche is a
+    # bare hole in the tile, exactly as before.
+    USE_NICHE_TILES = true unless const_defined?(:USE_NICHE_TILES, false)
 
     # ---- the plane (pure) ----------------------------------------------
 
@@ -462,6 +467,147 @@ module InteriorPro
       Array(area).sum { |p| InteriorPro::TileCount.area(p) } / 144.0
     end
 
+    # ---- the niche (pure) -------------------------------------------------
+    #
+    # HOW THE MITRE WORKS, in the cross-section through one edge of the
+    # niche (along the wall, out from it): the tile of the wall and the
+    # tile lining the niche side both stand `dp` thick, and they meet on
+    # the diagonal of the dp x dp square at the opening - from the inner
+    # corner on the wall face to the OUTER corner on the tile face.
+    #   - the wall tile's hole is the niche INSET by dp on its tile face,
+    #     and its back loop is moved OUT by dp onto the niche's own edge,
+    #   - the lining's front edge is moved FORWARD by dp on its tile face.
+    # Both moves stay inside the planes of the other faces, so every face
+    # stays flat, and the two bevels land on the same 45 degree plane.
+    # The finished opening is the niche inset by dp, a sharp arris all
+    # round, no cut edge showing.
+
+    # The niche [u0, z0, u1, z1] brought in by the tile depth.
+    def self.niche_inset(nr, dp)
+      [nr[0].to_f + dp, nr[1].to_f + dp, nr[2].to_f - dp, nr[3].to_f - dp]
+    end
+
+    # Where a vertex on the BACK plane of a wall tile has to move so the
+    # edge it sits on at the niche becomes the 45 bevel. [du, dz] or nil
+    # for a vertex that is not on the niche's inset edge.
+    def self.bevel_shift(u, z, ins, dp, tol = 1.0e-3)
+      a0, c0, b0, d0 = ins
+      in_u = u >= a0 - tol && u <= b0 + tol
+      in_z = z >= c0 - tol && z <= d0 + tol
+      du = 0.0
+      dz = 0.0
+      if in_z
+        du = -dp if (u - a0).abs < tol
+        du = dp if (u - b0).abs < tol
+      end
+      if in_u
+        dz = -dp if (z - c0).abs < tol
+        dz = dp if (z - d0).abs < tol
+      end
+      du.zero? && dz.zero? ? nil : [du, dz]
+    end
+
+    def self.rect_ring(a0, b0, a1, b1)
+      [[a0, b0], [a1, b0], [a1, b1], [a0, b1]]
+    end
+
+    # The tile spans of a lattice (its tile starts) cut to [lo, hi].
+    def self.clip_spans(starts, size, lo, hi)
+      starts.map(&:to_f).uniq.sort.map { |s0| [[s0, lo].max, [s0 + size, hi].min] }
+            .select { |a, b| b - a > MIN_PIECE }
+    end
+
+    # Tiles laid back from the FRONT edge of a lining: a whole tile at the
+    # opening, the cut one against the back.
+    def self.depth_spans(len, size, grout)
+      pitch = size.to_f + [grout.to_f, 0.0].max
+      return [] if pitch <= 0.01
+      out = []
+      a = 0.0
+      while a < len - MIN_PIECE
+        out << [a, [a + size.to_f, len].min]
+        a += pitch
+      end
+      out.select { |a0, a1| a1 - a0 > MIN_PIECE }
+    end
+
+    # THE FIVE LININGS OF ONE NICHE, off the wall's own layout, so the
+    # joints run on round the opening the way a tiler lays them:
+    #   back          the wall's own cells cut to the niche - its joints are
+    #                 the wall's joints, carried straight through
+    #   left / right  the wall's ROWS, laid back from the opening
+    #   bottom / top  the wall's COLUMNS in the row the edge sits in
+    # The back owns the inside corners; sides and top/bottom stop dp short
+    # of each other (the corner between them is closed by the mitre).
+    # Coordinates are (a, b) on each lining's own frame - see
+    # lining_frames. `cells` = TileGrid.cells of the wall area.
+    # { key => { pieces: [{poly:, a0:, b0:}], grout: [a0, b0, a1, b1] } }
+    # nil when the niche is too small or too shallow to line. PURE.
+    def self.niche_lining(cells, tw, tl, g, nr, dp, nd)
+      u0, z0, u1, z1 = nr.map(&:to_f)
+      tw = tw.to_f
+      tl = tl.to_f
+      len = nd.to_f - dp
+      return nil if len <= MIN_PIECE || u1 - u0 <= 2.0 * dp + MIN_PIECE || z1 - z0 <= 2.0 * dp + MIN_PIECE
+      back = []
+      Array(cells).each do |c|
+        a0 = [c[:u0], u0].max
+        a1 = [c[:u0] + tw, u1].min
+        b0 = [c[:v0], z0].max
+        b1 = [c[:v0] + tl, z1].min
+        next if a1 - a0 <= MIN_PIECE || b1 - b0 <= MIN_PIECE
+        back << { poly: rect_ring(a0, b0, a1, b1), a0: c[:u0], b0: c[:v0] }
+      end
+      rows = clip_spans(Array(cells).map { |c| c[:v0] }, tl, z0 + dp, z1 - dp)
+      cols_at = lambda do |zz, below|
+        row = Array(cells).select do |c|
+          below ? (zz >= c[:v0] - 1.0e-6 && zz < c[:v0] + tl + g + 1.0e-6) :
+                  (zz > c[:v0] - g - 1.0e-6 && zz <= c[:v0] + tl + 1.0e-6)
+        end
+        clip_spans(row.map { |c| c[:u0] }, tw, u0 + dp, u1 - dp)
+      end
+      side_d = depth_spans(len, tw, g)
+      tb_d = depth_spans(len, tl, g)
+      side = rows.flat_map { |b0, b1| side_d.map { |a0, a1| { poly: rect_ring(a0, b0, a1, b1), a0: a0, b0: b0 } } }
+      strip = lambda do |cols|
+        cols.flat_map { |b0, b1| tb_d.map { |a0, a1| { poly: rect_ring(a0, b0, a1, b1), a0: a0, b0: b0 } } }
+      end
+      { back:   { pieces: back, grout: [u0, z0, u1, z1] },
+        left:   { pieces: side, grout: [0.0, z0 + dp, len, z1 - dp] },
+        right:  { pieces: side.map(&:dup), grout: [0.0, z0 + dp, len, z1 - dp] },
+        bottom: { pieces: strip.call(cols_at.call(z0, true)), grout: [0.0, u0 + dp, len, u1 - dp] },
+        top:    { pieces: strip.call(cols_at.call(z1, false)), grout: [0.0, u0 + dp, len, u1 - dp] } }
+    end
+
+    # The frame of each lining, in world space. A point is
+    #   o + a * A + b * B + out * N
+    # with N pointing off the niche face INTO the niche, and on the four
+    # sides `a` running from the opening (0) back into the wall. PURE.
+    def self.lining_frames(fr, nr, nd)
+      u0, z0, u1, z1 = nr.map(&:to_f)
+      uu = [fr[:ux], fr[:uy], 0.0]
+      nn = [fr[:nx], fr[:ny], 0.0]
+      zz = [0.0, 0.0, 1.0]
+      neg = lambda { |v| v.map { |q| -q } }
+      o = lambda { |u, z, out| world(fr, u, z, out) }
+      { back:   { o: o.call(0.0, 0.0, -nd.to_f), a: uu, b: zz, n: nn, bevel: false },
+        left:   { o: o.call(u0, 0.0, 0.0), a: neg.call(nn), b: zz, n: uu, bevel: true },
+        right:  { o: o.call(u1, 0.0, 0.0), a: neg.call(nn), b: zz, n: neg.call(uu), bevel: true },
+        bottom: { o: o.call(0.0, z0, 0.0), a: neg.call(nn), b: uu, n: zz, bevel: true },
+        top:    { o: o.call(0.0, z1, 0.0), a: neg.call(nn), b: uu, n: neg.call(zz), bevel: true } }
+    end
+
+    def self.lining_world(lf, a, b, out = 0.0)
+      (0..2).map { |i| lf[:o][i] + lf[:a][i] * a.to_f + lf[:b][i] * b.to_f + lf[:n][i] * out.to_f }
+    end
+
+    # A point back in a lining's own (a, b, out). PURE.
+    def self.lining_local(lf, x, y, z)
+      d = [x - lf[:o][0], y - lf[:o][1], z - lf[:o][2]]
+      dot = lambda { |v| d[0] * v[0] + d[1] * v[1] + d[2] * v[2] }
+      [dot.call(lf[:a]), dot.call(lf[:b]), dot.call(lf[:n])]
+    end
+
     # ---- the model ------------------------------------------------------
     # From here down the SketchUp API is used.
 
@@ -545,6 +691,14 @@ module InteriorPro
           next
         end
         out << [t - w / 2.0, b.to_f - floor_z, t + w / 2.0, tp.to_f - floor_z]
+      end
+      # A NICHE IS A HOLE TOO (2026-09-20). The tile runs AROUND the
+      # niche, never over it. Only the niches on the face being tiled -
+      # the other side of the same wall knows nothing about them.
+      if defined?(InteriorPro::TileNiche)
+        out += InteriorPro::TileNiche.holes_for_side(
+          InteriorPro::TileNiche.read(wall), fr[:side]
+        )
       end
       out
     end
@@ -1075,6 +1229,32 @@ module InteriorPro
         return nil
       end
 
+      # THE NICHES THAT GET TILED INSIDE. Only whole solid tiles, laid
+      # straight, with a real card - the mitre is cut out of the tile's own
+      # body. Any other niche stays the bare hole it was.
+      niches = []
+      if USE_NICHE_TILES && md == 'tiles' && USE_SOLID_TILES && dp > 0.02 && c &&
+         angle.to_f.abs < 1.0e-9 && defined?(InteriorPro::TileNiche)
+        InteriorPro::TileNiche.read(wall).select { |n| n[:side].to_s == fr[:side] }.each do |n|
+          nr = [n[:u0], n[:z0], n[:u0] + n[:w], n[:z0] + n[:h]]
+          inside = nr[0] >= bu0 - 0.01 && nr[2] <= bu0 + bw + 0.01 &&
+                   nr[1] >= z0 - 0.01 && nr[3] <= z0 + h + 0.01
+          next unless nr[2] > bu0 && nr[0] < bu0 + bw && nr[3] > z0 && nr[1] < z0 + h
+          unless inside
+            puts "[TileWall] a niche runs past the edge of this area - left as a bare hole"
+            next
+          end
+          idx = holes.index { |hh| hh.map { |v| v.to_f.round(3) } == nr.map { |v| v.to_f.round(3) } }
+          if idx.nil?
+            puts '[TileWall] a niche is not among the holes of this wall - left as it is'
+            next
+          end
+          holes = holes.dup
+          holes[idx] = niche_inset(nr, dp)
+          niches << { r: nr, depth: n[:depth].to_f }
+        end
+      end
+
       area = area_polys(bu0, z0, bw, h, holes)
       if area.empty?
         puts '[TileWall] the openings cover the whole area - nothing left to tile'
@@ -1134,6 +1314,26 @@ module InteriorPro
           end
           if solid
             emit_tile_solids!(ge, fr, ps, mat, img_w || tw, img_l || tl, dp)
+            unless niches.empty?
+              bev = bevel_niche_tiles!(ge, fr, niches.map { |x| niche_inset(x[:r], dp) }, dp)
+              cells = InteriorPro::TileGrid.cells(rect(bu0, z0, bw, h), u_size: tw, v_size: tl,
+                                                  grout: g, angle: 0.0, ox: ox, oy: oy,
+                                                  centered: cen, stagger: st) || []
+              gm = grout_material(model, grout_color)
+              lin = 0
+              niches.each do |x|
+                lin += emit_niche_lining!(ge, fr, x, cells, tw, tl, g, dp, mat,
+                                          img_w || tw, img_l || tl, gm)
+              end
+              msg = "[TileWall] niche: #{niches.length} lined, #{bev} corner(s) of the wall tile bevelled, " \
+                    "#{lin} tile(s) inside"
+              puts msg
+              niche_trace(msg + " | area #{aid} wall #{wall.get_attribute('InteriorPro', 'id').to_s[0, 8]} " \
+                          "side #{fr[:side]} tile #{tw}x#{tl} dp #{dp} | " +
+                          niches.map { |x| "niche #{x[:r].map { |v| v.round(2) }.inspect} deep #{x[:depth].round(2)}" }.join(' ; '))
+            end
+          elsif !niches.empty?
+            puts '[TileWall] the tiles here are flat, not solid - the niche is left without its lining'
           elsif mat
             emit_tile_faces!(ge, fr, ps, mat, img_w || tw, img_l || tl)
           else
@@ -1363,6 +1563,143 @@ module InteriorPro
     end
 
     # ---- emitters --------------------------------------------------------
+
+    # MEASURE, DO NOT GUESS: every niche that gets lined writes one line to
+    # niche_trace.txt next to the code, so it can be read without asking
+    # him to paste anything.
+    def self.niche_trace(line)
+      File.open(File.join(__dir__, 'niche_trace.txt'), 'a:UTF-8') do |f|
+        f.puts "#{Time.now.strftime('%H:%M:%S')} #{line}"
+      end
+    rescue StandardError => e
+      puts "[TileWall] niche trace failed: #{e.message}"
+    end
+
+    # THE WALL TILE'S HALF OF THE MITRE. Every vertex on the BACK plane of
+    # a wall tile that sits on a niche's inset edge moves out onto the
+    # niche's own edge, so that edge of the tile becomes the 45 bevel.
+    # Returns how many vertices moved.
+    def self.bevel_niche_tiles!(ge, fr, insets, dp)
+      moved = 0
+      ge.grep(Sketchup::Group).each do |sub|
+        next unless sub.valid?
+        verts = []
+        vecs = []
+        sub.entities.grep(Sketchup::Edge).flat_map(&:vertices).uniq.each do |v|
+          p = v.position
+          out = (p.x - fr[:ox]) * fr[:nx] + (p.y - fr[:oy]) * fr[:ny]
+          next if out.abs > 1.0e-3
+          u = (p.x - fr[:ox]) * fr[:ux] + (p.y - fr[:oy]) * fr[:uy]
+          z = p.z - fr[:floor_z]
+          sh = nil
+          insets.each { |ins| sh ||= bevel_shift(u, z, ins, dp) }
+          next if sh.nil?
+          verts << v
+          vecs << Geom::Vector3d.new(fr[:ux] * sh[0], fr[:uy] * sh[0], sh[1])
+        end
+        next if verts.empty?
+        begin
+          sub.entities.transform_by_vectors(verts, vecs)
+          moved += verts.length
+        rescue StandardError => e
+          puts "[TileWall] a tile at the niche could not be bevelled: #{e.message}"
+        end
+      end
+      moved
+    end
+
+    # THE NICHE'S OWN TILE - back, both sides, bottom, top. Each tile in its
+    # own group (the law that crashed SketchUp), each lining's grout in its
+    # own group too. Returns how many tiles were built.
+    def self.emit_niche_lining!(ge, fr, x, cells, tw, tl, g, dp, mat, tex_u, tex_v, gmat)
+      sets = niche_lining(cells, tw, tl, g, x[:r], dp, x[:depth])
+      if sets.nil?
+        puts "[TileWall] this niche is too small or too shallow (#{x[:depth].round(2)}\") for tile inside"
+        return 0
+      end
+      frames = lining_frames(fr, x[:r], x[:depth])
+      built = 0
+      fails = 0
+      sets.each do |key, set|
+        lf = frames[key]
+        a0, b0, a1, b1 = set[:grout]
+        gg = ge.add_group
+        gf = begin
+          gg.entities.add_face(rect_ring(a0, b0, a1, b1).map { |a, b| Geom::Point3d.new(*lining_world(lf, a, b, dp - GROUT_BACK)) })
+        rescue StandardError
+          nil
+        end
+        if gf
+          gf.material = gmat
+          gf.back_material = gmat
+          gf.edges.each { |e| e.hidden = true }
+        else
+          gg.erase! if gg.valid?
+        end
+        set[:pieces].each do |pc|
+          if lining_solid!(ge, lf, pc, dp, mat, key == :back ? tex_u : (key == :left || key == :right ? tex_u : tex_v),
+                           key == :back ? tex_v : (key == :left || key == :right ? tex_v : tex_u))
+            built += 1
+          else
+            fails += 1
+          end
+        end
+      end
+      puts "[TileWall] niche lining: #{fails} tile(s) could not be built" if fails > 0
+      built
+    end
+
+    def self.lining_solid!(ge, lf, pc, dp, mat, tex_a, tex_b)
+      sub = ge.add_group
+      pts = pc[:poly].map { |a, b| Geom::Point3d.new(*lining_world(lf, a, b, dp)) }
+      f = begin
+        sub.entities.add_face(pts)
+      rescue StandardError
+        nil
+      end
+      if f.nil?
+        sub.erase! if sub.valid?
+        return false
+      end
+      nrm = Geom::Vector3d.new(*lf[:n])
+      begin
+        f.pushpull(f.normal.dot(nrm) > 0 ? -dp : dp)
+      rescue StandardError
+        puts '[TileWall] a niche tile could not be pushed out'
+      end
+      sub.entities.grep(Sketchup::Face).each do |q|
+        q.material = mat
+        q.back_material = mat
+      end
+      if f.valid?
+        o = Geom::Point3d.new(*lining_world(lf, pc[:a0], pc[:b0], dp))
+        pa = Geom::Point3d.new(*lining_world(lf, pc[:a0] + tex_a, pc[:b0], dp))
+        pb = Geom::Point3d.new(*lining_world(lf, pc[:a0], pc[:b0] + tex_b, dp))
+        begin
+          f.position_material(mat, [o, Geom::Point3d.new(0, 0, 0), pa, Geom::Point3d.new(1, 0, 0),
+                                    pb, Geom::Point3d.new(0, 1, 0)], true)
+        rescue StandardError
+          nil
+        end
+      end
+      # THE LINING'S HALF OF THE MITRE: its front edge on the tile face
+      # comes forward by dp, onto the same 45 plane as the wall tile.
+      if lf[:bevel]
+        verts = sub.entities.grep(Sketchup::Edge).flat_map(&:vertices).uniq.select do |v|
+          a, _b, out = lining_local(lf, v.position.x, v.position.y, v.position.z)
+          a.abs < 1.0e-3 && (out - dp).abs < 1.0e-3
+        end
+        unless verts.empty?
+          vec = Geom::Vector3d.new(*lf[:a].map { |q| -q * dp })
+          begin
+            sub.entities.transform_by_vectors(verts, [vec] * verts.length)
+          rescue StandardError => e
+            puts "[TileWall] a niche tile could not be bevelled: #{e.message}"
+          end
+        end
+      end
+      true
+    end
 
     # A face from a ring, with the ring's island holes punched through it:
     # an inner face is drawn on the same plane and erased, which leaves

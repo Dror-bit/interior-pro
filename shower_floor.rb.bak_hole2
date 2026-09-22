@@ -1,0 +1,623 @@
+# encoding: utf-8
+# Interior Pro - THE SHOWER FLOOR (2026-09-22, step 1: the outline)
+#
+# HIS CALL (2026-09-22): the shower floor is drawn CORNER BY CORNER and
+# closed, not a rectangle in two clicks - "נגיד יש לי מקלחת שהיא 90
+# מעלות לקיר ואני רוצה לסגור את הריצפה ולביו מקלחת שיש לה 5 דפנות".
+# So the loop is a polygon of any shape, like drawing a line.
+#
+# What this file owns: the NUMBERS of that loop (pure), and the one
+# builder that turns them into a pad. The slope, the drain and the curb
+# are the next steps - this one only puts the shape on the floor so he
+# can see it and correct it.
+#
+# THE POINT LAW (CLAUDE.md): the tool locks on corners and ends, and the
+# LENGTH comes from the point while the DIRECTION comes from the axis -
+# a shower floor never comes out at 89.9 degrees. `ortho_point` is that
+# law, pure and tested (tests/rt198.rb).
+#
+# Kill switch: InteriorPro::ShowerFloor::USE_SHOWER_FLOOR = false - no
+# pad is built and nothing standing is touched.
+module InteriorPro
+  module ShowerFloor
+    USE_SHOWER_FLOOR = true unless const_defined?(:USE_SHOWER_FLOOR, false)
+
+    # The same window the walls use (CLAUDE.md, "זווית ישרה מנצחת").
+    ORTHO_SNAP_DEG = 12.0 unless const_defined?(:ORTHO_SNAP_DEG, false)
+    # How near the first corner a click has to be to CLOSE the loop.
+    CLOSE_TOL = 3.0 unless const_defined?(:CLOSE_TOL, false)
+    # How high the RAISED floor stands over the room floor, and how tall
+    # the curb round it is (his numbers, 2026-09-22 - 1" and 4").
+    DEFAULT_RISE = 1.0 unless const_defined?(:DEFAULT_RISE, false)
+    DEFAULT_CURB_H = 4.0 unless const_defined?(:DEFAULT_CURB_H, false)
+    # THE TWO FLOORS HE ASKED FOR (2026-09-22):
+    #   'flat'  - the same height as the room. The room floor gets a HOLE
+    #             cut in it and the shower floor drops into it, dead level
+    #             (his call: "נחתוך חור ברצפת החדר והמקלחת נכנסת בדיוק
+    #             במקום, באותו גובה").
+    #   'curb'  - the floor is raised 1" and a curb goes round it. The
+    #             sides that sit against a tiled wall get NO curb.
+    KINDS = %w[flat curb].freeze unless const_defined?(:KINDS, false)
+    SAME_AS_ROOM = 'Same as the room floor' unless const_defined?(:SAME_AS_ROOM, false)
+    AXES = [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]].freeze unless const_defined?(:AXES, false)
+
+    # ---- pure -----------------------------------------------------------
+
+    # The next corner, with the direction taken from the axis and the
+    # LENGTH taken from where he is pointing (the projection onto that
+    # axis). Outside the window the raw point is kept as it is, so a real
+    # diagonal is still possible. PURE.
+    def self.ortho_point(px, py, x, y, tol_deg = ORTHO_SNAP_DEG)
+      px = px.to_f; py = py.to_f
+      dx = x.to_f - px; dy = y.to_f - py
+      len = Math.hypot(dx, dy)
+      return [x.to_f, y.to_f] if len < 1.0e-9
+      best = nil
+      AXES.each do |ux, uy|
+        c = (dx * ux + dy * uy) / len
+        next if c <= 0.0
+        ang = Math.acos([[c, 1.0].min, -1.0].max) * 180.0 / Math::PI
+        best = [ang, ux, uy] if best.nil? || ang < best[0]
+      end
+      return [x.to_f, y.to_f] if best.nil? || best[0] > tol_deg.to_f
+      _a, ux, uy = best
+      reach = dx * ux + dy * uy
+      [px + ux * reach, py + uy * reach]
+    end
+
+    # A click this near the first corner closes the loop. PURE.
+    def self.closes?(pts, x, y, tol = CLOSE_TOL)
+      return false if pts.nil? || pts.length < 3
+      fx, fy = pts.first
+      Math.hypot(x.to_f - fx.to_f, y.to_f - fy.to_f) <= tol.to_f
+    end
+
+    # Drop points that sit on top of each other and the repeated closing
+    # point - add_face dies on both. PURE.
+    def self.clean_loop(pts, tol = 0.01)
+      out = []
+      Array(pts).each do |p|
+        x = p[0].to_f; y = p[1].to_f
+        next if out.any? && Math.hypot(x - out.last[0], y - out.last[1]) <= tol
+        out << [x, y]
+      end
+      out.pop if out.length > 1 && Math.hypot(out.first[0] - out.last[0], out.first[1] - out.last[1]) <= tol
+      out
+    end
+
+    # Square feet of the loop. PURE.
+    def self.area_sqft(pts)
+      p = clean_loop(pts)
+      return 0.0 if p.length < 3
+      s = 0.0
+      p.each_with_index do |(x, y), i|
+        x2, y2 = p[(i + 1) % p.length]
+        s += x * y2 - x2 * y
+      end
+      (s.abs / 2.0) / 144.0
+    end
+
+    # Is the point inside the loop? Ray casting, PURE (tests/rt200).
+    def self.point_in?(pts, x, y)
+      p = clean_loop(pts)
+      return false if p.length < 3
+      x = x.to_f; y = y.to_f
+      inside = false
+      j = p.length - 1
+      p.each_with_index do |(xi, yi), i|
+        xj, yj = p[j]
+        if ((yi > y) != (yj > y)) &&
+           (x < (xj - xi) * (y - yi) / ((yj - yi).abs < 1.0e-12 ? 1.0e-12 : (yj - yi)) + xi)
+          inside = !inside
+        end
+        j = i
+      end
+      inside
+    end
+
+    # The middle of the loop - the point used to ask which room floor it
+    # was drawn on. PURE.
+    def self.centroid(pts)
+      p = clean_loop(pts)
+      return nil if p.empty?
+      [p.map { |q| q[0] }.inject(:+) / p.length, p.map { |q| q[1] }.inject(:+) / p.length]
+    end
+
+    # WHERE THE LOOP CROSSES A LINE THAT IS ALREADY THERE (2026-09-22).
+    #
+    # Measured on his model: two tiles crossed his line and were never
+    # split. SketchUp does NOT cut a face with a new line that runs over
+    # its border - the new line needs a POINT sitting right on that
+    # border. The loop had only its four corners, so a tile the line ran
+    # through stayed whole. Here every crossing with an existing line
+    # becomes a corner of the loop, so each piece of the loop starts and
+    # ends on a tile edge and SketchUp splits the tile there. PURE
+    # (tests/rt201.rb).
+    def self.seg_cross_t(ax, ay, bx, by, cx, cy, dx, dy, tol = 1.0e-9)
+      rx = bx - ax; ry = by - ay
+      sx = dx - cx; sy = dy - cy
+      den = rx * sy - ry * sx
+      return nil if den.abs < 1.0e-12
+      qx = cx - ax; qy = cy - ay
+      t = (qx * sy - qy * sx) / den
+      u = (qx * ry - qy * rx) / den
+      return nil if u < -tol || u > 1.0 + tol
+      t
+    end
+
+    def self.split_loop(loop_xy, segs, tol = 1.0e-6)
+      p = clean_loop(loop_xy)
+      return p if p.length < 3
+      out = []
+      p.each_with_index do |(ax, ay), i|
+        bx, by = p[(i + 1) % p.length]
+        ts = []
+        Array(segs).each do |(c, d)|
+          t = seg_cross_t(ax, ay, bx, by, c[0].to_f, c[1].to_f, d[0].to_f, d[1].to_f)
+          ts << t if t && t > tol && t < 1.0 - tol
+        end
+        out << [ax, ay]
+        ts.sort.each { |t| out << [ax + (bx - ax) * t, ay + (by - ay) * t] }
+      end
+      clean_loop(out)
+    end
+
+    # ---- the model ------------------------------------------------------
+
+    def self.pads_in_model(model = nil)
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'shower_floor'
+      end
+    end
+
+    # The tile on the shower floor. His ask (2026-09-22): it can be a
+    # tile of its own, and it can also be the SAME one as the room floor.
+    def self.material(model, tile, floor_grp = nil)
+      if tile.nil? || tile.to_s.empty? || tile.to_s == SAME_AS_ROOM
+        m = room_floor_material(floor_grp)
+        return m if m
+        tile = InteriorPro::FloorManager::DEFAULT_TYPE
+      end
+      InteriorPro::FloorManager.floor_material(model, tile.to_s)
+    rescue StandardError => e
+      puts "[ShowerFloor] material fell back to plain: #{e.message}"
+      plain_material(model)
+    end
+
+    # The material most of the flat faces wear - on a tile layout that
+    # is the tile, not the one grout backing face under it (2026-09-22:
+    # the shower came out in the SLAB's material, "טקסטורות שלא קשורות").
+    def self.room_floor_material(floor_grp)
+      return nil unless floor_grp && floor_grp.valid?
+      mats = floor_grp.entities.grep(Sketchup::Face).select { |x| x.valid? && x.material }
+      return nil if mats.empty?
+      mats.group_by(&:material).max_by { |_m, fs| fs.length }[0]
+    rescue StandardError
+      nil
+    end
+
+    def self.plain_material(model)
+      name = 'InteriorPro_ShowerFloor'
+      m = model.materials[name]
+      return m if m
+      m = model.materials.add(name)
+      m.color = Sketchup::Color.new(224, 220, 210)
+      m
+    end
+
+    # WHAT IS UNDER THE LOOP - MEASURED, NOT ASSUMED (2026-09-22).
+    #
+    # His model had TWO floors on screen and the finder saw one, and he
+    # was right to call it: only ROOM 1 has a `floor` slab. Room 2's
+    # floor is a `floor_pattern` group - the tile layout - with no slab
+    # under it at all. So both kinds count as "the floor he drew on",
+    # and BOTH have to be opened, or the tile stays over the hole.
+    FLOOR_TYPES_UNDER = %w[floor floor_pattern].freeze unless const_defined?(:FLOOR_TYPES_UNDER, false)
+
+    def self.floors_under(pts, floor_z = nil, model = nil)
+      model ||= Sketchup.active_model
+      c = centroid(pts)
+      return [] if c.nil?
+      out = []
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next unless FLOOR_TYPES_UNDER.include?(g.get_attribute('InteriorPro', 'type').to_s)
+        hit = g.entities.grep(Sketchup::Face).any? do |f|
+          next false unless f.valid? && f.normal.z.abs > 0.9
+          z = f.vertices.first.position.z.to_f
+          next false if floor_z && (z - floor_z.to_f).abs > 2.0
+          f.classify_point(Geom::Point3d.new(c[0], c[1], z)) == Sketchup::Face::PointInside
+        end
+        out << g if hit
+      end
+      puts '[ShowerFloor] nothing under the middle of the loop - no floor and no tile' if out.empty?
+      out
+    rescue StandardError => e
+      puts "[ShowerFloor] floors_under: #{e.message}"
+      []
+    end
+
+    # The top of a slab: its stored level, which is what FloorManager
+    # built it at. Never a face picked by height - a loose face left by
+    # an older cut sat higher than the real top.
+    def self.slab_top_z(grp)
+      v = grp.get_attribute('InteriorPro', 'floor_level')
+      return v.to_f unless v.nil?
+      zs = grp.entities.grep(Sketchup::Face).select { |f| f.valid? && f.normal.z > 0.9 }
+              .map { |f| f.vertices.first.position.z.to_f }
+      zs.empty? ? 0.0 : zs.max
+    rescue StandardError
+      0.0
+    end
+
+    # THE HOLE LIVES ON THE FLOOR, LIKE A WINDOW ON A WALL (2026-09-22,
+    # his words: "תתקן את זה כמו חלון לקיר"). The loop is stored on the
+    # room's floor group as `shower_holes` - a flat list, each hole as
+    # its corner count followed by x,y pairs - and every rebuild of the
+    # slab (FloorManager) and of the tile layout (FloorPattern) cuts it
+    # again through `cut_floor!` / `cut_pattern!`. So the hole survives
+    # Build Floors, exactly as a door opening survives a wall rebuild.
+    def self.holes_of(floor_grp)
+      raw = Array(floor_grp.get_attribute('InteriorPro', 'shower_holes')).map(&:to_f)
+      out = []
+      i = 0
+      while i < raw.length
+        n = raw[i].to_i
+        break if n < 3 || i + 1 + n * 2 > raw.length
+        out << raw[i + 1, n * 2].each_slice(2).to_a
+        i += 1 + n * 2
+      end
+      out
+    rescue StandardError
+      []
+    end
+
+    def self.same_loop?(a, b, tol = 0.1)
+      a = clean_loop(a); b = clean_loop(b)
+      return false unless a.length == b.length
+      a.all? { |x, y| b.any? { |x2, y2| (x - x2).abs <= tol && (y - y2).abs <= tol } }
+    end
+
+    def self.add_hole!(floor_grp, loop_xy)
+      loop_xy = clean_loop(loop_xy)
+      holes = holes_of(floor_grp).reject { |h| same_loop?(h, loop_xy) }
+      holes << loop_xy
+      floor_grp.set_attribute('InteriorPro', 'shower_holes',
+                              holes.flat_map { |h| [h.length.to_f] + h.flatten })
+      holes.length
+    end
+
+    # Called by FloorManager at the end of every slab build.
+    def self.cut_floor!(floor_grp)
+      return 0 unless USE_SHOWER_FLOOR && floor_grp && floor_grp.valid?
+      holes = holes_of(floor_grp)
+      holes.each { |h| cut_out!(floor_grp, h, nil) }
+      holes.length
+    rescue StandardError => e
+      puts "[ShowerFloor] cut_floor!: #{e.message}"
+      0
+    end
+
+    # Called by FloorPattern at the end of every tile layout build.
+    def self.cut_pattern!(pat_grp, floor_grp)
+      return 0 unless USE_SHOWER_FLOOR && pat_grp && pat_grp.valid? && floor_grp && floor_grp.valid?
+      holes = holes_of(floor_grp)
+      holes.each { |h| cut_out!(pat_grp, h, nil) }
+      holes.length
+    rescue StandardError => e
+      puts "[ShowerFloor] cut_pattern!: #{e.message}"
+      0
+    end
+
+    def self.patterns_of(floor_grp, model = nil)
+      model ||= Sketchup.active_model
+      fid = floor_grp.get_attribute('InteriorPro', 'id')
+      model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' &&
+          (fid.nil? ? false : g.get_attribute('InteriorPro', 'floor_id') == fid)
+      end
+    end
+
+    def self.floor_of_pattern(pat_grp, model = nil)
+      model ||= Sketchup.active_model
+      fid = pat_grp.get_attribute('InteriorPro', 'floor_id')
+      return nil if fid.nil?
+      model.entities.grep(Sketchup::Group).find do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type').to_s == 'floor' &&
+          g.get_attribute('InteriorPro', 'id') == fid
+      end
+    end
+
+    def self.slab_of(groups)
+      Array(groups).find { |g| g.get_attribute('InteriorPro', 'type').to_s == 'floor' }
+    end
+
+    # The FINISHED top he sees: the tile layout if there is one, the slab
+    # if there is not.
+    def self.finished_top(groups, fallback = 0.0)
+      tops = Array(groups).map do |g|
+        g.entities.grep(Sketchup::Face).select { |f| f.valid? && f.normal.z.abs > 0.9 }
+         .map { |f| f.vertices.first.position.z.to_f }.max
+      end.compact
+      tops.empty? ? fallback.to_f : tops.max
+    rescue StandardError
+      fallback.to_f
+    end
+
+    # OPEN ONE GROUP (2026-09-22). A slab is cut with a face pushed all
+    # the way through it; a tile layout is flat, so the loop is drawn on
+    # it - which splits the tiles that cross the line - and everything
+    # inside is taken away. Returns how deep the hole went.
+    def self.cut_out!(grp, pts, top_z)
+      return 0.0 unless grp && grp.valid?
+      loop_xy = clean_loop(pts)
+      if grp.get_attribute('InteriorPro', 'type').to_s == 'floor'
+        th = grp.get_attribute('InteriorPro', 'thickness_in').to_f
+        th = 0.75 if th <= 0.05
+        # THE SLAB IS CUT AT ITS OWN TOP (2026-09-22). Measured on his
+        # model: the loop was drawn at the TILE's height (0.05) inside the
+        # slab group, 0.05" above the slab's top (0.0) - a loose face
+        # floating over the slab, no hole, and a white square fighting
+        # the shower floor for the same plane.
+        z = slab_top_z(grp)
+        face = begin
+          grp.entities.add_face(loop_xy.map { |x, y| Geom::Point3d.new(x, y, z) })
+        rescue StandardError => e
+          puts "[ShowerFloor] the hole could not be drawn on the slab: #{e.message}"
+          nil
+        end
+        return 0.0 if face.nil?
+        face.pushpull(-th)
+        sweep_inside!(grp, loop_xy, z - th)
+        return th
+      end
+      # A tile layout is flat, so the loop is DRAWN on it - which splits
+      # the tiles that cross the line - and everything inside is taken
+      # away.
+      #
+      # THE Z MUST BE THE FACE'S OWN, TO THE LAST DECIMAL (2026-09-22).
+      # The first version rounded the level to four places before drawing
+      # the loop on it. Half a thousandth of an inch is enough for
+      # SketchUp to call the line "not on that face", so the tiles that
+      # crossed the line were never split - they kept their middle
+      # outside the loop, survived the sweep, and lay over the shower.
+      # That is the picture he sent ("נכנסות אחת לתוך השנייה").
+      2.times do
+        over = overlapping(grp, loop_xy)
+        break if over.empty?
+        over.map { |f| f.vertices.first.position.z.to_f }.uniq.each { |z| draw_loop!(grp, split_loop(loop_xy, segs_at(grp, z)), z) }
+        sweep_inside!(grp, loop_xy, nil)
+      end
+      left = overlapping(grp, loop_xy)
+      puts "[ShowerFloor] #{left.length} face(s) of #{grp.name} still lie over the shower" if left.any?
+      0.0
+    rescue StandardError => e
+      puts "[ShowerFloor] cut_out! failed on #{grp && grp.name}: #{e.class}: #{e.message}"
+      0.0
+    end
+
+    # Every flat face of this group that is over the loop at all - its
+    # middle inside, a corner of it inside, or a corner of the loop on
+    # it. A tile that only OVERLAPS the loop is exactly the one that has
+    # to be split, so it counts.
+    def self.overlapping(grp, loop_xy)
+      grp.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid? && f.normal.z.abs > 0.9
+        vs = f.vertices.map(&:position)
+        next false if vs.empty?
+        mid = face_middle(f)
+        next true if mid && point_in?(loop_xy, mid[0], mid[1])
+        next true if vs.any? { |p| point_in?(loop_xy, p.x.to_f, p.y.to_f) }
+        z = vs.first.z.to_f
+        loop_xy.any? do |x, y|
+          begin
+            f.classify_point(Geom::Point3d.new(x, y, z)) == Sketchup::Face::PointInside
+          rescue StandardError
+            false
+          end
+        end
+      end
+    rescue StandardError => e
+      puts "[ShowerFloor] overlapping: #{e.message}"
+      []
+    end
+
+    # Every line of the group lying flat at this z, as 2D pairs - the
+    # tile borders and the joint lines the loop has to be split against.
+    def self.segs_at(grp, z)
+      grp.entities.grep(Sketchup::Edge).map do |e|
+        next nil unless e.valid?
+        a = e.start.position
+        b = e.end.position
+        next nil if (a.z.to_f - z).abs > 0.01 || (b.z.to_f - z).abs > 0.01
+        [[a.x.to_f, a.y.to_f], [b.x.to_f, b.y.to_f]]
+      end.compact
+    rescue StandardError => e
+      puts "[ShowerFloor] segs_at: #{e.message}"
+      []
+    end
+
+    def self.draw_loop!(grp, loop_xy, z)
+      pts = loop_xy.map { |x, y| Geom::Point3d.new(x, y, z) }
+      pts << pts.first
+      if grp.entities.respond_to?(:add_edges)
+        grp.entities.add_edges(pts)
+      else
+        pts.each_cons(2) { |a, b| grp.entities.add_line(a, b) }
+      end
+    rescue StandardError => e
+      puts "[ShowerFloor] the loop could not be drawn at z #{z}: #{e.message}"
+    end
+
+    # Take away every flat face inside the loop (and, for a slab, the lid
+    # left at the bottom of the cut). Silence here is what left the hole
+    # shut, so the count is printed.
+    # The middle of a face, straight off its own corners - no bounds
+    # object, which is one more thing that can be missing. PURE enough.
+    def self.face_middle(f)
+      vs = f.vertices.map(&:position)
+      return nil if vs.empty?
+      [vs.map { |p| p.x.to_f }.inject(:+) / vs.length, vs.map { |p| p.y.to_f }.inject(:+) / vs.length]
+    rescue StandardError
+      nil
+    end
+
+    # Is the point ON the loop's line (within tol)? PURE.
+    def self.on_loop?(pts, x, y, tol = 0.01)
+      p = clean_loop(pts)
+      return false if p.length < 2
+      x = x.to_f; y = y.to_f
+      p.each_with_index do |(ax, ay), i|
+        bx, by = p[(i + 1) % p.length]
+        dx = bx - ax; dy = by - ay
+        len2 = dx * dx + dy * dy
+        t = len2 < 1.0e-12 ? 0.0 : [[((x - ax) * dx + (y - ay) * dy) / len2, 0.0].max, 1.0].min
+        return true if Math.hypot(x - (ax + dx * t), y - (ay + dy * t)) <= tol
+      end
+      false
+    end
+
+    def self.inside_or_on?(pts, x, y)
+      point_in?(pts, x, y) || on_loop?(pts, x, y)
+    end
+
+    # ONLY WHAT IS WHOLLY INSIDE THE LOOP GOES (2026-09-22, measured on
+    # his model). "Middle inside" took out the slab's whole bottom face
+    # (its middle fell 0.05" inside the loop) and the grout backing under
+    # the whole room. Now a face goes only when EVERY corner is inside
+    # or on the line, and a line only when both ends are inside or on it
+    # and its middle is strictly inside - so the loop's own lines, which
+    # now border the tiles round the hole, are never touched.
+    def self.sweep_inside!(grp, loop_xy, only_z)
+      gone = grp.entities.grep(Sketchup::Face).select do |f|
+        next false unless f.valid? && f.normal.z.abs > 0.9
+        z = f.vertices.first.position.z.to_f
+        next false if only_z && (z - only_z).abs > 0.01
+        vs = f.vertices.map(&:position)
+        next false if vs.empty?
+        c = face_middle(f)
+        c && point_in?(loop_xy, c[0], c[1]) && vs.all? { |q| inside_or_on?(loop_xy, q.x.to_f, q.y.to_f) }
+      end
+      # The joint lines inside the loop are drawn edges, not faces, and
+      # they stay behind when their face goes - a line hanging over the
+      # shower floor.
+      grp.entities.erase_entities(gone) unless gone.empty?
+      # A LINE THAT STILL HOLDS A FACE IS NEVER TOUCHED (2026-09-22,
+      # measured on his model: the tile next to the shower sat 0.01" off
+      # the loop line, its edge counted as "inside", and erasing that
+      # edge killed the whole tile - the white spot on the bathroom
+      # floor). So the faces go first, and then only the lines left with
+      # NO face on them, both ends inside or on the loop.
+      edges = grp.entities.grep(Sketchup::Edge).select do |e|
+        next false unless e.valid?
+        next false if e.respond_to?(:faces) && e.faces.any?
+        a = e.start.position
+        b = e.end.position
+        next false if only_z && ((a.z.to_f - only_z).abs > 0.01 || (b.z.to_f - only_z).abs > 0.01)
+        inside_or_on?(loop_xy, a.x.to_f, a.y.to_f) && inside_or_on?(loop_xy, b.x.to_f, b.y.to_f)
+      end
+      return 0 if gone.empty? && edges.empty?
+      puts "[ShowerFloor] took out #{gone.length} face(s) and #{edges.length} line(s) inside the loop of #{grp.name}"
+      grp.entities.erase_entities(edges) unless edges.empty?
+      gone.length
+    rescue StandardError => e
+      puts "[ShowerFloor] sweep_inside!: #{e.message}"
+      0
+    end
+
+    # Build the floor he drew.
+    #   kind 'flat' - a hole in the room floor, the pad dead level in it.
+    #   kind 'curb' - the pad `rise` above the room floor (the curb round
+    #                 it is the next step).
+    def self.build!(pts, floor_z, kind: 'flat', rise: DEFAULT_RISE, curb_h: DEFAULT_CURB_H,
+                    tile: SAME_AS_ROOM, model: nil)
+      unless USE_SHOWER_FLOOR
+        puts '[ShowerFloor] USE_SHOWER_FLOOR is off - nothing built'
+        return nil
+      end
+      model ||= Sketchup.active_model
+      loop_xy = clean_loop(pts)
+      if loop_xy.length < 3
+        puts "[ShowerFloor] not built: only #{loop_xy.length} corner(s)"
+        return nil
+      end
+      kind = 'flat' unless KINDS.include?(kind.to_s)
+      unders = floors_under(loop_xy, floor_z, model)
+      pats = unders.select { |g| g.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' }
+      slab = slab_of(unders) || (pats.first && floor_of_pattern(pats.first, model))
+      floor_grp = slab || unders.first
+      # A shower floor drawn again on the same loop REPLACES the old one
+      # (two pads on one plane fight for it and show white).
+      pads_in_model(model).each do |old|
+        op = Array(old.get_attribute('InteriorPro', 'poly_xy')).map(&:to_f).each_slice(2).to_a
+        old.erase! if same_loop?(op, loop_xy)
+      end
+      if kind == 'flat'
+        # NO FLOOR, NO FLAT SHOWER FLOOR (2026-09-22, measured on his
+        # model: he drew in a room whose floor had never been built, the
+        # hole had nothing to be cut in, and the pad ended up hanging
+        # under the slab - "הריצפה של המקלחת ביכלל הפוכה". A silent skip
+        # is the bug CLAUDE.md warns about, so it stops and says so.)
+        if unders.empty?
+          puts '[ShowerFloor] there is no room floor here - build the floor for this room first'
+          return :no_floor
+        end
+        # The top he sees: the tile layout if there is one, the slab if
+        # not - so the shower floor lands DEAD LEVEL with the room, which
+        # is what he chose (2026-09-22, "באותו גובה").
+        top = finished_top(unders, floor_z)
+        deep = 0.0
+        if slab
+          add_hole!(slab, loop_xy)
+          deep = cut_floor!(slab) > 0 ? slab.get_attribute('InteriorPro', 'thickness_in').to_f : 0.0
+          (pats | patterns_of(slab, model)).each { |g| cut_pattern!(g, slab) }
+        else
+          pats.each { |g| cut_out!(g, loop_xy, top) }
+        end
+        th = deep > 0.05 ? deep : 0.5
+      else
+        top = finished_top(unders, floor_z) + rise.to_f
+        th = rise.to_f
+        th = 0.25 if th < 0.25
+      end
+      grp = model.entities.add_group
+      grp.name = 'InteriorPro_ShowerFloor'
+      begin
+        InteriorPro.assign_tag(grp, 'IP/Floors')
+      rescue StandardError => e
+        puts "[ShowerFloor] no tag: #{e.message}"
+      end
+      face = begin
+        grp.entities.add_face(loop_xy.map { |x, y| Geom::Point3d.new(x, y, top) })
+      rescue StandardError => e
+        puts "[ShowerFloor] add_face failed: #{e.message}"
+        nil
+      end
+      if face.nil?
+        grp.erase! if grp.valid?
+        return nil
+      end
+      face.pushpull(face.normal.z > 0 ? -th : th)
+      mat = material(model, tile, pats.first || floor_grp)
+      grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
+      grp.set_attribute('InteriorPro', 'type', 'shower_floor')
+      grp.set_attribute('InteriorPro', 'id', format('shfloor-%s-%04d', Time.now.to_i.to_s(36), rand(10_000)))
+      grp.set_attribute('InteriorPro', 'poly_xy', loop_xy.flatten)
+      grp.set_attribute('InteriorPro', 'floor_z', floor_z.to_f)
+      grp.set_attribute('InteriorPro', 'kind', kind)
+      grp.set_attribute('InteriorPro', 'rise_in', kind == 'curb' ? rise.to_f : 0.0)
+      grp.set_attribute('InteriorPro', 'curb_h_in', curb_h.to_f)
+      grp.set_attribute('InteriorPro', 'thickness_in', th)
+      grp.set_attribute('InteriorPro', 'tile', tile.to_s)
+      grp.set_attribute('InteriorPro', 'room_id', floor_grp && floor_grp.get_attribute('InteriorPro', 'room_id'))
+      grp.set_attribute('InteriorPro', 'area_sqft', area_sqft(loop_xy))
+      grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      grp
+    rescue StandardError => e
+      puts "[ShowerFloor] build! failed: #{e.class}: #{e.message}"
+      puts e.backtrace.first(4).join("\n")
+      nil
+    end
+  end
+end

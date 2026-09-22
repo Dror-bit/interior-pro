@@ -73,6 +73,12 @@ module InteriorPro
       setup_2d_toolbar
       setup_landscape_toolbar
       hide_old_bars!
+      # AND ONCE MORE, A MOMENT LATER (2026-09-22, his picture: an empty
+      # bar with only an X, again). SketchUp puts back the bars that were
+      # OPEN when it last closed AFTER the plugins load - so a bar that was
+      # on screen yesterday (the one-day niche bar) came back over our
+      # hide. A second hide after startup wins.
+      UI.start_timer(2.0, false) { hide_old_bars! } if defined?(UI) && UI.respond_to?(:start_timer)
       setup_build_toolbar
     end
 
@@ -82,7 +88,7 @@ module InteriorPro
     # duplicates until he restarts and not seeing them at all.
     def self.hide_old_bars!
       [LEGACY_TOOLBAR_NAME, CLEAN_TOOLBAR_NAME, 'Interior Pro Floors',
-       'Interior Pro Tile', 'Interior Pro Surfaces'].each do |name|
+       'Interior Pro Tile', 'Interior Pro Surfaces', 'Interior Pro Niche'].each do |name|
         tb = UI::Toolbar.new(name)
         # HIDE IT EVEN WHEN IT IS EMPTY (2026-09-18). He asked "מה הכלי
         # הריק הזה?" - it was the old Surfaces bar, length 0 and still
@@ -407,8 +413,8 @@ module InteriorPro
       }
       tile_stretch_cmd.tooltip = 'Stretch Tile - drag a side of a tiled area'
       tile_stretch_cmd.status_bar_text = 'Click a tiled area, then drag one of its four handles or type the new size'
-      tile_stretch_cmd.small_icon = icon_path('stretch_wall')
-      tile_stretch_cmd.large_icon = icon_path('stretch_wall')
+      tile_stretch_cmd.small_icon = icon_path('tile_stretch')
+      tile_stretch_cmd.large_icon = icon_path('tile_stretch')
 
       # ONE WINDOW FOR AN AREA THAT IS ALREADY THERE (2026-09-18, his
       # words: "חלון עריכה גם לגודל וצבע וכו' והוא כולל את הפריסה").
@@ -417,12 +423,74 @@ module InteriorPro
       }
       tile_edit_cmd.tooltip = 'Edit Tile - material, tile, grout, size and layout of a tiled area'
       tile_edit_cmd.status_bar_text = 'Click a tiled area to open its edit window'
-      tile_edit_cmd.small_icon = icon_path('edit_wall')
-      tile_edit_cmd.large_icon = icon_path('edit_wall')
+      tile_edit_cmd.small_icon = icon_path('tile_edit')
+      tile_edit_cmd.large_icon = icon_path('tile_edit')
 
       buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]
       have = tb.length
       buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
+
+      # THE NICHE GROUP (2026-09-22, his words: "בסרגל זה צריך להיות
+      # שלושה כפתורים משלהם", and the line: "הפרדה ... קו בין הכפתורים
+      # לכפתורים האחרים באותו הסרגל"). On the END of this bar, after a
+      # separator line. Always the END: a reload only ADDS, SketchUp can
+      # never take a button off, and a button slipped into the MIDDLE of
+      # the list above duplicated Edit Tile on reload (2026-09-22). Added
+      # by NAME, not by count, so it does not matter whether SketchUp
+      # counts the separator in tb.length. Edit and Delete go on the end
+      # of niche_buttons.
+      niche_cmd = UI::Command.new('Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheTool.new)
+      }
+      niche_cmd.tooltip = 'Niche - set the size, then place it on a wall face'
+      niche_cmd.status_bar_text = 'Type the size of the niche, then click on a wall face to place it'
+      niche_cmd.small_icon = icon_path('niche')
+      niche_cmd.large_icon = icon_path('niche')
+      niche_del_cmd = UI::Command.new('Delete Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheDeleteTool.new)
+      }
+      niche_del_cmd.tooltip = 'Delete Niche - click a niche to take it off'
+      niche_del_cmd.status_bar_text = 'Click a niche; the wall and its tile come back whole'
+      niche_del_cmd.small_icon = icon_path('niche_delete')
+      niche_del_cmd.large_icon = icon_path('niche_delete')
+      niche_edit_cmd = UI::Command.new('Edit Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheEditTool.new)
+      }
+      niche_edit_cmd.tooltip = 'Edit Niche - click a niche to change its sizes'
+      niche_edit_cmd.status_bar_text = 'Click a niche and type its new width, height, depth and height off the floor'
+      niche_edit_cmd.small_icon = icon_path('niche_edit')
+      niche_edit_cmd.large_icon = icon_path('niche_edit')
+      niche_move_cmd = UI::Command.new('Move Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheMoveTool.new)
+      }
+      niche_move_cmd.tooltip = 'Move Niche - pick a niche up and put it down somewhere else'
+      niche_move_cmd.status_bar_text = 'Click a niche, then click where it goes - on this wall or another'
+      niche_move_cmd.small_icon = icon_path('niche_move')
+      niche_move_cmd.large_icon = icon_path('niche_move')
+      niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd, niche_move_cmd]
+      on_bar = begin
+        tb.map { |c| c.respond_to?(:menu_text) ? c.menu_text.to_s : nil }.compact
+      rescue StandardError
+        []
+      end
+      tb.add_separator unless on_bar.include?('Niche')
+      niche_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
+
+      # THE SHOWER FLOOR GROUP (2026-09-22, his words: "תבנה אותו גם עם
+      # קו הפרדה משאר הכפתורים בסרגל"). Its own line of its own, on the
+      # END of the bar, added BY NAME - the same rule the niche group
+      # lives by, for the same reason (a reload only ever adds, and a
+      # button slipped into the middle duplicates the one after it).
+      shower_cmd = UI::Command.new('Shower Floor') {
+        Sketchup.active_model.select_tool(InteriorPro::ShowerFloorTool.new)
+      }
+      shower_cmd.tooltip = 'Shower Floor - draw the floor corner by corner and close it'
+      shower_cmd.status_bar_text = 'Click corner after corner on the floor; click the first corner (or Enter) to close'
+      shower_cmd.small_icon = icon_path('shower_floor')
+      shower_cmd.large_icon = icon_path('shower_floor')
+      shower_buttons = [shower_cmd]
+      tb.add_separator unless on_bar.include?('Shower Floor')
+      shower_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
       tb.restore
     end
 
