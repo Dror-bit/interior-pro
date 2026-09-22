@@ -72,6 +72,7 @@ module InteriorPro
       setup_roofs_toolbar
       setup_2d_toolbar
       setup_landscape_toolbar
+      setup_niche_toolbar
       hide_old_bars!
       setup_build_toolbar
     end
@@ -377,6 +378,30 @@ module InteriorPro
     # AND SO IT CANNOT HAPPEN AGAIN: the buttons are a list, and only the
     # ones past what the bar already holds are added. A new button from now
     # on is one more line in the list and nothing else.
+    # THE NICHE HAS A BAR OF ITS OWN (2026-09-22, his words: "בסרגל זה
+    # צריך להיות שלושה כפתורים משלהם"). Its own bar, not the end of the
+    # surfaces bar: SketchUp cannot take a button OFF a bar and a reload
+    # only ADDS the ones past what is already there, so slipping a button
+    # into the middle of an existing list duplicated Edit Tile on reload
+    # and never showed the new one. A new bar has no such history.
+    # Place today; Edit and Delete are the next rounds and go on the END.
+    NICHE_TOOLBAR_NAME = 'Interior Pro Niche' unless const_defined?(:NICHE_TOOLBAR_NAME, false)
+
+    def self.setup_niche_toolbar
+      tb = UI::Toolbar.new(NICHE_TOOLBAR_NAME)
+      niche_cmd = UI::Command.new('Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheTool.new)
+      }
+      niche_cmd.tooltip = 'Niche - set the size, then place it on a wall face'
+      niche_cmd.status_bar_text = 'Type the size of the niche, then click on a wall face to place it'
+      niche_cmd.small_icon = icon_path('tile_wall')
+      niche_cmd.large_icon = icon_path('tile_wall')
+      buttons = [niche_cmd]
+      have = tb.length
+      buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
+      tb.restore
+    end
+
     SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools' unless const_defined?(:SURFACES_TOOLBAR_NAME, false)
 
     def self.setup_surfaces_toolbar

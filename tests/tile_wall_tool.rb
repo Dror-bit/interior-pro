@@ -343,10 +343,14 @@ module InteriorPro
         # runs on through that point is the one he means.
         wall = mid[:wall]
         hint = mid[:side]
-        # The other wall is the one that ENDS at this point - found from
-        # the geometry, not from the pixel, which at the corner can land on
-        # either face and then the interior wall would be lost for good.
-        other = wall_ending_at(pos, wall)
+        # THE OTHER WALL AT THIS CORNER (2026-09-20, rebuilt). It used to
+        # be only the wall that ENDS here - but at an INNER corner of a
+        # tiled square the second wall RUNS THROUGH the point mid-length,
+        # its end nowhere near, so nothing was offered and the drag could
+        # not switch to it ("זה קורה כמעט בכל הפינות"). Now it is any wall
+        # whose face passes through this point at right angles to the one
+        # picked - whether it ends here or runs on. tests/rt191.
+        other = other_wall_at(pos, wall, mid[:side])
         alt = { wall: other, side: nil } if other
       elsif on_point && @hover_wall&.valid?
         wall = @hover_wall
@@ -401,19 +405,34 @@ module InteriorPro
       { u: su, z: sz, kind: kind, wall: wall, side: @side, pos: pos, alt: alt }
     end
 
-    # The other wall at the first corner. While the second corner is open,
-    # whichever of the two faces the mouse is on carries the area; the
-    # first corner keeps its world position and is re-measured on the face
-    # it moved to. Swapping is symmetric, so he can change his mind until
-    # he clicks.
+    # THE DIRECTION HE DRAGS PICKS THE WALL (2026-09-20, his words: "הוא
+    # נותן לי לצייר את קיר הטיל רק לכיוון החץ האדום ולא לחץ הכחול ... זה
+    # קורה כמעט בכל הפינות"). Two walls meet at the corner he clicked. The
+    # old test asked which face the mouse was WITHIN 1" of - useless the
+    # moment he drags out into the room, where he is 1" from neither. The
+    # right question is the one he is actually answering with the mouse:
+    # which wall does the drag run ALONG? Whichever wall's own direction
+    # the drag from the corner lines up with best is the wall he means.
+    # Symmetric, re-judged every move, so he can change his mind until he
+    # clicks. `drag_prefers_alt?` is pure - tests/rt190.
+    def self.drag_prefers_alt?(dvx, dvy, cur_ux, cur_uy, alt_ux, alt_uy)
+      len = Math.hypot(dvx, dvy)
+      return false if len < 3.0
+      ac = (dvx * cur_ux + dvy * cur_uy).abs / len
+      aa = (dvx * alt_ux + dvy * alt_uy).abs / len
+      aa > ac + 0.02
+    end
+
     def swap_to_alt!(pos)
       return unless @first && @alt && @alt[:wall]&.valid? && @first[:pos]
-      cur = (pos.x - @frame[:ox]) * @frame[:nx] + (pos.y - @frame[:oy]) * @frame[:ny]
       sd = @alt[:side] || side_of(@alt[:wall], pos)
       fr = InteriorPro::TileWall.frame_for(@alt[:wall], sd)
       return if fr.nil?
-      d = (pos.x - fr[:ox]) * fr[:nx] + (pos.y - fr[:oy]) * fr[:ny]
-      return unless d.abs < cur.abs - 0.05 && d.abs <= 1.0
+      fp = @first[:pos]
+      return unless InteriorPro::TileWallTool.drag_prefers_alt?(
+        pos.x - fp.x, pos.y - fp.y,
+        @frame[:ux], @frame[:uy], fr[:ux], fr[:uy]
+      )
       was = { wall: @wall, side: @side }
       @wall = @alt[:wall]
       @side = sd
@@ -421,7 +440,6 @@ module InteriorPro
       @len = fr[:len]
       @hgt = InteriorPro::TileWall.wall_height(@wall)
       @holes = InteriorPro::TileWall.openings_for(@wall, fr)
-      fp = @first[:pos]
       @first = @first.merge(
         u: (fp.x - fr[:ox]) * fr[:ux] + (fp.y - fr[:oy]) * fr[:uy],
         z: fp.z - fr[:floor_z], wall: @wall, side: @side
@@ -486,6 +504,44 @@ module InteriorPro
       nil
     rescue StandardError => e
       puts "[TileWall] which face the point is in the middle of could not be measured: #{e.message}"
+      nil
+    end
+
+    # THE OTHER TILED-ABLE WALL AT THIS CORNER (2026-09-20). Any wall other
+    # than `not_this` whose FACE passes through `pos` - within its own
+    # thickness of a face, somewhere along its run - and that stands at
+    # right angles to the wall already picked (`base_side` of not_this).
+    # This is what wall_ending_at could not do: at an inner corner of a
+    # tiled square the second wall runs THROUGH the point mid-length, so
+    # its end is nowhere near. Nearest qualifying wall wins.
+    def other_wall_at(pos, not_this, base_side, model = Sketchup.active_model)
+      return nil if pos.nil?
+      base_fr = not_this && InteriorPro::TileWall.frame_for(not_this, base_side)
+      best = nil
+      InteriorPro::TileWall.walls_in_model(model).each do |w|
+        next unless w.valid?
+        next if not_this && w.equal?(not_this)
+        th = w.get_attribute('InteriorPro', 'thickness').to_f
+        %w[a b].each do |sd|
+          fr = InteriorPro::TileWall.frame_for(w, sd)
+          next if fr.nil?
+          # right angles to the wall already picked
+          if base_fr
+            dot = base_fr[:ux] * fr[:ux] + base_fr[:uy] * fr[:uy]
+            next if dot.abs > 0.2
+          end
+          d = (pos.x - fr[:ox]) * fr[:nx] + (pos.y - fr[:oy]) * fr[:ny]
+          # on the face, or inside the body up to its thickness
+          next if d > 0.6 || d < -(th + 0.6)
+          u = (pos.x - fr[:ox]) * fr[:ux] + (pos.y - fr[:oy]) * fr[:uy]
+          next if u < -0.6 || u > fr[:len] + 0.6
+          score = d.abs
+          best = [w, score] if best.nil? || score < best[1]
+        end
+      end
+      best && best[0]
+    rescue StandardError => e
+      puts "[TileWall] the other wall at the corner could not be measured: #{e.message}"
       nil
     end
 

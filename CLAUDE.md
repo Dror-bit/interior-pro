@@ -318,10 +318,10 @@ its ends run into, and is it cut to end exactly there?
 
 ## הצעד הנוכחי: קיר אריחים (2026-09-20)
 
-קרא `HANDOFF_2026-09-20.md` (פינת T וההליכה מסביב לפינה נסגרו) ואת
-`HANDOFF_2026-09-18C.md` לרקע. פתוח, בסדר שלו: (1) כלי המתיחה זז רק
-לכיוון אחד — לא נמדד, (2) הריבוע הריק בפינה, (3) נישה, (4) ביובים
-ורצפות. לא להתחיל תכונות אחרות לפני שזה נסגר.
+קרא `HANDOFF_2026-09-20.md` (פינת T, ההליכה מסביב לפינה, והריבוע הריק
+בפינה — נסגרו) ואת `HANDOFF_2026-09-18C.md` לרקע. פתוח, בסדר שלו:
+(1) נישה — צעד 1 (החור) נסגר, צעד 2 = אריחים בפנים עם מיטר 45° לאריח הקיר, (2) ביובים ורצפות — לשאול אותו מה הכוונה לפני שמתחילים.
+כלי המתיחה נסגר ("עובד סבבה"). לא להתחיל תכונות אחרות לפני שזה נסגר.
 
 ## Current phase: the RENDERING program (set by the user, 2026-09-18)
 
@@ -370,6 +370,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 ## Kill switches (turn a feature off without deleting it)
 
+- `InteriorPro::TileNiche::USE_NICHES = false` - no niche is cut; the
+  stored numbers stay on the wall (2026-09-22, `tests/rt192.rb`).
 - `InteriorPro::SkylightManager::USE_SKYLIGHTS = false` - no skylight can
   be placed; nothing standing is touched (2026-09-14).
 - `InteriorPro::SkylightManager::USE_SKYLIGHT_SHAFT = false` - a skylight

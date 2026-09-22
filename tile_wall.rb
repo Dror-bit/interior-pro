@@ -546,6 +546,14 @@ module InteriorPro
         end
         out << [t - w / 2.0, b.to_f - floor_z, t + w / 2.0, tp.to_f - floor_z]
       end
+      # A NICHE IS A HOLE TOO (2026-09-20). The tile runs AROUND the
+      # niche, never over it. Only the niches on the face being tiled -
+      # the other side of the same wall knows nothing about them.
+      if defined?(InteriorPro::TileNiche)
+        out += InteriorPro::TileNiche.holes_for_side(
+          InteriorPro::TileNiche.read(wall), fr[:side]
+        )
+      end
       out
     end
 
