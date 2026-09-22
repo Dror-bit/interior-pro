@@ -59,9 +59,14 @@ module InteriorPro
       0
     end
 
-    def self.build_for_floor!(floor)
+    # THE SHOWER CONTINUES THE ROOM'S TILE (2026-09-22, his words: "בדיוק
+    # כמו הטיל של הריצפות"). With clip: the SAME grid is computed over the
+    # ROOM (so it runs on without a jump), but only the part inside the
+    # shower loop is laid, at base_z, in a group of its own tied to the
+    # shower (shower_id). The room's own layout is not touched.
+    def self.build_for_floor!(floor, clip: nil, base_z: nil, shower_id: nil)
       fid = floor.get_attribute('InteriorPro', 'id')
-      remove_for_floor!(fid)
+      remove_for_floor!(fid) if clip.nil?
       pattern = (floor.get_attribute('InteriorPro', 'pattern') || 'None').to_s
       return false if pattern == 'None' || pattern.empty?
       unless PATTERNS.include?(pattern)
@@ -76,6 +81,8 @@ module InteriorPro
       flat = room.get_attribute('InteriorPro', 'boundary_xy')
       return false unless flat && flat.length >= 6
       poly = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
+      # Where tiles are LAID: the room, or only the shower loop.
+      area = clip ? clip.map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) } : poly
 
       # The card IS the material (2026-09-17): picture, tile size and V-Ray
       # numbers all come from it. A size he typed himself still wins.
@@ -138,15 +145,17 @@ module InteriorPro
       # "כמו חלון לקיר"). They are stored on the floor; every tile piece
       # is clipped round them here, at build time - not cut afterwards.
       holes = defined?(InteriorPro::ShowerFloor) ? InteriorPro::ShowerFloor.holes_of(floor) : []
+      holes = [] if clip
 
       model = Sketchup.active_model
       grp = model.entities.add_group
-      grp.name = 'InteriorPro_FloorPattern'
+      grp.name = clip ? 'InteriorPro_ShowerPattern' : 'InteriorPro_FloorPattern'
       InteriorPro.assign_tag(grp, 'IP/FloorPatterns')
       ge = grp.entities
 
       # Per-room floor level (2026-07-18): the pattern rides on the floor top.
       zb = floor.get_attribute('InteriorPro', 'floor_level').to_f + LINE_Z
+      zb = base_z.to_f + LINE_Z if base_z
 
       planks = case pattern
                when 'Herringbone' then herringbone_planks(poly, ang, w, l, ox, oy, centered)
@@ -154,33 +163,41 @@ module InteriorPro
                when 'Straight'    then straight_planks(poly, ang, w, l, ox, oy, centered)
                when 'Tile'        then mat ? tile_planks(poly, ang, w, l, ox, oy, centered, grout, img_w, img_l, stagger) : nil
                end
-      if pattern == 'Tile' && mat.nil?
+      if pattern == 'Tile' && mat.nil? && clip
+        lines = tile_planks(poly, ang, w, l, ox, oy, centered, grout, nil, nil, stagger)
+        emit_plank_edges!(ge, lines, area, zb) if lines
+      elsif pattern == 'Tile' && mat.nil?
         draw_tile_lines!(ge, poly, ang, w, l, ox, oy, centered, zb, grout, stagger)
       elsif planks
         if mat
           # Tiles with grout: a grout-colored backing face under the tiles
           # (the joints ARE the grout) — no line layer needed.
           if pattern == 'Tile' && grout > 0.02
-            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02, holes)
-            emit_plank_faces!(ge, planks, poly, mat, zb, holes)
+            build_grout_backing!(ge, area, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02, holes)
+            emit_plank_faces!(ge, planks, area, mat, zb, holes)
           else
             # Material layer (all face edges hidden) + a clean uniform line
             # layer slightly above it — line weight is identical everywhere.
-            emit_plank_faces!(ge, planks, poly, mat, zb, holes)
-            emit_plank_edges!(ge, planks, poly, zb + 0.02)
+            emit_plank_faces!(ge, planks, area, mat, zb, holes)
+            emit_plank_edges!(ge, planks, area, zb + 0.02)
           end
         else
-          emit_plank_edges!(ge, planks, poly, zb)
+          emit_plank_edges!(ge, planks, area, zb)
         end
       end
 
       if grp.valid? && ge.length.zero?
         grp.erase!
+        puts '[FloorPattern] the shower loop got no tiles' if clip
         return false
       end
-      grp.set_attribute('InteriorPro', 'type', 'floor_pattern')
+      grp.set_attribute('InteriorPro', 'type', clip ? 'shower_pattern' : 'floor_pattern')
       grp.set_attribute('InteriorPro', 'floor_id', fid)
       grp.set_attribute('InteriorPro', 'room_id', floor.get_attribute('InteriorPro', 'room_id'))
+      if clip
+        grp.set_attribute('InteriorPro', 'shower_id', shower_id)
+        return grp
+      end
       true
     rescue StandardError => e
       puts "[FloorPattern] build_for_floor!: #{e.message}\n#{e.backtrace.first(3).join("\n")}"

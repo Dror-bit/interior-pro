@@ -9,3 +9,60 @@
 14:17:51 click 1816,500 dof 0 on Vertex in floor raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
 14:17:52 click 1070,447 dof 0 on Vertex in floor raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
 14:17:54 click 1018,909 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:25:35 click 702,782 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:25:37 click 1674,853 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:25:38 click 1702,275 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:25:40 click 775,209 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:25:41 click 710,787 dof 0 on Edge in  raw [-486.6118, 401.875, 0.05] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:25:46 click 1688,885 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-443.625, 401.875] | kept [-486.5493, 333.0428] kind :corner | corners 4
+14:25:48 click 1649,350 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.5493, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 5
+14:25:50 click 758,298 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 6
+14:25:51 click 688,842 dof 0 on Vertex in  raw [-486.6118, 402.5, 0.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 7
+14:26:07 click 878,808 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:26:09 click 1780,871 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:26:11 click 1799,245 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:26:13 click 802,175 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:26:14 click 721,796 dof 0 on Edge in  raw [-486.6118, 401.875, 0.05] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:26:54 click 655,687 dof 0 on Vertex in  raw [-486.6118, 401.875, 96.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:26:55 click 2003,660 dof 0 on Vertex in  raw [-486.5493, 333.0428, 96.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:26:57 click 1781,284 dof 0 on Vertex in  raw [-443.625, 333.0428, 96.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:26:58 click 1073,292 dof 0 on Vertex in  raw [-443.625, 401.875, 96.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:26:59 click 1065,728 dof 0 on Vertex in  raw [-486.6118, 401.875, 96.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:27:11 click 817,965 dof 3 on nothing in model raw [-507.5012, 449.3852, 0.0] | prev [-443.625, 333.0428] | kept [-507.5012, 449.3852] kind nil | corners 3
+14:27:19 click 1039,803 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:27:20 click 1924,789 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:27:21 click 1882,263 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:27:22 click 1045,275 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:27:25 click 1036,810 dof 0 on Edge in  raw [-486.6118, 401.875, 0.05] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:27:25   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+14:27:25   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+14:27:25   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 0 -> no
+14:27:25   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.0 found 0
+14:29:07 click 1040,805 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:29:09 click 1926,795 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:29:10 click 1888,265 dof 0 on Vertex in  raw [-443.625, 332.4178, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:29:11 click 1037,278 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:29:15 click 1010,835 dof 0 on Vertex in  raw [-486.6118, 401.875, 0.0] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:29:15   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+14:29:15   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+14:29:15   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 0 -> no
+14:29:15   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.0 found 0
+14:31:29 click 883,848 dof 0 on Edge in  raw [-486.6118, 401.875, 0.03] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:31:30 click 1549,840 dof 1 on Face in floor_pattern raw [-486.5493, 333.0428, 1.7278] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :edge | corners 1
+14:31:32 click 1532,440 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:31:34 click 893,450 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:31:35 click 889,847 dof 0 on Edge in  raw [-486.6118, 401.875, 0.05] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:31:36   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+14:31:36   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+14:31:36   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 0 -> no
+14:31:36   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.0 found 0
+14:57:16 click 883,849 dof 0 on Edge in  raw [-486.6118, 401.875, 0.03] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+14:57:17 click 1541,836 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+14:57:19 click 1529,445 dof 0 on Vertex in  raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+14:57:21 click 893,456 dof 0 on Vertex in  raw [-443.625, 401.875, 0.0] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+14:57:22 click 884,849 dof 0 on Edge in  raw [-486.6118, 401.875, 0.05] | prev [-443.625, 401.875] | kept [-486.6118, 401.875] kind :corner | corners 4
+14:57:22   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+14:57:22   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+14:57:22   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 0 -> no
+14:57:22   round the loop: floor_pattern room-tlj2de-3087 1/4
+14:57:22   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1

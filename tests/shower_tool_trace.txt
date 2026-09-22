@@ -1,0 +1,418 @@
+21:26:55   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:26:55   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:26:55   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:26:55   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:26:55   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:26:55   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:26:55   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:26:55   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:26:55   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:26:55   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:26:55   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:26:55   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:26:55   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:26:55   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:26:55   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:26:55   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:26:55   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:26:56   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:26:56   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:26:56   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:26:56   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:26:56   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:26:56   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:26:56   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:26:56   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:26:56   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:26:56   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:26:56   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:26:56   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:26:56   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:28:24   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:28:24   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:28:24   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:28:24   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:28:24   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:28:24   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:28:24   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:28:24   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:28:24   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:28:24   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:28:24   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:28:24   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:28:24   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:28:24   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:28:24   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:28:24   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:28:24   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:28:24   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:28:24   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:28:24   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:28:24   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:28:24   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:28:24   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:28:24   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:28:24   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:28:24   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:28:24   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:28:24   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:28:24   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:28:24   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:28:24   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:28:24   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:28:24   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:28:24   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:28:24   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:28:24   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:31:06   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:31:06   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:31:06   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:31:06   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:31:06   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:31:06   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:31:06   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:31:06   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:31:06   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:31:06   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:31:06   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:31:06   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:31:06   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:31:06   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:31:06   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:31:06   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:31:06   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:31:06   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:31:06   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:31:06   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:31:06   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:31:06   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:31:06   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:31:06   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:31:07   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:31:07   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:31:07   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:31:07   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:31:07   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:31:07   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:31:07   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:31:07   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:31:07   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:31:07   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:31:07   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:31:07   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:31:07   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:31:07   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:31:07   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:31:07   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:31:07   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:31:07   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:31:07   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:32:00   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:32:00   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:32:00   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:00   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:32:00   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:32:00   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:32:00   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:00   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:32:00   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:00   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:32:00   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:32:00   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:32:00   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:32:00   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:32:00   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:32:00   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:32:00   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:32:01   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:32:01   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:32:01   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:32:01   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:32:01   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:32:01   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:32:01   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:32:01   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:32:01   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:32:01   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:32:01   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:32:01   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:32:01   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:32:01   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:32:01   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:32:01   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:32:01   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:32:01   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:32:01   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:32:01   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:32:01   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:32:30   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:32:30   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:30   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:32:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:32:30   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:30   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:32:30   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:32:30   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:32:30   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:32:30   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:32:30   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:32:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:32:30   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:32:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:32:30   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:32:30   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:32:30   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:32:30   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:32:30   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:32:30   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:32:30   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:32:30   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:32:30   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:32:30   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:32:30   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:32:30   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:32:30   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:32:30   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:32:30   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:32:30   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:32:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:33:16   round the loop: 
+21:33:16   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:33:16   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:33:16   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:33:16   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:33:16   round the loop: 
+21:33:16   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:33:16   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:33:16   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:33:16   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:33:16   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:33:16   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:33:16   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:33:16   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:33:16   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:33:16   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:33:16   round the loop: 
+21:33:16   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:33:16   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:33:16   round the loop: 
+21:33:16   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:33:16   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:33:16   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:33:16   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:33:16   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:33:16   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:33:16   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:33:16   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:33:17   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:33:17   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:33:17   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:33:17   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:33:17   round the loop: floor_pattern room-2 2/4
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:33:17   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:33:17   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:33:17   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:33:17   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:33:17   round the loop: 
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:33:17   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:33:17   round the loop: floor_pattern room-2 2/4
+21:33:17   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:22   round the loop: 
+21:59:22   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:59:22   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:59:22   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:22   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:59:23   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:23   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:23   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:59:23   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:59:23   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:59:23   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:59:23   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:59:23   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:59:23   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:59:23   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:59:23   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:59:23   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:59:23   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:59:23   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:59:23   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:59:23   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:59:23   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:59:23   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:59:23   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:59:23   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:59:23   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:23   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:23   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:59:23   round the loop: 
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:59:23   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:59:23   round the loop: floor_pattern room-2 2/4
+21:59:23   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:48   round the loop: 
+21:59:48   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+21:59:48   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:48   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+21:59:48   round the loop: 
+21:59:48   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+21:59:48   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:48   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+21:59:48   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:59:48   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:59:48   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+21:59:48   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+21:59:48   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:59:48   round the loop: 
+21:59:48   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:59:48   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+21:59:48   round the loop: 
+21:59:48   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+21:59:48   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+21:59:48   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+21:59:48   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:59:48   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+21:59:48   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+21:59:48   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+21:59:48   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+21:59:48   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+21:59:48   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+21:59:48   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+21:59:48   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+21:59:48   round the loop: 
+21:59:48   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+21:59:48   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+21:59:48   round the loop: 
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:59:48   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+21:59:48   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:49   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+21:59:49   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+21:59:49   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:59:49   round the loop: 
+21:59:49   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+21:59:49   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+21:59:49   round the loop: floor_pattern room-2 2/4
+21:59:49   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+22:00:30   round the loop: 
+22:00:30   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+22:00:30   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+22:00:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+22:00:30   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+22:00:30   round the loop: 
+22:00:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+22:00:30   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+22:00:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+22:00:30   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+22:00:30   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+22:00:30   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+22:00:30   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+22:00:30   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+22:00:30   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+22:00:30   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+22:00:30   round the loop: 
+22:00:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+22:00:30   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+22:00:30   round the loop: 
+22:00:30   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+22:00:31   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+22:00:31   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+22:00:31   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+22:00:31   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+22:00:31   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+22:00:31   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+22:00:31   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+22:00:31   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+22:00:31   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+22:00:31   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+22:00:31   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+22:00:31   round the loop: 
+22:00:31   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+22:00:31   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+22:00:31   round the loop: 
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+22:00:31   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+22:00:31   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+22:00:31   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+22:00:31   round the loop: 
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+22:00:31   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+22:00:31   round the loop: floor_pattern room-2 2/4
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+22:00:31   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+22:00:31   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+22:00:31   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1

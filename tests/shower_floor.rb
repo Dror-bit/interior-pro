@@ -21,6 +21,9 @@
 module InteriorPro
   module ShowerFloor
     USE_SHOWER_FLOOR = true unless const_defined?(:USE_SHOWER_FLOOR, false)
+    # Kill switch: false = "Same as the room floor" is one plain face again,
+    # no real tiles on the shower (2026-09-22).
+    USE_SHOWER_TILES = true unless const_defined?(:USE_SHOWER_TILES, false)
 
     # The same window the walls use (CLAUDE.md, "זווית ישרה מנצחת").
     ORTHO_SNAP_DEG = 12.0 unless const_defined?(:ORTHO_SNAP_DEG, false)
@@ -164,6 +167,16 @@ module InteriorPro
 
     # ---- the model ------------------------------------------------------
 
+    # The tile layout laid on one shower floor.
+    def self.tiles_of(shower_id, model = nil)
+      return [] if shower_id.nil?
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'shower_pattern' &&
+          g.get_attribute('InteriorPro', 'shower_id') == shower_id
+      end
+    end
+
     def self.pads_in_model(model = nil)
       model ||= Sketchup.active_model
       model.entities.grep(Sketchup::Group).select do |g|
@@ -233,22 +246,86 @@ module InteriorPro
         # the middle of the loop now sits in the HOLE the first shower cut,
         # so no face is under it and he got "no room floor". The floor that
         # already carries this exact hole is the floor under it.
+        mid_hit = hit
         hit ||= holed_here?(g, pts, model)
+        trace("under? #{g.get_attribute('InteriorPro', 'type')} #{g.get_attribute('InteriorPro', 'id')} " \
+              "floor_id #{g.get_attribute('InteriorPro', 'floor_id').inspect} room #{g.get_attribute('InteriorPro', 'room_id')} " \
+              "middle #{mid_hit ? 'yes' : 'no'} holes #{holes_of(g).length} -> #{hit ? 'YES' : 'no'}")
         out << g if hit
       end
+      # THE HOLE IS ALREADY THERE BUT NOBODY WROTE IT DOWN (his room 2,
+      # 2026-09-22): nothing under the middle, so look just OUTSIDE each
+      # side of the loop - the floor round the hole is the floor under it.
+      # 1" out lands inside a wall on the wall sides, so only the room's
+      # own floor answers.
+      out = floor_round(pts, floor_z, model) if out.empty?
+      trace("loop #{clean_loop(pts).map { |x, y| [x.round(3), y.round(3)] }.inspect} middle #{c.map { |v| v.round(3) }.inspect} z #{floor_z.inspect} found #{out.length}")
       puts '[ShowerFloor] nothing under the middle of the loop - no floor and no tile' if out.empty?
       out
     rescue StandardError => e
+      trace("floors_under raised #{e.class}: #{e.message} #{e.backtrace.first}")
       puts "[ShowerFloor] floors_under: #{e.message}"
       []
+    end
+
+    def self.floor_round(pts, floor_z = nil, model = nil)
+      model ||= Sketchup.active_model
+      lp = clean_loop(pts)
+      return [] if lp.length < 3
+      area2 = 0.0
+      lp.each_with_index { |(x1, y1), i| x2, y2 = lp[(i + 1) % lp.length]; area2 += x1 * y2 - x2 * y1 }
+      sgn = area2 >= 0 ? 1.0 : -1.0 # counter-clockwise: outside is to the right
+      probes = lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        len = Math.hypot(x2 - x1, y2 - y1)
+        next nil if len < 1.0e-6
+        nx = (y2 - y1) / len * sgn
+        ny = -(x2 - x1) / len * sgn
+        [(x1 + x2) / 2.0 + nx, (y1 + y2) / 2.0 + ny]
+      end.compact
+      score = {}
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid? && FLOOR_TYPES_UNDER.include?(g.get_attribute('InteriorPro', 'type').to_s)
+        faces = g.entities.grep(Sketchup::Face).select do |f|
+          f.valid? && f.normal.z.abs > 0.9 &&
+            (floor_z.nil? || (f.vertices.first.position.z.to_f - floor_z.to_f).abs <= 2.0)
+        end
+        n = probes.count do |px, py|
+          faces.any? { |f| f.classify_point(Geom::Point3d.new(px, py, f.vertices.first.position.z)) == Sketchup::Face::PointInside }
+        end
+        score[g] = n if n > 0
+      end
+      trace("round the loop: #{score.map { |g, n| "#{g.get_attribute('InteriorPro', 'type')} #{g.get_attribute('InteriorPro', 'room_id')} #{n}/#{probes.length}" }.join(', ')}")
+      return [] if score.empty?
+      best = score.values.max
+      score.select { |_g, n| n == best }.keys
+    rescue StandardError => e
+      trace("floor_round raised #{e.message}")
+      []
+    end
+
+    # One line to the click trace (shower_tool_trace.txt) - so a build that
+    # says "no floor" shows WHY without him pasting anything.
+    def self.trace(msg)
+      File.open(File.join(__dir__, 'shower_tool_trace.txt'), 'a:UTF-8') { |f| f.puts "#{Time.now.strftime('%H:%M:%S')}   #{msg}" }
+    rescue StandardError
+      nil
     end
 
     # Does this floor (or the floor behind this tile layout) already
     # carry a shower hole on exactly this loop?
     def self.holed_here?(g, pts, model = nil)
       owner = g.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' ? floor_of_pattern(g, model) : g
-      return false unless owner
-      hit = holes_of(owner).any? { |h| same_loop?(h, pts) }
+      # A tile layout with no slab behind it (his room 2, measured
+      # 2026-09-22) carries the hole on itself.
+      hit = [owner, g].compact.uniq.any? { |x| holes_of(x).any? { |h| same_loop?(h, pts) } }
+      # A shower built before the hole was remembered anywhere (his room 2,
+      # 14:17 on 2026-09-22): the pad itself says which room it belongs to.
+      rid = g.get_attribute('InteriorPro', 'room_id')
+      hit ||= !rid.nil? && pads_in_model(model).any? do |pad|
+        pad.get_attribute('InteriorPro', 'room_id') == rid &&
+          same_loop?(Array(pad.get_attribute('InteriorPro', 'poly_xy')).map(&:to_f).each_slice(2).to_a, pts)
+      end
       puts "[ShowerFloor] #{g.get_attribute('InteriorPro', 'type')} already has this hole - drawing over it" if hit
       hit
     rescue StandardError => e
@@ -569,11 +646,22 @@ module InteriorPro
       # (two pads on one plane fight for it and show white).
       pads_in_model(model).each do |old|
         op = Array(old.get_attribute('InteriorPro', 'poly_xy')).map(&:to_f).each_slice(2).to_a
-        old.erase! if same_loop?(op, loop_xy)
+        next unless same_loop?(op, loop_xy)
+        oid = old.get_attribute('InteriorPro', 'id')
+        tiles_of(oid, model).each(&:erase!)
+        old.erase!
       end
       # The room's tile is read BEFORE the layout is rebuilt round the
       # hole (the rebuild throws the old layout group away).
       room_mat = room_floor_material(pats.first || floor_grp)
+      # REAL TILES, THE ROOM'S GRID RUNNING ON (2026-09-22, his words: "בדיוק
+      # כמו הטיל של הריצפות"). "Same as the room floor" lays the room's own
+      # layout inside the loop. Read now - the layout group may be rebuilt.
+      src = slab || (pats.first && floor_of_pattern(pats.first, model))
+      lay = USE_SHOWER_TILES && tile.to_s == SAME_AS_ROOM && src &&
+            !%w[None].include?((src.get_attribute('InteriorPro', 'pattern') || 'None').to_s) &&
+            defined?(InteriorPro::FloorPattern)
+      puts "[ShowerFloor] no room tile layout to run on - one plain face (tile: #{tile})" unless lay
       if kind == 'flat'
         # NO FLOOR, NO FLAT SHOWER FLOOR (2026-09-22, measured on his
         # model: he drew in a room whose floor had never been built, the
@@ -603,7 +691,9 @@ module InteriorPro
           end
           (pats | patterns_of(slab, model)).each { |g| cut_pattern!(g, slab) if g.valid? } unless rebuilt
         else
-          pats.each { |g| cut_out!(g, loop_xy, top) }
+          # No slab: the layout itself remembers the hole, so drawing the
+          # same shower again still finds this floor (2026-09-22).
+          pats.each { |g| add_hole!(g, loop_xy); cut_out!(g, loop_xy, top) }
         end
         th = deep > 0.05 ? deep : 0.5
       else
@@ -618,8 +708,11 @@ module InteriorPro
       rescue StandardError => e
         puts "[ShowerFloor] no tag: #{e.message}"
       end
+      # Tiles sit LINE_Z over their base, exactly as in the room - so the
+      # pad under them drops by that much and the tile top stays level.
+      pad_top = lay ? top - InteriorPro::FloorPattern::LINE_Z : top
       face = begin
-        grp.entities.add_face(loop_xy.map { |x, y| Geom::Point3d.new(x, y, top) })
+        grp.entities.add_face(loop_xy.map { |x, y| Geom::Point3d.new(x, y, pad_top) })
       rescue StandardError => e
         puts "[ShowerFloor] add_face failed: #{e.message}"
         nil
@@ -643,6 +736,22 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'room_id', floor_grp && floor_grp.get_attribute('InteriorPro', 'room_id'))
       grp.set_attribute('InteriorPro', 'area_sqft', area_sqft(loop_xy))
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      if lay
+        sp = begin
+          InteriorPro::FloorPattern.build_for_floor!(src, clip: loop_xy, base_z: pad_top,
+                                                     shower_id: grp.get_attribute('InteriorPro', 'id'))
+        rescue StandardError => e
+          puts "[ShowerFloor] shower tiles: #{e.message}"
+          nil
+        end
+        if sp
+          grp.set_attribute('InteriorPro', 'tiles', 'room')
+        else
+          # No tiles after all: the pad goes back up to the finished level.
+          puts '[ShowerFloor] shower tiles were not laid - the pad is lifted back to the room level'
+          grp.transform!(Geom::Transformation.translation(Geom::Vector3d.new(0, 0, InteriorPro::FloorPattern::LINE_Z)))
+        end
+      end
       grp
     rescue StandardError => e
       puts "[ShowerFloor] build! failed: #{e.class}: #{e.message}"

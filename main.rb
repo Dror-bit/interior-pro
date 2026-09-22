@@ -66,6 +66,7 @@ module InteriorPro
       tile_wall_edit_tool.rb
       shower_floor.rb
       shower_floor_tool.rb
+      shower_floor_edit_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb

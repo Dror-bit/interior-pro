@@ -50,7 +50,7 @@ ok('a 5-sided shower is clipped too', out2.any? && mids2.none? { |x, y| Interior
 SRC = File.read('./floor_pattern.rb')
 ok('the layout reads the holes off the floor', SRC.include?('InteriorPro::ShowerFloor.holes_of(floor)'))
 ok('and clips every tile piece round them', SRC.include?('pieces_minus_holes([whole], holes)'))
-ok('and opens the grout backing too', SRC.include?('build_grout_backing!(ge, poly, floor.get_attribute(\'InteriorPro\', \'pattern_grout_color\'), zb - 0.02, holes)'))
+ok('and opens the grout backing too', SRC.include?('build_grout_backing!(ge, area, floor.get_attribute(\'InteriorPro\', \'pattern_grout_color\'), zb - 0.02, holes)'))
 ok('the layout is no longer cut after the fact', !SRC.include?('cut_pattern!(grp, floor)'))
 SF = File.read('./shower_floor.rb')
 ok('a new shower floor rebuilds the layout with the hole in it', SF.include?('InteriorPro::FloorPattern.build_for_floor!(slab)'))

@@ -195,7 +195,7 @@ end
     end
     def add_curve(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     def add_line(a, b); e = Edge.new(a, b); @list << e; e; end
-    def add_edges(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
+    def add_edges(*pts); pts = pts.first if pts.length == 1 && pts.first.is_a?(Array); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     # Real SketchUp REFUSES a face with a repeated point - "Duplicate
     # points in array" - and a builder that swallows that raise loses
     # every face after it. The stub used to accept them silently, so

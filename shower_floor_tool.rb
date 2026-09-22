@@ -72,6 +72,7 @@ module InteriorPro
       @pts = []
       @plane_z = nil
       @hover = nil
+      @floor_tops = nil
       @ip = Sketchup::InputPoint.new
       status
     end
@@ -107,9 +108,20 @@ module InteriorPro
       pos = @ip.position
       return nil unless pos
       kind = point_kind(@ip)
+      # ONLY THE BOTTOM CORNERS (2026-09-22, his words: "רק על הפינות
+      # התחתונות של הטייל"). Measured in the trace: a click locked on a
+      # corner 96" up the wall. A point that is not on the floor is thrown
+      # away and the mouse ray is laid on the floor instead.
+      ref = @plane_z || floor_top_below(pos.z)
+      if ref && (pos.z - ref).abs > LOW_TOL
+        on = Geom.intersect_line_plane(view.pickray(x, y), [Geom::Point3d.new(0, 0, ref), Geom::Vector3d.new(0, 0, 1)])
+        return nil unless on
+        pos = on
+        kind = nil
+      end
       # The FIRST corner sets the plane; every corner after it lives on
       # that same floor, whatever the mouse is hovering over.
-      z = @plane_z || pos.z
+      z = @plane_z || ref || pos.z
       px = pos.x.to_f
       py = pos.y.to_f
       last = @pts.last
@@ -117,6 +129,27 @@ module InteriorPro
         px, py = InteriorPro::ShowerFloor.ortho_point(last[0], last[1], px, py)
       end
       { x: px, y: py, z: z, kind: kind, raw: pos }
+    end
+
+    # How far from the floor a corner may be and still count (tile and
+    # grout sit 0.03-0.05 over the slab; a wall top is 96 up).
+    LOW_TOL = 1.0 unless const_defined?(:LOW_TOL, false)
+
+    # The finished floor top nearest under this height - read once from
+    # the floors and tile layouts in the model.
+    def floor_top_below(z)
+      @floor_tops ||= begin
+        Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
+          g.valid? && %w[floor floor_pattern shower_floor shower_pattern].include?(g.get_attribute('InteriorPro', 'type').to_s)
+        end.flat_map do |g|
+          g.entities.grep(Sketchup::Face).select { |f| f.valid? && f.normal.z.abs > 0.9 }
+           .map { |f| f.vertices.first.position.z.to_f }
+        end.uniq
+      end
+      below = @floor_tops.select { |t| t <= z.to_f + LOW_TOL }
+      below.empty? ? nil : below.max
+    rescue StandardError
+      nil
     end
 
     def point_kind(ip)

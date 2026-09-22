@@ -488,7 +488,14 @@ module InteriorPro
       shower_cmd.status_bar_text = 'Click corner after corner on the floor; click the first corner (or Enter) to close'
       shower_cmd.small_icon = icon_path('shower_floor')
       shower_cmd.large_icon = icon_path('shower_floor')
-      shower_buttons = [shower_cmd]
+      shower_edit_cmd = UI::Command.new('Edit Shower Floor') {
+        Sketchup.active_model.select_tool(InteriorPro::ShowerFloorEditTool.new)
+      }
+      shower_edit_cmd.tooltip = 'Edit Shower Floor - click a shower floor to change its settings'
+      shower_edit_cmd.status_bar_text = 'Click a shower floor: the same window opens with its numbers, OK rebuilds it in place'
+      shower_edit_cmd.small_icon = icon_path('shower_floor_edit')
+      shower_edit_cmd.large_icon = icon_path('shower_floor_edit')
+      shower_buttons = [shower_cmd, shower_edit_cmd]
       tb.add_separator unless on_bar.include?('Shower Floor')
       shower_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
       tb.restore
