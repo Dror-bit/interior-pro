@@ -34,7 +34,7 @@ ok('the same four lines as placing', ET.include?("['Width', 'Height', 'Depth int
 ok('filled with the niche\'s own numbers', ET.include?('f.call(n[:w]), f.call(n[:h]), f.call(n[:depth]), f.call(n[:z0])'))
 ok('no geometry of its own', ET.include?('TileNiche.update_at!') && !ET.include?('add_face'))
 ok('Edit Niche sits at the END of the niche group',
-   File.read('./toolbar.rb').include?('niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd]'))
+   File.read('./toolbar.rb').include?('niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd'))
 ok('the plugin loads it', File.read('./main.rb').include?('tile_niche_edit_tool.rb'))
 
 puts($fails.zero? ? 'rt196 OK' : "rt196 #{$fails} FAILED")

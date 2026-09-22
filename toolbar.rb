@@ -462,7 +462,14 @@ module InteriorPro
       niche_edit_cmd.large_icon = icon_path('edit_door')
       # TODO icons (2026-09-22, his words: the niche and tile icons, except
       # the main Tile Wall one, "לא טובים") - after the group is complete.
-      niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd]
+      niche_move_cmd = UI::Command.new('Move Niche') {
+        Sketchup.active_model.select_tool(InteriorPro::TileNicheMoveTool.new)
+      }
+      niche_move_cmd.tooltip = 'Move Niche - pick a niche up and put it down somewhere else'
+      niche_move_cmd.status_bar_text = 'Click a niche, then click where it goes - on this wall or another'
+      niche_move_cmd.small_icon = icon_path('move_door')
+      niche_move_cmd.large_icon = icon_path('move_door')
+      niche_buttons = [niche_cmd, niche_del_cmd, niche_edit_cmd, niche_move_cmd]
       on_bar = begin
         tb.map { |c| c.respond_to?(:menu_text) ? c.menu_text.to_s : nil }.compact
       rescue StandardError

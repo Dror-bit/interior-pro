@@ -61,6 +61,7 @@ module InteriorPro
       tile_niche_tool.rb
       tile_niche_delete_tool.rb
       tile_niche_edit_tool.rb
+      tile_niche_move_tool.rb
       tile_wall_stretch_tool.rb
       tile_wall_edit_tool.rb
       floor_dialog.rb

@@ -357,5 +357,46 @@ module InteriorPro
         false
       end
     end
+
+    # MOVE ONE NICHE (2026-09-22, his ask: "הזזה"). Same sizes, new place:
+    # on the same face it is one row that changes; onto another wall (or
+    # the other face) it comes off the old wall and goes onto the new one.
+    # Both walls are rebuilt from their numbers and their tile laid again.
+    def self.move_at!(wall, idx, to_wall:, side:, u0:, z0:, wrap_operation: true)
+      ns = read(wall)
+      n = ns[idx.to_i]
+      if n.nil?
+        puts "[TileNiche] there is no niche ##{idx} on this wall"
+        return false
+      end
+      same = to_wall.equal?(wall)
+      moved = n.merge(side: side.to_s == 'b' ? 'b' : 'a', u0: u0.to_f, z0: z0.to_f,
+                      depth: clamp_depth(n[:depth], thickness_of(to_wall)))
+      model = Sketchup.active_model
+      model.start_operation('Interior Pro - Move Niche', true) if wrap_operation
+      begin
+        if same
+          ns[idx.to_i] = moved
+          persist!(wall, ns)
+          puts '[TileNiche] the wall could not be rebuilt' unless InteriorPro::WallTool.rebuild_wall_native!(wall)
+        else
+          ns.delete_at(idx.to_i)
+          persist!(wall, ns)
+          persist!(to_wall, read(to_wall) + [moved])
+          puts '[TileNiche] the old wall could not be rebuilt' unless InteriorPro::WallTool.rebuild_wall_native!(wall)
+          puts '[TileNiche] the new wall could not be rebuilt' unless InteriorPro::WallTool.rebuild_wall_native!(to_wall)
+        end
+        model.commit_operation if wrap_operation
+        InteriorPro::TileWall.refresh_wall!(wall.get_attribute('InteriorPro', 'id'))
+        InteriorPro::TileWall.refresh_wall!(to_wall.get_attribute('InteriorPro', 'id')) unless same
+        puts "[TileNiche] niche moved to wall #{to_wall.get_attribute('InteriorPro', 'id')} side #{moved[:side]}: " \
+             "u #{moved[:u0].round(2)}, z #{moved[:z0].round(2)}"
+        true
+      rescue StandardError => e
+        model.abort_operation if wrap_operation
+        puts "[TileNiche] the niche could not be moved: #{e.class}: #{e.message}"
+        false
+      end
+    end
   end
 end
