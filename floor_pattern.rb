@@ -134,6 +134,11 @@ module InteriorPro
         mat = m if m && m.texture
       end
 
+      # THE SHOWER HOLES ARE PART OF THE LAYOUT (2026-09-22, his words:
+      # "כמו חלון לקיר"). They are stored on the floor; every tile piece
+      # is clipped round them here, at build time - not cut afterwards.
+      holes = defined?(InteriorPro::ShowerFloor) ? InteriorPro::ShowerFloor.holes_of(floor) : []
+
       model = Sketchup.active_model
       grp = model.entities.add_group
       grp.name = 'InteriorPro_FloorPattern'
@@ -156,12 +161,12 @@ module InteriorPro
           # Tiles with grout: a grout-colored backing face under the tiles
           # (the joints ARE the grout) — no line layer needed.
           if pattern == 'Tile' && grout > 0.02
-            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02)
-            emit_plank_faces!(ge, planks, poly, mat, zb)
+            build_grout_backing!(ge, poly, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02, holes)
+            emit_plank_faces!(ge, planks, poly, mat, zb, holes)
           else
             # Material layer (all face edges hidden) + a clean uniform line
             # layer slightly above it — line weight is identical everywhere.
-            emit_plank_faces!(ge, planks, poly, mat, zb)
+            emit_plank_faces!(ge, planks, poly, mat, zb, holes)
             emit_plank_edges!(ge, planks, poly, zb + 0.02)
           end
         else
@@ -353,7 +358,7 @@ module InteriorPro
     }.freeze unless const_defined?(:GROUT_COLORS, false)
 
     # Grout-colored backing face covering the whole room, under the tiles.
-    def self.build_grout_backing!(ge, poly, color_key = nil, z = LINE_Z - 0.02)
+    def self.build_grout_backing!(ge, poly, color_key = nil, z = LINE_Z - 0.02, holes = [])
       model = Sketchup.active_model
       key = GROUT_COLORS.key?(color_key.to_s) ? color_key.to_s : 'light'
       name = "InteriorPro_Grout_#{key.capitalize}"
@@ -376,6 +381,68 @@ module InteriorPro
         e.hidden = true
         e.soft = true
       end
+      # A face drawn on a face splits it - so each shower hole is drawn
+      # on the backing and taken away, and the backing stays whole round it.
+      Array(holes).each do |h|
+        inner = begin
+          ge.add_face(h.map { |x, y| Geom::Point3d.new(x, y, z) })
+        rescue StandardError => e
+          puts "[FloorPattern] grout hole: #{e.message}"
+          nil
+        end
+        inner.erase! if inner && inner.valid?
+      end
+    end
+
+    # ---------- holes in the layout (2026-09-22) ----------
+
+    # Split a convex piece by the directed line a->b: [left, right]. PURE.
+    def self.split_by_line(poly, a, b)
+      ex = b[0] - a[0]
+      ey = b[1] - a[1]
+      side = ->(p) { ex * (p[1] - a[1]) - ey * (p[0] - a[0]) }
+      left = []
+      right = []
+      poly.each_with_index do |p, j|
+        q = poly[(j + 1) % poly.length]
+        sp = side.call(p)
+        sq = side.call(q)
+        left << p if sp >= -1e-9
+        right << p if sp <= 1e-9
+        next unless (sp > 1e-9 && sq < -1e-9) || (sp < -1e-9 && sq > 1e-9)
+        t = sp / (sp - sq)
+        ip = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]
+        left << ip
+        right << ip
+      end
+      [left, right]
+    end
+
+    # A convex piece minus a convex COUNTER-CLOCKWISE polygon: the parts
+    # left over, each convex. PURE.
+    def self.subtract_convex(piece, tri)
+      out = []
+      rest = piece
+      tri.each_with_index do |a, i|
+        b = tri[(i + 1) % tri.length]
+        inside, outside = split_by_line(rest, a, b)
+        out << outside if outside.length >= 3 && poly_area_abs(outside) > 0.05
+        rest = inside
+        break if rest.length < 3
+      end
+      out
+    end
+
+    # Every piece minus every hole (any shape - each hole is triangulated
+    # first). PURE (tests/rt203.rb).
+    def self.pieces_minus_holes(pieces, holes)
+      Array(holes).each do |h|
+        next if h.nil? || h.length < 3
+        triangulate(h.map { |x, y| [x.to_f, y.to_f] }).each do |t|
+          pieces = pieces.flat_map { |pc| subtract_convex(pc, t) }
+        end
+      end
+      pieces
     end
 
     def self.chevron_planks(poly, ang, w, l, ox, oy, centered)
@@ -422,7 +489,7 @@ module InteriorPro
     # All pieces of one plank share the same texture anchor, and the seams
     # between them (triangulation lines) are hidden — so a plank reads as one
     # continuous board, clipped perfectly at the room boundary.
-    def self.emit_plank_faces!(ge, planks, poly, mat, z = LINE_Z)
+    def self.emit_plank_faces!(ge, planks, poly, mat, z = LINE_Z, holes = [])
       t = mat.texture
       tw = t ? t.width.to_f : 48.0
       tw = 48.0 if tw < 1.0
@@ -449,7 +516,9 @@ module InteriorPro
         off_v = pl[:no_rand] ? 0.0 : rand
         faces = []
         tris.each do |tri|
-          piece = clip_poly_convex(tri, pl[:c])
+          whole = clip_poly_convex(tri, pl[:c])
+          pieces = Array(holes).empty? ? [whole] : pieces_minus_holes([whole], holes)
+          pieces.each do |piece|
           clean = []
           piece.each do |p|
             clean << p if clean.empty? ||
@@ -484,6 +553,7 @@ module InteriorPro
             uv_fails += 1
           end
           faces << f
+          end
         end
       end
       # Hide ALL face edges — the visible joints come from the separate

@@ -149,7 +149,7 @@ module InteriorPro
       # Pattern settings survive the rebuild (floor group is recreated).
       pat_attrs = {}
       if old
-        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color pattern_stagger floor_texture material_card_id floor_spec grout_spec floor_level drop_walls].each do |k|
+        %w[pattern unit_w unit_l pattern_ox pattern_oy pattern_angle pattern_center pattern_grout pattern_grout_color pattern_stagger floor_texture material_card_id floor_spec grout_spec floor_level drop_walls shower_holes].each do |k|
           v = old.get_attribute('InteriorPro', k)
           pat_attrs[k] = v unless v.nil?
         end
@@ -223,6 +223,13 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
       pat_attrs.each { |k, v| grp.set_attribute('InteriorPro', k, v) }
+      # Shower floor holes live on the floor like a window on a wall
+      # (2026-09-22) - cut again on every rebuild.
+      begin
+        InteriorPro::ShowerFloor.cut_floor!(grp) if defined?(InteriorPro::ShowerFloor)
+      rescue StandardError => e
+        puts "[Floors] shower hole: #{e.message}"
+      end
       grp
     rescue StandardError => e
       puts "[Floors] build_floor_for_room! failed: #{e.message}\n#{e.backtrace.first(3).join("\n")}"

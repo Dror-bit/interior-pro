@@ -67,6 +67,10 @@ end
     def initialize(a, b); @a = a; @b = b; end
     def start; Vertex.new(@a); end
     def end; Vertex.new(@b); end
+    # The faces an edge still borders (2026-09-22, rt202): the stub does
+    # not build faces from edges, so a test sets this itself.
+    attr_writer :faces
+    def faces; @faces || []; end
     def soft?; @soft == true; end
     def smooth?; @smooth == true; end
     def valid?; true; end
@@ -137,6 +141,34 @@ end
       a * s * s
     end
 
+    # A face knows where it is and whether a point is on it - the shower
+    # floor asks both when it looks for the room floor it was drawn on
+    # (2026-09-22, rt200).
+    PointInside  = 1 unless const_defined?(:PointInside, false)
+    PointOutside = 16 unless const_defined?(:PointOutside, false)
+
+    def bounds
+      bb = Geom::BoundingBox.new
+      @points.each { |p| bb.add(p) }
+      bb
+    end
+
+    def classify_point(pt)
+      pts = @points
+      return PointOutside if pts.length < 3
+      x = pt.x.to_f; y = pt.y.to_f
+      inside = false
+      j = pts.length - 1
+      pts.each_with_index do |p, i|
+        q = pts[j]
+        dy = q.y - p.y
+        dy = 1.0e-12 if dy.abs < 1.0e-12
+        inside = !inside if ((p.y > y) != (q.y > y)) && (x < (q.x - p.x) * (y - p.y) / dy + p.x)
+        j = i
+      end
+      inside ? PointInside : PointOutside
+    end
+
     # Where the outline sits, for tests that check heights.
     def z_range
       zs = @points.map(&:z)
@@ -163,6 +195,7 @@ end
     end
     def add_curve(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     def add_line(a, b); e = Edge.new(a, b); @list << e; e; end
+    def add_edges(pts); pts.each_cons(2).map { |a, b| e = Edge.new(a, b); @list << e; e }; end
     # Real SketchUp REFUSES a face with a repeated point - "Duplicate
     # points in array" - and a builder that swallows that raise loses
     # every face after it. The stub used to accept them silently, so
