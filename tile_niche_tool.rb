@@ -5,7 +5,7 @@
 # החלונות - פותחים את הכפתור ואז יש תפריט לאורך לגובה ולעומק, גובה
 # הניצ מהריצפה, ואז ממקמים את הניץ עם ריבוע רפאים"). So:
 #   1. the button opens ONE window: width, height, depth, height off the
-#      floor - 12 x 24, 4" deep, 48" up the first time,
+#      floor - 36 x 18, 4" deep, 42" up the first time (his numbers),
 #   2. a GHOST box follows the mouse along the wall face, green where it
 #      fits and red where it would run into a wall or out of the top,
 #   3. a click cuts it, and the tool stays on for the next one, like the
@@ -22,7 +22,8 @@ module InteriorPro
   class TileNicheTool < TileWallTool
     GHOST_OUT = 1.0 unless const_defined?(:GHOST_OUT, false)
     def self.last
-      @last ||= { w: 12.0, h: 24.0, depth: InteriorPro::TileNiche::DEFAULT_DEPTH, sill: 48.0 }
+      # His numbers (2026-09-22): 36" wide, 18" tall, 42" off the floor.
+      @last ||= { w: 36.0, h: 18.0, depth: InteriorPro::TileNiche::DEFAULT_DEPTH, sill: 42.0 }
     end
 
     # Where the niche would sit, held by its middle. PURE.

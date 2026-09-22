@@ -17,8 +17,8 @@ def ok(n, c, x = nil)
 end
 
 T = InteriorPro::TileNicheTool
-ok('his first sizes: 12 x 24, 4" deep, 48" up',
-   T.last == { w: 12.0, h: 24.0, depth: 4.0, sill: 48.0 }, T.last)
+ok('his first sizes: 36 x 18, 4" deep, 42" up',
+   T.last == { w: 36.0, h: 18.0, depth: 4.0, sill: 42.0 }, T.last)
 ok('the mouse holds the MIDDLE of the niche', T.ghost_u0(30.0, 12.0) == 24.0)
 ok('fits in the middle of a clear wall', T.fits?(24.0, 12.0, 48.0, 24.0, 0.0, 96.0, 96.0))
 ok('red when it runs into the wall at the start', !T.fits?(-1.0, 12.0, 48.0, 24.0, 0.0, 96.0, 96.0))
@@ -31,6 +31,16 @@ ok('the tool owns no niche maths - it hands over to TileNiche',
    File.read('./tile_niche_tool.rb').include?('InteriorPro::TileNiche.add!'))
 ok('the drag is gone - it is placed, not dragged',
    !File.read('./tile_niche_tool.rb').include?('@first = p'))
+
+# ---- the bar (his words: "קו בין הכפתורים לכפתורים האחרים באותו הסרגל")
+BAR = File.read('./toolbar.rb')
+SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
+ok('the niche is on the surfaces bar', SURF.include?("UI::Command.new('Niche')"))
+ok('after a separator line', SURF.index('tb.add_separator').to_i > SURF.index('tile_edit_cmd]').to_i)
+ok('and AFTER the old buttons, never in the middle of their list',
+   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]'))
+ok('added by name, so a reload cannot duplicate it', SURF.include?('on_bar.include?'))
+ok('the one-day separate bar is hidden', BAR.include?("'Interior Pro Niche'].each"))
 
 puts($fails.zero? ? 'rt193 OK' : "rt193 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
