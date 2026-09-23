@@ -1,22 +1,22 @@
-TIME 2026-09-06 14:30:38 -0700
+TIME 2026-09-22 17:25:54 -0700
 model: claud cold
 a leftover under 20.0% of a tile is waste - never paired
 
-Room 1  -  Hardwood  -  2128.4 sq ft
-   tile 24x48
-     whole tiles               207
-     cut pieces                 68  (from 68 tiles, 0 taken from offcuts)
-     pieces under 20%            0  (each one its own tile)
-     TILES TO BUY              275
-   one tile is 24 x 48, covers 24.25 x 48.25 = 8.1254 sq ft
-   pattern None, joint 0.25"
-
-Bathroom 2  -  Hardwood  -  713.0 sq ft
+Room 1  -  Hardwood  -  330.9 sq ft
    tile 48x24
-     whole tiles                75
-     cut pieces                 30  (from 15 tiles, 15 taken from offcuts)
-     pieces under 20%           14  (each one its own tile)
-     TILES TO BUY              104
-   one tile is 48 x 24, covers 48 x 24 = 8.0000 sq ft
-   pattern Tile
+     whole tiles                26
+     cut pieces                 25  (from 18 tiles, 7 taken from offcuts)
+     pieces under 20%            3  (each one its own tile)
+     TILES TO BUY               47
+   one tile is 48 x 24, covers 48.5 x 24.5 = 8.2517 sq ft
+   pattern Tile, joint 0.5"
+
+Room 2 - Shower  -  Poetry Stone 24" x 48" Satin Porcelain Deco in Ivory  -  20.5 sq ft
+   tile 48x24
+     whole tiles                 0
+     cut pieces                  3  (from 3 tiles, 0 taken from offcuts)
+     pieces under 20%            0  (each one its own tile)
+     TILES TO BUY                3
+   one tile is 48 x 24, covers 48.1875 x 24.1875 = 8.0940 sq ft
+   pattern Tile, joint 0.1875"
 

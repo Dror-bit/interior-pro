@@ -113,6 +113,20 @@ module InteriorPro
                   note: '' }
       end
 
+      # EACH SHOWER IS A FLOOR OF ITS OWN (2026-09-22); the room's floor
+      # above is already net of its showers (area_sqft on the slab).
+      by['shower_floor'].each do |f|
+        rid = f.get_attribute('InteriorPro', 'room_id').to_s
+        rows << { kind: 'floor',
+                  name: "#{rooms[rid] || rid} - Shower",
+                  category: '', face: '',
+                  material: f.get_attribute('InteriorPro', 'floor_type').to_s,
+                  sqft: f.get_attribute('InteriorPro', 'area_sqft').to_f.round(2),
+                  unit: unit_text(f.get_attribute('InteriorPro', 'unit_l'),
+                                  f.get_attribute('InteriorPro', 'unit_w')),
+                  note: 'shower' }
+      end
+
       by['wall'].each do |w|
         id = w.get_attribute('InteriorPro', 'id').to_s
         gross = w.get_attribute('InteriorPro', 'gross_area_sqft').to_f

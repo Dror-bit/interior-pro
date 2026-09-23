@@ -92,5 +92,10 @@ pad3 = SF.build!(loop2, 0.0, settings: SD.defaults.merge('same_room' => true), m
 ok('same-as-room in that room still builds', pad3.respond_to?(:entities), pad3)
 ok('and it is TILES, not one face', pad3.respond_to?(:entities) && SF.tiles_of(pad3.get_attribute('InteriorPro', 'id'), m2).length == 1)
 ok('with the measured numbers on the pad', pad3.respond_to?(:entities) && pad3.get_attribute('InteriorPro', 'unit_w') == 24.0)
+# THE ROOM'S JOINTS RUN ON: the room's tiles start at x = 0, 24.125, 48.25 -
+# so inside the shower (x 10..58) a joint must sit at 24 / 24.125 and 48.25.
+t3 = SF.tiles_of(pad3.get_attribute('InteriorPro', 'id'), m2).first
+xs3 = t3 ? t3.entities.grep(Sketchup::Edge).flat_map { |e| [e.a.x, e.b.x] }.map { |v| v.round(3) }.uniq.sort : []
+ok('the shower joints continue the room joints', xs3.any? { |x| (x - 24.0).abs < 0.2 } && xs3.any? { |x| (x - 48.25).abs < 0.2 }, xs3)
 
 exit($fails.zero? ? 0 : 1)

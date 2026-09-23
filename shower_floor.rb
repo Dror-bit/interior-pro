@@ -260,13 +260,51 @@ module InteriorPro
       xs = faces.flat_map { |f| span.call(f, :x).map { |v| v.round(3) } }.uniq.sort
       gaps = xs.each_cons(2).map { |a, b| (b - a).round(3) }.select { |g| g > 0.02 && g < 1.0 }
       out['grout'] = gaps.empty? ? 0.0 : gaps.min
+      # WHERE THE JOINTS ARE (2026-09-22, "צריך להמשיך גם את הקווים של
+      # הגראוט"): the shower's grid is pushed so a joint passes where the
+      # room's joints are. Measured on his room: NO whole tile exists (a
+      # 48x24 tile in a 42 sq ft bath is always cut), so the anchor is the
+      # most common tile-start, modulo the pitch, over EVERY piece - a cut
+      # piece still starts (or ends) on a joint.
+      pw = out['unit_w'].to_f + out['grout'].to_f
+      pl = out['unit_l'].to_f + out['grout'].to_f
+      residue = lambda do |vals, pitch|
+        next nil if pitch <= 0.25 || vals.empty?
+        vals.map { |v| (v % pitch).round(2) }.group_by { |v| v }.max_by { |_v, g| g.length }[0]
+      end
+      xs_start = faces.flat_map { |f| a, b = span.call(f, :x); [a, b + out['grout'].to_f] }
+      ys_start = faces.flat_map { |f| a, b = span.call(f, :y); [a, b + out['grout'].to_f] }
+      ax = residue.call(xs_start, pw)
+      ay = residue.call(ys_start, pl)
+      if ax && ay
+        out['anchor_x'] = ax
+        out['anchor_y'] = ay
+      end
       grout_face = pat.entities.grep(Sketchup::Face).find { |f| f.valid? && f.material && f.material.name.to_s.start_with?('InteriorPro_Grout_') }
       out['grout_color'] = grout_face.material.name.to_s.sub('InteriorPro_Grout_', '').downcase if grout_face
       trace("room tile measured: #{out.inspect}")
       out
     rescue StandardError => e
+      trace("room_settings raised #{e.class}: #{e.message} #{e.backtrace.first}")
       puts "[ShowerFloor] room_settings: #{e.message}"
       {}
+    end
+
+    # The name the count shows for the shower's floor.
+    def self.floor_type_name(settings, tile, src)
+      if settings && !settings['same_room']
+        id = settings['material_card_id'].to_s
+        if !id.empty? && defined?(InteriorPro::MaterialLibrary)
+          card = (InteriorPro::MaterialLibrary.cards.find { |c| c['id'].to_s == id } rescue nil)
+          return card['name'].to_s if card
+        end
+        return settings['texture'].to_s unless settings['texture'].to_s.empty?
+        return settings['pattern'].to_s
+      end
+      t = src && src.valid? ? src.get_attribute('InteriorPro', 'floor_type').to_s : ''
+      t.empty? ? tile.to_s : t
+    rescue StandardError
+      tile.to_s
     end
 
     # The shower's OWN tile material: the card first, the texture next.
@@ -459,7 +497,27 @@ module InteriorPro
       holes << loop_xy
       floor_grp.set_attribute('InteriorPro', 'shower_holes',
                               holes.flat_map { |h| [h.length.to_f] + h.flatten })
+      refresh_area!(floor_grp)
       holes.length
+    end
+
+    # TWO FLOORS IN THE COUNT (2026-09-22, his choice "2"): the room's
+    # floor is the room minus its showers, and each shower is a floor of
+    # its own. The room's gross area is kept once; area_sqft is the net.
+    def self.refresh_area!(floor_grp)
+      return unless floor_grp && floor_grp.valid?
+      gross = floor_grp.get_attribute('InteriorPro', 'gross_area_sqft')
+      if gross.nil?
+        gross = floor_grp.get_attribute('InteriorPro', 'area_sqft').to_f
+        floor_grp.set_attribute('InteriorPro', 'gross_area_sqft', gross)
+      end
+      taken = holes_of(floor_grp).sum { |h| area_sqft(h) }
+      net = [gross.to_f - taken, 0.0].max
+      floor_grp.set_attribute('InteriorPro', 'area_sqft', net.round(2))
+      net
+    rescue StandardError => e
+      puts "[ShowerFloor] refresh_area!: #{e.message}"
+      nil
     end
 
     # Called by FloorManager at the end of every slab build.
@@ -467,6 +525,7 @@ module InteriorPro
       return 0 unless USE_SHOWER_FLOOR && floor_grp && floor_grp.valid?
       holes = holes_of(floor_grp)
       holes.each { |h| cut_out!(floor_grp, h, nil) }
+      refresh_area!(floor_grp)
       holes.length
     rescue StandardError => e
       puts "[ShowerFloor] cut_floor!: #{e.message}"
@@ -728,6 +787,7 @@ module InteriorPro
         return nil
       end
       kind = 'flat' unless KINDS.include?(kind.to_s)
+      trace("build! kind #{kind} tile #{tile} settings #{settings ? settings.reject { |k, _| %w[spec grout_spec].include?(k) }.inspect : 'none'}")
       unders = floors_under(loop_xy, floor_z, model)
       pats = unders.select { |g| g.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' }
       slab = slab_of(unders) || (pats.first && floor_of_pattern(pats.first, model))
@@ -755,6 +815,14 @@ module InteriorPro
         got = room_settings(src || floor_grp, pats.first, model)
         if got['pattern'].to_s == 'Tile' && (got['unit_w'].to_f > 0.25) && (!got['material_card_id'].to_s.empty? || !got['texture'].to_s.empty?)
           settings = settings.merge(got).merge('same_room' => false)
+          if got['anchor_x']
+            xs = loop_xy.map { |x, _y| x }
+            ys = loop_xy.map { |_x, y| y }
+            settings['ox'] = got['anchor_x'].to_f - xs.min
+            settings['oy'] = got['anchor_y'].to_f - ys.min
+            settings['center'] = false
+            settings['angle'] = 0.0
+          end
           tile = OWN_TILE
           puts '[ShowerFloor] the room has no floor settings - its tile was measured and laid as the shower\'s own'
         end
@@ -857,7 +925,10 @@ module InteriorPro
       src = grp if own
       grp.set_attribute('InteriorPro', 'room_id', floor_grp && floor_grp.get_attribute('InteriorPro', 'room_id'))
       grp.set_attribute('InteriorPro', 'area_sqft', area_sqft(loop_xy))
+      # What the count calls it: its own card / texture, or the room's.
+      grp.set_attribute('InteriorPro', 'floor_type', floor_type_name(settings, tile, src))
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      trace("build! own #{own ? 'yes' : 'no'} lay #{lay ? 'yes' : 'no'} src #{src ? src.get_attribute('InteriorPro', 'type') : 'none'} pad_top #{pad_top.round(3)} mat #{mat && mat.name}")
       if lay
         sp = begin
           InteriorPro::FloorPattern.build_for_floor!(src, clip: loop_xy, base_z: pad_top,
@@ -866,6 +937,7 @@ module InteriorPro
           puts "[ShowerFloor] shower tiles: #{e.message}"
           nil
         end
+        trace("build! tiles #{sp ? 'laid' : 'NOT laid'}")
         if sp
           grp.set_attribute('InteriorPro', 'tiles', 'room')
         else
@@ -876,6 +948,7 @@ module InteriorPro
       end
       grp
     rescue StandardError => e
+      trace("build! raised #{e.class}: #{e.message} #{e.backtrace.first(2).join(' | ')}")
       puts "[ShowerFloor] build! failed: #{e.class}: #{e.message}"
       puts e.backtrace.first(4).join("\n")
       nil

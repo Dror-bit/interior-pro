@@ -40,9 +40,11 @@ module InteriorPro
         bound = room.get_attribute(DICT, 'studio_room_name').to_s
         nm = bound.empty? ? room.get_attribute(DICT, 'name').to_s : bound
         out << { name: nm,
+                 room_id: rid,
                  type: g.get_attribute(DICT, 'floor_type').to_s,
                  area: g.get_attribute(DICT, 'area_sqft').to_f,
                  poly: outline(room.get_attribute(DICT, 'boundary_xy')),
+                 holes: (defined?(InteriorPro::ShowerFloor) ? InteriorPro::ShowerFloor.holes_of(g) : []),
                  tw: g.get_attribute(DICT, 'unit_w').to_f,
                  tl: g.get_attribute(DICT, 'unit_l').to_f,
                  grout: g.get_attribute(DICT, 'pattern_grout').to_f,
@@ -51,6 +53,36 @@ module InteriorPro
                  angle: g.get_attribute(DICT, 'pattern_angle').to_f,
                  centered: g.get_attribute(DICT, 'pattern_center') ? true : false,
                  pattern: g.get_attribute(DICT, 'pattern').to_s }
+      end
+      # EACH SHOWER IS A FLOOR OF ITS OWN (2026-09-22, his choice "2"). Its
+      # tile numbers are its own when it has them, the room floor's when it
+      # runs the room's tile on.
+      floors_by_room = {}
+      out.each { |f| floors_by_room[f[:room_id]] = f }
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid?
+        next unless g.get_attribute(DICT, 'type').to_s == 'shower_floor'
+        rid = g.get_attribute(DICT, 'room_id').to_s
+        room = rooms[rid]
+        base = floors_by_room[rid] || {}
+        own = g.get_attribute(DICT, 'tile').to_s != 'Same as the room floor' &&
+              !g.get_attribute(DICT, 'pattern').to_s.empty?
+        src = own ? g : nil
+        nm = room ? (room.get_attribute(DICT, 'studio_room_name').to_s.empty? ? room.get_attribute(DICT, 'name').to_s : room.get_attribute(DICT, 'studio_room_name').to_s) : rid
+        out << { name: "#{nm} - Shower",
+                 type: g.get_attribute(DICT, 'floor_type').to_s,
+                 area: g.get_attribute(DICT, 'area_sqft').to_f,
+                 poly: outline(g.get_attribute(DICT, 'poly_xy')),
+                 holes: [],
+                 tw: src ? src.get_attribute(DICT, 'unit_w').to_f : base[:tw].to_f,
+                 tl: src ? src.get_attribute(DICT, 'unit_l').to_f : base[:tl].to_f,
+                 grout: src ? src.get_attribute(DICT, 'pattern_grout').to_f : base[:grout].to_f,
+                 ox: src ? src.get_attribute(DICT, 'pattern_ox').to_f : base[:ox].to_f,
+                 oy: src ? src.get_attribute(DICT, 'pattern_oy').to_f : base[:oy].to_f,
+                 angle: src ? src.get_attribute(DICT, 'pattern_angle').to_f : base[:angle].to_f,
+                 centered: src ? (src.get_attribute(DICT, 'pattern_center') ? true : false) : (base[:centered] ? true : false),
+                 pattern: src ? src.get_attribute(DICT, 'pattern').to_s : base[:pattern].to_s,
+                 shower: true }
       end
       out.sort_by { |f| -f[:area] }
     end
