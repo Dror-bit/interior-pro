@@ -30,6 +30,24 @@ module InteriorPro
     # Kill switch: false = "Line up with the wall joints" is ignored and the
     # shower's grid is laid as before (2026-09-22).
     USE_WALL_JOINTS = true unless const_defined?(:USE_WALL_JOINTS, false)
+    # Kill switch: false = no drain is built and the tiles stay whole
+    # (2026-09-22).
+    USE_DRAIN = true unless const_defined?(:USE_DRAIN, false)
+    # THE DRAIN (2026-09-22, his spec). The floor stays flat ("אני לא צריך
+    # את זה לדיזיין"). Step 1: the SQUARE drain with a grate, 5" x 5" by
+    # default, in the middle of the shower floor. The tiles are laid with
+    # a hole for it (like the shower hole in the room floor) and the drain
+    # sits in the hole, flush with the tile top.
+    DEFAULT_DRAIN_W = 5.0 unless const_defined?(:DEFAULT_DRAIN_W, false)
+    GRATE_FRAME = 0.375 unless const_defined?(:GRATE_FRAME, false) # the rim round the holes
+    GRATE_HOLE = 0.375 unless const_defined?(:GRATE_HOLE, false)   # one square hole
+    GRATE_BAR = 0.25 unless const_defined?(:GRATE_BAR, false)      # metal between two holes
+    GRATE_DEPTH = 0.25 unless const_defined?(:GRATE_DEPTH, false)  # how deep the holes read
+    # The tile-insert drain (his picture, 2026-09-22): a thin steel frame
+    # with the shower's own tile in the middle, flush.
+    TILE_RIM = 0.25 unless const_defined?(:TILE_RIM, false)
+    # The drains that sit in the middle of the floor.
+    CENTER_DRAINS = %w[square square_tile].freeze unless const_defined?(:CENTER_DRAINS, false)
     # THE CURB (2026-09-22, his choice "1"): 4" wide, INSIDE the line he
     # drew, only on the sides with no wall behind them. Its height is the
     # window's Curb height, over the bathroom floor.
@@ -245,7 +263,137 @@ module InteriorPro
       (0...n).reject { |i| walled[i] }.map { |i| [lp[i], lp[(i + 1) % n], inner[(i + 1) % n], inner[i]] }
     end
 
+    # The middle of the floor by AREA (not the average of the corners, which
+    # drifts toward the side with more corners). PURE (tests/rt211).
+    def self.area_centroid(pts)
+      p = clean_loop(pts)
+      return nil if p.length < 3
+      a2 = 0.0; cx = 0.0; cy = 0.0
+      p.each_with_index do |(x1, y1), i|
+        x2, y2 = p[(i + 1) % p.length]
+        cr = x1 * y2 - x2 * y1
+        a2 += cr
+        cx += (x1 + x2) * cr
+        cy += (y1 + y2) * cr
+      end
+      return centroid(p) if a2.abs < 1.0e-9
+      [cx / (3.0 * a2), cy / (3.0 * a2)]
+    end
+
+    # The drain's outline: w along x, l along y, round its middle,
+    # counter-clockwise. PURE.
+    def self.drain_rect(cx, cy, w, l)
+      hw = w.to_f / 2.0; hl = l.to_f / 2.0
+      [[cx - hw, cy - hl], [cx + hw, cy - hl], [cx + hw, cy + hl], [cx - hw, cy + hl]]
+    end
+
+    # The grate's square holes, as [x0, y0, x1, y1] from the drain's low
+    # corner: as many as fit inside the rim, the pattern centred. PURE.
+    def self.grate_holes(w, l, frame = GRATE_FRAME, hole = GRATE_HOLE, bar = GRATE_BAR)
+      fit = lambda do |len|
+        inner = len.to_f - 2.0 * frame
+        n = ((inner + bar) / (hole + bar)).floor
+        next [] if n < 1
+        used = n * hole + (n - 1) * bar
+        s = frame + (inner - used) / 2.0
+        (0...n).map { |k| s + k * (hole + bar) }
+      end
+      fit.call(w).product(fit.call(l)).map { |x, y| [x, y, x + hole, y + hole] }
+    end
+
     # ---- the model ------------------------------------------------------
+
+    def self.drains_of(shower_id, model = nil)
+      return [] if shower_id.nil?
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'shower_drain' &&
+          g.get_attribute('InteriorPro', 'shower_id') == shower_id
+      end
+    end
+
+    def self.drain_material(model)
+      name = 'InteriorPro_Drain_Steel'
+      m = model.materials[name]
+      return m if m
+      m = model.materials.add(name)
+      m.color = Sketchup::Color.new(196, 198, 200)
+      m
+    end
+
+    # The square drain with a grate: a steel body filling its hole in the
+    # floor, its top flush with the tile top, the grate holes pushed down
+    # into that top. In a group of its own.
+    #
+    # kind 'square_tile': no holes - a frame TILE_RIM wide, and inside it
+    # the shower's own tile (tile_mat), flush.
+    def self.build_drain!(rect, z, model, shower_id, kind, depth = 0.0, tile_mat = nil)
+      g = model.entities.add_group
+      g.name = 'InteriorPro_ShowerDrain'
+      begin
+        InteriorPro.assign_tag(g, 'IP/Floors')
+      rescue StandardError => e
+        puts "[ShowerFloor] drain: no tag: #{e.message}"
+      end
+      mat = drain_material(model)
+      plate = begin
+        g.entities.add_face(rect.map { |x, y| Geom::Point3d.new(x, y, z) })
+      rescue StandardError => e
+        puts "[ShowerFloor] the drain plate could not be drawn: #{e.message}"
+        nil
+      end
+      if plate.nil?
+        g.erase! if g.valid?
+        return nil
+      end
+      plate.reverse! if plate.normal.z < 0
+      plate.pushpull(-depth.to_f) if depth.to_f > 0.01
+      x0 = rect.map { |x, _y| x }.min
+      y0 = rect.map { |_x, y| y }.min
+      w = rect.map { |x, _y| x }.max - x0
+      l = rect.map { |_x, y| y }.max - y0
+      made = 0
+      insert = nil
+      if kind == 'square_tile'
+        r = TILE_RIM
+        if w > 2 * r + 0.25 && l > 2 * r + 0.25
+          insert = begin
+            g.entities.add_face([[r, r], [w - r, r], [w - r, l - r], [r, l - r]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
+          rescue StandardError => e
+            puts "[ShowerFloor] the drain's tile could not be drawn: #{e.message}"
+            nil
+          end
+        else
+          puts "[ShowerFloor] drain #{w} x #{l} is too small for a tile inside its frame"
+        end
+      end
+      (kind == 'square_tile' ? [] : grate_holes(w, l)).each do |a, b, c, d|
+        f = begin
+          g.entities.add_face([[a, b], [c, b], [c, d], [a, d]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
+        rescue StandardError => e
+          puts "[ShowerFloor] a grate hole could not be drawn: #{e.message}"
+          nil
+        end
+        next unless f
+        f.reverse! if f.normal.z < 0
+        f.pushpull(-GRATE_DEPTH)
+        made += 1
+      end
+      g.entities.grep(Sketchup::Face).each { |f| f.material = mat }
+      if insert
+        insert.reverse! if insert.normal.z < 0
+        insert.material = tile_mat || mat
+        insert.back_material = nil
+      end
+      g.set_attribute('InteriorPro', 'type', 'shower_drain')
+      g.set_attribute('InteriorPro', 'shower_id', shower_id)
+      g.set_attribute('InteriorPro', 'drain', kind)
+      g.set_attribute('InteriorPro', 'poly_xy', rect.flatten)
+      g.set_attribute('InteriorPro', 'top_z', z.to_f)
+      g.set_attribute('InteriorPro', 'depth', depth.to_f)
+      trace("drain: #{kind} #{w.round(3)} x #{l.round(3)} at #{rect.first.map { |v| v.round(3) }.inspect} z #{z.round(3)}, #{made} grate hole(s)#{insert ? ", tile inside: #{(tile_mat || mat).name}" : ''}")
+      g
+    end
 
     # THE WALL'S GROUT LINES (2026-09-22, his ask: with a curb, the shower
     # floor can line up with the WALL joints instead of the bathroom
@@ -1023,6 +1171,7 @@ module InteriorPro
         oid = old.get_attribute('InteriorPro', 'id')
         tiles_of(oid, model).each(&:erase!)
         curbs_of(oid, model).each(&:erase!)
+        drains_of(oid, model).each(&:erase!)
         old.erase!
       end
       # The room's tile is read BEFORE the layout is rebuilt round the
@@ -1149,6 +1298,21 @@ module InteriorPro
       # Tiles sit LINE_Z over their base, exactly as in the room - so the
       # pad under them drops by that much and the tile top stays level.
       pad_top = lay ? top - InteriorPro::FloorPattern::LINE_Z : top
+      # THE DRAIN (2026-09-22): its outline is known before the pad and the
+      # tiles are built, so both are built WITH a hole for it - like a
+      # window in a wall (his words: "שהדריין יחתוך את הריצפה ויעשה שם חור
+      # כמו חלון בקיר"), never cut afterwards.
+      drain = settings && USE_DRAIN ? settings['drain'].to_s : 'none'
+      drain_rect_xy = nil
+      if CENTER_DRAINS.include?(drain)
+        dw = settings['drain_w'].to_f > 0.25 ? settings['drain_w'].to_f : DEFAULT_DRAIN_W
+        dl = settings['drain_l'].to_f > 0.25 ? settings['drain_l'].to_f : DEFAULT_DRAIN_W
+        c = area_centroid(floor_xy)
+        drain_rect_xy = drain_rect(c[0], c[1], dw, dl) if c
+        puts '[ShowerFloor] no middle found for the drain - not built' unless drain_rect_xy
+      elsif !%w[none].include?(drain) && !drain.empty?
+        puts "[ShowerFloor] drain '#{drain}' is not built yet"
+      end
       face = begin
         grp.entities.add_face(floor_xy.map { |x, y| Geom::Point3d.new(x, y, pad_top) })
       rescue StandardError => e
@@ -1158,6 +1322,23 @@ module InteriorPro
       if face.nil?
         grp.erase! if grp.valid?
         return nil
+      end
+      if drain_rect_xy
+        # the hole: drawn on the face (which splits it) and taken away, so
+        # the pad is pushed down with an opening right through it
+        inner = begin
+          grp.entities.add_face(drain_rect_xy.map { |x, y| Geom::Point3d.new(x, y, pad_top) })
+        rescue StandardError => e
+          puts "[ShowerFloor] the drain hole could not be drawn on the pad: #{e.message}"
+          nil
+        end
+        if inner && inner != face
+          grp.entities.erase_entities([inner])
+        else
+          puts '[ShowerFloor] the drain hole did not split the pad - the pad is whole under the drain'
+        end
+        face = grp.entities.grep(Sketchup::Face).find { |f| f.valid? } || face
+        trace("drain: hole #{inner && inner != face ? 'opened' : 'NOT opened'} in the pad")
       end
       face.pushpull(face.normal.z > 0 ? -th : th)
       mat = own ? own_material(model, settings) : material(model, tile, floor_grp, room_mat)
@@ -1196,11 +1377,15 @@ module InteriorPro
       # What the count calls it: its own card / texture, or the room's.
       grp.set_attribute('InteriorPro', 'floor_type', floor_type_name(settings, tile, src))
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
+      grp.set_attribute('InteriorPro', 'drain', drain.empty? ? 'none' : drain)
+      grp.set_attribute('InteriorPro', 'drain_w', settings ? settings['drain_w'].to_f : 0.0)
+      grp.set_attribute('InteriorPro', 'drain_l', settings ? settings['drain_l'].to_f : 0.0)
       trace("build! own #{own ? 'yes' : 'no'} lay #{lay ? 'yes' : 'no'} src #{src ? src.get_attribute('InteriorPro', 'type') : 'none'} pad_top #{pad_top.round(3)} mat #{mat && mat.name}")
       if lay
         sp = begin
           InteriorPro::FloorPattern.build_for_floor!(src, clip: floor_xy, base_z: pad_top,
-                                                     shower_id: grp.get_attribute('InteriorPro', 'id'))
+                                                     shower_id: grp.get_attribute('InteriorPro', 'id'),
+                                                     holes: drain_rect_xy ? [drain_rect_xy] : nil)
         rescue StandardError => e
           puts "[ShowerFloor] shower tiles: #{e.message}"
           nil
@@ -1219,6 +1404,15 @@ module InteriorPro
       curb_room = settings && settings['curb_room'] ? true : false
       grp.set_attribute('InteriorPro', 'curb_room', curb_room)
       grp.set_attribute('InteriorPro', 'wall_joints', wall_joints)
+      if drain_rect_xy
+        # It fills its hole like a window: from the pad's bottom up to the
+        # finished top (the tile top; the pad top when there are no tiles).
+        tiles_on = lay && grp.get_attribute('InteriorPro', 'tiles') == 'room'
+        lifted = lay && !tiles_on ? InteriorPro::FloorPattern::LINE_Z : 0.0 # tiles failed: pad lifted
+        dz = tiles_on ? pad_top + InteriorPro::FloorPattern::LINE_Z : pad_top + lifted
+        bottom = pad_top + lifted - th
+        build_drain!(drain_rect_xy, dz, model, grp.get_attribute('InteriorPro', 'id'), drain, dz - bottom, mat)
+      end
       unless curb_pc.empty?
         curb_mat = curb_room ? (room_mat || material(model, SAME_AS_ROOM, floor_grp)) : mat
         trace("curb: wears #{curb_room ? 'the bathroom floor' : 'the shower floor'} - #{curb_mat && curb_mat.name}")

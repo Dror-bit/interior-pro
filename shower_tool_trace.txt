@@ -247,3 +247,34 @@
 20:23:41   build! tiles laid
 20:23:41   curb: wears the shower floor - Stucco
 20:23:41   curb: 1 of 1 built, 4.0" tall from z 0.05
+20:40:30   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"square", "drain_w"=>5, "drain_l"=>5, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+20:40:30   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+20:40:30   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+20:40:30   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+20:40:30   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+20:40:30   wall joints: side 1 TW028 along x -> [-465.087]
+20:40:30   wall joints: side 2 TW034 along y -> [367.459]
+20:40:30   wall joints: side 3 TW032 along x -> [-465.118]
+20:40:30   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+20:40:30   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+20:40:30   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+20:40:30   build! tiles laid
+20:40:30   drain: square 5.0 x 5.0 at [-465.618, 364.959] z 1.05, 49 grate hole(s)
+20:40:30   curb: wears the shower floor - Stucco
+20:40:30   curb: 1 of 1 built, 4.0" tall from z 0.05
+20:45:28   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"square", "drain_w"=>5, "drain_l"=>5, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+20:45:28   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+20:45:28   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+20:45:28   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+20:45:28   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+20:45:28   wall joints: side 1 TW028 along x -> [-465.087]
+20:45:28   wall joints: side 2 TW034 along y -> [367.459]
+20:45:28   wall joints: side 3 TW032 along x -> [-464.119]
+20:45:28   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+20:45:28   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+20:45:28   drain: hole opened in the pad
+20:45:28   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+20:45:28   build! tiles laid
+20:45:28   drain: square 5.0 x 5.0 at [-465.618, 364.959] z 1.05, 49 grate hole(s)
+20:45:28   curb: wears the shower floor - Stucco
+20:45:28   curb: 1 of 1 built, 4.0" tall from z 0.05

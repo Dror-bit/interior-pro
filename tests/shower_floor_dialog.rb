@@ -18,20 +18,19 @@ module InteriorPro
   module ShowerFloorDialog
     KEYS = %w[kind rise curb_h same_room pattern unit_w unit_l ox oy angle center
               texture grout grout_color stagger material_card_id spec grout_spec].freeze unless const_defined?(:KEYS, false)
-    # THE CURB IN THE BATHROOM'S TILE (2026-09-22, his ask: a shower with a
-    # tile of its own can still have its curb dressed like the bathroom
-    # floor). A constant of its own - KEYS is guarded, so adding to it
-    # would need a full SketchUp restart.
+    # The keys added on 2026-09-22 (the curb options and the drain).
     # The list lives in the method, not in a guarded constant: a guarded
     # constant keeps its first value through reload!, so a new key added
     # there would be dropped until SketchUp restarts.
     def self.all_keys
-      KEYS + %w[curb_room wall_joints]
+      KEYS + %w[curb_room wall_joints drain drain_w drain_l]
     end
 
     def self.defaults
       { 'kind' => 'flat', 'rise' => InteriorPro::ShowerFloor::DEFAULT_RISE,
         'curb_h' => InteriorPro::ShowerFloor::DEFAULT_CURB_H, 'curb_room' => false, 'wall_joints' => false, 'same_room' => true,
+        'drain' => 'none', 'drain_w' => InteriorPro::ShowerFloor::DEFAULT_DRAIN_W,
+        'drain_l' => InteriorPro::ShowerFloor::DEFAULT_DRAIN_W,
         'pattern' => 'Tile', 'unit_w' => 0, 'unit_l' => 0, 'ox' => 0, 'oy' => 0, 'angle' => 0,
         'center' => true, 'texture' => '', 'grout' => 0.125, 'grout_color' => 'light',
         'stagger' => 0, 'material_card_id' => '', 'spec' => '', 'grout_spec' => '' }
@@ -51,6 +50,9 @@ module InteriorPro
       d['curb_h'] = at.call('curb_h_in').to_f > 0 ? at.call('curb_h_in').to_f : d['curb_h']
       d['curb_room'] = at.call('curb_room') ? true : false
       d['wall_joints'] = at.call('wall_joints') ? true : false
+      d['drain'] = (at.call('drain') || 'none').to_s
+      d['drain_w'] = at.call('drain_w').to_f > 0 ? at.call('drain_w').to_f : d['drain_w']
+      d['drain_l'] = at.call('drain_l').to_f > 0 ? at.call('drain_l').to_f : d['drain_l']
       d['same_room'] = at.call('tile').to_s.empty? || at.call('tile').to_s == InteriorPro::ShowerFloor::SAME_AS_ROOM
       d['pattern'] = (at.call('pattern') || d['pattern']).to_s
       d['unit_w'] = at.call('unit_w').to_f
@@ -166,6 +168,15 @@ module InteriorPro
             <label><input type="checkbox" id="wall_joints"> Shower floor grout lines follow the walls, not the bathroom floor</label>
           </div>
           <div class="row">
+            Drain <select id="drain" style="width:150px;">
+              <option value="none">None</option>
+              <option value="square">Square, with a grate - middle</option>
+              <option value="square_tile">Square, tile inside - middle</option>
+            </select>
+            W <input type="number" id="drain_w" step="0.25" min="0">
+            L <input type="number" id="drain_l" step="0.25" min="0"> in
+          </div>
+          <div class="row">
             <label><input type="checkbox" id="same_room" onchange="sameChanged()"> Same as the room floor - the room's tile runs on into the shower</label>
           </div>
           <div id="tile">
@@ -261,6 +272,9 @@ module InteriorPro
               g('curb_h').value = D.curb_h;
               g('curb_room').checked = !!D.curb_room;
               g('wall_joints').checked = !!D.wall_joints;
+              g('drain').value = D.drain || 'none';
+              g('drain_w').value = D.drain_w;
+              g('drain_l').value = D.drain_l;
               g('same_room').checked = !!D.same_room;
               g('tx').innerHTML = textureOptions(D.texture);
               g('mc').innerHTML = cardOptions(D.material_card_id);
@@ -288,6 +302,9 @@ module InteriorPro
                 curb_h: parseFloat(g('curb_h').value) || 0,
                 curb_room: g('curb_room').checked,
                 wall_joints: g('wall_joints').checked,
+                drain: g('drain').value,
+                drain_w: parseFloat(g('drain_w').value) || 0,
+                drain_l: parseFloat(g('drain_l').value) || 0,
                 same_room: g('same_room').checked,
                 pattern: g('pat').value,
                 unit_w: parseFloat(g('pw').value) || 0,

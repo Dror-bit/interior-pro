@@ -64,7 +64,11 @@ module InteriorPro
     # ROOM (so it runs on without a jump), but only the part inside the
     # shower loop is laid, at base_z, in a group of its own tied to the
     # shower (shower_id). The room's own layout is not touched.
-    def self.build_for_floor!(floor, clip: nil, base_z: nil, shower_id: nil)
+    #
+    # holes: (shower layouts only, 2026-09-22) loops cut out of the shower
+    # tiles at build time - the drain sits in one.
+    def self.build_for_floor!(floor, clip: nil, base_z: nil, shower_id: nil, holes: nil)
+      clip_holes = Array(holes)
       fid = floor.get_attribute('InteriorPro', 'id')
       remove_for_floor!(fid) if clip.nil?
       pattern = (floor.get_attribute('InteriorPro', 'pattern') || 'None').to_s
@@ -151,7 +155,7 @@ module InteriorPro
       # "כמו חלון לקיר"). They are stored on the floor; every tile piece
       # is clipped round them here, at build time - not cut afterwards.
       holes = defined?(InteriorPro::ShowerFloor) ? InteriorPro::ShowerFloor.holes_of(floor) : []
-      holes = [] if clip
+      holes = clip_holes if clip
 
       model = Sketchup.active_model
       grp = model.entities.add_group

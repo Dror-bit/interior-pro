@@ -6,3 +6,5 @@
 09:30:56 [TileWall] niche: 1 lined, 8 corner(s) of the wall tile bevelled, 8 tile(s) inside | area TW034 wall 6269165a side a tile 48.0x48.0 dp 0.625 | niche [166.28, 48.0, 202.28, 66.0] deep 4.0
 09:32:13 [TileWall] niche: 1 lined, 8 corner(s) of the wall tile bevelled, 8 tile(s) inside | area TW034 wall 6269165a side a tile 48.0x48.0 dp 0.625 | niche [160.28, 48.0, 208.28, 66.0] deep 4.0
 09:53:02 [TileWall] niche: 1 lined, 12 corner(s) of the wall tile bevelled, 12 tile(s) inside | area TW034 wall 6269165a side a tile 48.0x48.0 dp 0.625 | niche [166.52, 42.0, 202.52, 60.0] deep 4.0
+20:42:01 [TileWall] niche: 1 lined, 12 corner(s) of the wall tile bevelled, 12 tile(s) inside | area TW034 wall 6269165a side a tile 48.0x48.0 dp 0.625 | niche [166.52, 42.0, 202.52, 60.0] deep 4.0
+20:42:07 [TileWall] niche: 1 lined, 12 corner(s) of the wall tile bevelled, 12 tile(s) inside | area TW034 wall 6269165a side a tile 48.0x48.0 dp 0.625 | niche [166.52, 42.0, 202.52, 60.0] deep 4.0
