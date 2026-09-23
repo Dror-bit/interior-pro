@@ -46,9 +46,14 @@ module InteriorPro
     # The tile-insert drain (his picture, 2026-09-22 - "תעלת מתכת ולא פס
     # מתכת"): a thin steel lip, then a steel CHANNEL the water runs into,
     # then the shower's own tile in the middle, flush.
-    TILE_RIM = 0.125 unless const_defined?(:TILE_RIM, false)          # the lip, flush
-    TILE_CHANNEL = 0.1875 unless const_defined?(:TILE_CHANNEL, false) # the slot round the tile
-    TILE_CHANNEL_DEPTH = 0.5 unless const_defined?(:TILE_CHANNEL_DEPTH, false)
+    # Drawn from his picture (2026-09-23, "ככה זה צריך להיות"): a lip, a
+    # SHALLOW channel (the 1/2" one showed a dark shadow), and a thin steel
+    # rim round the tile - the edge of the tray the tile sits in.
+    # Not guarded, so a reload picks up a new number.
+    TILE_RIM = 0.125           # the outer lip, flush
+    TILE_CHANNEL = 0.125       # the slot the water runs into
+    TILE_CHANNEL_DEPTH = 0.125 # shallow - no dark shadow
+    TILE_INNER_RIM = 0.0625    # the tray's steel edge round the tile, flush
     # The drains that sit in the middle of the floor.
     CENTER_DRAINS = %w[square square_tile round].freeze unless const_defined?(:CENTER_DRAINS, false)
     # The round drain is a polygon of this many sides (the hole in the
@@ -349,8 +354,9 @@ module InteriorPro
     # into that top. In a group of its own.
     #
     # kind 'square_tile': no holes - a lip TILE_RIM wide, a channel
-    # TILE_CHANNEL wide pushed down TILE_CHANNEL_DEPTH, and inside it the
-    # shower's own tile (tile_mat), flush.
+    # TILE_CHANNEL wide pushed down TILE_CHANNEL_DEPTH, a steel rim
+    # TILE_INNER_RIM wide, and inside it the shower's own tile (tile_mat),
+    # flush.
     def self.build_drain!(rect, z, model, shower_id, kind, depth = 0.0, tile_mat = nil)
       g = model.entities.add_group
       g.name = 'InteriorPro_ShowerDrain'
@@ -382,15 +388,18 @@ module InteriorPro
       if kind == 'square_tile'
         r = TILE_RIM
         r2 = TILE_RIM + TILE_CHANNEL
+        r3 = r2 + TILE_INNER_RIM
         sq = lambda do |i|
           g.entities.add_face([[i, i], [w - i, i], [w - i, l - i], [i, l - i]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
         end
-        if w > 2 * r2 + 0.25 && l > 2 * r2 + 0.25
+        if w > 2 * r3 + 0.25 && l > 2 * r3 + 0.25
           begin
-            # the lip's inner edge, then the tile's edge: what is left
-            # between the two is the channel
+            # the lip's inner edge, the channel's inner edge, the tile's
+            # edge: the ring between the first two is the channel, the ring
+            # between the last two is the tray's steel rim
             channel = sq.call(r)
-            insert = sq.call(r2)
+            sq.call(r2)
+            insert = sq.call(r3)
           rescue StandardError => e
             puts "[ShowerFloor] the drain's channel / tile could not be drawn: #{e.message}"
           end

@@ -4787,3 +4787,231 @@
 03:54:29   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
 03:54:29   build! tiles laid
 03:54:29   drain: round 4.25 x 4.25 at [22.125, 30.0] z 0.0, 16 grate hole(s)
+23:24:50   build! kind curb tile Same as the room floor settings none
+23:24:50   round the loop: 
+23:24:50   loop [[0.0, 0.0], [60.0, 0.0], [60.0, 36.0], [0.0, 36.0]] middle [30.0, 18.0] z 100.0 found 0
+23:24:50   curb: sides walled [false, false, false, false] -> 4 curb piece(s), floor inside [[4.0, 4.0], [56.0, 4.0], [56.0, 32.0], [4.0, 32.0]]
+23:24:50   build! own no lay no src none pad_top 101.0 mat InteriorPro_ShowerFloor
+23:24:50   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:50   curb: 4 of 4 built, 4.0" tall from z 100.0
+23:24:50   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+23:24:50   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+23:24:50   under? floor  floor_id nil room room-7 middle no holes 0 -> no
+23:24:50   round the loop: 
+23:24:50   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0]] middle [540.0, 512.0] z 100.0 found 0
+23:24:50   build! kind flat tile Same as the room floor settings none
+23:24:50   under? floor  floor_id nil room room-7 middle yes holes 0 -> YES
+23:24:50   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+23:24:50   build! own no lay no src floor pad_top 100.0 mat RoomFloorTile
+23:24:50   build! kind flat tile Tile settings none
+23:24:50   under? floor  floor_id nil room room-7 middle yes holes 1 -> YES
+23:24:50   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 100.0 found 1
+23:24:50   build! own no lay no src floor pad_top 100.0 mat InteriorPro_Floor_Tile
+23:24:50   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+23:24:50   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+23:24:50   build! kind flat tile Same as the room floor settings none
+23:24:50   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+23:24:50   loop [[10.0, 10.0], [50.0, 10.0], [50.0, 26.0], [10.0, 26.0]] middle [30.0, 18.0] z 0.0 found 1
+23:24:50   build! own no lay no src none pad_top 0.1 mat Room2Tile
+23:24:50   build! kind flat tile Same as the room floor settings none
+23:24:50   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+23:24:50   round the loop: 
+23:24:50   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+23:24:50   build! kind curb tile Same as the room floor settings none
+23:24:50   under? floor  floor_id nil room room-7 middle no holes 1 -> no
+23:24:50   round the loop: 
+23:24:50   loop [[500.0, 500.0], [560.0, 500.0], [560.0, 536.0], [500.0, 536.0]] middle [530.0, 518.0] z 0.0 found 0
+23:24:50   curb: sides walled [false, false, false, false] -> 4 curb piece(s), floor inside [[504.0, 504.0], [556.0, 504.0], [556.0, 532.0], [504.0, 532.0]]
+23:24:50   build! own no lay no src none pad_top 1.0 mat InteriorPro_Floor_Hardwood
+23:24:50   curb: wears the shower floor - InteriorPro_Floor_Hardwood
+23:24:50   curb: 4 of 4 built, 4.0" tall from z 0.0
+23:24:50   build! kind flat tile Same as the room floor settings none
+23:24:50   under? floor floor-9 floor_id nil room room-9 middle yes holes 0 -> YES
+23:24:50   under? floor_pattern  floor_id "floor-9" room room-9 middle yes holes 0 -> YES
+23:24:50   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+23:24:50   build! own no lay no src floor pad_top 100.05 mat TileMat
+23:24:50   build! kind flat tile Same as the room floor settings none
+23:24:50   under? floor floor-9 floor_id nil room room-9 middle yes holes 1 -> YES
+23:24:50   under? floor_pattern  floor_id "floor-9" room  middle yes holes 0 -> YES
+23:24:50   under? floor_pattern  floor_id nil room  middle no holes 0 -> no
+23:24:50   loop [[12.0, 12.0], [50.0, 12.0], [50.0, 30.0], [12.0, 30.0]] middle [31.0, 21.0] z 100.0 found 2
+23:24:50   build! own no lay no src floor pad_top 100.05 mat GroutMat
+23:24:51   under? floor floor-9 floor_id nil room  middle no holes 1 -> YES
+23:24:51   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 2
+23:24:51   under? floor floor-9 floor_id nil room  middle no holes 1 -> no
+23:24:51   under? floor_pattern  floor_id "floor-9" room  middle no holes 0 -> no
+23:24:51   round the loop: 
+23:24:51   loop [[300.0, 300.0], [360.0, 300.0], [360.0, 336.0]] middle [340.0, 312.0] z 0.0 found 0
+23:24:51   under? floor_pattern  floor_id "floor-gone" room  middle no holes 0 -> no
+23:24:51   round the loop: 
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+23:24:51   under? floor_pattern  floor_id "floor-gone" room  middle no holes 1 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+23:24:51   round the loop: 
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 0
+23:24:51   under? floor_pattern  floor_id nil room room-2 middle no holes 0 -> no
+23:24:51   round the loop: floor_pattern room-2 2/4
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   build! kind flat tile Tile settings none
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   build! own no lay no src floor pad_top 0.0 mat InteriorPro_Floor_Tile
+23:24:51   build! kind curb tile Tile settings none
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   curb: sides walled [false, false, false, false] -> 4 curb piece(s), floor inside [[16.0, 16.0], [68.0, 16.0], [68.0, 44.0], [16.0, 44.0]]
+23:24:51   build! own no lay no src floor pad_top 1.5 mat InteriorPro_Floor_Tile
+23:24:51   curb: wears the shower floor - InteriorPro_Floor_Tile
+23:24:51   curb: 4 of 4 built, 4.0" tall from z 0.0
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   curb: sides walled [false, false, false, false] -> 4 curb piece(s), floor inside [[16.0, 16.0], [68.0, 16.0], [68.0, 44.0], [16.0, 44.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:51   curb: 4 of 4 built, 4.0" tall from z 0.0
+23:24:51   build! kind flat tile Same as the room floor settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   build! own no lay no src floor pad_top 0.0 mat InteriorPro_Floor_Hardwood
+23:24:51   room tile measured: {"pattern"=>"Tile", "material_card_id"=>"", "texture"=>"stone", "unit_w"=>24.0, "unit_l"=>24.0, "grout"=>0.125, "anchor_x"=>0.0, "anchor_y"=>0.0}
+23:24:51   build! kind flat tile Same as the room floor settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:51   under? floor_pattern  floor_id nil room room-2 middle yes holes 0 -> YES
+23:24:51   loop [[10.0, 10.0], [58.0, 10.0], [58.0, 58.0], [10.0, 58.0]] middle [34.0, 34.0] z 0.0 found 2
+23:24:51   room tile measured: {"pattern"=>"Tile", "material_card_id"=>"", "texture"=>"stone", "unit_w"=>24.0, "unit_l"=>24.0, "grout"=>0.125, "anchor_x"=>0.0, "anchor_y"=>0.0}
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.0 mat InteriorPro_Floor_Hardwood
+23:24:51   build! tiles laid
+23:24:51   build! kind flat tile Same as the room floor settings none
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   build! own no lay no src floor pad_top 0.0 mat InteriorPro_Floor_Hardwood
+23:24:51   build! kind flat tile Same as the room floor settings none
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:51   loop [[12.0, 12.0], [72.0, 12.0], [72.0, 48.0], [12.0, 48.0]] middle [42.0, 30.0] z 0.0 found 1
+23:24:51   build! own no lay no src floor pad_top 0.0 mat InteriorPro_Floor_Hardwood
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:51   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:51   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:51   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>true, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the bathroom floor - BathTile
+23:24:51   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   wall joints: side 1  along y -> [34.5]
+23:24:51   wall joints: side 2  along x -> [21.5]
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   wall joints: side 1  along y -> [34.5]
+23:24:51   wall joints: side 2  along x -> [21.5]
+23:24:51   wall joints: grid on x 21.5 y 34.5 -> ox 21.563 oy 34.563
+23:24:51   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:51   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:51   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:51   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:51   build! tiles laid
+23:24:51   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:51   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:51   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:51   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:51   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:51   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:52   loop [[0.0, 0.0], [43.0, 0.0], [43.0, 69.0], [0.0, 69.0]] middle [21.5, 34.5] z 0.0 found 1
+23:24:52   curb: sides walled [true, true, true, false] -> 1 curb piece(s), floor inside [[4.0, 0.0], [43.0, 0.0], [43.0, 69.0], [4.0, 69.0]]
+23:24:52   build! own yes lay yes src shower_floor pad_top 0.95 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   curb: wears the shower floor - InteriorPro_ShowerFloor
+23:24:52   curb: 1 of 1 built, 4.0" tall from z 0.0
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"square", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: square 5.0 x 5.0 at [17.5, 27.5] z 0.0, 49 grate hole(s)
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"square", "drain_w"=>6.0, "drain_l"=>4.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: square 6.0 x 4.0 at [17.0, 28.0] z 0.0, 40 grate hole(s)
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"none", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"square", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"square_tile", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: square_tile 5.0 x 5.0 at [17.5, 27.5] z 0.0, 0 grate hole(s), tile inside: InteriorPro_ShowerFloor, channel yes
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"round", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: round 5.0 x 5.0 at [22.5, 30.0] z 0.0, 29 grate hole(s)
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"round", "drain_w"=>4.25, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 1 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: round 4.25 x 4.25 at [22.125, 30.0] z 0.0, 16 grate hole(s)
+23:24:52   build! kind flat tile Own tile settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>false, "drain"=>"square_tile", "drain_w"=>5.0, "drain_l"=>5.0, "pattern"=>"Tile", "unit_w"=>12.0, "unit_l"=>12.0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+23:24:52   under? floor floor-1 floor_id nil room room-1 middle yes holes 0 -> YES
+23:24:52   loop [[0.0, 0.0], [40.0, 0.0], [40.0, 60.0], [0.0, 60.0]] middle [20.0, 30.0] z 0.0 found 1
+23:24:52   drain: hole opened in the pad
+23:24:52   build! own yes lay yes src shower_floor pad_top -0.05 mat InteriorPro_ShowerFloor
+23:24:52   build! tiles laid
+23:24:52   drain: square_tile 5.0 x 5.0 at [17.5, 27.5] z 0.0, 0 grate hole(s), tile inside: InteriorPro_ShowerFloor, channel yes

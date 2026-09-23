@@ -45,10 +45,13 @@ ok('no grate holes', fs.none? { |f| f.pushpulls == [-SF::GRATE_DEPTH] })
 pad_mat = pad.entities.grep(Sketchup::Face).first.material
 ins = fs.find { |f| f.material == pad_mat && f.material.name != 'InteriorPro_Drain_Steel' }
 ok('the middle wears the shower\'s own tile', !ins.nil?, fs.map { |f| f.material && f.material.name })
-ok('inside the lip (1/8") and the channel (3/16")', ins && ins.points.map(&:x).min == 17.8125 && ins.points.map(&:x).max == 22.1875 &&
+ok('inside the lip (1/8"), the channel (1/8") and the tray rim (1/16")', ins && ins.points.map(&:x).min == 17.8125 && ins.points.map(&:x).max == 22.1875 &&
    ins.points.map(&:y).min == 27.8125 && ins.points.map(&:y).max == 32.1875, ins && ins.points.map { |q| [q.x, q.y] })
 ch = fs.find { |f| f.pushpulls == [-SF::TILE_CHANNEL_DEPTH] }
-ok('a steel channel round the tile, pushed down 1/2" (not a flat strip)',
+rim = fs.find { |f| f.points.map(&:x).min == 17.75 && f.pushpulls.empty? }
+ok('a thin steel rim round the tile, flush (his picture)', rim && rim.material && rim.material.name == 'InteriorPro_Drain_Steel')
+ok('the channel is shallow (1/8"), so no dark shadow', SF::TILE_CHANNEL_DEPTH == 0.125)
+ok('a steel channel round the tile, pushed down (not a flat strip)',
    ch && ch.points.map(&:x).min == 17.625 && ch.material && ch.material.name == 'InteriorPro_Drain_Steel', ch && ch.points.map { |q| [q.x, q.y] })
 top = pad.get_attribute('InteriorPro', 'floor_level').to_f + InteriorPro::FloorPattern::LINE_Z
 ok('the tile is flush with the floor tiles', ins && ins.points.all? { |q| (q.z - top).abs < 1e-6 })
