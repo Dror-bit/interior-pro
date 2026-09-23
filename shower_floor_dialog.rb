@@ -18,10 +18,20 @@ module InteriorPro
   module ShowerFloorDialog
     KEYS = %w[kind rise curb_h same_room pattern unit_w unit_l ox oy angle center
               texture grout grout_color stagger material_card_id spec grout_spec].freeze unless const_defined?(:KEYS, false)
+    # THE CURB IN THE BATHROOM'S TILE (2026-09-22, his ask: a shower with a
+    # tile of its own can still have its curb dressed like the bathroom
+    # floor). A constant of its own - KEYS is guarded, so adding to it
+    # would need a full SketchUp restart.
+    # The list lives in the method, not in a guarded constant: a guarded
+    # constant keeps its first value through reload!, so a new key added
+    # there would be dropped until SketchUp restarts.
+    def self.all_keys
+      KEYS + %w[curb_room wall_joints]
+    end
 
     def self.defaults
       { 'kind' => 'flat', 'rise' => InteriorPro::ShowerFloor::DEFAULT_RISE,
-        'curb_h' => InteriorPro::ShowerFloor::DEFAULT_CURB_H, 'same_room' => true,
+        'curb_h' => InteriorPro::ShowerFloor::DEFAULT_CURB_H, 'curb_room' => false, 'wall_joints' => false, 'same_room' => true,
         'pattern' => 'Tile', 'unit_w' => 0, 'unit_l' => 0, 'ox' => 0, 'oy' => 0, 'angle' => 0,
         'center' => true, 'texture' => '', 'grout' => 0.125, 'grout_color' => 'light',
         'stagger' => 0, 'material_card_id' => '', 'spec' => '', 'grout_spec' => '' }
@@ -39,6 +49,8 @@ module InteriorPro
       d['kind'] = at.call('kind').to_s == 'curb' ? 'curb' : 'flat'
       d['rise'] = at.call('rise_in').to_f > 0 ? at.call('rise_in').to_f : d['rise']
       d['curb_h'] = at.call('curb_h_in').to_f > 0 ? at.call('curb_h_in').to_f : d['curb_h']
+      d['curb_room'] = at.call('curb_room') ? true : false
+      d['wall_joints'] = at.call('wall_joints') ? true : false
       d['same_room'] = at.call('tile').to_s.empty? || at.call('tile').to_s == InteriorPro::ShowerFloor::SAME_AS_ROOM
       d['pattern'] = (at.call('pattern') || d['pattern']).to_s
       d['unit_w'] = at.call('unit_w').to_f
@@ -93,7 +105,7 @@ module InteriorPro
                                width: 470, height: 300, resizable: true)
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
-        cfg = defaults.merge(cfg.select { |k, _| KEYS.include?(k) })
+        cfg = defaults.merge(cfg.select { |k, _| all_keys.include?(k) })
         cfg['rise'] = cfg['rise'].to_f
         cfg['curb_h'] = cfg['curb_h'].to_f
         if cfg['rise'] <= 0.0 || cfg['curb_h'] <= 0.0
@@ -142,12 +154,16 @@ module InteriorPro
         </style></head><body>
           <div class="section-title">Shower Floor</div>
           <div class="row first">
-            Shower floor <select id="kind" style="width:150px;">
+            Shower floor <select id="kind" style="width:150px;" onchange="kindChanged()">
               <option value="flat">Flat - same height as the room</option>
               <option value="curb">Raised, with a curb</option>
             </select>
             Raised by <input type="number" id="rise" step="0.25" min="0"> in
             Curb height <input type="number" id="curb_h" step="0.25" min="0"> in
+          </div>
+          <div class="row" id="curbRow">
+            <label><input type="checkbox" id="curb_room"> Curb same as the bathroom floor</label><br>
+            <label><input type="checkbox" id="wall_joints"> Shower floor grout lines follow the walls, not the bathroom floor</label>
           </div>
           <div class="row">
             <label><input type="checkbox" id="same_room" onchange="sameChanged()"> Same as the room floor - the room's tile runs on into the shower</label>
@@ -226,6 +242,12 @@ module InteriorPro
               if (b && TEXTURES[b]) { img.src = TEXTURES[b]; img.style.display = 'inline-block'; }
               else { img.style.display = 'none'; }
             }
+            // The curb's own options show only when there IS a curb
+            // (2026-09-22, his words: "אופציה שנפתחת שאני מסמן ללכת עם סכר").
+            function kindChanged() {
+              document.getElementById('curbRow').style.display =
+                document.getElementById('kind').value === 'curb' ? '' : 'none';
+            }
             function sameChanged() {
               var same = document.getElementById('same_room').checked;
               var box = document.getElementById('tile');
@@ -237,6 +259,8 @@ module InteriorPro
               g('kind').value = D.kind;
               g('rise').value = D.rise;
               g('curb_h').value = D.curb_h;
+              g('curb_room').checked = !!D.curb_room;
+              g('wall_joints').checked = !!D.wall_joints;
               g('same_room').checked = !!D.same_room;
               g('tx').innerHTML = textureOptions(D.texture);
               g('mc').innerHTML = cardOptions(D.material_card_id);
@@ -254,6 +278,7 @@ module InteriorPro
               g('gs').value = D.grout_spec || '';
               textureChanged();
               sameChanged();
+              kindChanged();
             }
             function okAll() {
               var g = function(id) { return document.getElementById(id); };
@@ -261,6 +286,8 @@ module InteriorPro
                 kind: g('kind').value,
                 rise: parseFloat(g('rise').value) || 0,
                 curb_h: parseFloat(g('curb_h').value) || 0,
+                curb_room: g('curb_room').checked,
+                wall_joints: g('wall_joints').checked,
                 same_room: g('same_room').checked,
                 pattern: g('pat').value,
                 unit_w: parseFloat(g('pw').value) || 0,

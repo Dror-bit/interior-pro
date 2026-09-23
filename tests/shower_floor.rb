@@ -24,6 +24,19 @@ module InteriorPro
     # Kill switch: false = "Same as the room floor" is one plain face again,
     # no real tiles on the shower (2026-09-22).
     USE_SHOWER_TILES = true unless const_defined?(:USE_SHOWER_TILES, false)
+    # Kill switch: false = the raised floor gets no curb and keeps its
+    # whole loop, exactly as before (2026-09-22).
+    USE_CURB = true unless const_defined?(:USE_CURB, false)
+    # Kill switch: false = "Line up with the wall joints" is ignored and the
+    # shower's grid is laid as before (2026-09-22).
+    USE_WALL_JOINTS = true unless const_defined?(:USE_WALL_JOINTS, false)
+    # THE CURB (2026-09-22, his choice "1"): 4" wide, INSIDE the line he
+    # drew, only on the sides with no wall behind them. Its height is the
+    # window's Curb height, over the bathroom floor.
+    CURB_W = 4.0 unless const_defined?(:CURB_W, false)
+    # How far out past a side we look for a wall (the tile skin on his
+    # walls is 0.6" thick, the wall right behind it).
+    WALL_PROBE = 0.5 unless const_defined?(:WALL_PROBE, false)
 
     # The same window the walls use (CLAUDE.md, "זווית ישרה מנצחת").
     ORTHO_SNAP_DEG = 12.0 unless const_defined?(:ORTHO_SNAP_DEG, false)
@@ -165,7 +178,217 @@ module InteriorPro
       clean_loop(out)
     end
 
+    # The outward normal of each side of the loop (unit), whichever way
+    # round it was drawn. PURE.
+    def self.out_normals(lp)
+      area2 = 0.0
+      lp.each_with_index { |(x1, y1), i| x2, y2 = lp[(i + 1) % lp.length]; area2 += x1 * y2 - x2 * y1 }
+      sgn = area2 >= 0 ? 1.0 : -1.0 # counter-clockwise: outside is to the right
+      lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        len = Math.hypot(x2 - x1, y2 - y1)
+        len < 1.0e-9 ? [0.0, 0.0] : [(y2 - y1) / len * sgn, -(x2 - x1) / len * sgn]
+      end
+    end
+
+    # WHICH SIDES HAVE A WALL BEHIND THEM (2026-09-22, his rule: "הדפנות
+    # שנוגעות בקיר לא מקבלות סכר"). A point WALL_PROBE out past the middle
+    # of each side is tested against the walls' floor boxes
+    # [xmin, ymin, xmax, ymax]. true = wall, no curb. PURE (tests/rt209).
+    def self.wall_sides(loop_xy, boxes, probe = WALL_PROBE)
+      lp = clean_loop(loop_xy)
+      return [] if lp.length < 3
+      ns = out_normals(lp)
+      lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        px = (x1 + x2) / 2.0 + ns[i][0] * probe
+        py = (y1 + y2) / 2.0 + ns[i][1] * probe
+        Array(boxes).any? { |x0, y0, xa, ya| px >= x0 - 1.0e-6 && px <= xa + 1.0e-6 && py >= y0 - 1.0e-6 && py <= ya + 1.0e-6 }
+      end
+    end
+
+    # The loop with each side pulled IN by its own distance (0 = stays
+    # where he drew it). Corner i is where the pulled lines of the side
+    # before it and the side after it meet - so two curbs meeting at a
+    # corner share one 45 degree cut, and a curb running into a wall
+    # ends flush on the wall's line. PURE (tests/rt209).
+    def self.inset_loop(loop_xy, dists)
+      lp = clean_loop(loop_xy)
+      n = lp.length
+      return lp if n < 3
+      ns = out_normals(lp)
+      lines = lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % n]
+        d = dists[i].to_f
+        [x1 - ns[i][0] * d, y1 - ns[i][1] * d, x2 - x1, y2 - y1]
+      end
+      lp.each_index.map do |i|
+        ax, ay, ux, uy = lines[(i - 1) % n]
+        bx, by, vx, vy = lines[i]
+        den = ux * vy - uy * vx
+        if den.abs < 1.0e-9
+          [bx, by] # the two sides run straight on - no corner to meet at
+        else
+          t = ((bx - ax) * vy - (by - ay) * vx) / den
+          [ax + ux * t, ay + uy * t]
+        end
+      end
+    end
+
+    # One curb piece per open side: the side he drew, and the same side
+    # pulled in. PURE.
+    def self.curb_pieces(loop_xy, walled, width = CURB_W)
+      lp = clean_loop(loop_xy)
+      return [] if lp.length < 3
+      inner = inset_loop(lp, walled.map { |w| w ? 0.0 : width.to_f })
+      n = lp.length
+      (0...n).reject { |i| walled[i] }.map { |i| [lp[i], lp[(i + 1) % n], inner[(i + 1) % n], inner[i]] }
+    end
+
     # ---- the model ------------------------------------------------------
+
+    # THE WALL'S GROUT LINES (2026-09-22, his ask: with a curb, the shower
+    # floor can line up with the WALL joints instead of the bathroom
+    # floor's). Every edge position of the wall's tiles along the wall,
+    # sorted; two edges exactly one grout apart are a joint, and its
+    # middle is returned. Measured on his walls: 48x48 tiles, 1/8" grout,
+    # one joint in the middle of each wall. PURE (tests/rt210).
+    def self.joints_from_edges(coords, grout, tol = 0.03)
+      g = grout.to_f
+      return [] if g <= 0.0
+      cs = Array(coords).map(&:to_f).uniq.sort
+      cs.each_cons(2).select { |a, b| ((b - a) - g).abs <= tol }.map { |a, b| (a + b) / 2.0 }
+    end
+
+    # For each axis, the joint to line the shower up with: from the tile
+    # wall behind the LONGEST side running along that axis, the joint
+    # nearest the middle of that side. `walls` is one entry per side:
+    # nil (no tile wall) or the joints along it. PURE (tests/rt210).
+    def self.pick_anchors(loop_xy, side_joints)
+      lp = clean_loop(loop_xy)
+      out = { 'x' => nil, 'y' => nil }
+      best = { 'x' => -1.0, 'y' => -1.0 }
+      lp.each_with_index do |(x1, y1), i|
+        js = side_joints[i]
+        next if js.nil? || js.empty?
+        x2, y2 = lp[(i + 1) % lp.length]
+        ax = (x2 - x1).abs >= (y2 - y1).abs ? 'x' : 'y'
+        len = Math.hypot(x2 - x1, y2 - y1)
+        next unless len > best[ax]
+        mid = ax == 'x' ? (x1 + x2) / 2.0 : (y1 + y2) / 2.0
+        best[ax] = len
+        out[ax] = js.min_by { |j| (j - mid).abs }
+      end
+      out
+    end
+
+    # Every face of a group, however deep, with its world transformation.
+    def self.faces_deep(ents, tr, out = [])
+      ents.each do |e|
+        if e.is_a?(Sketchup::Face)
+          out << [e, tr]
+        elsif e.is_a?(Sketchup::Group)
+          faces_deep(e.entities, tr * e.transformation, out)
+        elsif e.is_a?(Sketchup::ComponentInstance)
+          faces_deep(e.definition.entities, tr * e.transformation, out)
+        end
+      end
+      out
+    end
+
+    # The joints of the tile wall behind each side of the loop - MEASURED
+    # off the tiles themselves, so it works for whatever tile each shower
+    # has on its walls.
+    def self.wall_joints_by_side(loop_xy, model = nil)
+      model ||= Sketchup.active_model
+      lp = clean_loop(loop_xy)
+      ns = out_normals(lp)
+      skins = model.entities.grep(Sketchup::Group).select { |g| g.valid? && g.get_attribute('InteriorPro', 'type').to_s == 'tile_wall' }
+      lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        px = (x1 + x2) / 2.0 + ns[i][0] * WALL_PROBE
+        py = (y1 + y2) / 2.0 + ns[i][1] * WALL_PROBE
+        along_x = (x2 - x1).abs >= (y2 - y1).abs
+        skin = skins.find do |g|
+          b = g.bounds
+          px >= b.min.x - 1.0e-6 && px <= b.max.x + 1.0e-6 && py >= b.min.y - 1.0e-6 && py <= b.max.y + 1.0e-6
+        rescue StandardError
+          false
+        end
+        next nil unless skin
+        faces = faces_deep(skin.entities, skin.transformation).select do |f, t|
+          next false unless f.valid?
+          next false if f.material && f.material.name.to_s.start_with?('InteriorPro_Grout_')
+          n = f.normal.transform(t)
+          along_x ? n.y.abs > 0.9 : n.x.abs > 0.9
+        end
+        coords = faces.flat_map { |f, t| f.vertices.map { |v| q = v.position.transform(t); (along_x ? q.x : q.y).to_f.round(4) } }
+        js = joints_from_edges(coords, skin.get_attribute('InteriorPro', 'pattern_grout').to_f)
+        trace("wall joints: side #{i} #{skin.get_attribute('InteriorPro', 'id')} along #{along_x ? 'x' : 'y'} -> #{js.map { |j| j.round(3) }.inspect}")
+        js
+      end
+    rescue StandardError => e
+      trace("wall_joints_by_side raised #{e.class}: #{e.message} #{e.backtrace.first}")
+      puts "[ShowerFloor] wall joints: #{e.message}"
+      []
+    end
+
+    # The floor boxes of every wall and tile skin in the model.
+    def self.wall_boxes(model = nil)
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).map do |g|
+        next nil unless g.valid? && %w[wall tile_wall].include?(g.get_attribute('InteriorPro', 'type').to_s)
+        begin
+          b = g.bounds
+          [b.min.x.to_f, b.min.y.to_f, b.max.x.to_f, b.max.y.to_f]
+        rescue StandardError => e
+          puts "[ShowerFloor] wall box skipped (#{g.get_attribute('InteriorPro', 'id')}): #{e.message}"
+          nil
+        end
+      end.compact
+    end
+
+    # The curbs standing on one shower floor.
+    def self.curbs_of(shower_id, model = nil)
+      return [] if shower_id.nil?
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).select do |g|
+        g.valid? && g.get_attribute('InteriorPro', 'type') == 'shower_curb' &&
+          g.get_attribute('InteriorPro', 'shower_id') == shower_id
+      end
+    end
+
+    # Each curb piece in a group of its own (CLAUDE.md: every board in its
+    # own group), standing on the bathroom floor, curb_h tall.
+    def self.build_curbs!(pieces, base_z, curb_h, mat, shower_id, model)
+      pieces.each_with_index.map do |pc, i|
+        g = model.entities.add_group
+        g.name = 'InteriorPro_ShowerCurb'
+        begin
+          InteriorPro.assign_tag(g, 'IP/Floors')
+        rescue StandardError => e
+          puts "[ShowerFloor] curb: no tag: #{e.message}"
+        end
+        f = begin
+          g.entities.add_face(pc.map { |x, y| Geom::Point3d.new(x, y, base_z) })
+        rescue StandardError => e
+          puts "[ShowerFloor] curb #{i} could not be drawn: #{e.message}"
+          nil
+        end
+        if f.nil?
+          g.erase! if g.valid?
+          next nil
+        end
+        f.pushpull(f.normal.z > 0 ? curb_h : -curb_h)
+        g.entities.grep(Sketchup::Face).each { |x| x.material = mat } if mat
+        g.set_attribute('InteriorPro', 'type', 'shower_curb')
+        g.set_attribute('InteriorPro', 'shower_id', shower_id)
+        g.set_attribute('InteriorPro', 'poly_xy', pc.flatten)
+        g.set_attribute('InteriorPro', 'base_z', base_z.to_f)
+        g.set_attribute('InteriorPro', 'height_in', curb_h.to_f)
+        g
+      end.compact
+    end
 
     # The tile layout laid on one shower floor.
     def self.tiles_of(shower_id, model = nil)
@@ -762,7 +985,7 @@ module InteriorPro
     # Build the floor he drew.
     #   kind 'flat' - a hole in the room floor, the pad dead level in it.
     #   kind 'curb' - the pad `rise` above the room floor (the curb round
-    #                 it is the next step).
+    #                 it: CURB_W inside the line, open sides only).
     OWN_TILE = 'Own tile' unless const_defined?(:OWN_TILE, false)
 
     # settings: the window's numbers (ShowerFloorDialog.KEYS). With them,
@@ -799,6 +1022,7 @@ module InteriorPro
         next unless same_loop?(op, loop_xy)
         oid = old.get_attribute('InteriorPro', 'id')
         tiles_of(oid, model).each(&:erase!)
+        curbs_of(oid, model).each(&:erase!)
         old.erase!
       end
       # The room's tile is read BEFORE the layout is rebuilt round the
@@ -825,6 +1049,36 @@ module InteriorPro
           end
           tile = OWN_TILE
           puts '[ShowerFloor] the room has no floor settings - its tile was measured and laid as the shower\'s own'
+        end
+      end
+      # LINE UP WITH THE WALL JOINTS (2026-09-22, his ask, an option that
+      # only comes with a curb): the shower floor's grout lines run on
+      # from the tile walls round it, not from the bathroom floor. The
+      # joint is measured off each shower's own walls.
+      wall_joints = settings && kind == 'curb' && settings['wall_joints'] ? true : false
+      if wall_joints && USE_WALL_JOINTS
+        settings = settings.dup # never change the caller's numbers
+        if settings['same_room']
+          got = room_settings(src || floor_grp, pats.first, model)
+          if got['pattern'].to_s == 'Tile' && got['unit_w'].to_f > 0.25
+            settings = settings.merge(got).merge('same_room' => false)
+            tile = OWN_TILE
+          end
+        end
+        an = pick_anchors(loop_xy, wall_joints_by_side(loop_xy, model))
+        if settings['same_room']
+          trace('wall joints: the room tile could not be read - grid left as it was')
+          puts '[ShowerFloor] the room tile could not be read - the shower grid is left as it was'
+        elsif an['x'] && an['y']
+          half = settings['grout'].to_f / 2.0
+          settings['ox'] = an['x'] + half - loop_xy.map { |x, _y| x }.min
+          settings['oy'] = an['y'] + half - loop_xy.map { |_x, y| y }.min
+          settings['center'] = false
+          settings['angle'] = 0.0
+          trace("wall joints: grid on x #{an['x'].round(3)} y #{an['y'].round(3)} -> ox #{settings['ox'].round(3)} oy #{settings['oy'].round(3)}")
+        else
+          trace("wall joints: not found on both axes #{an.inspect} - grid left as it was")
+          puts '[ShowerFloor] no wall grout line found on both directions - the shower grid is left as it was'
         end
       end
       own = settings && !settings['same_room'] && settings['pattern'].to_s != 'None' && !settings['pattern'].to_s.empty?
@@ -867,9 +1121,23 @@ module InteriorPro
         end
         th = deep > 0.05 ? deep : 0.5
       else
-        top = finished_top(unders, floor_z) + rise.to_f
+        room_top = finished_top(unders, floor_z)
+        top = room_top + rise.to_f
         th = rise.to_f
         th = 0.25 if th < 0.25
+      end
+      # THE CURB (2026-09-22, his choice "1": inside the line). The sides
+      # with no wall behind them get a 4" curb; the pad and its tiles
+      # shrink to what is left inside the curb, so the two never run
+      # into each other (CLAUDE.md: boards meet).
+      floor_xy = loop_xy
+      curb_pc = []
+      if kind == 'curb' && USE_CURB
+        walled = wall_sides(loop_xy, wall_boxes(model))
+        curb_pc = curb_pieces(loop_xy, walled)
+        floor_xy = inset_loop(loop_xy, walled.map { |w| w ? 0.0 : CURB_W })
+        trace("curb: sides walled #{walled.inspect} -> #{curb_pc.length} curb piece(s), floor inside #{floor_xy.map { |x, y| [x.round(3), y.round(3)] }.inspect}")
+        puts '[ShowerFloor] every side has a wall behind it - no curb built' if curb_pc.empty?
       end
       grp = model.entities.add_group
       grp.name = 'InteriorPro_ShowerFloor'
@@ -882,7 +1150,7 @@ module InteriorPro
       # pad under them drops by that much and the tile top stays level.
       pad_top = lay ? top - InteriorPro::FloorPattern::LINE_Z : top
       face = begin
-        grp.entities.add_face(loop_xy.map { |x, y| Geom::Point3d.new(x, y, pad_top) })
+        grp.entities.add_face(floor_xy.map { |x, y| Geom::Point3d.new(x, y, pad_top) })
       rescue StandardError => e
         puts "[ShowerFloor] add_face failed: #{e.message}"
         nil
@@ -931,7 +1199,7 @@ module InteriorPro
       trace("build! own #{own ? 'yes' : 'no'} lay #{lay ? 'yes' : 'no'} src #{src ? src.get_attribute('InteriorPro', 'type') : 'none'} pad_top #{pad_top.round(3)} mat #{mat && mat.name}")
       if lay
         sp = begin
-          InteriorPro::FloorPattern.build_for_floor!(src, clip: loop_xy, base_z: pad_top,
+          InteriorPro::FloorPattern.build_for_floor!(src, clip: floor_xy, base_z: pad_top,
                                                      shower_id: grp.get_attribute('InteriorPro', 'id'))
         rescue StandardError => e
           puts "[ShowerFloor] shower tiles: #{e.message}"
@@ -945,6 +1213,18 @@ module InteriorPro
           puts '[ShowerFloor] shower tiles were not laid - the pad is lifted back to the room level'
           grp.transform!(Geom::Transformation.translation(Geom::Vector3d.new(0, 0, InteriorPro::FloorPattern::LINE_Z)))
         end
+      end
+      # "Curb same as the bathroom floor" (2026-09-22, his ask): the curb
+      # wears the room's tile, whatever tile the shower floor has.
+      curb_room = settings && settings['curb_room'] ? true : false
+      grp.set_attribute('InteriorPro', 'curb_room', curb_room)
+      grp.set_attribute('InteriorPro', 'wall_joints', wall_joints)
+      unless curb_pc.empty?
+        curb_mat = curb_room ? (room_mat || material(model, SAME_AS_ROOM, floor_grp)) : mat
+        trace("curb: wears #{curb_room ? 'the bathroom floor' : 'the shower floor'} - #{curb_mat && curb_mat.name}")
+        made = build_curbs!(curb_pc, room_top, curb_h.to_f, curb_mat, grp.get_attribute('InteriorPro', 'id'), model)
+        grp.set_attribute('InteriorPro', 'curb_count', made.length)
+        trace("curb: #{made.length} of #{curb_pc.length} built, #{curb_h.to_f}\" tall from z #{room_top.round(3)}")
       end
       grp
     rescue StandardError => e

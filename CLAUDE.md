@@ -316,11 +316,10 @@ its ends run into, and is it cut to end exactly there?
 ומתגלה רק כשמישהו בונה קומה שנייה. כל חישוב שמערבב bounds עם גיאומטריה
 פנימית — לבדוק אותו על קיר עם `base_z` שאינו אפס.
 
-## הצעד הנוכחי: רצפת מקלחת (2026-09-22 ד')
+## הצעד הנוכחי: רצפת מקלחת (2026-09-22 ה')
 
-חלון משלה + אריחים אמיתיים + עריכה **נסגרו** ("אוקי זה טוב"). קרא
-`HANDOFF_2026-09-22D.md`. נשאר: שטח המקלחת מול שטח החדר, ואז הרצפה
-המורמת (סכר ואז ביובים).
+חלון משלה + אריחים אמיתיים + עריכה + שטחים **נסגרו**. **הסכר נסגר**
+("ניראה מעולה!!") — קרא `HANDOFF_2026-09-22E.md`. נשאר: **הביובים**.
 
 ## חוק: כלי חדש = העתקה של חלון/כלי קיים, שדה-שדה (2026-09-22)
 
@@ -395,6 +394,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 ## Kill switches (turn a feature off without deleting it)
 
+- `InteriorPro::ShowerFloor::USE_CURB = false` - the raised shower floor
+  gets no curb and keeps its whole loop (2026-09-22, `tests/rt209.rb`).
+- `InteriorPro::ShowerFloor::USE_WALL_JOINTS = false` - "grout lines follow
+  the walls" is ignored; the shower grid is laid as before (`tests/rt210.rb`).
 - `InteriorPro::TileNiche::USE_NICHES = false` - no niche is cut; the
   stored numbers stay on the wall (2026-09-22, `tests/rt192.rb`).
 - `InteriorPro::SkylightManager::USE_SKYLIGHTS = false` - no skylight can
