@@ -316,10 +316,15 @@ its ends run into, and is it cut to end exactly there?
 ומתגלה רק כשמישהו בונה קומה שנייה. כל חישוב שמערבב bounds עם גיאומטריה
 פנימית — לבדוק אותו על קיר עם `base_z` שאינו אפס.
 
-## הצעד הנוכחי: רצפת מקלחת (2026-09-22 ה')
+## הצעד הנוכחי: רצפת מקלחת (2026-09-23)
 
-חלון משלה + אריחים אמיתיים + עריכה + שטחים **נסגרו**. **הסכר נסגר**
-("ניראה מעולה!!") — קרא `HANDOFF_2026-09-22E.md`. נשאר: **הביובים**.
+חלון משלה + אריחים + עריכה + שטחים + **הסכר** + **הביובים שבאמצע** (מרובע,
+מרובע עם אריח ותעלה, עגול) — **כולם נסגרו**. קרא `HANDOFF_2026-09-22E.md`.
+הביוב הארוך ליד קיר נבנה (רשימת קירות, 2" מהקיר, rt215) — הרשת אושרה, הסוג עם האריח עוד לא נבדק.
+
+חוק מהסבב הזה: חור **קמור** בפריסת אריחים נחתך בבת אחת, לא במשולשים —
+משולשים יוצרים רסיסים שנזרקים והרובה הלבנה נראית (`pieces_minus_holes`,
+rt214).
 
 ## חוק: כלי חדש = העתקה של חלון/כלי קיים, שדה-שדה (2026-09-22)
 
@@ -403,6 +408,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 - `InteriorPro::ShowerFloor::USE_CURB = false` - the raised shower floor
   gets no curb and keeps its whole loop (2026-09-22, `tests/rt209.rb`).
+- `InteriorPro::ShowerFloor::USE_DRAIN = false` - no drain is built and the
+  shower tiles and pad stay whole (2026-09-22, `tests/rt211.rb`).
 - `InteriorPro::ShowerFloor::USE_WALL_JOINTS = false` - "grout lines follow
   the walls" is ignored; the shower grid is laid as before (`tests/rt210.rb`).
 - `InteriorPro::TileNiche::USE_NICHES = false` - no niche is cut; the
