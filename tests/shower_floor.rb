@@ -43,9 +43,12 @@ module InteriorPro
     GRATE_HOLE = 0.375 unless const_defined?(:GRATE_HOLE, false)   # one square hole
     GRATE_BAR = 0.25 unless const_defined?(:GRATE_BAR, false)      # metal between two holes
     GRATE_DEPTH = 0.25 unless const_defined?(:GRATE_DEPTH, false)  # how deep the holes read
-    # The tile-insert drain (his picture, 2026-09-22): a thin steel frame
-    # with the shower's own tile in the middle, flush.
-    TILE_RIM = 0.25 unless const_defined?(:TILE_RIM, false)
+    # The tile-insert drain (his picture, 2026-09-22 - "תעלת מתכת ולא פס
+    # מתכת"): a thin steel lip, then a steel CHANNEL the water runs into,
+    # then the shower's own tile in the middle, flush.
+    TILE_RIM = 0.125 unless const_defined?(:TILE_RIM, false)          # the lip, flush
+    TILE_CHANNEL = 0.1875 unless const_defined?(:TILE_CHANNEL, false) # the slot round the tile
+    TILE_CHANNEL_DEPTH = 0.5 unless const_defined?(:TILE_CHANNEL_DEPTH, false)
     # The drains that sit in the middle of the floor.
     CENTER_DRAINS = %w[square square_tile].freeze unless const_defined?(:CENTER_DRAINS, false)
     # THE CURB (2026-09-22, his choice "1"): 4" wide, INSIDE the line he
@@ -325,8 +328,9 @@ module InteriorPro
     # floor, its top flush with the tile top, the grate holes pushed down
     # into that top. In a group of its own.
     #
-    # kind 'square_tile': no holes - a frame TILE_RIM wide, and inside it
-    # the shower's own tile (tile_mat), flush.
+    # kind 'square_tile': no holes - a lip TILE_RIM wide, a channel
+    # TILE_CHANNEL wide pushed down TILE_CHANNEL_DEPTH, and inside it the
+    # shower's own tile (tile_mat), flush.
     def self.build_drain!(rect, z, model, shower_id, kind, depth = 0.0, tile_mat = nil)
       g = model.entities.add_group
       g.name = 'InteriorPro_ShowerDrain'
@@ -354,14 +358,27 @@ module InteriorPro
       l = rect.map { |_x, y| y }.max - y0
       made = 0
       insert = nil
+      channel = nil
       if kind == 'square_tile'
         r = TILE_RIM
-        if w > 2 * r + 0.25 && l > 2 * r + 0.25
-          insert = begin
-            g.entities.add_face([[r, r], [w - r, r], [w - r, l - r], [r, l - r]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
+        r2 = TILE_RIM + TILE_CHANNEL
+        sq = lambda do |i|
+          g.entities.add_face([[i, i], [w - i, i], [w - i, l - i], [i, l - i]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
+        end
+        if w > 2 * r2 + 0.25 && l > 2 * r2 + 0.25
+          begin
+            # the lip's inner edge, then the tile's edge: what is left
+            # between the two is the channel
+            channel = sq.call(r)
+            insert = sq.call(r2)
           rescue StandardError => e
-            puts "[ShowerFloor] the drain's tile could not be drawn: #{e.message}"
-            nil
+            puts "[ShowerFloor] the drain's channel / tile could not be drawn: #{e.message}"
+          end
+          if channel && insert && channel != insert
+            channel.reverse! if channel.normal.z < 0
+            channel.pushpull(-TILE_CHANNEL_DEPTH)
+          else
+            puts '[ShowerFloor] the drain channel did not come out - the tile sits in a flat frame'
           end
         else
           puts "[ShowerFloor] drain #{w} x #{l} is too small for a tile inside its frame"
@@ -391,7 +408,7 @@ module InteriorPro
       g.set_attribute('InteriorPro', 'poly_xy', rect.flatten)
       g.set_attribute('InteriorPro', 'top_z', z.to_f)
       g.set_attribute('InteriorPro', 'depth', depth.to_f)
-      trace("drain: #{kind} #{w.round(3)} x #{l.round(3)} at #{rect.first.map { |v| v.round(3) }.inspect} z #{z.round(3)}, #{made} grate hole(s)#{insert ? ", tile inside: #{(tile_mat || mat).name}" : ''}")
+      trace("drain: #{kind} #{w.round(3)} x #{l.round(3)} at #{rect.first.map { |v| v.round(3) }.inspect} z #{z.round(3)}, #{made} grate hole(s)#{insert ? ", tile inside: #{(tile_mat || mat).name}, channel #{channel ? 'yes' : 'no'}" : ''}")
       g
     end
 
