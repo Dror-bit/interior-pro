@@ -34,27 +34,21 @@ module InteriorPro
         return
       end
       at = lambda { |k| pad.get_attribute('InteriorPro', k) }
-      # The window opens on THIS floor's numbers, not the last ones typed.
-      InteriorPro::ShowerFloorTool.last.merge!(
-        kind: at.call('kind').to_s == 'curb' ? 'curb' : 'flat',
-        rise: (at.call('rise_in').to_f > 0.0 ? at.call('rise_in').to_f : InteriorPro::ShowerFloor::DEFAULT_RISE),
-        curb_h: (at.call('curb_h_in').to_f > 0.0 ? at.call('curb_h_in').to_f : InteriorPro::ShowerFloor::DEFAULT_CURB_H),
-        tile: (at.call('tile').to_s.empty? ? InteriorPro::ShowerFloor::SAME_AS_ROOM : at.call('tile').to_s)
-      )
-      cfg = ask_settings
-      return if cfg.nil?
       loop_xy = Array(at.call('poly_xy')).map(&:to_f).each_slice(2).to_a
       floor_z = at.call('floor_z').to_f
-      model = Sketchup.active_model
-      model.start_operation('InteriorPro Edit Shower Floor', true)
-      grp = InteriorPro::ShowerFloor.build!(loop_xy, floor_z, kind: cfg[:kind], rise: cfg[:rise],
-                                            curb_h: cfg[:curb_h], tile: cfg[:tile])
-      if grp && grp != :no_floor
-        model.commit_operation
-        Sketchup.set_status_text('Shower floor rebuilt. Click another one, or Esc.', SB_PROMPT)
-      else
-        model.abort_operation
-        UI.messagebox('The shower floor could not be rebuilt - see the Ruby Console for the reason.')
+      # The window opens on THIS floor's numbers, not the last ones typed.
+      InteriorPro::ShowerFloorDialog.show(InteriorPro::ShowerFloorDialog.from_pad(pad),
+                                          title: 'Edit Shower Floor', button: 'Apply') do |cfg|
+        model = Sketchup.active_model
+        model.start_operation('InteriorPro Edit Shower Floor', true)
+        grp = InteriorPro::ShowerFloor.build!(loop_xy, floor_z, settings: cfg)
+        if grp && grp != :no_floor
+          model.commit_operation
+          Sketchup.set_status_text('Shower floor rebuilt. Click another one, or Esc.', SB_PROMPT)
+        else
+          model.abort_operation
+          UI.messagebox('The shower floor could not be rebuilt - see the Ruby Console for the reason.')
+        end
       end
       @hit = nil
       view.invalidate

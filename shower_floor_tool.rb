@@ -21,53 +21,18 @@ module InteriorPro
     MAGENTA = [190, 0, 160].freeze  unless const_defined?(:MAGENTA, false)
     LINE    = [30, 110, 200].freeze unless const_defined?(:LINE, false)
 
-    # What he chose last time, so the second shower is one window away.
-    def self.last
-      @last ||= { kind: 'flat', rise: InteriorPro::ShowerFloor::DEFAULT_RISE,
-                  curb_h: InteriorPro::ShowerFloor::DEFAULT_CURB_H,
-                  tile: InteriorPro::ShowerFloor::SAME_AS_ROOM }
-    end
-
-    KIND_TXT = ['Flat - same height as the room', 'Raised, with a curb'].freeze unless const_defined?(:KIND_TXT, false)
-    KIND_V   = %w[flat curb].freeze unless const_defined?(:KIND_V, false)
-
-    # THE WINDOW COMES FIRST, THEN THE SHAPE (2026-09-22, his call:
-    # "אפשרי להתחיל קודם עם החלון ואז לצייר את הצורה"). The same flow as
-    # the windows and the niche: one window, then the mouse.
-    def ask_settings
-      last = InteriorPro::ShowerFloorTool.last
-      tiles = [InteriorPro::ShowerFloor::SAME_AS_ROOM] + InteriorPro::FloorManager.all_types.keys
-      f = lambda { |v| Sketchup.format_length(v.to_f) }
-      kind_txt = KIND_TXT[KIND_V.index(last[:kind]) || 0]
-      tile = tiles.include?(last[:tile]) ? last[:tile] : tiles.first
-      res = UI.inputbox(['Shower floor', 'Raised by', 'Curb height', 'Tile'],
-                        [kind_txt, f.call(last[:rise]), f.call(last[:curb_h]), tile],
-                        [KIND_TXT.join('|'), '', '', tiles.join('|')],
-                        'Shower Floor')
-      return nil unless res
-      kind = KIND_V[KIND_TXT.index(res[0]) || 0]
-      rise = parse_len(res[1])
-      curb = parse_len(res[2])
-      if rise.nil? || curb.nil? || rise <= 0.0 || curb <= 0.0
-        UI.messagebox('Type the two heights, e.g.  1"  and  4"')
-        return nil
-      end
-      out = { kind: kind, rise: rise, curb_h: curb, tile: res[3].to_s }
-      InteriorPro::ShowerFloorTool.last.merge!(out)
-      out
-    end
-
-    def parse_len(txt)
-      txt.to_s.strip.to_l.to_f
-    rescue StandardError
-      nil
+    # cfg: the window's numbers (ShowerFloorDialog). Nil = open the window
+    # first; the mouse does nothing until it is answered (2026-09-22).
+    def initialize(cfg = nil)
+      @cfg = cfg
     end
 
     def activate
-      @cfg = ask_settings
       if @cfg.nil?
-        Sketchup.active_model.select_tool(nil)
-        return
+        InteriorPro::ShowerFloorDialog.show(nil, button: 'Draw') do |cfg|
+          @cfg = cfg
+          status
+        end
       end
       @pts = []
       @plane_z = nil
@@ -86,8 +51,10 @@ module InteriorPro
     end
 
     def status
-      what = @cfg && @cfg[:kind] == 'curb' ? 'raised, with a curb' : 'flat'
-      msg = if @pts.empty?
+      what = @cfg && @cfg['kind'] == 'curb' ? 'raised, with a curb' : 'flat'
+      msg = if @cfg.nil?
+              'Shower floor: choose the floor in the window first, then click the corners.'
+            elsif @pts.empty?
               "Shower floor (#{what}): click the first corner on the floor."
             else
               "Shower floor: #{@pts.length} corner(s). Click the next one, " \
@@ -174,6 +141,10 @@ module InteriorPro
     end
 
     def onLButtonDown(_flags, x, y, view)
+      if @cfg.nil?
+        status
+        return
+      end
       p = floor_point(view, x, y)
       trace_click(x, y, p)
       if p.nil?
@@ -267,9 +238,7 @@ module InteriorPro
       end
       model = Sketchup.active_model
       model.start_operation('InteriorPro Shower Floor', true)
-      grp = InteriorPro::ShowerFloor.build!(@pts, @plane_z || 0.0,
-                                            kind: @cfg[:kind], rise: @cfg[:rise],
-                                            curb_h: @cfg[:curb_h], tile: @cfg[:tile])
+      grp = InteriorPro::ShowerFloor.build!(@pts, @plane_z || 0.0, settings: @cfg)
       if grp == :no_floor
         model.abort_operation
         UI.messagebox("There is no room floor where you drew.\n\n" \

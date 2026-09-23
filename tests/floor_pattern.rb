@@ -74,11 +74,17 @@ module InteriorPro
         return false
       end
 
-      room = InteriorPro::RoomManager.rooms_in_model.find do |r|
-        r.get_attribute('InteriorPro', 'id') == floor.get_attribute('InteriorPro', 'room_id')
+      # A SHOWER PAD laying its own tile (2026-09-22) is its own room: the
+      # grid runs over its loop, not the room's.
+      if floor.get_attribute('InteriorPro', 'type').to_s == 'shower_floor'
+        flat = floor.get_attribute('InteriorPro', 'poly_xy')
+      else
+        room = InteriorPro::RoomManager.rooms_in_model.find do |r|
+          r.get_attribute('InteriorPro', 'id') == floor.get_attribute('InteriorPro', 'room_id')
+        end
+        return false unless room
+        flat = room.get_attribute('InteriorPro', 'boundary_xy')
       end
-      return false unless room
-      flat = room.get_attribute('InteriorPro', 'boundary_xy')
       return false unless flat && flat.length >= 6
       poly = flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }
       # Where tiles are LAID: the room, or only the shower loop.

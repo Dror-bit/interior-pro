@@ -66,3 +66,31 @@
 14:57:22   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 0 -> no
 14:57:22   round the loop: floor_pattern room-tlj2de-3087 1/4
 14:57:22   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+15:03:36   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+15:03:36   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+15:03:36   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 1 -> YES
+15:03:36   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:20:25   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:20:25   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+16:20:25   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 1 -> YES
+16:20:25   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:20:25   room tile measured: {"pattern"=>"Tile", "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b", "unit_w"=>19.49, "unit_l"=>0.63, "grout"=>0.062, "grout_color"=>"light"}
+16:20:27   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:20:27   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+16:20:27   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 1 -> YES
+16:20:27   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:20:27   room tile measured: {"pattern"=>"Tile", "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b", "unit_w"=>19.49, "unit_l"=>0.63, "grout"=>0.062, "grout_color"=>"light"}
+17:12:36   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:12:36   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+17:12:36   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 1 -> YES
+17:12:36   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+17:13:02   under? floor floor-tlsadf-0186 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:13:02   under? floor_pattern  floor_id "floor-tlsadf-0186" room room-tlf7le-9399 middle no holes 0 -> no
+17:13:02   under? floor_pattern  floor_id "floor-tlsadf-5103" room room-tlj2de-3087 middle no holes 1 -> YES
+17:13:02   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+17:13:02   room tile measured: {"pattern"=>"Tile", "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b", "unit_w"=>48.0, "unit_l"=>24.0, "grout"=>0.062, "grout_color"=>"light"}
+17:14:44   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:14:44   under? floor floor-tlsjc5-6754 floor_id nil room room-tlj2de-3087 middle yes holes 0 -> YES
+17:14:44   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+17:14:44   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle yes holes 0 -> YES
+17:14:44   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2

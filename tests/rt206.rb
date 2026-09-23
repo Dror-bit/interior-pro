@@ -36,7 +36,7 @@ src = File.read('../shower_floor_edit_tool.rb')
 ok('the edit tool file is loaded by main.rb', main.include?('shower_floor_edit_tool.rb'))
 ok('its button sits in the shower group of the bar', tb.include?('shower_buttons = [shower_cmd, shower_edit_cmd]'))
 ok('it is the draw tool with a different first click (no window of its own)',
-   src.include?('class ShowerFloorEditTool < ShowerFloorTool') && src.include?('cfg = ask_settings'))
+   src.include?('class ShowerFloorEditTool < ShowerFloorTool') && src.include?('InteriorPro::ShowerFloorDialog.show(InteriorPro::ShowerFloorDialog.from_pad(pad)'))
 ok('it rebuilds on the pad\'s OWN loop', src.include?("at.call('poly_xy')"))
 ok('the icon exists', File.exist?('../icons/shower_floor_edit.svg'))
 

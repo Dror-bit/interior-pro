@@ -37,9 +37,10 @@ ok('two corners build nothing', SF.build!([[0.0, 0.0], [10.0, 0.0]], 0.0, model:
 
 # The window comes first, and it is the one that says which floor it is.
 ok('the tool asks before it draws', T0 = File.read('./shower_floor_tool.rb'), nil)
-ok('the window is opened in activate', T0[/def activate.*?\n    end\n/m].to_s.include?('ask_settings'))
-ok('it offers his two floors', T0.include?('Flat - same height as the room') && T0.include?('Raised, with a curb'))
-ok('and the tile can be the room floor tile', T0.include?('ShowerFloor::SAME_AS_ROOM'))
+ok('the window is opened in activate', T0[/def activate.*?\n    end\n/m].to_s.include?('ShowerFloorDialog.show'))
+D0 = File.read('./shower_floor_dialog.rb')
+ok('it offers his two floors', D0.include?('Flat - same height as the room') && D0.include?('Raised, with a curb'))
+ok('and the tile can be the room floor tile', D0.include?('Same as the room floor'))
 
 # The tool: it owns no geometry of its own, and every point goes through
 # the one method (the point law).

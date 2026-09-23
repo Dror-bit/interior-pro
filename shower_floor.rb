@@ -210,6 +210,85 @@ module InteriorPro
       nil
     end
 
+    # THE ROOM'S TILE, AS NUMBERS (2026-09-22, his words: "שהוא יזהה בדיוק
+    # איזה חומר ואני יכול לשחק איתו בעצמי"). From the slab's own attributes
+    # when the room has a floor; when it only has a tile layout (his room
+    # 2), MEASURED off the layout: the material most faces wear (and the
+    # card or texture it came from), the tile size, and the joint.
+    def self.room_settings(floor_grp, pat_grp = nil, model = nil)
+      model ||= Sketchup.active_model
+      out = {}
+      slab = floor_grp && floor_grp.valid? && floor_grp.get_attribute('InteriorPro', 'type').to_s == 'floor' ? floor_grp : nil
+      pat = pat_grp || (slab && patterns_of(slab, model).first) ||
+            (floor_grp && floor_grp.valid? && floor_grp.get_attribute('InteriorPro', 'type').to_s == 'floor_pattern' ? floor_grp : nil)
+      if slab && !%w[None].include?((slab.get_attribute('InteriorPro', 'pattern') || 'None').to_s)
+        at = lambda { |k| slab.get_attribute('InteriorPro', k) }
+        out = { 'pattern' => at.call('pattern').to_s, 'unit_w' => at.call('unit_w').to_f, 'unit_l' => at.call('unit_l').to_f,
+                'ox' => at.call('pattern_ox').to_f, 'oy' => at.call('pattern_oy').to_f, 'angle' => at.call('pattern_angle').to_f,
+                'center' => at.call('pattern_center') ? true : false, 'texture' => at.call('floor_texture').to_s,
+                'grout' => at.call('pattern_grout').to_f, 'grout_color' => (at.call('pattern_grout_color') || 'light').to_s,
+                'stagger' => at.call('pattern_stagger').to_f, 'material_card_id' => at.call('material_card_id').to_s,
+                'spec' => at.call('floor_spec').to_s, 'grout_spec' => at.call('grout_spec').to_s }
+        return out if !out['material_card_id'].empty? || !out['texture'].empty?
+      end
+      return out unless pat && pat.valid?
+      mat = room_floor_material(pat)
+      return out unless mat
+      out['pattern'] = 'Tile'
+      id = defined?(InteriorPro::MaterialIds) ? (InteriorPro::MaterialIds.id_of(mat) rescue nil) : nil
+      out['material_card_id'] = id.to_s
+      out['texture'] = mat.name.to_s.sub(/\AInteriorPro_FloorTex_/, '') if id.to_s.empty? && mat.name.to_s.start_with?('InteriorPro_FloorTex_')
+      # the tile size: the most common width and length among the whole tiles
+      faces = pat.entities.grep(Sketchup::Face).select { |f| f.valid? && f.material == mat && f.normal.z.abs > 0.9 }
+      span = lambda { |f, ax| vs = f.vertices.map { |v| v.position.send(ax).to_f }; [vs.min, vs.max] }
+      ws = faces.map { |f| a, b = span.call(f, :x); (b - a).round(2) }
+      ls = faces.map { |f| a, b = span.call(f, :y); (b - a).round(2) }
+      # THE CARD KNOWS THE TILE SIZE (measured 2026-09-22: counting the cut
+      # pieces gave 19.49 x 0.63 - the slivers round the walls won). The
+      # card first, like floor_pattern.rb; the biggest whole piece only if
+      # there is no card.
+      card = nil
+      if !id.to_s.empty? && defined?(InteriorPro::MaterialLibrary)
+        card = (InteriorPro::MaterialLibrary.cards.find { |c| c['id'].to_s == id.to_s } rescue nil)
+      end
+      cw = card ? (card['tile_w_inches'] || card['texture_width_inches']).to_f : 0.0
+      ch = card ? (card['tile_l_inches'] || card['texture_height_inches']).to_f : 0.0
+      mode = lambda { |a| a.empty? ? 0.0 : a.group_by { |v| v }.max_by { |_v, g| [g.length, _v] }[0] }
+      out['unit_w'] = cw > 0.25 ? cw : mode.call(ws)
+      out['unit_l'] = ch > 0.25 ? ch : mode.call(ls)
+      # the joint: the smallest gap between two neighbouring tiles
+      xs = faces.flat_map { |f| span.call(f, :x).map { |v| v.round(3) } }.uniq.sort
+      gaps = xs.each_cons(2).map { |a, b| (b - a).round(3) }.select { |g| g > 0.02 && g < 1.0 }
+      out['grout'] = gaps.empty? ? 0.0 : gaps.min
+      grout_face = pat.entities.grep(Sketchup::Face).find { |f| f.valid? && f.material && f.material.name.to_s.start_with?('InteriorPro_Grout_') }
+      out['grout_color'] = grout_face.material.name.to_s.sub('InteriorPro_Grout_', '').downcase if grout_face
+      trace("room tile measured: #{out.inspect}")
+      out
+    rescue StandardError => e
+      puts "[ShowerFloor] room_settings: #{e.message}"
+      {}
+    end
+
+    # The shower's OWN tile material: the card first, the texture next.
+    def self.own_material(model, settings)
+      id = settings['material_card_id'].to_s
+      if !id.empty? && defined?(InteriorPro::MaterialLibrary)
+        card = (InteriorPro::MaterialLibrary.cards.find { |c| c['id'].to_s == id } rescue nil)
+        m = card && (InteriorPro::MaterialLibraryDialog.material_from_card(model, card) rescue nil)
+        return m if m
+        puts "[ShowerFloor] material card '#{id}' gave no material"
+      end
+      tex = settings['texture'].to_s
+      unless tex.empty?
+        m = InteriorPro::FloorManager.texture_material(model, tex)
+        return m if m
+      end
+      plain_material(model)
+    rescue StandardError => e
+      puts "[ShowerFloor] own material fell back to plain: #{e.message}"
+      plain_material(model)
+    end
+
     def self.plain_material(model)
       name = 'InteriorPro_ShowerFloor'
       m = model.materials[name]
@@ -625,8 +704,19 @@ module InteriorPro
     #   kind 'flat' - a hole in the room floor, the pad dead level in it.
     #   kind 'curb' - the pad `rise` above the room floor (the curb round
     #                 it is the next step).
+    OWN_TILE = 'Own tile' unless const_defined?(:OWN_TILE, false)
+
+    # settings: the window's numbers (ShowerFloorDialog.KEYS). With them,
+    # kind/rise/curb_h come from the window, and "same_room" false means
+    # the shower lays ITS OWN tile from those numbers (2026-09-22).
     def self.build!(pts, floor_z, kind: 'flat', rise: DEFAULT_RISE, curb_h: DEFAULT_CURB_H,
-                    tile: SAME_AS_ROOM, model: nil)
+                    tile: SAME_AS_ROOM, model: nil, settings: nil)
+      if settings
+        kind = settings['kind'].to_s
+        rise = settings['rise'].to_f
+        curb_h = settings['curb_h'].to_f
+        tile = settings['same_room'] ? SAME_AS_ROOM : OWN_TILE
+      end
       unless USE_SHOWER_FLOOR
         puts '[ShowerFloor] USE_SHOWER_FLOOR is off - nothing built'
         return nil
@@ -658,9 +748,21 @@ module InteriorPro
       # כמו הטיל של הריצפות"). "Same as the room floor" lays the room's own
       # layout inside the loop. Read now - the layout group may be rebuilt.
       src = slab || (pats.first && floor_of_pattern(pats.first, model))
-      lay = USE_SHOWER_TILES && tile.to_s == SAME_AS_ROOM && src &&
-            !%w[None].include?((src.get_attribute('InteriorPro', 'pattern') || 'None').to_s) &&
-            defined?(InteriorPro::FloorPattern)
+      # "Same as the room floor" in a room with a tile layout but no slab
+      # to run the grid from (his room 2): the room's tile is MEASURED and
+      # laid as the shower's own, so it is tiles, not one big face.
+      if settings && settings['same_room'] && !(src && !%w[None].include?((src.get_attribute('InteriorPro', 'pattern') || 'None').to_s))
+        got = room_settings(src || floor_grp, pats.first, model)
+        if got['pattern'].to_s == 'Tile' && (got['unit_w'].to_f > 0.25) && (!got['material_card_id'].to_s.empty? || !got['texture'].to_s.empty?)
+          settings = settings.merge(got).merge('same_room' => false)
+          tile = OWN_TILE
+          puts '[ShowerFloor] the room has no floor settings - its tile was measured and laid as the shower\'s own'
+        end
+      end
+      own = settings && !settings['same_room'] && settings['pattern'].to_s != 'None' && !settings['pattern'].to_s.empty?
+      lay = USE_SHOWER_TILES && defined?(InteriorPro::FloorPattern) &&
+            (own || (tile.to_s == SAME_AS_ROOM && src &&
+                     !%w[None].include?((src.get_attribute('InteriorPro', 'pattern') || 'None').to_s)))
       puts "[ShowerFloor] no room tile layout to run on - one plain face (tile: #{tile})" unless lay
       if kind == 'flat'
         # NO FLOOR, NO FLAT SHOWER FLOOR (2026-09-22, measured on his
@@ -722,7 +824,7 @@ module InteriorPro
         return nil
       end
       face.pushpull(face.normal.z > 0 ? -th : th)
-      mat = material(model, tile, floor_grp, room_mat)
+      mat = own ? own_material(model, settings) : material(model, tile, floor_grp, room_mat)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
       grp.set_attribute('InteriorPro', 'type', 'shower_floor')
       grp.set_attribute('InteriorPro', 'id', format('shfloor-%s-%04d', Time.now.to_i.to_s(36), rand(10_000)))
@@ -733,6 +835,26 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'curb_h_in', curb_h.to_f)
       grp.set_attribute('InteriorPro', 'thickness_in', th)
       grp.set_attribute('InteriorPro', 'tile', tile.to_s)
+      # THE SAME NAMES A FLOOR USES - so FloorPattern and the takeoff read
+      # the shower exactly like a floor (2026-09-22).
+      if settings
+        grp.set_attribute('InteriorPro', 'pattern', settings['pattern'].to_s)
+        grp.set_attribute('InteriorPro', 'unit_w', settings['unit_w'].to_f)
+        grp.set_attribute('InteriorPro', 'unit_l', settings['unit_l'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_ox', settings['ox'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_oy', settings['oy'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_angle', settings['angle'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_center', settings['center'] ? true : false)
+        grp.set_attribute('InteriorPro', 'pattern_grout', settings['grout'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_stagger', settings['stagger'].to_f)
+        grp.set_attribute('InteriorPro', 'pattern_grout_color', settings['grout_color'].to_s)
+        grp.set_attribute('InteriorPro', 'floor_texture', settings['texture'].to_s)
+        grp.set_attribute('InteriorPro', 'material_card_id', settings['material_card_id'].to_s)
+        grp.set_attribute('InteriorPro', 'floor_spec', settings['spec'].to_s)
+        grp.set_attribute('InteriorPro', 'grout_spec', settings['grout_spec'].to_s)
+        grp.set_attribute('InteriorPro', 'floor_level', pad_top)
+      end
+      src = grp if own
       grp.set_attribute('InteriorPro', 'room_id', floor_grp && floor_grp.get_attribute('InteriorPro', 'room_id'))
       grp.set_attribute('InteriorPro', 'area_sqft', area_sqft(loop_xy))
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
