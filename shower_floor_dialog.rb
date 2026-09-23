@@ -23,7 +23,7 @@ module InteriorPro
     # constant keeps its first value through reload!, so a new key added
     # there would be dropped until SketchUp restarts.
     def self.all_keys
-      KEYS + %w[curb_room wall_joints drain drain_w drain_l]
+      KEYS + %w[curb_room wall_joints drain drain_w drain_l drain_side drain_shift]
     end
 
     def self.defaults
@@ -31,6 +31,7 @@ module InteriorPro
         'curb_h' => InteriorPro::ShowerFloor::DEFAULT_CURB_H, 'curb_room' => false, 'wall_joints' => false, 'same_room' => true,
         'drain' => 'none', 'drain_w' => InteriorPro::ShowerFloor::DEFAULT_DRAIN_W,
         'drain_l' => InteriorPro::ShowerFloor::DEFAULT_DRAIN_W,
+        'drain_side' => 'right', 'drain_shift' => 0,
         'pattern' => 'Tile', 'unit_w' => 0, 'unit_l' => 0, 'ox' => 0, 'oy' => 0, 'angle' => 0,
         'center' => true, 'texture' => '', 'grout' => 0.125, 'grout_color' => 'light',
         'stagger' => 0, 'material_card_id' => '', 'spec' => '', 'grout_spec' => '' }
@@ -53,6 +54,8 @@ module InteriorPro
       d['drain'] = (at.call('drain') || 'none').to_s
       d['drain_w'] = at.call('drain_w').to_f > 0 ? at.call('drain_w').to_f : d['drain_w']
       d['drain_l'] = at.call('drain_l').to_f > 0 ? at.call('drain_l').to_f : d['drain_l']
+      d['drain_side'] = (at.call('drain_side') || 'right').to_s
+      d['drain_shift'] = at.call('drain_shift').to_f
       d['same_room'] = at.call('tile').to_s.empty? || at.call('tile').to_s == InteriorPro::ShowerFloor::SAME_AS_ROOM
       d['pattern'] = (at.call('pattern') || d['pattern']).to_s
       d['unit_w'] = at.call('unit_w').to_f
@@ -168,14 +171,26 @@ module InteriorPro
             <label><input type="checkbox" id="wall_joints"> Shower floor grout lines follow the walls, not the bathroom floor</label>
           </div>
           <div class="row">
-            Drain <select id="drain" style="width:150px;">
+            Drain <select id="drain" style="width:150px;" onchange="drainChanged()">
               <option value="none">None</option>
               <option value="square">Square, with a grate - middle</option>
               <option value="square_tile">Square, tile inside - middle</option>
               <option value="round">Round, with a grate - middle (W = across)</option>
+              <option value="linear">Long, with a grate - by a wall</option>
+              <option value="linear_tile">Long, tile inside - by a wall</option>
             </select>
             W <input type="number" id="drain_w" step="0.25" min="0">
             L <input type="number" id="drain_l" step="0.25" min="0"> in
+          </div>
+          <div class="row" id="wallDrainRow">
+            Wall <select id="drain_side" style="width:84px;">
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+            Shift <input type="number" id="drain_shift" step="0.5"> in
+            (W = across, L = along the wall)
           </div>
           <div class="row">
             <label><input type="checkbox" id="same_room" onchange="sameChanged()"> Same as the room floor - the room's tile runs on into the shower</label>
@@ -260,6 +275,20 @@ module InteriorPro
               document.getElementById('curbRow').style.display =
                 document.getElementById('kind').value === 'curb' ? '' : 'none';
             }
+            // The long drain's own row shows only for a long drain
+            // (2026-09-23). Switching between a long and a middle drain
+            // puts in that kind's own size: 3 x 24 or 5 x 5.
+            var lastDrain = null;
+            function isWallDrain(v) { return v === 'linear' || v === 'linear_tile'; }
+            function drainChanged() {
+              var v = document.getElementById('drain').value;
+              if (lastDrain !== null && isWallDrain(v) !== isWallDrain(lastDrain)) {
+                document.getElementById('drain_w').value = isWallDrain(v) ? #{InteriorPro::ShowerFloor::LINEAR_W} : #{InteriorPro::ShowerFloor::DEFAULT_DRAIN_W};
+                document.getElementById('drain_l').value = isWallDrain(v) ? #{InteriorPro::ShowerFloor::LINEAR_L} : #{InteriorPro::ShowerFloor::DEFAULT_DRAIN_W};
+              }
+              lastDrain = v;
+              document.getElementById('wallDrainRow').style.display = isWallDrain(v) ? '' : 'none';
+            }
             function sameChanged() {
               var same = document.getElementById('same_room').checked;
               var box = document.getElementById('tile');
@@ -276,6 +305,8 @@ module InteriorPro
               g('drain').value = D.drain || 'none';
               g('drain_w').value = D.drain_w;
               g('drain_l').value = D.drain_l;
+              g('drain_side').value = D.drain_side || 'right';
+              g('drain_shift').value = D.drain_shift || 0;
               g('same_room').checked = !!D.same_room;
               g('tx').innerHTML = textureOptions(D.texture);
               g('mc').innerHTML = cardOptions(D.material_card_id);
@@ -294,6 +325,7 @@ module InteriorPro
               textureChanged();
               sameChanged();
               kindChanged();
+              drainChanged();
             }
             function okAll() {
               var g = function(id) { return document.getElementById(id); };
@@ -306,6 +338,8 @@ module InteriorPro
                 drain: g('drain').value,
                 drain_w: parseFloat(g('drain_w').value) || 0,
                 drain_l: parseFloat(g('drain_l').value) || 0,
+                drain_side: g('drain_side').value,
+                drain_shift: parseFloat(g('drain_shift').value) || 0,
                 same_room: g('same_room').checked,
                 pattern: g('pat').value,
                 unit_w: parseFloat(g('pw').value) || 0,
