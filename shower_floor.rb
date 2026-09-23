@@ -50,7 +50,10 @@ module InteriorPro
     TILE_CHANNEL = 0.1875 unless const_defined?(:TILE_CHANNEL, false) # the slot round the tile
     TILE_CHANNEL_DEPTH = 0.5 unless const_defined?(:TILE_CHANNEL_DEPTH, false)
     # The drains that sit in the middle of the floor.
-    CENTER_DRAINS = %w[square square_tile].freeze unless const_defined?(:CENTER_DRAINS, false)
+    CENTER_DRAINS = %w[square square_tile round].freeze unless const_defined?(:CENTER_DRAINS, false)
+    # The round drain is a polygon of this many sides (the hole in the
+    # tiles and in the floor is the same polygon, so they meet exactly).
+    ROUND_SIDES = 24 unless const_defined?(:ROUND_SIDES, false)
     # THE CURB (2026-09-22, his choice "1"): 4" wide, INSIDE the line he
     # drew, only on the sides with no wall behind them. Its height is the
     # window's Curb height, over the bathroom floor.
@@ -290,6 +293,13 @@ module InteriorPro
       [[cx - hw, cy - hl], [cx + hw, cy - hl], [cx + hw, cy + hl], [cx - hw, cy + hl]]
     end
 
+    # The round drain's outline: a circle of diameter d round its middle,
+    # counter-clockwise. PURE.
+    def self.drain_circle(cx, cy, d, n = ROUND_SIDES)
+      r = d.to_f / 2.0
+      (0...n).map { |k| a = 2.0 * Math::PI * k / n; [cx + r * Math.cos(a), cy + r * Math.sin(a)] }
+    end
+
     # The grate's square holes, as [x0, y0, x1, y1] from the drain's low
     # corner: as many as fit inside the rim, the pattern centred. PURE.
     def self.grate_holes(w, l, frame = GRATE_FRAME, hole = GRATE_HOLE, bar = GRATE_BAR)
@@ -302,6 +312,16 @@ module InteriorPro
         (0...n).map { |k| s + k * (hole + bar) }
       end
       fit.call(w).product(fit.call(l)).map { |x, y| [x, y, x + hole, y + hole] }
+    end
+
+    # The round grate: the same square holes, only those wholly inside the
+    # rim of a circle of diameter d. PURE (tests/rt213).
+    def self.round_grate_holes(d, frame = GRATE_FRAME, hole = GRATE_HOLE, bar = GRATE_BAR)
+      r = d.to_f / 2.0
+      lim = r - frame
+      grate_holes(d, d, frame, hole, bar).select do |a, b, c, e|
+        [[a, b], [c, b], [c, e], [a, e]].all? { |x, y| Math.hypot(x - r, y - r) <= lim + 1.0e-9 }
+      end
     end
 
     # ---- the model ------------------------------------------------------
@@ -384,7 +404,12 @@ module InteriorPro
           puts "[ShowerFloor] drain #{w} x #{l} is too small for a tile inside its frame"
         end
       end
-      (kind == 'square_tile' ? [] : grate_holes(w, l)).each do |a, b, c, d|
+      holes = case kind
+              when 'square_tile' then []
+              when 'round' then round_grate_holes(w)
+              else grate_holes(w, l)
+              end
+      holes.each do |a, b, c, d|
         f = begin
           g.entities.add_face([[a, b], [c, b], [c, d], [a, d]].map { |x, y| Geom::Point3d.new(x0 + x, y0 + y, z) })
         rescue StandardError => e
@@ -1325,7 +1350,9 @@ module InteriorPro
         dw = settings['drain_w'].to_f > 0.25 ? settings['drain_w'].to_f : DEFAULT_DRAIN_W
         dl = settings['drain_l'].to_f > 0.25 ? settings['drain_l'].to_f : DEFAULT_DRAIN_W
         c = area_centroid(floor_xy)
-        drain_rect_xy = drain_rect(c[0], c[1], dw, dl) if c
+        if c
+          drain_rect_xy = drain == 'round' ? drain_circle(c[0], c[1], dw) : drain_rect(c[0], c[1], dw, dl)
+        end
         puts '[ShowerFloor] no middle found for the drain - not built' unless drain_rect_xy
       elsif !%w[none].include?(drain) && !drain.empty?
         puts "[ShowerFloor] drain '#{drain}' is not built yet"

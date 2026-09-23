@@ -172,6 +172,7 @@ module InteriorPro
               <option value="none">None</option>
               <option value="square">Square, with a grate - middle</option>
               <option value="square_tile">Square, tile inside - middle</option>
+              <option value="round">Round, with a grate - middle (W = across)</option>
             </select>
             W <input type="number" id="drain_w" step="0.25" min="0">
             L <input type="number" id="drain_l" step="0.25" min="0"> in
