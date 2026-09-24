@@ -60,25 +60,54 @@ module InteriorPro
       d < room ? d : room
     end
 
-    # One stored row -> a hash. Rows are [side, u0, z0, w, h, depth].
+    # THE NICHE'S OWN TILE (2026-09-23, his ask: "לשנות רק את הטיל שבתוך
+    # הניצ", and why: "לפעמים עושים רק את החלק שצמוד לקיר בצבע שונה אבל לא
+    # את הצדדים"). An optional 7th item on the row, a JSON string:
+    #   { "card", "tile_w", "tile_l", "grout", "where" => "back" | "all" }
+    # No 7th item = the niche wears the wall's tile, exactly as before.
+    def self.tile_of_row(raw)
+      return nil if raw.nil? || raw.to_s.strip.empty?
+      require 'json'
+      t = raw.is_a?(Hash) ? raw : JSON.parse(raw.to_s)
+      return nil unless t.is_a?(Hash) && !t['card'].to_s.empty?
+      { 'card' => t['card'].to_s, 'tile_w' => t['tile_w'].to_f, 'tile_l' => t['tile_l'].to_f,
+        'grout' => t['grout'].to_f, 'where' => t['where'].to_s == 'all' ? 'all' : 'back' }
+    rescue StandardError => e
+      puts "[TileNiche] the niche's own tile could not be read: #{e.message}"
+      nil
+    end
+
+    # One stored row -> a hash. Rows are [side, u0, z0, w, h, depth] and,
+    # when the niche has a tile of its own, that tile as a 7th item.
     def self.normalize(row)
       return nil if row.nil?
       if row.is_a?(Array) && row.length >= 6
-        return { side: row[0].to_s == 'b' ? 'b' : 'a', u0: row[1].to_f, z0: row[2].to_f,
-                 w: row[3].to_f, h: row[4].to_f, depth: row[5].to_f }
+        n = { side: row[0].to_s == 'b' ? 'b' : 'a', u0: row[1].to_f, z0: row[2].to_f,
+              w: row[3].to_f, h: row[4].to_f, depth: row[5].to_f }
+        t = tile_of_row(row[6])
+        n[:tile] = t if t
+        return n
       end
       return nil unless row.is_a?(Hash)
       g = lambda { |k| row[k] || row[k.to_s] }
       w = g.call(:w)
       h = g.call(:h)
       return nil if w.nil? || h.nil?
-      { side: g.call(:side).to_s == 'b' ? 'b' : 'a', u0: g.call(:u0).to_f,
-        z0: g.call(:z0).to_f, w: w.to_f, h: h.to_f,
-        depth: g.call(:depth).to_f }
+      n = { side: g.call(:side).to_s == 'b' ? 'b' : 'a', u0: g.call(:u0).to_f,
+            z0: g.call(:z0).to_f, w: w.to_f, h: h.to_f,
+            depth: g.call(:depth).to_f }
+      t = tile_of_row(g.call(:tile))
+      n[:tile] = t if t
+      n
     end
 
     def self.to_row(n)
-      [n[:side], n[:u0], n[:z0], n[:w], n[:h], n[:depth]]
+      row = [n[:side], n[:u0], n[:z0], n[:w], n[:h], n[:depth]]
+      if n[:tile]
+        require 'json'
+        row << n[:tile].to_json
+      end
+      row
     end
 
     # The niches on ONE face, as [u0, z0, u1, z1] - exactly the shape
@@ -322,8 +351,10 @@ module InteriorPro
     # PURE part: new_numbers.
     def self.new_numbers(n, w:, h:, depth:, sill:, thickness: 0.0)
       mid = n[:u0].to_f + n[:w].to_f / 2.0
-      { side: n[:side], u0: mid - w.to_f / 2.0, z0: sill.to_f,
-        w: w.to_f, h: h.to_f, depth: clamp_depth(depth, thickness) }
+      out = { side: n[:side], u0: mid - w.to_f / 2.0, z0: sill.to_f,
+              w: w.to_f, h: h.to_f, depth: clamp_depth(depth, thickness) }
+      out[:tile] = n[:tile] if n[:tile] # its own tile stays with it
+      out
     end
 
     def self.update_at!(wall, idx, w:, h:, depth:, sill:, wrap_operation: true)
@@ -354,6 +385,37 @@ module InteriorPro
       rescue StandardError => e
         model.abort_operation if wrap_operation
         puts "[TileNiche] the niche could not be changed: #{e.class}: #{e.message}"
+        false
+      end
+    end
+
+    # GIVE ONE NICHE ITS OWN TILE, or (tile = nil) the wall's tile back.
+    # Only the numbers change; the tile on that wall is laid again, which
+    # lines the niche with them (TileWall.emit_niche_lining!).
+    def self.set_tile!(wall, idx, tile)
+      ns = read(wall)
+      n = ns[idx.to_i]
+      if n.nil?
+        puts "[TileNiche] there is no niche ##{idx} on this wall"
+        return false
+      end
+      t = tile && tile_of_row(tile.is_a?(Hash) ? tile : tile.to_s)
+      if tile && t.nil?
+        puts '[TileNiche] no material chosen for the niche - nothing changed'
+        return false
+      end
+      model = Sketchup.active_model
+      model.start_operation('Interior Pro - Niche Tile', true)
+      begin
+        t ? n[:tile] = t : n.delete(:tile)
+        persist!(wall, ns)
+        InteriorPro::TileWall.refresh_wall!(wall.get_attribute('InteriorPro', 'id'))
+        model.commit_operation
+        puts "[TileNiche] niche ##{idx}: #{t ? "its own tile #{t['card']} #{t['tile_w']}x#{t['tile_l']} on the #{t['where'] == 'all' ? 'whole niche' : 'back only'}" : "the wall's tile again"}"
+        true
+      rescue StandardError => e
+        model.abort_operation
+        puts "[TileNiche] the niche tile could not be changed: #{e.class}: #{e.message}"
         false
       end
     end

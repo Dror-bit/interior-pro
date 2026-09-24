@@ -134,9 +134,14 @@ module InteriorPro
       sel.each do |rid, cfg|
         room = rooms_by_id[rid]
         next unless room
-        if cfg['texture'].to_s.empty? && cfg['material_card_id'].to_s.empty?
-          InteriorPro::FloorManager.remove_floor_for_room!(rid)
-        else
+        # EVERY ROOM GETS A FLOOR (2026-09-23, his words: "אני לא מבין למה
+        # אם אין פה קטגוריה זה לא יוצר ריצפה"). No card = a plain white
+        # floor. The old branch here DELETED the room's floor when both the
+        # texture and the card were empty, silently - that is how Room 2's
+        # floor vanished on him today. Remove All Floors is the way to
+        # take floors off.
+        begin
+          puts "[Floors] #{room.get_attribute('InteriorPro', 'name')}: no material card - a plain white floor" if cfg['material_card_id'].to_s.empty?
           th = cfg['thickness'].to_f
           fl_grp = InteriorPro::FloorManager.build_floor_for_room!(
             room, cfg['type'], thickness: (th > 0.05 ? th : nil),
@@ -290,13 +295,18 @@ module InteriorPro
                 document.getElementById('applyBtn').style.display = 'none';
                 return;
               }
-              var rows = ['<table><tr><th>Room</th><th>Area</th><th>Floor</th><th>Thick (in)</th></tr>'];
+              // NO TEXTURE LIST (2026-09-23, his words: "תעיף את הרשימה הזאת
+              // היא סתם מפריעה ומבלבלת ותשאיר רק את סוג הריצפה והחומר"). The
+              // material card IS the material; a room with no card gets a
+              // plain white floor. The old list is kept as a hidden, empty
+              // field so nothing else in this window has to change.
+              var rows = ['<table><tr><th>Room</th><th>Area</th><th>חומר</th><th>Thick (in)</th></tr>'];
               ROOMS.forEach(function(r, i) {
                 var th = r.thickness || 0.75;
                 rows.push('<tr><td class="nm">' + r.name + '</td>' +
                   '<td class="ar">' + r.area + ' sqft</td>' +
-                  '<td><select id="tx_' + i + '" onchange="textureChanged(' + i + ')" style="width:120px;">' + textureOptions(r.texture) + '</select> ' +
-                  '<img id="tximg_' + i + '" src="' + (r.texture && TEXTURES[r.texture] ? TEXTURES[r.texture] : '') + '" style="height:26px;width:26px;object-fit:cover;vertical-align:middle;border:1px solid #ccc;border-radius:3px;' + (r.texture && TEXTURES[r.texture] ? '' : 'display:none;') + '"></td>' +
+                  '<td><input type="hidden" id="tx_' + i + '" value="">' +
+                  '<select id="mc_' + i + '" style="width:150px;">' + cardOptions(r.card) + '</select></td>' +
                   '<td class="th-col"><input type="number" id="th_' + i + '" step="0.25" min="0" value="' + th + '"></td></tr>');
                 rows.push('<tr class="pat"><td colspan="4">' +
                   'Pattern <select id="pat_' + i + '">' + patternOptions(r.pattern) + '</select> ' +
@@ -313,7 +323,6 @@ module InteriorPro
                 rows.push('<tr class="pat"><td colspan="4">' +
                   'Level <input type="number" id="lv_' + i + '" step="1" style="width:52px;" title="Floor top height in inches, measured from THIS storey. 0 = the storey&#39;s own floor (level 2 = 106&quot;). Garage below the driveway: -18" value="' + (r.level || 0) + '"> ' +
                   '<label title="Split boundary-crossing walls and drop the room-exclusive segments to the floor level; walls shared with another room stay"><input type="checkbox" id="dw_' + i + '"' + (r.drop ? ' checked' : '') + '> Drop walls</label> ' +
-                  'חומר <select id="mc_' + i + '" style="width:120px;">' + cardOptions(r.card) + '</select> ' +
                   'Spec <input type="text" id="sp_' + i + '" style="width:130px;" placeholder="e.g. Daltile 24x24 Matte" value="' + (r.spec || '').replace(/"/g, '&quot;') + '"> ' +
                   'Grout spec <input type="text" id="gs_' + i + '" style="width:130px;" placeholder="e.g. Mapei #38" value="' + (r.grout_spec || '').replace(/"/g, '&quot;') + '">' +
                   '</td></tr>');

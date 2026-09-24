@@ -356,3 +356,167 @@
 16:25:18   drain: square_tile 5.0 x 5.0 at [-465.618, 364.959] z 1.05, 0 grate hole(s), tile inside: Stucco, channel yes
 16:25:18   curb: wears the shower floor - Stucco
 16:25:18   curb: 1 of 1 built, 4.0" tall from z 0.05
+16:26:25   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"round", "drain_w"=>5, "drain_l"=>5, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+16:26:25   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:26:25   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+16:26:25   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+16:26:25   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:26:25   wall joints: side 1 TW028 along x -> [-465.087]
+16:26:25   wall joints: side 2 TW034 along y -> [367.459]
+16:26:25   wall joints: side 3 TW032 along x -> [-464.119]
+16:26:25   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+16:26:25   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+16:26:25   drain: hole opened in the pad
+16:26:25   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+16:26:25   build! tiles laid
+16:26:25   drain: round 5.0 x 5.0 at [-460.618, 367.459] z 1.05, 29 grate hole(s)
+16:26:25   curb: wears the shower floor - Stucco
+16:26:25   curb: 1 of 1 built, 4.0" tall from z 0.05
+16:31:08   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"round", "drain_w"=>5, "drain_l"=>5, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+16:31:08   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:31:08   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+16:31:08   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+16:31:08   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:31:08   wall joints: side 1 TW028 along x -> [-465.087]
+16:31:08   wall joints: side 2 TW034 along y -> [367.459]
+16:31:08   wall joints: side 3 TW032 along x -> [-464.119]
+16:31:08   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+16:31:08   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+16:31:08   drain: hole opened in the pad
+16:31:08   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+16:31:08   build! tiles laid
+16:31:08   drain: round 5.0 x 5.0 at [-460.618, 367.459] z 1.05, 29 grate hole(s)
+16:31:08   curb: wears the shower floor - Stucco
+16:31:08   curb: 1 of 1 built, 4.0" tall from z 0.05
+16:52:23   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"linear", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+16:52:23   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:52:23   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+16:52:23   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+16:52:23   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:52:23   wall joints: side 1 TW028 along x -> [-465.087]
+16:52:23   wall joints: side 2 TW034 along y -> [367.459]
+16:52:23   wall joints: side 3 TW032 along x -> [-464.119]
+16:52:23   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+16:52:23   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+16:52:23   drain: linear on the right side, 2.0" off the wall, shift 0.0
+16:52:23   drain: hole opened in the pad
+16:52:23   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+16:52:23   build! tiles laid
+16:52:23   drain: linear 3.0 x 24.0 at [-448.625, 355.459] z 1.05, 148 grate hole(s)
+16:52:23   curb: wears the shower floor - Stucco
+16:52:23   curb: 1 of 1 built, 4.0" tall from z 0.05
+16:52:30   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+16:52:30   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+16:52:30   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+16:52:30   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+16:52:30   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+16:52:30   wall joints: side 1 TW028 along x -> [-465.087]
+16:52:30   wall joints: side 2 TW034 along y -> [367.459]
+16:52:30   wall joints: side 3 TW032 along x -> [-464.119]
+16:52:30   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+16:52:30   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+16:52:30   drain: linear_tile on the right side, 2.0" off the wall, shift 0.0
+16:52:30   drain: hole opened in the pad
+16:52:30   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+16:52:30   build! tiles laid
+16:52:30   drain: linear_tile 3.0 x 24.0 at [-448.625, 355.459] z 1.05, 0 grate hole(s), tile inside: Stucco, channel yes
+16:52:30   curb: wears the shower floor - Stucco
+16:52:30   curb: 1 of 1 built, 4.0" tall from z 0.05
+17:01:23   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>30, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+17:01:23   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:01:23   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+17:01:23   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+17:01:23   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+17:01:23   wall joints: side 1 TW028 along x -> [-465.087]
+17:01:23   wall joints: side 2 TW034 along y -> [367.459]
+17:01:23   wall joints: side 3 TW032 along x -> [-464.119]
+17:01:23   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+17:01:23   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+17:01:23   drain: linear_tile on the right side, 2.0" off the wall, shift 0.0
+17:01:23   drain: hole opened in the pad
+17:01:23   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+17:01:23   build! tiles laid
+17:01:23   drain: linear_tile 3.0 x 30.0 at [-448.625, 352.459] z 1.05, 0 grate hole(s), tile inside: Stucco, channel yes
+17:01:23   curb: wears the shower floor - Stucco
+17:01:23   curb: 1 of 1 built, 4.0" tall from z 0.05
+17:01:43   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>30, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+17:01:43   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:01:43   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+17:01:43   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+17:01:43   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+17:01:43   wall joints: side 1 TW028 along x -> [-465.087]
+17:01:43   wall joints: side 2 TW034 along y -> [367.459]
+17:01:43   wall joints: side 3 TW032 along x -> [-464.119]
+17:01:43   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+17:01:43   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+17:01:43   drain: linear_tile on the top side, 2.0" off the wall, shift 0.0
+17:01:43   drain: hole opened in the pad
+17:01:43   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+17:01:43   build! tiles laid
+17:01:43   drain: linear_tile 30.0 x 3.0 at [-478.118, 396.875] z 1.05, 0 grate hole(s), tile inside: Stucco, channel yes
+17:01:43   curb: wears the shower floor - Stucco
+17:01:43   curb: 1 of 1 built, 4.0" tall from z 0.05
+17:01:58   build! kind curb tile Own tile settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>false, "drain"=>"square", "drain_w"=>5, "drain_l"=>5, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+17:01:58   under? floor floor-tlsjc5-9943 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+17:01:58   under? floor_pattern  floor_id "floor-tlsjc5-9943" room room-tlf7le-9399 middle no holes 0 -> no
+17:01:59   under? floor_pattern  floor_id "floor-tlsjc5-6754" room room-tlj2de-3087 middle no holes 1 -> YES
+17:01:59   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 1
+17:01:59   wall joints: side 1 TW028 along x -> [-465.087]
+17:01:59   wall joints: side 2 TW034 along y -> [367.459]
+17:01:59   wall joints: side 3 TW032 along x -> [-464.119]
+17:01:59   wall joints: grid on x -465.087 y 367.459 -> ox 21.618 oy 34.51
+17:01:59   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+17:01:59   drain: hole opened in the pad
+17:01:59   build! own yes lay yes src shower_floor pad_top 1.0 mat Stucco
+17:01:59   build! tiles laid
+17:01:59   drain: square 5.0 x 5.0 at [-465.618, 364.959] z 1.05, 49 grate hole(s)
+17:01:59   curb: wears the shower floor - Stucco
+17:01:59   curb: 1 of 1 built, 4.0" tall from z 0.05
+18:22:15   build! kind curb tile Same as the room floor settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>true, "drain"=>"square", "drain_w"=>5, "drain_l"=>5, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>48, "unit_l"=>48, "ox"=>21.61835240827088, "oy"=>34.509823619036354, "angle"=>0, "center"=>false, "texture"=>"", "grout"=>0.1875, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IP_MAT_0019"}
+18:22:15   under? floor floor-tluh43-6415 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+18:22:15   under? floor floor-tluh43-0716 floor_id nil room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:15   under? floor_pattern  floor_id "floor-tluh43-6415" room room-tlf7le-9399 middle no holes 0 -> no
+18:22:15   under? floor_pattern  floor_id "floor-tluh43-0716" room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:15   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+18:22:15   wall joints: side 1 TW028 along x -> [-465.087]
+18:22:15   wall joints: side 2 TW034 along y -> [351.584, 353.709, 355.834, 357.959, 360.084, 362.209, 364.334, 366.459, 367.459, 368.584, 370.709, 372.834, 374.959, 377.084, 379.209, 381.334, 383.459]
+18:22:15   wall joints: side 3 TW032 along x -> [-464.119]
+18:22:15   wall joints: the room tile could not be read - grid left as it was
+18:22:15   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+18:22:15   drain: hole opened in the pad
+18:22:15   build! own no lay yes src floor pad_top 1.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+18:22:15   build! tiles laid
+18:22:15   drain: square 5.0 x 5.0 at [-465.618, 364.959] z 1.05, 49 grate hole(s)
+18:22:15   curb: wears the shower floor - Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+18:22:15   curb: 1 of 1 built, 4.0" tall from z 0.05
+18:22:36   under? floor floor-tluh43-6415 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+18:22:36   under? floor floor-tluh43-0716 floor_id nil room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:36   under? floor_pattern  floor_id "floor-tluh43-6415" room room-tlf7le-9399 middle no holes 0 -> no
+18:22:36   under? floor_pattern  floor_id "floor-tluh43-0716" room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:36   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+18:22:40   build! kind flat tile Same as the room floor settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>true, "drain"=>"square", "drain_w"=>5, "drain_l"=>5, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b"}
+18:22:40   under? floor floor-tluh43-6415 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+18:22:40   under? floor floor-tluh43-0716 floor_id nil room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:40   under? floor_pattern  floor_id "floor-tluh43-6415" room room-tlf7le-9399 middle no holes 0 -> no
+18:22:40   under? floor_pattern  floor_id "floor-tluh43-0716" room room-tlj2de-3087 middle yes holes 0 -> YES
+18:22:40   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+18:22:40   drain: hole opened in the pad
+18:22:40   build! own no lay yes src floor pad_top 0.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+18:22:40   build! tiles laid
+18:22:40   drain: square 5.0 x 5.0 at [-467.618, 364.959] z 0.05, 49 grate hole(s)
+18:23:43   under? floor floor-tluh43-6415 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+18:23:43   under? floor floor-tluh43-0716 floor_id nil room room-tlj2de-3087 middle no holes 1 -> YES
+18:23:43   under? floor_pattern  floor_id "floor-tluh43-6415" room room-tlf7le-9399 middle no holes 0 -> no
+18:23:43   under? floor_pattern  floor_id "floor-tluh43-0716" room room-tlj2de-3087 middle no holes 0 -> YES
+18:23:43   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+18:23:48   build! kind flat tile Same as the room floor settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b"}
+18:23:48   under? floor floor-tluh43-6415 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+18:23:48   under? floor floor-tluh43-0716 floor_id nil room room-tlj2de-3087 middle no holes 1 -> YES
+18:23:48   under? floor_pattern  floor_id "floor-tluh43-6415" room room-tlf7le-9399 middle no holes 0 -> no
+18:23:48   under? floor_pattern  floor_id "floor-tluh43-0716" room room-tlj2de-3087 middle no holes 0 -> YES
+18:23:48   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+18:23:48   drain: linear_tile on the top side, 2.0" off the wall, shift 0.0
+18:23:48   drain: hole opened in the pad
+18:23:48   build! own no lay yes src floor pad_top 0.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+18:23:48   build! tiles laid
+18:23:48   drain: linear_tile 24.0 x 3.0 at [-477.118, 396.875] z 0.05, 0 grate hole(s), tile inside: Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory, channel yes

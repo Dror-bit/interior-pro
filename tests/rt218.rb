@@ -24,6 +24,12 @@ ok('the room floor and the patch both use it when no texture is picked',
 ok('a missing texture file falls back to White too', src.include?('return plain_material(model, DEFAULT_TYPE) unless f'))
 ok('the shower floor with nothing to copy is White too',
    File.read('./shower_floor.rb').include?('FloorManager.plain_material(model, InteriorPro::FloorManager::DEFAULT_TYPE)'))
+# THE FLOORS WINDOW (2026-09-23, his words: "תעיף את הרשימה הזאת... תשאיר
+# רק את סוג הריצפה והחומר", and "למה אם אין פה קטגוריה זה לא יוצר ריצפה")
+fd = File.read('./floor_dialog.rb')
+ok('the texture list is gone from the row - a hidden empty field instead', fd.include?(%q(<input type="hidden" id="tx_' + i + '" value="">)) && !fd.include?("onchange=\"textureChanged("))
+ok('the material card sits where the list was', fd.include?('<th>Room</th><th>Area</th><th>חומר</th>'))
+ok('Apply never deletes a room floor any more', !fd.include?('InteriorPro::FloorManager.remove_floor_for_room!(rid)'))
 FM.send(:remove_const, :USE_WHITE_DEFAULT)
 FM.const_set(:USE_WHITE_DEFAULT, false)
 w = FM.plain_material(model, 'Hardwood')

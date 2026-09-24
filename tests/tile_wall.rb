@@ -71,6 +71,9 @@ module InteriorPro
     # הניש לטיל של הקירות החיבור יהיה 45 מעלות"). false = the niche is a
     # bare hole in the tile, exactly as before.
     USE_NICHE_TILES = true unless const_defined?(:USE_NICHE_TILES, false)
+    # THE NICHE'S OWN TILE (2026-09-23). false = every niche wears the
+    # wall's tile again, whatever is stored on it.
+    USE_NICHE_OWN_TILE = true unless const_defined?(:USE_NICHE_OWN_TILE, false)
 
     # ---- the plane (pure) ----------------------------------------------
 
@@ -1251,7 +1254,7 @@ module InteriorPro
           end
           holes = holes.dup
           holes[idx] = niche_inset(nr, dp)
-          niches << { r: nr, depth: n[:depth].to_f }
+          niches << { r: nr, depth: n[:depth].to_f, tile: n[:tile] }
         end
       end
 
@@ -1611,11 +1614,57 @@ module InteriorPro
     # THE NICHE'S OWN TILE - back, both sides, bottom, top. Each tile in its
     # own group (the law that crashed SketchUp), each lining's grout in its
     # own group too. Returns how many tiles were built.
+    # Which linings wear the niche's OWN tile: the back only, or all five.
+    # PURE.
+    def self.own_tile_keys(where)
+      where.to_s == 'all' ? %i[back left right bottom top] : %i[back]
+    end
+
+    # The niche's own grid: its tile, centred on the niche's back (a tiler
+    # centres the back of a niche). PURE.
+    def self.niche_own_cells(nr, tw, tl, g)
+      u0, z0, u1, z1 = nr.map(&:to_f)
+      InteriorPro::TileGrid.cells(rect(u0, z0, u1 - u0, z1 - z0), u_size: tw.to_f, v_size: tl.to_f,
+                                  grout: g.to_f, angle: 0.0, ox: 0.0, oy: 0.0, centered: true, stagger: 0.0)
+    end
+
+    # The niche's own tile, as the lining needs it: sets, material and the
+    # picture size. nil = none stored, switched off, or it cannot be made.
+    def self.niche_own(x, dp)
+      t = x[:tile]
+      return nil unless t && USE_NICHE_OWN_TILE
+      c = card(t['card'])
+      return nil if c.nil?
+      m = (InteriorPro::MaterialLibraryDialog.material_from_card(Sketchup.active_model, c) rescue nil)
+      if m.nil?
+        puts "[TileWall] the niche's card '#{t['card']}' gave no material - the wall's tile is used"
+        return nil
+      end
+      tw = t['tile_w'].to_f > 0.25 ? t['tile_w'].to_f : (c['tile_w_inches'] || c['texture_width_inches']).to_f
+      tl = t['tile_l'].to_f > 0.25 ? t['tile_l'].to_f : (c['tile_l_inches'] || c['texture_height_inches']).to_f
+      tw = 12.0 if tw <= 0.25
+      tl = tw if tl <= 0.25
+      g = [t['grout'].to_f, [tw, tl].min * 0.4].min
+      sets = niche_lining(niche_own_cells(x[:r], tw, tl, g), tw, tl, g, x[:r], dp, x[:depth])
+      return nil if sets.nil?
+      iw = c['texture_width_inches'].to_f
+      ih = c['texture_height_inches'].to_f
+      { sets: sets, mat: m, tex_u: iw > 0.25 ? iw : tw, tex_v: ih > 0.25 ? ih : tl, keys: own_tile_keys(t['where']) }
+    rescue StandardError => e
+      puts "[TileWall] the niche's own tile failed - the wall's tile is used: #{e.message}"
+      nil
+    end
+
     def self.emit_niche_lining!(ge, fr, x, cells, tw, tl, g, dp, mat, tex_u, tex_v, gmat)
       sets = niche_lining(cells, tw, tl, g, x[:r], dp, x[:depth])
       if sets.nil?
         puts "[TileWall] this niche is too small or too shallow (#{x[:depth].round(2)}\") for tile inside"
         return 0
+      end
+      own = niche_own(x, dp)
+      if own
+        own[:keys].each { |k| sets[k] = own[:sets][k] }
+        puts "[TileWall] niche: its own tile on #{own[:keys].join(', ')}"
       end
       frames = lining_frames(fr, x[:r], x[:depth])
       built = 0
@@ -1637,8 +1686,12 @@ module InteriorPro
           gg.erase! if gg.valid?
         end
         set[:pieces].each do |pc|
-          if lining_solid!(ge, lf, pc, dp, mat, key == :back ? tex_u : (key == :left || key == :right ? tex_u : tex_v),
-                           key == :back ? tex_v : (key == :left || key == :right ? tex_v : tex_u))
+          mine = own && own[:keys].include?(key)
+          km = mine ? own[:mat] : mat
+          ku = mine ? own[:tex_u] : tex_u
+          kv = mine ? own[:tex_v] : tex_v
+          if lining_solid!(ge, lf, pc, dp, km, key == :back ? ku : (key == :left || key == :right ? ku : kv),
+                           key == :back ? kv : (key == :left || key == :right ? kv : ku))
             built += 1
           else
             fails += 1

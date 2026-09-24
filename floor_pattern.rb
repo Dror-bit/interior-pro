@@ -30,6 +30,17 @@ module InteriorPro
     # Bathroom 2 was verified against). Flip this one word to turn every
     # tile floor 90 degrees.
     UNIT_W_ALONG_LAYOUT = true unless const_defined?(:UNIT_W_ALONG_LAYOUT, false)
+    # THE FLOOR TILE STOPS AT THE WALL TILE (2026-09-23, his words: "רצפת
+    # השירותים ממשיכה מתחת לאריחי הקירות... הרצפה יכולה להיגמר בקו שבו
+    # רצפת האריחים נגמרת"). Measured on his model (floor_stop_report.txt):
+    # three tiled walls stand on the Room 2 floor, their tile 0.625" proud
+    # of the wall, and the room's tile layout ran on under that strip.
+    # Now every such strip is left out of the room's tile faces. The slab
+    # and the grout backing are not touched. false = as before.
+    USE_WALL_TILE_STOP = true unless const_defined?(:USE_WALL_TILE_STOP, false)
+    # How far the strip reaches BEHIND the wall face, so it always covers
+    # the floor's edge there.
+    WALL_TILE_BEHIND = 0.5 unless const_defined?(:WALL_TILE_BEHIND, false)
 
     def self.patterns_in_model
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
@@ -157,6 +168,19 @@ module InteriorPro
       holes = defined?(InteriorPro::ShowerFloor) ? InteriorPro::ShowerFloor.holes_of(floor) : []
       holes = clip_holes if clip
 
+      # The wall tile standing on this floor: its strip is left out of the
+      # floor's tile faces. Room layouts only - a shower is drawn to the
+      # tile line already (measured 2026-09-23).
+      tile_holes = holes
+      unless clip
+        zf = floor.get_attribute('InteriorPro', 'floor_level').to_f + LINE_Z
+        wt = wall_tile_holes(poly.map { |p| [p.x.to_f, p.y.to_f] }, zf)
+        unless wt.empty?
+          tile_holes = holes + wt
+          puts "[FloorPattern] the floor tile stops at #{wt.length} tiled wall area(s)"
+        end
+      end
+
       model = Sketchup.active_model
       grp = model.entities.add_group
       grp.name = clip ? 'InteriorPro_ShowerPattern' : 'InteriorPro_FloorPattern'
@@ -184,11 +208,11 @@ module InteriorPro
           # (the joints ARE the grout) — no line layer needed.
           if pattern == 'Tile' && grout > 0.02
             build_grout_backing!(ge, area, floor.get_attribute('InteriorPro', 'pattern_grout_color'), zb - 0.02, holes)
-            emit_plank_faces!(ge, planks, area, mat, zb, holes)
+            emit_plank_faces!(ge, planks, area, mat, zb, tile_holes)
           else
             # Material layer (all face edges hidden) + a clean uniform line
             # layer slightly above it — line weight is identical everywhere.
-            emit_plank_faces!(ge, planks, area, mat, zb, holes)
+            emit_plank_faces!(ge, planks, area, mat, zb, tile_holes)
             emit_plank_edges!(ge, planks, area, zb + 0.02)
           end
         else
@@ -421,7 +445,86 @@ module InteriorPro
       end
     end
 
+    # ---------- the wall tile's strip (2026-09-23) ----------
+
+    # The floor strip one tiled wall area stands on: along the wall from
+    # bu0 for bw, from `behind` inside the wall out to the tile face `dp`
+    # into the room. [[x, y]] x4. PURE (tests/rt219).
+    def self.wall_tile_footprint(fr, bu0, bw, dp, behind = WALL_TILE_BEHIND)
+      tw = InteriorPro::TileWall
+      [tw.world(fr, bu0, 0.0, -behind), tw.world(fr, bu0 + bw, 0.0, -behind),
+       tw.world(fr, bu0 + bw, 0.0, dp), tw.world(fr, bu0, 0.0, dp)].map { |x, y, _z| [x.to_f, y.to_f] }
+    end
+
+    # Is the point inside the polygon? Ray casting. PURE.
+    def self.inside_poly?(poly, x, y)
+      inside = false
+      j = poly.length - 1
+      poly.each_with_index do |(xi, yi), i|
+        xj, yj = poly[j]
+        if ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+          inside = !inside
+        end
+        j = i
+      end
+      inside
+    end
+
+    # Every tiled wall area standing on this floor (its bottom at the
+    # floor, its tile strip inside the room), as a strip to leave out.
+    # Every skip says why (CLAUDE.md).
+    def self.wall_tile_holes(poly_xy, floor_top, model = nil)
+      return [] unless USE_WALL_TILE_STOP && defined?(InteriorPro::TileWall)
+      tw = InteriorPro::TileWall
+      out = []
+      tw.areas_in_model.each do |g|
+        next unless g.valid?
+        a = lambda { |k| g.get_attribute('InteriorPro', k) }
+        dp = a.call('tile_depth').to_f
+        next if dp <= 0.02 # a flat painted area has no thickness to stop at
+        wall = tw.wall_by_id(a.call('wall_id'))
+        if wall.nil?
+          puts "[FloorPattern] tiled area #{a.call('id')} has no wall - the floor is not stopped there"
+          next
+        end
+        fr = tw.frame_for(wall, a.call('side'))
+        next if fr.nil? # frame_for says why
+        bu0 = (a.call('built_u0') || a.call('u0')).to_f
+        bw = (a.call('built_w') || a.call('area_w')).to_f
+        bottom = fr[:floor_z] + a.call('z0').to_f
+        top = bottom + a.call('area_h').to_f
+        next unless bottom <= floor_top.to_f + 1.0 && top > floor_top.to_f
+        mx, my, _mz = tw.world(fr, bu0 + bw / 2.0, 0.0, dp / 2.0)
+        next unless inside_poly?(poly_xy, mx, my)
+        out << wall_tile_footprint(fr, bu0, bw, dp)
+      end
+      out
+    rescue StandardError => e
+      puts "[FloorPattern] the wall tile strips could not be read - the floor runs on under them: #{e.message}"
+      []
+    end
+
     # ---------- holes in the layout (2026-09-22) ----------
+
+    # Pieces cut round a hole are kept down to this size (sq in).
+    HOLE_EPS = 0.002 unless const_defined?(:HOLE_EPS, false)
+
+    # The polygon counter-clockwise if it is convex, nil if not. PURE.
+    def self.convex_ccw(h)
+      n = h.length
+      return nil if n < 3
+      sign = nil
+      h.each_with_index do |a, i|
+        b = h[(i + 1) % n]
+        c = h[(i + 2) % n]
+        cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+        next if cr.abs < 1.0e-12
+        sign = cr > 0 if sign.nil?
+        return nil if (cr > 0) != sign
+      end
+      return nil if sign.nil?
+      sign ? h : h.reverse
+    end
 
     # Split a convex piece by the directed line a->b: [left, right]. PURE.
     def self.split_by_line(poly, a, b)
@@ -446,14 +549,15 @@ module InteriorPro
     end
 
     # A convex piece minus a convex COUNTER-CLOCKWISE polygon: the parts
-    # left over, each convex. PURE.
-    def self.subtract_convex(piece, tri)
+    # left over, each convex. PURE. eps: parts smaller than this are
+    # dropped (0.05 sq in as it always was, unless told otherwise).
+    def self.subtract_convex(piece, tri, eps = 0.05)
       out = []
       rest = piece
       tri.each_with_index do |a, i|
         b = tri[(i + 1) % tri.length]
         inside, outside = split_by_line(rest, a, b)
-        out << outside if outside.length >= 3 && poly_area_abs(outside) > 0.05
+        out << outside if outside.length >= 3 && poly_area_abs(outside) > eps
         rest = inside
         break if rest.length < 3
       end
@@ -462,10 +566,23 @@ module InteriorPro
 
     # Every piece minus every hole (any shape - each hole is triangulated
     # first). PURE (tests/rt203.rb).
+    #
+    # A CONVEX hole (the drains: square, round) is taken away in ONE go,
+    # never triangle by triangle. Measured 2026-09-23 on his round drain:
+    # the 24-sided circle became 22 triangles, every tile round it was cut
+    # along each triangle's lines into 246 slivers, and 1.37 sq in of tile
+    # was thrown away as "too small" - the white bits round the drain. In
+    # one go: 39 pieces, and nothing small is thrown away.
     def self.pieces_minus_holes(pieces, holes)
       Array(holes).each do |h|
         next if h.nil? || h.length < 3
-        triangulate(h.map { |x, y| [x.to_f, y.to_f] }).each do |t|
+        hp = h.map { |x, y| [x.to_f, y.to_f] }
+        cv = convex_ccw(hp)
+        if cv
+          pieces = pieces.flat_map { |pc| subtract_convex(pc, cv, HOLE_EPS) }
+          next
+        end
+        triangulate(hp).each do |t|
           pieces = pieces.flat_map { |pc| subtract_convex(pc, t) }
         end
       end
@@ -544,7 +661,10 @@ module InteriorPro
         faces = []
         tris.each do |tri|
           whole = clip_poly_convex(tri, pl[:c])
-          pieces = Array(holes).empty? ? [whole] : pieces_minus_holes([whole], holes)
+          # a piece cut round a hole is kept down to HOLE_EPS - the 0.05
+          # floor threw away the slivers round a round drain (white bits)
+          cut = !Array(holes).empty? && whole.length >= 3 && poly_area_abs(whole) >= 0.05
+          pieces = cut ? pieces_minus_holes([whole], holes) : [whole]
           pieces.each do |piece|
           clean = []
           piece.each do |p|
@@ -556,7 +676,7 @@ module InteriorPro
             clean.pop
           end
           next if clean.length < 3
-          next if poly_area_abs(clean) < 0.05
+          next if poly_area_abs(clean) < (cut ? HOLE_EPS : 0.05)
           pts = clean.map { |x, y| Geom::Point3d.new(x, y, z) }
           f = begin
             ge.add_face(pts)

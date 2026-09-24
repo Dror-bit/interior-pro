@@ -56,6 +56,17 @@ module InteriorPro
     TILE_INNER_RIM = 0.0625    # the tray's steel edge round the tile, flush
     # The drains that sit in the middle of the floor.
     CENTER_DRAINS = %w[square square_tile round].freeze unless const_defined?(:CENTER_DRAINS, false)
+    # THE LONG DRAIN BY A WALL (2026-09-23, his choices: the wall is picked
+    # from a list - top / bottom / left / right as seen from above - and
+    # the drain stands 2" off it). 3" x 24" by default, starting from the
+    # middle of that side; Shift moves it along the wall (+ = right / up).
+    # Two kinds, like the square ones: a grate, and a tile with a channel.
+    # Not guarded, so a reload picks up a new number.
+    WALL_DRAINS = %w[linear linear_tile].freeze
+    DRAIN_SIDES = %w[top bottom left right].freeze
+    LINEAR_W = 3.0    # across the drain
+    LINEAR_L = 24.0   # along the wall
+    LINEAR_GAP = 2.0  # from the wall's tiles to the drain
     # The round drain is a polygon of this many sides (the hole in the
     # tiles and in the floor is the same polygon, so they meet exactly).
     ROUND_SIDES = 24 unless const_defined?(:ROUND_SIDES, false)
@@ -305,6 +316,26 @@ module InteriorPro
       (0...n).map { |k| a = 2.0 * Math::PI * k / n; [cx + r * Math.cos(a), cy + r * Math.sin(a)] }
     end
 
+    # The long drain's outline by one side of the floor (the floor INSIDE
+    # the curb): w across, l along the wall, `gap` off the wall, its middle
+    # at the middle of that side plus `shift` (+ = right / up, as seen
+    # from above). nil for a side that is not in the list. PURE (rt215).
+    def self.wall_drain_rect(loop_xy, side, w, l, shift = 0.0, gap = LINEAR_GAP)
+      lp = clean_loop(loop_xy)
+      return nil if lp.length < 3
+      xs = lp.map { |x, _y| x }
+      ys = lp.map { |_x, y| y }
+      w = w.to_f; l = l.to_f; s = shift.to_f; g = gap.to_f
+      mx = (xs.min + xs.max) / 2.0
+      my = (ys.min + ys.max) / 2.0
+      case side.to_s
+      when 'right'  then drain_rect(xs.max - g - w / 2.0, my + s, w, l)
+      when 'left'   then drain_rect(xs.min + g + w / 2.0, my + s, w, l)
+      when 'top'    then drain_rect(mx + s, ys.max - g - w / 2.0, l, w)
+      when 'bottom' then drain_rect(mx + s, ys.min + g + w / 2.0, l, w)
+      end
+    end
+
     # The grate's square holes, as [x0, y0, x1, y1] from the drain's low
     # corner: as many as fit inside the rim, the pattern centred. PURE.
     def self.grate_holes(w, l, frame = GRATE_FRAME, hole = GRATE_HOLE, bar = GRATE_BAR)
@@ -385,7 +416,7 @@ module InteriorPro
       made = 0
       insert = nil
       channel = nil
-      if kind == 'square_tile'
+      if %w[square_tile linear_tile].include?(kind)
         r = TILE_RIM
         r2 = TILE_RIM + TILE_CHANNEL
         r3 = r2 + TILE_INNER_RIM
@@ -414,7 +445,7 @@ module InteriorPro
         end
       end
       holes = case kind
-              when 'square_tile' then []
+              when 'square_tile', 'linear_tile' then []
               when 'round' then round_grate_holes(w)
               else grate_holes(w, l)
               end
@@ -612,7 +643,7 @@ module InteriorPro
       if tile.nil? || tile.to_s.empty? || tile.to_s == SAME_AS_ROOM
         m = preset || room_floor_material(floor_grp)
         return m if m
-        tile = InteriorPro::FloorManager::DEFAULT_TYPE
+        return InteriorPro::FloorManager.plain_material(model, InteriorPro::FloorManager::DEFAULT_TYPE)
       end
       InteriorPro::FloorManager.floor_material(model, tile.to_s)
     rescue StandardError => e
@@ -1363,6 +1394,19 @@ module InteriorPro
           drain_rect_xy = drain == 'round' ? drain_circle(c[0], c[1], dw) : drain_rect(c[0], c[1], dw, dl)
         end
         puts '[ShowerFloor] no middle found for the drain - not built' unless drain_rect_xy
+      elsif WALL_DRAINS.include?(drain)
+        dw = settings['drain_w'].to_f > 0.25 ? settings['drain_w'].to_f : LINEAR_W
+        dl = settings['drain_l'].to_f > 0.25 ? settings['drain_l'].to_f : LINEAR_L
+        side = DRAIN_SIDES.include?(settings['drain_side'].to_s) ? settings['drain_side'].to_s : 'right'
+        drain_rect_xy = wall_drain_rect(floor_xy, side, dw, dl, settings['drain_shift'].to_f)
+        out = drain_rect_xy && drain_rect_xy.reject { |x, y| inside_or_on?(floor_xy, x, y) }
+        if drain_rect_xy.nil? || !out.empty?
+          trace("drain: #{drain} #{dw} x #{dl} on the #{side} side, shift #{settings['drain_shift'].to_f} - does NOT fit inside the floor, not built")
+          puts "[ShowerFloor] the long drain does not fit on the #{side} side (shift #{settings['drain_shift'].to_f}\") - not built"
+          drain_rect_xy = nil
+        else
+          trace("drain: #{drain} on the #{side} side, #{LINEAR_GAP}\" off the wall, shift #{settings['drain_shift'].to_f}")
+        end
       elsif !%w[none].include?(drain) && !drain.empty?
         puts "[ShowerFloor] drain '#{drain}' is not built yet"
       end
@@ -1433,6 +1477,8 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'drain', drain.empty? ? 'none' : drain)
       grp.set_attribute('InteriorPro', 'drain_w', settings ? settings['drain_w'].to_f : 0.0)
       grp.set_attribute('InteriorPro', 'drain_l', settings ? settings['drain_l'].to_f : 0.0)
+      grp.set_attribute('InteriorPro', 'drain_side', settings ? (settings['drain_side'] || 'right').to_s : 'right')
+      grp.set_attribute('InteriorPro', 'drain_shift', settings ? settings['drain_shift'].to_f : 0.0)
       trace("build! own #{own ? 'yes' : 'no'} lay #{lay ? 'yes' : 'no'} src #{src ? src.get_attribute('InteriorPro', 'type') : 'none'} pad_top #{pad_top.round(3)} mat #{mat && mat.name}")
       if lay
         sp = begin
