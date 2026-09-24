@@ -2683,7 +2683,7 @@ module InteriorPro
             <span id="pageTabs"></span>
             <button id="applyBtn" class="blue" onclick="applyPending()">Apply to Model</button>
             <button class="gray" onclick="sketchup.build_plan()">Plans (2D)</button>
-            <button class="gray" onclick="sketchup.open_sheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
+            <button class="gray" onclick="openSheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
             <button id="squareBtn" class="gray" style="display:none" onclick="squareUpCorners()"
                     title="מיישר את כל הפינות ל-90 מעלות בבת אחת">פינות 90°</button>
             <button id="originBtn" class="gray" onclick="toggleOriginMode()"
@@ -10572,6 +10572,9 @@ module InteriorPro
               renderTabs();
               markGuideBox(); updateStatus(); saveDraft(true); draw();
             }
+            // The sheet reads the drawing pages out of the draft, so the draft
+            // goes to the model first - callbacks run in order.
+            function openSheet() { saveDraft(true); sketchup.open_sheet(); }
             function newPage() {
               pages.push(blankPage('שרטוט ' + (pages.length + 1)));
               goPage(pages.length);
