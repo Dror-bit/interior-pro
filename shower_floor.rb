@@ -944,8 +944,96 @@ module InteriorPro
       a.all? { |x, y| b.any? { |x2, y2| (x - x2).abs <= tol && (y - y2).abs <= tol } }
     end
 
+    # NO ROOM FLOOR UNDER THE SHOWER'S TILE WALLS (2026-09-23, his words:
+    # "לא צריכה להיות ריצפה מתחת לקירות האריחים של המקלחת"). Measured on
+    # his Room 2: the pad stops on the tile face (401.88) and the room slab
+    # ran on 0.62" to the wall face (402.5) under the wall tile - and into
+    # the count. So the hole stored on the floor is the shower loop with
+    # every side that has a TILE WALL right behind it pushed out to that
+    # wall's face. PURE part: grow_to_tile_walls (tests/rt221).
+    # Kill switch: ShowerFloor::USE_HOLE_TO_WALL = false.
+    USE_HOLE_TO_WALL = true unless const_defined?(:USE_HOLE_TO_WALL, false)
+    HOLE_GROW_MAX = 3.0 unless const_defined?(:HOLE_GROW_MAX, false)
+
+    # How far from (mx,my) along (nx,ny) the room's outline is hit. nil = never.
+    def self.ray_to_poly(mx, my, nx, ny, poly)
+      best = nil
+      lp = clean_loop(poly)
+      lp.each_with_index do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        ex = x2 - x1
+        ey = y2 - y1
+        den = nx * ey - ny * ex
+        next if den.abs < 1.0e-9
+        t = ((x1 - mx) * ey - (y1 - my) * ex) / den
+        u = ((x1 - mx) * ny - (y1 - my) * nx) / den
+        next if t < 1.0e-6 || u < -1.0e-6 || u > 1.0 + 1.0e-6
+        best = t if best.nil? || t < best
+      end
+      best
+    end
+
+    # Every side with a tile wall right behind it (probe point inside a
+    # tile_wall box) is pushed OUT to the room's outline - the wall face -
+    # but never more than `max` (a box that far away is not the wall the
+    # pad stands against). Without a room outline nothing moves.
+    def self.grow_to_tile_walls(loop_xy, boxes, room_poly, probe = WALL_PROBE, max = HOLE_GROW_MAX)
+      lp = clean_loop(loop_xy)
+      return lp if lp.length < 3 || clean_loop(Array(room_poly)).length < 3
+      ns = out_normals(lp)
+      dists = lp.each_with_index.map do |(x1, y1), i|
+        x2, y2 = lp[(i + 1) % lp.length]
+        nx, ny = ns[i]
+        mx = (x1 + x2) / 2.0
+        my = (y1 + y2) / 2.0
+        px = mx + nx * probe
+        py = my + ny * probe
+        walled = Array(boxes).any? { |x0, y0, xa, ya| px >= x0 - 1.0e-6 && px <= xa + 1.0e-6 && py >= y0 - 1.0e-6 && py <= ya + 1.0e-6 }
+        next 0.0 unless walled
+        d = ray_to_poly(mx, my, nx, ny, room_poly)
+        (d && d > 1.0e-6 && d <= max) ? d : 0.0
+      end
+      return lp if dists.all? { |d| d <= 0.0 }
+      inset_loop(lp, dists.map { |d| -d })
+    end
+
+    def self.tile_wall_boxes(model = nil)
+      model ||= Sketchup.active_model
+      model.entities.grep(Sketchup::Group).map do |g|
+        next nil unless g.valid? && g.get_attribute('InteriorPro', 'type').to_s == 'tile_wall'
+        begin
+          b = g.bounds
+          [b.min.x.to_f, b.min.y.to_f, b.max.x.to_f, b.max.y.to_f]
+        rescue StandardError
+          nil
+        end
+      end.compact
+    end
+
+    # The loop as it is STORED on the floor: grown to the tile walls.
+    def self.room_outline(floor_grp, model = nil)
+      rid = floor_grp && floor_grp.get_attribute('InteriorPro', 'room_id')
+      return [] if rid.nil?
+      room = InteriorPro::RoomManager.rooms_in_model.find { |r| r.get_attribute('InteriorPro', 'id') == rid }
+      return [] unless room
+      Array(room.get_attribute('InteriorPro', 'boundary_xy')).map(&:to_f).each_slice(2).to_a
+    rescue StandardError
+      []
+    end
+
+    def self.hole_loop(loop_xy, floor_grp = nil, model = nil)
+      lp = clean_loop(loop_xy)
+      return lp unless USE_HOLE_TO_WALL
+      grown = grow_to_tile_walls(lp, tile_wall_boxes(model), room_outline(floor_grp, model))
+      trace("hole to wall: #{lp.map { |x, y| [x.round(3), y.round(3)] }.inspect} -> #{grown.map { |x, y| [x.round(3), y.round(3)] }.inspect}") unless same_loop?(lp, grown)
+      grown
+    rescue StandardError => e
+      puts "[ShowerFloor] hole_loop: #{e.message}"
+      clean_loop(loop_xy)
+    end
+
     def self.add_hole!(floor_grp, loop_xy)
-      loop_xy = clean_loop(loop_xy)
+      loop_xy = hole_loop(loop_xy, floor_grp)
       holes = holes_of(floor_grp).reject { |h| same_loop?(h, loop_xy) }
       holes << loop_xy
       floor_grp.set_attribute('InteriorPro', 'shower_holes',
@@ -973,9 +1061,44 @@ module InteriorPro
       nil
     end
 
+    # A FLOOR BUILT AGAIN KNOWS THE SHOWER STANDING IN IT (2026-09-23,
+    # measured on his Room 2: the floor was rebuilt after it was deleted,
+    # `shower_holes stored: 0`, and the room tile ran under the shower).
+    # A door is cut again in a wall that is rebuilt; the same here: every
+    # FLAT shower pad of this room writes its loop onto the new floor.
+    # Kill switch: ShowerFloor::USE_REHOLE = false.
+    USE_REHOLE = true unless const_defined?(:USE_REHOLE, false)
+
+    def self.flat_pad_loops(room_id, model = nil)
+      return [] if room_id.nil?
+      pads_in_model(model).select do |pad|
+        pad.get_attribute('InteriorPro', 'room_id') == room_id &&
+          pad.get_attribute('InteriorPro', 'kind').to_s == 'flat'
+      end.map { |pad| Array(pad.get_attribute('InteriorPro', 'poly_xy')).map(&:to_f).each_slice(2).to_a }
+         .select { |lp| clean_loop(lp).length >= 3 }
+    end
+
+    def self.rehole!(floor_grp, model = nil)
+      return 0 unless USE_REHOLE && floor_grp && floor_grp.valid?
+      rid = floor_grp.get_attribute('InteriorPro', 'room_id')
+      n = 0
+      flat_pad_loops(rid, model).each do |lp|
+        next if holes_of(floor_grp).any? { |h| same_loop?(h, hole_loop(lp, floor_grp, model)) }
+        add_hole!(floor_grp, lp)
+        n += 1
+      end
+      puts "[ShowerFloor] floor of room #{rid}: #{n} shower hole(s) written again from the shower in it" if n > 0
+      trace("rehole: room #{rid} floor #{floor_grp.get_attribute('InteriorPro', 'id')} -> #{n} added, #{holes_of(floor_grp).length} stored")
+      n
+    rescue StandardError => e
+      puts "[ShowerFloor] rehole!: #{e.message}"
+      0
+    end
+
     # Called by FloorManager at the end of every slab build.
     def self.cut_floor!(floor_grp)
       return 0 unless USE_SHOWER_FLOOR && floor_grp && floor_grp.valid?
+      rehole!(floor_grp)
       holes = holes_of(floor_grp)
       holes.each { |h| cut_out!(floor_grp, h, nil) }
       refresh_area!(floor_grp)
