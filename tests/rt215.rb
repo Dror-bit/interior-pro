@@ -95,5 +95,7 @@ ok('the window offers both long drains', src.include?('<option value="linear">')
 ok('the window has the wall list and Shift', src.include?('id="drain_side"') && src.include?('id="drain_shift"'))
 ok('the new keys go through OK', SD.all_keys.include?('drain_side') && SD.all_keys.include?('drain_shift'))
 
+ok('the drains are pictures, like the door handles (2026-09-23)', src.include?('id="drainGrid"') && src.include?('function drainSvg') &&
+   %w[none square square_tile round linear linear_tile].all? { |k| src =~ /\b#{k}: '/ })
 puts $fails.zero? ? 'ALL PASS' : "#{$fails} FAILED"
 exit($fails.zero? ? 0 : 1)
