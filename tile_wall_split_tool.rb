@@ -1,0 +1,370 @@
+# encoding: utf-8
+# Interior Pro - SPLIT A TILED AREA IN TWO (2026-09-23)
+#
+# His words: "שיהיה יכולת חיתוך הקיר של הטיל ואז נגיד אני רוצה שהטיל בחלק
+# העליון יהיה סוג מסויים והחלק התחתון... כמו חיתוך קירות ואז זה מתייחס
+# לכל קיר טיל בנפרד ואני יכול לערוך אותו". And the direction: "גם וגם" -
+# a LYING cut (top / bottom) and a STANDING one (left / right).
+#
+# Like Split Wall: move over a tiled area, a red line follows the mouse,
+# click = two areas. The arrow keys pick the cut: Up / Down = lying,
+# Left / Right = standing. A typed number = where the cut goes, measured
+# from the bottom (lying) or from the left end (standing) of the area.
+#
+# BUILT ON THE STRETCH TOOL (CLAUDE.md: a new tool starts from one that
+# works). The point comes from its edge_value - the SAME method for the
+# move and the click - and the ring is drawn where it locked: green =
+# a corner, cyan = a middle, magenta = a grout joint of this area.
+#
+# The tool OWNS NO LAYOUT: both halves are built by TileWall.build! from
+# the numbers already on the area. The grid is carried over so every
+# grout line stays exactly where it was (split_parts, PURE, tests/rt216).
+#
+# Kill switch: InteriorPro::TileWallSplitTool::USE_SPLIT_TOOL = false.
+module InteriorPro
+  class TileWallSplitTool < TileWallStretchTool
+    USE_SPLIT_TOOL = true unless const_defined?(:USE_SPLIT_TOOL, false)
+    RED = [220, 30, 30].freeze unless const_defined?(:RED, false)
+
+    # ---- pure -------------------------------------------------------------
+
+    # Where the grid of an area starts along one direction - the SAME
+    # numbers TileGrid.cells uses, read back off the stored settings.
+    def self.grid_start(edge, len, size, pitch, off, cen)
+      InteriorPro::TileGrid.start(edge, edge + len / 2.0, size, pitch, off, cen)
+    end
+
+    # THE TWO AREAS. `a` is the area's numbers:
+    #   u0 z0 w h (what he drew), bu0 bw (what was built after the corner
+    #   square), tile_w tile_l grout stagger angle ox oy centered axis.
+    # dir :h = a lying cut at height `at`, :v = a standing cut at `at`
+    # along the wall. Returns [first, second] - bottom/top or left/right -
+    # each { u0:, z0:, w:, h:, ox:, oy:, centered:, center_axis: }, or nil
+    # when the cut is not inside the area. PURE.
+    def self.split_parts(a, dir, at, min_side = TileWallStretchTool::MIN_SIDE)
+      u0 = a[:u0].to_f; z0 = a[:z0].to_f; w = a[:w].to_f; h = a[:h].to_f
+      at = at.to_f
+      if dir == :h
+        return nil unless at > z0 + min_side - 1.0e-9 && at < z0 + h - min_side + 1.0e-9
+        one = { u0: u0, z0: z0, w: w, h: at - z0 }
+        two = { u0: u0, z0: at, w: w, h: z0 + h - at }
+      else
+        return nil unless at > u0 + min_side - 1.0e-9 && at < u0 + w - min_side + 1.0e-9
+        one = { u0: u0, z0: z0, w: at - u0, h: h }
+        two = { u0: at, z0: z0, w: u0 + w - at, h: h }
+      end
+      # A turned layout keeps its own numbers - its grid is not a plain
+      # row and column, so it is not carried over.
+      if a[:angle].to_f.abs > 1.0e-9
+        keep = { ox: a[:ox].to_f, oy: a[:oy].to_f, centered: a[:centered], center_axis: a[:axis] }
+        return [one.merge(keep), two.merge(keep)]
+      end
+      tw = a[:tile_w].to_f; tl = a[:tile_l].to_f; g = a[:grout].to_f
+      pu = tw + g; pv = tl + g
+      bu0 = (a[:bu0] || u0).to_f
+      bw = (a[:bw] || w).to_f
+      cen = InteriorPro::TileWall.center_for_grid(a[:centered], a[:axis])
+      su = grid_start(bu0, bw, tw, pu, a[:ox].to_f, cen[:u])
+      sv = grid_start(z0, h, tl, pv, a[:oy].to_f, cen[:v])
+      # Each half lays its grid from the SAME start: nothing centred, the
+      # shift is how far that start is from the half's own edge.
+      [one, two].each_with_index do |pt, i|
+        eu = dir == :v && i == 1 ? pt[:u0] : bu0
+        pt[:ox] = su - eu
+        pt[:oy] = sv - pt[:z0]
+        pt[:centered] = false
+        pt[:center_axis] = 'uv'
+      end
+      # THE STAGGER (running bond) goes by the row number: every second row
+      # is pushed along. A top half whose first row was an odd row of the
+      # whole gets that push on its own first row.
+      st = a[:stagger].to_f
+      if dir == :h && st > 1.0e-9 && pv > 1.0e-9
+        first = lambda { |edge| sv - ((sv - edge) / pv).ceil * pv }
+        k = ((first.call(two[:z0]) - first.call(z0)) / pv).round
+        two[:ox] += (st % 1.0) * pu if k.odd?
+      end
+      [one, two]
+    end
+
+    # ---- the tool -----------------------------------------------------------
+
+    def activate
+      unless USE_SPLIT_TOOL
+        UI.messagebox('Split Tile is switched off (USE_SPLIT_TOOL = false).')
+        Sketchup.active_model.select_tool(nil)
+        return
+      end
+      clear
+      @dir = :h
+      status
+    end
+
+    def onKeyDown(key, _repeat, _flags, view)
+      nd = case key
+           when VK_UP, VK_DOWN then :h
+           when VK_LEFT, VK_RIGHT then :v
+           end
+      return false if nd.nil?
+      @dir = nd
+      @grab = grab_edge
+      @hover = nil
+      status
+      view.invalidate
+      true
+    end
+
+    # Stretch's edge_value measures along u for :u1 and up for :z1.
+    def grab_edge
+      @dir == :v ? :u1 : :z1
+    end
+
+    # The cut stays INSIDE the area he is over (Stretch clamps to the wall).
+    def clamp_value(_edge, v)
+      lo, hi = @dir == :v ? [@u0, u1] : [@z0, z1]
+      v = v.to_f
+      return lo if v < lo
+      v > hi ? hi : v
+    end
+
+    def onMouseMove(_flags, x, y, view)
+      g = area_under(view, x, y)
+      if g.nil?
+        @hover = nil
+      else
+        load_area(g) unless g.equal?(@area)
+        @grab = grab_edge
+        @hover = edge_value(view, x, y)
+        if @hover
+          d = @hover[:value] - (@dir == :v ? @u0 : @z0)
+          Sketchup.vcb_label = @dir == :v ? 'From left' : 'From bottom'
+          Sketchup.vcb_value = Sketchup.format_length(d)
+          view.tooltip = Sketchup.format_length(d)
+        end
+      end
+      view.invalidate
+    end
+
+    def onLButtonDown(_flags, x, y, view)
+      g = area_under(view, x, y)
+      if g.nil?
+        Sketchup.set_status_text('Split Tile: move over a tiled area first.', SB_PROMPT)
+        return
+      end
+      load_area(g) unless g.equal?(@area)
+      @grab = grab_edge
+      v = edge_value(view, x, y)
+      split!(v[:value]) if v
+      view.invalidate
+    end
+
+    def onUserText(text, view)
+      return if @area.nil?
+      n = parse_len(text)
+      if n.nil?
+        UI.messagebox("Type where the cut goes, e.g.  36  or  3'")
+        return
+      end
+      split!((@dir == :v ? @u0 : @z0) + n)
+      view.invalidate
+    end
+
+    def onCancel(_reason, view)
+      clear
+      status
+      view.invalidate
+    end
+
+    # The grout joints of this area, to lock the cut onto (magenta).
+    def joint_lines
+      return [] unless @area&.valid?
+      a = numbers_of(@area)
+      return [] if a[:angle].abs > 1.0e-9 || a[:tile_w] <= 0.25 || a[:tile_l] <= 0.25
+      cells = InteriorPro::TileGrid.cells(InteriorPro::TileWall.rect(a[:bu0], a[:z0], a[:bw], a[:h]),
+                                          u_size: a[:tile_w], v_size: a[:tile_l], grout: a[:grout],
+                                          angle: 0.0, ox: a[:ox], oy: a[:oy],
+                                          centered: InteriorPro::TileWall.center_for_grid(a[:centered], a[:axis]),
+                                          stagger: a[:stagger]) || []
+      half = a[:grout] / 2.0
+      key = @dir == :v ? :u0 : :v0
+      cells.map { |c| (c[key] - half).round(4) }.uniq.map { |v| [v, :edge] }
+    rescue StandardError => e
+      puts "[TileSplit] joints: #{e.message}"
+      []
+    end
+
+    def u_lines
+      [[@u0, :corner], [u1, :corner], [@u0 + @w / 2.0, :mid]] + (@dir == :v ? joint_lines : [])
+    end
+
+    def z_lines
+      [[@z0, :corner], [z1, :corner], [@z0 + @h / 2.0, :mid]] + (@dir == :h ? joint_lines : [])
+    end
+
+    # ---- drawing -------------------------------------------------------------
+
+    def draw(view)
+      return unless @frame
+      view.drawing_color = Sketchup::Color.new(*ORANGE)
+      view.line_stipple = ''
+      view.line_width = 2
+      view.draw(GL_LINE_LOOP, [pt3(@u0, @z0), pt3(u1, @z0), pt3(u1, z1), pt3(@u0, z1)])
+      return unless @hover
+      v = @hover[:value]
+      a, b = @dir == :v ? [pt3(v, @z0), pt3(v, z1)] : [pt3(@u0, v), pt3(u1, v)]
+      view.drawing_color = Sketchup::Color.new(*RED)
+      view.line_stipple = '-'
+      view.line_width = 3
+      view.draw(GL_LINES, [a, b])
+      draw_ring(view, @hover)
+    end
+
+    def draw_ring(view, hov)
+      c = ring_color(hov[:kind])
+      return if c.nil?
+      u, z = @dir == :v ? [hov[:value], @z0 + @h / 2.0] : [@u0 + @w / 2.0, hov[:value]]
+      centre = pt3(u, z)
+      r = begin
+        view.pixels_to_model(6, centre)
+      rescue StandardError
+        1.0
+      end
+      pts = (0..16).map { |i| t = i * 2.0 * Math::PI / 16.0; pt3(u + Math.cos(t) * r, z + Math.sin(t) * r) }
+      view.drawing_color = Sketchup::Color.new(*c)
+      view.line_stipple = ''
+      view.line_width = 3
+      view.draw(GL_LINE_STRIP, pts)
+    end
+
+    # ---- the cut -------------------------------------------------------------
+
+    def area_under(view, x, y)
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      found = nil
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        path.each do |e|
+          found = e if e.is_a?(Sketchup::Group) && e.get_attribute('InteriorPro', 'type') == 'tile_wall'
+        end
+        break if found
+      end
+      found
+    end
+
+    def numbers_of(g)
+      self.class.numbers_of(g)
+    end
+
+    def self.numbers_of(g)
+      at = lambda { |k| g.get_attribute('InteriorPro', k) }
+      tw = InteriorPro::TileWall
+      { u0: at.call('u0').to_f, z0: at.call('z0').to_f, w: at.call('area_w').to_f, h: at.call('area_h').to_f,
+        bu0: (at.call('built_u0') || at.call('u0')).to_f, bw: (at.call('built_w') || at.call('area_w')).to_f,
+        tile_w: at.call('tile_w').to_f, tile_l: at.call('tile_l').to_f, grout: at.call('pattern_grout').to_f,
+        stagger: at.call('pattern_stagger').to_f, angle: at.call('pattern_angle').to_f,
+        ox: at.call('pattern_ox').to_f, oy: at.call('pattern_oy').to_f,
+        centered: tw.center_value(at.call('pattern_center')), axis: tw.axis_value(at.call('pattern_center_axis')) }
+    end
+
+    # A new id no area has - build! erases whatever already carries the
+    # id it is given, so a clash would wipe another wall's tile.
+    def self.free_id
+      tw = InteriorPro::TileWall
+      taken = tw.areas_in_model.map { |g| g.get_attribute('InteriorPro', 'id').to_s }
+      id = tw.next_id
+      id = tw.next_id while taken.include?(id.to_s)
+      id
+    end
+
+    # Does the cut run through a niche on this face? A niche must sit
+    # wholly inside ONE area, or it is left as a bare hole - so that cut
+    # is refused, the way Split Wall refuses to cut through a door.
+    def self.through_niche?(wall, side, dir, at)
+      return false unless defined?(InteriorPro::TileNiche)
+      InteriorPro::TileNiche.read(wall).any? do |n|
+        next false unless n[:side].to_s == side.to_s
+        lo, hi = dir == :v ? [n[:u0], n[:u0] + n[:w]] : [n[:z0], n[:z0] + n[:h]]
+        at > lo.to_f + 1.0e-6 && at < hi.to_f - 1.0e-6
+      end
+    rescue StandardError => e
+      puts "[TileSplit] niches could not be read: #{e.message}"
+      false
+    end
+
+    # One line per step to tile_split_trace.txt next to the code - so a
+    # split that went wrong shows WHY without him pasting anything.
+    def self.trace(msg)
+      File.open(File.join(__dir__, 'tile_split_trace.txt'), 'a:UTF-8') { |f| f.puts "#{Time.now.strftime('%H:%M:%S')}   #{msg}" }
+    rescue StandardError
+      nil
+    end
+
+    # Split area `g` at `at`. Class method, so the test drives the real
+    # path. Returns [first, second] groups, or nil - and says why.
+    def self.split_area!(g, dir, at)
+      tw = InteriorPro::TileWall
+      a = lambda { |k| g.get_attribute('InteriorPro', k) }
+      aid = a.call('id').to_s
+      wall = tw.wall_by_id(a.call('wall_id'))
+      if wall.nil?
+        puts "[TileSplit] area #{aid} lost its wall - not split"
+        return nil
+      end
+      if through_niche?(wall, a.call('side'), dir, at.to_f)
+        puts "[TileSplit] the cut runs through a niche - not split"
+        UI.messagebox('The cut runs through a niche. Cut above or below it.') if defined?(UI) && UI.respond_to?(:messagebox)
+        return nil
+      end
+      nums = numbers_of(g)
+      parts = split_parts(nums, dir, at)
+      trace("split #{aid} #{dir} at #{at.to_f.round(4)} | area #{nums.map { |k, v| "#{k}=#{v.is_a?(Float) ? v.round(4) : v.inspect}" }.join(' ')}")
+      trace("  parts #{parts.inspect}")
+      if parts.nil?
+        puts "[TileSplit] the cut at #{at.to_f.round(3)} is not inside area #{aid} - not split"
+        return nil
+      end
+      own = {
+        wall: wall, side: a.call('side'),
+        card_id: a.call('material_card_id').to_s.empty? ? nil : a.call('material_card_id').to_s,
+        tile_w: nums[:tile_w], tile_l: nums[:tile_l], grout: nums[:grout],
+        grout_color: a.call('pattern_grout_color'), stagger: nums[:stagger],
+        depth: a.call('tile_depth'), mode: a.call('tile_mode'), angle: nums[:angle]
+      }
+      nid = free_id
+      model = Sketchup.active_model
+      model.start_operation('Interior Pro - Split Tile Area', true)
+      begin
+        one = tw.build!(**own.merge(parts[0]).merge(id: aid, wrap_operation: false))
+        two = one && tw.build!(**own.merge(parts[1]).merge(id: nid, wrap_operation: false))
+        trace("  built: #{aid} #{one ? 'yes' : 'NO'}, #{nid} #{two ? 'yes' : 'NO'}")
+        unless one && two
+          model.abort_operation
+          puts "[TileSplit] area #{aid} could not be built in two - left as it was"
+          return nil
+        end
+        model.commit_operation
+      rescue StandardError => e
+        model.abort_operation
+        puts "[TileSplit] failed: #{e.class}: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        return nil
+      end
+      puts "[TileSplit] #{aid} cut #{dir == :v ? 'standing' : 'lying'} at #{at.to_f.round(3)} -> #{aid} + #{nid}"
+      [one, two]
+    end
+
+    def split!(value)
+      return if @area.nil? || !@area.valid?
+      res = self.class.split_area!(@area, @dir, value)
+      clear
+      Sketchup.set_status_text(res ? 'Split Tile: done - each part is its own area now (Edit Tile works on each).' :
+                                     'Split Tile: not split - see the Ruby Console.', SB_PROMPT)
+    end
+
+    def status
+      Sketchup.set_status_text("Split Tile (#{@dir == :v ? 'standing cut' : 'lying cut'}): move over a tiled area and click, " \
+                               'or type where the cut goes. Arrows: Up/Down = lying, Left/Right = standing.', SB_PROMPT)
+    end
+  end
+end

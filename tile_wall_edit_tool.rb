@@ -63,6 +63,7 @@ module InteriorPro
         'chain'   => tw.connected_areas(g).length
       }
 
+      edit_trace("show #{area_id}: #{data.reject { |k, _| k == 'card' }.inspect}")
       if @dialog
         begin; @dialog.close; rescue StandardError; end
         @dialog = nil
@@ -74,7 +75,9 @@ module InteriorPro
       )
       dlg.add_action_callback('apply') do |_, json|
         cfg = JSON.parse(json)
+        edit_trace("apply #{area_id}: #{cfg.inspect}")
         apply!(area_id, cfg)
+        edit_trace("after apply: " + InteriorPro::TileWall.areas_in_model.map { |a| "#{a.get_attribute('InteriorPro', 'id')} u0 #{a.get_attribute('InteriorPro', 'u0').to_f.round(2)} z0 #{a.get_attribute('InteriorPro', 'z0').to_f.round(2)} w #{a.get_attribute('InteriorPro', 'area_w').to_f.round(2)} h #{a.get_attribute('InteriorPro', 'area_h').to_f.round(2)}" }.join(' | '))
       end
       dlg.add_action_callback('close_me') do |_|
         begin; dlg.close; rescue StandardError; end
@@ -95,6 +98,14 @@ module InteriorPro
       dlg.set_html(build_html(data, cards))
       dlg.show
       @dialog = dlg
+    end
+
+    # The same trace file the split tool writes (2026-09-23): what the
+    # window showed and what came back on Apply.
+    def self.edit_trace(msg)
+      File.open(File.join(__dir__, 'tile_split_trace.txt'), 'a:UTF-8') { |f| f.puts "#{Time.now.strftime('%H:%M:%S')}   [edit] #{msg}" }
+    rescue StandardError
+      nil
     end
 
     # Write the new numbers back by rebuilding the area under its own id.
@@ -314,7 +325,7 @@ module InteriorPro
     <label>Angle <input type="number" id="angle" step="5"></label>
   </fieldset>
 
-  <fieldset><legend>Size and place (inches)</legend>
+  <fieldset><legend>Wall Tile Location (inches)</legend>
     <label>Width <input type="number" id="w" step="0.5"></label>
     <label>Height <input type="number" id="h" step="0.5"></label>
     <label>From wall start <input type="number" id="u0" step="0.5"></label>
@@ -449,6 +460,140 @@ module InteriorPro
     end
   end
 
+  # ---- the niche's own tile (2026-09-23) ------------------------------------
+  # His ask: "לשנות רק את הטיל שבתוך הניצ אם אני בוחר אותו בעריכת טיל", and
+  # why: "לפעמים עושים רק את החלק שצמוד לקיר בצבע שונה אבל לא את הצדדים".
+  # A click in Edit Tile on a tile INSIDE a niche opens this small window:
+  # the same Card / Tile size / Grout fields as Edit Tile, and where it goes
+  # - the back only, or the whole niche. "Same as the wall" takes it off.
+  module TileNicheTileDialog
+    def self.show(wall, idx)
+      n = InteriorPro::TileNiche.read(wall)[idx.to_i]
+      return UI.messagebox('That niche is not on the wall any more.') if n.nil?
+      t = n[:tile] || {}
+      cards = begin
+        InteriorPro::MaterialLibrary.cards.map { |c| { 'id' => c['id'].to_s, 'name' => c['name'].to_s } }
+      rescue StandardError
+        []
+      end
+      data = { 'card' => t['card'].to_s, 'tile_w' => t['tile_w'].to_f, 'tile_l' => t['tile_l'].to_f,
+               'grout' => t.key?('grout') ? t['grout'].to_f : 0.125, 'where' => (t['where'] || 'back').to_s,
+               'own' => !n[:tile].nil? }
+      if @dialog
+        begin; @dialog.close; rescue StandardError; end
+        @dialog = nil
+      end
+      dlg = UI::HtmlDialog.new(dialog_title: 'Interior Pro - Niche Tile', preferences_key: 'InteriorPro_NicheTile',
+                               width: 460, height: 300, resizable: true)
+      dlg.add_action_callback('apply') do |_, json|
+        cfg = JSON.parse(json)
+        tile = InteriorPro::TileWallTool.parse_tile(cfg['tile'].to_s)
+        InteriorPro::TileNiche.set_tile!(wall, idx, { 'card' => cfg['card'].to_s, 'tile_w' => tile ? tile[0] : 0.0,
+                                                      'tile_l' => tile ? tile[1] : 0.0, 'grout' => cfg['grout'].to_f,
+                                                      'where' => cfg['where'].to_s })
+      end
+      dlg.add_action_callback('same_as_wall') do |_|
+        InteriorPro::TileNiche.set_tile!(wall, idx, nil)
+        begin; dlg.close; rescue StandardError; end
+      end
+      dlg.add_action_callback('close_me') do |_|
+        begin; dlg.close; rescue StandardError; end
+      end
+      dlg.add_action_callback('fit_height') do |_, h|
+        begin
+          want = h.to_i + 46
+          want = 220 if want < 220
+          want = 700 if want > 700
+          dlg.set_size(460, want)
+        rescue StandardError => e
+          puts "[NicheTile] fit_height: #{e.message}"
+        end
+      end
+      dlg.set_html(build_html(data, cards))
+      dlg.show
+      @dialog = dlg
+    end
+
+    def self.build_html(data, cards)
+      <<-HTML
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 12px; margin: 10px; }
+  fieldset { border: 1px solid #ccc; border-radius: 4px; margin: 0 0 8px 0; padding: 6px 8px; }
+  legend { color: #555; font-weight: bold; }
+  label { display: inline-block; margin: 2px 8px 2px 0; }
+  button { padding: 5px 14px; margin-right: 6px; }
+</style></head>
+<body>
+  <fieldset><legend>Niche Tile</legend>
+    <label>Card <select id="card" style="max-width:260px;"></select></label>
+    <label>Tile size <input type="text" id="tile" size="10" placeholder="From card"></label>
+    <label>Grout <select id="grout"></select></label>
+  </fieldset>
+  <fieldset><legend>Where</legend>
+    <label><input type="radio" name="where" id="w_back"> Back only</label>
+    <label><input type="radio" name="where" id="w_all"> The whole niche</label>
+  </fieldset>
+  <div>
+    <button onclick="applyNow()">Apply</button>
+    <button onclick="sketchup.same_as_wall()">Same as the wall</button>
+    <button onclick="sketchup.close_me()">Close</button>
+  </div>
+<script>
+  var D = #{data.to_json};
+  var CARDS = #{cards.to_json};
+  var GROUTS = #{InteriorPro::TileWallEditDialog::GROUTS.to_json};
+  function init() {
+    var s = document.getElementById('card'), i, o;
+    for (i = 0; i < CARDS.length; i++) {
+      o = document.createElement('option');
+      o.value = CARDS[i].id; o.text = CARDS[i].name;
+      s.appendChild(o);
+      if (CARDS[i].id === D.card) { s.selectedIndex = i; }
+    }
+    var g = document.getElementById('grout'), best = 0, bd = 1e9;
+    for (i = 0; i < GROUTS.length; i++) {
+      o = document.createElement('option');
+      o.value = GROUTS[i][1]; o.text = GROUTS[i][0];
+      g.appendChild(o);
+      var d = Math.abs(GROUTS[i][1] - D.grout);
+      if (d < bd) { bd = d; best = i; }
+    }
+    g.selectedIndex = best;
+    document.getElementById('tile').value = D.tile_w > 0 ? (D.tile_w + 'x' + D.tile_l) : '';
+    document.getElementById(D.where === 'all' ? 'w_all' : 'w_back').checked = true;
+  }
+  function applyNow() {
+    sketchup.apply(JSON.stringify({
+      card: document.getElementById('card').value,
+      tile: document.getElementById('tile').value,
+      grout: parseFloat(document.getElementById('grout').value) || 0,
+      where: document.getElementById('w_all').checked ? 'all' : 'back'
+    }));
+  }
+  init();
+  var ipFitLast = 0, ipFitTimer = null;
+  function ipFitWindow() {
+    if (!window.sketchup || !sketchup.fit_height) return;
+    var b = document.body, d = document.documentElement;
+    var h = Math.max(b.scrollHeight, b.offsetHeight, d.scrollHeight, d.offsetHeight);
+    if (Math.abs(h - ipFitLast) < 3) return;
+    ipFitLast = h;
+    sketchup.fit_height(h);
+  }
+  function ipFitSoon() {
+    if (ipFitTimer) clearTimeout(ipFitTimer);
+    ipFitTimer = setTimeout(ipFitWindow, 60);
+  }
+  window.addEventListener('load', ipFitSoon);
+  ipFitSoon();
+</script>
+</body></html>
+      HTML
+    end
+  end
+
   # ---- the tool: click an area, the window opens -------------------------
   class TileWallEditTool
     def activate
@@ -457,7 +602,7 @@ module InteriorPro
         Sketchup.active_model.select_tool(nil)
         return
       end
-      Sketchup.set_status_text('Edit Tile: click on a tiled area to open its window.', SB_PROMPT)
+      Sketchup.set_status_text('Edit Tile: click on a tiled area to open its window. Click inside a niche for the niche tile.', SB_PROMPT)
     end
 
     def onLButtonDown(_flags, x, y, view)
@@ -466,7 +611,35 @@ module InteriorPro
         Sketchup.set_status_text('Edit Tile: click on a tiled area.', SB_PROMPT)
         return
       end
+      # A tile INSIDE a niche opens the niche's own window (2026-09-23).
+      hit = niche_hit(view, x, y)
+      if hit
+        InteriorPro::TileNicheTileDialog.show(hit[0], hit[1])
+        return
+      end
       InteriorPro::TileWallEditDialog.show(g.get_attribute('InteriorPro', 'id'))
+    end
+
+    # [wall, index] when the click landed INSIDE a niche - behind the
+    # wall's face, within its box. A tile on the wall face round the
+    # opening stands proud of the face, so it never counts.
+    def niche_hit(view, x, y)
+      return nil unless defined?(InteriorPro::TileNiche)
+      pt = view.inputpoint(x, y).position
+      InteriorPro::TileWallEditTool.niche_inside(pt)
+    rescue StandardError => e
+      puts "[TileEdit] niche pick: #{e.message}"
+      nil
+    end
+
+    def self.niche_inside(pt)
+      hit = InteriorPro::TileNiche.niche_at(pt, Sketchup.active_model, 0.05)
+      return nil if hit.nil?
+      wall, idx, n = hit
+      fr = InteriorPro::TileWall.frame_for(wall, n[:side])
+      return nil if fr.nil?
+      out = (pt.x - fr[:ox]) * fr[:nx] + (pt.y - fr[:oy]) * fr[:ny]
+      out < -0.01 ? [wall, idx] : nil
     end
 
     def onCancel(_reason, _view)

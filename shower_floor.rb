@@ -643,7 +643,7 @@ module InteriorPro
       if tile.nil? || tile.to_s.empty? || tile.to_s == SAME_AS_ROOM
         m = preset || room_floor_material(floor_grp)
         return m if m
-        tile = InteriorPro::FloorManager::DEFAULT_TYPE
+        return InteriorPro::FloorManager.plain_material(model, InteriorPro::FloorManager::DEFAULT_TYPE)
       end
       InteriorPro::FloorManager.floor_material(model, tile.to_s)
     rescue StandardError => e

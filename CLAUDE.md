@@ -406,6 +406,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 ## Kill switches (turn a feature off without deleting it)
 
+- `InteriorPro::TileWallSplitTool::USE_SPLIT_TOOL = false` - the Split Tile button
+  does nothing (2026-09-23, `tests/rt216.rb`).
+- `InteriorPro::TileWall::USE_NICHE_OWN_TILE = false` - every niche wears the wall's
+  tile again, whatever is stored on it (2026-09-23, `tests/rt217.rb`).
 - `InteriorPro::ShowerFloor::USE_CURB = false` - the raised shower floor
   gets no curb and keeps its whole loop (2026-09-22, `tests/rt209.rb`).
 - `InteriorPro::ShowerFloor::USE_DRAIN = false` - no drain is built and the

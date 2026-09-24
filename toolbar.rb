@@ -498,6 +498,19 @@ module InteriorPro
       shower_buttons = [shower_cmd, shower_edit_cmd]
       tb.add_separator unless on_bar.include?('Shower Floor')
       shower_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
+
+      # SPLIT A TILED AREA (2026-09-23, his words: "כמו חיתוך קירות ואז זה
+      # מתייחס לכל קיר טיל בנפרד ואני יכול לערוך אותו"). Its own line on the
+      # END of the bar, added BY NAME - the same rule as the groups above.
+      tile_split_cmd = UI::Command.new('Split Tile') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallSplitTool.new)
+      }
+      tile_split_cmd.tooltip = 'Split Tile - cut a tiled area in two, each part edited on its own'
+      tile_split_cmd.status_bar_text = 'Move over a tiled area and click where to cut. Arrows: Up/Down = lying cut, Left/Right = standing cut'
+      tile_split_cmd.small_icon = icon_path('tile_split')
+      tile_split_cmd.large_icon = icon_path('tile_split')
+      tb.add_separator unless on_bar.include?('Split Tile')
+      tb.add_item(tile_split_cmd) unless on_bar.include?('Split Tile')
       tb.restore
     end
 

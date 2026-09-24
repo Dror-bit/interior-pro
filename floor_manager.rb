@@ -10,6 +10,11 @@ module InteriorPro
       'Concrete' => { thickness: 1.5,  color: [165, 165, 165], texture: 'floor_concrete.jpg', tex_size: 48 }
     }.freeze unless const_defined?(:FLOOR_TYPES, false)
     DEFAULT_TYPE = 'Hardwood' unless const_defined?(:DEFAULT_TYPE, false)
+    # NO MATERIAL CHOSEN = WHITE (2026-09-23, his ask: the default floor
+    # was "עץ משונה" and he prefers white). A floor with no texture picked
+    # is painted plain White; the type still sets the thickness. The wood
+    # pictures are all still in the texture list. false = the old wood.
+    USE_WHITE_DEFAULT = true unless const_defined?(:USE_WHITE_DEFAULT, false)
 
     # ---------- Dynamic floor library (2026-07-18) ----------
     # Every JPG/PNG dropped into textures/floors becomes a floor type
@@ -62,7 +67,7 @@ module InteriorPro
         return m
       end
       f = texture_files.find { |p| File.basename(p, '.*') == base }
-      return floor_material(model, DEFAULT_TYPE) unless f
+      return plain_material(model, DEFAULT_TYPE) unless f
       name = "InteriorPro_FloorTex_#{base.gsub(/\s+/, '_')}"
       m = model.materials[name]
       return m if m && m.texture
@@ -111,6 +116,12 @@ module InteriorPro
     # textures/ (V-Ray reads the SketchUp material directly). Existing
     # texture-less materials in old models are upgraded in place — the known
     # "existing material won't update" trap.
+    # The floor's material when no texture was picked.
+    def self.plain_material(model, type_name)
+      return floor_material(model, type_name) unless USE_WHITE_DEFAULT
+      texture_material(model, 'White')
+    end
+
     def self.floor_material(model, type_name)
       types = all_types
       spec = types[type_name] || types[DEFAULT_TYPE]
@@ -210,7 +221,7 @@ module InteriorPro
       # Extrude downward so the top surface stays at z = floor_level.
       face.pushpull(face.normal.z > 0 ? -th : th)
       tex = pat_attrs['floor_texture']
-      mat = tex ? texture_material(model, tex) : floor_material(model, type_name)
+      mat = tex ? texture_material(model, tex) : plain_material(model, type_name)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
 
       grp.set_attribute('InteriorPro', 'type', 'floor')
@@ -434,7 +445,7 @@ module InteriorPro
       end
       face.pushpull(face.normal.z > 0 ? -th : th)
       tex = floor.get_attribute('InteriorPro', 'floor_texture')
-      mat = tex ? texture_material(model, tex) : floor_material(model, type_name)
+      mat = tex ? texture_material(model, tex) : plain_material(model, type_name)
       grp.entities.grep(Sketchup::Face).each { |f| f.material = mat }
       grp.set_attribute('InteriorPro', 'type', 'floor_patch')
       grp.set_attribute('InteriorPro', 'host_wall_id', w.get_attribute('InteriorPro', 'id'))
