@@ -2593,6 +2593,9 @@ module InteriorPro
             html, body { margin:0; height:100%; overflow:hidden; font-family:Arial,sans-serif; font-size:13px; }
             #top { height:36px; background:#2f3542; color:#fff; display:flex; align-items:center; padding:0 10px; gap:8px; overflow:hidden; }
             #top .title { font-weight:bold; margin-right:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            #pageTabs { display:flex; gap:3px; margin-right:auto; }
+            #pageTabs button { padding:3px 9px; font-size:12px; border-radius:6px 6px 0 0; }
+            #pageTabs button.on { background:#fff; color:#2f3542; font-weight:bold; }
             #top button { flex:0 0 auto; white-space:nowrap; }
             button { border:0; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:12px; }
             .blue { background:#4b89ff; color:#fff; } .gray { background:#57606f; color:#fff; }
@@ -2677,6 +2680,7 @@ module InteriorPro
           </style></head><body>
           <div id="top">
             <span class="title">Interior Pro - 2D Editor</span>
+            <span id="pageTabs"></span>
             <button id="applyBtn" class="blue" onclick="applyPending()">Apply to Model</button>
             <button class="gray" onclick="sketchup.build_plan()">Plans (2D)</button>
             <button class="gray" onclick="sketchup.open_sheet()" title="דף שרטוט + PDF">📐 תוכניות</button>
@@ -2985,7 +2989,10 @@ module InteriorPro
             var walls = [];          // existing model walls (read-only)
             var pending = [];        // walls drawn here, not yet applied
             var ghosts = [];         // the level below: faint gray, snap-only
-            function loadGhosts(list) { ghosts = list || []; draw(); }
+            function loadGhosts(list) {
+              if (activePage > 0 && homeStash) { homeStash.ghosts = list || []; return; }
+              ghosts = list || []; draw();
+            }
             var mode = 'sel';
             var sel = null;           // {type:'wall', w} | {type:'sym', w, s} | {type:'pending', i}
             // Multi-select (2026-07-30): selList is the real selection; sel
@@ -3638,14 +3645,20 @@ module InteriorPro
               if (el && t) el.textContent = t;
             }
 
-            function loadSketches(list) { sketches = list || []; }
+            function loadSketches(list) {
+              if (activePage > 0 && homeStash) { homeStash.sketches = list || []; return; }
+              sketches = list || [];
+            }
 
             // ---- rooms + area tags (2026-08-01) -----------------------------
             // Rooms come from RoomManager: a closed loop of walls IS a room, and
             // the area is net, face to face. Free shapes are NOT rooms - they
             // only carry an area tag when you ask for one.
             var rooms = [];
-            function loadRooms(list) { rooms = list || []; draw(); }
+            function loadRooms(list) {
+              if (activePage > 0 && homeStash) { homeStash.rooms = list || []; return; }
+              rooms = list || []; draw();
+            }
 
             // Rooms measured live off the BLUE walls, before Apply. Same
             // detector as the real ones, just nothing written to the model.
@@ -10366,6 +10379,9 @@ module InteriorPro
             }
 
             function applyPending() {
+              // A DRAWING PAGE never goes to 3D (2026-09-23, his ask: "סירטוט
+              // שהוא רק סירטוט ולא 3D"). Its blue lines stay blue for good.
+              if (activePage > 0) return;
               applyBusy(true);            // the button shows it was pressed
               if (pendingSketches.length) sketchup.apply_sketches(JSON.stringify(pendingSketches));
               if (!pending.length) { setTimeout(function() { applyBusy(false); }, 250); return; }
@@ -10424,6 +10440,7 @@ module InteriorPro
             var keepSel = null;
 
             function loadWalls(list) {
+              if (activePage > 0 && homeStash) { homeStash.walls = list || []; return; }
               walls = list || [];
               hoverHit = null; dragSym = null; dragWall = null;
               var want = keepSel || (sel && sel.type === 'wall' ? { kind:'wall', id: sel.w.id } :
@@ -10466,9 +10483,117 @@ module InteriorPro
             // model every couple of seconds and handed back on reopen, so
             // leaving the editor without Apply never loses the drawing.
             var lastDraft = '';
+
+            // ---- DRAWING PAGES (2026-09-23, his ask) ------------------------
+            // "שאני אוכל לפתוח כמה דפים לסירטוטים שונים - נגיד יש לי סירטוט
+            // שהוא רק סירטוט ולא 3D". Tab 0 is the house: the model's walls and
+            // Apply. Every other tab is a drawing page: the same tools, its own
+            // blue lines, guides, dims and anchors, and NOTHING goes to 3D.
+            // The page that is open lives in the ordinary variables; the
+            // others are parked in `pages` / `homeStash` and swapped in.
+            var pages = [];             // [{name, pending, sketches, guides, dims, anchors}]
+            var activePage = 0;         // 0 = the house
+            var homeStash = null;       // the house while a drawing page is open
+            function pageState() {
+              return { pending: pending, sketches: pendingSketches, guides: guides, dims: dims, anchors: anchors };
+            }
+            function setPageState(st) {
+              st = st || {};
+              pending = st.pending || [];
+              pendingSketches = st.sketches || [];
+              pendingSketches.forEach(function(s3) { if (!s3._seq) s3._seq = ++actSeq; });
+              guides = st.guides || [];
+              dims = st.dims || [];
+              anchors = (st.anchors && typeof st.anchors === 'object') ? st.anchors : {};
+            }
+            function blankPage(name) {
+              return { name: name, pending: [], sketches: [], guides: [], dims: [], anchors: {} };
+            }
+            function storePage() {
+              if (activePage > 0) {
+                var keep = pages[activePage - 1] || blankPage('');
+                var st = pageState();
+                keep.pending = st.pending; keep.sketches = st.sketches; keep.guides = st.guides;
+                keep.dims = st.dims; keep.anchors = st.anchors;
+                pages[activePage - 1] = keep;
+              }
+            }
+            // The background picture belongs to ONE page (2026-09-23, his
+            // words: "סירטוט חדש צריך להיות דף חדש לגמרי בלי תמונת רקע"). A
+            // new page opens blank; the house keeps its picture and gets it
+            // back when he returns. Kept in memory only - a picture is far
+            // too big for the draft.
+            var pageUnder = {};         // page index -> the underlay's state
+            function underState() {
+              return { img: underImg, x: underX, y: underY, sc: underScale, op: underOpacity,
+                       rot: underRot, calib: calib, pdfDoc: pdfDoc, pdfPage: pdfPage,
+                       pdfPlace: pdfPlace, pdfSegs: pdfSegs,
+                       pdfRow: document.getElementById('underPdfRow').style.display };
+            }
+            function setUnderState(u) {
+              u = u || {};
+              underImg = u.img || null; underX = u.x || 0; underY = u.y || 0;
+              underScale = u.sc || 1; underOpacity = u.op || 0.55; underRot = u.rot || 0;
+              calib = u.calib || null; pdfDoc = u.pdfDoc || null; pdfPage = u.pdfPage || 1;
+              pdfPlace = u.pdfPlace || null; pdfSegs = u.pdfSegs || null;
+              document.getElementById('underRow').style.display = underImg ? '' : 'none';
+              document.getElementById('underDot').style.display = underImg ? '' : 'none';
+              document.getElementById('underPdfRow').style.display = pdfDoc ? (u.pdfRow || '') : 'none';
+            }
+            function goPage(i) {
+              i = Number(i) || 0;
+              if (i < 0 || i > pages.length || i === activePage) return;
+              pageUnder[activePage] = underState();
+              if (activePage === 0) {
+                homeStash = pageState();
+                homeStash.walls = walls; homeStash.sketches3d = sketches;
+                homeStash.rooms = rooms; homeStash.ghosts = ghosts; homeStash.pendingRooms = pendingRooms;
+              } else {
+                storePage();
+              }
+              if (i === 0) {
+                setPageState(homeStash || {});
+                walls = (homeStash && homeStash.walls) || [];
+                sketches = (homeStash && homeStash.sketches3d) || [];
+                rooms = (homeStash && homeStash.rooms) || [];
+                ghosts = (homeStash && homeStash.ghosts) || [];
+                pendingRooms = (homeStash && homeStash.pendingRooms) || [];
+                homeStash = null;
+              } else {
+                // the model's rooms (the dashed boxes), the level below and
+                // the walls all stay with the house
+                if (activePage === 0) { walls = []; sketches = []; rooms = []; ghosts = []; pendingRooms = []; }
+                setPageState(pages[i - 1]);
+              }
+              setUnderState(pageUnder[i]);
+              activePage = i;
+              sel = null; selList = []; hoverHit = null; dragSym = null; dragWall = null; curLine = null;
+              if (typeof updateSelPanel === 'function') updateSelPanel();
+              renderTabs();
+              markGuideBox(); updateStatus(); saveDraft(true); draw();
+            }
+            function newPage() {
+              pages.push(blankPage('שרטוט ' + (pages.length + 1)));
+              goPage(pages.length);
+            }
+            function renderTabs() {
+              var box = document.getElementById('pageTabs');
+              var ab = document.getElementById('applyBtn');
+              if (ab) ab.style.display = activePage > 0 ? 'none' : '';
+              if (!box) return;
+              var h = '<button class="' + (activePage === 0 ? 'on' : 'gray') + '" onclick="goPage(0)">בית</button>';
+              pages.forEach(function(pg, k) {
+                h += '<button class="' + (activePage === k + 1 ? 'on' : 'gray') + '" onclick="goPage(' + (k + 1) + ')">' + pg.name + '</button>';
+              });
+              h += '<button class="gray" title="דף שרטוט חדש" onclick="newPage()">+</button>';
+              box.innerHTML = h;
+            }
             function draftJson() {
-              return JSON.stringify({ pending: pending, sketches: pendingSketches,
-                                      guides: guides, dims: dims, anchors: anchors });
+              storePage();
+              var home = activePage === 0 ? pageState() : (homeStash || {});
+              return JSON.stringify({ pending: home.pending || [], sketches: home.sketches || [],
+                                      guides: home.guides || [], dims: home.dims || [], anchors: home.anchors || {},
+                                      pages: pages, page: activePage });
             }
             function saveDraft(force) {
               var j = draftJson();
@@ -10488,6 +10613,12 @@ module InteriorPro
                 if (d.guides && d.guides.length) guides = d.guides;
                 if (d.dims && d.dims.length) dims = d.dims;
                 if (d.anchors && typeof d.anchors === 'object') anchors = d.anchors;
+                if (d.pages && d.pages.length) pages = d.pages;
+                // The editor always opens on the HOUSE (2026-09-23): the
+                // model's background picture arrives from Ruby a moment after
+                // the draft, and when the draft reopened a drawing page the
+                // picture landed on that page and vanished from the house.
+                renderTabs();
                 lastDraft = draftJson();
                 markGuideBox(); updateStatus(); draw();
               } catch (e) {}
@@ -10512,6 +10643,7 @@ module InteriorPro
             setLineTool('line');
             setLinePreset('solid');
             setMode('sel');
+            renderTabs();
             resize();
             sketchup.editor_ready();
           </script>
