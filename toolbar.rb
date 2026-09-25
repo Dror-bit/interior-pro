@@ -523,8 +523,16 @@ module InteriorPro
       fixture_cmd.status_bar_text = 'Choose the fixture and its height, then move along a wall and click, or type the distance from the corner'
       fixture_cmd.small_icon = icon_path('plumbing')
       fixture_cmd.large_icon = icon_path('plumbing')
+      # Edit (2026-09-25). No delete button - select it and press Delete.
+      fixture_edit_cmd = UI::Command.new('Edit Plumbing') {
+        Sketchup.active_model.select_tool(InteriorPro::FixtureEditTool.new)
+      }
+      fixture_edit_cmd.tooltip = 'Edit Plumbing - click a shower head or toilet to change it'
+      fixture_edit_cmd.status_bar_text = 'Click a shower head or a toilet: the same window opens with its numbers, Apply rebuilds it in place'
+      fixture_edit_cmd.small_icon = icon_path('plumbing_edit')
+      fixture_edit_cmd.large_icon = icon_path('plumbing_edit')
       tb.add_separator unless on_bar.include?('Plumbing')
-      tb.add_item(fixture_cmd) unless on_bar.include?('Plumbing')
+      [fixture_cmd, fixture_edit_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
       tb.restore
     end
 

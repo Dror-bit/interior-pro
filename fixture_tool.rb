@@ -66,14 +66,79 @@ module InteriorPro
       true
     end
 
+    # THE TILE UNDER THE MOUSE DECIDES (2026-09-25, his words: "קשה לו
+    # להיקלט על קירות מסויימים"). Measured in tile_tool_trace.txt: the same
+    # spot on the shower's tile (y 401.88) came back as side "a" one time
+    # and side "b" the next - the ray hits the TILE, not the wall, so the
+    # wall's side was guessed, and on the wrong side no tile was found.
+    # For a shower head the tiled area actually under the cursor now says
+    # which wall and which side. No tile under the cursor = nothing caught.
+    def face_point(view, x, y)
+      p = super
+      return p unless @pcfg && InteriorPro::FixtureLibrary.on_tile?(@pcfg['kind'])
+      g = tile_area_at(view, x, y)
+      return nil if g.nil?
+      wall = InteriorPro::TileWall.wall_by_id(g.get_attribute('InteriorPro', 'wall_id'))
+      side = g.get_attribute('InteriorPro', 'side').to_s
+      return nil unless wall&.valid?
+      return p if p && p[:wall].equal?(wall) && p[:side] == side
+      fr = InteriorPro::TileWall.frame_for(wall, side)
+      return nil if fr.nil?
+      @wall = wall
+      @side = side
+      @frame = fr
+      @len = fr[:len]
+      @hgt = InteriorPro::TileWall.wall_height(wall)
+      @holes = InteriorPro::TileWall.openings_for(wall, fr)
+      pos = p ? p[:pos] : (@ip && @ip.position)
+      return nil if pos.nil?
+      u = (pos.x - fr[:ox]) * fr[:ux] + (pos.y - fr[:oy]) * fr[:uy]
+      { u: u, z: pos.z - fr[:floor_z], kind: nil, wall: wall, side: side, pos: pos }
+    end
+
+    def tile_area_at(view, x, y)
+      ph = view.pick_helper
+      ph.do_pick(x, y)
+      ph.count.times do |i|
+        path = ph.path_at(i)
+        next unless path
+        path.each do |e|
+          return e if e.is_a?(Sketchup::Group) && e.valid? && e.get_attribute('InteriorPro', 'type') == 'tile_wall'
+        end
+      end
+      nil
+    rescue StandardError => e
+      puts "[Fixture] tile pick failed: #{e.message}"
+      nil
+    end
+
     def limits_at(u)
       InteriorPro::TileWall.face_limits(@wall, @frame, u)
     end
 
+    # Returns [fits, lo, hi]. A shower head also needs a TILED area under
+    # the whole of it on this side (his call, 2026-09-25) - that is what
+    # keeps it inside the house - and then it stands on the tile face:
+    # @out is how far off the wall that face is.
     def fits_at?(u_mid)
       lo, hi = limits_at(u_mid)
       u0 = InteriorPro::TileNicheTool.ghost_u0(u_mid, @cfg[:w])
-      [InteriorPro::TileNicheTool.fits?(u0, @cfg[:w], @cfg[:sill], @cfg[:h], lo, hi, @hgt), lo, hi]
+      ok = InteriorPro::TileNicheTool.fits?(u0, @cfg[:w], @cfg[:sill], @cfg[:h], lo, hi, @hgt)
+      @on_hole = InteriorPro::FixtureLibrary.pipe_blocked?(u0, u0 + @cfg[:w], @cfg[:sill] + @cfg[:h],
+                                                           InteriorPro::FixtureLibrary.holes_on(@wall, @frame, @side))
+      ok = false if @on_hole
+      @out = 0.0
+      @no_tile = false
+      if InteriorPro::FixtureLibrary.on_tile?(@pcfg['kind'])
+        t = InteriorPro::FixtureLibrary.tile_under(@wall, @side, u0, u0 + @cfg[:w], @cfg[:sill], @cfg[:sill] + @cfg[:h])
+        if t
+          @out = t[:out]
+        else
+          @no_tile = true
+          ok = false
+        end
+      end
+      [ok, lo, hi]
     end
 
     def onMouseMove(_flags, x, y, view)
@@ -82,9 +147,19 @@ module InteriorPro
       @fits = false
       if @hover && @frame
         @fits, lo, hi = fits_at?(@hover[:u])
+        # NOT EVEN RED (2026-09-25, his words: "עדיף שאפילו לא יהיה אדום ...
+        # שהוא בכלל לא יקלוט אותו אלא יקלוט רק את הבפנים"). Off the tile a
+        # shower head sees nothing: no ghost, no ring, no tooltip.
+        if @no_tile || @on_hole
+          @hover = nil
+          view.tooltip = ''
+          view.invalidate
+          return
+        end
         cd = InteriorPro::FixtureLibrary.corner_dist(@hover[:u], lo, hi)
         Sketchup.vcb_value = Sketchup.format_length(cd)
-        view.tooltip = "#{Sketchup.format_length(cd)} from the corner" + (@fits ? '' : ' - does not fit here')
+        why = @no_tile ? ' - only on a tiled wall, inside' : ' - does not fit here'
+        view.tooltip = "#{Sketchup.format_length(cd)} from the corner" + (@fits ? '' : why)
       end
       view.invalidate
     end
@@ -97,6 +172,9 @@ module InteriorPro
         Sketchup.set_status_text('Plumbing: click on the FACE of an Interior Pro wall.', SB_PROMPT)
         return
       end
+      # off the tile a shower head does not catch the click at all
+      fits_at?(p[:u])
+      return if @no_tile || @on_hole
       place_at(p[:u], view)
     end
 
@@ -121,13 +199,14 @@ module InteriorPro
     def place_at(u_mid, view)
       ok, lo, hi = fits_at?(u_mid)
       unless ok
-        Sketchup.set_status_text('Plumbing: it does not fit there (red) - move it along the wall.', SB_PROMPT)
+        Sketchup.set_status_text(@no_tile ? 'Plumbing: a shower head goes only on a TILED wall, inside the house.' :
+                                            'Plumbing: it does not fit there (red) - move it along the wall.', SB_PROMPT)
         puts "[Fixture] does not fit: middle #{u_mid.round(2)}, w #{@cfg[:w].round(2)} on clear run " \
              "#{lo.round(2)}..#{hi.round(2)}, top #{(@cfg[:sill] + @cfg[:h]).round(2)} of #{@hgt.round(2)}"
         return
       end
       inst = InteriorPro::FixtureLibrary.place!(wall: @wall, side: @side, fr: @frame, u: u_mid, z: @cfg[:sill],
-                                               kind: @pcfg['kind'], product: @pcfg['product'])
+                                               kind: @pcfg['kind'], product: @pcfg['product'], out: @out.to_f)
       UI.messagebox('Nothing was placed - see the Ruby Console for the reason.') if inst.nil?
       status
       view.invalidate
@@ -139,9 +218,10 @@ module InteriorPro
         u1 = u0 + @cfg[:w]
         z0 = @cfg[:sill]
         z1 = z0 + @cfg[:h]
-        o = @cfg[:out].to_f
-        # the wall side a hair off the face, so it shows on a tiled wall
-        back  = [pt3(u0, z0, 0.1), pt3(u1, z0, 0.1), pt3(u1, z1, 0.1), pt3(u0, z1, 0.1)]
+        b0 = @out.to_f + 0.1
+        o = @out.to_f + @cfg[:out].to_f
+        # the back a hair off the face it sits on (the tile face on a tiled wall)
+        back  = [pt3(u0, z0, b0), pt3(u1, z0, b0), pt3(u1, z1, b0), pt3(u0, z1, b0)]
         front = [pt3(u0, z0, o), pt3(u1, z0, o), pt3(u1, z1, o), pt3(u0, z1, o)]
         col = @fits ? [40, 150, 60] : [200, 40, 40]
         view.drawing_color = Sketchup::Color.new(*col, 70)

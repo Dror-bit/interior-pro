@@ -29,13 +29,20 @@ module InteriorPro
     # new kind added later is seen after reload! (see shower_floor_dialog).
     def self.kinds
       {
-        'shower_head' => { dir: 'SHOWER HEADS', label: 'Shower head', height: 80.0 },
+        # on_tile (2026-09-25, his words: "הראש מקלחת יוכל לשבת רק מהפנים של
+        # הבית ורק על קירות טיל"): only where a tiled area covers it, and
+        # it sits ON the tile face, not inside the tile.
+        'shower_head' => { dir: 'SHOWER HEADS', label: 'Shower head', height: 80.0, on_tile: true },
         'toilet'      => { dir: 'TOILETS',      label: 'Toilet',      height: 0.0 }
       }
     end
 
     def self.kind_ok(kind)
       kinds.key?(kind.to_s) ? kind.to_s : 'shower_head'
+    end
+
+    def self.on_tile?(kind)
+      kinds[kind_ok(kind)][:on_tile] ? true : false
     end
 
     def self.default_height(kind)
@@ -191,10 +198,60 @@ module InteriorPro
       [u.to_f - lo.to_f, hi.to_f - u.to_f].min
     end
 
+    # ---- the tile it has to sit on (2026-09-25) ---------------------------
+
+    # Does this tiled area cover the whole fixture? a = { bu0:, bw:, z0:, h: }
+    # in the face's u / z. PURE.
+    def self.tile_covers?(a, u0, u1, z0, z1, eps = 1.0e-6)
+      u0.to_f >= a[:bu0].to_f - eps && u1.to_f <= a[:bu0].to_f + a[:bw].to_f + eps &&
+        z0.to_f >= a[:z0].to_f - eps && z1.to_f <= a[:z0].to_f + a[:h].to_f + eps
+    end
+
+    # The tiled area on THIS wall and THIS side that covers the fixture,
+    # and how far its face stands off the wall. nil = no tile there.
+    def self.tile_under(wall, side, u0, u1, z0, z1, model = Sketchup.active_model)
+      wid = wall.get_attribute('InteriorPro', 'id').to_s
+      InteriorPro::TileWall.areas_in_model(model).each do |g|
+        at = lambda { |k| g.get_attribute('InteriorPro', k) }
+        next unless at.call('wall_id').to_s == wid && at.call('side').to_s == side.to_s
+        a = { bu0: (at.call('built_u0') || at.call('u0')).to_f, bw: (at.call('built_w') || at.call('area_w')).to_f,
+              z0: at.call('z0').to_f, h: at.call('area_h').to_f }
+        next unless tile_covers?(a, u0, u1, z0, z1)
+        dp = at.call('tile_depth').to_f
+        return { group: g, out: dp > 0.0 ? dp : 0.0 }
+      end
+      nil
+    rescue StandardError => e
+      puts "[Fixture] the tile under it could not be read: #{e.message}"
+      nil
+    end
+
+    # NOT ON A WINDOW OR A NICHE, AND NOT ABOVE ONE (2026-09-25, his words:
+    # "שלא יהיה מעל חלון או ניצ כי במציאות אי אפשר להעביר שם פלמינג").
+    # The pipe comes UP inside the wall to the fixture, so the whole
+    # column under it has to be clear: any hole that shares its width
+    # and starts below its top is in the way - under it or touching it.
+    # holes = [[u0, z0, u1, z1], ...] on the face. PURE.
+    def self.pipe_blocked?(u0, u1, z1, holes, eps = 1.0e-6)
+      Array(holes).any? do |h|
+        u0.to_f < h[2].to_f - eps && u1.to_f > h[0].to_f + eps && h[1].to_f < z1.to_f - eps
+      end
+    end
+
+    # Every hole on this face: doors and windows, and the niches cut on
+    # this side.
+    def self.holes_on(wall, fr, side)
+      out = InteriorPro::TileWall.openings_for(wall, fr) rescue []
+      if defined?(InteriorPro::TileNiche)
+        out += InteriorPro::TileNiche.holes_for_side(InteriorPro::TileNiche.read(wall), side)
+      end
+      out
+    end
+
     # ---- placing --------------------------------------------------------
 
     # Put one fixture on the face. fr = TileWall frame. Returns the instance.
-    def self.place!(wall:, side:, fr:, u:, z:, kind:, product:)
+    def self.place!(wall:, side:, fr:, u:, z:, kind:, product:, op: true, out: 0.0)
       model = Sketchup.active_model
       d = definition_for(model, kind, product)
       if d.nil?
@@ -203,28 +260,112 @@ module InteriorPro
       end
       b = d.bounds
       shift = Geom::Transformation.translation(Geom::Vector3d.new(-b.center.x, -b.min.y, -b.min.z))
-      x, y, zz = InteriorPro::TileWall.world(fr, u, z, 0.0)
+      x, y, zz = InteriorPro::TileWall.world(fr, u, z, out.to_f)
       face = Geom::Transformation.axes(Geom::Point3d.new(x, y, zz),
                                        Geom::Vector3d.new(fr[:ux], fr[:uy], 0),
                                        Geom::Vector3d.new(fr[:nx], fr[:ny], 0),
                                        Geom::Vector3d.new(0, 0, 1))
-      model.start_operation('Place Fixture', true)
+      model.start_operation('Place Fixture', true) if op
       inst = model.entities.add_instance(d, face * shift)
       id = "fix-#{Time.now.to_i.to_s(36)}-#{rand(10_000)}"
       {
         'type' => 'fixture', 'kind' => kind_ok(kind), 'product' => product.to_s,
-        'height_in' => z.to_f, 'u_in' => u.to_f, 'side' => side.to_s,
+        'height_in' => z.to_f, 'u_in' => u.to_f, 'side' => side.to_s, 'out_in' => out.to_f,
         'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s, 'id' => id,
         'created_at' => Time.now.to_s
       }.each { |k, v| inst.set_attribute('InteriorPro', k, v) }
       InteriorPro.assign_tag(inst, 'IP/Plumbing') if InteriorPro.respond_to?(:assign_tag)
-      model.commit_operation
+      model.commit_operation if op
       puts "[Fixture] placed #{kind}/#{product} on wall #{wall.get_attribute('InteriorPro', 'id')} " \
            "side #{side} u #{u.round(2)} z #{z.round(2)}"
       inst
     rescue StandardError => e
-      model&.abort_operation
+      model&.abort_operation if op
       puts "[Fixture] place failed: #{e.message}"
+      nil
+    end
+
+    # ---- edit (2026-09-25) -----------------------------------
+
+    def self.fixture?(e)
+      e.is_a?(Sketchup::ComponentInstance) && e.valid? &&
+        e.get_attribute('InteriorPro', 'type') == 'fixture'
+    end
+
+    # The host wall, found by the id stored on the fixture. nil = gone.
+    def self.host_wall(inst, model = Sketchup.active_model)
+      id = inst.get_attribute('InteriorPro', 'host_wall_id').to_s
+      return nil if id.empty?
+      InteriorPro::TileWall.walls_in_model(model).find do |w|
+        w.valid? && w.get_attribute('InteriorPro', 'id').to_s == id
+      end
+    end
+
+    # What the edit window opens with: its own kind, product, height, and
+    # how far its middle is from the nearer corner.
+    def self.settings_of(inst)
+      at = lambda { |k| inst.get_attribute('InteriorPro', k) }
+      out = { 'kind' => kind_ok(at.call('kind')), 'product' => (at.call('product') || SIMPLE).to_s,
+              'height' => at.call('height_in').to_f }
+      wall = host_wall(inst)
+      fr = wall && InteriorPro::TileWall.frame_for(wall, at.call('side').to_s)
+      if fr
+        lo, hi = InteriorPro::TileWall.face_limits(wall, fr, at.call('u_in').to_f)
+        out['corner'] = corner_dist(at.call('u_in').to_f, lo, hi).round(3)
+      end
+      out
+    end
+
+    # NO DELETE TOOL (2026-09-25, his call: "אפשר פשוט לסמן ולעשות דליט").
+    # A fixture is one plain instance with nothing hanging off it, so
+    # SketchUp's own Delete is the delete - no second way to do it.
+
+    # Rebuild in place with the window's numbers: same wall, same side,
+    # the middle kept - or moved to the typed distance from the SAME
+    # corner it was nearer to. ONE undo step. Returns the new instance.
+    def self.update!(inst, cfg)
+      return nil unless fixture?(inst)
+      at = lambda { |k| inst.get_attribute('InteriorPro', k) }
+      wall = host_wall(inst)
+      side = at.call('side').to_s
+      fr = wall && InteriorPro::TileWall.frame_for(wall, side)
+      if fr.nil?
+        puts "[Fixture] edit: the wall it stood on (#{at.call('host_wall_id')}) is not found - nothing changed"
+        return nil
+      end
+      u = at.call('u_in').to_f
+      if cfg['corner']
+        lo, hi = InteriorPro::TileWall.face_limits(wall, fr, u)
+        u = u_from_corner(cfg['corner'].to_f, lo, hi, u)
+      end
+      model = Sketchup.active_model
+      out = 0.0
+      if on_tile?(cfg['kind'])
+        d = definition_for(model, cfg['kind'], cfg['product'])
+        w, _dep, h = d ? size_of(d) : [0.0, 0.0, 0.0]
+        z = cfg['height'].to_f
+        t = tile_under(wall, side, u - w / 2.0, u + w / 2.0, z, z + h, model)
+        if t.nil?
+          puts "[Fixture] edit: no tile covers it there (u #{u.round(2)}, z #{z.round(2)}) - nothing changed"
+          return nil
+        end
+        out = t[:out]
+      end
+      model.start_operation('Edit Fixture', true)
+      old_id = at.call('id')
+      made = place!(wall: wall, side: side, fr: fr, u: u, z: cfg['height'].to_f,
+                    kind: cfg['kind'], product: cfg['product'], op: false, out: out)
+      if made.nil?
+        model.abort_operation
+        return nil
+      end
+      made.set_attribute('InteriorPro', 'id', old_id) if old_id
+      inst.erase!
+      model.commit_operation
+      made
+    rescue StandardError => e
+      model&.abort_operation
+      puts "[Fixture] edit failed: #{e.message}"
       nil
     end
   end

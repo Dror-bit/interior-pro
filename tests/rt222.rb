@@ -40,7 +40,7 @@ T = InteriorPro::FixtureTool
 ok('the tool inherits the niche tool', T.superclass == InteriorPro::TileNicheTool)
 src = File.read('./fixture_tool.rb')
 ok('the height is the window\'s, not the mouse\'s', src.include?('z0 = @cfg[:sill]') && !src.include?('@hover[:z]'))
-ok('every point comes through face_point', src.scan('face_point(view, x, y)').length == 2)
+ok('every point comes through face_point', src.scan('= face_point(view, x, y)').length == 2)
 ok('typing places it from the corner', src.include?('FixtureLibrary.u_from_corner'))
 ok('the tool owns no placing maths - it hands over', src.include?('FixtureLibrary.place!'))
 lib = File.read('./fixture_library.rb')
@@ -52,7 +52,7 @@ BAR = File.read('./toolbar.rb')
 SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
 ok('Plumbing is on the surfaces bar', SURF.include?("UI::Command.new('Plumbing')"))
 ok('on the END, after Split Tile', SURF.index("'Plumbing'").to_i > SURF.index("tb.add_item(tile_split_cmd)").to_i)
-ok('added by name, so a reload cannot duplicate it', SURF.include?("on_bar.include?('Plumbing')"))
+ok('added by name, so a reload cannot duplicate it', SURF.include?("on_bar.include?('Plumbing')") && SURF.include?('on_bar.include?(cmd.menu_text.to_s)'))
 MAIN = File.read('./main.rb')
 ok('main loads the three files after the niche tool',
    MAIN.index('fixture_tool.rb').to_i > MAIN.index('tile_niche_tool.rb').to_i && MAIN.include?('fixture_dialog.rb'))

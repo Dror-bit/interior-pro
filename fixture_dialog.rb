@@ -43,25 +43,30 @@ module InteriorPro
       out
     end
 
-    def self.show(prefill = nil, &on_ok)
+    def self.show(prefill = nil, button: 'Place', &on_ok)
       data = defaults.merge(last).merge(prefill || {})
       if @dialog
         begin; @dialog.close; rescue StandardError; end
         @dialog = nil
       end
       @on_ok = on_ok
+      @button = button
       dlg = UI::HtmlDialog.new(dialog_title: 'Interior Pro - Plumbing', preferences_key: 'InteriorPro_Fixture',
                                width: 470, height: 300, resizable: true)
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
+        corner = cfg['corner']
         cfg = defaults.merge(cfg.select { |k, _| defaults.key?(k) })
+        # 'corner' only in the EDIT window: how far its middle is from
+        # the nearer corner. Not remembered for the next placing.
+        cfg['corner'] = corner.to_f if !corner.nil? && corner.to_s != ''
         cfg['kind'] = InteriorPro::FixtureLibrary.kind_ok(cfg['kind'])
         cfg['height'] = cfg['height'].to_f
         if cfg['height'] < 0.0
           UI.messagebox('Type the height from the floor, e.g.  80')
           next
         end
-        @last = cfg.dup
+        @last = cfg.reject { |k, _| k == 'corner' }
         begin; dlg.close; rescue StandardError; end
         @dialog = nil
         @on_ok.call(cfg) if @on_ok
@@ -79,7 +84,7 @@ module InteriorPro
         name = src ? InteriorPro::FixtureLibrary.add_file!(kind, src) : nil
         UI.messagebox('That file could not be added - see the Ruby Console.') if src && name.nil?
         cur['product'] = name if name
-        show(cur, &@on_ok)
+        show(cur, button: @button, &@on_ok)
       end
       dlg.add_action_callback('fit_height') do |_, h|
         begin
@@ -91,12 +96,12 @@ module InteriorPro
           puts "[Fixture] fit_height: #{e.message}"
         end
       end
-      dlg.set_html(build_html(data, catalog))
+      dlg.set_html(build_html(data, catalog, button))
       dlg.show
       @dialog = dlg
     end
 
-    def self.build_html(d, cat)
+    def self.build_html(d, cat, button = 'Place')
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -123,9 +128,12 @@ module InteriorPro
           <div class="row">
             Height from the floor to the bottom of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
-          <div class="row">After you click Place: move along a wall - it stays at this height.
+          <div class="row" id="cornerRow" style="display:none;">
+            From the nearer corner to its middle <input type="number" id="corner" step="0.5" min="0"> in
+          </div>
+          <div class="row" id="helpRow">After you click Place: move along a wall - it stays at this height.
             Type a number + Enter = that far from the nearer corner to its middle.</div>
-          <button onclick="okAll()">Place</button>
+          <button onclick="okAll()">#{button}</button>
           <button class="secondary" onclick="sketchup.cancel()">Cancel</button>
           <script>
             var D = #{d.to_json};
@@ -173,11 +181,20 @@ module InteriorPro
             }
             function pickProduct(i) { product = CAT[kind].products[i].name; renderProducts(); }
             function cur() {
-              return { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              var o = { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              if (D.corner !== undefined && D.corner !== null) o.corner = parseFloat(document.getElementById('corner').value) || 0;
+              return o;
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
             function okAll() { sketchup.ok(JSON.stringify(cur())); }
             document.getElementById('height').value = D.height;
+            // THE EDIT WINDOW (2026-09-25): same window, plus how far from
+            // the corner, and no placing help.
+            if (D.corner !== undefined && D.corner !== null) {
+              document.getElementById('corner').value = D.corner;
+              document.getElementById('cornerRow').style.display = '';
+              document.getElementById('helpRow').style.display = 'none';
+            }
             renderKinds();
             renderProducts();
           </script>
