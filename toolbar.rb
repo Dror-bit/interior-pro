@@ -511,6 +511,20 @@ module InteriorPro
       tile_split_cmd.large_icon = icon_path('tile_split')
       tb.add_separator unless on_bar.include?('Split Tile')
       tb.add_item(tile_split_cmd) unless on_bar.include?('Split Tile')
+
+      # PLUMBING (2026-09-25, step 1): shower heads and toilets, picked from
+      # a list with pictures and placed on a wall face with a ghost at a
+      # set height. Its own line on the END of the bar, added BY NAME -
+      # the same rule as the groups above.
+      fixture_cmd = UI::Command.new('Plumbing') {
+        Sketchup.active_model.select_tool(InteriorPro::FixtureTool.new)
+      }
+      fixture_cmd.tooltip = 'Plumbing - shower head or toilet, placed on a wall at a set height'
+      fixture_cmd.status_bar_text = 'Choose the fixture and its height, then move along a wall and click, or type the distance from the corner'
+      fixture_cmd.small_icon = icon_path('plumbing')
+      fixture_cmd.large_icon = icon_path('plumbing')
+      tb.add_separator unless on_bar.include?('Plumbing')
+      tb.add_item(fixture_cmd) unless on_bar.include?('Plumbing')
       tb.restore
     end
 
