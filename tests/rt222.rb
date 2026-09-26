@@ -19,10 +19,10 @@ end
 
 L = InteriorPro::FixtureLibrary
 ok('kill switch is there and on', L::USE_FIXTURES == true)
-ok('two kinds: shower head and toilet', L.kinds.keys == %w[shower_head toilet])
-ok('shower head starts at 80"', L.default_height('shower_head') == 80.0)
+ok('two kinds: shower SET and toilet', L.kinds.keys == %w[shower_set toilet])
+ok('shower head starts at 80"', L.default_height('shower_set') == 80.0)
 ok('toilet sits on the floor', L.default_height('toilet') == 0.0)
-ok('an unknown kind falls back, never crashes', L.kind_ok('xyz') == 'shower_head')
+ok('an unknown kind falls back, never crashes', L.kind_ok('xyz') == 'shower_set')
 
 # typed distance: from the NEARER corner to the MIDDLE
 ok('mouse near the start: 18" from the start corner', L.u_from_corner(18, 2.0, 70.0, 10.0) == 20.0)
@@ -39,13 +39,13 @@ ok('the stand-in name is never taken', L.clean_name('Simple', [L::SIMPLE]) == 'S
 T = InteriorPro::FixtureTool
 ok('the tool inherits the niche tool', T.superclass == InteriorPro::TileNicheTool)
 src = File.read('./fixture_tool.rb')
-ok('the height is the window\'s, not the mouse\'s', src.include?('z0 = @cfg[:sill]') && !src.include?('@hover[:z]'))
+ok('the height is the window\'s, not the mouse\'s', !src.include?('@hover[:z]'))
 ok('every point comes through face_point', src.scan('= face_point(view, x, y)').length == 2)
 ok('typing places it from the corner', src.include?('FixtureLibrary.u_from_corner'))
 ok('the tool owns no placing maths - it hands over', src.include?('FixtureLibrary.place!'))
 lib = File.read('./fixture_library.rb')
 ok('each stand-in box in its own group (the crash law)', lib.include?('d.entities.add_group.entities'))
-ok('placed by its own bounding box - no calibration', lib.include?('-b.center.x, -b.min.y, -b.min.z'))
+ok('back on the wall, height to the anchor point', lib.include?('Geom::Vector3d.new(-p[:ax], -p[:miny], -p[:az])'))
 
 # the bar
 BAR = File.read('./toolbar.rb')

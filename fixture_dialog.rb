@@ -12,12 +12,14 @@
 #
 # show(prefill) { |cfg| ... } - the block runs on OK with the numbers.
 require 'json'
+require 'fileutils'
 
 module InteriorPro
   module FixtureDialog
     def self.defaults
-      { 'kind' => 'shower_head', 'product' => InteriorPro::FixtureLibrary::SIMPLE,
-        'height' => InteriorPro::FixtureLibrary.default_height('shower_head') }
+      k = InteriorPro::FixtureLibrary.kinds.keys.first
+      { 'kind' => k, 'product' => InteriorPro::FixtureLibrary.products(k).first,
+        'height' => InteriorPro::FixtureLibrary.default_height(k) }
     end
 
     # What he chose last time, so the second fixture is one click away.
@@ -36,9 +38,12 @@ module InteriorPro
       InteriorPro::FixtureLibrary.kinds.each do |k, info|
         prods = InteriorPro::FixtureLibrary.products(k).map do |n|
           tp = InteriorPro::FixtureLibrary.ensure_thumb(model, k, n)
-          { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '' }
+          { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '',
+            'have' => InteriorPro::FixtureLibrary.parts_available(k, n),
+            'parts' => InteriorPro::FixtureLibrary.default_parts(k, n) }
         end
-        out[k] = { 'label' => info[:label], 'height' => info[:height], 'products' => prods }
+        out[k] = { 'label' => info[:label], 'height' => info[:height], 'set' => info[:set] ? true : false,
+                   'dir' => InteriorPro::FixtureLibrary.dir_for(k), 'products' => prods }
       end
       out
     end
@@ -56,7 +61,9 @@ module InteriorPro
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
         corner = cfg['corner']
+        parts = cfg['parts']
         cfg = defaults.merge(cfg.select { |k, _| defaults.key?(k) })
+        cfg['parts'] = parts if parts.is_a?(Hash)
         # 'corner' only in the EDIT window: how far its middle is from
         # the nearer corner. Not remembered for the next placing.
         cfg['corner'] = corner.to_f if !corner.nil? && corner.to_s != ''
@@ -80,6 +87,16 @@ module InteriorPro
       dlg.add_action_callback('add_new') do |_, json|
         cur = JSON.parse(json) rescue {}
         kind = InteriorPro::FixtureLibrary.kind_ok(cur['kind'])
+        # A SET IS A FOLDER HE FILLS HIMSELF (2026-09-25, his words: "אני
+        # אכניס חלק חלק ואכוון אותם"). "+ New set" opens the sets folder;
+        # he makes a folder, puts head.skp / valve.skp ... in it, and opens
+        # this window again.
+        if InteriorPro::FixtureLibrary.set_kind?(kind)
+          dir = InteriorPro::FixtureLibrary.dir_for(kind)
+          FileUtils.mkdir_p(dir)
+          UI.openURL('file:///' + dir.tr('\\', '/'))
+          next
+        end
         src = UI.openpanel('Choose a SketchUp file', '', 'SketchUp Files|*.skp||')
         name = src ? InteriorPro::FixtureLibrary.add_file!(kind, src) : nil
         UI.messagebox('That file could not be added - see the Ruby Console.') if src && name.nil?
@@ -125,24 +142,40 @@ module InteriorPro
           <div class="section-title">Plumbing</div>
           <div class="row first">Kind<div class="grid" id="kindGrid"></div></div>
           <div class="row">Product<div class="grid" id="prodGrid"></div></div>
-          <div class="row">
+          <div class="row" id="heightRow">
             Height from the floor to the bottom of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
+          <div class="row" id="partsRow" style="display:none;">
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+              <tr><td></td><td><b>Part</b></td><td><b>Height</b> (to the pipe)</td><td><b>Sideways</b></td></tr>
+              <tbody id="partsBody"></tbody>
+            </table>
+            <div style="margin-top:4px;">All parts stand on one line. Sideways = inches right (+) or left (-) of it.</div>
+          </div>
           <div class="row" id="cornerRow" style="display:none;">
-            From the nearer corner to its middle <input type="number" id="corner" step="0.5" min="0"> in
+            From the nearer corner to its line <input type="number" id="corner" step="0.5" min="0"> in
           </div>
           <div class="row" id="helpRow">After you click Place: move along a wall - it stays at this height.
-            Type a number + Enter = that far from the nearer corner to its middle.</div>
+            Type a number + Enter = that far from the nearer corner to its line.</div>
           <button onclick="okAll()">#{button}</button>
           <button class="secondary" onclick="sketchup.cancel()">Cancel</button>
           <script>
             var D = #{d.to_json};
             var CAT = #{cat.to_json};
-            var kind = CAT[D.kind] ? D.kind : 'shower_head';
+            var kind = CAT[D.kind] ? D.kind : Object.keys(CAT)[0];
             var product = D.product;
+            var PARTS = [['head', 'Shower head'], ['valve', 'Handles'], ['hand', 'Hand shower'], ['spout', 'Tub spout']];
+            var parts = D.parts || null;
             function kindSvg(k) {
               var s = '';
-              if (k === 'toilet') {
+              if (k === 'shower_set') {
+                s = '<rect x="10" y="6" width="76" height="84" fill="#e3e9ec" stroke="#aab"/>' +
+                    '<line x1="48" y1="8" x2="48" y2="88" stroke="#c0392b" stroke-dasharray="4 3"/>' +
+                    '<ellipse cx="48" cy="22" rx="14" ry="4" fill="#c9d0d3" stroke="#555"/>' +
+                    '<rect x="40" y="44" width="16" height="16" rx="2" fill="#b0b7bb" stroke="#444"/>' +
+                    '<rect x="64" y="34" width="4" height="30" fill="#c7cdd0" stroke="#555"/>' +
+                    '<rect x="42" y="74" width="12" height="5" rx="2" fill="#aab2b6" stroke="#444"/>';
+              } else if (k === 'toilet') {
                 s = '<rect x="26" y="14" width="44" height="30" rx="3" fill="#f4f4f4" stroke="#777"/>' +
                     '<ellipse cx="48" cy="62" rx="20" ry="24" fill="#fff" stroke="#777"/>' +
                     '<ellipse cx="48" cy="64" rx="12" ry="15" fill="#dfe9ee" stroke="#999"/>';
@@ -163,6 +196,41 @@ module InteriorPro
                 return card(k === kind, kindSvg(k), CAT[k].label, "pickKind('" + k + "')");
               }).join('');
             }
+            function curProduct() {
+              var list = CAT[kind].products;
+              for (var i = 0; i < list.length; i++) if (list[i].name === product) return list[i];
+              return list[0];
+            }
+            // The parts table: one row per part the set has (a missing file
+            // = a greyed row that cannot be ticked).
+            function renderParts() {
+              var isSet = !!CAT[kind].set;
+              document.getElementById('partsRow').style.display = isSet ? '' : 'none';
+              document.getElementById('heightRow').style.display = isSet ? 'none' : '';
+              if (!isSet) return;
+              var pr = curProduct();
+              if (!parts) parts = JSON.parse(JSON.stringify(pr.parts));
+              document.getElementById('partsBody').innerHTML = PARTS.map(function(r) {
+                var k = r[0], have = pr.have.indexOf(k) >= 0, p = parts[k] || { on: false, h: 0, side: 0 };
+                var dis = have ? '' : ' disabled';
+                return '<tr style="' + (have ? '' : 'opacity:0.4;') + '">' +
+                  '<td><input type="checkbox" id="on_' + k + '"' + (p.on && have ? ' checked' : '') + dis + '></td>' +
+                  '<td>' + r[1] + (have ? '' : ' (no file)') + '</td>' +
+                  '<td><input type="number" id="h_' + k + '" step="0.5" value="' + p.h + '"' + dis + '> in</td>' +
+                  '<td><input type="number" id="s_' + k + '" step="0.5" value="' + p.side + '"' + dis + '> in</td></tr>';
+              }).join('');
+            }
+            function readParts() {
+              if (!CAT[kind].set) return null;
+              var out = {};
+              PARTS.forEach(function(r) {
+                var k = r[0], on = document.getElementById('on_' + k);
+                out[k] = { on: !!(on && on.checked && !on.disabled),
+                           h: parseFloat(document.getElementById('h_' + k).value) || 0,
+                           side: parseFloat(document.getElementById('s_' + k).value) || 0 };
+              });
+              return out;
+            }
             function renderProducts() {
               var list = CAT[kind].products;
               if (!list.some(function(p) { return p.name === product; })) product = list[0].name;
@@ -170,23 +238,41 @@ module InteriorPro
                 var pic = p.img ? '<img src="' + p.img + '">' : kindSvg(kind);
                 return card(p.name === product, pic, p.name, 'pickProduct(' + i + ')');
               }).join('');
-              html += '<div class="design-card add" onclick="addNew()"><div class="plus">+</div><div class="dn">Add new...</div></div>';
+              html += '<div class="design-card add" onclick="addNew()"><div class="plus">+</div><div class="dn">' +
+                      (CAT[kind].set ? 'New set (opens the folder)' : 'Add new...') + '</div></div>';
               document.getElementById('prodGrid').innerHTML = html;
+              renderParts();
             }
             function pickKind(k) {
               if (k !== kind) document.getElementById('height').value = CAT[k].height;
+              if (k !== kind) parts = null;
               kind = k;
               renderKinds();
               renderProducts();
             }
-            function pickProduct(i) { product = CAT[kind].products[i].name; renderProducts(); }
+            // A new set starts from its own defaults (his call: "ברירת מחדל").
+            function pickProduct(i) {
+              var n = CAT[kind].products[i].name;
+              if (n !== product) parts = null;
+              product = n;
+              renderProducts();
+            }
             function cur() {
               var o = { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              var ps = readParts();
+              if (ps) o.parts = ps;
               if (D.corner !== undefined && D.corner !== null) o.corner = parseFloat(document.getElementById('corner').value) || 0;
               return o;
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
-            function okAll() { sketchup.ok(JSON.stringify(cur())); }
+            function okAll() {
+              var o = cur();
+              if (o.parts && !Object.keys(o.parts).some(function(k) { return o.parts[k].on; })) {
+                alert('Tick at least one part.');
+                return;
+              }
+              sketchup.ok(JSON.stringify(o));
+            }
             document.getElementById('height').value = D.height;
             // THE EDIT WINDOW (2026-09-25): same window, plus how far from
             // the corner, and no placing help.

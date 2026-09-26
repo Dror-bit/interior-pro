@@ -43,11 +43,12 @@ module InteriorPro
       status
     end
 
-    # The ghost is the product's own box: w along the wall, d out of it.
+    # The parts to place (a toilet = one part, a shower set = up to four),
+    # each with its own box around its pipe point - FixtureLibrary.layout.
     def setup_size!
-      d = InteriorPro::FixtureLibrary.definition_for(Sketchup.active_model, @pcfg['kind'], @pcfg['product'])
-      w, dep, h = d ? InteriorPro::FixtureLibrary.size_of(d) : [6.0, 6.0, 6.0]
-      @cfg = { w: w, h: h, out: dep, sill: @pcfg['height'].to_f, height: nil, run: false, wrap: false }
+      @parts = InteriorPro::FixtureLibrary.layout(Sketchup.active_model, @pcfg)
+      @cfg = { parts: @parts.length, height: nil, run: false, wrap: false }
+      puts "[Fixture] nothing to place - no part of #{@pcfg['product']} could be loaded" if @parts.empty?
     end
 
     def status
@@ -57,8 +58,8 @@ module InteriorPro
       end
       Sketchup.vcb_label = 'From corner'
       Sketchup.set_status_text(
-        "#{@pcfg['product']} at #{Sketchup.format_length(@cfg[:sill])}: move along a wall face and click, " \
-        'or type how far from the nearer corner (to its middle) + Enter. Green = fits, red = does not. Esc = done.', SB_PROMPT
+        "#{@pcfg['product']}: move along a wall face and click, " \
+        'or type how far from the nearer corner (to its line) + Enter. Green = fits. Esc = done.', SB_PROMPT
       )
     end
 
@@ -116,33 +117,19 @@ module InteriorPro
       InteriorPro::TileWall.face_limits(@wall, @frame, u)
     end
 
-    # Returns [fits, lo, hi]. A shower head also needs a TILED area under
-    # the whole of it on this side (his call, 2026-09-25) - that is what
-    # keeps it inside the house - and then it stands on the tile face:
-    # @out is how far off the wall that face is.
-    def fits_at?(u_mid)
-      lo, hi = limits_at(u_mid)
-      u0 = InteriorPro::TileNicheTool.ghost_u0(u_mid, @cfg[:w])
-      ok = InteriorPro::TileNicheTool.fits?(u0, @cfg[:w], @cfg[:sill], @cfg[:h], lo, hi, @hgt)
-      @on_hole = InteriorPro::FixtureLibrary.pipe_blocked?(u0, u0 + @cfg[:w], @cfg[:sill] + @cfg[:h],
-                                                           InteriorPro::FixtureLibrary.holes_on(@wall, @frame, @side))
-      ok = false if @on_hole
-      @out = 0.0
-      @no_tile = false
-      if InteriorPro::FixtureLibrary.on_tile?(@pcfg['kind'])
-        t = InteriorPro::FixtureLibrary.tile_under(@wall, @side, u0, u0 + @cfg[:w], @cfg[:sill], @cfg[:sill] + @cfg[:h])
-        if t
-          @out = t[:out]
-        else
-          @no_tile = true
-          ok = false
-        end
-      end
-      [ok, lo, hi]
+    # Returns [fits, lo, hi]. The one check lives in FixtureLibrary.check,
+    # shared with the edit: inside the clear run and under the top, a
+    # tiled area under every part of a shower set (it then stands on the
+    # tile face - @outs), and no window or niche under any part.
+    def fits_at?(u_line)
+      @chk = InteriorPro::FixtureLibrary.check(@wall, @side, @frame, u_line, @parts, @pcfg['kind'], @hgt)
+      @no_tile = @chk[:no_tile]
+      @on_hole = @chk[:on_hole]
+      [@chk[:ok], @chk[:lo], @chk[:hi]]
     end
 
     def onMouseMove(_flags, x, y, view)
-      return if @cfg.nil?
+      return if @cfg.nil? || @parts.to_a.empty?
       @hover = face_point(view, x, y)
       @fits = false
       if @hover && @frame
@@ -201,39 +188,45 @@ module InteriorPro
       unless ok
         Sketchup.set_status_text(@no_tile ? 'Plumbing: a shower head goes only on a TILED wall, inside the house.' :
                                             'Plumbing: it does not fit there (red) - move it along the wall.', SB_PROMPT)
-        puts "[Fixture] does not fit: middle #{u_mid.round(2)}, w #{@cfg[:w].round(2)} on clear run " \
-             "#{lo.round(2)}..#{hi.round(2)}, top #{(@cfg[:sill] + @cfg[:h]).round(2)} of #{@hgt.round(2)}"
+        puts "[Fixture] does not fit: line #{u_mid.round(2)} on clear run #{lo.round(2)}..#{hi.round(2)}, " \
+             "parts #{@chk[:rects].map { |r| r.map { |v| v.round(1) } }.inspect}, wall top #{@hgt.round(2)}"
         return
       end
-      inst = InteriorPro::FixtureLibrary.place!(wall: @wall, side: @side, fr: @frame, u: u_mid, z: @cfg[:sill],
-                                               kind: @pcfg['kind'], product: @pcfg['product'], out: @out.to_f)
+      inst = InteriorPro::FixtureLibrary.place!(wall: @wall, side: @side, fr: @frame, u: u_mid, cfg: @pcfg,
+                                               parts: @parts, outs: @chk[:outs])
       UI.messagebox('Nothing was placed - see the Ruby Console for the reason.') if inst.nil?
       status
       view.invalidate
     end
 
     def draw(view)
-      if @cfg && @hover && @frame
-        u0 = InteriorPro::TileNicheTool.ghost_u0(@hover[:u], @cfg[:w])
-        u1 = u0 + @cfg[:w]
-        z0 = @cfg[:sill]
-        z1 = z0 + @cfg[:h]
-        b0 = @out.to_f + 0.1
-        o = @out.to_f + @cfg[:out].to_f
-        # the back a hair off the face it sits on (the tile face on a tiled wall)
-        back  = [pt3(u0, z0, b0), pt3(u1, z0, b0), pt3(u1, z1, b0), pt3(u0, z1, b0)]
-        front = [pt3(u0, z0, o), pt3(u1, z0, o), pt3(u1, z1, o), pt3(u0, z1, o)]
+      if @cfg && @hover && @frame && @chk
         col = @fits ? [40, 150, 60] : [200, 40, 40]
-        view.drawing_color = Sketchup::Color.new(*col, 70)
-        view.draw(GL_QUADS, front)
-        view.drawing_color = Sketchup::Color.new(*col)
-        view.line_stipple = ''
-        view.line_width = 3
-        view.draw(GL_LINE_LOOP, front)
-        view.line_width = 1
-        view.line_stipple = '-'
-        view.draw(GL_LINE_LOOP, back)
-        4.times { |i| view.draw(GL_LINES, [front[i], back[i]]) }
+        @parts.each_with_index do |p, i|
+          u0, u1, z0, z1 = @chk[:rects][i] || next
+          b0 = @chk[:outs][i].to_f + 0.1
+          o = @chk[:outs][i].to_f + (p[:maxy] - p[:miny])
+          back  = [pt3(u0, z0, b0), pt3(u1, z0, b0), pt3(u1, z1, b0), pt3(u0, z1, b0)]
+          front = [pt3(u0, z0, o), pt3(u1, z0, o), pt3(u1, z1, o), pt3(u0, z1, o)]
+          view.drawing_color = Sketchup::Color.new(*col, 70)
+          view.draw(GL_QUADS, front)
+          view.drawing_color = Sketchup::Color.new(*col)
+          view.line_stipple = ''
+          view.line_width = 3
+          view.draw(GL_LINE_LOOP, front)
+          view.line_width = 1
+          view.line_stipple = '-'
+          view.draw(GL_LINE_LOOP, back)
+          4.times { |k| view.draw(GL_LINES, [front[k], back[k]]) }
+        end
+        # the one line the whole set stands on
+        if @parts.length > 1
+          zs = @chk[:rects].flat_map { |r| [r[2], r[3]] }
+          view.drawing_color = Sketchup::Color.new(200, 60, 40)
+          view.line_width = 1
+          view.line_stipple = '_'
+          view.draw(GL_LINES, [pt3(@hover[:u], zs.min, 0.8), pt3(@hover[:u], zs.max, 0.8)])
+        end
         draw_ring(view, @hover)
       end
       begin
