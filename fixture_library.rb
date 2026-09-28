@@ -32,6 +32,8 @@ module InteriorPro
     # Kill switch: false = the Plumbing button does nothing, nothing placed.
     USE_FIXTURES = true unless const_defined?(:USE_FIXTURES, false)
     SIMPLE = 'Simple' unless const_defined?(:SIMPLE, false)
+    # Kill switch: false = hidden things inside a part file are kept.
+    USE_STRIP_HIDDEN = true unless const_defined?(:USE_STRIP_HIDDEN, false)
 
     # The kinds. A method, not a guarded constant, so reload! sees changes.
     # on_tile: only on a tiled area, standing on its face (his call,
@@ -152,14 +154,20 @@ module InteriorPro
       return simple_definition(model, kind, part) if name.to_s.empty? || name.to_s == SIMPLE
       dn = def_name(kind, name, part)
       d = model.definitions[dn]
-      return d if d && d.valid?
+      if d && d.valid?
+        strip_hidden!(d)
+        return d
+      end
       path = file_for(kind, name, part)
       unless File.exist?(path)
         puts "[Fixture] file not found: #{path}"
         return nil
       end
       d = model.definitions.load(path, allow_newer: true)
-      d.name = dn if d && d.valid?
+      if d && d.valid?
+        d.name = dn
+        strip_hidden!(d)
+      end
       d
     rescue StandardError => e
       puts "[Fixture] load failed for #{kind}/#{name}/#{part}: #{e.message}"
@@ -282,6 +290,32 @@ module InteriorPro
         z0.to_f >= a[:z0].to_f - eps && z1.to_f <= a[:z0].to_f + a[:h].to_f + eps
     end
 
+    # A SPLIT TILE IS STILL ONE TILE (2026-09-27, his words: "חיתוך הטיל לא
+    # משנה להצבת הסט"). Measured on wall 849179b2: Split Tile cut it at
+    # 59.7", the hand shower runs 29..67.6, and no ONE area covered it - so
+    # no ghost at all. The part is on tile when the areas TOGETHER cover it:
+    # every cell between their edges has an area over its middle. PURE.
+    def self.tiles_cover?(areas, u0, u1, z0, z1, eps = 1.0e-6)
+      areas = Array(areas)
+      return false if areas.empty?
+      us = [u0.to_f, u1.to_f]
+      zs = [z0.to_f, z1.to_f]
+      areas.each do |a|
+        [a[:bu0].to_f, a[:bu0].to_f + a[:bw].to_f].each { |v| us << v if v > u0.to_f && v < u1.to_f }
+        [a[:z0].to_f, a[:z0].to_f + a[:h].to_f].each { |v| zs << v if v > z0.to_f && v < z1.to_f }
+      end
+      us = us.uniq.sort
+      zs = zs.uniq.sort
+      us.each_cons(2).all? do |ua, ub|
+        zs.each_cons(2).all? do |za, zb|
+          next true if ub - ua < eps || zb - za < eps
+          cu = (ua + ub) / 2.0
+          cz = (za + zb) / 2.0
+          areas.any? { |a| tile_covers?(a, cu, cu, cz, cz, eps) }
+        end
+      end
+    end
+
     # NOT ON A WINDOW OR A NICHE, AND NOT ABOVE ONE (2026-09-25, his words:
     # "שלא יהיה מעל חלון או ניצ כי במציאות אי אפשר להעביר שם פלמינג").
     # The pipe comes UP inside the wall, so any hole sharing the part's
@@ -307,6 +341,25 @@ module InteriorPro
         bb.add(e.bounds)
       end
       bb.empty? ? defn.bounds : bb
+    end
+
+    # THE HIDDEN THINGS GO (2026-09-27, his pick "שידלג עליהם בעצמו").
+    # Measured: Set 2 valve.skp and hand.skp carry hidden things up to 47"
+    # off the part, Set 1 head.skp 64" - the placed set was selected as a
+    # box reaching out of the house. The copy loaded into the model drops
+    # them; his files are never touched. Same rule as visible_bounds.
+    def self.strip_hidden!(defn)
+      return 0 unless USE_STRIP_HIDDEN
+      gone = defn.entities.to_a.select do |e|
+        (e.respond_to?(:hidden?) && e.hidden?) || (e.respond_to?(:layer) && e.layer && !e.layer.visible?)
+      end
+      return 0 if gone.empty? || gone.length == defn.entities.length
+      defn.entities.erase_entities(gone)
+      puts "[Fixture] #{defn.name}: #{gone.length} hidden things left out"
+      gone.length
+    rescue StandardError => e
+      puts "[Fixture] hidden things could not be left out of #{defn.name}: #{e.message}"
+      0
     end
 
     # The parts to place, from the window's numbers:
@@ -341,16 +394,21 @@ module InteriorPro
     # how far its face stands off the wall. nil = no tile there.
     def self.tile_under(wall, side, u0, u1, z0, z1, model = Sketchup.active_model)
       wid = wall.get_attribute('InteriorPro', 'id').to_s
+      mine = []
       InteriorPro::TileWall.areas_in_model(model).each do |g|
         at = lambda { |k| g.get_attribute('InteriorPro', k) }
         next unless at.call('wall_id').to_s == wid && at.call('side').to_s == side.to_s
         a = { bu0: (at.call('built_u0') || at.call('u0')).to_f, bw: (at.call('built_w') || at.call('area_w')).to_f,
-              z0: at.call('z0').to_f, h: at.call('area_h').to_f }
-        next unless tile_covers?(a, u0, u1, z0, z1)
-        dp = at.call('tile_depth').to_f
-        return { group: g, out: dp > 0.0 ? dp : 0.0 }
+              z0: at.call('z0').to_f, h: at.call('area_h').to_f, group: g, depth: at.call('tile_depth').to_f }
+        # one area covers it all: exactly as before
+        return { group: g, out: a[:depth] > 0.0 ? a[:depth] : 0.0 } if tile_covers?(a, u0, u1, z0, z1)
+        mine << a
       end
-      nil
+      return nil unless tiles_cover?(mine, u0, u1, z0, z1)
+      # split areas: the tile face is where the deepest of them stands
+      touch = mine.select { |a| a[:bu0] < u1.to_f && a[:bu0] + a[:bw] > u0.to_f && a[:z0] < z1.to_f && a[:z0] + a[:h] > z0.to_f }
+      best = touch.max_by { |a| a[:depth] }
+      { group: best[:group], out: best[:depth] > 0.0 ? best[:depth] : 0.0 }
     rescue StandardError => e
       puts "[Fixture] the tile under it could not be read: #{e.message}"
       nil

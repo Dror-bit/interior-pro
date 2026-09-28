@@ -537,6 +537,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 ## Kill switches (turn a feature off without deleting it)
 
+- `InteriorPro::FixtureLibrary::USE_STRIP_HIDDEN = false` - hidden things inside a
+  plumbing part file are kept (2026-09-27, `tests/rt228.rb`).
 - `InteriorPro::TileWallSplitTool::USE_SPLIT_TOOL = false` - the Split Tile button
   does nothing (2026-09-23, `tests/rt216.rb`).
 - `InteriorPro::TileWall::USE_NICHE_OWN_TILE = false` - every niche wears the wall's
