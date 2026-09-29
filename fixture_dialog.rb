@@ -38,7 +38,9 @@ module InteriorPro
       InteriorPro::FixtureLibrary.kinds.each do |k, info|
         prods = InteriorPro::FixtureLibrary.products(k).map do |n|
           tp = InteriorPro::FixtureLibrary.ensure_thumb(model, k, n)
+          sp = InteriorPro::FixtureLibrary.set_thumb_path(k, n)
           { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '',
+            'set_img' => sp && File.exist?(sp) ? url_of(sp) + "?#{File.mtime(sp).to_i}" : '',
             'have' => InteriorPro::FixtureLibrary.parts_available(k, n),
             'parts' => InteriorPro::FixtureLibrary.default_parts(k, n) }
         end
@@ -142,6 +144,7 @@ module InteriorPro
           <div class="section-title">Plumbing</div>
           <div class="row first">Kind<div class="grid" id="kindGrid"></div></div>
           <div class="row">Product<div class="grid" id="prodGrid"></div></div>
+          <div class="row" id="colorRow" style="display:none;">Color<div class="grid" id="colorGrid"></div></div>
           <div class="row" id="heightRow">
             Height from the floor to the bottom of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
@@ -231,17 +234,45 @@ module InteriorPro
               });
               return out;
             }
+            // A SET WITH COLOURS (2026-09-28): a product named "Set 1/Black"
+            // is set "Set 1" in colour "Black". The sets show once each; the
+            // colours of the chosen set show underneath, each with its picture.
+            function setOf(n) { var i = n.indexOf('/'); return i < 0 ? n : n.substring(0, i); }
+            function colorOf(n) { var i = n.indexOf('/'); return i < 0 ? '' : n.substring(i + 1); }
+            function setNames() {
+              var out = [];
+              CAT[kind].products.forEach(function(p) { if (out.indexOf(setOf(p.name)) < 0) out.push(setOf(p.name)); });
+              return out;
+            }
+            function picOf(p) { return p.img ? '<img src="' + p.img + '">' : kindSvg(kind); }
             function renderProducts() {
               var list = CAT[kind].products;
               if (!list.some(function(p) { return p.name === product; })) product = list[0].name;
-              var html = list.map(function(p, i) {
-                var pic = p.img ? '<img src="' + p.img + '">' : kindSvg(kind);
-                return card(p.name === product, pic, p.name, 'pickProduct(' + i + ')');
+              var html = setNames().map(function(s, i) {
+                var shown = setOf(product) === s ? curProduct() : list.filter(function(p) { return setOf(p.name) === s; })[0];
+                var pic = shown.set_img ? '<img src="' + shown.set_img + '">' : picOf(shown);
+                return card(setOf(product) === s, pic, s, 'pickSet(' + i + ')');
               }).join('');
               html += '<div class="design-card add" onclick="addNew()"><div class="plus">+</div><div class="dn">' +
                       (CAT[kind].set ? 'New set (opens the folder)' : 'Add new...') + '</div></div>';
               document.getElementById('prodGrid').innerHTML = html;
+              var cols = [];
+              list.forEach(function(p, i) { if (setOf(p.name) === setOf(product) && colorOf(p.name) !== '') cols.push([p, i]); });
+              document.getElementById('colorRow').style.display = cols.length ? '' : 'none';
+              document.getElementById('colorGrid').innerHTML = cols.map(function(c) {
+                return card(c[0].name === product, picOf(c[0]), colorOf(c[0].name), 'pickProduct(' + c[1] + ')');
+              }).join('');
               renderParts();
+            }
+            // Another set: the same colour if it has one, else its first.
+            // A new set starts from its own defaults.
+            function pickSet(i) {
+              var s = setNames()[i], list = CAT[kind].products;
+              var same = list.filter(function(p) { return p.name === s + '/' + colorOf(product); })[0];
+              var n = (same || list.filter(function(p) { return setOf(p.name) === s; })[0]).name;
+              if (n !== product) parts = null;
+              product = n;
+              renderProducts();
             }
             function pickKind(k) {
               if (k !== kind) document.getElementById('height').value = CAT[k].height;
@@ -251,9 +282,10 @@ module InteriorPro
               renderProducts();
             }
             // A new set starts from its own defaults (his call: "ברירת מחדל").
+            // Another colour of the SAME set keeps the heights he typed.
             function pickProduct(i) {
               var n = CAT[kind].products[i].name;
-              if (n !== product) parts = null;
+              if (setOf(n) !== setOf(product)) parts = null;
               product = n;
               renderProducts();
             }

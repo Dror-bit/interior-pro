@@ -94,9 +94,19 @@ module InteriorPro
       dir = dir_for(kind)
       return [] unless Dir.exist?(dir)
       if set_kind?(kind)
-        Dir.children(dir).select do |d|
-          File.directory?(File.join(dir, d)) && part_keys.any? { |p| File.exist?(File.join(dir, d, "#{p}.skp")) }
-        end.sort
+        # A SET WITH COLOURS (2026-09-28, his words: "אני בוחר את הסט ואז
+        # אני יכול לבחור את הצבע של הסט"). A set folder holding the part
+        # files itself is one set, as before. A set folder holding COLOUR
+        # folders gives one name per colour: "Set 1/Black". Everything
+        # else (file_for, the picture) just joins the name as a path.
+        has_parts = lambda { |path| part_keys.any? { |p| File.exist?(File.join(path, "#{p}.skp")) } }
+        Dir.children(dir).sort.flat_map do |d|
+          path = File.join(dir, d)
+          next [] unless File.directory?(path)
+          next [d] if has_parts.call(path)
+          Dir.children(path).sort.select { |c| File.directory?(File.join(path, c)) && has_parts.call(File.join(path, c)) }
+             .map { |c| "#{d}/#{c}" }
+        end
       else
         Dir.glob(File.join(dir, '*.skp')).map { |f| File.basename(f, '.skp') }.sort
       end
@@ -143,7 +153,7 @@ module InteriorPro
     # ---- the definitions ----------------------------------------------
 
     def self.def_name(kind, name, part = nil)
-      ["InteriorPro_Fixture_#{kind_ok(kind)}_#{name}", part].compact.join('_')
+      ["InteriorPro_Fixture_#{kind_ok(kind)}_#{name.to_s.sub('/', ' - ')}", part].compact.join('_')
     end
 
     # Load (or reuse) a definition. nil on failure, with the reason.
@@ -217,6 +227,14 @@ module InteriorPro
       else
         File.join(dir_for(kind), 'thumbs', "#{name}.png")
       end
+    end
+
+    # THE SET'S OWN PICTURE (2026-09-28, his words: "תמונה כללית לכל סט ולכל
+    # צבע יהיה את התמונה עם הצבע שלו"). <set>/thumb.png, next to the colour
+    # folders. nil for a set with no colours - its thumb.png is its picture.
+    def self.set_thumb_path(kind, name)
+      return nil unless set_kind?(kind) && name.to_s.include?('/')
+      File.join(dir_for(kind), name.to_s.split('/', 2).first, 'thumb.png')
     end
 
     def self.ensure_thumb(model, kind, name)
