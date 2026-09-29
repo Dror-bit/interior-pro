@@ -14,6 +14,8 @@
 #                                    /hand.skp   hand shower  (optional)
 #                                    /spout.skp  tub spout    (optional)
 #   assets/PLUMBING/TOILETS/<name>.skp
+#   assets/PLUMBING/VANITIES/<name>.skp   (2026-09-29)
+#   assets/PLUMBING/TUBS/<name>.skp       (2026-09-29)
 #
 # THE POINT A HEIGHT IS MEASURED TO (his pick, "2"): in a set part the
 # file's ORIGIN is the point where the pipe leaves the wall. He sets it
@@ -41,7 +43,12 @@ module InteriorPro
     def self.kinds
       {
         'shower_set' => { dir: 'SHOWER SETS', label: 'Shower set', height: 80.0, on_tile: true, set: true },
-        'toilet'     => { dir: 'TOILETS',     label: 'Toilet',     height: 0.0 }
+        'toilet'     => { dir: 'TOILETS',     label: 'Toilet',     height: 0.0 },
+        # VANITY AND TUB (2026-09-29, his words: "אני רוצה את הוונטי בנפרד
+        # ואז לשמור אותו ולהכניס אותו"). One .skp each, like a toilet:
+        # back on the wall, bottom on the floor, middle on the line.
+        'vanity'     => { dir: 'VANITIES',    label: 'Vanity',     height: 0.0 },
+        'tub'        => { dir: 'TUBS',        label: 'Tub',        height: 0.0 }
       }
     end
 
@@ -131,7 +138,9 @@ module InteriorPro
       have = parts_available(kind, name)
       out = {}
       parts_spec.each do |k, _l, h, s|
-        on = have.include?(k) && !(name.to_s == SIMPLE && k == 'spout')
+        # THE TUB SPOUT STARTS OFF (2026-09-29, his pick "ברירת מחדל"): most
+        # showers have no tub - he ticks it in the window when there is one.
+        on = have.include?(k) && k != 'spout'
         out[k] = { 'on' => on, 'h' => h, 'side' => s }
       end
       out
@@ -188,6 +197,8 @@ module InteriorPro
     # point on the wall; for a toilet it is the back, middle, bottom.
     def self.simple_boxes(kind, part)
       return [[-9.5, 9.5, 0.5, 8.5, 15.0, 30.0], [-7.0, 7.0, 8.5, 28.0, 0.0, 15.0]] if kind == 'toilet'
+      return [[-15.0, 15.0, 0.0, 21.0, 0.0, 33.0], [-15.5, 15.5, 0.0, 22.0, 33.0, 34.5]] if kind == 'vanity'
+      return [[-30.0, 30.0, 0.0, 30.0, 0.0, 20.0]] if kind == 'tub'
       case part.to_s
       when 'valve' then [[-3.5, 3.5, 0.0, 0.5, -3.5, 3.5], [-1.0, 1.0, 0.5, 3.5, -1.0, 1.0]]
       when 'hand'  then [[-0.5, 0.5, 0.0, 1.0, -12.0, 12.0], [-1.5, 1.5, 1.0, 3.0, -2.0, 4.0]]
