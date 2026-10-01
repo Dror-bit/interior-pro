@@ -1,0 +1,41 @@
+# encoding: utf-8
+# rt226 - ONE COLOUR FOR THE WHOLE SHOWER SET (2026-09-27). His words:
+# "אפשרי לקבוע צבעים לראש מקלחת?" - "לכל הסט". Measured in his Set 1:
+# every face is painted inside the files, so the colour is a repainted
+# COPY of each part; the file and 'Original' stay as they are.
+require './sketchup_stub'
+require './tile_wall_tool'
+require './tile_niche'
+require './tile_niche_tool'
+require './fixture_library'
+require './fixture_tool'
+require './fixture_dialog'
+module InteriorPro; PLUGIN_DIR = '/tmp/ip_fake' unless const_defined?(:PLUGIN_DIR); end
+
+$fails = 0
+def ok(n, c, x = nil)
+  puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))
+  $fails += 1 unless c
+end
+L = InteriorPro::FixtureLibrary
+ok('kill switch is on', L::USE_FINISH == true)
+ok('the colours: Original, Chrome, Black, Nickel, Gold', L.finishes.map(&:first) == %w[Original Chrome Black Nickel Gold])
+ok('an unknown colour = Original', L.finish_ok('Pink') == 'Original' && L.finish_ok(nil) == 'Original')
+ok('a known colour stays', L.finish_ok('Gold') == 'Gold')
+ok('his black shades get painted', !L.light_rgb?(43, 45, 47) && !L.light_rgb?(17, 20, 23) && !L.light_rgb?(89, 91, 93))
+ok('his white marks stay white', L.light_rgb?(255, 255, 255))
+ok('the Simple stand-in stays white', L.light_rgb?(235, 237, 240))
+ok('Original returns the very same definition', L.finish_definition(nil, :base, 'Original') == :base)
+
+lib = File.read('./fixture_library.rb')
+ok('the colour goes through the real path (layout)', lib.include?("d = finish_definition(model, d, cfg['finish']) if d && k"))
+ok('a copy, never the file: explode an instance into a new definition', lib.include?('add_instance(base, Geom::Transformation.new).explode'))
+ok('groups inside are made unique before painting', lib.include?('e.make_unique'))
+dl = File.read('./fixture_dialog.rb')
+ok('the window sends the colour', dl.include?('finish: finish,'))
+ok('the window keeps a clean colour', dl.include?("cfg['finish'] = InteriorPro::FixtureLibrary.finish_ok(cfg['finish'])"))
+ok('colour is in the defaults (else the OK drops it)', dl.include?("'finish' => 'Original'"))
+ok('colour row only for a set', dl.include?("getElementById('finishRow').style.display = isSet"))
+ok('no \\d in the window JS (the heredoc law)', !dl.include?('\\d'))
+puts($fails.zero? ? 'rt226 OK' : "rt226 #{$fails} FAILED")
+exit($fails.zero? ? 0 : 1)

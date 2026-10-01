@@ -1,0 +1,86 @@
+fixture colours report  2026-09-28 17:26:07 -0700
+Set 1 Black/head: defn InteriorPro_Fixture_shower_set_Set 1 Black_head  faces 18697  nested groups/components 1 (deepest 1)
+   front: [["<auto>", 12386], ["<auto>1", 6239], ["<auto>3", 68], ["Color M00", 4]]
+   back:  [["(default)", 18697]]
+   on nested: [["(default)", 1]]
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>3" rgb 89,91,93 no texture
+   material "Color M00" rgb 255,255,255 no texture
+   material "<auto>1" rgb 17,20,23 no texture
+Set 1 Black/valve: defn InteriorPro_Fixture_shower_set_Set 1 Black_valve  faces 2587  nested groups/components 1 (deepest 1)
+   front: [["<auto>1", 1692], ["<auto>3", 640], ["<auto>", 246], ["(default)", 5], ["Color M00", 4]]
+   back:  [["(default)", 2586], ["<auto>1", 1]]
+   on nested: [["(default)", 1]]
+   material "Color M00" rgb 255,255,255 no texture
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>1" rgb 17,20,23 no texture
+   material "<auto>3" rgb 89,91,93 no texture
+Set 1 Black/hand: defn InteriorPro_Fixture_shower_set_Set 1 Black_hand  faces 68183  nested groups/components 2 (deepest 2)
+   front: [["<auto>1", 62952], ["<auto>", 5166], ["<auto>3", 62], ["Color M00", 3]]
+   back:  [["(default)", 68182], ["<auto>1", 1]]
+   on nested: [["(default)", 2]]
+   material "<auto>1" rgb 17,20,23 no texture
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>3" rgb 89,91,93 no texture
+   material "Color M00" rgb 255,255,255 no texture
+Set 1 Brush Nickle/head: defn InteriorPro_Fixture_shower_set_Set 1 Brush Nickle_head  faces 18629  nested groups/components 1 (deepest 1)
+   front: [["BRUSHED NICKEL", 18629]]
+   back:  [["(default)", 18629]]
+   on nested: [["BRUSHED NICKEL", 1]]
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+Set 1 Brush Nickle/valve: defn InteriorPro_Fixture_shower_set_Set 1 Brush Nickle_valve  faces 2587  nested groups/components 1 (deepest 1)
+   front: [["BRUSHED NICKEL", 1947], ["<auto>3", 640]]
+   back:  [["(default)", 1761], ["BRUSHED NICKEL", 826]]
+   on nested: [["(default)", 1]]
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+   material "<auto>3" rgb 89,91,93 no texture
+Set 1 Brush Nickle/hand: defn InteriorPro_Fixture_shower_set_Set 1 Brush Nickle_hand  faces 68183  nested groups/components 2 (deepest 2)
+   front: [["BRUSHED NICKEL", 66483], ["<auto>", 1638], ["<auto>3", 62]]
+   back:  [["(default)", 61113], ["BRUSHED NICKEL", 7070]]
+   on nested: [["(default)", 2]]
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>3" rgb 89,91,93 no texture
+Set 2 Black/head: defn InteriorPro_Fixture_shower_set_Set 2 Black_head  faces 10434  nested groups/components 1 (deepest 1)
+   front: [["<auto>", 7992], ["<auto>2", 2055], ["<auto>4", 385], ["(default)", 2]]
+   back:  [["(default)", 10434]]
+   on nested: [["(default)", 1]]
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>2" rgb 34,36,39 no texture
+   material "<auto>4" rgb 37,40,44 no texture
+Set 2 Black/valve: defn InteriorPro_Fixture_shower_set_Set 2 Black_valve  faces 8082  nested groups/components 0 (deepest 0)
+   front: [["<auto>4", 5826], ["<auto>2", 2122], ["<auto>", 130], ["(default)", 4]]
+   back:  [["(default)", 8081], ["<auto>2", 1]]
+   on nested: []
+   material "<auto>2" rgb 34,36,39 no texture
+   material "<auto>" rgb 43,45,47 no texture
+   material "<auto>4" rgb 37,40,44 no texture
+Set 2 Black/hand: defn InteriorPro_Fixture_shower_set_Set 2 Black_hand  faces 92932  nested groups/components 0 (deepest 0)
+   front: [["<auto>4", 86461], ["<auto>2", 4007], ["<auto>", 2461], ["(default)", 3]]
+   back:  [["(default)", 92931], ["<auto>2", 1]]
+   on nested: []
+   material "<auto>4" rgb 37,40,44 no texture
+   material "<auto>2" rgb 34,36,39 no texture
+   material "<auto>" rgb 43,45,47 no texture
+Set 2 Brush Nickle/head: defn InteriorPro_Fixture_shower_set_Set 2 Brush Nickle_head  faces 10434  nested groups/components 1 (deepest 1)
+   front: [["BRUSHED NICKEL", 10434]]
+   back:  [["(default)", 10434]]
+   on nested: [["(default)", 1]]
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+Set 2 Brush Nickle/valve: defn InteriorPro_Fixture_shower_set_Set 2 Brush Nickle_valve  faces 8082  nested groups/components 0 (deepest 0)
+   front: [["BRUSHED NICKEL", 8082]]
+   back:  [["BRUSHED NICKEL", 8082]]
+   on nested: []
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+Set 2 Brush Nickle/hand: defn InteriorPro_Fixture_shower_set_Set 2 Brush Nickle_hand  faces 92932  nested groups/components 0 (deepest 0)
+   front: [["BRUSHED NICKEL", 92932]]
+   back:  [["(default)", 91214], ["BRUSHED NICKEL", 1718]]
+   on nested: []
+   material "BRUSHED NICKEL" rgb 180,181,175 texture satin nickel.jpg
+materials used by the set parts:
+   name="[Color M00]" display="Color M00" rgb 255,255,255 alpha 1.0 no texture
+   name="<auto>" display="<auto>" rgb 43,45,47 alpha 1.0 no texture
+   name="<auto>1" display="<auto>1" rgb 17,20,23 alpha 1.0 no texture
+   name="<auto>3" display="<auto>3" rgb 89,91,93 alpha 1.0 no texture
+   name="<auto>2" display="<auto>2" rgb 34,36,39 alpha 1.0 no texture
+   name="<auto>4" display="<auto>4" rgb 37,40,44 alpha 1.0 no texture

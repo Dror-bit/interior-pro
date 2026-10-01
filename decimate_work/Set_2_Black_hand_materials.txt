@@ -1,0 +1,4 @@
+<auto>4	<auto>4	37,40,44	-
+<auto>2	<auto>2	34,36,39	-
+<auto>	<auto>	43,45,47	-
+_default_	_default_	-	-

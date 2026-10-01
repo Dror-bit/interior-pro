@@ -1,0 +1,12 @@
+export report  2026-09-29 14:16:49 -0700
+set DAWN (round)/Black part hand  defn InteriorPro_Fixture_shower_set_DAWN (round) - Black_hand
+faces 66821  triangles 104265  points 237898  materials ["BRUSHED NICKEL1", "[Color M02]1"]
+bounds x -6.21..1.56 y -0.79..9.87 z -41.14..12.52
+written C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/decimate_work/DAWN_round_Black_hand.obj  27.6 MB
+time 4.6 s
+export report  2026-09-29 14:16:58 -0700
+set DAWN (round)/Brush nickle part hand  defn InteriorPro_Fixture_shower_set_DAWN (round) - Brush nickle_hand
+faces 66866  triangles 106690  points 240404  materials ["BRUSHED NICKLE"]
+bounds x -6.04..1.56 y -0.04..7.73 z -41.14..11.02
+written C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/decimate_work/DAWN_round_Brush_nickle_hand.obj  28.1 MB
+time 9.3 s

@@ -1,0 +1,31 @@
+fixture report  2026-09-27 20:45:03 -0700
+sets in folder: ["Set 1", "Set 2"]
+  Set 1: parts ["head", "valve", "hand"]
+  Set 2: parts ["head", "valve", "hand"]
+last window choice: {"kind"=>"shower_set", "product"=>"Set 1", "height"=>80.0, "parts"=>{"head"=>{"on"=>true, "h"=>80, "side"=>0}, "valve"=>{"on"=>true, "h"=>48, "side"=>0}, "hand"=>{"on"=>true, "h"=>60, "side"=>12}, "spout"=>{"on"=>false, "h"=>22, "side"=>0}}}
+fixtures in model: 2
+  0: Sketchup::Group kind=shower_set product="Set 2" cfg={"kind":"shower_set","product":"Set 2","height":80.0,"parts":{"head":{"on":true,"h":80,"side":0},"valve":{"on":true,"h":48,"side":0},"hand":{"on":true,"h":60,"side":12},"spout":{"on":false,"h":22,"side":0}}}
+     part="head" defn=InteriorPro_Fixture_shower_set_Set 2_head box x -13.89..3.98 y -2.66..19.72 z -3.87..29.12
+     part="valve" defn=InteriorPro_Fixture_shower_set_Set 2_valve box x -3.54..41.43 y -47.44..1.61 z -3.54..55.55
+     part="hand" defn=InteriorPro_Fixture_shower_set_Set 2_hand box x -1.04..41.43 y -47.44..45.13 z -31.05..55.55
+  1: Sketchup::Group kind=shower_set product="Set 1" cfg={"kind":"shower_set","product":"Set 1","height":80.0,"parts":{"head":{"on":true,"h":80,"side":0},"valve":{"on":true,"h":48,"side":0},"hand":{"on":true,"h":60,"side":12},"spout":{"on":false,"h":22,"side":0}}}
+     part="head" defn=InteriorPro_Fixture_shower_set_Set 1_head box x -5.0..63.74 y 0.0..17.99 z -3.66..47.12
+     part="valve" defn=InteriorPro_Fixture_shower_set_Set 1_valve box x -3.44..3.44 y -0.0..2.87 z -4.63..3.58
+     part="hand" defn=InteriorPro_Fixture_shower_set_Set 1_hand box x -1.38..1.18 y 0.0..3.12 z -31.64..7.8
+  defn InteriorPro_Fixture_shower_set_Set 1_head: box x -5.0..63.74 y 0.0..17.99 z -3.66..47.12  anchor x 0.0 z 0.0  instances 1
+  defn InteriorPro_Fixture_shower_set_Set 1_valve: box x -3.44..3.44 y -0.0..2.87 z -4.63..3.58  anchor x 0.0 z 0.0  instances 1
+  defn InteriorPro_Fixture_shower_set_Set 1_hand: box x -1.38..1.18 y 0.0..3.12 z -31.64..7.8  anchor x 0.0 z 0.0  instances 1
+  defn InteriorPro_Fixture_shower_set_Simple_head: box x -3.0..3.0 y 0.0..11.0 z -2.0..1.5  anchor x 0.0 z 0.0  instances 0
+  defn InteriorPro_Fixture_shower_set_Simple_valve: box x -3.5..3.5 y 0.0..3.5 z -3.5..3.5  anchor x 0.0 z 0.0  instances 0
+  defn InteriorPro_Fixture_shower_set_Simple_hand: box x -1.5..1.5 y 0.0..3.0 z -12.0..12.0  anchor x 0.0 z 0.0  instances 0
+  defn InteriorPro_Fixture_shower_set_Set 2_head: box x -13.89..3.98 y -2.66..19.72 z -3.87..29.12  anchor x 0.0 z 0.0  instances 1
+  defn InteriorPro_Fixture_shower_set_Set 2_valve: box x -3.54..41.43 y -47.44..1.61 z -3.54..55.55  anchor x 0.0 z 0.0  instances 1
+  defn InteriorPro_Fixture_shower_set_Set 2_hand: box x -1.04..41.43 y -47.44..45.13 z -31.05..55.55  anchor x 0.0 z 0.0  instances 1
+last clicks:
+20:35:54 click 1261,495 dof 2 vertex false pos [-443.63, 342.35, 65.11] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 159.35 z 65.11 kind nil | first none
+20:35:55 click 785,554 dof 2 vertex false pos [-443.63, 395.05, 76.71] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 212.05 z 76.71 kind nil | first none
+20:36:13 click 911,757 dof 1 vertex false pos [-468.31, 386.56, 74.5] | hover_wall 3b85b93f side "a" | result NIL | first none
+20:36:31 click 1149,461 dof 1 vertex false pos [-464.18, 401.88, 62.09] | hover_wall  side nil | result wall 3b85b93f side "a" u 26.18 z 62.09 kind nil | first none
+20:37:17 click 1497,714 dof 2 vertex false pos [-491.77, 332.42, 16.16] | hover_wall 849179b2 side "a" | result NIL | first none
+20:43:01 click 1469,407 dof 0 vertex true pos [-468.65, 333.04, 74.19] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 65.95 z 74.19 kind :corner | first none
+fixture definitions in model: ["InteriorPro_Fixture_shower_set_Set 1_head", "InteriorPro_Fixture_shower_set_Set 1_valve", "InteriorPro_Fixture_shower_set_Set 1_hand", "InteriorPro_Fixture_shower_head_Simple", "InteriorPro_Fixture_toilet_Simple", "InteriorPro_Fixture_shower_set_Simple_head", "InteriorPro_Fixture_shower_set_Simple_valve", "InteriorPro_Fixture_shower_set_Simple_hand", "InteriorPro_Fixture_shower_set_Set 2_head", "InteriorPro_Fixture_shower_set_Set 2_valve", "InteriorPro_Fixture_shower_set_Set 2_hand"]

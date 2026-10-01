@@ -1,0 +1,75 @@
+# encoding: utf-8
+# MEASURES / EXPORTS ONLY (2026-09-28): writes ONE shower part as an OBJ
+# (points, texture coords, one group per material) so it can be made
+# lighter outside SketchUp. Changes NOTHING in the model - it only reads
+# the part's definition (loading the file if it is not in yet, same as
+# placing does). Writes decimate_work/<set>_<part>.obj + report.
+EXPORT_JOBS = [[%q(Set 1 Black), %q(hand)], [%q(Set 1 Brush Nickle), %q(hand)], [%q(Set 2 Brush Nickle), %q(hand)]]
+all_rep = []
+EXPORT_JOBS.each do |set_name, part_name|
+t0 = Time.now
+m = Sketchup.active_model
+lib = InteriorPro::FixtureLibrary
+d = lib.definition_for(m, 'shower_set', set_name, part_name)
+dir = File.join(InteriorPro::PLUGIN_DIR, 'decimate_work')
+Dir.mkdir(dir) unless Dir.exist?(dir)
+base = "#{set_name}_#{part_name}".gsub(' ', '_')
+rep = ["export report  #{Time.now}", "set #{set_name} part #{part_name}  defn #{d ? d.name : 'NONE'}"]
+if d
+  verts = []
+  uvs = []
+  by_mat = Hash.new { |h, k| h[k] = [] }
+  mats = {}
+  faces = 0
+  walk = lambda do |ents, tr, inherit|
+    ents.each do |e|
+      if e.is_a?(Sketchup::Face)
+        next if e.hidden?
+        faces += 1
+        mt = e.material || inherit
+        key = mt ? mt.name : '_default_'
+        mats[key] ||= mt
+        mesh = e.mesh(1 | 4)
+        mesh.transform!(tr)
+        base_v = verts.length
+        (1..mesh.count_points).each do |i|
+          p = mesh.point_at(i)
+          verts << [p.x.to_f, p.y.to_f, p.z.to_f]
+          uv = mesh.uv_at(i, true)
+          q = uv.z.to_f.abs < 1e-12 ? 1.0 : uv.z.to_f
+          uvs << [uv.x.to_f / q, uv.y.to_f / q]
+        end
+        mesh.polygons.each do |poly|
+          by_mat[key] << poly.map { |ix| base_v + ix.abs }
+        end
+      elsif (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && !e.hidden?
+        walk.call(e.definition.entities, tr * e.transformation, e.material || inherit)
+      end
+    end
+  end
+  walk.call(d.entities, Geom::Transformation.new, nil)
+  path = File.join(dir, "#{base}.obj")
+  File.open(path, 'w') do |f|
+    verts.each { |v| f.write("v #{v[0]} #{v[1]} #{v[2]}\n") }
+    uvs.each { |u| f.write("vt #{u[0]} #{u[1]}\n") }
+    by_mat.each do |k, polys|
+      f.write("usemtl #{k.gsub(/\s/, '_')}\n")
+      polys.each { |pl| f.write('f ' + pl.map { |i| "#{i}/#{i}" }.join(' ') + "\n") }
+    end
+  end
+  File.open(File.join(dir, "#{base}_materials.txt"), 'w') do |f|
+    mats.each do |k, mt|
+      c = mt ? mt.color : nil
+      f.write("#{k.gsub(/\s/, '_')}\t#{k}\t#{c ? [c.red, c.green, c.blue].join(',') : '-'}\t#{mt && mt.texture ? mt.texture.filename : '-'}\n")
+    end
+  end
+  tri = by_mat.values.map(&:length).sum
+  rep << "faces #{faces}  triangles #{tri}  points #{verts.length}  materials #{mats.keys.inspect}"
+  rep << "bounds x #{d.bounds.min.x.to_f.round(2)}..#{d.bounds.max.x.to_f.round(2)} y #{d.bounds.min.y.to_f.round(2)}..#{d.bounds.max.y.to_f.round(2)} z #{d.bounds.min.z.to_f.round(2)}..#{d.bounds.max.z.to_f.round(2)}"
+  rep << "written #{path}  #{(File.size(path) / 1048576.0).round(1)} MB"
+end
+rep << "time #{(Time.now - t0).round(1)} s"
+all_rep.concat(rep)
+end
+File.write(File.join(InteriorPro::PLUGIN_DIR, %q(export_part_report.txt)), all_rep.join("\n"))
+puts all_rep

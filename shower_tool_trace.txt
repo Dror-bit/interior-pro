@@ -520,3 +520,53 @@
 18:23:48   build! own no lay yes src floor pad_top 0.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
 18:23:48   build! tiles laid
 18:23:48   drain: linear_tile 24.0 x 3.0 at [-477.118, 396.875] z 0.05, 0 grate hole(s), tile inside: Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory, channel yes
+19:35:30   rehole: room room-tlf7le-9399 floor floor-tlukj6-3843 -> 0 added, 0 stored
+19:35:30   rehole: room room-tlj2de-3087 floor floor-tlukj6-9664 -> 1 added, 1 stored
+19:48:46   rehole: room room-tlf7le-9399 floor floor-tlul5a-4291 -> 0 added, 0 stored
+19:48:46   hole to wall: [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] -> [[-486.612, 402.5], [-486.612, 332.418], [-443.0, 332.418], [-443.0, 402.5]]
+19:48:46   hole to wall: [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] -> [[-486.612, 402.5], [-486.612, 332.418], [-443.0, 332.418], [-443.0, 402.5]]
+19:48:46   rehole: room room-tlj2de-3087 floor floor-tlul5a-1070 -> 1 added, 2 stored
+19:49:34   under? floor floor-tlul5a-4291 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+19:49:34   under? floor floor-tlul5a-1070 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+19:49:34   under? floor_pattern  floor_id "floor-tlul5a-4291" room room-tlf7le-9399 middle no holes 0 -> no
+19:49:34   under? floor_pattern  floor_id "floor-tlul5a-1070" room room-tlj2de-3087 middle no holes 0 -> YES
+19:49:34   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+19:49:37   build! kind flat tile Same as the room floor settings {"kind"=>"flat", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"top", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b"}
+19:49:37   under? floor floor-tlul5a-4291 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+19:49:37   under? floor floor-tlul5a-1070 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+19:49:37   under? floor_pattern  floor_id "floor-tlul5a-4291" room room-tlf7le-9399 middle no holes 0 -> no
+19:49:37   under? floor_pattern  floor_id "floor-tlul5a-1070" room room-tlj2de-3087 middle no holes 0 -> YES
+19:49:37   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+19:49:37   hole to wall: [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] -> [[-486.612, 402.5], [-486.612, 332.418], [-443.0, 332.418], [-443.0, 402.5]]
+19:49:37   rehole: room room-tlj2de-3087 floor floor-tlul5a-1070 -> 0 added, 2 stored
+19:49:37   drain: linear_tile on the top side, 2.0" off the wall, shift 0.0
+19:49:37   drain: hole opened in the pad
+19:49:37   build! own no lay yes src floor pad_top 0.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+19:49:37   build! tiles laid
+19:49:37   drain: linear_tile 24.0 x 3.0 at [-477.118, 396.875] z 0.05, 0 grate hole(s), tile inside: Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory, channel yes
+13:13:06   rehole: room room-tm7m0t-8242 floor floor-tm8w5u-5446 -> 0 added, 0 stored
+13:13:06   rehole: room room-tm7m0t-7069 floor floor-tm8w5u-8123 -> 0 added, 0 stored
+13:13:32   rehole: room room-tm7m0t-8242 floor floor-tm8w6k-8860 -> 0 added, 0 stored
+13:13:32   rehole: room room-tm7m0t-7069 floor floor-tm8w6k-7261 -> 0 added, 0 stored
+13:13:48   rehole: room room-tm7m0t-8242 floor floor-tm8w70-4425 -> 0 added, 0 stored
+13:13:48   rehole: room room-tm7m0t-7069 floor floor-tm8w70-2230 -> 0 added, 0 stored
+13:13:50   rehole: room room-tm7m0t-8242 floor floor-tm8w72-1072 -> 0 added, 0 stored
+13:13:50   rehole: room room-tm7m0t-7069 floor floor-tm8w72-2931 -> 0 added, 0 stored
+13:14:03   rehole: room room-tm7m0t-8242 floor floor-tm8w7f-9509 -> 0 added, 0 stored
+13:14:03   rehole: room room-tm7m0t-7069 floor floor-tm8w7f-1154 -> 0 added, 0 stored
+13:14:16   rehole: room room-tm7m0t-8242 floor floor-tm8w7s-5843 -> 0 added, 0 stored
+13:14:16   rehole: room room-tm7m0t-7069 floor floor-tm8w7s-6187 -> 0 added, 0 stored
+13:15:55   rehole: room room-tm7m0t-8242 floor floor-tm8waj-6851 -> 0 added, 0 stored
+13:15:55   rehole: room room-tm7m0t-7069 floor floor-tm8waj-5087 -> 0 added, 0 stored
+13:17:03   rehole: room room-tm7m0t-8242 floor floor-tm8wcf-7332 -> 0 added, 0 stored
+13:17:03   rehole: room room-tm7m0t-7069 floor floor-tm8wcf-4960 -> 0 added, 0 stored
+13:19:01   rehole: room room-tm7m0t-8242 floor floor-tm8wfp-4984 -> 0 added, 0 stored
+13:19:01   rehole: room room-tm7m0t-7069 floor floor-tm8wfp-3047 -> 0 added, 0 stored
+13:19:08   rehole: room room-tm7m0t-8242 floor floor-tm8wfw-6457 -> 0 added, 0 stored
+13:19:08   rehole: room room-tm7m0t-7069 floor floor-tm8wfw-6338 -> 0 added, 0 stored
+13:19:57   rehole: room room-tm7m0t-8242 floor floor-tm8wh9-8694 -> 0 added, 0 stored
+13:19:58   rehole: room room-tm7m0t-7069 floor floor-tm8wha-8581 -> 0 added, 0 stored
+13:22:27   rehole: room room-tm7m0t-8242 floor floor-tm8wlf-8362 -> 0 added, 0 stored
+13:22:27   rehole: room room-tm7m0t-7069 floor floor-tm8wlf-0431 -> 0 added, 0 stored
+13:23:19   rehole: room room-tm7m0t-8242 floor floor-tm8wmv-6844 -> 0 added, 0 stored
+13:23:19   rehole: room room-tm7m0t-7069 floor floor-tm8wmv-6634 -> 0 added, 0 stored

@@ -1,0 +1,119 @@
+# encoding: utf-8
+# DAWN hand shower, LIGHT (2026-09-29). Reads the light OBJ made outside
+# SketchUp (29-34 thousand triangles instead of 104 thousand, nowhere more
+# than 0.005" off the original) and saves it as
+#   decimate_work/<base>_light.skp
+# plus a picture of the original (left) next to the light one (right):
+#   decimate_work/<base>_compare.png
+# The set folders are NOT touched. The model is left as it was.
+# Report: C:\Users\rordt\OneDrive\InteriorPro\import_dawn_report.txt
+IMP_JOBS = [%q(DAWN (round)/Black), %q(DAWN (round)/Brush nickle)]
+InteriorPro.reload! rescue nil
+m = Sketchup.active_model
+v = m.active_view
+lib = InteriorPro::FixtureLibrary
+wdir = File.join(InteriorPro::PLUGIN_DIR, 'decimate_work')
+rep = ["import dawn report  #{Time.now}"]
+paint_backs = lambda do |ents|
+  n = 0
+  ents.grep(Sketchup::Face).each do |f|
+    if f.material && f.back_material != f.material
+      f.back_material = f.material
+      n += 1
+    end
+  end
+  n
+end
+ro = m.rendering_options
+keys = %w[RenderMode Texture DrawSilhouettes DisplaySketchAxes DrawHorizon BackgroundColor]
+old_ro = {}
+keys.each { |k| old_ro[k] = ro[k] }
+c = v.camera
+old_cam = [c.eye.clone, c.target.clone, c.up.clone, c.perspective?, (c.perspective? ? c.fov : c.height)]
+shadows = m.shadow_info['DisplayShadows']
+defs_before = m.definitions.length
+IMP_JOBS.each do |set_name|
+  base = "#{set_name}_hand".gsub(/[^0-9A-Za-z_]+/, '_')
+  obj = File.join(wdir, "#{base}_light.obj")
+  rep << "== #{set_name}"
+  unless File.exist?(obj)
+    rep << "STOP: no #{File.basename(obj)}"
+    next
+  end
+  names = {}
+  File.readlines(File.join(wdir, "#{base}_materials.txt")).each { |l| a = l.chomp.split("\t"); names[a[0]] = a }
+  pts = []
+  by_mat = Hash.new { |h, k| h[k] = [] }
+  cur = '_default_'
+  File.foreach(obj) do |l|
+    if l.start_with?('v ')
+      pts << Geom::Point3d.new(*l.split[1, 3].map(&:to_f))
+    elsif l.start_with?('usemtl')
+      cur = l.split[1]
+    elsif l.start_with?('f ')
+      by_mat[cur] << l.split[1..-1].map { |t| t.split('/')[0].to_i - 1 }
+    end
+  end
+  m.start_operation('IP light part (undone)', true)
+  begin
+    # the original, loaded first so its materials (with their texture) are in
+    orig = lib.definition_for(m, 'shower_set', set_name, 'hand')
+    d = m.definitions.add("IP_light_tmp_hand")
+    flags = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
+    by_mat.each do |k, tris|
+      info = names[k]
+      mat = info ? m.materials[info[1]] : nil
+      if mat.nil? && info && info[2] != '-'
+        mat = m.materials.add(info[1])
+        mat.color = Sketchup::Color.new(*info[2].split(',').map(&:to_i))
+      end
+      mesh = Geom::PolygonMesh.new(pts.length, tris.length)
+      map = {}
+      tris.each do |t|
+        ix = t.map { |i| map[i] ||= mesh.add_point(pts[i]) }
+        next if ix.uniq.length < 3
+        mesh.add_polygon(*ix)
+      end
+      d.entities.add_faces_from_mesh(mesh, flags, mat)
+      rep << "  material #{k} -> #{mat ? mat.name : 'none'} (texture #{mat && mat.texture ? 'yes' : 'no'})  triangles #{tris.length}"
+    end
+    rep << "  faces #{d.entities.grep(Sketchup::Face).length}, backs painted #{paint_backs.call(d.entities)}"
+    bo = orig.bounds
+    bb = d.bounds
+    rep << "  original box z #{bo.min.z.to_f.round(2)}..#{bo.max.z.to_f.round(2)}  light box z #{bb.min.z.to_f.round(2)}..#{bb.max.z.to_f.round(2)}"
+    out_skp = File.join(wdir, "#{base}_light.skp")
+    rep << "  saved #{File.basename(out_skp)}: #{d.save_as(out_skp)}  #{File.exist?(out_skp) ? (File.size(out_skp) / 1048576.0).round(2) : 0} MB"
+    # side by side picture, far below the house
+    g = m.entities.add_group
+    g.entities.add_instance(orig, Geom::Transformation.translation([0, 0, -20_000]))
+    g.entities.add_instance(d, Geom::Transformation.translation([12, 0, -20_000]))
+    ro['RenderMode'] = 2
+    ro['Texture'] = true
+    ro['DrawSilhouettes'] = false
+    ro['DisplaySketchAxes'] = false
+    ro['DrawHorizon'] = false
+    ro['BackgroundColor'] = Sketchup::Color.new(255, 255, 255)
+    m.shadow_info['DisplayShadows'] = false
+    b = g.bounds
+    ctr = b.center
+    cam = Sketchup::Camera.new(ctr.offset(Geom::Vector3d.new(600, 2000, 300)), ctr, Geom::Vector3d.new(0, 0, 1), false)
+    cam.height = b.depth * 1.05
+    v.camera = cam
+    v.refresh
+    png = File.join(wdir, "#{base}_compare.png")
+    rep << "  picture #{v.write_image(filename: png, width: 700, height: 1000, antialias: true)}"
+  rescue StandardError => e
+    rep << "  ERROR #{e.class}: #{e.message}"
+    rep.concat(e.backtrace.first(4))
+  ensure
+    m.abort_operation
+  end
+end
+old_ro.each { |k, val| ro[k] = val unless val.nil? }
+m.shadow_info['DisplayShadows'] = shadows
+cam = Sketchup::Camera.new(old_cam[0], old_cam[1], old_cam[2], old_cam[3])
+old_cam[3] ? cam.fov = old_cam[4] : cam.height = old_cam[4]
+v.camera = cam
+rep << "model left as it was: tmp gone #{m.definitions['IP_light_tmp_hand'].nil?}, definitions #{m.definitions.length} (before #{defs_before})"
+File.write('C:/Users/rordt/OneDrive/InteriorPro/import_dawn_report.txt', rep.join("\n"))
+puts rep

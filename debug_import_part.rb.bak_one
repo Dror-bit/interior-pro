@@ -1,0 +1,87 @@
+# encoding: utf-8
+# BUILDS A NEW SET FOLDER ONLY (2026-09-28): reads the light OBJ made
+# outside SketchUp and saves it as hand.skp in a NEW set folder, next to
+# a copy of the other parts. The original set folder is never touched,
+# and the model is left exactly as it was (the work is undone at the end).
+# Writes import_part_report.txt.
+require 'fileutils'
+SRC_SET = 'Set 2 Black' unless defined?(SRC_SET)
+NEW_SET = 'Set 2 Black Light' unless defined?(NEW_SET)
+PART = 'hand' unless defined?(PART)
+t0 = Time.now
+m = Sketchup.active_model
+lib = InteriorPro::FixtureLibrary
+wdir = File.join(InteriorPro::PLUGIN_DIR, 'decimate_work')
+base = "#{SRC_SET}_#{PART}".gsub(' ', '_')
+obj = File.join(wdir, "#{base}_light.obj")
+rep = ["import report  #{Time.now}", "from #{obj}"]
+names = {}
+File.readlines(File.join(wdir, "#{base}_materials.txt")).each do |l|
+  a = l.chomp.split("\t")
+  names[a[0]] = a
+end
+pts = []
+by_mat = Hash.new { |h, k| h[k] = [] }
+cur = '_default_'
+File.foreach(obj) do |l|
+  if l.start_with?('v ')
+    x, y, z = l.split[1, 3].map(&:to_f)
+    pts << Geom::Point3d.new(x, y, z)
+  elsif l.start_with?('usemtl')
+    cur = l.split[1]
+  elsif l.start_with?('f ')
+    by_mat[cur] << l.split[1..-1].map { |t| t.split('/')[0].to_i - 1 }
+  end
+end
+src_dir = lib.dir_for('shower_set')
+new_dir = File.join(src_dir, NEW_SET)
+if Dir.exist?(new_dir)
+  rep << "STOP: #{new_dir} already exists - nothing done"
+else
+  m.start_operation('IP light part (undone)', true)
+  begin
+    d = m.definitions.add("IP_light_tmp_#{PART}")
+    flags = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
+    by_mat.each do |k, tris|
+      info = names[k]
+      mat = nil
+      if info && k != '_default_'
+        mat = m.materials[info[1]]
+        if mat.nil? && info[2] != '-'
+          mat = m.materials.add(info[1])
+          mat.color = Sketchup::Color.new(*info[2].split(',').map(&:to_i))
+        end
+      end
+      mesh = Geom::PolygonMesh.new
+      map = {}
+      tris.each do |t|
+        ix = t.map { |i| map[i] ||= mesh.add_point(pts[i]) }
+        next if ix.uniq.length < 3
+        mesh.add_polygon(*ix)
+      end
+      d.entities.add_faces_from_mesh(mesh, flags, mat)
+      rep << "  material #{k} -> #{mat ? mat.name : 'none'}  triangles #{tris.length}"
+    end
+    faces = d.entities.grep(Sketchup::Face).length
+    rep << "faces in the new part #{faces}"
+    bb = d.bounds
+    rep << "bounds x #{bb.min.x.to_f.round(2)}..#{bb.max.x.to_f.round(2)} y #{bb.min.y.to_f.round(2)}..#{bb.max.y.to_f.round(2)} z #{bb.min.z.to_f.round(2)}..#{bb.max.z.to_f.round(2)}"
+    FileUtils.mkdir_p(new_dir)
+    ok = d.save_as(File.join(new_dir, "#{PART}.skp"))
+    rep << "saved #{PART}.skp: #{ok}"
+    Dir.glob(File.join(src_dir, SRC_SET, '*.{skp,png}')).each do |f|
+      next if File.basename(f) == "#{PART}.skp"
+      FileUtils.cp(f, new_dir)
+      rep << "copied #{File.basename(f)}"
+    end
+  rescue StandardError => e
+    rep << "ERROR #{e.class}: #{e.message}"
+  ensure
+    m.abort_operation
+  end
+  rep << "model left as it was: #{m.definitions["IP_light_tmp_#{PART}"].nil?}"
+  Dir.glob(File.join(new_dir, '*')).each { |f| rep << "  #{File.basename(f)}  #{(File.size(f) / 1048576.0).round(2)} MB" }
+end
+rep << "time #{(Time.now - t0).round(1)} s"
+File.write(File.join(InteriorPro::PLUGIN_DIR, 'import_part_report.txt'), rep.join("\n"))
+puts rep

@@ -1,0 +1,29 @@
+fixture place report  2026-09-27 20:25:34 -0700
+reload ok
+new code loaded (USE_FINISH defined): false  USE_FIXTURES true
+sets: ["Set 1", "Set 2"]
+  Set 1: ["head", "valve", "hand"]
+  Set 2: ["head", "valve", "hand"]
+last window choice: {"kind"=>"shower_set", "product"=>"Set 2", "height"=>80.0, "parts"=>{"head"=>{"on"=>true, "h"=>80, "side"=>0}, "valve"=>{"on"=>true, "h"=>48, "side"=>0}, "hand"=>{"on"=>true, "h"=>60, "side"=>12}, "spout"=>{"on"=>false, "h"=>22, "side"=>0}}}
+active tool now: InteriorPro::FixtureTool  parts [{:part=>"head", :defn=>#<Sketchup::ComponentDefinition:0x000001e62ee4ece0>, :du=>0.0, :h=>80.0, :ax=>0.0, :az=>0.0, :minx=>-3.976378110236883, :maxx=>3.9763781102362215, :miny=>-1.3500311979441904e-13, :maxy=>19.72440893700802, :minz=>-3.8740157480314963, :maxz=>1.0236275590551145}, {:part=>"valve"
+layout Set 2 finish=nil parts=["head", "valve", "hand"]: 3 parts in 0.19s
+   head defn=InteriorPro_Fixture_shower_set_Set 2_head x -3.98..3.98 y 0.0..19.72 z -3.87..1.02 anchor 0.0,0.0 h 80.0 side 0.0
+   valve defn=InteriorPro_Fixture_shower_set_Set 2_valve x -3.54..3.54 y 0.0..1.61 z -3.54..3.54 anchor 0.0,0.0 h 48.0 side 0.0
+   hand defn=InteriorPro_Fixture_shower_set_Set 2_hand x -1.04..1.04 y 0.0..2.9 z -31.05..7.6 anchor 0.0,0.0 h 60.0 side 12.0
+layout Set 2 finish="Original" parts=(defaults): 3 parts in 0.22s
+   head defn=InteriorPro_Fixture_shower_set_Set 2_head x -3.98..3.98 y 0.0..19.72 z -3.87..1.02 anchor 0.0,0.0 h 80.0 side 0.0
+   valve defn=InteriorPro_Fixture_shower_set_Set 2_valve x -3.54..3.54 y 0.0..1.61 z -3.54..3.54 anchor 0.0,0.0 h 48.0 side 0.0
+   hand defn=InteriorPro_Fixture_shower_set_Set 2_hand x -1.04..1.04 y 0.0..2.9 z -31.05..7.6 anchor 0.0,0.0 h 60.0 side 12.0
+layout Set 1 finish="Original" parts=(defaults): 3 parts in 0.0s
+   head defn=InteriorPro_Fixture_shower_set_Set 1_head x -5.0..5.0 y 0.0..17.99 z -3.66..0.94 anchor 0.0,0.0 h 80.0 side 0.0
+   valve defn=InteriorPro_Fixture_shower_set_Set 1_valve x -3.44..3.44 y -0.0..2.87 z -4.63..3.58 anchor 0.0,0.0 h 48.0 side 0.0
+   hand defn=InteriorPro_Fixture_shower_set_Set 1_hand x -1.38..1.18 y 0.0..3.12 z -31.64..7.8 anchor 0.0,0.0 h 60.0 side 12.0
+last clicks:
+15:10:22 click 1473,823 dof 0 vertex true pos [-466.4, 333.04, 87.06] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 68.2 z 87.06 kind :corner | first none
+15:13:02 click 407,863 dof 3 vertex false pos [-447.92, 468.36, 0.0] | hover_wall 6269165a side "b" | result NIL | first none
+15:14:02 click 833,829 dof 1 vertex false pos [-464.18, 401.88, 69.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 69.94 kind nil | first none
+16:09:01 click 532,584 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+16:20:27 click 896,624 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+16:22:11 click 884,639 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+20:19:02 click 1344,617 dof 0 vertex false pos [-465.15, 333.04, 53.9] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 69.45 z 53.9 kind :corner | first none
+20:19:17 click 1269,702 dof 2 vertex false pos [-460.12, 333.04, 29.16] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 74.47 z 29.16 kind nil | first none

@@ -1,0 +1,103 @@
+# encoding: utf-8
+# A SHADED picture of ONE part in every colour of a set, for the Color
+# row of the Plumbing window:  <set>/<colour>/thumb.png  (300 x 300).
+# Drawn by SketchUp with the file's own materials, far below the house.
+# Everything is put back: camera, style, nothing left in the model.
+# Report: C:\Users\rordt\OneDrive\InteriorPro\color_thumb_report.txt
+CT_SET  = 'DAWN (round)'
+CT_PART = 'valve'
+
+InteriorPro.reload! rescue nil
+out = ["color thumb report  #{Time.now}"]
+lib = InteriorPro::FixtureLibrary
+m = Sketchup.active_model
+v = m.active_view
+ro = m.rendering_options
+out << "style keys: #{ro.keys.sort.join(' ')}"
+keys = %w[RenderMode Texture DrawSilhouettes DisplaySketchAxes DrawGround DrawHorizon BackgroundColor DisplayFog EdgeDisplayMode DrawEdges]
+old_ro = {}
+keys.each { |k| old_ro[k] = ro[k] if ro.keys.include?(k) }
+out << "style before: #{old_ro.inspect}"
+c = v.camera
+old_cam = [c.eye.clone, c.target.clone, c.up.clone, c.perspective?, (c.perspective? ? c.fov : c.height)]
+shadows = m.shadow_info['DisplayShadows']
+defs_before = m.definitions.to_a
+colors = lib.names('shower_set').select { |n| n.start_with?("#{CT_SET}/") }
+out << "colours: #{colors.inspect}"
+colors.each do |name|
+  dest = File.join(lib.dir_for('shower_set'), name, 'thumb.png')
+  m.start_operation('Color thumb', true)
+  begin
+    d = lib.definition_for(m, 'shower_set', name, CT_PART)
+    raise "no #{CT_PART} for #{name}" unless d
+    base = Geom::Point3d.new(0, 0, -20_000)
+    grp = m.entities.add_group
+    grp.entities.add_instance(d, Geom::Transformation.translation(Geom::Vector3d.new(base.x, base.y, base.z)))
+    bb = grp.bounds
+    ro['RenderMode'] = 2
+    ro['Texture'] = true
+    ro['DrawSilhouettes'] = false
+    ro['DisplaySketchAxes'] = false
+    ro['DrawGround'] = false
+    ro['DrawHorizon'] = false
+    ro['DisplayFog'] = false
+    ro['BackgroundColor'] = Sketchup::Color.new(255, 255, 255)
+    ro['EdgeDisplayMode'] = 0 if old_ro.key?('EdgeDisplayMode')
+    ro['DrawEdges'] = false if old_ro.key?('DrawEdges')
+    m.shadow_info['DisplayShadows'] = false
+    ctr = bb.center
+    size = [bb.width, bb.height, bb.depth].max.to_f
+    # the side the part faces is +green (it sticks out of the wall toward +y)
+    eye = ctr.offset(Geom::Vector3d.new(size * 1.3, size * 3.6, size * 1.0))
+    cam = Sketchup::Camera.new(eye, ctr, Geom::Vector3d.new(0, 0, 1), true)
+    cam.fov = 20.0
+    v.camera = cam
+    v.refresh
+    ok = v.write_image(filename: dest, width: 300, height: 300, antialias: true, transparent: false)
+    out << "#{name}: box #{bb.width.to_f.round(1)} x #{bb.height.to_f.round(1)} x #{bb.depth.to_f.round(1)}, " \
+           "materials #{d.entities.grep(Sketchup::Face).map { |f| f.material&.display_name }.uniq.first(5).inspect}, " \
+           "written #{ok}, #{File.exist?(dest) ? File.size(dest) : 0} bytes"
+  rescue StandardError => e
+    out << "#{name}: FAILED #{e.class}: #{e.message}"
+    out.concat(e.backtrace.first(4))
+  ensure
+    m.abort_operation
+  end
+end
+# HOW HEAVY: faces in every part of every colour (nested groups counted).
+count = lambda do |ents, seen|
+  n = 0
+  ents.each do |e|
+    if e.is_a?(Sketchup::Face) then n += 1
+    elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+      n += count.call(e.definition.entities, seen)
+    end
+  end
+  n
+end
+out << "faces (the light sets were 20-26 thousand per hand shower):"
+m.start_operation('Count faces', true)
+begin
+  colors.each do |name|
+    lib.part_keys.each do |pk|
+      next unless File.exist?(lib.file_for('shower_set', name, pk))
+      d = lib.definition_for(m, 'shower_set', name, pk)
+      out << "  #{name} #{pk}: #{d ? count.call(d.entities, {}) : 'not loaded'} faces, " \
+             "#{(File.size(lib.file_for('shower_set', name, pk)) / 1048576.0).round(1)} MB"
+    end
+  end
+rescue StandardError => e
+  out << "count FAILED: #{e.message}"
+ensure
+  m.abort_operation
+end
+old_ro.each { |k, val| ro[k] = val unless val.nil? }
+m.shadow_info['DisplayShadows'] = shadows
+cam = Sketchup::Camera.new(old_cam[0], old_cam[1], old_cam[2], old_cam[3])
+old_cam[3] ? cam.fov = old_cam[4] : cam.height = old_cam[4]
+v.camera = cam
+gone = (m.definitions.to_a - defs_before).select { |d| d.valid? && d.instances.empty? }
+gone.each { |d| m.definitions.remove(d) rescue nil }
+out << "put back: style, camera; #{gone.length} loaded definitions removed; definitions now #{m.definitions.length} (before #{defs_before.length})"
+File.write('C:/Users/rordt/OneDrive/InteriorPro/color_thumb_report.txt', out.join("\n"))
+puts out

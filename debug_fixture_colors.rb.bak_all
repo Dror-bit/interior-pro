@@ -1,0 +1,52 @@
+# encoding: utf-8
+# MEASURES ONLY (2026-09-27): what colours the parts of each shower set carry,
+# before we add a colour for the whole set. Changes nothing in the model
+# except loading the part files as definitions (same as placing does).
+# Writes fixture_colors_report.txt next to the code.
+InteriorPro.reload! if InteriorPro.respond_to?(:reload!)
+out = []
+out << "fixture colours report  #{Time.now}"
+m = Sketchup.active_model
+lib = InteriorPro::FixtureLibrary
+walk = lambda do |ents, depth, tally|
+  ents.each do |e|
+    if e.is_a?(Sketchup::Face)
+      tally[:faces] += 1
+      f = e.material ? e.material.display_name : '(default)'
+      b = e.back_material ? e.back_material.display_name : '(default)'
+      tally[:front][f] += 1
+      tally[:back][b] += 1
+    elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+      tally[:nested] += 1
+      tally[:nested_mat][e.material ? e.material.display_name : '(default)'] += 1
+      tally[:depth] = [tally[:depth], depth + 1].max
+      walk.call(e.definition.entities, depth + 1, tally)
+    end
+  end
+end
+lib.names('shower_set').each do |n|
+  lib.parts_available('shower_set', n).each do |p|
+    d = lib.definition_for(m, 'shower_set', n, p)
+    if d.nil?
+      out << "#{n}/#{p}: NO DEFINITION"
+      next
+    end
+    t = { faces: 0, nested: 0, depth: 0, front: Hash.new(0), back: Hash.new(0), nested_mat: Hash.new(0) }
+    walk.call(d.entities, 0, t)
+    out << "#{n}/#{p}: defn #{d.name}  faces #{t[:faces]}  nested groups/components #{t[:nested]} (deepest #{t[:depth]})"
+    out << "   front: #{t[:front].sort_by { |_, v| -v }.inspect}"
+    out << "   back:  #{t[:back].sort_by { |_, v| -v }.inspect}"
+    out << "   on nested: #{t[:nested_mat].sort_by { |_, v| -v }.inspect}"
+  end
+end
+out << "materials used by the set parts:"
+m.materials.each do |mt|
+  next unless mt.display_name.start_with?('<auto') || mt.display_name.start_with?('Color M00') || mt.name.start_with?('<auto') || mt.name.start_with?('Color M00')
+  c = mt.color
+  tx = mt.texture ? "texture #{File.basename(mt.texture.filename.to_s)} #{mt.texture.width.to_f.round(2)}x#{mt.texture.height.to_f.round(2)}" : 'no texture'
+  out << "   name=#{mt.name.inspect} display=#{mt.display_name.inspect} rgb #{c.red},#{c.green},#{c.blue} alpha #{mt.alpha.round(2)} #{tx}"
+end
+path = File.join(InteriorPro::PLUGIN_DIR, 'fixture_colors_report.txt')
+File.write(path, out.join("\n"))
+puts out
+puts "written: #{path}"

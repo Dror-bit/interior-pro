@@ -1,0 +1,40 @@
+# encoding: utf-8
+# MEASURES ONLY (2026-09-27): why the Set 2 ghost does not show. The tool
+# hides the ghost when a part has no tile under it or a window/niche is
+# under it. For every tiled area: its size, and the one check at several
+# spots along it, with the reason. Writes fixture_tiles_report.txt.
+out = ["fixture tiles report  #{Time.now}"]
+m = Sketchup.active_model
+lib = InteriorPro::FixtureLibrary
+tw = InteriorPro::TileWall
+%w[Set\ 1 Set\ 2].each do |set|
+  cfg = { 'kind' => 'shower_set', 'product' => set }
+  parts = lib.layout(m, cfg)
+  out << "== #{set}: #{parts.map { |p| "#{p[:part]} h#{p[:h]} side#{p[:du]} z #{(p[:h] + p[:minz]).round(1)}..#{(p[:h] + p[:maxz]).round(1)} w #{(p[:maxx] - p[:minx]).round(1)}" }.join(' | ')}"
+  tw.areas_in_model(m).each do |g|
+    at = lambda { |k| g.get_attribute('InteriorPro', k) }
+    wall = tw.wall_by_id(at.call('wall_id'))
+    side = at.call('side').to_s
+    bu0 = (at.call('built_u0') || at.call('u0')).to_f
+    bw = (at.call('built_w') || at.call('area_w')).to_f
+    z0 = at.call('z0').to_f
+    h = at.call('area_h').to_f
+    out << " area wall #{at.call('wall_id')} side #{side}: u #{bu0.round(1)}..#{(bu0 + bw).round(1)} z #{z0.round(1)}..#{(z0 + h).round(1)} depth #{at.call('tile_depth')}"
+    next out << '   (wall not found)' unless wall&.valid?
+    fr = tw.frame_for(wall, side)
+    next out << '   (no frame)' unless fr
+    [0.2, 0.35, 0.5, 0.65, 0.8].each do |f|
+      u = bu0 + bw * f
+      c = lib.check(wall, side, fr, u, parts, 'shower_set', tw.wall_height(wall))
+      why = []
+      why << 'NO TILE under a part' if c[:no_tile]
+      why << 'window/niche under a part' if c[:on_hole]
+      why << "outside the wall run #{c[:lo].round(1)}..#{c[:hi].round(1)}" if !c[:ok] && why.empty?
+      out << "   u #{u.round(1)}: #{c[:ok] ? 'OK' : 'NO - ' + why.join(', ')}  parts #{c[:rects].map { |r| r.map { |v| v.round(1) } }.inspect}"
+    end
+  end
+end
+path = File.join(InteriorPro::PLUGIN_DIR, 'fixture_tiles_report.txt')
+File.write(path, out.join("\n"))
+puts out
+puts "written: #{path}"

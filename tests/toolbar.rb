@@ -511,6 +511,28 @@ module InteriorPro
       tile_split_cmd.large_icon = icon_path('tile_split')
       tb.add_separator unless on_bar.include?('Split Tile')
       tb.add_item(tile_split_cmd) unless on_bar.include?('Split Tile')
+
+      # PLUMBING (2026-09-25, step 1): shower heads and toilets, picked from
+      # a list with pictures and placed on a wall face with a ghost at a
+      # set height. Its own line on the END of the bar, added BY NAME -
+      # the same rule as the groups above.
+      fixture_cmd = UI::Command.new('Plumbing') {
+        Sketchup.active_model.select_tool(InteriorPro::FixtureTool.new)
+      }
+      fixture_cmd.tooltip = 'Plumbing - shower head or toilet, placed on a wall at a set height'
+      fixture_cmd.status_bar_text = 'Choose the fixture and its height, then move along a wall and click, or type the distance from the corner'
+      fixture_cmd.small_icon = icon_path('plumbing')
+      fixture_cmd.large_icon = icon_path('plumbing')
+      # Edit (2026-09-25). No delete button - select it and press Delete.
+      fixture_edit_cmd = UI::Command.new('Edit Plumbing') {
+        Sketchup.active_model.select_tool(InteriorPro::FixtureEditTool.new)
+      }
+      fixture_edit_cmd.tooltip = 'Edit Plumbing - click a shower head or toilet to change it'
+      fixture_edit_cmd.status_bar_text = 'Click a shower head or a toilet: the same window opens with its numbers, Apply rebuilds it in place'
+      fixture_edit_cmd.small_icon = icon_path('plumbing_edit')
+      fixture_edit_cmd.large_icon = icon_path('plumbing_edit')
+      tb.add_separator unless on_bar.include?('Plumbing')
+      [fixture_cmd, fixture_edit_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
       tb.restore
     end
 

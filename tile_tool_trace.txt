@@ -25,3 +25,71 @@
 09:18:54 click 728,107 dof 3 vertex false pos [-371.87, -23.35, 0.0] | hover_wall 045fe78b side "a" | result wall 045fe78b side "a" u 330.13 z 0.0 kind :edge | first none
 09:30:56 click 1208,487 dof 2 vertex false pos [-443.63, 366.19, 39.78] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 40.0 kind :mid | first none
 09:53:02 click 1213,503 dof 0 vertex true pos [-443.63, 367.52, 68.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 68.0 kind :corner | first none
+14:36:20 click 939,731 dof 1 vertex false pos [-464.18, 401.88, 51.62] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 51.62 kind nil | first none
+14:36:45 click 945,956 dof 0 vertex true pos [-453.43, 397.19, 0.05] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 15.43 z 0.05 kind :corner | first none
+14:56:09 click 1184,329 dof 1 vertex false pos [-464.18, 401.88, 89.75] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 26.18 z 89.75 kind nil | first none
+14:56:14 click 1187,532 dof 0 vertex true pos [-464.06, 401.88, 48.06] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.06 z 48.06 kind :corner | first none
+15:02:44 click 1357,467 dof 1 vertex false pos [-464.06, 401.88, 80.25] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.06 z 80.0 kind :edge | first none
+15:05:06 click 1122,826 dof 1 vertex false pos [-464.18, 401.88, 53.02] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 26.18 z 53.02 kind nil | first none
+15:05:07 click 1157,760 dof 1 vertex false pos [-464.06, 398.58, 72.03] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 26.06 z 72.0 kind :edge | first none
+15:05:11 click 1143,772 dof 1 vertex false pos [-464.06, 401.88, 66.28] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 26.06 z 66.28 kind nil | first none
+15:05:28 click 1288,572 dof 0 vertex false pos [-441.0, 367.28, 69.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 69.0 kind :corner | first none
+15:05:30 click 1592,763 dof 0 vertex true pos [-468.52, 333.04, 80.56] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 66.07 z 80.56 kind :corner | first none
+15:06:00 click 737,704 dof 1 vertex false pos [-461.24, 401.88, 72.03] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 23.24 z 72.0 kind :edge | first none
+15:06:01 click 737,704 dof 1 vertex false pos [-461.24, 401.88, 72.03] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 23.24 z 72.0 kind :edge | first none
+15:06:13 click 1439,771 dof 0 vertex true pos [-466.52, 333.04, 69.94] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 68.07 z 69.94 kind :corner | first none
+15:10:08 click 1337,433 dof 0 vertex false pos [-443.63, 367.52, 88.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 88.0 kind :corner | first none
+15:10:19 click 846,857 dof 0 vertex false pos [-464.18, 401.88, 72.03] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 72.03 kind :corner | first none
+15:10:21 click 1154,632 dof 0 vertex false pos [-443.63, 367.52, 88.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 88.0 kind :corner | first none
+15:10:22 click 1473,823 dof 0 vertex true pos [-466.4, 333.04, 87.06] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 68.2 z 87.06 kind :corner | first none
+15:13:02 click 407,863 dof 3 vertex false pos [-447.92, 468.36, 0.0] | hover_wall 6269165a side "b" | result NIL | first none
+15:14:02 click 833,829 dof 1 vertex false pos [-464.18, 401.88, 69.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 69.94 kind nil | first none
+16:09:01 click 532,584 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+16:20:27 click 896,624 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+16:22:11 click 884,639 dof 0 vertex true pos [-464.18, 401.88, 47.94] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 47.94 kind :corner | first none
+20:19:02 click 1344,617 dof 0 vertex false pos [-465.15, 333.04, 53.9] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 69.45 z 53.9 kind :corner | first none
+20:19:17 click 1269,702 dof 2 vertex false pos [-460.12, 333.04, 29.16] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 74.47 z 29.16 kind nil | first none
+20:34:53 click 1361,596 dof 0 vertex true pos [-455.9, 333.04, 59.74] | hover_wall 6269165a side "a" | result wall 849179b2 side "a" u 78.7 z 59.74 kind nil | first none
+20:34:54 click 1305,608 dof 1 vertex false pos [-455.9, 340.09, 59.74] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 157.09 z 60.0 kind :edge | first none
+20:35:52 click 1391,627 dof 0 vertex true pos [-464.4, 333.04, 74.19] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 70.2 z 74.19 kind :corner | first none
+20:35:53 click 1400,656 dof 0 vertex true pos [-468.65, 333.04, 74.31] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 65.95 z 74.31 kind :corner | first none
+20:35:54 click 1261,495 dof 2 vertex false pos [-443.63, 342.35, 65.11] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 159.35 z 65.11 kind nil | first none
+20:35:55 click 785,554 dof 2 vertex false pos [-443.63, 395.05, 76.71] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 212.05 z 76.71 kind nil | first none
+20:36:13 click 911,757 dof 1 vertex false pos [-468.31, 386.56, 74.5] | hover_wall 3b85b93f side "a" | result NIL | first none
+20:36:31 click 1149,461 dof 1 vertex false pos [-464.18, 401.88, 62.09] | hover_wall  side nil | result wall 3b85b93f side "a" u 26.18 z 62.09 kind nil | first none
+20:37:17 click 1497,714 dof 2 vertex false pos [-491.77, 332.42, 16.16] | hover_wall 849179b2 side "a" | result NIL | first none
+20:43:01 click 1469,407 dof 0 vertex true pos [-468.65, 333.04, 74.19] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 65.95 z 74.19 kind :corner | first none
+20:50:21 click 1024,534 dof 1 vertex false pos [-458.28, 401.88, 48.06] | hover_wall 6269165a side "a" | result wall 3b85b93f side "a" u 20.28 z 48.06 kind nil | first none
+17:32:17 click 1050,703 dof 1 vertex false pos [-464.18, 401.88, 63.26] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 63.26 kind nil | first none
+17:32:34 click 1596,521 dof 0 vertex true pos [-466.4, 333.04, 74.31] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 68.2 z 74.31 kind :corner | first none
+18:19:09 click 1294,587 dof 0 vertex true pos [-466.52, 333.04, 72.19] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 68.07 z 72.19 kind :corner | first none
+19:19:57 click 1403,902 dof 2 vertex false pos [-463.42, 333.04, 40.71] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 71.17 z 40.71 kind nil | first none
+19:20:36 click 1062,577 dof 1 vertex false pos [-464.18, 401.88, 68.24] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 68.24 kind nil | first none
+12:27:47 click 1171,849 dof 2 vertex false pos [-509.58, 332.42, 38.18] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 25.01 z 36.0 kind :edge | first none
+14:09:40 click 789,711 dof 0 vertex false pos [-465.02, 333.04, 53.9] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 69.57 z 53.9 kind :corner | first none
+14:52:35 click 1334,560 dof 1 vertex false pos [-464.18, 401.88, 85.55] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 26.18 z 85.55 kind nil | first none
+14:52:47 click 2005,662 dof 0 vertex true pos [-465.02, 333.04, 48.06] | hover_wall  side nil | result wall 849179b2 side "a" u 69.57 z 48.06 kind :corner | first none
+15:22:09 click 1186,821 dof 2 vertex false pos [-461.62, 365.71, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 182.71 z 0.0 kind :edge | first none
+15:22:11 click 1154,784 dof 2 vertex false pos [-456.93, 366.39, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 0.0 kind :mid | first none
+15:28:04 click 885,594 dof 2 vertex false pos [-444.53, 365.3, 0.05] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 0.0 kind :mid | first none
+20:43:45 click 922,617 dof 0 vertex true pos [-443.63, 367.4, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.4 z 0.0 kind :corner | first none
+20:43:49 click 1168,596 dof 0 vertex true pos [-465.02, 333.04, 0.0] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 69.57 z 0.0 kind :corner | first none
+20:44:41 click 874,741 dof 0 vertex false pos [-443.63, 367.4, 21.31] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.4 z 21.31 kind :corner | first none
+20:58:07 click 1158,627 dof 1 vertex false pos [-443.63, 367.4, 11.37] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 11.37 kind :edge | first none
+08:30:36 click 1020,310 dof 0 vertex false pos [-443.63, 367.4, 0.05] | hover_wall  side nil | result wall 6269165a side "a" u 184.4 z 0.05 kind :corner | first none
+08:39:37 click 1127,660 dof 0 vertex true pos [-443.63, 367.4, 42.63] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.4 z 42.63 kind :corner | first none
+08:41:05 click 1050,717 dof 3 vertex false pos [-497.72, 425.17, 0.0] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 59.72 z 0.0 kind :edge | first none
+08:41:44 click 1121,438 dof 0 vertex true pos [-443.63, 367.4, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.4 z 0.0 kind :corner | first none
+08:42:03 click 1463,751 dof 2 vertex false pos [-484.18, 333.6, 0.05] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 50.42 z 0.0 kind :edge | first none
+08:43:44 click 871,827 dof 3 vertex false pos [-457.83, 440.24, 0.0] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 257.24 z 0.0 kind :edge | first none
+08:43:48 click 937,948 dof 1 vertex false pos [-501.0, 402.5, 96.0] | hover_wall 3b85b93f side "b" | result wall 3b85b93f side "b" u 63.0 z 96.0 kind :edge | first none
+08:47:35 click 1314,819 dof 2 vertex false pos [-484.13, 333.04, 37.58] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u 50.47 z 37.58 kind nil | first none
+08:47:53 click 1007,644 dof 1 vertex false pos [-443.63, 367.4, 34.42] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 34.42 kind :edge | first none
+08:49:57 click 967,697 dof 1 vertex false pos [-443.63, 367.4, 22.04] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.28 z 22.04 kind :edge | first none
+09:13:21 click 1086,628 dof 0 vertex false pos [-443.63, 367.52, 21.31] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 21.31 kind :corner | first none
+09:29:23 click 1141,644 dof 1 vertex false pos [-443.63, 367.52, 22.31] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 22.31 kind :edge | first none
+09:38:57 click 1216,726 dof 1 vertex false pos [-443.63, 367.52, 19.66] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 19.66 kind :edge | first none
+09:58:59 click 1243,698 dof 1 vertex false pos [-443.63, 367.52, 27.78] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 27.78 kind :edge | first none
+10:28:59 click 1236,553 dof 1 vertex false pos [-443.63, 367.52, 5.8] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 5.8 kind :edge | first none
+10:41:31 click 1391,623 dof 1 vertex false pos [-443.63, 367.52, 13.84] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 13.84 kind :edge | first none
+10:41:49 click 1470,619 dof 0 vertex false pos [-443.63, 367.52, 21.31] | hover_wall 6269165a side "a" | result wall 6269165a side "a" u 184.52 z 21.31 kind :corner | first none

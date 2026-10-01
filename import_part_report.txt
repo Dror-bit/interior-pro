@@ -1,0 +1,48 @@
+import report  2026-09-28 18:50:24 -0700
+== Set 1 Black -> Set 1 Black Light
+  material <auto>1 -> <auto>1  triangles 19221
+  material <auto> -> <auto>  triangles 7087
+  material <auto>3 -> <auto>3  triangles 241
+  material [Color_M00] -> [Color M00]  triangles 7
+  hand: faces 26133, backs painted 26133
+  bounds x -1.38..1.17 y 0.0..3.12 z -31.42..7.8
+  saved hand.skp: true
+  copied head.skp, backs painted 18697, saved true
+  copied valve.skp, backs painted 2581, saved true
+  copied thumb.png
+    hand.skp  1.6 MB
+    head.skp  1.38 MB
+    thumb.png  0.0 MB
+    valve.skp  0.24 MB
+  time 8.1 s
+== Set 1 Brush Nickle -> Set 1 Brush Nickle Light
+  material BRUSHED_NICKEL -> BRUSHED NICKEL  triangles 24118
+  material <auto> -> <auto>  triangles 2197
+  material <auto>3 -> <auto>3  triangles 241
+  hand: faces 26133, backs painted 26133
+  bounds x -1.38..1.17 y 0.0..3.12 z -31.42..7.8
+  saved hand.skp: true
+  copied head.skp, backs painted 18629, saved true
+  copied valve.skp, backs painted 1761, saved true
+  copied thumb.png
+    hand.skp  1.72 MB
+    head.skp  1.51 MB
+    thumb.png  0.0 MB
+    valve.skp  0.36 MB
+  time 10.7 s
+== Set 2 Brush Nickle -> Set 2 Brush Nickle Light
+  material BRUSHED_NICKEL -> BRUSHED NICKEL  triangles 20609
+  hand: faces 19950, backs painted 19950
+  bounds x -1.04..1.04 y 0.0..2.9 z -30.74..7.6
+  saved hand.skp: true
+  copied brush nickle.skp, backs painted 6, saved true
+  copied head.skp, backs painted 10434, saved true
+  copied valve.skp, backs painted 0, saved true
+  copied thumb.png
+    brush nickle.skp  0.14 MB
+    hand.skp  1.27 MB
+    head.skp  2.43 MB
+    thumb.png  0.0 MB
+    valve.skp  2.24 MB
+  time 14.5 s
+model left as it was: true

@@ -1,0 +1,303 @@
+# encoding: utf-8
+# Interior Pro - THE PLUMBING FIXTURE LIBRARY (2026-09-25, step 1)
+#
+# His call (2026-09-24): "2" - the fixtures are REAL .skp files in a
+# folder, picked from a list with pictures, exactly like the door
+# handles (door_handles.rb is the pattern). And "custom": a button adds
+# any .skp from his computer to the list, so next time it is there.
+#
+#   assets/PLUMBING/SHOWER HEADS/*.skp
+#   assets/PLUMBING/TOILETS/*.skp
+#   .../thumbs/<name>.png   - the picture in the list, made by SketchUp
+#
+# Until a file is in the folder, each kind has one built-in 'Simple'
+# stand-in made of boxes, so the tool can be tested today.
+#
+# A FILE NEEDS NO CALIBRATION: it is placed by its own bounding box -
+# the middle of its width on the point he picked, its BACK against the
+# wall face, its BOTTOM on the height from the window. +Y of the file is
+# "out of the wall", +Z is up.
+require 'fileutils'
+
+module InteriorPro
+  module FixtureLibrary
+    # Kill switch: false = the Plumbing button does nothing, nothing placed.
+    USE_FIXTURES = true unless const_defined?(:USE_FIXTURES, false)
+    SIMPLE = 'Simple' unless const_defined?(:SIMPLE, false)
+
+    # The kinds. The list lives in a method, not a guarded constant, so a
+    # new kind added later is seen after reload! (see shower_floor_dialog).
+    def self.kinds
+      {
+        'shower_head' => { dir: 'SHOWER HEADS', label: 'Shower head', height: 80.0 },
+        'toilet'      => { dir: 'TOILETS',      label: 'Toilet',      height: 0.0 }
+      }
+    end
+
+    def self.kind_ok(kind)
+      kinds.key?(kind.to_s) ? kind.to_s : 'shower_head'
+    end
+
+    def self.default_height(kind)
+      kinds[kind_ok(kind)][:height]
+    end
+
+    def self.dir_for(kind)
+      File.join(InteriorPro::PLUGIN_DIR, 'assets', 'PLUMBING', kinds[kind_ok(kind)][:dir])
+    end
+
+    def self.thumb_path(kind, name)
+      File.join(dir_for(kind), 'thumbs', "#{name}.png")
+    end
+
+    # File names in the folder (no extension), sorted. [] when no folder.
+    def self.names(kind)
+      dir = dir_for(kind)
+      return [] unless Dir.exist?(dir)
+      Dir.glob(File.join(dir, '*.skp')).map { |f| File.basename(f, '.skp') }.sort
+    end
+
+    # What the list shows: the stand-in first, then every file.
+    def self.products(kind)
+      [SIMPLE] + names(kind)
+    end
+
+    # A name that is safe as a file name and does not clash. PURE.
+    def self.clean_name(base, taken = [])
+      n = base.to_s.gsub(/[^0-9A-Za-z _\-]/, '').strip
+      n = 'Fixture' if n.empty?
+      out = n
+      i = 2
+      while taken.include?(out)
+        out = "#{n} #{i}"
+        i += 1
+      end
+      out
+    end
+
+    # ---- the definitions ----------------------------------------------
+
+    def self.def_name(kind, name)
+      "InteriorPro_Fixture_#{kind_ok(kind)}_#{name}"
+    end
+
+    # Load (or reuse) the definition. nil on failure, with the reason.
+    # CAUTION (CLAUDE.md): an old definition in the model wins over the
+    # file - to see a changed file, purge the model's definition first.
+    def self.definition_for(model, kind, name)
+      kind = kind_ok(kind)
+      return simple_definition(model, kind) if name.to_s.empty? || name.to_s == SIMPLE
+      dn = def_name(kind, name)
+      d = model.definitions[dn]
+      return d if d && d.valid?
+      path = File.join(dir_for(kind), "#{name}.skp")
+      unless File.exist?(path)
+        puts "[Fixture] file not found: #{path}"
+        return nil
+      end
+      d = model.definitions.load(path, allow_newer: true)
+      d.name = dn if d && d.valid?
+      d
+    rescue StandardError => e
+      puts "[Fixture] load failed for #{kind}/#{name}: #{e.message}"
+      nil
+    end
+
+    # The built-in stand-in, made of boxes. Origin = back, middle, bottom.
+    def self.simple_definition(model, kind)
+      dn = def_name(kind, SIMPLE)
+      d = model.definitions[dn]
+      return d if d && d.valid? && !d.entities.to_a.empty?
+      d ||= model.definitions.add(dn)
+      boxes = if kind == 'toilet'
+                # tank 19 wide, 8 deep, 15..30 up; bowl 14 wide, out to 28
+                [[-9.5, 9.5, 0.5, 8.5, 15.0, 30.0], [-7.0, 7.0, 8.5, 28.0, 0.0, 15.0]]
+              else
+                # wall plate, arm out 8", head 6 x 6 at the end
+                [[-1.5, 1.5, 0.0, 0.5, 2.0, 5.0], [-0.5, 0.5, 0.5, 8.0, 3.0, 4.0], [-3.0, 3.0, 5.0, 11.0, 2.0, 3.0]]
+              end
+      mat = model.materials['InteriorPro_Fixture_White'] || model.materials.add('InteriorPro_Fixture_White')
+      mat.color = kind == 'toilet' ? Sketchup::Color.new(250, 250, 250) : Sketchup::Color.new(170, 175, 180)
+      # EACH BOX IN ITS OWN GROUP (CLAUDE.md, 2026-09-12): boxes that touch
+      # face to face in one group get merged, and a pushpull into that can
+      # take SketchUp down.
+      boxes.each { |b| add_box(d.entities.add_group.entities, *b, mat) }
+      d
+    end
+
+    def self.add_box(ents, x0, x1, y0, y1, z0, z1, mat)
+      f = ents.add_face([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0])
+      return if f.nil?
+      f.reverse! if f.normal.z > 0
+      f.pushpull(-(z1 - z0))
+      ents.grep(Sketchup::Face).each { |fc| fc.material = mat }
+    end
+
+    # Width (along the wall), depth (out of the wall), height - off the
+    # definition's own box. PURE apart from reading bounds.
+    def self.size_of(defn)
+      b = defn.bounds
+      [b.width.to_f, b.height.to_f, b.depth.to_f]
+    end
+
+    # ---- the pictures ---------------------------------------------------
+
+    # SketchUp draws the picture itself. Made once, when the file is added
+    # or the first time the window sees a file with no picture.
+    def self.ensure_thumb(model, kind, name)
+      return nil if name.to_s == SIMPLE
+      tp = thumb_path(kind, name)
+      return tp if File.exist?(tp)
+      d = definition_for(model, kind, name)
+      return nil unless d
+      FileUtils.mkdir_p(File.dirname(tp))
+      d.save_thumbnail(tp) ? tp : nil
+    rescue StandardError => e
+      puts "[Fixture] no picture for #{kind}/#{name}: #{e.message}"
+      nil
+    end
+
+    # "Add new": copy any .skp into the kind's folder. Returns the new
+    # name, or nil. The original file is never touched.
+    def self.add_file!(kind, src)
+      return nil unless src && File.exist?(src) && src.downcase.end_with?('.skp')
+      dir = dir_for(kind)
+      FileUtils.mkdir_p(dir)
+      name = clean_name(File.basename(src, '.*'), names(kind) + [SIMPLE])
+      FileUtils.cp(src, File.join(dir, "#{name}.skp"))
+      puts "[Fixture] added #{kind}/#{name} from #{src}"
+      ensure_thumb(Sketchup.active_model, kind, name)
+      name
+    rescue StandardError => e
+      puts "[Fixture] could not add #{src}: #{e.message}"
+      nil
+    end
+
+    # ---- the placing maths (PURE) --------------------------------------
+
+    # The distance he TYPES is from the corner NEARER the mouse to the
+    # MIDDLE of the fixture (a toilet's rough-in is measured to its
+    # centre). Returns the u of the middle.
+    def self.u_from_corner(dist, lo, hi, mouse_u)
+      if mouse_u.to_f - lo.to_f <= hi.to_f - mouse_u.to_f
+        lo.to_f + dist.to_f
+      else
+        hi.to_f - dist.to_f
+      end
+    end
+
+    # How far the middle is from the nearer corner, for the tooltip.
+    def self.corner_dist(u, lo, hi)
+      [u.to_f - lo.to_f, hi.to_f - u.to_f].min
+    end
+
+    # ---- placing --------------------------------------------------------
+
+    # Put one fixture on the face. fr = TileWall frame. Returns the instance.
+    def self.place!(wall:, side:, fr:, u:, z:, kind:, product:, op: true)
+      model = Sketchup.active_model
+      d = definition_for(model, kind, product)
+      if d.nil?
+        puts "[Fixture] nothing placed - no definition for #{kind}/#{product}"
+        return nil
+      end
+      b = d.bounds
+      shift = Geom::Transformation.translation(Geom::Vector3d.new(-b.center.x, -b.min.y, -b.min.z))
+      x, y, zz = InteriorPro::TileWall.world(fr, u, z, 0.0)
+      face = Geom::Transformation.axes(Geom::Point3d.new(x, y, zz),
+                                       Geom::Vector3d.new(fr[:ux], fr[:uy], 0),
+                                       Geom::Vector3d.new(fr[:nx], fr[:ny], 0),
+                                       Geom::Vector3d.new(0, 0, 1))
+      model.start_operation('Place Fixture', true) if op
+      inst = model.entities.add_instance(d, face * shift)
+      id = "fix-#{Time.now.to_i.to_s(36)}-#{rand(10_000)}"
+      {
+        'type' => 'fixture', 'kind' => kind_ok(kind), 'product' => product.to_s,
+        'height_in' => z.to_f, 'u_in' => u.to_f, 'side' => side.to_s,
+        'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s, 'id' => id,
+        'created_at' => Time.now.to_s
+      }.each { |k, v| inst.set_attribute('InteriorPro', k, v) }
+      InteriorPro.assign_tag(inst, 'IP/Plumbing') if InteriorPro.respond_to?(:assign_tag)
+      model.commit_operation if op
+      puts "[Fixture] placed #{kind}/#{product} on wall #{wall.get_attribute('InteriorPro', 'id')} " \
+           "side #{side} u #{u.round(2)} z #{z.round(2)}"
+      inst
+    rescue StandardError => e
+      model&.abort_operation if op
+      puts "[Fixture] place failed: #{e.message}"
+      nil
+    end
+
+    # ---- edit (2026-09-25) -----------------------------------
+
+    def self.fixture?(e)
+      e.is_a?(Sketchup::ComponentInstance) && e.valid? &&
+        e.get_attribute('InteriorPro', 'type') == 'fixture'
+    end
+
+    # The host wall, found by the id stored on the fixture. nil = gone.
+    def self.host_wall(inst, model = Sketchup.active_model)
+      id = inst.get_attribute('InteriorPro', 'host_wall_id').to_s
+      return nil if id.empty?
+      InteriorPro::TileWall.walls_in_model(model).find do |w|
+        w.valid? && w.get_attribute('InteriorPro', 'id').to_s == id
+      end
+    end
+
+    # What the edit window opens with: its own kind, product, height, and
+    # how far its middle is from the nearer corner.
+    def self.settings_of(inst)
+      at = lambda { |k| inst.get_attribute('InteriorPro', k) }
+      out = { 'kind' => kind_ok(at.call('kind')), 'product' => (at.call('product') || SIMPLE).to_s,
+              'height' => at.call('height_in').to_f }
+      wall = host_wall(inst)
+      fr = wall && InteriorPro::TileWall.frame_for(wall, at.call('side').to_s)
+      if fr
+        lo, hi = InteriorPro::TileWall.face_limits(wall, fr, at.call('u_in').to_f)
+        out['corner'] = corner_dist(at.call('u_in').to_f, lo, hi).round(3)
+      end
+      out
+    end
+
+    # NO DELETE TOOL (2026-09-25, his call: "אפשר פשוט לסמן ולעשות דליט").
+    # A fixture is one plain instance with nothing hanging off it, so
+    # SketchUp's own Delete is the delete - no second way to do it.
+
+    # Rebuild in place with the window's numbers: same wall, same side,
+    # the middle kept - or moved to the typed distance from the SAME
+    # corner it was nearer to. ONE undo step. Returns the new instance.
+    def self.update!(inst, cfg)
+      return nil unless fixture?(inst)
+      at = lambda { |k| inst.get_attribute('InteriorPro', k) }
+      wall = host_wall(inst)
+      side = at.call('side').to_s
+      fr = wall && InteriorPro::TileWall.frame_for(wall, side)
+      if fr.nil?
+        puts "[Fixture] edit: the wall it stood on (#{at.call('host_wall_id')}) is not found - nothing changed"
+        return nil
+      end
+      u = at.call('u_in').to_f
+      if cfg['corner']
+        lo, hi = InteriorPro::TileWall.face_limits(wall, fr, u)
+        u = u_from_corner(cfg['corner'].to_f, lo, hi, u)
+      end
+      model = Sketchup.active_model
+      model.start_operation('Edit Fixture', true)
+      old_id = at.call('id')
+      made = place!(wall: wall, side: side, fr: fr, u: u, z: cfg['height'].to_f,
+                    kind: cfg['kind'], product: cfg['product'], op: false)
+      if made.nil?
+        model.abort_operation
+        return nil
+      end
+      made.set_attribute('InteriorPro', 'id', old_id) if old_id
+      inst.erase!
+      model.commit_operation
+      made
+    rescue StandardError => e
+      model&.abort_operation
+      puts "[Fixture] edit failed: #{e.message}"
+      nil
+    end
+  end
+end

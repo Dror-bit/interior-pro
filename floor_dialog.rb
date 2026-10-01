@@ -5,6 +5,33 @@ require 'json'
 module InteriorPro
   module FloorDialog
 
+    # CONCRETE IN THE PATTERN LIST (2026-10-01, his words: "הפטרן הוא
+    # הקובע, זה הסוג ריצפה, החומר זה רק נוסף" - and "אתה יכול להוסיף
+    # בפטרן"). Concrete is a plain slab wearing the concrete picture, with
+    # no layout lines. It is STORED as two things the rest of the plugin
+    # already knows - pattern 'None' + floor_texture 'concrete' - so the
+    # tile count, the shower floor and the layout code never meet a new
+    # word. The window alone shows that pair as "Concrete".
+    # false = the choice does nothing new (a plain white floor, as None).
+    USE_CONCRETE = true unless const_defined?(:USE_CONCRETE, false)
+    CONCRETE_PATTERN = 'Concrete' unless const_defined?(:CONCRETE_PATTERN, false)
+    # base name of the picture in textures/floors
+    CONCRETE_TEXTURE = 'concrete' unless const_defined?(:CONCRETE_TEXTURE, false)
+
+    # PURE. What the window sends -> [pattern, texture] to store.
+    def self.stored_pattern(pattern, texture)
+      pat = pattern.to_s.empty? ? 'None' : pattern.to_s
+      return [pat, texture.to_s] unless pat == CONCRETE_PATTERN
+      USE_CONCRETE ? ['None', CONCRETE_TEXTURE] : ['None', texture.to_s]
+    end
+
+    # PURE. What is stored -> the word the Pattern list shows.
+    def self.shown_pattern(pattern, texture)
+      pat = pattern.to_s.empty? ? 'None' : pattern.to_s
+      return CONCRETE_PATTERN if USE_CONCRETE && pat == 'None' && texture.to_s == CONCRETE_TEXTURE
+      pat
+    end
+
     def self.show
       rooms = InteriorPro::RoomManager.rooms_in_model
       floors_by_room = {}
@@ -21,7 +48,8 @@ module InteriorPro
           'type'      => fl ? fl.get_attribute('InteriorPro', 'floor_type') : (rooms.length == floors_by_room.length ? 'None' : 'Hardwood'),
           'has_floor' => !fl.nil?,
           'thickness' => fl ? fl.get_attribute('InteriorPro', 'thickness_in').to_f : nil,
-          'pattern'   => fl ? (fl.get_attribute('InteriorPro', 'pattern') || 'None') : 'None',
+          'pattern'   => fl ? shown_pattern(fl.get_attribute('InteriorPro', 'pattern'),
+                                            fl.get_attribute('InteriorPro', 'floor_texture')) : 'None',
           'unit_w'    => fl ? fl.get_attribute('InteriorPro', 'unit_w').to_f : 0,
           'unit_l'    => fl ? fl.get_attribute('InteriorPro', 'unit_l').to_f : 0,
           'ox'        => fl ? fl.get_attribute('InteriorPro', 'pattern_ox').to_f : 0,
@@ -85,7 +113,11 @@ module InteriorPro
         # Drop walls with floor (2026-07-21): AFTER the floors operation
         # commits — split_wall! opens operations of its own.
         sel.each do |rid, cfg|
-          next unless cfg['drop_walls'] && !cfg['texture'].to_s.empty?
+          # THE MATERIAL DOES NOT DECIDE (2026-10-01, his words: "הפטרן הוא
+          # הקובע... החומר זה רק נוסף"). This line also asked for a texture,
+          # and since 2026-09-23 the texture field is hidden and always
+          # empty - so Drop walls silently did nothing in every room.
+          next unless cfg['drop_walls']
           # cfg['level'] is an offset from the storey; set_wall_base! wants a
           # real height, so add the storey base back on (2026-08-17).
           room = InteriorPro::FloorManager.find_room(rid)
@@ -141,14 +173,18 @@ module InteriorPro
         # floor vanished on him today. Remove All Floors is the way to
         # take floors off.
         begin
-          puts "[Floors] #{room.get_attribute('InteriorPro', 'name')}: no material card - a plain white floor" if cfg['material_card_id'].to_s.empty?
           th = cfg['thickness'].to_f
+          pat, tex = stored_pattern(cfg['pattern'], cfg['texture'])
+          puts "[Floors] #{room.get_attribute('InteriorPro', 'name')}: no material card - a plain white floor" if cfg['material_card_id'].to_s.empty? && tex.empty?
+          if tex == CONCRETE_TEXTURE && InteriorPro::FloorManager.texture_files.none? { |f| File.basename(f, '.*') == CONCRETE_TEXTURE }
+            puts "[Floors] #{room.get_attribute('InteriorPro', 'name')}: textures/floors/#{CONCRETE_TEXTURE}.jpg is missing - the concrete floor comes out white"
+          end
           fl_grp = InteriorPro::FloorManager.build_floor_for_room!(
             room, cfg['type'], thickness: (th > 0.05 ? th : nil),
-            texture: cfg['texture'].to_s, level: cfg['level'].to_f
+            texture: tex, level: cfg['level'].to_f
           )
           if fl_grp
-            fl_grp.set_attribute('InteriorPro', 'pattern', cfg['pattern'] || 'None')
+            fl_grp.set_attribute('InteriorPro', 'pattern', pat)
             fl_grp.set_attribute('InteriorPro', 'unit_w', cfg['unit_w'].to_f)
             fl_grp.set_attribute('InteriorPro', 'unit_l', cfg['unit_l'].to_f)
             fl_grp.set_attribute('InteriorPro', 'pattern_ox', cfg['ox'].to_f)
@@ -240,7 +276,7 @@ module InteriorPro
             var CARDS = #{cards.to_json};
 
             function patternOptions(sel) {
-              return ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron'].map(function(t) {
+              return ['None', 'Tile', 'Straight', 'Herringbone', 'Chevron', 'Concrete'].map(function(t) {
                 return '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
               }).join('');
             }

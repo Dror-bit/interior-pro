@@ -1,0 +1,305 @@
+# Interior Pro - Main Module
+
+module InteriorPro
+  PLUGIN_DIR = File.dirname(__FILE__) unless defined?(PLUGIN_DIR)
+
+  def self.plugin_files
+    %w[
+      arc_math.rb
+      roof_tile_math.rb
+      roof_tile_parts.rb
+      roof_tile_place.rb
+      wall_library.rb
+      wall_library_dialog.rb
+      wall_tool.rb
+      ui_dialogs.rb
+      wall_edit_tool.rb
+      wall_move_tool.rb
+      wall_stretch_tool.rb
+      wall_curve_tool.rb
+      wall_arc_tool.rb
+      wall_merge_tool.rb
+      wall_split_tool.rb
+      wall_delete_tool.rb
+      window_library.rb
+      window_library_dialog.rb
+      window_tool.rb
+      door_library.rb
+      door_casing_profiles.rb
+      door_leaf_styles.rb
+      solid_boolean/load.rb
+      door_boolean.rb
+      door_library_dialog.rb
+      door_handles.rb
+      door_tool.rb
+      door_manager.rb
+      door_edit_tool.rb
+      door_move_tool.rb
+      door_delete_tool.rb
+      window_manager.rb
+      material_ids.rb
+      material_library.rb
+      material_library_dialog.rb
+      material_import.rb
+      material_takeoff.rb
+      surface_takeoff.rb
+      sync_bridge.rb
+      claude_api.rb
+      claude_plan.rb
+      room_link_dialog.rb
+      tile_grid.rb
+      tile_count.rb
+      tile_takeoff.rb
+      tile_sheet.rb
+      tile_count_dialog.rb
+      room_manager.rb
+      floor_manager.rb
+      floor_pattern.rb
+      tile_wall.rb
+      tile_wall_tool.rb
+      tile_niche.rb
+      tile_niche_tool.rb
+      tile_niche_delete_tool.rb
+      tile_niche_edit_tool.rb
+      tile_niche_move_tool.rb
+      tile_wall_stretch_tool.rb
+      tile_wall_edit_tool.rb
+      shower_floor.rb
+      shower_floor_dialog.rb
+      shower_floor_tool.rb
+      shower_floor_edit_tool.rb
+      floor_dialog.rb
+      foundation_manager.rb
+      ceiling_manager.rb
+      level_manager.rb
+      roof_manager.rb
+      roof_dialog.rb
+      roof_gable_tool.rb
+      roof_shed_tool.rb
+      roof_edit_tool.rb
+      dormer_manager.rb
+      dormer_dialog.rb
+      dormer_tool.rb
+      dormer_edit_tools.rb
+      skylight_manager.rb
+      skylight_tool.rb
+      skylight_dialog.rb
+      downspout_tool.rb
+      molding_library.rb
+      molding_tool.rb
+      molding_dialog.rb
+      state_backup.rb
+      auto_backup.rb
+      plan_doc.rb
+      plan_generator.rb
+      plan_tables.rb
+      plan_geometry.rb
+      plan_canvas.rb
+      plan_pdf.rb
+      plan_sheet_dialog.rb
+      plan_editor.rb
+      landscape/fence_math.rb
+      landscape/fence_tool.rb
+      landscape/fence_library.rb
+      landscape/fence_library_dialog.rb
+      landscape/fence_ref_tool.rb
+      landscape/garden_wall_tool.rb
+      toolbar.rb
+    ]
+  end
+
+  def self.load_files
+    failed = []
+    plugin_files.each do |f|
+      path = File.join(PLUGIN_DIR, f)
+      unless File.exist?(path)
+        puts "[InteriorPro] missing file: #{f}"
+        failed << f
+        next
+      end
+      begin
+        load path
+      rescue StandardError => e
+        puts "[InteriorPro] load failed: #{f} — #{e.class}: #{e.message}"
+        puts e.backtrace.first(6).join("\n")
+        failed << f
+      end
+    end
+    if failed.any?
+      puts "[InteriorPro] #{failed.length} file(s) failed: #{failed.join(', ')}"
+    end
+    failed
+  end
+
+  def self.ui_setup_complete?
+    @ui_setup_complete == true
+  end
+
+  def self.setup_ui!
+    return if @ui_setup_complete
+
+    # Reserve immediately so a second load in the same tick cannot register twice.
+    @ui_setup_complete = true
+
+    begin
+      InteriorPro::Toolbar.setup
+    rescue StandardError => e
+      puts "[InteriorPro] Toolbar.setup failed: #{e.message}"
+      puts e.backtrace.first(8).join("\n")
+      return
+    end
+    begin
+      InteriorPro::Menu.setup
+    rescue StandardError => e
+      puts "[InteriorPro] Menu.setup failed: #{e.message}"
+      puts e.backtrace.first(8).join("\n")
+    end
+    start_auto_backup!
+  end
+
+  # A copy of the whole project, saved beside it every few minutes, with no
+  # button and nothing to remember (2026-08-15). It is started here, on the
+  # same line as the toolbar, because it is not a feature the user turns on -
+  # it is part of the plugin being loaded at all.
+  #
+  # reload! calls it again; AutoBackup.start! stops any previous timer first,
+  # so re-loading a hundred times still leaves exactly one running.
+  def self.start_auto_backup!
+    return unless const_defined?(:AutoBackup, false)
+    InteriorPro::AutoBackup.start!
+  rescue StandardError => e
+    puts "[InteriorPro] auto backup did not start: #{e.class}: #{e.message}"
+  end
+
+  # Hide duplicate legacy toolbar and show a clean 9-button bar (Ruby Console).
+  def self.repair_ui!
+    unless const_defined?(:Toolbar, false)
+      load_files
+    end
+
+    legacy = UI::Toolbar.new(InteriorPro::Toolbar::LEGACY_TOOLBAR_NAME)
+    if legacy.length > InteriorPro::Toolbar::TOOLBAR_ITEM_COUNT
+      legacy.hide
+      puts "InteriorPro: hid legacy toolbar (#{legacy.length} items)"
+    end
+
+    InteriorPro::Toolbar.remove_instance_variable(:@setup_done) if
+      InteriorPro::Toolbar.instance_variable_defined?(:@setup_done)
+
+    InteriorPro::Toolbar.setup
+    toolbar = InteriorPro::Toolbar.resolve_toolbar
+    toolbar.show
+    puts "InteriorPro: active toolbar '#{toolbar.name}' — #{toolbar.length} tools"
+    puts 'Uncheck "Interior Pro" under View > Toolbars if the old duplicate bar is still listed.'
+    puts 'Restart SketchUp if Extensions menu lists Interior Pro twice.'
+    nil
+  end
+
+  # Ruby Console recovery if toolbar/menu missing after a bad load.
+  def self.fix_ui!
+    unless const_defined?(:Toolbar, false)
+      puts '[InteriorPro] Toolbar missing — loading plugin files...'
+      begin
+        load_files
+      rescue StandardError => e
+        puts "[InteriorPro] fix_ui! load_files failed: #{e.message}"
+        puts e.backtrace.first(8).join("\n")
+        return nil
+      end
+    end
+
+    unless const_defined?(:Toolbar, false)
+      puts '[InteriorPro] Toolbar still missing — run InteriorPro.diagnose_load!'
+      return nil
+    end
+
+    if InteriorPro::Toolbar.bloated_toolbars?
+      repair_ui!
+      return nil
+    end
+
+    if @ui_setup_complete
+      toolbar = InteriorPro::Toolbar.resolve_toolbar
+      if toolbar.length > 0
+        puts 'InteriorPro: UI already registered. Restart SketchUp if tools still appear twice.'
+        return nil
+      end
+      # Toolbar empty but flag set — allow one retry.
+      @ui_setup_complete = false
+    end
+
+    setup_ui!
+    puts 'InteriorPro: UI setup attempted — check View > Toolbars > Interior Pro'
+    nil
+  end
+
+  def self.diagnose_load!
+    plugin_files.each do |f|
+      path = File.join(PLUGIN_DIR, f)
+      begin
+        load path
+        puts "OK  #{f}"
+      rescue StandardError => e
+        puts "FAIL #{f} — #{e.message}"
+        puts e.backtrace.first(4).join("\n")
+      end
+    end
+    nil
+  end
+
+  # 2D contract: assign an IP/* tag (layer) to an entity, creating the tag if needed.
+  def self.assign_tag(entity, tag_name)
+    return unless entity && entity.valid?
+    layers = Sketchup.active_model.layers
+    layer = layers[tag_name] || layers.add(tag_name)
+    entity.layer = layer
+  rescue StandardError => e
+    puts "[InteriorPro] assign_tag failed: #{e.message}"
+  end
+
+  # Reload everything WITHOUT restarting SketchUp (2026-08-12).
+  #
+  # It reloads main.rb itself first, not just the files main.rb knew about
+  # last time - otherwise a brand new file added to plugin_files would never
+  # be picked up and only a restart would help.
+  #
+  # Then it re-runs the small toolbars. Each of those has a length guard, so
+  # calling them again either adds a button that is missing or does nothing.
+  # The MENU is deliberately left alone: SketchUp cannot remove a menu item,
+  # so re-running it would list everything twice.
+  def self.reload!
+    load File.join(PLUGIN_DIR, 'main.rb')
+    refresh_toolbars!
+    start_auto_backup!
+    puts 'InteriorPro: reloaded. (New menu ITEMS still need a restart.)'
+    nil
+  end
+
+  def self.refresh_toolbars!
+    return unless const_defined?(:Toolbar, false)
+    %i[setup_build_toolbar setup_2d_toolbar setup_surfaces_toolbar
+       setup_data_toolbar setup_roofs_toolbar setup_landscape_toolbar].each do |m|
+      next unless InteriorPro::Toolbar.respond_to?(m)
+      begin
+        InteriorPro::Toolbar.send(m)
+      rescue StandardError => e
+        puts "[InteriorPro] #{m}: #{e.message}"
+      end
+    end
+    nil
+  end
+end
+
+begin
+  failed = InteriorPro.load_files
+  unless file_loaded?(__FILE__)
+    InteriorPro.setup_ui!
+    file_loaded(__FILE__)
+  end
+  if failed.any? && !InteriorPro.const_defined?(:Toolbar, false)
+    puts '[InteriorPro] Run InteriorPro.diagnose_load! in Ruby Console for details.'
+  end
+rescue StandardError => e
+  puts "[InteriorPro] startup failed: #{e.class}: #{e.message}"
+  puts e.backtrace.first(10).join("\n")
+end

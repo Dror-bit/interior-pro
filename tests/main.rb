@@ -69,6 +69,10 @@ module InteriorPro
       shower_floor_dialog.rb
       shower_floor_tool.rb
       shower_floor_edit_tool.rb
+      fixture_library.rb
+      fixture_dialog.rb
+      fixture_tool.rb
+      fixture_edit_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb
