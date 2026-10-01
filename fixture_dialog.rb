@@ -19,7 +19,7 @@ module InteriorPro
     def self.defaults
       k = InteriorPro::FixtureLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::FixtureLibrary.products(k).first,
-        'height' => InteriorPro::FixtureLibrary.default_height(k), 'gap' => nil }
+        'height' => InteriorPro::FixtureLibrary.default_height(k), 'gap' => nil, 'len' => nil, 'wid' => nil }
     end
 
     # What he chose last time, so the second fixture is one click away.
@@ -42,10 +42,12 @@ module InteriorPro
           { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '',
             'set_img' => sp && File.exist?(sp) ? url_of(sp) + "?#{File.mtime(sp).to_i}" : '',
             'have' => InteriorPro::FixtureLibrary.parts_available(k, n),
+            'size' => InteriorPro::FixtureLibrary.resize?(k) ? InteriorPro::FixtureLibrary.size_of(model, k, n) : nil,
+            'gap' => InteriorPro::FixtureLibrary.default_gap(k, n),
             'parts' => InteriorPro::FixtureLibrary.default_parts(k, n) }
         end
         out[k] = { 'label' => info[:label], 'height' => info[:height], 'set' => info[:set] ? true : false,
-                   'gap' => info[:gap],
+                   'gap' => info[:gap], 'resize' => InteriorPro::FixtureLibrary.resize?(k),
                    'dir' => InteriorPro::FixtureLibrary.dir_for(k), 'products' => prods }
       end
       out
@@ -74,6 +76,11 @@ module InteriorPro
         cfg['height'] = cfg['height'].to_f
         # the tub's gap from the wall; a kind without one keeps none
         cfg['gap'] = InteriorPro::FixtureLibrary.default_gap(cfg['kind']).nil? ? nil : InteriorPro::FixtureLibrary.wall_gap(cfg['kind'], cfg)
+        # a tub's typed length / width; empty or 0 = its file's own size
+        %w[len wid].each do |k|
+          v = InteriorPro::FixtureLibrary.resize?(cfg['kind']) ? cfg[k].to_f : 0.0
+          cfg[k] = v > 0.0 ? v : nil
+        end
         if cfg['height'] < 0.0
           UI.messagebox('Type the height from the floor, e.g.  80')
           next
@@ -173,6 +180,10 @@ module InteriorPro
           <div class="row" id="heightRow">
             Height from the floor to the bottom of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
+          <div class="row" id="sizeRow" style="display:none;">
+            Length <input type="number" id="len" step="0.5" min="1"> in
+            &nbsp; Width <input type="number" id="wid" step="0.5" min="1"> in
+          </div>
           <div class="row" id="gapRow" style="display:none;">
             From the wall <input type="number" id="gap" step="0.5" min="0"> in
           </div>
@@ -197,6 +208,10 @@ module InteriorPro
             var product = D.product;
             var PARTS = [['head', 'Shower head'], ['valve', 'Handles'], ['hand', 'Hand shower'], ['spout', 'Tub spout']];
             var parts = D.parts || null;
+            // which product the Length / Width boxes were filled for
+            var sizedFor = '';
+            // which product the From the wall box was filled for
+            var gapFor = (D.gap !== null && D.gap !== undefined && D.kind === kind) ? kind + '|' + product : '';
             function kindSvg(k) {
               var s = '';
               if (k === 'shower_set') {
@@ -249,8 +264,20 @@ module InteriorPro
               var isSet = !!CAT[kind].set;
               document.getElementById('partsRow').style.display = isSet ? '' : 'none';
               document.getElementById('heightRow').style.display = isSet ? 'none' : '';
+              document.getElementById('sizeRow').style.display = CAT[kind].resize ? '' : 'none';
+              if (CAT[kind].resize && sizedFor !== kind + '|' + product) {
+                var sz = curProduct().size;
+                if (sz) { document.getElementById('len').value = sz[0]; document.getElementById('wid').value = sz[1]; }
+                sizedFor = kind + '|' + product;
+              }
               var hasGap = CAT[kind].gap !== null && CAT[kind].gap !== undefined;
               document.getElementById('gapRow').style.display = hasGap ? '' : 'none';
+              // each product starts at its own gap (an alcove tub at 0)
+              if (hasGap && gapFor !== kind + '|' + product) {
+                var pg = curProduct().gap;
+                document.getElementById('gap').value = (pg !== null && pg !== undefined) ? pg : CAT[kind].gap;
+                gapFor = kind + '|' + product;
+              }
               if (!isSet) return;
               var pr = curProduct();
               if (!parts) parts = JSON.parse(JSON.stringify(pr.parts));
@@ -335,6 +362,13 @@ module InteriorPro
             }
             function cur() {
               var o = { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              if (CAT[kind].resize) {
+                var sz = curProduct().size || [0, 0];
+                var lv = parseFloat(document.getElementById('len').value), wv = parseFloat(document.getElementById('wid').value);
+                // the file's own size typed back = not stretched
+                o.len = (isNaN(lv) || Math.abs(lv - sz[0]) < 0.005) ? null : lv;
+                o.wid = (isNaN(wv) || Math.abs(wv - sz[1]) < 0.005) ? null : wv;
+              }
               if (CAT[kind].gap !== null && CAT[kind].gap !== undefined) {
                 var g = parseFloat(document.getElementById('gap').value);
                 o.gap = isNaN(g) ? CAT[kind].gap : g;
@@ -363,6 +397,13 @@ module InteriorPro
               document.getElementById('corner').value = D.corner;
               document.getElementById('cornerRow').style.display = '';
               document.getElementById('helpRow').style.display = 'none';
+            }
+            // the size he typed last time / on this tub, if it is the same product
+            if (CAT[kind].resize && D.product === product && (D.len || D.wid)) {
+              var s0 = curProduct().size || [0, 0];
+              document.getElementById('len').value = D.len || s0[0];
+              document.getElementById('wid').value = D.wid || s0[1];
+              sizedFor = kind + '|' + product;
             }
             renderKinds();
             renderProducts();

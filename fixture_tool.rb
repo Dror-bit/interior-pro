@@ -123,7 +123,8 @@ module InteriorPro
     # tile face - @outs), and no window or niche under any part.
     def fits_at?(u_line)
       @chk = InteriorPro::FixtureLibrary.check(@wall, @side, @frame, u_line, @parts, @pcfg['kind'], @hgt)
-      @no_tile = @chk[:no_tile]
+      # the outside of the house counts as "not here at all", like off the tile
+      @no_tile = @chk[:no_tile] || @chk[:outside]
       @on_hole = @chk[:on_hole]
       [@chk[:ok], @chk[:lo], @chk[:hi]]
     end

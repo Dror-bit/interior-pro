@@ -23,7 +23,11 @@ ok('the window number wins', L.wall_gap('tub', { 'gap' => 6.5 }) == 6.5)
 ok('no number = the default', L.wall_gap('tub', {}) == 4.0)
 ok('0 = on the wall', L.wall_gap('tub', { 'gap' => 0 }) == 0.0)
 ok('never into the wall', L.wall_gap('tub', { 'gap' => -3 }) == 0.0)
-%w[toilet vanity shower_set].each do |k|
+ok('an alcove tub starts on the wall', L.default_gap('tub', 'Alcove tub') == 0.0 && L.wall_gap('tub', { 'product' => 'Alcove tub' }) == 0.0)
+ok('a free standing tub still starts 4" off', L.wall_gap('tub', { 'product' => 'Free standing Devinchy' }) == 4.0)
+ok('an alcove tub can still be typed off the wall', L.wall_gap('tub', { 'product' => 'Alcove tub', 'gap' => 2 }) == 2.0)
+ok('a toilet starts 1" off the wall', L.default_gap('toilet') == 1.0)
+%w[vanity shower_set].each do |k|
   ok("#{k} has no gap", L.default_gap(k).nil? && L.wall_gap(k, { 'gap' => 5 }) == 0.0)
 end
 

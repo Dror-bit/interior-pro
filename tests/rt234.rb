@@ -20,6 +20,8 @@ L = InteriorPro::FixtureLibrary
 ok('a toilet file is turned', L.turn_front?('toilet', 'TOTO-Nexus'))
 ok('the stand-in is not turned', !L.turn_front?('toilet', L::SIMPLE))
 %w[tub vanity shower_set].each { |k| ok("#{k} is not turned", !L.turn_front?(k, 'X')) }
+ok('the alcove tub is turned', L.turn_front?('tub', 'Alcove tub'))
+ok('a free standing tub is not', !L.turn_front?('tub', 'Free standing Woodbridge'))
 # TOTO measured: x -9.09..8.43, y -29.37..0 (tank at y 0)
 t = L.turned_box(-9.09, 8.43, -29.37, 0.0, -0.33)
 ok('after the turn the tank is the back (lowest green)', t[2] == -0.0 && t[3] == 29.37, t)

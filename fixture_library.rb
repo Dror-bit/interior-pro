@@ -40,6 +40,10 @@ module InteriorPro
     USE_WALL_GAP = true unless const_defined?(:USE_WALL_GAP, false)
     # Kill switch: false = a toilet file is placed as it is drawn, unturned.
     USE_TURN_FRONT = true unless const_defined?(:USE_TURN_FRONT, false)
+    # Kill switch: false = a tub is placed at its file's own size.
+    USE_RESIZE = true unless const_defined?(:USE_RESIZE, false)
+    # Kill switch: false = a tub / toilet can stand on the outside of the house again.
+    USE_INSIDE_ONLY = true unless const_defined?(:USE_INSIDE_ONLY, false)
 
     # The kinds. A method, not a guarded constant, so reload! sees changes.
     # on_tile: only on a tiled area, standing on its face (his call,
@@ -60,7 +64,9 @@ module InteriorPro
         'vanity'     => { dir: 'VANITIES',    label: 'Vanity',     height: 0.0 },
         # FROM THE WALL (2026-09-30, his words: "שיהיה אפשרות לקבוע מרחק
         # מהקיר ... ברירת מחדל 4\""). gap: its back stands this far off.
-        'tub'        => { dir: 'TUBS',        label: 'Tub',        height: 0.0, gap: 4.0 }
+        # resize (2026-10-01, his pick "להקליד לבד"): Length along the wall
+        # and Width out of it, typed; the file is stretched to them.
+        'tub'        => { dir: 'TUBS',        label: 'Tub',        height: 0.0, gap: 4.0, resize: true }
       }
     end
 
@@ -96,18 +102,60 @@ module InteriorPro
 
     # How far its back stands off the wall. nil = this kind has no such
     # number (it sits on the wall). PURE.
-    def self.default_gap(kind)
-      kinds[kind_ok(kind)][:gap]
+    # AN ALCOVE TUB SITS ON THE WALL (2026-10-01, his words: "האלקוב מבחינת
+    # ברירת מחדל לא צריכה להיות רחוקה מהקיר") - it stands between three
+    # walls, so a product with "alcove" in its name starts at 0.
+    def self.default_gap(kind, product = nil)
+      g = kinds[kind_ok(kind)][:gap]
+      return g if g.nil?
+      kind_ok(kind) == 'tub' && product.to_s =~ /alcove/i ? 0.0 : g
     end
 
     # The gap to use: the window's number, else the kind's default. 0 for
     # a kind without one, and when USE_WALL_GAP is off. Never below 0. PURE.
     def self.wall_gap(kind, cfg)
       return 0.0 unless USE_WALL_GAP
-      dg = default_gap(kind)
+      dg = default_gap(kind, cfg.is_a?(Hash) ? cfg['product'] : nil)
       return 0.0 if dg.nil?
       g = cfg.is_a?(Hash) && !cfg['gap'].nil? && cfg['gap'].to_s != '' ? cfg['gap'].to_f : dg.to_f
       g < 0.0 ? 0.0 : g
+    end
+
+    # THE OUTSIDE OF THE HOUSE (2026-10-01, his words: "הציג לי את הפרי
+    # סטנדיינג ... בכלל מחוץ לבית"). Measured in fixture_side_report.txt:
+    # it stood on side "b" of an exterior wall, the house middle on "a".
+    # Exterior = the right of start->end (WallTool rule) = side "b". PURE
+    # apart from reading the wall's category.
+    def self.outside?(wall, side)
+      return false unless USE_INSIDE_ONLY
+      return false unless wall.respond_to?(:get_attribute)
+      cat = (wall.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
+      cat == 'exterior' && side.to_s == 'b'
+    end
+
+    def self.resize?(kind)
+      USE_RESIZE && kinds[kind_ok(kind)][:resize] ? true : false
+    end
+
+    # How much to stretch along red (length) and green (width) so the
+    # file's w0 x d0 becomes len x wid. Empty / 0 = its own size. PURE.
+    def self.scale_for(len, wid, w0, d0)
+      f = lambda do |want, have|
+        w = want.to_s == '' ? 0.0 : want.to_f
+        w > 0.0 && have.to_f > 1.0e-6 ? w / have.to_f : 1.0
+      end
+      [f.call(len, w0), f.call(wid, d0)]
+    end
+
+    # The file's own size along red and green (the window shows it).
+    def self.size_of(model, kind, name)
+      d = definition_for(model, kind, name)
+      return nil unless d
+      b = visible_bounds(d)
+      [(b.max.x - b.min.x).to_f.round(2), (b.max.y - b.min.y).to_f.round(2)]
+    rescue StandardError => e
+      puts "[Fixture] size of #{kind}/#{name}: #{e.message}"
+      nil
     end
 
     # Is this product's file drawn with its front toward -green? Then it
@@ -115,6 +163,9 @@ module InteriorPro
     def self.turn_front?(kind, product)
       return false unless USE_TURN_FRONT
       return false if product.to_s.empty? || product.to_s == SIMPLE
+      # HIS ALCOVE TUB IS DRAWN BACKWARDS (2026-10-01, his words: "האלקוב
+      # היא הפוכה" - the other three tubs are right). Same rule as its gap.
+      return true if kind_ok(kind) == 'tub' && product.to_s =~ /alcove/i
       kinds[kind_ok(kind)][:front_neg] ? true : false
     end
 
@@ -494,9 +545,12 @@ module InteriorPro
         b = visible_bounds(d)
         ax, az = anchor_xz(b.min.x, b.max.x, b.min.z, b.max.z, !k.nil?)
         minx, maxx, miny, maxy = b.min.x.to_f, b.max.x.to_f, b.min.y.to_f, b.max.y.to_f
+        sx, sy = resize?(kind) ? scale_for(cfg['len'], cfg['wid'], maxx - minx, maxy - miny) : [1.0, 1.0]
+        minx, maxx, ax = minx * sx, maxx * sx, ax.to_f * sx
+        miny, maxy = miny * sy, maxy * sy
         turn = turn_front?(kind, cfg['product'])
         minx, maxx, miny, maxy, ax = turned_box(minx, maxx, miny, maxy, ax.to_f) if turn
-        { part: k, defn: d, du: du, h: h, ax: ax, az: az, gap: gap, turn: turn,
+        { part: k, defn: d, du: du, h: h, ax: ax, az: az, gap: gap, turn: turn, sx: sx, sy: sy,
           minx: minx, maxx: maxx, miny: miny, maxy: maxy,
           minz: b.min.z.to_f, maxz: b.max.z.to_f }
       end.compact
@@ -558,7 +612,9 @@ module InteriorPro
         # a tub's gap: its back stands this far off the wall (ghost, place, edit)
         res[:outs] << out + p[:gap].to_f
       end
-      res[:ok] = false if res[:no_tile] || res[:on_hole]
+      # a tub or toilet is not even caught on the outside of the house
+      res[:outside] = !on_tile?(kind) && outside?(wall, side)
+      res[:ok] = false if res[:no_tile] || res[:on_hole] || res[:outside]
       res
     end
 
@@ -579,6 +635,10 @@ module InteriorPro
                                          Geom::Vector3d.new(0, 0, 1))
         # a file drawn facing -green is turned half a turn first (front_neg)
         shift = shift * Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0), Geom::Vector3d.new(0, 0, 1), Math::PI) if p[:turn]
+        # a tub stretched to the typed length / width (applied first)
+        if (p[:sx] && (p[:sx] - 1.0).abs > 1.0e-9) || (p[:sy] && (p[:sy] - 1.0).abs > 1.0e-9)
+          shift = shift * Geom::Transformation.scaling(Geom::Point3d.new(0, 0, 0), p[:sx].to_f, p[:sy].to_f, 1.0)
+        end
         inst = grp.entities.add_instance(p[:defn], face * shift)
         inst.set_attribute('InteriorPro', 'part', p[:part].to_s) if p[:part]
       end
