@@ -19,7 +19,8 @@ module InteriorPro
     def self.defaults
       k = InteriorPro::FixtureLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::FixtureLibrary.products(k).first,
-        'height' => InteriorPro::FixtureLibrary.default_height(k), 'gap' => nil, 'len' => nil, 'wid' => nil }
+        'height' => InteriorPro::FixtureLibrary.default_height(k), 'gap' => nil, 'len' => nil, 'wid' => nil,
+        'deck_front' => nil, 'deck_left' => nil, 'deck_right' => nil }
     end
 
     # What he chose last time, so the second fixture is one click away.
@@ -44,6 +45,8 @@ module InteriorPro
             'have' => InteriorPro::FixtureLibrary.parts_available(k, n),
             'size' => InteriorPro::FixtureLibrary.resize?(k) ? InteriorPro::FixtureLibrary.size_of(model, k, n) : nil,
             'gap' => InteriorPro::FixtureLibrary.default_gap(k, n),
+            'deck' => InteriorPro::FixtureLibrary.deck?(k, n),
+            'deck_front' => InteriorPro::FixtureLibrary.deck?(k, n) && InteriorPro::FixtureLibrary.deck_front?(n),
             'parts' => InteriorPro::FixtureLibrary.default_parts(k, n) }
         end
         out[k] = { 'label' => info[:label], 'height' => info[:height], 'set' => info[:set] ? true : false,
@@ -76,6 +79,12 @@ module InteriorPro
         cfg['height'] = cfg['height'].to_f
         # the tub's gap from the wall; a kind without one keeps none
         cfg['gap'] = InteriorPro::FixtureLibrary.default_gap(cfg['kind']).nil? ? nil : InteriorPro::FixtureLibrary.wall_gap(cfg['kind'], cfg)
+        # the deck round a drop-in tub: front / left / right, inches past it
+        deck = InteriorPro::FixtureLibrary.deck?(cfg['kind'], cfg['product'])
+        fr_, le_, ri_ = InteriorPro::FixtureLibrary.deck_sides(cfg)
+        cfg['deck_front'] = deck ? fr_ : nil
+        cfg['deck_left'] = deck ? le_ : nil
+        cfg['deck_right'] = deck ? ri_ : nil
         # a tub's typed length / width; empty or 0 = its file's own size
         %w[len wid].each do |k|
           v = InteriorPro::FixtureLibrary.resize?(cfg['kind']) ? cfg[k].to_f : 0.0
@@ -184,6 +193,12 @@ module InteriorPro
             Length <input type="number" id="len" step="0.5" min="1"> in
             &nbsp; Width <input type="number" id="wid" step="0.5" min="1"> in
           </div>
+          <div class="row" id="deckRow" style="display:none;">
+            Deck past the tub: <span id="deckFrontBox">front <input type="number" id="deck_front" step="0.5" min="0"></span>
+            left <input type="number" id="deck_left" step="0.5" min="0">
+            right <input type="number" id="deck_right" step="0.5" min="0"> in
+            <div style="margin-top:3px;">Left / right as you face the wall. The back is From the wall.</div>
+          </div>
           <div class="row" id="gapRow" style="display:none;">
             From the wall <input type="number" id="gap" step="0.5" min="0"> in
           </div>
@@ -211,7 +226,13 @@ module InteriorPro
             // which product the Length / Width boxes were filled for
             var sizedFor = '';
             // which product the From the wall box was filled for
-            var gapFor = (D.gap !== null && D.gap !== undefined && D.kind === kind) ? kind + '|' + product : '';
+            // A DROP-IN'S BACK STRIP IS A CHOICE, NOT A DEFAULT (2026-10-01, his
+            // words: "החלק הזה צריך להיות יכול בחירה ולא ברירת מחדל"): its From
+            // the wall always opens at its own 0, never at the last number typed.
+            // The edit window (D.corner set) still shows the tub's own number.
+            var keepGap = D.gap !== null && D.gap !== undefined && D.kind === kind &&
+                          (D.corner !== undefined && D.corner !== null || !(curProduct().deck));
+            var gapFor = keepGap ? kind + '|' + product : '';
             function kindSvg(k) {
               var s = '';
               if (k === 'shower_set') {
@@ -270,6 +291,8 @@ module InteriorPro
                 if (sz) { document.getElementById('len').value = sz[0]; document.getElementById('wid').value = sz[1]; }
                 sizedFor = kind + '|' + product;
               }
+              document.getElementById('deckRow').style.display = curProduct().deck ? '' : 'none';
+              document.getElementById('deckFrontBox').style.display = curProduct().deck_front ? '' : 'none';
               var hasGap = CAT[kind].gap !== null && CAT[kind].gap !== undefined;
               document.getElementById('gapRow').style.display = hasGap ? '' : 'none';
               // each product starts at its own gap (an alcove tub at 0)
@@ -362,6 +385,12 @@ module InteriorPro
             }
             function cur() {
               var o = { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              if (curProduct().deck) {
+                ['deck_front', 'deck_left', 'deck_right'].forEach(function(k) {
+                  var v = parseFloat(document.getElementById(k).value);
+                  o[k] = isNaN(v) ? null : v;
+                });
+              }
               if (CAT[kind].resize) {
                 var sz = curProduct().size || [0, 0];
                 var lv = parseFloat(document.getElementById('len').value), wv = parseFloat(document.getElementById('wid').value);
@@ -405,6 +434,10 @@ module InteriorPro
               document.getElementById('wid').value = D.wid || s0[1];
               sizedFor = kind + '|' + product;
             }
+            // the deck: his last numbers, else front 3 / left 0 / right 0
+            document.getElementById('deck_front').value = (D.deck_front !== null && D.deck_front !== undefined) ? D.deck_front : 3;
+            document.getElementById('deck_left').value = (D.deck_left !== null && D.deck_left !== undefined) ? D.deck_left : 0;
+            document.getElementById('deck_right').value = (D.deck_right !== null && D.deck_right !== undefined) ? D.deck_right : 0;
             renderKinds();
             renderProducts();
           </script>

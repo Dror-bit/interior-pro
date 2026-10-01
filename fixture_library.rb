@@ -44,6 +44,17 @@ module InteriorPro
     USE_RESIZE = true unless const_defined?(:USE_RESIZE, false)
     # Kill switch: false = a tub / toilet can stand on the outside of the house again.
     USE_INSIDE_ONLY = true unless const_defined?(:USE_INSIDE_ONLY, false)
+    # Kill switch: false = a drop-in tub is placed bare, no deck around it.
+    USE_DECK = true unless const_defined?(:USE_DECK, false)
+    # THE DECK OF A DROP-IN TUB (2026-10-01). His words on the first one:
+    # "צריך שהטיל יהיה גם למעלה באותו גובה של האמבטיה ... רק הלפנים יהיה
+    # 3\" מרווח מהאמבטיה ואת שאר הצדדים ברירת מחדל של 0 ואני יכניס ידנית
+    # לכל צד". Front 3", left and right 0, the back = From the wall.
+    DECK_FRONT_IN = 3.0 unless const_defined?(:DECK_FRONT_IN, false)
+    # Kill switch: false = the deck front stays plain white, no tile.
+    USE_DECK_TILE = true unless const_defined?(:USE_DECK_TILE, false)
+    # Kill switch: false = the top tile simply runs over the front tile's edge.
+    USE_DECK_MITER = true unless const_defined?(:USE_DECK_MITER, false)
 
     # The kinds. A method, not a guarded constant, so reload! sees changes.
     # on_tile: only on a tiled area, standing on its face (his call,
@@ -108,7 +119,8 @@ module InteriorPro
     def self.default_gap(kind, product = nil)
       g = kinds[kind_ok(kind)][:gap]
       return g if g.nil?
-      kind_ok(kind) == 'tub' && product.to_s =~ /alcove/i ? 0.0 : g
+      # a drop-in tub too: its back side of the deck is this number (0)
+      kind_ok(kind) == 'tub' && product.to_s =~ /alcove|drop/i ? 0.0 : g
     end
 
     # The gap to use: the window's number, else the kind's default. 0 for
@@ -131,6 +143,384 @@ module InteriorPro
       return false unless wall.respond_to?(:get_attribute)
       cat = (wall.get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s
       cat == 'exterior' && side.to_s == 'b'
+    end
+
+    # A tub with "drop" in its name ("Drop-in tub") gets a deck. PURE.
+    # AN ALCOVE TUB GETS SIDES ONLY (2026-10-01, his words: "באלקוב צריך
+    # להיות אופציה גם בצדדים"): left / right typed, both 0 by default, no
+    # front (its own apron is the front).
+    def self.deck?(kind, product)
+      USE_DECK && kind_ok(kind) == 'tub' && product.to_s =~ /drop|alcove/i ? true : false
+    end
+
+    # Does this product's deck have a front strip at all? PURE.
+    def self.deck_front?(product)
+      product.to_s =~ /alcove/i ? false : true
+    end
+
+    # The window's deck numbers: front, left, right (inches past the tub,
+    # LEFT and RIGHT as he stands in the room facing the wall). PURE.
+    def self.deck_sides(cfg)
+      num = lambda do |k, dflt|
+        v = cfg.is_a?(Hash) ? cfg[k] : nil
+        v = v.nil? || v.to_s == '' ? dflt : v.to_f
+        v < 0.0 ? 0.0 : v
+      end
+      fr = deck_front?(cfg.is_a?(Hash) ? cfg['product'] : nil) ? num.call('deck_front', DECK_FRONT_IN) : 0.0
+      [fr, num.call('deck_left', 0.0), num.call('deck_right', 0.0)]
+    end
+
+    # Facing the wall from the room, +u runs to the LEFT on side "a" and to
+    # the RIGHT on side "b" (side a's normal is left of start->end). PURE.
+    def self.deck_lo_hi(side, left, right)
+      side.to_s == 'b' ? [left, right] : [right, left]
+    end
+
+    # The deck on the face, from the placed tub part p at line u, standing
+    # `out` off the wall. o = inches out of the wall. h = the deck body's
+    # top: under the tub's top by the tile on it (dp), so the tile's face
+    # lands level with the tub. PURE.
+    #   { u0:, u1:, o0:, o1:, h:, tub: [u0, u1, o0, o1], front: }
+    def self.deck_box(p, u, out, front, lo, hi, dp = 0.0)
+      cu = u.to_f + p[:du].to_f
+      tu0 = cu + p[:minx] - p[:ax]
+      tu1 = cu + p[:maxx] - p[:ax]
+      to0 = out.to_f
+      to1 = to0 + (p[:maxy] - p[:miny])
+      { u0: tu0 - lo.to_f, u1: tu1 + hi.to_f, o0: 0.0, o1: to1 + front.to_f,
+        h: (p[:maxz] - p[:minz]) - dp.to_f, tub: [tu0, tu1, to0, to1], front: front.to_f }
+    end
+
+    # The deck as STRIPS round the tub, each in its own group (CLAUDE.md:
+    # every board in its own group): [u0, u1, o0, o1] for each side wider
+    # than nothing. PURE.
+    def self.deck_strips(d)
+      tu0, tu1, to0, to1 = d[:tub]
+      [[d[:u0], d[:u1], to1, d[:o1]],    # front
+       [d[:u0], d[:u1], d[:o0], to0],    # back (From the wall)
+       [d[:u0], tu0, to0, to1],          # the low-u end
+       [tu1, d[:u1], to0, to1]]          # the high-u end
+        .select { |a0, a1, b0, b1| a1 - a0 > 0.01 && b1 - b0 > 0.01 }
+    end
+
+    def self.deck_pt(fr, uu, oo, zz)
+      x, y, z = InteriorPro::TileWall.world(fr, uu, zz, oo)
+      Geom::Point3d.new(x, y, z)
+    end
+
+    # Build the deck body: each strip a box from the floor, white.
+    def self.build_deck!(grp, fr, d)
+      model = Sketchup.active_model
+      mat = model.materials['InteriorPro_Deck'] || model.materials.add('InteriorPro_Deck')
+      mat.color = Sketchup::Color.new(245, 245, 245)
+      g = grp.entities.add_group
+      g.name = 'InteriorPro_TubDeck'
+      deck_strips(d).each do |a0, a1, b0, b1|
+        sg = g.entities.add_group
+        f = sg.entities.add_face([[a0, b0], [a1, b0], [a1, b1], [a0, b1]].map { |a, b| deck_pt(fr, a, b, 0.0) })
+        if f.nil?
+          puts "[Fixture] deck: a strip #{[a0, a1, b0, b1].map { |v| v.round(2) }.inspect} could not be made"
+          sg.erase!
+          next
+        end
+        f.reverse! if f.normal.z > 0
+        f.pushpull(-d[:h])
+        sg.entities.grep(Sketchup::Face).each { |fc| fc.material = mat }
+      end
+      if g.entities.length.zero?
+        puts '[Fixture] deck: every side is 0 - no deck'
+        g.erase!
+        return nil
+      end
+      g
+    end
+
+    # THE DECK WEARS THE WALL'S TILE (2026-10-01, his words: "שהריצפה
+    # תהיה כמו או הריצפה או נטיל של הקירות" - default "הקיר"). The tiled
+    # area on the SAME wall and side that overlaps the deck the most. nil =
+    # no tile on that wall - the deck stays white.
+    def self.deck_source(wall, side, u0, u1, model = Sketchup.active_model)
+      wid = wall.get_attribute('InteriorPro', 'id').to_s
+      best = nil
+      most = 0.0
+      InteriorPro::TileWall.areas_in_model(model).each do |g|
+        at = lambda { |k| g.get_attribute('InteriorPro', k) }
+        next unless at.call('wall_id').to_s == wid && at.call('side').to_s == side.to_s
+        a0 = (at.call('built_u0') || at.call('u0')).to_f
+        a1 = a0 + (at.call('built_w') || at.call('area_w')).to_f
+        ov = [a1, u1].min - [a0, u0].max
+        ov = 0.001 if ov <= 0.0 && best.nil? # same wall, not over it: still better than nothing
+        if ov > most
+          most = ov
+          best = g
+        end
+      end
+      best
+    end
+
+    # Where the wall's grid puts its first joint, so the deck's joints run
+    # on from the wall's: [u, v] to hand to the grid as its push. PURE.
+    def self.grid_phase(first_u, first_v, deck_u0, deck_z0 = 0.0)
+      [first_u.to_f - deck_u0.to_f, first_v.to_f - deck_z0.to_f]
+    end
+
+    # Everything the deck's tile takes from the wall's tiled area.
+    def self.deck_tile_spec(src)
+      tw_mod = InteriorPro::TileWall
+      at = lambda { |k| src.get_attribute('InteriorPro', k) }
+      c = tw_mod.card(at.call('material_card_id'))
+      tw = at.call('tile_w').to_f
+      tl = at.call('tile_l').to_f
+      tw = 12.0 if tw <= 0.25
+      tl = tw if tl <= 0.25
+      sp = { id: at.call('id'), tw: tw, tl: tl, g: at.call('pattern_grout').to_f, st: at.call('pattern_stagger').to_f,
+             dp: at.call('tile_depth').nil? ? tw_mod::DEFAULT_DEPTH : at.call('tile_depth').to_f,
+             gc: at.call('pattern_grout_color'), first_u: nil, first_v: nil,
+             img_w: c && c['texture_width_inches'].to_f > 0.25 ? c['texture_width_inches'].to_f : nil,
+             img_l: c && c['texture_height_inches'].to_f > 0.25 ? c['texture_height_inches'].to_f : nil,
+             mat: c ? (InteriorPro::MaterialLibraryDialog.material_from_card(Sketchup.active_model, c) rescue nil) : nil }
+      sp[:dp] = 0.0 if sp[:dp] < 0.02
+      if at.call('pattern_angle').to_f.abs < 1.0e-9
+        bu0 = (at.call('built_u0') || at.call('u0')).to_f
+        bw = (at.call('built_w') || at.call('area_w')).to_f
+        cen = tw_mod.center_for_grid(tw_mod.center_value(at.call('pattern_center')), at.call('pattern_center_axis'))
+        cells = InteriorPro::TileGrid.cells(tw_mod.rect(bu0, at.call('z0').to_f, bw, at.call('area_h').to_f),
+                                            u_size: tw, v_size: tl, grout: sp[:g], ox: at.call('pattern_ox').to_f,
+                                            oy: at.call('pattern_oy').to_f, centered: cen, stagger: 0.0, limit: 200_000) || []
+        unless cells.empty?
+          sp[:first_u] = cells.first[:u0]
+          sp[:first_v] = cells.first[:v0]
+        end
+      end
+      sp
+    end
+
+    # The deck's FRONT, tiled like a wall (same pieces, grout, solids as
+    # TileWall) on a frame standing at the deck's front face. Its tiles
+    # stop under the top tile, which runs over them (boards meet).
+    def self.build_deck_front_tile!(ge, fr, d, sp, a0 = d[:u0], a1 = d[:u1])
+      tw_mod = InteriorPro::TileWall
+      frd = fr.merge(ox: fr[:ox] + fr[:nx] * d[:o1], oy: fr[:oy] + fr[:ny] * d[:o1])
+      w = a1 - a0
+      ht = d[:h] + (miter_on?(sp) ? sp[:dp] : 0.0)
+      pu, pv = sp[:first_u] ? grid_phase(sp[:first_u], sp[:first_v], a0) : [0.0, 0.0]
+      ps = tw_mod.pieces_rect(a0, 0.0, w, ht, [], u_size: sp[:tw], v_size: sp[:tl], grout: sp[:g],
+                              ox: pu, oy: pv, centered: false, stagger: sp[:st]) || []
+      solid = tw_mod::USE_SOLID_TILES && sp[:dp] > 0.02 && sp[:mat] && ps.length <= tw_mod::MAX_SOLID
+      if sp[:mat]
+        back = solid ? [sp[:dp] - tw_mod::GROUT_BACK, tw_mod::GROUT_OFF].max : tw_mod::GROUT_OFF
+        # the grout stops at the deck's corner, never inside the 45 degree edge
+        tw_mod.emit_area_faces!(ge, frd, [tw_mod.rect(a0, 0.0, w, d[:h])],
+                                tw_mod.grout_material(Sketchup.active_model, sp[:gc]), back)
+      end
+      if solid
+        tw_mod.emit_tile_solids!(ge, frd, ps, sp[:mat], sp[:img_w] || sp[:tw], sp[:img_l] || sp[:tl], sp[:dp])
+      elsif sp[:mat]
+        tw_mod.emit_tile_faces!(ge, frd, ps, sp[:mat], sp[:img_w] || sp[:tw], sp[:img_l] || sp[:tl])
+      else
+        tw_mod.emit_tile_edges!(ge, frd, ps)
+      end
+      ps.length
+    end
+
+    # The deck's TOP: the same grid laid flat, u along the wall and v out
+    # of it, round the tub's hole. Each tile its own little box standing
+    # up from the deck body to the tub's height.
+    def self.build_deck_top_tile!(ge, fr, d, sp, o_end)
+      tw_mod = InteriorPro::TileWall
+      w = d[:u1] - d[:u0]
+      depth = o_end - d[:o0]
+      tu0, tu1, to0, to1 = d[:tub]
+      # no front strip: the tub's own front is open, nothing runs out over it
+      holes = [[tu0, to0, tu1, d[:front] > 0.01 ? to1 : [to1, o_end].max]]
+      pu = sp[:first_u] ? sp[:first_u] - d[:u0] : 0.0
+      ps = tw_mod.pieces_rect(d[:u0], d[:o0], w, depth, holes, u_size: sp[:tw], v_size: sp[:tl], grout: sp[:g],
+                              ox: pu, oy: 0.0, centered: false, stagger: sp[:st]) || []
+      flat = lambda do |ents, ring, z|
+        f = ents.add_face(ring.map { |a, b| deck_pt(fr, a, b, z) }) rescue nil
+        return nil if f.nil?
+        tw_mod.ring_holes(ring).each do |hr|
+          inner = ents.add_face(hr.map { |a, b| deck_pt(fr, a, b, z) }) rescue nil
+          inner.erase! if inner && inner.valid? && !inner.equal?(f)
+        end
+        f.reverse! if f.valid? && f.normal.z < 0
+        f.valid? ? f : nil
+      end
+      dp = sp[:dp]
+      if sp[:mat]
+        back = dp > 0.02 ? [dp - tw_mod::GROUT_BACK, tw_mod::GROUT_OFF].max : tw_mod::GROUT_OFF
+        gm = tw_mod.grout_material(Sketchup.active_model, sp[:gc])
+        tw_mod.area_polys(d[:u0], d[:o0], w, [d[:o1] - d[:o0], depth].min, holes).each do |poly|
+          f = flat.call(ge, poly, d[:h] + back)
+          next unless f
+          f.material = gm
+          f.back_material = gm
+          f.edges.each { |e| e.hidden = true; e.soft = true; e.smooth = true }
+        end
+      end
+      tex_u = sp[:img_w] || sp[:tw]
+      tex_v = sp[:img_l] || sp[:tl]
+      ps.each do |p|
+        sub = ge.add_group
+        f = flat.call(sub.entities, p[:poly], d[:h])
+        if f.nil?
+          sub.erase!
+          next
+        end
+        f.pushpull(dp) if dp > 0.02
+        next unless sp[:mat]
+        sub.entities.grep(Sketchup::Face).each { |q| q.material = sp[:mat]; q.back_material = sp[:mat] }
+        top = sub.entities.grep(Sketchup::Face).max_by { |q| q.bounds.max.z }
+        o = deck_pt(fr, p[:u0], p[:v0], d[:h] + dp)
+        pu = deck_pt(fr, p[:u0] + tex_u, p[:v0], d[:h] + dp)
+        pv = deck_pt(fr, p[:u0], p[:v0] + tex_v, d[:h] + dp)
+        begin
+          top.position_material(sp[:mat], [o, Geom::Point3d.new(0, 0, 0), pu, Geom::Point3d.new(1, 0, 0),
+                                           pv, Geom::Point3d.new(0, 1, 0)], true)
+        rescue StandardError
+          nil
+        end
+      end
+      ps.length
+    end
+
+    # THE DECK STOPS AT THE SIDE WALLS (2026-10-01, his words: "הצדדים ...
+    # לא יכולים להיכנס לתוך הקיר לא משנה כמה אינצים אני רוצה המקסימום הוא
+    # לגעת בטיל שעל הקיר"). Clip its two ends to [lo, hi]. PURE.
+    def self.clamp_deck(d, lo, hi)
+      d.merge(u0: [d[:u0], lo.to_f].max, u1: [d[:u1], hi.to_f].min)
+    end
+
+    # How far the deck may run along the wall: the faces of the walls at
+    # each side (TileWall.face_limits), then back to the face of any tile
+    # standing on them beside the deck. [lo, hi] in this face's u.
+    def self.deck_limits(wall, fr, d, model = Sketchup.active_model)
+      tu0, tu1, = d[:tub]
+      lo, hi = InteriorPro::TileWall.face_limits(wall, fr, (tu0 + tu1) / 2.0, model)
+      wid = wall.get_attribute('InteriorPro', 'id').to_s
+      z0 = fr[:floor_z].to_f
+      InteriorPro::TileWall.areas_in_model(model).each do |g|
+        next if g.get_attribute('InteriorPro', 'wall_id').to_s == wid
+        b = g.bounds
+        us = []
+        os = []
+        8.times do |k|
+          c = b.corner(k)
+          us << (c.x - fr[:ox]) * fr[:ux] + (c.y - fr[:oy]) * fr[:uy]
+          os << (c.x - fr[:ox]) * fr[:nx] + (c.y - fr[:oy]) * fr[:ny]
+        end
+        # only a tile beside the deck: in front of the wall, low enough
+        next if os.max <= d[:o0] + 0.01 || os.min >= d[:o1] - 0.01
+        next if b.min.z.to_f >= z0 + d[:h] + 1.0
+        if us.max <= tu0 + 0.01
+          lo = us.max if us.max > lo
+        elsif us.min >= tu1 - 0.01
+          hi = us.min if us.min < hi
+        end
+      end
+      [lo, hi]
+    rescue StandardError => e
+      puts "[Fixture] deck limits: #{e.message}"
+      [-1.0e9, 1.0e9]
+    end
+
+    # ONE SIDE 0, THE OTHER A NUMBER = THE TUB GOES TO THE WALL ON THE 0
+    # SIDE (2026-10-01, his words: "אם אני לוחץ 0 בצד אחד ומספר בצד שני
+    # האמבטיה צריכה להידבק לקיר בצד של ה-0"). The new line u. PURE.
+    def self.snap_deck_u(u, tu0, tu1, lim_lo, lim_hi, lo, hi)
+      if lo.to_f <= 0.0 && hi.to_f > 0.0
+        u.to_f + (lim_lo.to_f - tu0.to_f)
+      elsif hi.to_f <= 0.0 && lo.to_f > 0.0
+        u.to_f + (lim_hi.to_f - tu1.to_f)
+      else
+        u.to_f
+      end
+    end
+
+    def self.snap_to_side_wall(wall, side, fr, u, cfg, parts, outs)
+      return u unless deck?(cfg['kind'], cfg['product']) && parts.length == 1
+      _front, left, right = deck_sides(cfg)
+      lo, hi = deck_lo_hi(side, left, right)
+      return u if (lo <= 0.0) == (hi <= 0.0)
+      d0 = deck_box(parts[0], u, outs[0], 0.0, 0.0, 0.0)
+      lim_lo, lim_hi = deck_limits(wall, fr, d0)
+      nu = snap_deck_u(u, d0[:tub][0], d0[:tub][1], lim_lo, lim_hi, lo, hi)
+      if (nu - u).abs > 1.0e5
+        puts '[Fixture] deck: no side wall found to put the tub against - left where it was clicked'
+        return u
+      end
+      puts "[Fixture] deck: tub moved #{(nu - u).round(2)}\" to the wall on its 0 side" if (nu - u).abs > 0.001
+      nu
+    end
+
+    # Where the deck shows a front face to the room, as [u0, u1] spans. PURE.
+    def self.deck_front_spans(d)
+      tu0, tu1, = d[:tub]
+      spans = d[:front] > 0.01 ? [[d[:u0], d[:u1]]] : [[d[:u0], tu0], [tu1, d[:u1]]]
+      spans.select { |a0, a1| a1 - a0 > 0.01 }
+    end
+
+    def self.miter_on?(sp)
+      USE_DECK_MITER && sp[:dp].to_f > 0.02 && sp[:mat] && InteriorPro::TileWall::USE_SOLID_TILES
+    end
+
+    # THE FRONT EDGE AT 45 DEGREES (2026-10-01, his words: "שהחיבור פה יהיה
+    # 45 מעלות"). The front tiles run up to the top of the top tile; the
+    # top tiles run out to the face of the front tile. Then the two inner
+    # corners are pulled back along the 45 degree line, the same way the
+    # niche corners are bevelled: on a front tile the top INNER corner
+    # comes down by the tile's depth, on a top tile the bottom OUTER corner
+    # comes in by it. They meet on one plane, nothing runs inside the other.
+    # Returns [front tiles cut, top tiles cut].
+    def self.miter_deck_edge!(gf, gt, fr, d, dp)
+      tol = 0.01
+      z_top = fr[:floor_z].to_f + d[:h] + dp
+      z_bed = fr[:floor_z].to_f + d[:h]
+      o_of = lambda { |p| (p.x - fr[:ox]) * fr[:nx] + (p.y - fr[:oy]) * fr[:ny] }
+      move = lambda do |grp, pick, vec|
+        n = 0
+        grp.entities.grep(Sketchup::Group).each do |tg|
+          vs = tg.entities.grep(Sketchup::Edge).flat_map(&:vertices).uniq.select { |v| pick.call(v.position) }
+          next if vs.empty?
+          tg.entities.transform_by_vectors(vs, Array.new(vs.length) { vec })
+          n += 1
+        end
+        n
+      end
+      down = Geom::Vector3d.new(0, 0, -dp)
+      back = Geom::Vector3d.new(-fr[:nx] * dp, -fr[:ny] * dp, 0)
+      mf = move.call(gf, ->(p) { (p.z - z_top).abs < tol && (o_of.call(p) - d[:o1]).abs < tol }, down)
+      mt = move.call(gt, ->(p) { (p.z - z_bed).abs < tol && (o_of.call(p) - (d[:o1] + dp)).abs < tol }, back)
+      [mf, mt]
+    rescue StandardError => e
+      puts "[Fixture] the 45 degree edge could not be cut: #{e.message}"
+      [0, 0]
+    end
+
+    # Tile the deck - its top always, its front when it has one - in its
+    # OWN group inside the fixture group.
+    def self.build_deck_tile!(grp, fr, d, sp)
+      return nil unless USE_DECK_TILE
+      sub = grp.entities.add_group
+      sub.name = 'InteriorPro_TubDeckTile'
+      gf = sub.entities.add_group
+      gt = sub.entities.add_group
+      # THE FRONT FACES (2026-10-01, his words on the alcove: "שהצדדים פה
+      # יהיה עליהם גם טיל בחיתוך של 45 מעלות"): with a front strip, one face
+      # the whole deck wide; without one, the front of each side strip.
+      nf = deck_front_spans(d).sum { |a0, a1| build_deck_front_tile!(gf.entities, fr, d, sp, a0, a1) }
+      # the top runs over the front tile's edge (boards meet, not inside each other)
+      nt = build_deck_top_tile!(gt.entities, fr, d, sp, d[:o1] + (nf > 0 ? sp[:dp] : 0.0))
+      mf = mt = 0
+      if nf > 0 && miter_on?(sp)
+        mf, mt = miter_deck_edge!(gf, gt, fr, d, sp[:dp])
+      end
+      puts "[Fixture] deck tile from area #{sp[:id]}: front #{nf} piece(s), top #{nt} piece(s), #{sp[:tw]}x#{sp[:tl]}, " \
+           "45 deg edge: #{mf} front + #{mt} top tile(s) cut"
+      sub
+    rescue StandardError => e
+      puts "[Fixture] deck tile failed: #{e.class}: #{e.message} #{e.backtrace.first}"
+      nil
     end
 
     def self.resize?(kind)
@@ -214,8 +604,12 @@ module InteriorPro
 
     # His own products FIRST, the stand-in last (2026-09-25: with 'Simple'
     # first and chosen by default, his Set 1 was never the one placed).
+    # NO STAND-IN NEXT TO HIS OWN (2026-10-01, his words: "תוריד את
+    # הסאמפלים מכל האופציות"). 'Simple' shows only while a kind has no
+    # file of its own yet, so the window is never empty.
     def self.products(kind)
-      names(kind) + [SIMPLE]
+      n = names(kind)
+      n.empty? ? [SIMPLE] : n
     end
 
     # Which parts this set really has. The stand-in has all four.
@@ -626,6 +1020,7 @@ module InteriorPro
       model.start_operation('Place Fixture', true) if op
       grp = model.entities.add_group
       grp.name = 'InteriorPro_Fixture'
+      u = snap_to_side_wall(wall, side, fr, u, cfg, parts, outs)
       parts.each_with_index do |p, i|
         shift = Geom::Transformation.translation(Geom::Vector3d.new(-p[:ax], -p[:miny], -p[:az]))
         x, y, zz = InteriorPro::TileWall.world(fr, u + p[:du], p[:h], outs[i].to_f)
@@ -641,6 +1036,27 @@ module InteriorPro
         end
         inst = grp.entities.add_instance(p[:defn], face * shift)
         inst.set_attribute('InteriorPro', 'part', p[:part].to_s) if p[:part]
+      end
+      if deck?(cfg['kind'], cfg['product']) && parts.length == 1
+        front, left, right = deck_sides(cfg)
+        lo, hi = deck_lo_hi(side, left, right)
+        dk = deck_box(parts[0], u, outs[0], front, lo, hi)
+        src = USE_DECK_TILE ? deck_source(wall, side, dk[:u0], dk[:u1]) : nil
+        sp = src ? deck_tile_spec(src) : nil
+        # the body stops under the top tile, so the tile's face is level with the tub
+        dk = deck_box(parts[0], u, outs[0], front, lo, hi, sp ? sp[:dp] : 0.0) if sp
+        lim_lo, lim_hi = deck_limits(wall, fr, dk)
+        if dk[:u0] < lim_lo - 0.001 || dk[:u1] > lim_hi + 0.001
+          puts "[Fixture] deck: its ends stop at the side walls' tile (#{dk[:u0].round(2)}..#{dk[:u1].round(2)} " \
+               "-> #{[dk[:u0], lim_lo].max.round(2)}..#{[dk[:u1], lim_hi].min.round(2)})"
+          dk = clamp_deck(dk, lim_lo, lim_hi)
+        end
+        built = build_deck!(grp, fr, dk)
+        if sp && built
+          build_deck_tile!(grp, fr, dk, sp)
+        elsif USE_DECK_TILE
+          puts '[Fixture] deck: no tiled area on this wall - the deck is left white'
+        end
       end
       keep = cfg.reject { |k, _| k == 'corner' }
       {
