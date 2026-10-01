@@ -10347,9 +10347,28 @@ module InteriorPro
               var cx = 0, cy = 0, n = 0;
               ext.forEach(function(w){ cx += w.sx + w.ex; cy += w.sy + w.ey; n += 2; });
               cx /= n; cy /= n;
-              ext.forEach(function(w){
+              // A CLOSED LOOP decides once, for all its walls (2026-09-30).
+              // The center test above is wrong for a notch: the notch's two
+              // sides were flipped alone, each slid a thickness, and four
+              // corners opened 5" - then the weld pulled single ends sideways
+              // and the notch came out 92.1 / 87.9. Now the loop's own signed
+              // area says where the inside is, so a loop drawn the right way
+              // round flips nothing, and one drawn backwards flips every wall.
+              var loopFlip = loopFlipMap(ext);
+              var flips = [];
+              ext.forEach(function(w, wi){
                 var b = bandQuad(w); if (!b) return;
                 var mid = (b.p + b.q) / 2;
+                if (loopFlip.has(w)) {
+                  if (!loopFlip.get(w)) return;
+                  flips.push(wi);
+                  var ox0 = b.nx * b.p, oy0 = b.ny * b.p;
+                  var t0 = {x:w.sx, y:w.sy};
+                  w.sx = w.ex + ox0; w.sy = w.ey + oy0;
+                  w.ex = t0.x + ox0; w.ey = t0.y + oy0;
+                  w.ha = 'left';
+                  return;
+                }
                 var lx = (w.sx + w.ex)/2, ly = (w.sy + w.ey)/2;
                 var bx = lx + b.nx*mid, by = ly + b.ny*mid;
                 if (Math.hypot(bx - cx, by - cy) > Math.hypot(lx - cx, ly - cy)) {
@@ -10366,9 +10385,70 @@ module InteriorPro
                   w.sx = w.ex + ox; w.sy = w.ey + oy;
                   w.ex = t.x + ox;  w.ey = t.y + oy;
                   w.ha = 'left';
+                  flips.push(wi);
                 }
               });
+              claudeLog('autoOrientExterior: ' + ext.length + ' ext walls, ' +
+                        loopFlip.size + ' in closed loops, flipped [' + flips.join(',') + ']');
               draw();
+            }
+
+            // For every exterior wall that sits in a CLOSED loop (each corner
+            // shared by exactly two walls), true = flip it, false = leave it.
+            // Walls not in a closed loop are not in the map (old center test).
+            function loopFlipMap(ext) {
+              var out = new Map();
+              var TOL = 0.75;
+              var key = function(x, y) {
+                for (var k = 0; k < nodes.length; k++) {
+                  if (Math.hypot(nodes[k].x - x, nodes[k].y - y) <= TOL) return k;
+                }
+                nodes.push({ x: x, y: y, ws: [] });
+                return nodes.length - 1;
+              };
+              var nodes = [];
+              var ends = ext.map(function(w) {
+                var a = key(w.sx, w.sy), b = key(w.ex, w.ey);
+                nodes[a].ws.push(w); nodes[b].ws.push(w);
+                return { a: a, b: b };
+              });
+              var seen = new Set();
+              ext.forEach(function(w0, i0) {
+                if (seen.has(w0)) return;
+                // walk the chain from w0
+                var chain = [], dirs = [], pts = [];
+                var w = w0, i = i0, at = ends[i0].a, closed = false;
+                while (true) {
+                  if (nodes[at].ws.length !== 2) break;
+                  var e = ends[i];
+                  var fwd = (e.a === at);
+                  chain.push(w); dirs.push(fwd);
+                  pts.push(nodes[at]);
+                  var nxt = fwd ? e.b : e.a;
+                  if (nodes[nxt].ws.length !== 2) break;
+                  var w2 = nodes[nxt].ws[0] === w ? nodes[nxt].ws[1] : nodes[nxt].ws[0];
+                  if (w2 === w0) { closed = (nxt === ends[i0].a); break; }
+                  if (chain.indexOf(w2) >= 0) break;
+                  w = w2; i = ext.indexOf(w2); at = nxt;
+                }
+                chain.forEach(function(c) { seen.add(c); });
+                if (!closed || chain.length < 3) return;
+                var A = 0;
+                for (var k = 0; k < pts.length; k++) {
+                  var p1 = pts[k], p2 = pts[(k + 1) % pts.length];
+                  A += p1.x * p2.y - p2.x * p1.y;
+                }
+                if (Math.abs(A) < 1e-6) return;
+                // Inside of the walk is on the +n side (n = left normal) when A > 0.
+                chain.forEach(function(c, k) {
+                  var b = bandQuad(c); if (!b) return;
+                  var mid = (b.p + b.q) / 2;
+                  if (Math.abs(mid) < 1e-9) { out.set(c, false); return; }
+                  var inSide = (A > 0) === dirs[k] ? 1 : -1;
+                  out.set(c, (mid > 0 ? 1 : -1) !== inSide);
+                });
+              });
+              return out;
             }
 
             function applyBusy(on) {

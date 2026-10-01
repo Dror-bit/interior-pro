@@ -19,7 +19,7 @@ end
 
 L = InteriorPro::FixtureLibrary
 ok('kill switch is there and on', L::USE_FIXTURES == true)
-ok('two kinds: shower SET and toilet', L.kinds.keys == %w[shower_set toilet])
+ok('the kinds: shower SET, toilet, vanity, tub', L.kinds.keys == %w[shower_set toilet vanity tub])
 ok('shower head starts at 80"', L.default_height('shower_set') == 80.0)
 ok('toilet sits on the floor', L.default_height('toilet') == 0.0)
 ok('an unknown kind falls back, never crashes', L.kind_ok('xyz') == 'shower_set')

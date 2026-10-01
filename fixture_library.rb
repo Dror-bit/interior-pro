@@ -36,6 +36,8 @@ module InteriorPro
     SIMPLE = 'Simple' unless const_defined?(:SIMPLE, false)
     # Kill switch: false = hidden things inside a part file are kept.
     USE_STRIP_HIDDEN = true unless const_defined?(:USE_STRIP_HIDDEN, false)
+    # Kill switch: false = a tub stands on the wall again, the gap ignored.
+    USE_WALL_GAP = true unless const_defined?(:USE_WALL_GAP, false)
 
     # The kinds. A method, not a guarded constant, so reload! sees changes.
     # on_tile: only on a tiled area, standing on its face (his call,
@@ -48,7 +50,9 @@ module InteriorPro
         # ואז לשמור אותו ולהכניס אותו"). One .skp each, like a toilet:
         # back on the wall, bottom on the floor, middle on the line.
         'vanity'     => { dir: 'VANITIES',    label: 'Vanity',     height: 0.0 },
-        'tub'        => { dir: 'TUBS',        label: 'Tub',        height: 0.0 }
+        # FROM THE WALL (2026-09-30, his words: "שיהיה אפשרות לקבוע מרחק
+        # מהקיר ... ברירת מחדל 4\""). gap: its back stands this far off.
+        'tub'        => { dir: 'TUBS',        label: 'Tub',        height: 0.0, gap: 4.0 }
       }
     end
 
@@ -80,6 +84,22 @@ module InteriorPro
 
     def self.default_height(kind)
       kinds[kind_ok(kind)][:height]
+    end
+
+    # How far its back stands off the wall. nil = this kind has no such
+    # number (it sits on the wall). PURE.
+    def self.default_gap(kind)
+      kinds[kind_ok(kind)][:gap]
+    end
+
+    # The gap to use: the window's number, else the kind's default. 0 for
+    # a kind without one, and when USE_WALL_GAP is off. Never below 0. PURE.
+    def self.wall_gap(kind, cfg)
+      return 0.0 unless USE_WALL_GAP
+      dg = default_gap(kind)
+      return 0.0 if dg.nil?
+      g = cfg.is_a?(Hash) && !cfg['gap'].nil? && cfg['gap'].to_s != '' ? cfg['gap'].to_f : dg.to_f
+      g < 0.0 ? 0.0 : g
     end
 
     def self.dir_for(kind)
@@ -278,6 +298,43 @@ module InteriorPro
       nil
     end
 
+    # "SAVE SELECTED" (2026-09-29, his words: "אני רוצה את הוונטי בנפרד ואז
+    # לשמור אותו ולהכניס אותו ... ספרייה של וונטיס ואמבטיות"). He builds a
+    # vanity or a tub in the model, selects it, and it is saved into the
+    # kind's folder as its own .skp - a new product in the list. ONE group
+    # or component, and only a single-file kind (a set is a folder).
+    def self.saveable?(ent)
+      (ent.is_a?(Sketchup::Group) || ent.is_a?(Sketchup::ComponentInstance)) && ent.valid? &&
+        ent.respond_to?(:definition)
+    end
+
+    def self.save_selected!(kind, ent, name)
+      kind = kind_ok(kind)
+      if set_kind?(kind)
+        puts "[Fixture] save selected: #{kind} is a set (a folder) - not saved"
+        return nil
+      end
+      unless saveable?(ent)
+        puts "[Fixture] save selected: not one group or component (#{ent.class}) - not saved"
+        return nil
+      end
+      dir = dir_for(kind)
+      FileUtils.mkdir_p(dir)
+      nm = clean_name(name, names(kind) + [SIMPLE])
+      path = File.join(dir, "#{nm}.skp")
+      ok = ent.definition.save_as(path)
+      unless ok && File.exist?(path)
+        puts "[Fixture] save selected: SketchUp did not write #{path} (save_as #{ok.inspect})"
+        return nil
+      end
+      puts "[Fixture] saved the selected #{ent.class.name.split('::').last} as #{kind}/#{nm} -> #{path}"
+      ensure_thumb(Sketchup.active_model, kind, nm)
+      nm
+    rescue StandardError => e
+      puts "[Fixture] save selected failed: #{e.message}"
+      nil
+    end
+
     # ---- the maths (PURE) -------------------------------------------------
 
     # The point a height is measured to, in the part's own x / z.
@@ -405,6 +462,7 @@ module InteriorPro
              else
                [[nil, 0.0, cfg['height'].to_f]]
              end
+      gap = set_kind?(kind) ? 0.0 : wall_gap(kind, cfg)
       list.map do |k, du, h|
         d = definition_for(model, kind, cfg['product'], k)
         if d.nil?
@@ -413,7 +471,7 @@ module InteriorPro
         end
         b = visible_bounds(d)
         ax, az = anchor_xz(b.min.x, b.max.x, b.min.z, b.max.z, !k.nil?)
-        { part: k, defn: d, du: du, h: h, ax: ax, az: az,
+        { part: k, defn: d, du: du, h: h, ax: ax, az: az, gap: gap,
           minx: b.min.x.to_f, maxx: b.max.x.to_f, miny: b.min.y.to_f, maxy: b.max.y.to_f,
           minz: b.min.z.to_f, maxz: b.max.z.to_f }
       end.compact
@@ -472,7 +530,8 @@ module InteriorPro
             res[:no_tile] = true
           end
         end
-        res[:outs] << out
+        # a tub's gap: its back stands this far off the wall (ghost, place, edit)
+        res[:outs] << out + p[:gap].to_f
       end
       res[:ok] = false if res[:no_tile] || res[:on_hole]
       res
@@ -541,6 +600,8 @@ module InteriorPro
       out['kind'] = kind_ok(at.call('kind'))
       out['product'] = (at.call('product') || out['product'] || SIMPLE).to_s
       out['height'] = (out['height'] || at.call('height_in') || default_height(out['kind'])).to_f
+      # placed before the gap existed = it stands on the wall; keep it there
+      out['gap'] = out.key?('gap') ? out['gap'].to_f : 0.0 unless default_gap(out['kind']).nil?
       wall = host_wall(inst)
       fr = wall && InteriorPro::TileWall.frame_for(wall, at.call('side').to_s)
       if fr

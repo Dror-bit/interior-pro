@@ -22,6 +22,9 @@ ok('a fresh load drops them', lib.scan('strip_hidden!(d)').length >= 2)
 ok('hidden, and on a hidden tag - the same rule as visible_bounds', lib.include?('(e.respond_to?(:hidden?) && e.hidden?) || (e.respond_to?(:layer) && e.layer && !e.layer.visible?)'))
 ok('never empties a part that is ALL hidden', lib.include?('gone.length == defn.entities.length'))
 ok('says what it left out', lib.include?('hidden things left out'))
-ok('his file is never written', !lib.include?('.save(') && !lib.include?('save_as'))
+# 2026-09-29: "Save selected" saves on purpose (save_selected!), so the
+# guard is on the strip itself: it never writes his file.
+strip = lib[/def self\.strip_hidden!.*?\n    end\n/m].to_s
+ok('his file is never written', !strip.empty? && !strip.include?('.save(') && !strip.include?('save_as'), strip[0, 60])
 puts($fails.zero? ? 'rt228 OK' : "rt228 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

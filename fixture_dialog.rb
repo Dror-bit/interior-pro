@@ -5,7 +5,7 @@
 # look, same gallery of pictures as the drains / door handles, same
 # fit_height so it opens whole (CLAUDE.md, 2026-09-18).
 #
-#   Kind     - pictures: Shower head, Toilet
+#   Kind     - pictures: Shower head, Toilet, Vanity, Tub
 #   Product  - pictures: 'Simple' (built-in boxes) + every .skp in the
 #              kind's folder, and "+ Add new..." to bring in any .skp
 #   Height   - from the floor to the BOTTOM of the fixture
@@ -19,7 +19,7 @@ module InteriorPro
     def self.defaults
       k = InteriorPro::FixtureLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::FixtureLibrary.products(k).first,
-        'height' => InteriorPro::FixtureLibrary.default_height(k) }
+        'height' => InteriorPro::FixtureLibrary.default_height(k), 'gap' => nil }
     end
 
     # What he chose last time, so the second fixture is one click away.
@@ -45,6 +45,7 @@ module InteriorPro
             'parts' => InteriorPro::FixtureLibrary.default_parts(k, n) }
         end
         out[k] = { 'label' => info[:label], 'height' => info[:height], 'set' => info[:set] ? true : false,
+                   'gap' => info[:gap],
                    'dir' => InteriorPro::FixtureLibrary.dir_for(k), 'products' => prods }
       end
       out
@@ -71,6 +72,8 @@ module InteriorPro
         cfg['corner'] = corner.to_f if !corner.nil? && corner.to_s != ''
         cfg['kind'] = InteriorPro::FixtureLibrary.kind_ok(cfg['kind'])
         cfg['height'] = cfg['height'].to_f
+        # the tub's gap from the wall; a kind without one keeps none
+        cfg['gap'] = InteriorPro::FixtureLibrary.default_gap(cfg['kind']).nil? ? nil : InteriorPro::FixtureLibrary.wall_gap(cfg['kind'], cfg)
         if cfg['height'] < 0.0
           UI.messagebox('Type the height from the floor, e.g.  80')
           next
@@ -102,6 +105,28 @@ module InteriorPro
         src = UI.openpanel('Choose a SketchUp file', '', 'SketchUp Files|*.skp||')
         name = src ? InteriorPro::FixtureLibrary.add_file!(kind, src) : nil
         UI.messagebox('That file could not be added - see the Ruby Console.') if src && name.nil?
+        cur['product'] = name if name
+        show(cur, button: @button, &@on_ok)
+      end
+      # "Save selected" (2026-09-29): the ONE group or component selected in
+      # the model is saved into the kind's folder, and the window opens
+      # again with it chosen. Select it BEFORE clicking Plumbing.
+      dlg.add_action_callback('save_selected') do |_, json|
+        cur = JSON.parse(json) rescue {}
+        kind = InteriorPro::FixtureLibrary.kind_ok(cur['kind'])
+        sel = Sketchup.active_model.selection.to_a
+        ent = sel.length == 1 ? sel.first : nil
+        unless ent && InteriorPro::FixtureLibrary.saveable?(ent)
+          UI.messagebox("Select ONE group or component in the model first (now: #{sel.length} selected).\n" \
+                        'Then click Plumbing and Save selected.')
+          next
+        end
+        guess = ent.name.to_s.strip
+        guess = ent.definition.name.to_s if guess.empty?
+        res = UI.inputbox(['Name'], [guess], "Save #{InteriorPro::FixtureLibrary.kinds[kind][:label]}")
+        next unless res
+        name = InteriorPro::FixtureLibrary.save_selected!(kind, ent, res[0])
+        UI.messagebox('It could not be saved - see the Ruby Console.') if name.nil?
         cur['product'] = name if name
         show(cur, button: @button, &@on_ok)
       end
@@ -148,6 +173,9 @@ module InteriorPro
           <div class="row" id="heightRow">
             Height from the floor to the bottom of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
+          <div class="row" id="gapRow" style="display:none;">
+            From the wall <input type="number" id="gap" step="0.5" min="0"> in
+          </div>
           <div class="row" id="partsRow" style="display:none;">
             <table style="width:100%;border-collapse:collapse;font-size:11px;">
               <tr><td></td><td><b>Part</b></td><td><b>Height</b> (to the pipe)</td><td><b>Sideways</b></td></tr>
@@ -182,6 +210,17 @@ module InteriorPro
                 s = '<rect x="26" y="14" width="44" height="30" rx="3" fill="#f4f4f4" stroke="#777"/>' +
                     '<ellipse cx="48" cy="62" rx="20" ry="24" fill="#fff" stroke="#777"/>' +
                     '<ellipse cx="48" cy="64" rx="12" ry="15" fill="#dfe9ee" stroke="#999"/>';
+              } else if (k === 'vanity') {
+                s = '<rect x="12" y="34" width="72" height="6" fill="#eee" stroke="#777"/>' +
+                    '<ellipse cx="48" cy="37" rx="12" ry="2.5" fill="#dfe9ee" stroke="#999"/>' +
+                    '<rect x="14" y="40" width="68" height="44" fill="#d7c4b0" stroke="#777"/>' +
+                    '<line x1="48" y1="40" x2="48" y2="84" stroke="#777"/>' +
+                    '<rect x="44" y="26" width="3" height="10" fill="#aab2b6" stroke="#555"/>';
+              } else if (k === 'tub') {
+                s = '<rect x="8" y="40" width="80" height="34" rx="6" fill="#fff" stroke="#777"/>' +
+                    '<rect x="14" y="44" width="68" height="10" rx="4" fill="#dfe9ee" stroke="#999"/>' +
+                    '<rect x="14" y="74" width="6" height="8" fill="#ccc" stroke="#777"/>' +
+                    '<rect x="76" y="74" width="6" height="8" fill="#ccc" stroke="#777"/>';
               } else {
                 s = '<rect x="14" y="10" width="8" height="76" fill="#ddd" stroke="#999"/>' +
                     '<path d="M22 24 L52 24 L58 30" stroke="#777" stroke-width="4" fill="none"/>' +
@@ -210,6 +249,8 @@ module InteriorPro
               var isSet = !!CAT[kind].set;
               document.getElementById('partsRow').style.display = isSet ? '' : 'none';
               document.getElementById('heightRow').style.display = isSet ? 'none' : '';
+              var hasGap = CAT[kind].gap !== null && CAT[kind].gap !== undefined;
+              document.getElementById('gapRow').style.display = hasGap ? '' : 'none';
               if (!isSet) return;
               var pr = curProduct();
               if (!parts) parts = JSON.parse(JSON.stringify(pr.parts));
@@ -255,6 +296,8 @@ module InteriorPro
               }).join('');
               html += '<div class="design-card add" onclick="addNew()"><div class="plus">+</div><div class="dn">' +
                       (CAT[kind].set ? 'New set (opens the folder)' : 'Add new...') + '</div></div>';
+              if (!CAT[kind].set) html += '<div class="design-card add" onclick="saveSel()"><div class="plus">&#8595;</div>' +
+                      '<div class="dn">Save selected</div></div>';
               document.getElementById('prodGrid').innerHTML = html;
               var cols = [];
               list.forEach(function(p, i) { if (setOf(p.name) === setOf(product) && colorOf(p.name) !== '') cols.push([p, i]); });
@@ -276,6 +319,7 @@ module InteriorPro
             }
             function pickKind(k) {
               if (k !== kind) document.getElementById('height').value = CAT[k].height;
+              if (k !== kind && CAT[k].gap !== null && CAT[k].gap !== undefined) document.getElementById('gap').value = CAT[k].gap;
               if (k !== kind) parts = null;
               kind = k;
               renderKinds();
@@ -291,12 +335,17 @@ module InteriorPro
             }
             function cur() {
               var o = { kind: kind, product: product, height: parseFloat(document.getElementById('height').value) || 0 };
+              if (CAT[kind].gap !== null && CAT[kind].gap !== undefined) {
+                var g = parseFloat(document.getElementById('gap').value);
+                o.gap = isNaN(g) ? CAT[kind].gap : g;
+              }
               var ps = readParts();
               if (ps) o.parts = ps;
               if (D.corner !== undefined && D.corner !== null) o.corner = parseFloat(document.getElementById('corner').value) || 0;
               return o;
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
+            function saveSel() { sketchup.save_selected(JSON.stringify(cur())); }
             function okAll() {
               var o = cur();
               if (o.parts && !Object.keys(o.parts).some(function(k) { return o.parts[k].on; })) {
@@ -306,6 +355,8 @@ module InteriorPro
               sketchup.ok(JSON.stringify(o));
             }
             document.getElementById('height').value = D.height;
+            document.getElementById('gap').value = (D.gap !== null && D.gap !== undefined && D.kind === kind) ? D.gap :
+              (CAT[kind].gap !== null && CAT[kind].gap !== undefined ? CAT[kind].gap : 0);
             // THE EDIT WINDOW (2026-09-25): same window, plus how far from
             // the corner, and no placing help.
             if (D.corner !== undefined && D.corner !== null) {
