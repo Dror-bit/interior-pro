@@ -38,6 +38,8 @@ module InteriorPro
     USE_STRIP_HIDDEN = true unless const_defined?(:USE_STRIP_HIDDEN, false)
     # Kill switch: false = a tub stands on the wall again, the gap ignored.
     USE_WALL_GAP = true unless const_defined?(:USE_WALL_GAP, false)
+    # Kill switch: false = a toilet file is placed as it is drawn, unturned.
+    USE_TURN_FRONT = true unless const_defined?(:USE_TURN_FRONT, false)
 
     # The kinds. A method, not a guarded constant, so reload! sees changes.
     # on_tile: only on a tiled area, standing on its face (his call,
@@ -45,7 +47,13 @@ module InteriorPro
     def self.kinds
       {
         'shower_set' => { dir: 'SHOWER SETS', label: 'Shower set', height: 80.0, on_tile: true, set: true },
-        'toilet'     => { dir: 'TOILETS',     label: 'Toilet',     height: 0.0 },
+        # A toilet off the wall too (2026-09-30, his pick "1 ו2"): a real
+        # tank stands about 1" off the wall on a 12" rough-in.
+        # FACING THE ROOM (2026-09-30, his words: "האסלה הפוכה והכיוון של
+        # הפנים שלה פונה כרגע לקיר"). Measured in toilets_report.txt: all
+        # three of his toilet files have the tank at +green (back at y 0)
+        # and the bowl toward -green. front_neg: turn the file half a turn.
+        'toilet'     => { dir: 'TOILETS',     label: 'Toilet',     height: 0.0, gap: 1.0, front_neg: true },
         # VANITY AND TUB (2026-09-29, his words: "אני רוצה את הוונטי בנפרד
         # ואז לשמור אותו ולהכניס אותו"). One .skp each, like a toilet:
         # back on the wall, bottom on the floor, middle on the line.
@@ -100,6 +108,20 @@ module InteriorPro
       return 0.0 if dg.nil?
       g = cfg.is_a?(Hash) && !cfg['gap'].nil? && cfg['gap'].to_s != '' ? cfg['gap'].to_f : dg.to_f
       g < 0.0 ? 0.0 : g
+    end
+
+    # Is this product's file drawn with its front toward -green? Then it
+    # is turned half a turn before placing. The stand-in never is. PURE.
+    def self.turn_front?(kind, product)
+      return false unless USE_TURN_FRONT
+      return false if product.to_s.empty? || product.to_s == SIMPLE
+      kinds[kind_ok(kind)][:front_neg] ? true : false
+    end
+
+    # The box after half a turn about the blue axis: x and y flip sign.
+    # [minx, maxx, miny, maxy, ax]. PURE.
+    def self.turned_box(minx, maxx, miny, maxy, ax)
+      [-maxx, -minx, -maxy, -miny, -ax]
     end
 
     def self.dir_for(kind)
@@ -471,8 +493,11 @@ module InteriorPro
         end
         b = visible_bounds(d)
         ax, az = anchor_xz(b.min.x, b.max.x, b.min.z, b.max.z, !k.nil?)
-        { part: k, defn: d, du: du, h: h, ax: ax, az: az, gap: gap,
-          minx: b.min.x.to_f, maxx: b.max.x.to_f, miny: b.min.y.to_f, maxy: b.max.y.to_f,
+        minx, maxx, miny, maxy = b.min.x.to_f, b.max.x.to_f, b.min.y.to_f, b.max.y.to_f
+        turn = turn_front?(kind, cfg['product'])
+        minx, maxx, miny, maxy, ax = turned_box(minx, maxx, miny, maxy, ax.to_f) if turn
+        { part: k, defn: d, du: du, h: h, ax: ax, az: az, gap: gap, turn: turn,
+          minx: minx, maxx: maxx, miny: miny, maxy: maxy,
           minz: b.min.z.to_f, maxz: b.max.z.to_f }
       end.compact
     end
@@ -552,6 +577,8 @@ module InteriorPro
                                          Geom::Vector3d.new(fr[:ux], fr[:uy], 0),
                                          Geom::Vector3d.new(fr[:nx], fr[:ny], 0),
                                          Geom::Vector3d.new(0, 0, 1))
+        # a file drawn facing -green is turned half a turn first (front_neg)
+        shift = shift * Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0), Geom::Vector3d.new(0, 0, 1), Math::PI) if p[:turn]
         inst = grp.entities.add_instance(p[:defn], face * shift)
         inst.set_attribute('InteriorPro', 'part', p[:part].to_s) if p[:part]
       end
