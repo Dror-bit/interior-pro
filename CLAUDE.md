@@ -66,8 +66,9 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 274 ירוקות (רובי + JS).
-  אדומות ישנות: rt51, rt52, rt60. תמיד run_all.sh, לא קובץ בודד.
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 309 ירוקות (רובי + JS, 2026-10-02).
+  אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
+- `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
   שהמספר עובר במסלול האמיתי. תכונה שנוגעת במודל מקבלת גם בדיקת רובי (rt),
   לא רק JS. אם בדיקה ישנה נופלת — קודם להניח שהתיקון רחב מדי.
@@ -78,6 +79,9 @@ Live folder (edit in place, no RBZ):
 - **חבילה מלאה בלי לגעת בתיקייה שלו (2026-10-02):** ל-shell של המחשב שלו יש רובי ו-node. מעתיקים `*.rb`, `tests/`,
   `landscape/` ל-`$HOME/ipwork`, מקשרים `textures` ו-`icons` (גם בתוך `tests/`), ומריצים את סוויטות הרובי 4 במקביל
   בחזית — 245 סוויטות ב-150 שניות. בלי התיקיות המקושרות rt18/rt73/rt84/rt131/rt170/rt206 נופלות סתם.
+- **תמונות ממדידה (2026-10-02):** קובץ המדידה כותב `view.write_image(path, w, h, true)` לתיקיית הגשר ומחזיר לו את
+  המצלמה; אני מעלה את התמונה ומסתכל בעצמי. ותמיד לבדוק את שורת `model:` בדוח — הוא הריץ פעם על מודל ריק.
+- **בסקצ'אפ האמיתי אין `erase_entity`** — רק `erase_entities`. הסטאב הסתיר את זה (rt250).
 - **לא מעתיקים ושולחים באותו צעד (2026-10-02):** `cp` לתיקיית השליחה ו-`device_commit_files` באותה קריאה רצו במקביל,
   ונשלח הקובץ הישן. הוא הריץ מדידה על קוד ישן. קודם `cp`, אחר כך שליחה, ואז md5 על המחשב שלו מול מה שנשלח.
 
@@ -450,7 +454,15 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-02): גגות — כפתור למתיחת צלעות ההיפ
+## הצעד הנוכחי (2026-10-02 ערב): גגות — כפתור למתיחת צלעות ההיפ
+מוסך Hip שנכנס לבית Hip נסגר על מודל Aetna — "ניראה פצצה". הכל ב-`HANDOFF_2026-10-02B.md`.
+גג שנמחק ונבנה מאפס מתחבר לבד (מעבר שני). גג המוסך **יורד לבד** 2.875" כדי שיהיה משטח אחד עם גג הבית.
+**הבא:** כפתור למתיחת/עריכת צלעות ההיפ — לשאול איך זה צריך להיראות (תמונה מרונדרת) לפני שבונים, ולמדוד קודם.
+חוק מהסבב: **קצה משותף לשני גגות על משטח אחד מסתירים (`hidden`), לא מרככים** — smooth על קצה שנושא גם פאה
+עומדת מורח כתם כהה על הגג.
+חלונות — לא לגעת בלי שיגיד.
+
+## (קודם) 2026-10-02 צהריים: המוסך ב-Gable נסגר
 המוסך שנכנס לגג הבית (מודל Aetna) נסגר — "ניראה מעולה". הכל ב-`HANDOFF_2026-10-02.md`.
 `USE_ROOF_VALLEY` **דולק בקובץ** מהיום (הוא ביקש: "כן תדליק אותו") — אין יותר שורת הדלקה לקונסול.
 **ראשון בצ'אט הבא (הוא ביקש):** למדוד אם גג שנמחק ונוצר מאפס מחלון הגגות מקבל את החיבור אוטומטית — נמדדה רק בנייה מחדש.
@@ -565,6 +577,16 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
 written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):
+- `USE_VALLEY_FLUSH_CLEAN = false` - hip into hip: the taller roof keeps the corner of its slope under the
+  lower roof, and the edges the two share are drawn again (`tests/rt256.rb`).
+- `USE_VALLEY_CAP_TRIM = false` - the taller roof's rib keeps its caps all the way down, and the lower
+  roof's ridge cap is not joined to it (`tests/rt255.rb`).
+- `USE_VALLEY_FLUSH = false` (and `VALLEY_FLUSH_MAX = 6.0`) - the lower roof is not set lower to make one
+  surface with the taller roof's slope; a step stays on the rib (`tests/rt254.rb`).
+- `USE_VALLEY_HIP_CARRY = false` - the lower roof's planes are not held to the taller roof's ribs; the
+  hip-into-hip join is as it was (`tests/rt252.rb`, `rt253.rb`).
+- `USE_VALLEY_SECOND_PASS = false` - a roof built before the roof it meets is not built once more; building
+  from scratch leaves the taller roof uncut (`tests/rt249.rb`).
 - `USE_ROOF_VALLEY = false` - two separate roofs again, the low one dying against the wall.
   **ON in the file since 2026-10-02** (`tests/rt151.rb`, `rt152.rb`).
 - `USE_VALLEY_SEAM_HIDE = false` - the cut lines the valley sweeps leave across a flat
