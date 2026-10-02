@@ -546,6 +546,13 @@ module InteriorPro
       sides = (0...lo[:pts].length).reject do |i|
         lo[:gables].include?(i) || abut_e.include?(i)
       end
+      # ...a HIP end at the far side is a third slope, and it has nothing
+      # to do with the valley: the two that run into the taller roof are
+      # the two FLANKING the abut line - see valley_flank_sides.
+      if sides.length != 2 && abut_e.length == 1
+        fl = valley_flank_sides(lo, sides, abut_e.first)
+        sides = fl if fl
+      end
       return nil unless sides.length == 2 && abut_e.length == 1
       lo_a = edge_plane(lo, sides[0])
       lo_b = edge_plane(lo, sides[1])
@@ -573,7 +580,11 @@ module InteriorPro
 
       len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
       made = []
-      valley_carry_tris(lo_a, lo_b, hi_plane, abut, len).each do |pl, tri|
+      # the taller roof's OTHER slopes: the carried planes stop where the
+      # one they run into stops (a hip rib) - see valley_other_planes.
+      others = valley_other_planes(hi, hi_edge)
+      deck_polys = valley_carry_tris(lo_a, lo_b, hi_plane, abut, len, others)
+      deck_polys.each do |pl, tri|
         # counter-clockwise in plan, so the face is born facing UP
         tri = tri.reverse if poly_area2(tri) < 0.0
         pts3 = tri.map { |p| Geom::Point3d.new(p[0], p[1], plane_z(pl, p[0], p[1])) }
@@ -584,7 +595,23 @@ module InteriorPro
       end
       puts "[Roof] valley: #{made.length} plane(s) carried on to the roof above"
       return nil if made.empty?
-      top = valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, lo[:slope])
+      # ...and where the low roof ENDS on its abut line standing over
+      # another slope of the taller roof, the gap under it is closed too.
+      unless others.empty?
+        hi_lift = begin
+          slab_lift(roof_settings(hi_grp)[:thickness].to_f, hi[:slope])
+        rescue StandardError
+          0.0
+        end
+        sb = valley_abut_risers!(grp, valley_abut_steps(lo_a, lo_b, hi_plane, others, abut, len), hi_lift, roof_mat)
+        puts "[Roof] valley: #{sb} step face(s) on the abut line, over the taller roof's other slope" if sb > 0
+      end
+      top = valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, lo[:slope], others)
+      if top.empty? && !others.empty?
+        # no slab thickness: the step on the rib is closed off the deck
+        st = valley_rib_risers!(grp, deck_polys, hi_plane, others, roof_mat)
+        puts "[Roof] valley: #{st} step face(s) where the carried roof stops on the taller roof's rib" if st > 0
+      end
       unless top.empty?
         js = soften_same_plane_joints!(made + top)
         puts "[Roof] valley: #{js} joint(s) with the roof already there softened" if js > 0
@@ -600,7 +627,13 @@ module InteriorPro
     # ridge's point on the abut line, the apex]] in plan. `abut` is the abut
     # edge as [point, unit direction], `len` its length - a leg that does
     # not land ON the edge gives no triangle.
-    def self.valley_carry_tris(lo_a, lo_b, hi_plane, abut, len)
+    # `others` (2026-10-02, the hip house): the taller roof's other slope
+    # planes. Each triangle is kept only where `hi_plane` is the LOWEST of
+    # them - that is the taller roof's own face, and past its rib the roof
+    # overhead is another slope, which this low roof does not run into. A
+    # triangle that crosses a rib comes back with four corners. Empty (a
+    # gable roof's far slope never reaches here) = the triangles as before.
+    def self.valley_carry_tris(lo_a, lo_b, hi_plane, abut, len, others = [])
       apex = planes_apex(lo_a, lo_b, hi_plane)
       ridge = planes_meet(lo_a, lo_b)
       return [] if apex.nil? || ridge.nil?
@@ -619,9 +652,161 @@ module InteriorPro
         area2 = ((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) -
                  (tri[2][0] - tri[0][0]) * (tri[1][1] - tri[0][1])).abs
         next if area2 < 1.0
+        Array(others).each do |q|
+          tri = clip_under(tri, hi_plane, q)
+          break if tri.empty?
+        end
+        next if tri.length < 3 || poly_area2(tri).abs < 1.0
         out << [pl, tri]
       end
       out
+    end
+
+    # A LOW HIP ROOF RUNS INTO A TALLER ONE, AND A TALLER HIP ROOF TAKES IT
+    # (2026-10-02, his words: "בגג היפ הגג לא משתלב כמו שצריך"). Measured on
+    # his Aetna model with both roofs on Hip (roof_meet_report.txt and its
+    # pictures): the garage roof stopped dead on its back line, 116.5 at
+    # the ridge over a house roof at 108, and the house roof ran whole
+    # under it. Two things were written for a gable only:
+    #   * valley_extend! wanted a low roof with exactly TWO slopes. A hip
+    #     end at the front is a third - valley_flank_sides picks the two
+    #     that flank the abut line;
+    #   * the carried planes ran to ONE plane of the taller roof. On a hip
+    #     house the garage's ridge reaches the house's south slope exactly
+    #     at its corner rib (the apex, x -192.5 y 522.5, lies PAST the rib
+    #     at y 511), so the triangles are cut on that rib -
+    #     valley_other_planes / valley_carry_tris - and the step left
+    #     there (2.9" on his model: the garage's east slope stands that
+    #     much over the house's, by his wall heights) is closed with one
+    #     upright face a side - valley_rib_risers!.
+    # A gable low roof into a gable tall roof goes through none of it.
+    # false = as before: the low hip roof stops on its abut line.
+    USE_VALLEY_HIP_CARRY = true unless const_defined?(:USE_VALLEY_HIP_CARRY, false)
+
+    # PURE. Of a low roof's sloping sides, the two that FLANK its abut edge:
+    # square to it, facing each other. nil when there are not exactly two.
+    def self.valley_flank_sides(lo, sides, ae)
+      return nil unless USE_VALLEY_HIP_CARRY
+      ab = edge_line(lo[:pts], ae)
+      return nil if ab.nil?
+      fl = sides.select do |i|
+        el = edge_line(lo[:pts], i)
+        el && (el[1][0] * ab[1][0] + el[1][1] * ab[1][1]).abs < 0.1
+      end
+      return nil unless fl.length == 2
+      na = edge_inward(lo[:pts], fl[0])
+      nb = edge_inward(lo[:pts], fl[1])
+      return nil if na.nil? || nb.nil? || na[0] * nb[0] + na[1] * nb[1] > -0.9
+      fl
+    end
+
+    # PURE. The planes of the taller roof's slopes other than the one over
+    # edge `hi_edge`.
+    def self.valley_other_planes(hi, hi_edge)
+      return [] unless USE_VALLEY_HIP_CARRY
+      (0...hi[:pts].length).reject { |i| i == hi_edge || hi[:gables].include?(i) }
+                           .map { |i| edge_plane(hi, i) }.compact
+    end
+
+    # PURE. THE STEP ON THE ABUT LINE (2026-10-02). Past the rib the low
+    # roof is not carried on - it ends on its abut line, as it always did -
+    # but there the taller roof is ANOTHER slope, and the low roof stands
+    # over it (2.9" on his model, from x -163 to the end of the abut line
+    # at -146): an open slit under the low roof's edge, straight into its
+    # roof space. This finds each such stretch: for one of the low roof's
+    # planes `pl` and one of the taller roof's other planes `q`, where on
+    # the abut line q is the taller roof's surface, pl is the low roof's,
+    # and pl stands above q. Returns [[pl, q, [x, y], [x, y]]].
+    def self.valley_abut_steps(lo_a, lo_b, hi_plane, others, abut, len)
+      out = []
+      oth = Array(others)
+      at = lambda { |t| [abut[0][0] + abut[1][0] * t, abut[0][1] + abut[1][1] * t] }
+      [[lo_a, lo_b], [lo_b, lo_a]].each do |pl, mate|
+        oth.each_index do |k|
+          q = oth[k]
+          cons = [[hi_plane, q, 0.0],          # q runs under the plane the valley is on
+                  [mate, pl, 0.0],             # this side of the low roof's ridge
+                  [pl, q, 0.05]]               # and the low roof stands over it
+          oth.each_index { |j| cons << [oth[j], q, 0.0] unless j == k }
+          t0 = 0.0
+          t1 = len.to_f
+          cons.each do |up, dn, gap|
+            fa = plane_z(up, *at.call(t0)) - plane_z(dn, *at.call(t0)) - gap
+            fb = plane_z(up, *at.call(t1)) - plane_z(dn, *at.call(t1)) - gap
+            if fa < -1.0e-9 && fb < -1.0e-9
+              t1 = t0 - 1.0
+              break
+            end
+            next if fa >= -1.0e-9 && fb >= -1.0e-9
+            tx = t0 + (t1 - t0) * fa / (fa - fb)
+            fa < 0.0 ? (t0 = tx) : (t1 = tx)
+          end
+          next if t1 - t0 < 0.5
+          out << [pl, q, at.call(t0), at.call(t1)]
+        end
+      end
+      out
+    end
+
+    # One upright face for each of those stretches: from the low roof's
+    # DECK (the slab's own edge ribbon stands above that line already)
+    # down to the taller roof's top skin, `hi_lift` over its plane.
+    def self.valley_abut_risers!(grp, steps, hi_lift, mat)
+      made = 0
+      Array(steps).each do |pl, q, a, b|
+        ring = [[a[0], a[1], plane_z(pl, a[0], a[1])], [b[0], b[1], plane_z(pl, b[0], b[1])],
+                [b[0], b[1], plane_z(q, b[0], b[1]) + hi_lift.to_f], [a[0], a[1], plane_z(q, a[0], a[1]) + hi_lift.to_f]]
+        next unless ring[0][2] - ring[3][2] > 0.02 || ring[1][2] - ring[2][2] > 0.02
+        uniq = []
+        ring.each do |v|
+          uniq << v unless uniq.any? { |u| (u[0] - v[0]).abs < 0.02 && (u[1] - v[1]).abs < 0.02 && (u[2] - v[2]).abs < 0.02 }
+        end
+        next if uniq.length < 3
+        f = grp.entities.add_face(uniq.map { |v| Geom::Point3d.new(v[0], v[1], v[2]) })
+        next if f.nil?
+        f.material = mat
+        f.back_material = mat
+        made += 1
+      end
+      made
+    rescue StandardError => e
+      puts "[Roof] valley_abut_risers!: #{e.message}"
+      made
+    end
+
+    # The carried roof stops on the taller roof's rib standing a little
+    # above it: one upright face along each edge the rib cut, from the
+    # carried plane down to the taller roof's. `polys` as valley_carry_tris
+    # hands them out; a corner where the two really meet has no height and
+    # gives one point, not two.
+    def self.valley_rib_risers!(grp, polys, hi_plane, others, mat)
+      made = 0
+      Array(polys).each do |pl, poly|
+        poly.each_index do |i|
+          a = poly[i]
+          b = poly[(i + 1) % poly.length]
+          on = Array(others).any? do |q|
+            [a, b].all? { |v| (plane_z(hi_plane, v[0], v[1]) - plane_z(q, v[0], v[1])).abs < 0.02 }
+          end
+          next unless on
+          ring = [[a[0], a[1], plane_z(pl, a[0], a[1])], [b[0], b[1], plane_z(pl, b[0], b[1])],
+                  [b[0], b[1], plane_z(hi_plane, b[0], b[1])], [a[0], a[1], plane_z(hi_plane, a[0], a[1])]]
+          uniq = []
+          ring.each do |v|
+            uniq << v unless uniq.any? { |u| (u[0] - v[0]).abs < 0.02 && (u[1] - v[1]).abs < 0.02 && (u[2] - v[2]).abs < 0.02 }
+          end
+          next if uniq.length < 3
+          f = grp.entities.add_face(uniq.map { |v| Geom::Point3d.new(v[0], v[1], v[2]) })
+          next if f.nil?
+          f.material = mat
+          f.back_material = mat
+          made += 1
+        end
+      end
+      made
+    rescue StandardError => e
+      puts "[Roof] valley_rib_risers!: #{e.message}"
+      made
     end
 
     # THE SHINGLES RUN ON TO THE VALLEY TOO (2026-10-02, his picture and
@@ -643,7 +828,7 @@ module InteriorPro
     #   InteriorPro::RoofManager::USE_VALLEY_SKIN = false  -> deck only
     USE_VALLEY_SKIN = true unless const_defined?(:USE_VALLEY_SKIN, false)
 
-    def self.valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, slope = nil)
+    def self.valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, slope = nil, others = [])
       return [] unless USE_VALLEY_SKIN
       return [] if dz.to_f <= 0.001
       hi_t = begin
@@ -654,7 +839,11 @@ module InteriorPro
       hi_top = [hi_plane[0], hi_plane[1], hi_plane[2] + slab_lift(hi_t, hi[:slope])]
       la = [lo_a[0], lo_a[1], lo_a[2] + dz.to_f]
       lb = [lo_b[0], lo_b[1], lo_b[2] + dz.to_f]
-      tris = valley_carry_tris(la, lb, hi_top, abut, len)
+      # every slope of the taller roof is lifted by the same thickness, so
+      # its ribs stand where they stood
+      lift = hi_top[2] - hi_plane[2]
+      others_top = Array(others).map { |q| [q[0], q[1], q[2] + lift] }
+      tris = valley_carry_tris(la, lb, hi_top, abut, len, others_top)
       top = []
       tris.each do |pl, tri|
         ccw = poly_area2(tri) < 0.0 ? tri.reverse : tri
@@ -679,10 +868,15 @@ module InteriorPro
       pad = slope.to_f > 0.01 ? [dz.to_f / slope.to_f + 0.25, 6.0].min : 0.05
       gone = []
       tris.each do |pl, tri|
-        ta, tb = [tri[0], tri[1]].map do |p|
-          (p[0] - abut[0][0]) * abut[1][0] + (p[1] - abut[0][1]) * abut[1][1]
+        # the stretch of the abut line this piece stands on: its corners
+        # ON that line (a piece the rib cut has lost its leg's foot)
+        ons = tri.select do |p|
+          ((p[0] - abut[0][0]) * abut[1][1] - (p[1] - abut[0][1]) * abut[1][0]).abs < 0.02
         end
-        t0, t1 = [ta, tb].minmax
+        next if ons.length < 2
+        t0, t1 = ons.map do |p|
+          (p[0] - abut[0][0]) * abut[1][0] + (p[1] - abut[0][1]) * abut[1][1]
+        end.minmax
         grp.entities.grep(Sketchup::Face).each do |f|
           next if top.include?(f) || gone.include?(f)
           next if f.normal.z.abs > 0.02
@@ -706,6 +900,10 @@ module InteriorPro
       end
       puts format('[Roof] valley: the top skin carried on too (%d face(s), %d edge strip(s) taken out)',
                   top.length, gone.length)
+      unless others_top.empty?
+        st = valley_rib_risers!(grp, tris, hi_top, others_top, roof_mat)
+        puts "[Roof] valley: #{st} step face(s) where the carried roof stops on the taller roof's rib" if st > 0
+      end
       top
     rescue StandardError => e
       puts "[Roof] valley_extend_skin!: #{e.message}"
@@ -1208,6 +1406,17 @@ module InteriorPro
           # 2. under its plane, and 3. this plane's own side of the ridge
           rg = clip_under(rg, pl, hp)
           rg = clip_under(rg, pl, other)
+          # ...and only where that plane IS the taller roof (2026-10-02).
+          # Past a hip rib the roof overhead is another slope, and `hp`
+          # carried on over it is higher than anything that stands there.
+          # Measured on his model with both roofs on Hip
+          # (corner_hole_report.txt): the garage's east slope was cut back
+          # "under" the house's south slope in a triangle (-134.5,464.5)
+          # (-151.5,481.5) (-134,481.5) where the house roof is really its
+          # EAST slope, 2.9" BELOW the garage - a hole in the garage roof,
+          # the white opening he asked to have closed. A gable house's far
+          # slope lies past its ridge and changes nothing here.
+          valley_other_planes(hg, fe).each { |q| rg = clip_under(rg, hp, q) }
           next if rg.length < 3
           next if poly_area2(rg).abs < 2.0
           out << { poly: rg.map { |p| [p[0], p[1], plane_z(pl, p[0], p[1])] },
