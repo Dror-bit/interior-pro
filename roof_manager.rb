@@ -283,6 +283,74 @@ module InteriorPro
     # 2026-10-01. See valley_inside_regions.
     USE_VALLEY_SPAN_CLIP = true unless const_defined?(:USE_VALLEY_SPAN_CLIP, false)
 
+    # BUILT FROM NOTHING, THE TWO ROOFS STILL MEET (2026-10-02, his
+    # question: "אם אני מוחק את הגגות ויוצר אותם מאפס מחלון הגגות -
+    # החיבור יוצא אוטומטית?"). Measured on his Aetna model
+    # (roof_scratch_report.txt): no. One Apply over a storey builds one
+    # roof per building, the one with the most walls first - the house -
+    # and every roof reads its NEIGHBOURS as they stand at that moment:
+    # the taller roof looks for a lower one to be cut for (valley_cuts),
+    # the lower one for a taller one to run into (valley_partner,
+    # valley_low_spans, valley_inside_regions). The house was built while
+    # the garage roof did not exist, so it came out uncut: its deck and
+    # its top skin ran whole under the garage roof (107.6" under 115.0"
+    # at one point) and its eave dressing ran through. The garage, built
+    # second, was right; one more build of the house and the zone was
+    # line for line what it had been.
+    # So: at the end of that Apply, a roof that was built BEFORE a roof
+    # it has to meet is built once more, by the same replace: path his
+    # console line uses. Nothing else is rebuilt - not the last roof (it
+    # saw everybody), not a building that stands apart, not a storey with
+    # one building. false = each roof is built once, as before.
+    USE_VALLEY_SECOND_PASS = true unless const_defined?(:USE_VALLEY_SECOND_PASS, false)
+
+    # PURE. `geoms` are the roofs of one Apply in the order they were
+    # built, each as roof_geom gives it (nil = that one failed to build).
+    # Returns the indices of the ones to build once more: a roof with a
+    # LATER one on the same storey, at another height, whose outline
+    # reaches its own. Same height = no valley between them; apart = they
+    # never meet. The half inch and the inch are the ones the valley code
+    # itself uses to tell a taller roof and a touching one.
+    def self.valley_redo_indices(geoms)
+      out = []
+      box = lambda do |g|
+        xs = g[:pts].map { |q| q[0] }
+        ys = g[:pts].map { |q| q[1] }
+        [xs.min, xs.max, ys.min, ys.max]
+      end
+      geoms.each_with_index do |g, i|
+        next if g.nil?
+        a = box.call(g)
+        hit = (geoms[(i + 1)..-1] || []).any? do |h|
+          next false if h.nil?
+          next false unless h[:level] == g[:level]
+          next false unless (h[:ridge_z].to_f - g[:ridge_z].to_f).abs > 0.5
+          b = box.call(h)
+          a[0] <= b[1] + 1.0 && b[0] <= a[1] + 1.0 && a[2] <= b[3] + 1.0 && b[2] <= a[3] + 1.0
+        end
+        out << i if hit
+      end
+      out
+    end
+
+    # `made` = the roof groups one Apply just built, in order. Returns
+    # the same list with every rebuilt roof replaced by its new group.
+    def self.valley_second_pass!(made)
+      return made unless USE_ROOF_VALLEY && USE_VALLEY_SECOND_PASS
+      live = made.map { |r| r && r.respond_to?(:valid?) && r.valid? ? r : nil }
+      idx = valley_redo_indices(live.map { |r| r && roof_geom(r) })
+      return made if idx.empty?
+      out = made.dup
+      idx.each do |i|
+        puts '[Roof] valley: this roof was built before the roof it meets stood - built once more'
+        out[i] = build_roof!(replace: live[i])
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_second_pass!: #{e.message}"
+      made
+    end
+
     # A WALL MERGED INTO A LONGER ONE STILL BELONGS TO ITS ROOF
     # (2026-10-01). false = the roof claims only the walls its outline
     # kept, as before: a wall lying on a longer wall's line has no roof.
@@ -3190,6 +3258,9 @@ module InteriorPro
           made = bldgs.sort_by { |b| -b[:walls].length }.map do |b|
             build_roof!(**kw, level: lvl, building: b)
           end
+          # ...and a roof that was built before the neighbour it has to
+          # meet stood is built once more - see valley_second_pass!.
+          made = valley_second_pass!(made)
           return made.compact.last
         end
       end
