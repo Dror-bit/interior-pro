@@ -570,6 +570,13 @@ module InteriorPro
       return nil if hi_grp.nil?
       hi_plane = edge_plane(hi, hi_edge)
       return nil if hi_plane.nil?
+      # THE ROOF OVERHEAD THERE IS A GABLE IN THE MIDDLE (2026-10-02): the
+      # slope `hi_plane` belongs to is not there under it, so there is
+      # nothing to carry this roof on to. It ends on the gable.
+      if cross_plane_over(cross_gables_of(hi_grp, hi), probe[0], probe[1])
+        puts '[Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on'
+        return nil
+      end
 
       apex = planes_apex(lo_a, lo_b, hi_plane)
       return nil if apex.nil?
@@ -786,6 +793,12 @@ module InteriorPro
       hi_plane = edge_plane(hi, hi_edge)
       return 0.0 if hi_plane.nil?
       len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
+      # the roof above stands a gable in the middle there (2026-10-02)
+      crosses = cross_gables_of(hi_grp, hi)
+      unless crosses.empty?
+        cd = cross_flush_drop(lo_a, lo_b, abut, len, crosses, max_drop)
+        return cd if cd > 0.0
+      end
       valley_flush_drop(lo_a, lo_b, hi_plane, valley_other_planes(hi, hi_edge), abut, len, max_drop)
     end
 
@@ -3964,6 +3977,25 @@ module InteriorPro
           next if marked[k].nil? || pt[0].to_f > 1.0e8 # sentinel = no point
           clicks_by_id[marked[k]] = pt
         end
+        # A GABLE IN THE MIDDLE OF A ROOF (2026-10-02) - see cross_gable_spans.
+        # A marked wall of THIS roof that has no edge of its own (it lies on a
+        # longer wall's line, or behind a bridged recess) gets its own stretch
+        # of the eave, under its own id, so the mark below is no longer "off
+        # the loop". Only a roof the over-framing builds: no abut edge, no shed.
+        cross_ids = []
+        cross_undo = nil
+        if USE_CROSS_GABLE && abut_ids.empty? && s[:style] != 'shed' && rectilinear?(poly)
+          csp = cross_gable_spans(poly, wall_ids, abut_ids, marked, ep[:pts], ep[:wall_ids],
+                                  ep[:swallowed], own_walls.map { |w| w.get_attribute('InteriorPro', 'id') })
+          unless csp.empty?
+            cross_undo = [poly, wall_ids]
+            csp.each do |ci, (t0, t1, wid)|
+              clen = vlen(vsub(poly[(ci + 1) % poly.length], poly[ci]))
+              cross_ids << wid if t0 > 0.5 || t1 < clen - 0.5
+            end
+            poly, wall_ids, = split_edge_spans(poly, wall_ids, [], csp)
+          end
+        end
         # ignore marks whose wall no longer exists in this roof loop
         # (2026-08-05: a stale id after wall split/join blocked Gable style)
         loop_ids = wall_ids.compact
@@ -4015,8 +4047,31 @@ module InteriorPro
         # is exactly what it was before that mistake.
         dutch_marked = dutch_wall_ids & marked
         framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked,
-                             hip_marked) \
+                             hip_marked, cross_ids) \
                  if want_gable && abut_ids.empty? && s[:style] != 'shed'
+        if cross_undo
+          if framed && !(framed[:wings] || []).none? { |w| w[:cross] }
+            framed[:wings].each do |w|
+              next unless w[:cross]
+              r = w[:rect]
+              puts format('[Roof] a gable in the middle of the roof: %.0f" wide, its ridge runs %.0f" into the slope',
+                          [r[2] - r[0], r[3] - r[1]].max, [r[2] - r[0], r[3] - r[1]].max / 2.0)
+            end
+          elsif !cross_ids.empty?
+            # NOT SILENTLY. The outline goes back to what it was, the mark
+            # stays saved, and the roof is the one it would have been.
+            puts "[Roof] a gable in the middle of the roof is not built here (the outline cannot be framed, " \
+                 "it would reach the ridge, or it stands on a gable end) - #{cross_ids.length} mark(s) left as eave: " \
+                 "#{cross_ids.map { |x| x.to_s[0, 8] }.join(' ')}"
+            poly, wall_ids = cross_undo
+            marked -= cross_ids
+            cross_ids = []
+            gables = (0...poly.length).select { |i| wall_ids[i] && marked.include?(wall_ids[i]) }
+            want_gable = !gables.empty? || s[:style] == 'gable'
+            framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked, hip_marked) \
+                     if want_gable && abut_ids.empty? && s[:style] != 'shed'
+          end
+        end
         if framed
           gables = framed[:edges]
         else
@@ -4527,6 +4582,18 @@ module InteriorPro
         rescue StandardError => e
           puts "[Roof] valley cap trim: #{e.message}"
         end
+        # ...and none past the edge of a gable in the middle of a taller
+        # roof, where this roof's ridge has run into its slope (2026-10-02).
+        begin
+          cross_neighbours(ridge.to_f, lvl, grp).each do |_hg, _g2, cs, lift|
+            before = cap_lines.sum { |l| vlen(vsub(l[2], l[0])) }
+            cap_lines = cross_trim_cap_lines(cap_lines, cs, lift)
+            cut = before - cap_lines.sum { |l| vlen(vsub(l[2], l[0])) }
+            puts format('[Roof] valley: %.0f" of ridge cap left off where this ridge runs into the gable of the roof above', cut) if cut > 0.5
+          end
+        rescue StandardError => e
+          puts "[Roof] cross cap trim: #{e.message}"
+        end
         cap_joints = {}
         (defined?(trims) && trims ? trims : []).each { |t| cap_joints[t[:j]] = :tuck }
         build_ridge_caps!(grp, cap_lines, slope, roof_mat, s[:roof_material], cap_joints)
@@ -4619,6 +4686,14 @@ module InteriorPro
         unless icuts.empty?
           icuts.each { |v| valley_cut_deck!(grp, v[:poly], v[:plane], 0.35) }
           puts "[Roof] valley: #{icuts.length} region(s) cut off on the meeting line"
+        end
+        # ...and whatever stands under a gable in the middle of the roof
+        # above, or lies in its sheet (2026-10-02) - cross_inside_regions.
+        xcuts = cross_inside_regions(poly, gable_flags, slope, band_top, ridge.to_f, lvl, grp)
+        unless xcuts.empty?
+          xcuts.each { |v| valley_cut_deck!(grp, v[:poly], v[:plane], 0.35) }
+          puts "[Roof] valley: #{xcuts.length} region(s) of this roof cut off under the gable of the roof above " \
+               "(#{xcuts.count { |v| v[:flush] }} of them lying in its sheet)"
         end
       end
       # ---- eave tiles (2026-08-19, ROOF_TILES_PROPOSAL.md step 4) -------
@@ -4714,6 +4789,10 @@ module InteriorPro
         (defined?(icuts) && icuts ? icuts : []).each do |v|
           valley_cut_deck!(grp, v[:poly], v[:plane])
           valley_sweep_under!(grp, v)
+          cutplans << v[:poly].map { |p| [p[0], p[1]] }
+        end
+        (defined?(xcuts) && xcuts ? xcuts : []).each do |v|
+          valley_cut_deck!(grp, v[:poly], v[:plane])
           cutplans << v[:poly].map { |p| [p[0], p[1]] }
         end
         # ...AND THE SLOPE PAST THE RIB, WHERE THE LOWER ROOF LIES ON IT
@@ -5208,6 +5287,12 @@ module InteriorPro
       grp.set_attribute('InteriorPro', 'soffit', s[:soffit])
       grp.set_attribute('InteriorPro', 'drip_edge', s[:drip])
       grp.set_attribute('InteriorPro', 'gable_edges', gables) unless gables.empty?
+      # which of them is a gable in the MIDDLE of a side (2026-10-02), so a
+      # roof that runs into this one can read its two planes
+      if defined?(cross_ids) && cross_ids && !cross_ids.empty?
+        cxe = (0...poly.length).select { |i| wall_ids[i] && cross_ids.include?(wall_ids[i]) }
+        grp.set_attribute('InteriorPro', 'cross_edges', cxe) unless cxe.empty?
+      end
       grp.set_attribute('InteriorPro', 'eave_z', z0)
       grp.set_attribute('InteriorPro', 'ridge_z', ridge)
       grp.set_attribute('InteriorPro', 'footprint_xy', poly.flatten)
@@ -7045,6 +7130,307 @@ module InteriorPro
     #   InteriorPro::RoofManager::USE_STUB_RAKE = false  -> the bare edge
     USE_STUB_RAKE = true unless const_defined?(:USE_STUB_RAKE, false)
     STUB_RAKE_MIN = 12.0 unless const_defined?(:STUB_RAKE_MIN, false)
+
+    # ---------- A GABLE IN THE MIDDLE OF A ROOF (2026-10-02) --------------
+    # His words, with the stamped Aetna roof plan and a red sketch on his own
+    # roof: "גמלון שהוא המשך של הקיר באמצע גג", and: "קודם אנחנו קובעים את גג
+    # האמא, הגג הגדול". Measured the same day (gable_mark_report.txt): the
+    # wall he would click, 68ea3160, lies on the line of the longer 4743a286
+    # and behind the bridged entry recess, so it has no edge of its own and
+    # a Gable mark on it was dropped ("ignoring 1 stale/off-loop gable
+    # mark(s)") - item 2 of the roof audit.
+    #
+    # Now that wall's own stretch of the eave - the run of wall between the
+    # corners of the REAL outline, before the recess was bridged - is cut out
+    # as an edge of its own, and the over-framing stands a gable on it: a
+    # wing with no depth. Its ridge runs into the mother roof by half its
+    # width and the planes meet on 45 degree valleys, exactly as a real
+    # wing's do; the wall rises into the triangle like any gable end.
+    #   InteriorPro::RoofManager::USE_CROSS_GABLE = false  -> the mark is
+    #   dropped again, as before.
+    USE_CROSS_GABLE = true unless const_defined?(:USE_CROSS_GABLE, false)
+    CROSS_GABLE_MIN = 24.0 unless const_defined?(:CROSS_GABLE_MIN, false)
+
+    # PURE. { edge index => [t0, t1, wall id] } for every marked wall of this
+    # roof that has no edge of its own: the stretch of a final edge its own
+    # line covered before corners were merged and recesses bridged.
+    # `pre_pts` / `pre_ids` are the outline as eave_polygon traced it,
+    # `swallowed` its { kept wall => [walls merged into it] }.
+    def self.cross_gable_spans(poly, wall_ids, abut_ids, marked, pre_pts, pre_ids, swallowed, own_ids)
+      out = {}
+      return out unless USE_CROSS_GABLE
+      return out if pre_pts.nil? || pre_ids.nil? || poly.nil?
+      n = poly.length
+      m = pre_pts.length
+      Array(marked).each do |wid|
+        next if wid.nil? || wall_ids.include?(wid)
+        next unless Array(own_ids).include?(wid)
+        keep = ((swallowed || {}).find { |_k, v| Array(v).include?(wid) } || [wid]).first
+        best = nil
+        m.times do |j|
+          next unless pre_ids[j] == keep
+          a = pre_pts[j]
+          b = pre_pts[(j + 1) % m]
+          n.times do |i|
+            next if out.key?(i)
+            next if wall_ids[i] && Array(abut_ids).include?(wall_ids[i])
+            p = poly[i]
+            q = poly[(i + 1) % n]
+            len = vlen(vsub(q, p))
+            next if len < 1.0
+            d = vnorm(vsub(q, p))
+            next if vcross(d, vsub(a, p)).abs > 1.5 || vcross(d, vsub(b, p)).abs > 1.5
+            t0, t1 = [vdot(vsub(a, p), d), vdot(vsub(b, p), d)].minmax
+            t0 = 0.0 if t0 < 1.0
+            t1 = len if t1 > len - 1.0
+            next if t1 - t0 < CROSS_GABLE_MIN
+            best = [i, t0, t1] if best.nil? || t1 - t0 > best[2] - best[1]
+          end
+        end
+        out[best[0]] = [best[1], best[2], wid] if best
+      end
+      out
+    end
+
+    # ---------- THE ROOF BELOW MEETS THAT GABLE (2026-10-02) ---------------
+    # His order: "קודם אנחנו קובעים את גג האמא, הגג הגדול, ואליו הגג של
+    # הגראז' מתחבר ומשתנה לפי גג האמא", and, with a red mark where his
+    # garage's ridge stood up out of the gable's slope: "החיבור הזה צריך
+    # להיות המשך לגג, אחרת המים ייתקעו".
+    # Measured on his Aetna model the same day (cross_gable_report.txt and
+    # its pictures): the garage roof was still carried on to the plane of
+    # the house's SOUTH slope - a slope that is no longer there under the
+    # gable - so its ridge ran on up the gable's east slope, 2.875" proud
+    # of it: a dam across the water coming down that slope.
+    # A lower roof that runs into a roof with such a gable now reads the
+    # gable's two planes:
+    #   * a slope of its own that lies PARALLEL to one of them and a little
+    #     over it comes DOWN onto it (the same answer the hip house got,
+    #     valley_flush_drop) - one surface, nothing for water to stop on;
+    #   * it is not carried on past its back line (there is no slope there
+    #     to carry it to), and its ridge cap stops where the gable's roof
+    #     begins;
+    #   * what is left of it under the gable, or lying in the gable's own
+    #     sheet, is cut away - one roof, one sheet.
+    #   InteriorPro::RoofManager::USE_CROSS_JOIN = false -> the lower roof
+    #   is built as if the gable were not there, as before.
+    USE_CROSS_JOIN = true unless const_defined?(:USE_CROSS_JOIN, false)
+
+    # The gables in the middle of a roof, as planes. `g` is its roof_geom.
+    # p0 rises along the edge from its first corner, p1 from its second;
+    # `base` is the slope the gable stands on. Read off the group's own
+    # 'cross_edges', so an edge that merely LOOKS like one (a stub gable
+    # beside an abut edge) is never taken for one.
+    def self.cross_gables_of(grp, g)
+      return [] unless USE_CROSS_GABLE && USE_CROSS_JOIN
+      return [] if grp.nil? || g.nil?
+      n = g[:pts].length
+      Array(grp.get_attribute('InteriorPro', 'cross_edges')).map(&:to_i).map do |i|
+        next nil if i.negative? || i >= n
+        a = g[:pts][i]
+        b = g[:pts][(i + 1) % n]
+        len = Math.hypot(b[0] - a[0], b[1] - a[1])
+        inw = edge_inward(g[:pts], i)
+        next nil if len < 1.0 || inw.nil?
+        d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
+        { edge: i, a: a, b: b, d: d, inw: inw, len: len,
+          p0: plane_abc(a, d, g[:slope], g[:deck_z]),
+          p1: plane_abc(b, [-d[0], -d[1]], g[:slope], g[:deck_z]),
+          base: plane_abc(a, inw, g[:slope], g[:deck_z]) }
+      end.compact
+    rescue StandardError
+      []
+    end
+
+    # PURE. The gable's plane over (x, y) - nil where the roof there is not
+    # the gable (outside its span, in front of its edge, or where the slope
+    # it stands on is the higher of the two).
+    def self.cross_plane_over(crosses, x, y)
+      Array(crosses).each do |c|
+        u = (x - c[:a][0]) * c[:d][0] + (y - c[:a][1]) * c[:d][1]
+        sd = (x - c[:a][0]) * c[:inw][0] + (y - c[:a][1]) * c[:inw][1]
+        next if u < -0.01 || u > c[:len] + 0.01 || sd < -0.01
+        z0 = plane_z(c[:p0], x, y)
+        z1 = plane_z(c[:p1], x, y)
+        next unless [z0, z1].min > plane_z(c[:base], x, y) + 0.01
+        return z0 <= z1 ? c[:p0] : c[:p1]
+      end
+      nil
+    end
+
+    # PURE. How far to lower a low roof so its slope and the gable's are one
+    # plane: along its abut line, where the roof overhead is a gable plane
+    # PARALLEL to the low roof's own surface there and at most `max_drop`
+    # under it. 0.0 = nothing to do.
+    def self.cross_flush_drop(lo_a, lo_b, abut, len, crosses, max_drop)
+      return 0.0 unless USE_VALLEY_FLUSH
+      best = 0.0
+      (0..40).each do |k|
+        t = len.to_f * k / 40.0
+        x = abut[0][0] + abut[1][0] * t
+        y = abut[0][1] + abut[1][1] * t
+        q = cross_plane_over(crosses, x, y)
+        next if q.nil?
+        [[lo_a, lo_b], [lo_b, lo_a]].each do |pl, mate|
+          next unless (pl[0] - q[0]).abs < 1.0e-6 && (pl[1] - q[1]).abs < 1.0e-6
+          next if plane_z(pl, x, y) > plane_z(mate, x, y) + 1.0e-6
+          gap = pl[2] - q[2]
+          next if gap <= 0.05 || gap > max_drop.to_f + 1.0e-6
+          best = gap if gap > best
+        end
+      end
+      best
+    end
+
+    # PURE. Ridge cap lines ([[x, y], z, [x, y], z, sides]) with the stretch
+    # taken out that lies past the gable's own edge, where the gable's top
+    # skin (`lift` over its planes) stands at the line's height or above it.
+    def self.cross_trim_cap_lines(lines, crosses, lift)
+      out = []
+      Array(lines).each do |ln|
+        ka, za, kb, zb, sides = ln
+        seg = Math.hypot(kb[0] - ka[0], kb[1] - ka[1])
+        cut = nil
+        Array(crosses).each do |c|
+          at = lambda do |t|
+            [ka[0] + (kb[0] - ka[0]) * t, ka[1] + (kb[1] - ka[1]) * t, za + (zb - za) * t]
+          end
+          fns = [lambda { |x, y, _z| (x - c[:a][0]) * c[:inw][0] + (y - c[:a][1]) * c[:inw][1] },
+                 lambda { |x, y, _z| (x - c[:a][0]) * c[:d][0] + (y - c[:a][1]) * c[:d][1] },
+                 lambda { |x, y, _z| c[:len] - ((x - c[:a][0]) * c[:d][0] + (y - c[:a][1]) * c[:d][1]) },
+                 lambda { |x, y, z| plane_z(c[:p0], x, y) + lift.to_f - z + 0.05 },
+                 lambda { |x, y, z| plane_z(c[:p1], x, y) + lift.to_f - z + 0.05 }]
+          lo = 0.0
+          hi = 1.0
+          fns.each do |fn|
+            fa = fn.call(*at.call(lo))
+            fb = fn.call(*at.call(hi))
+            if fa < -1.0e-9 && fb < -1.0e-9
+              hi = lo - 1.0
+              break
+            end
+            next if fa >= -1.0e-9 && fb >= -1.0e-9
+            tx = lo + (hi - lo) * fa / (fa - fb)
+            fa < 0.0 ? (lo = tx) : (hi = tx)
+          end
+          next if (hi - lo) * seg < 0.5
+          cut = [lo, hi]
+          break
+        end
+        if cut.nil?
+          out << ln
+          next
+        end
+        [[0.0, cut[0]], [cut[1], 1.0]].each do |t0, t1|
+          next if (t1 - t0) * seg < 0.5
+          out << [[ka[0] + (kb[0] - ka[0]) * t0, ka[1] + (kb[1] - ka[1]) * t0], za + (zb - za) * t0,
+                  [ka[0] + (kb[0] - ka[0]) * t1, ka[1] + (kb[1] - ka[1]) * t1], za + (zb - za) * t1, sides]
+        end
+      end
+      out
+    end
+
+    # The taller roofs of this storey that stand a gable in the middle:
+    # [[group, geom, crosses, top skin lift]].
+    def self.cross_neighbours(ridge_z, lvl, skip_grp)
+      return [] unless USE_ROOF_VALLEY && USE_CROSS_GABLE && USE_CROSS_JOIN
+      roofs.map do |hi_grp|
+        next nil if hi_grp == skip_grp || !hi_grp.valid?
+        hg = roof_geom(hi_grp)
+        next nil if hg.nil? || hg[:level] != lvl || !(hg[:ridge_z] > ridge_z.to_f + 0.5)
+        cs = cross_gables_of(hi_grp, hg)
+        next nil if cs.empty?
+        lift = begin
+          slab_lift(roof_settings(hi_grp)[:thickness].to_f, hg[:slope])
+        rescue StandardError
+          0.0
+        end
+        [hi_grp, hg, cs, lift]
+      end.compact
+    rescue StandardError => e
+      puts "[Roof] cross_neighbours: #{e.message}"
+      []
+    end
+
+    # What of THIS (lower) roof stands under such a gable, or lies in its
+    # sheet: for each of its two slope planes and each half of the gable,
+    # its own outline held to the gable's span, past the gable's roof edge
+    # where the two are one plane (past its WALL line where this roof runs
+    # in under the gable - the strip under the rake overhang is kept), to
+    # where the gable is the roof overhead, and to this plane's own side of
+    # the ridge. Returns [{ poly: [[x, y, z]..], plane:, hp:, flush: }] -
+    # the shape valley_cut_deck! eats.
+    def self.cross_inside_regions(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+      out = []
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      g = { pts: pts, slope: slope, deck_z: deck_z, ridge_z: ridge_z, gables: gidx }
+      cross_neighbours(ridge_z, lvl, skip_grp).each do |_hi_grp, hg, crosses, _lift|
+        crosses.each do |c|
+          pair = valley_ridge_pair(g, c[:d]) || two_side_planes(g)
+          next if pair.nil?
+          pair.each_index do |k|
+            pl = pair[k]
+            mate = pair[1 - k]
+            [[c[:p0], c[:p1]], [c[:p1], c[:p0]]].each do |q, q2|
+              flush = (pl[0] - q[0]).abs < 1.0e-6 && (pl[1] - q[1]).abs < 1.0e-6 && (pl[2] - q[2]).abs < 0.05
+              from = flush ? c[:a] : [c[:a][0] + c[:inw][0] * hg[:oh].to_f, c[:a][1] + c[:inw][1] * hg[:oh].to_f]
+              low = [pl[0], pl[1], pl[2] - 0.05]
+              rg = pts.map { |v| [v[0].to_f, v[1].to_f] }
+              rg = clip_halfplane(rg, from, c[:inw], true)
+              rg = clip_halfplane(rg, c[:a], c[:d], true)
+              rg = clip_halfplane(rg, c[:b], c[:d], false)
+              rg = clip_under(rg, low, q)          # this roof at the gable's height or under it
+              rg = clip_under(rg, q, q2)           # this half of the gable
+              rg = clip_under(rg, c[:base], q)     # where the gable IS the roof overhead
+              rg = clip_under(rg, pl, mate)        # this plane's own side of the ridge
+              next if rg.length < 3 || poly_area2(rg).abs < 2.0
+              out << { poly: rg.map { |v| [v[0], v[1], plane_z(pl, v[0], v[1])] }, plane: pl, hp: q, flush: flush }
+            end
+          end
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] cross_inside_regions: #{e.message}"
+      []
+    end
+
+    # PURE. The cross gables of a framed plan as WINGS WITH NO DEPTH: for
+    # each outline edge that carries a cross mark, a rect lying on the main
+    # body's own side line. Only on the two slopes that run along the ridge,
+    # and only when the gable's own ridge stays under the mother's. nil =
+    # one of them cannot be built, and the caller puts the outline back.
+    def self.cross_wings(main, g, poly, wall_ids, cross)
+      x0, y0, x1, y1 = main
+      axis = if g[:e] || g[:w] then :x
+             elsif g[:n] || g[:s] then :y
+             else (x1 - x0) >= (y1 - y0) ? :x : :y end
+      out = []
+      n = poly.length
+      n.times do |i|
+        next unless wall_ids[i] && cross.include?(wall_ids[i])
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        if (a[1] - b[1]).abs < RECT_TOL
+          return nil unless axis == :x
+          lo, hi = [a[0], b[0]].minmax
+          return nil if (hi - lo) / 2.0 > (y1 - y0) / 2.0 - 1.0
+          if (a[1] - y0).abs < RECT_TOL then out << { rect: [lo, y0, hi, y0], mouth: :n, gabled: true, cross: true }
+          elsif (a[1] - y1).abs < RECT_TOL then out << { rect: [lo, y1, hi, y1], mouth: :s, gabled: true, cross: true }
+          else return nil end
+        elsif (a[0] - b[0]).abs < RECT_TOL
+          return nil unless axis == :y
+          lo, hi = [a[1], b[1]].minmax
+          return nil if (hi - lo) / 2.0 > (x1 - x0) / 2.0 - 1.0
+          if (a[0] - x0).abs < RECT_TOL then out << { rect: [x0, lo, x0, hi], mouth: :e, gabled: true, cross: true }
+          elsif (a[0] - x1).abs < RECT_TOL then out << { rect: [x1, lo, x1, hi], mouth: :w, gabled: true, cross: true }
+          else return nil end
+        else
+          return nil
+        end
+      end
+      out
+    end
 
     # PURE. spans: { edge index => [t0, t1, wall id] }, t measured along
     # the edge from its first corner. Each named stretch becomes an edge of
@@ -9174,17 +9560,22 @@ module InteriorPro
     # gabled. Returns { main:, g:, wings: [{rect:, mouth:, gabled:}],
     # edges: [poly edge indices on gabled ends] } or nil (fallback).
     def self.framed_plan(poly, wall_ids, marked, style, dutch_marked = [],
-                         hip_marked = [])
+                         hip_marked = [], cross = [])
       return nil unless rectilinear?(poly)
       rects = grid_rects(poly)
       return nil unless rects
       assemble_framed_plan(rects, poly, wall_ids, marked, style, dutch_marked,
-                           hip_marked)
+                           hip_marked, cross)
     end
 
     def self.assemble_framed_plan(rects, poly, wall_ids, marked, style,
-                                  dutch_marked = [], hip_marked = [])
+                                  dutch_marked = [], hip_marked = [], cross = [])
       return nil if rects.empty? || rects.length > 8
+      # A CROSS MARK IS NOT AN END (2026-10-02). It stands in the middle of
+      # a side, so it must not turn that whole side into a gable end (and
+      # the ridge with it). It comes back in as a wing with no depth, below.
+      cross = Array(cross)
+      marked = marked - cross unless cross.empty?
       main_i = rects.each_index.max_by { |i| (rects[i][2] - rects[i][0]) * (rects[i][3] - rects[i][1]) }
       main = rects[main_i]
       # attach every other rect to the tree: parent = main or an already
@@ -9241,6 +9632,11 @@ module InteriorPro
         end
         # An end he set to Hip stays hip, even on the Gable style.
         [:n, :s, :e, :w].each { |sd| g[sd] = false if hip_side[sd] }
+      end
+      unless cross.empty?
+        cw = cross_wings(main, g, poly, wall_ids, cross)
+        return nil if cw.nil? || cw.empty?
+        wings.concat(cw)
       end
       return nil unless g.values.any? || wings.any? { |w| w[:gabled] }
       # ridge sanity: a lone gable + hip end must still leave a ridge
@@ -9305,8 +9701,19 @@ module InteriorPro
       end
     end
 
+    def self.same_xy?(a, b)
+      (a[0] - b[0]).abs < 1.0e-6 && (a[1] - b[1]).abs < 1.0e-6
+    end
+
     # sloped face: lift the plan points, track ridge + zmap, paint
     def self.framed_face!(st, pts2, lift)
+      # A WING WITH NO DEPTH (a cross gable, 2026-10-02) hands in rings with
+      # the same corner twice. Taken out here; a ring with no repeat - every
+      # ring there was before - comes through untouched.
+      if pts2.each_index.any? { |k| same_xy?(pts2[k], pts2[k - 1]) }
+        pts2 = pts2.each_index.reject { |k| same_xy?(pts2[k], pts2[k - 1]) }.map { |k| pts2[k] }
+        return nil if pts2.length < 3
+      end
       pts = pts2.map { |p| Geom::Point3d.new(p[0], p[1], lift.call(p)) }
       pts.each do |p|
         key = [p.x.round(4), p.y.round(4)]
@@ -9558,9 +9965,23 @@ module InteriorPro
 
     # Main rectangle: plain prism — gable triangle on gabled ends, hip
     # plane on the others.
-    def self.build_main_rect!(st, rect, g, d = nil)
+    def self.build_main_rect!(st, rect, g, d = nil, cross = nil)
       d ||= {}
       x0, y0, x1, y1 = rect
+      # THE MOTHER GIVES UP THE TRIANGLE UNDER A CROSS GABLE (2026-10-02):
+      # between the two valleys there is no mother slope left, so no shelf
+      # of eave runs across the foot of the gable. [lo, mid, hi, half] per
+      # side, in the order each face walks its own eave.
+      cx = { s: [], n: [], w: [], e: [] }
+      Array(cross).each do |w|
+        r = w[:rect]
+        case w[:mouth]
+        when :n then cx[:s] << [r[0], r[2]]
+        when :s then cx[:n] << [r[0], r[2]]
+        when :e then cx[:w] << [r[1], r[3]]
+        when :w then cx[:e] << [r[1], r[3]]
+        end
+      end
       z0d = st[:z0] + st[:delta]
       sl = st[:slope]
       axis = if g[:e] || g[:w]
@@ -9583,12 +10004,16 @@ module InteriorPro
         de = def_ > 0.0 ? def_ + DUTCH_SET_IN : 0.0
         xw = g[:w] ? x0 + dw : x0 + (yr - y0)
         xe = g[:e] ? x1 - de : x1 - (yr - y0)
-        south = [[x0, y0], [x1, y0]]
+        south = [[x0, y0]]
+        cx[:s].sort_by(&:first).each { |lo, hi| south << [lo, y0] << [(lo + hi) / 2.0, y0 + (hi - lo) / 2.0] << [hi, y0] }
+        south << [x1, y0]
         south << [x1 - de, y0 + de] if de > 0.0
         south << [xe, yr] << [xw, yr]
         south << [x0 + dw, y0 + dw] if dw > 0.0
         framed_face!(st, south, ->(p) { z0d + sl * (p[1] - y0) })
-        north = [[x1, y1], [x0, y1]]
+        north = [[x1, y1]]
+        cx[:n].sort_by { |lo, _hi| -lo }.each { |lo, hi| north << [hi, y1] << [(lo + hi) / 2.0, y1 - (hi - lo) / 2.0] << [lo, y1] }
+        north << [x0, y1]
         north << [x0 + dw, y1 - dw] if dw > 0.0
         north << [xw, yr] << [xe, yr]
         north << [x1 - de, y1 - de] if de > 0.0
@@ -9643,12 +10068,16 @@ module InteriorPro
         dn = dnf > 0.0 ? dnf + DUTCH_SET_IN : 0.0
         ys = g[:s] ? y0 + ds : y0 + (xr - x0)
         yn = g[:n] ? y1 - dn : y1 - (xr - x0)
-        west = [[x0, y1], [x0, y0]]
+        west = [[x0, y1]]
+        cx[:w].sort_by { |lo, _hi| -lo }.each { |lo, hi| west << [x0, hi] << [x0 + (hi - lo) / 2.0, (lo + hi) / 2.0] << [x0, lo] }
+        west << [x0, y0]
         west << [x0 + ds, y0 + ds] if ds > 0.0
         west << [xr, ys] << [xr, yn]
         west << [x0 + dn, y1 - dn] if dn > 0.0
         framed_face!(st, west, ->(p) { z0d + sl * (p[0] - x0) })
-        east = [[x1, y0], [x1, y1]]
+        east = [[x1, y0]]
+        cx[:e].sort_by(&:first).each { |lo, hi| east << [x1, lo] << [x1 - (hi - lo) / 2.0, (lo + hi) / 2.0] << [x1, hi] }
+        east << [x1, y1]
         east << [x1 - dn, y1 - dn] if dn > 0.0
         east << [xr, yn] << [xr, ys]
         east << [x1 - ds, y0 + ds] if ds > 0.0
@@ -9827,7 +10256,8 @@ module InteriorPro
              roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
              valleys: valleys, dutch: dutch.to_f, dutch_dz: dutch_dz,
              dutch_dep: dutch_dep.to_f }
-      build_main_rect!(st, plan[:main], plan[:g], plan[:d])
+      build_main_rect!(st, plan[:main], plan[:g], plan[:d],
+                       plan[:wings].select { |w| w[:cross] })
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
         build_wing_rect!(st, w[:rect], w[:mouth], w[:gabled], cov)
