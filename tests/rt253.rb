@@ -35,6 +35,11 @@ def set_const(name, val)
   RF.const_set(name, val)
 end
 set_const(:USE_ROOF_VALLEY, true)
+# The low roof is set lower to make one surface with the taller roof's slope since
+# rt254 (USE_VALLEY_FLUSH), and then no step is left. What is pinned HERE is the
+# roof that cannot come down (a step taller than its heel, or the switch off):
+# it keeps its height and the step is closed.
+set_const(:USE_VALLEY_FLUSH, false)
 ok('the code is loaded', RF.respond_to?(:valley_abut_steps) && RF.respond_to?(:valley_abut_risers!))
 
 # ---- 1. the pure rule: the step on the abut line, on HIS numbers ---------------

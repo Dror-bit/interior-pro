@@ -708,6 +708,76 @@ module InteriorPro
                            .map { |i| edge_plane(hi, i) }.compact
     end
 
+    # THE LOW ROOF COMES DOWN TO THE TALLER ROOF'S SLOPE (2026-10-02). With
+    # both roofs on Hip his garage's east slope ran parallel to the house's
+    # east slope, 2.9" above it - his wall heights: the garage stands 83.5"
+    # wider and 18" lower, and one surface wants 20.9". Carried on to the
+    # house's rib it left a step all along it. He looked at it and said:
+    # "זה לא מסתדר ככה, השיפוע של הגג יצטרך לרדת" - and, asked who lowers
+    # it, "הוא מוריד לבד".
+    # So: a low roof whose slope is PARALLEL to another slope of the roof
+    # it runs into, and stands a little over it where the two meet on the
+    # abut line, is built that much lower. The two are then one plane; the
+    # low roof's ridge, the valley and the taller roof's rib meet in one
+    # point, and no step is left to close. Nothing changes shape - the
+    # whole roof moves down, the way the raised heel moves it up, and never
+    # further than that heel, so the deck never comes down into the wall.
+    # false = the roof stays on its heel and the step is closed with the
+    # upright faces (valley_rib_risers!, valley_abut_risers!).
+    USE_VALLEY_FLUSH = true unless const_defined?(:USE_VALLEY_FLUSH, false)
+    VALLEY_FLUSH_MAX = 6.0 unless const_defined?(:VALLEY_FLUSH_MAX, false)
+
+    # PURE. How far to lower the low roof: the height its plane stands over
+    # a PARALLEL plane of the taller roof on the abut line (the stretches
+    # valley_abut_steps finds), when that is no more than `max_drop`.
+    # 0.0 = nothing to do.
+    def self.valley_flush_drop(lo_a, lo_b, hi_plane, others, abut, len, max_drop)
+      return 0.0 unless USE_VALLEY_FLUSH
+      best = 0.0
+      valley_abut_steps(lo_a, lo_b, hi_plane, others, abut, len).each do |pl, q, _a, _b|
+        next unless (pl[0] - q[0]).abs < 1.0e-6 && (pl[1] - q[1]).abs < 1.0e-6
+        gap = pl[2] - q[2]
+        next if gap <= 0.05 || gap > max_drop.to_f + 1.0e-6
+        best = gap if gap > best
+      end
+      best
+    end
+
+    # The same question asked by the builder, BEFORE the roof exists: its
+    # outline, its gable and abut edges, and the height it would stand at.
+    # `skip_grp` is the roof being replaced.
+    def self.valley_flush_drop_for(poly, wall_ids, gables, abut_ids, slope, z0, oh, lvl, skip_grp, max_drop)
+      return 0.0 unless USE_ROOF_VALLEY && USE_VALLEY_FLUSH && USE_VALLEY_HIP_CARRY
+      return 0.0 if Array(abut_ids).empty? || max_drop.to_f <= 0.05 || poly.nil? || slope.to_f <= VALLEY_EPS
+      abut_e = wall_ids.each_index.select { |i| abut_ids.include?(wall_ids[i]) }
+      return 0.0 unless abut_e.length == 1
+      lo = { pts: poly, slope: slope, deck_z: z0 - slope * oh, gables: Array(gables), level: lvl }
+      sides = (0...poly.length).reject { |i| lo[:gables].include?(i) || abut_e.include?(i) }
+      if sides.length != 2
+        fl = valley_flank_sides(lo, sides, abut_e.first)
+        sides = fl if fl
+      end
+      return 0.0 unless sides.length == 2
+      lo_a = edge_plane(lo, sides[0])
+      lo_b = edge_plane(lo, sides[1])
+      return 0.0 if lo_a.nil? || lo_b.nil?
+      rl = planes_meet(lo_a, lo_b)
+      return 0.0 if rl.nil?
+      lo[:ridge_z] = plane_z(lo_a, rl[0][0], rl[0][1])
+      ae = abut_e.first
+      abut = edge_line(poly, ae)
+      inw = edge_inward(poly, ae)
+      return 0.0 if abut.nil? || inw.nil?
+      a2 = poly[(ae + 1) % poly.length]
+      mid = [(abut[0][0] + a2[0]) / 2.0, (abut[0][1] + a2[1]) / 2.0]
+      hi_grp, hi, hi_edge = valley_partner(skip_grp, lo, [mid[0] - inw[0] * 24.0, mid[1] - inw[1] * 24.0])
+      return 0.0 if hi_grp.nil?
+      hi_plane = edge_plane(hi, hi_edge)
+      return 0.0 if hi_plane.nil?
+      len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
+      valley_flush_drop(lo_a, lo_b, hi_plane, valley_other_planes(hi, hi_edge), abut, len, max_drop)
+    end
+
     # PURE. THE STEP ON THE ABUT LINE (2026-10-02). Past the rib the low
     # roof is not carried on - it ends on its abut line, as it always did -
     # but there the taller roof is ANOTHER slope, and the low roof stands
@@ -3785,6 +3855,20 @@ module InteriorPro
       save_settings!(s)
       # the wall top, plus the raised heel (see heel_lift).
       z0 = eave_z(own_walls) + heel_lift(s[:overhang], slope, eave_drop(s))
+      # ONE SURFACE WITH THE TALLER ROOF (2026-10-02) - see valley_flush_drop.
+      # Never further than the heel: the deck stays on or over the wall top.
+      begin
+        heel = heel_lift(s[:overhang], slope, eave_drop(s))
+        flush = valley_flush_drop_for(poly, wall_ids, gables, abut_ids, slope, z0, s[:overhang].to_f, lvl,
+                                      replace, [heel, VALLEY_FLUSH_MAX].min)
+        if flush > 0.0
+          z0 -= flush
+          puts format('[Roof] valley: this roof is set %.2f" lower, so its slope and the taller roof\'s are one surface ' \
+                      '(%.2f" over its wall top instead of %.2f")', flush, heel - flush, heel)
+        end
+      rescue StandardError => e
+        puts "[Roof] valley flush: #{e.message}"
+      end
 
       # the Dutch gable faces this build makes, so they can be painted
       # with the house's siding once the shell is finished, and the two

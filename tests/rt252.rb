@@ -34,6 +34,11 @@ def set_const(name, val)
   RF.const_set(name, val)
 end
 set_const(:USE_ROOF_VALLEY, true)
+# The low roof is set lower to make one surface with the taller roof's slope since
+# rt254 (USE_VALLEY_FLUSH), and then no step is left. What is pinned HERE is the
+# roof that cannot come down (a step taller than its heel, or the switch off):
+# it keeps its height and the step is closed.
+set_const(:USE_VALLEY_FLUSH, false)
 ok('the code is loaded', RF.respond_to?(:valley_flank_sides) && RF.respond_to?(:valley_other_planes) &&
                          RF.respond_to?(:valley_rib_risers!) && RF.const_defined?(:USE_VALLEY_HIP_CARRY, false))
 def r2(pts); pts.map { |p| [p[0].round(2), p[1].round(2)] }; end

@@ -168,10 +168,13 @@ if g_none
   ok('soffit "None": the board is there, no soffit', has_face?(fn, OUTER) && !has_face?(fn, SOFFIT))
 end
 
+# Both roofs on Hip: since 2026-10-02 the garage is set 2.875" lower, to make one
+# surface with the house's east slope (rt254) - the board and the soffit come down with it.
 _h, g_hip, = build('hip', soffit: 'boxed')
-ok('Hip: the same stretch gets the same board and soffit',
-   g_hip && has_face?(faces(g_hip), OUTER) && has_face?(faces(g_hip), SOFFIT) &&
-   gable_mids(g_hip) == [[-99.5, 481.5]], g_hip && gable_mids(g_hip))
+down = lambda { |pts| pts.map { |x, y, z| [x, y, (z - 2.875).round(2)] } }
+ok('Hip: the same stretch gets the same board and soffit (2.875" lower, with the roof)',
+   g_hip && has_face?(faces(g_hip), down.call(OUTER)) && has_face?(faces(g_hip), down.call(SOFFIT)) &&
+   gable_mids(g_hip) == [[-99.5, 481.5]], g_hip && [gable_mids(g_hip), faces(g_hip).select { |f| f.all? { |p| (p[1] - 481.5).abs < 0.01 } }.first(4)])
 
 # ---- 3. which stretch: the model rule -------------------------------------------
 if RF.respond_to?(:stub_spans)
