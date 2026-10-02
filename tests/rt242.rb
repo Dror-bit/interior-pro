@@ -82,8 +82,10 @@ end
 g6, h6 = build(6.0)
 ok('the garage roof was built', !g6.nil?)
 if g6
-  ok('ONE gable end, and it is the front of the garage (the edge on y = 201)',
-     gable_walls(g6) == [[-192.5, 201.0]], gable_walls(g6))
+  # (rt246: the stretch of the back line with no house behind it is a gable
+  # end too - it lies on the old line, the ridge does not know about it)
+  ok('the ridge\'s gable end is the front of the garage (the edge on y = 201)',
+     gable_walls(g6) == [[-192.5, 201.0], [-99.5, 481.5]], gable_walls(g6))
   rise6 = g6.get_attribute('InteriorPro', 'ridge_z').to_f - (g6.get_attribute('InteriorPro', 'eave_z').to_f - 0.5 * 12.0)
   ok('the ridge stands over the MIDDLE of the garage: half its width up the slope (142" x 6:12 = 71")',
      (rise6 - 71.0).abs < 0.6, rise6)
@@ -91,7 +93,7 @@ if g6
   g3, h3 = build(3.0)
   rise3 = g3.get_attribute('InteriorPro', 'ridge_z').to_f - (g3.get_attribute('InteriorPro', 'eave_z').to_f - 0.25 * 12.0)
   ok('3:12 changes the height (35.5")...', (rise3 - 35.5).abs < 0.6, rise3)
-  ok('...and not the shape: the same gable end', gable_walls(g3) == [[-192.5, 201.0]], gable_walls(g3))
+  ok('...and not the shape: the same gable end', gable_walls(g3) == [[-192.5, 201.0], [-99.5, 481.5]], gable_walls(g3))
   ok('the house roof picks its own gable ends exactly as at 6:12', gable_walls(h3) == house6, [gable_walls(h3), house6])
 end
 

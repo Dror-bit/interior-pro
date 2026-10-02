@@ -113,9 +113,11 @@ if house
   own = RF.roof_wall_ids(house)
   ok('the three walls of the recess still belong to the house roof', (%w[h1 h3 h6] - own).empty?, own)
   ok('...and so does the wall 68ea', own.include?('h5'), own)
-  ok('the garage roof is untouched by this: same footprint, one gable end at the front',
-     garage && footprint(garage).sort == [[-334.5, 201.0], [-334.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort &&
-     gable_mids(garage) == [[-192.5, 201.0]], garage && [footprint(garage), gable_mids(garage)])
+  # (rt246: plus the point on the back line where the back wall's own stretch
+  # starts, and that stretch as a second gable end)
+  ok('the garage roof is untouched by this: same corners, the gable end at the front',
+     garage && footprint(garage).sort == [[-334.5, 201.0], [-334.5, 481.5], [-148.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort &&
+     gable_mids(garage) == [[-192.5, 201.0], [-99.5, 481.5]], garage && [footprint(garage), gable_mids(garage)])
 end
 hip, = build('hip')
 ok('Hip on the same house: four eaves and no gable at all',

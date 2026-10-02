@@ -130,9 +130,11 @@ if house && garage
      on_line(tops(garage), 213.0).length == 1 && tops(garage).length == 2, tops(garage).length)
   ok('nothing was stood on the HOUSE roof for it', on_line(tops(house), 470.0).empty? && on_line(tops(house), 464.5).empty?)
   ok('the builder says so in the console', log =~ /back wall gN raised to the roof/, log.lines.grep(/back wall/))
-  ok('the garage outline and its gable end are what they were',
-     footprint(garage).sort == [[-334.5, 201.0], [-334.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort &&
-     gable_mids(garage) == [[-192.5, 201.0]], [footprint(garage), gable_mids(garage)])
+  # (rt246: the wall's stretch of the back line is an edge of its own now -
+  # one more point ON the old line, and a second gable end)
+  ok('the garage stands on the same four corners, its ridge on the same gable end',
+     footprint(garage).sort == [[-334.5, 201.0], [-334.5, 481.5], [-148.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort &&
+     gable_mids(garage) == [[-192.5, 201.0], [-99.5, 481.5]], [footprint(garage), gable_mids(garage)])
   ok('the house outline and its two gable ends are what they were',
      footprint(house).sort == [[-749.0, 452.5], [-749.0, 822.5], [-134.0, 452.5], [-134.0, 822.5]].sort &&
      gable_mids(house) == [[-749.0, 637.5], [-134.0, 637.5]], [footprint(house), gable_mids(house)])

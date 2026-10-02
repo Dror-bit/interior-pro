@@ -89,12 +89,18 @@ ok('the garage back wall belongs to the garage roof', RF.roof_of_wall_id('gN').e
 ok('the house wall 68ea belongs to the house roof', RF.roof_of_wall_id('h5').equal?(hroof), RF.roof_wall_ids(hroof))
 ok('the garage roof does not claim the house wall it dies into', !RF.roof_wall_ids(groof).include?('h5') && !RF.roof_wall_ids(groof).include?('h7'), RF.roof_wall_ids(groof))
 fp = Array(groof && groof.get_attribute('InteriorPro', 'footprint_xy')).each_slice(2).map { |x, y| [x.round(2), y.round(2)] }
-ok('the garage roof is built on the same footprint as before',
-   fp.sort == [[-334.5, 201.0], [-334.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort, fp)
+# (rt246, later the same day: the back wall's own stretch of the back line is
+# an edge of its own now, so the line carries one more point ON it)
+ok('the garage roof is built on the same four corners as before',
+   fp.sort == [[-334.5, 201.0], [-334.5, 481.5], [-148.5, 481.5], [-50.5, 201.0], [-50.5, 481.5]].sort, fp)
 
 # ---- 4. the kill switch ---------------------------------------------------
 RF.send(:remove_const, :USE_SWALLOWED_OWNERS)
 RF.const_set(:USE_SWALLOWED_OWNERS, false)
+# ...with rt246's switch off too: with it on the back wall has an edge of its
+# own and belongs to the roof like any other wall of the loop
+RF.send(:remove_const, :USE_STUB_RAKE) if RF.const_defined?(:USE_STUB_RAKE, false)
+RF.const_set(:USE_STUB_RAKE, false)
 m = build_house
 m.set_attribute('InteriorPro', 'roof_style', 'hip')
 RF.build_roof!(level: 1)

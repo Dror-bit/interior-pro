@@ -2166,6 +2166,15 @@ module InteriorPro
         # the two corners of this capped edge, each shared with a neighbour
         [[(i - 1) % n, poly[i]], [(i + 1) % n, poly[(i + 1) % n]]].each do |j, c0|
           next if cap_flags[j] # capped on both sides - no hole between them
+          # ...and none where the neighbour CARRIES ON along the same line
+          # (2026-10-01, stub_spans: a gable stretch cut out of an abut
+          # edge). The plate would stand square to both, in the face of
+          # the taller wall that already closes that end.
+          if USE_STUB_RAKE
+            ci = vnorm(vsub(poly[(i + 1) % n], poly[i]))
+            cj = vnorm(vsub(poly[(j + 1) % n], poly[j]))
+            next if vdot(ci, cj) > 0.9999
+          end
           # the plate stands where the neighbour's trim ENDS - at the
           # corner, or at the wall line the valley pulled it back to
           # (2026-09-03, cap_corner_pull_back). head/tail below still
@@ -3149,6 +3158,25 @@ module InteriorPro
             gables = gables.reject do |i|
               bowed.include?(wall_ids[i]) || abut_ids.include?(wall_ids[i]) ||
                 hip_marked.include?(wall_ids[i])
+            end
+          end
+          # THE WALL ON THE ABUT LINE WITH NOTHING BEHIND IT IS A GABLE END
+          # (2026-10-01) - see stub_spans. Its stretch of the abut edge
+          # becomes an edge of its own, under its own wall's id, and every
+          # thing a gable end gets (wall top, rake board, rake soffit)
+          # grows there by itself. Same line, same speed 0: no plane moves.
+          stub_ids = []
+          if USE_STUB_RAKE && !abut_ids.empty? && s[:style] != 'shed'
+            sp = stub_spans(poly, wall_ids, abut_ids, ep[:swallowed],
+                            own_walls.map { |w| w.get_attribute('InteriorPro', 'id') },
+                            closers, s[:overhang])
+            unless sp.empty?
+              poly, wall_ids, gables = split_edge_spans(poly, wall_ids, gables, sp)
+              stub_ids = sp.values.map { |x| x[2] }
+              sp.each_value do |t0, t1, wid|
+                puts format('[Roof] wall %s stands on the line this roof dies against with nothing behind it - a gable end, %.0f" long',
+                            wid.to_s[0, 8], t1 - t0)
+              end
             end
           end
           if s[:style] == 'shed' && !gables.empty?
@@ -4173,8 +4201,10 @@ module InteriorPro
       # the roof edge), painted with each wall's own sides. They live in
       # this group, so every roof rebuild replaces them. Kill switch:
       #   InteriorPro::RoofManager.build_roof!(gable_walls: false)
-      if s[:gable_walls] && zmap && !gables.empty?
-        build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
+      stub_ids = [] unless defined?(stub_ids) && stub_ids
+      stub_e = gables.select { |gi| stub_ids.include?(wall_ids[gi]) }
+      if s[:gable_walls] && zmap && !(gables - stub_e).empty?
+        build_gable_wall_tops!(grp, poly, gables - stub_e, wall_ids, zmap, z0,
                                s[:overhang], framed, band_top, slope, cells)
       end
       # ...and the wall that stands on the abut line with NO taller wall
@@ -4182,7 +4212,7 @@ module InteriorPro
       if s[:gable_walls] && cells && !abut_ids.empty? && s[:style] != 'flat'
         build_stub_wall_tops!(grp, poly, cells, wall_ids, abut_ids, ep[:swallowed],
                               own_walls.map { |w| w.get_attribute('InteriorPro', 'id') },
-                              z0, slope, s[:overhang])
+                              z0, slope, s[:overhang], stub_ids)
       end
       # NO BAND UNDER THE EAVE (2026-09-06). A first round filled the space
       # the lift opened over each eave wall with a wall-thick prism, built
@@ -4261,6 +4291,7 @@ module InteriorPro
       # ...and the walls inside a recess the eave was carried across.
       lost_own = swallowed_own_ids((ep[:swallowed] || {}).merge(notch: notch_lost),
                                    own_walls.map { |w| w.get_attribute('InteriorPro', 'id') })
+      lost_own -= wall_ids                    # it has an edge of its own (stub_spans)
       unless lost_own.empty?
         puts "[Roof] #{lost_own.length} wall(s) lying on a longer wall's line still belong to this roof: #{lost_own.map { |x| x.to_s[0, 8] }.join(' ')}"
       end
@@ -6027,6 +6058,113 @@ module InteriorPro
       regions.select { |r| r.length >= 2 && r.last[0] - r.first[0] > 0.5 }
     end
 
+    # ---------- THE STUB WALL IS A GABLE END (2026-10-01) ----------------
+    # build_stub_wall_tops! (below) closed the open triangle over his
+    # garage's back wall, and he asked for the next thing at once: the roof
+    # sticks 11.5" out past that wall and its edge is bare - no board, no
+    # soffit (an abut edge gets neither, the taller wall is supposed to be
+    # there). That stretch IS a gable end, so it is made one: the abut edge
+    # is cut where the wall with nothing behind it stands, the piece takes
+    # that wall's own id and goes into `gables`. Both pieces lie on the old
+    # line and both run at speed 0, so the roof's planes are untouched -
+    # only the dressing changes.
+    #   InteriorPro::RoofManager::USE_STUB_RAKE = false  -> the bare edge
+    USE_STUB_RAKE = true unless const_defined?(:USE_STUB_RAKE, false)
+    STUB_RAKE_MIN = 12.0 unless const_defined?(:STUB_RAKE_MIN, false)
+
+    # PURE. spans: { edge index => [t0, t1, wall id] }, t measured along
+    # the edge from its first corner. Each named stretch becomes an edge of
+    # its own with that id, flagged gable; the rest of the edge keeps its
+    # id and its flag. Returns [poly, wall_ids, gable indices].
+    def self.split_edge_spans(poly, wall_ids, gables, spans)
+      n = poly.length
+      pts = []
+      ids = []
+      flags = []
+      n.times do |i|
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        len = vlen(vsub(b, a))
+        sp = spans[i]
+        if sp.nil? || len < 1.0
+          pts << a
+          ids << wall_ids[i]
+          flags << gables.include?(i)
+          next
+        end
+        d = vnorm(vsub(b, a))
+        t0 = sp[0] <= 1.0 ? 0.0 : sp[0].to_f
+        t1 = sp[1] >= len - 1.0 ? len : sp[1].to_f
+        stops = [0.0]
+        stops << t0 if t0 > 0.0
+        stops << t1 if t1 < len
+        stops << len
+        stops.each_cons(2) do |u0, u1|
+          inside = u0 >= t0 - 0.5 && u1 <= t1 + 0.5
+          pts << vadd(a, vmul(d, u0))
+          ids << (inside ? sp[2] : wall_ids[i])
+          flags << (inside ? true : gables.include?(i))
+        end
+      end
+      [pts, ids, flags.each_index.select { |k| flags[k] }]
+    end
+
+    # Which stretch of each abut edge is such a wall: one of this roof's
+    # OWN walls that was merged into the edge, less whatever a taller wall
+    # covers on the same line. A wall that comes within an overhang of the
+    # edge's corner runs to the corner. { edge index => [t0, t1, wall id] }
+    def self.stub_spans(poly, wall_ids, abut_ids, swallowed, own_ids, closers, overhang)
+      out = {}
+      return out if swallowed.nil? || swallowed.empty?
+      n = poly.length
+      n.times do |i|
+        kid = wall_ids[i]
+        next unless kid && abut_ids.include?(kid)
+        cands = (swallowed[kid] || []).select { |w| own_ids.include?(w) }
+        next if cands.empty?
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        d = vnorm(vsub(b, a))
+        len = vlen(vsub(b, a))
+        inw = [-d[1], d[0]]
+        shut = Array(closers).map do |w|
+          seg = InteriorPro::RoomManager.centerline(w)
+          next nil if seg.nil?
+          wd = vnorm([seg[:e].x.to_f - seg[:s].x.to_f, seg[:e].y.to_f - seg[:s].y.to_f])
+          next nil if vdot(wd, d).abs < 0.95
+          th = w.get_attribute('InteriorPro', 'thickness').to_f
+          off = vdot(inw, [(seg[:s].x.to_f + seg[:e].x.to_f) / 2.0 - a[0],
+                           (seg[:s].y.to_f + seg[:e].y.to_f) / 2.0 - a[1]])
+          next nil if off < -1.0 || off > overhang.to_f + 3.0 * th + 6.0
+          wall_span_on_edge(w, a, d, len, th)
+        end.compact
+        best = nil
+        cands.each do |wid|
+          wall = wall_by_id(wid)
+          next if wall.nil?
+          th = wall.get_attribute('InteriorPro', 'thickness').to_f
+          next if th < 0.1
+          lo, hi = wall_span_on_edge(wall, a, d, len, th)
+          reach = overhang.to_f + th + 1.0
+          lo = 0.0 if lo <= reach
+          hi = len if hi >= len - reach
+          shut.each do |s0, s1|
+            next if s1 <= lo + 0.5 || s0 >= hi - 0.5
+            if s0 <= lo + 1.0 then lo = [lo, s1].max
+            elsif s1 >= hi - 1.0 then hi = [hi, s0].min
+            end
+          end
+          next if hi - lo < STUB_RAKE_MIN
+          best = [lo, hi, wid] if best.nil? || hi - lo > best[1] - best[0]
+        end
+        out[i] = best if best
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] stub_spans: #{e.message}"
+      {}
+    end
+
     # THE BACK WALL OF A ROOF THAT DIES INTO A HOUSE - THE PART THE HOUSE
     # DOES NOT COVER (2026-10-01).
     #
@@ -6057,52 +6195,67 @@ module InteriorPro
       vdot(inw, [mx - a[0], my - a[1]]) - th.to_f / 2.0
     end
 
+    # `stub_ids` (2026-10-01, later the same day): walls that were given an
+    # edge of their own by stub_spans. They are raised here too, and NOT by
+    # build_gable_wall_tops!, because that one stands the top a whole
+    # overhang in from the roof edge - and this edge lies on the LONGER
+    # wall's line, so that is half an inch off this wall's own face.
     def self.build_stub_wall_tops!(grp, poly, cells, wall_ids, abut_ids,
-                                   swallowed, own_ids, z0, slope, overhang)
+                                   swallowed, own_ids, z0, slope, overhang,
+                                   stub_ids = [])
       return 0 unless USE_STUB_WALL_TOPS
-      return 0 if cells.nil? || swallowed.nil? || swallowed.empty?
+      return 0 if cells.nil?
       n = poly.length
-      made = 0
+      jobs = []
       n.times do |i|
         kid = wall_ids[i]
-        next unless kid && abut_ids.include?(kid)
-        (swallowed[kid] || []).each do |wid|
-          next unless own_ids.include?(wid)
-          wall = wall_by_id(wid)
-          if wall.nil?
-            puts "[Roof] back wall #{wid.to_s[0, 8]}: not found in the model - not raised"
-            next
+        next if kid.nil?
+        if stub_ids.include?(kid)
+          jobs << [i, kid]
+        elsif abut_ids.include?(kid)
+          ((swallowed || {})[kid] || []).each do |wid|
+            next unless own_ids.include?(wid)
+            next if wall_ids.include?(wid)   # it has an edge of its own
+            jobs << [i, wid]
           end
-          th = wall.get_attribute('InteriorPro', 'thickness').to_f
-          next if th < 0.1
-          zbase = wall.get_attribute('InteriorPro', 'base_z').to_f +
-                  wall.get_attribute('InteriorPro', 'height').to_f
-          a = poly[i]
-          b = poly[(i + 1) % n]
-          d = vnorm(vsub(b, a))
-          len = vlen(vsub(b, a))
-          inw = [-d[1], d[0]]
-          face_in = wall_face_inboard(InteriorPro::RoomManager.centerline(wall), a, d, th)
-          if face_in.nil? || face_in < -0.5
-            puts "[Roof] back wall #{wid.to_s[0, 8]}: it does not stand under this roof edge - not raised"
-            next
-          end
-          lo, hi = wall_span_on_edge(wall, a, d, len, th)
-          prof = wall_line_profile(poly, i, cells, z0, slope, overhang, lo, hi,
-                                   inboard: face_in)
-          if prof.nil?
-            puts "[Roof] back wall #{wid.to_s[0, 8]}: no roof surface over it - not raised"
-            next
-          end
-          names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
-                  InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
-          chain_regions_above(prof.map { |t, z| [t, nil, z] }, zbase).each do |pp|
-            build_gable_top_prism!(grp, a, d, inw, face_in, th, zbase, pp, names, wall)
-            made += 1
-            puts format('[Roof] back wall %s raised to the roof: %.0f" long, %.0f" to %.0f" tall',
-                        wid.to_s[0, 8], pp.last[0] - pp.first[0],
-                        pp.map { |_t, z| z }.min - zbase, pp.map { |_t, z| z }.max - zbase)
-          end
+        end
+      end
+      made = 0
+      jobs.each do |i, wid|
+        wall = wall_by_id(wid)
+        if wall.nil?
+          puts "[Roof] back wall #{wid.to_s[0, 8]}: not found in the model - not raised"
+          next
+        end
+        th = wall.get_attribute('InteriorPro', 'thickness').to_f
+        next if th < 0.1
+        zbase = wall.get_attribute('InteriorPro', 'base_z').to_f +
+                wall.get_attribute('InteriorPro', 'height').to_f
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        d = vnorm(vsub(b, a))
+        len = vlen(vsub(b, a))
+        inw = [-d[1], d[0]]
+        face_in = wall_face_inboard(InteriorPro::RoomManager.centerline(wall), a, d, th)
+        if face_in.nil? || face_in < -0.5
+          puts "[Roof] back wall #{wid.to_s[0, 8]}: it does not stand under this roof edge - not raised"
+          next
+        end
+        lo, hi = wall_span_on_edge(wall, a, d, len, th)
+        prof = wall_line_profile(poly, i, cells, z0, slope, overhang, lo, hi,
+                                 inboard: face_in)
+        if prof.nil?
+          puts "[Roof] back wall #{wid.to_s[0, 8]}: no roof surface over it - not raised"
+          next
+        end
+        names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
+                InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
+        chain_regions_above(prof.map { |t, z| [t, nil, z] }, zbase).each do |pp|
+          build_gable_top_prism!(grp, a, d, inw, face_in, th, zbase, pp, names, wall)
+          made += 1
+          puts format('[Roof] back wall %s raised to the roof: %.0f" long, %.0f" to %.0f" tall',
+                      wid.to_s[0, 8], pp.last[0] - pp.first[0],
+                      pp.map { |_t, z| z }.min - zbase, pp.map { |_t, z| z }.max - zbase)
         end
       end
       made
