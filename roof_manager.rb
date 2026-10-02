@@ -616,7 +616,18 @@ module InteriorPro
         js = soften_same_plane_joints!(made + top)
         puts "[Roof] valley: #{js} joint(s) with the roof already there softened" if js > 0
       end
-      { apex: apex, faces: top.length == made.length ? top : made, deck: made, skin: top }
+      # where the carried ridge ends ON a rib of the taller roof (its cap
+      # meets that rib's cap there): a corner of the carried pieces that
+      # lies on this roof's own ridge and on one of the taller roof's ribs
+      rib_at = nil
+      deck_polys.each do |_pl, poly|
+        poly.each do |v|
+          next unless (plane_z(lo_a, v[0], v[1]) - plane_z(lo_b, v[0], v[1])).abs < 0.02
+          next unless others.any? { |q| (plane_z(hi_plane, v[0], v[1]) - plane_z(q, v[0], v[1])).abs < 0.02 }
+          rib_at = [v[0], v[1]]
+        end
+      end
+      { apex: apex, faces: top.length == made.length ? top : made, deck: made, skin: top, rib_at: rib_at }
     rescue StandardError => e
       puts "[Roof] valley_extend!: #{e.message}"
       nil
@@ -776,6 +787,133 @@ module InteriorPro
       return 0.0 if hi_plane.nil?
       len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
       valley_flush_drop(lo_a, lo_b, hi_plane, valley_other_planes(hi, hi_edge), abut, len, max_drop)
+    end
+
+    # THE CAP FOLLOWS THE ROOF THAT IS THERE (2026-10-02, his picture: a
+    # green line from the garage's ridge on up the house's rib, and a red
+    # triangle below it - "הרידג' קאפ צריך להמשיך עם הקו הירוק, ואיפה שיש
+    # משולש אדום צריכים להיות שינגלס מונחים בצורה יפה"). On a hip house the
+    # garage's ridge runs into the house's corner rib. From that point DOWN
+    # to the eave the rib is no rib any more - the garage's slope lies on
+    # it - but the house's own cap walk still found it on the house's own
+    # two faces and laid caps all the way down. Here the house finds the
+    # point where each lower roof's ridge reaches one of its ribs, and the
+    # stretch of that rib the lower roof stands on (at the rib's height or
+    # above it) gets no cap. What is left starts where the lower roof's own
+    # ridge cap ends, so the two read as one line.
+    # false = the caps run the whole rib, as before.
+    USE_VALLEY_CAP_TRIM = true unless const_defined?(:USE_VALLEY_CAP_TRIM, false)
+
+    # PURE. A low roof's two slope planes whose ridge runs ACROSS the
+    # direction `along` (the taller roof's facing eave) - i.e. into it.
+    # two_side_planes takes whichever facing pair it finds last; on a hip
+    # roof there are two such pairs and only one of them points at the house.
+    def self.valley_ridge_pair(g, along)
+      idx = (0...g[:pts].length).reject { |i| g[:gables].include?(i) }
+      idx.combination(2).each do |i, j|
+        di = edge_line(g[:pts], i)
+        dj = edge_line(g[:pts], j)
+        next if di.nil? || dj.nil?
+        next if di[1][0] * dj[1][0] + di[1][1] * dj[1][1] > -0.9
+        next if (di[1][0] * along[0] + di[1][1] * along[1]).abs > 0.1
+        pi = edge_plane(g, i)
+        pj = edge_plane(g, j)
+        next if pi.nil? || pj.nil?
+        ln = planes_meet(pi, pj)
+        next if ln.nil?
+        next if (plane_z(pi, ln[0][0], ln[0][1]) - g[:ridge_z]).abs > 1.0
+        return [pi, pj]
+      end
+      nil
+    end
+
+    # For the roof being built (the taller one): every point where a lower
+    # roof's ridge reaches one of its ribs. Returns
+    #   [{ j: [x, y], rib: [point, dir], lo: [plane, plane], hp: plane }]
+    def self.valley_cap_trims(pts, gable_flags, slope, deck_z, ridge_z, lvl, skip_grp)
+      out = []
+      return out unless USE_ROOF_VALLEY && USE_VALLEY_HIP_CARRY && USE_VALLEY_CAP_TRIM
+      gidx = Array(gable_flags).each_index.select { |i| gable_flags[i] }
+      hi = { pts: pts, slope: slope, deck_z: deck_z, ridge_z: ridge_z, gables: gidx }
+      roofs.each do |lo_grp|
+        next if lo_grp == skip_grp || !lo_grp.valid?
+        lo = roof_geom(lo_grp)
+        next if lo.nil? || lo[:level] != lvl
+        next unless lo[:ridge_z] < ridge_z - 0.5
+        lc = poly_centre(lo[:pts])
+        (0...pts.length).each do |e|
+          next if gidx.include?(e)
+          el = edge_line(pts, e)
+          inw = edge_inward(pts, e)
+          next if el.nil? || inw.nil?
+          nb = pts[(e + 1) % pts.length]
+          mid = [(pts[e][0] + nb[0]) / 2.0, (pts[e][1] + nb[1]) / 2.0]
+          next if (lc[0] - mid[0]) * -inw[0] + (lc[1] - mid[1]) * -inw[1] <= 0.0
+          hp = edge_plane(hi, e)
+          next if hp.nil?
+          pair = valley_ridge_pair(lo, el[1])
+          next if pair.nil?
+          rl = planes_meet(pair[0], pair[1])
+          next if rl.nil?
+          others = valley_other_planes(hi, e)
+          others.each do |q|
+            rib = planes_meet(hp, q)
+            next if rib.nil?
+            j = lines_meet_xy(rl[0], rl[1], rib[0], rib[1])
+            next if j.nil? || !point_in_poly?(pts, j[0], j[1])
+            zj = plane_z(hp, j[0], j[1])
+            # a real point of this roof: no other slope runs under it there
+            next if others.any? { |r| plane_z(r, j[0], j[1]) < zj - 0.05 }
+            # ...and the lower roof gets that far: its ridge is not under the rib
+            next if plane_z(pair[0], j[0], j[1]) < zj - 0.05
+            out << { j: [j[0], j[1]], rib: rib, lo: pair, hp: hp }
+          end
+        end
+      end
+      out
+    rescue StandardError => e
+      puts "[Roof] valley_cap_trims: #{e.message}"
+      []
+    end
+
+    # PURE. The cap lines with those stretches taken out. A line is
+    # [[x, y], z, [x, y], z, sides], as ridge_lines hands it out. One that
+    # lies on a trim's rib and passes through its point is cut there, and
+    # the half the lower roof stands on is dropped; one that lies wholly on
+    # that half is dropped whole.
+    def self.valley_trim_cap_lines(lines, trims)
+      out = Array(lines)
+      Array(trims).each do |t|
+        rp, rd = t[:rib]
+        on_rib = lambda { |k| ((k[0] - rp[0]) * rd[1] - (k[1] - rp[1]) * rd[0]).abs < 0.1 }
+        covered = lambda do |x, y|
+          [plane_z(t[:lo][0], x, y), plane_z(t[:lo][1], x, y)].min >= plane_z(t[:hp], x, y) - 0.05
+        end
+        nxt = []
+        out.each do |ln|
+          ka, za, kb, zb, sides = ln
+          unless on_rib.call(ka) && on_rib.call(kb)
+            nxt << ln
+            next
+          end
+          len = vlen(vsub(kb, ka))
+          tj = len < 1.0e-6 ? -1.0 : ((t[:j][0] - ka[0]) * (kb[0] - ka[0]) + (t[:j][1] - ka[1]) * (kb[1] - ka[1])) / (len * len)
+          pieces = if tj > 1.0e-4 && tj < 1.0 - 1.0e-4
+                     kj = [t[:j][0], t[:j][1]]
+                     zj = za + (zb - za) * tj
+                     [[ka, za, kj, zj, sides], [kj, zj, kb, zb, sides]]
+                   else
+                     [ln]
+                   end
+          pieces.each do |pc|
+            mx = (pc[0][0] + pc[2][0]) / 2.0
+            my = (pc[0][1] + pc[2][1]) / 2.0
+            nxt << pc unless covered.call(mx, my)
+          end
+        end
+        out = nxt
+      end
+      out
     end
 
     # PURE. THE STEP ON THE ABUT LINE (2026-10-02). Past the rib the low
@@ -4182,7 +4320,22 @@ module InteriorPro
            InteriorPro::RoofTileMath.seam?(s[:roof_material])
           cap_lines += ridge_lines(top_shell, valleys: true)
         end
-        build_ridge_caps!(grp, cap_lines, slope, roof_mat, s[:roof_material])
+        # ...and no cap on the stretch of a rib a lower roof has taken over
+        # (2026-10-02) - see valley_cap_trims.
+        begin
+          trims = valley_cap_trims(poly, gable_flags, slope, band_top, ridge.to_f, lvl, grp)
+          unless trims.empty?
+            before = cap_lines.sum { |l| vlen(vsub(l[2], l[0])) }
+            cap_lines = valley_trim_cap_lines(cap_lines, trims)
+            cut = before - cap_lines.sum { |l| vlen(vsub(l[2], l[0])) }
+            puts format('[Roof] valley: %.0f" of rib cap left off where the lower roof takes the rib over', cut) if cut > 0.5
+          end
+        rescue StandardError => e
+          puts "[Roof] valley cap trim: #{e.message}"
+        end
+        cap_joints = {}
+        (defined?(trims) && trims ? trims : []).each { |t| cap_joints[t[:j]] = :tuck }
+        build_ridge_caps!(grp, cap_lines, slope, roof_mat, s[:roof_material], cap_joints)
       end
 
 
@@ -4893,7 +5046,8 @@ module InteriorPro
           begin
             xl = ridge_lines(ext[:faces])
             unless xl.empty?
-              build_ridge_caps!(grp, xl, slope, roof_mat, s[:roof_material])
+              xj = ext[:rib_at] && USE_VALLEY_CAP_TRIM ? { ext[:rib_at] => :run } : nil
+              build_ridge_caps!(grp, xl, slope, roof_mat, s[:roof_material], xj)
               puts format('[Roof] valley: %.0f" of ridge cap carried on to the apex',
                           xl.sum { |l| vlen(vsub(l[2], l[0])) })
             end
@@ -5732,7 +5886,15 @@ module InteriorPro
       n
     end
 
-    def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil, shape_name = nil)
+    # `joints` (2026-10-02): { [x, y] => :run / :tuck } - line ends that meet
+    # the cap of ANOTHER roof (a garage's ridge arriving on a house's rib).
+    # Inside one roof ridge_junctions finds the meeting points by itself; two
+    # roofs are two calls, each saw its own line end in mid air, and one
+    # ended square while the other took the pinched eave end. An end named
+    # here is treated as the junction it is: :run passes over, half a cap
+    # further, and :tuck stops short under it - the same pair every Y on a
+    # hip roof already gets.
+    def self.build_ridge_caps!(grp, lines, _slope = nil, mat = nil, shape_name = nil, joints = nil)
       return if lines.nil? || lines.empty?
       total_len = lines.sum { |l| vlen(vsub(l[2], l[0])) }
       # A metal ridge is drawn as one length whatever its size - see
@@ -5747,6 +5909,16 @@ module InteriorPro
       end
       js = ridge_junctions(lines)
       runners = junction_runners(lines, js)
+      (joints || {}).each do |pt, role|
+        lines.each_with_index do |ln, li|
+          [ln[0], ln[2]].each do |q|
+            next unless (q[0] - pt[0]).abs < 1.0 && (q[1] - pt[1]).abs < 1.0
+            key = [q[0].round(2), q[1].round(2)]
+            js << key unless js.include?(key)
+            runners[key] = role == :run ? li : -1
+          end
+        end
+      end
       cap_w = cap_width_for(shape_name)
       cap_c = cap_crown_for(shape_name)
       cap_lift = cap_lift_for(shape_name)
