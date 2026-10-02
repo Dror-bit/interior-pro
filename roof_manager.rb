@@ -1143,6 +1143,57 @@ module InteriorPro
       []
     end
 
+    # THE CUT LINES THAT CUT NOTHING (2026-10-02, his picture: "להוריד את
+    # הקווים האלו"). The two sweeps below split every face that crosses
+    # the cut plane and reaches into the cut region - right across the
+    # WHOLE face, from outline to outline - and then take out only the
+    # pieces inside the region. Outside it both halves stay, on one plane,
+    # with the cut line drawn between them. Measured on his model
+    # (valley_skin_report.txt): seven of them - a 118" and a 120" diagonal
+    # across the garage's two slopes, an 83" and a 69" one on the house
+    # roof, three short ones on the house's rake soffit.
+    #
+    # The sweeps now write down every line they draw. When the roof is
+    # finished, each one that still has a face on BOTH sides, on the same
+    # plane, is softened - the same answer the wing valleys got on
+    # 2026-09-08. A line with a face on one side only is a real edge of
+    # the cut and stays as it is. Nothing is erased and no face changes.
+    #   InteriorPro::RoofManager::USE_VALLEY_SEAM_HIDE = false -> the lines
+    USE_VALLEY_SEAM_HIDE = true unless const_defined?(:USE_VALLEY_SEAM_HIDE, false)
+
+    def self.valley_cut_lines
+      @valley_cut_lines ||= []
+    end
+
+    def self.valley_note_cut_line(edge)
+      valley_cut_lines << edge if edge
+      edge
+    end
+
+    # Returns how many lines were softened, and forgets the list.
+    def self.valley_hide_cut_lines!
+      lines = valley_cut_lines.uniq
+      @valley_cut_lines = []
+      return 0 unless USE_VALLEY_SEAM_HIDE
+      n = 0
+      lines.each do |e|
+        next unless e.respond_to?(:valid?) && e.valid?
+        fs = e.faces
+        next unless fs.length == 2
+        n1 = fs[0].normal
+        n2 = fs[1].normal
+        next unless (n1.x * n2.x + n1.y * n2.y + n1.z * n2.z).abs > 0.99995
+        next if e.soft? && e.smooth?
+        e.soft = true
+        e.smooth = true
+        n += 1
+      end
+      n
+    rescue StandardError => e
+      puts "[Roof] valley_hide_cut_lines!: #{e.message}"
+      0
+    end
+
     # THE FRAME UNDER THE TILES STAYED ON THE OLD LINE (2026-09-17, his
     # picture + valley8_report.txt). valley_cut_deck! only takes the
     # shells PARALLEL to the roof plane. What was left standing was the
@@ -1205,7 +1256,7 @@ module InteriorPro
         next unless hits.length == 2
         next if hits[0].distance(hits[1]) < 0.05
         begin
-          grp.entities.add_line(hits[0], hits[1])
+          valley_note_cut_line(grp.entities.add_line(hits[0], hits[1]))
         rescue StandardError
           nil
         end
@@ -1363,7 +1414,7 @@ module InteriorPro
           next unless hits.length == 2
           next if hits[0].distance(hits[1]) < 0.05
           begin
-            grp.entities.add_line(hits[0], hits[1])
+            valley_note_cut_line(grp.entities.add_line(hits[0], hits[1]))
           rescue StandardError
             nil
           end
@@ -3802,6 +3853,7 @@ module InteriorPro
       # skip span on an edge that already knows how to skip; no new
       # geometry code, and with USE_ROOF_VALLEY off not even this.
       valley_over = nil
+      @valley_cut_lines = []
       if USE_ROOF_VALLEY
         vcuts = valley_cuts(poly, gable_flags, slope, band_top,
                             ridge.to_f, lvl, grp, s[:overhang].to_f)
@@ -4483,6 +4535,13 @@ module InteriorPro
             end
           end
         end
+      end
+      # ...and last of all, the cut lines that cut nothing - see
+      # valley_hide_cut_lines!. After everything else, so a line is judged
+      # by the faces that are really left on its two sides.
+      if USE_ROOF_VALLEY
+        hid = valley_hide_cut_lines!
+        puts "[Roof] valley: #{hid} cut line(s) left across a flat surface hidden" if hid > 0
       end
       unless kept_dormers.empty?
         begin
