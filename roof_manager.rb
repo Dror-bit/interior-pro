@@ -268,8 +268,17 @@ module InteriorPro
     VALLEY_EPS = 1.0e-9 unless const_defined?(:VALLEY_EPS, false)
 
     # Kill switch. While this is false nothing below is CALLED by the
-    # builder and both roofs come out exactly as they do today.
-    USE_ROOF_VALLEY = false unless const_defined?(:USE_ROOF_VALLEY, false)
+    # builder and both roofs come out exactly as they did before the
+    # valley: two separate roofs, the low one dying against the wall.
+    # ON IN THE FILE SINCE 2026-10-02. It was kept false "on purpose"
+    # from 2026-09-15 while the valley was being built, and he had to
+    # paste a console line every session to see it. With the back wall,
+    # the rake, the top skin and the cut lines closed on his Aetna model
+    # he said: "כן תדליק אותו".
+    #   InteriorPro::RoofManager.send(:remove_const, :USE_ROOF_VALLEY)
+    #   InteriorPro::RoofManager.const_set(:USE_ROOF_VALLEY, false)
+    # and a rebuild puts the two separate roofs back.
+    USE_ROOF_VALLEY = true unless const_defined?(:USE_ROOF_VALLEY, false)
     # false = the cut regions run on past the end of the house, as before
     # 2026-10-01. See valley_inside_regions.
     USE_VALLEY_SPAN_CLIP = true unless const_defined?(:USE_VALLEY_SPAN_CLIP, false)

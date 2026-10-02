@@ -84,8 +84,8 @@ e = lc.find { |v| v[:poly][0][0] > -400 }
 ok('the east strip: wall line at y = 0 too, (-301.44,0) -> (-313.44,0)',
    e && e[:wall] && near(e[:wall][0][1], 0.0) && near(e[:wall][1][0], -313.44), e && e[:wall])
 
-# ---- the kill switch still ships OFF ---------------------------------
-ok('USE_ROOF_VALLEY ships OFF', ORIG_VALLEY == false, ORIG_VALLEY)
+# ---- the kill switch ships ON since 2026-10-02 (see rt151) ------------
+ok('USE_ROOF_VALLEY ships ON', ORIG_VALLEY == true, ORIG_VALLEY)
 
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

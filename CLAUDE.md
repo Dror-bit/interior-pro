@@ -75,6 +75,11 @@ Live folder (edit in place, no RBZ):
 - קובץ ששלחת למחשב שלי לפעמים מגיע באיחור של דקות. לפני שמריצים בדיקות —
   לבדוק (md5 או grep) שהקובץ במחשב באמת החדש.
 - כל תכונה שבונה גיאומטריה מקבלת דגל כיבוי מיד.
+- **חבילה מלאה בלי לגעת בתיקייה שלו (2026-10-02):** ל-shell של המחשב שלו יש רובי ו-node. מעתיקים `*.rb`, `tests/`,
+  `landscape/` ל-`$HOME/ipwork`, מקשרים `textures` ו-`icons` (גם בתוך `tests/`), ומריצים את סוויטות הרובי 4 במקביל
+  בחזית — 245 סוויטות ב-150 שניות. בלי התיקיות המקושרות rt18/rt73/rt84/rt131/rt170/rt206 נופלות סתם.
+- **לא מעתיקים ושולחים באותו צעד (2026-10-02):** `cp` לתיקיית השליחה ו-`device_commit_files` באותה קריאה רצו במקביל,
+  ונשלח הקובץ הישן. הוא הריץ מדידה על קוד ישן. קודם `cp`, אחר כך שליחה, ואז md5 על המחשב שלו מול מה שנשלח.
 
 תפריטים, חלונות וסרגלים
 - פשוט. כמה שפחות אופציות, מילים שאני מבין. אם אני אומר "לא הבנתי"
@@ -445,7 +450,13 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-01): חלונות — צ'אט חדש
+## הצעד הנוכחי (2026-10-02): גגות — כפתור למתיחת צלעות ההיפ
+המוסך שנכנס לגג הבית (מודל Aetna) נסגר — "ניראה מעולה". הכל ב-`HANDOFF_2026-10-02.md`.
+`USE_ROOF_VALLEY` **דולק בקובץ** מהיום (הוא ביקש: "כן תדליק אותו") — אין יותר שורת הדלקה לקונסול.
+הבא ברשימה שלו: כפתור למתיחת/עריכת צלעות ההיפ. לשאול איך זה צריך להיראות לפני שבונים, ולמדוד קודם.
+חלונות — הוא עבר מהם לגגות; לא לגעת בלי שיגיד.
+
+## (קודם) 2026-10-01: חלונות — צ'אט חדש
 אמבטיות/אסלות/Deck נסגרו ("מעולה") — `HANDOFF_2026-10-01.md`. הוא ביקש לעבוד על החלונות; לשאול מה בדיוק
 לפני שנוגעים. אחריהם: גגות (שינגלס ברירת מחדל על hip, כפתור לצלעות).
 
@@ -501,6 +512,9 @@ Do not re-open either as a priority; a bug in one is a bug, not a phase.
 
 The valley - the garage roof running into the house - was closed on
 2026-09-18, all five steps. See `HANDOFF_2026-09-18.md`.
+It ships ON in the file since 2026-10-02 (`USE_ROOF_VALLEY = true`), after the
+back wall, the rake, the top skin and the leftover cut lines were closed on
+his Aetna model. See `HANDOFF_2026-10-02.md`.
 
 Next: the rendering program = **Interior Pro ↔ Claude API ↔ V-Ray**. It IS
 written down now: `VRAY_POC_PLAN.md` in the project root (2026-09-15) -
@@ -547,6 +561,31 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 חוזר ריק אחרי שסוגרים אותו בקוד.
 
 ## Kill switches (turn a feature off without deleting it)
+
+Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
+written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):
+- `USE_ROOF_VALLEY = false` - two separate roofs again, the low one dying against the wall.
+  **ON in the file since 2026-10-02** (`tests/rt151.rb`, `rt152.rb`).
+- `USE_VALLEY_SEAM_HIDE = false` - the cut lines the valley sweeps leave across a flat
+  surface are drawn again (`tests/rt248.rb`).
+- `USE_VALLEY_SKIN = false` - past its back line the low roof carries on with its deck only,
+  no top skin (`tests/rt247.rb`).
+- `USE_STUB_RAKE = false` - the stretch of an abut edge over a wall with nothing behind it is
+  a bare edge again: no rake board, no soffit (`tests/rt246.rb`).
+- `USE_STUB_WALL_TOPS = false` - that wall stops at its own top, the triangle over it is open
+  (`tests/rt245.rb`).
+- `USE_VALLEY_SPAN_CLIP = false` - the valley cut runs past the ends of the taller roof again
+  (`tests/rt244.rb`).
+- `USE_NOTCH_BRIDGE = false` - the eave follows a narrow recess (under 48") instead of running
+  straight across it (`tests/rt243.rb`).
+- `USE_ABUT_GABLE_PICK = false` - a four-sided roof that dies into a wall picks its gable ends
+  the old way: one long slope (`tests/rt242.rb`).
+- `USE_SWALLOWED_OWNERS = false` - a wall merged into a longer wall's line has no roof again
+  (`tests/rt241.rb`).
+- `InteriorPro::RoofDialog::USE_SHINGLE_DEFAULT = false` - the roof panel opens a NEW roof on
+  the saved material instead of shingle (`tests/rt240.rb`).
+- `InteriorPro::FloorDialog::USE_CONCRETE = false` - no "Concrete" in the Floors pattern list
+  (`tests/rt239.rb`).
 
 - `InteriorPro::FixtureLibrary::USE_STRIP_HIDDEN = false` - hidden things inside a
   plumbing part file are kept (2026-09-27, `tests/rt228.rb`).

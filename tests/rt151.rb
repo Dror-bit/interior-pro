@@ -207,10 +207,13 @@ ok('...standing on the west slope plane (z 89 at the eave, 92 at the wall)',
    w && near(w[:poly][0][2], 89.0) && near(w[:poly][2][2], 92.0),
    w && w[:poly].map { |p| p[2] })
 
-# ---- the kill switch is there, and it is OFF -------------------------
+# ---- the kill switch is there ------------------------------------------
+# It shipped OFF from 2026-09-15 while the valley was being built. On
+# 2026-10-02, with the back wall, the rake, the top skin and the cut lines
+# closed on his Aetna model, he said "כן תדליק אותו" - it ships ON now.
 ok('USE_ROOF_VALLEY exists', RF.const_defined?(:USE_ROOF_VALLEY))
-ok('...and it SHIPS OFF, so nothing he has built moves today',
-   ORIG_VALLEY == false, ORIG_VALLEY)
+ok('...and it SHIPS ON (since 2026-10-02, his word)',
+   ORIG_VALLEY == true, ORIG_VALLEY)
 
 puts($fails.zero? ? 'ALL OK' : "*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)
