@@ -3493,6 +3493,18 @@ module InteriorPro
           # rake - the user saw an open white box. The over-framing path
           # is finished first; this stays switched off until its turn.
           dutch_d = 0.0
+          # ...BUT IT SAYS SO (2026-10-02, item 4 of the roof audit he ran
+          # with ChatGPT: "the Dutch depth is ignored in silence"). A depth
+          # typed in the panel and an end set to Dutch gave a plain gable
+          # here with not a word - on his Aetna model that is the garage,
+          # the roof that dies into the house. No geometry changes.
+          unless s[:style] == 'shed'
+            plain = dutch_unbuilt_ends(s[:dutch_depth], gables.map { |i| wall_ids[i] }, dutch_wall_ids)
+            unless plain.empty?
+              puts "[Roof] Dutch gable is not built on this kind of roof yet (it dies into a wall, or its outline " \
+                   "cannot be framed) - #{plain.length} end(s) stay plain gables: #{plain.map { |x| x.to_s[0, 8] }.join(' ')}"
+            end
+          end
           dutch_edges = []
           poly_sk = poly
           if dutch_d > 0.01 && !gables.empty?
@@ -5956,6 +5968,15 @@ module InteriorPro
     # the roof it built yesterday.
     def self.dutch_wall_ids
       Sketchup.active_model.get_attribute('InteriorPro', 'roof_dutch_wall_ids') || []
+    end
+
+    # PURE. The ends he asked to be Dutch on a roof the Dutch gable is not
+    # built on yet (the skeleton path): the walls of this roof's gable
+    # ends that carry a Dutch mark, when a depth is typed. Empty = nothing
+    # was asked of this roof, so there is nothing to say.
+    def self.dutch_unbuilt_ends(depth, gable_ids, dutch_ids)
+      return [] unless depth.to_f > 0.01
+      (Array(gable_ids).compact & Array(dutch_ids)).uniq
     end
 
     # WHICH ends the user explicitly said HIP (2026-09-12). Without this
@@ -10309,7 +10330,13 @@ module InteriorPro
         f = ents.add_face(flip ? o.reverse : o)
         return f unless in_ring
         hole = ents.add_face(world.call(in_ring))
-        ents.erase_entity(hole) if hole
+        # erase_entities - the only one real SketchUp has (2026-10-02).
+        # This read `erase_entity`, which exists in the test stub alone:
+        # measured on his model (downspout_cap_report.txt), every pipe
+        # raised here, kept a LID in its top end and got nothing at all
+        # on its bottom end. tests/rt250.rb takes the stub's extra
+        # method away so this cannot hide again.
+        ents.erase_entities(hole) if hole
         f
       end
       skin.call(rings)
