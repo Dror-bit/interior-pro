@@ -5,6 +5,21 @@
 module InteriorPro
   module RoofDialog
 
+    # A NEW ROOF STARTS ON SHINGLES (2026-10-01, his words: "כל פעם שאני
+    # מציב גג חדש ברירת המחדל צריכה להיות שינגלס... לא רוצה שתשנה
+    # פרוייקטים קיימים אלא רק את ברירת המחדל בסרגל הכלים של הגגות").
+    # Only the plain Roof panel: the list opens on Shingles, whatever was
+    # built last. Edit Roof still opens on that roof's own material, and
+    # no roof standing in any model is touched. false = the panel opens on
+    # the last material saved in the model, as before.
+    USE_SHINGLE_DEFAULT = true unless const_defined?(:USE_SHINGLE_DEFAULT, false)
+
+    # PURE. The settings the plain (new roof) panel opens on.
+    def self.new_roof_settings(s)
+      return s unless USE_SHINGLE_DEFAULT
+      s.merge(roof_material: 'shingle')
+    end
+
     # `roof` (2026-08-26, step 4 of Edit Roof): open the panel FOR THAT
     # ROOF - its own settings fill the controls, and Apply rebuilds it
     # alone via build_roof!(replace:). With no roof this is the plain
@@ -180,7 +195,7 @@ module InteriorPro
         end
       end
       dlg.set_html(build_html(@target ? RoofManager.roof_settings(@target)
-                                      : RoofManager.settings,
+                                      : new_roof_settings(RoofManager.settings),
                               edit: !@target.nil?))
       begin
         dlg.set_size(340, 790)

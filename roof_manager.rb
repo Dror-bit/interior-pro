@@ -271,6 +271,21 @@ module InteriorPro
     # builder and both roofs come out exactly as they do today.
     USE_ROOF_VALLEY = false unless const_defined?(:USE_ROOF_VALLEY, false)
 
+    # A WALL MERGED INTO A LONGER ONE STILL BELONGS TO ITS ROOF
+    # (2026-10-01). false = the roof claims only the walls its outline
+    # kept, as before: a wall lying on a longer wall's line has no roof.
+    # Ownership only - no geometry is built or changed by this.
+    USE_SWALLOWED_OWNERS = true unless const_defined?(:USE_SWALLOWED_OWNERS, false)
+
+    # PURE. The walls a roof stands on that its outline merged away:
+    # `swallowed` as eave_polygon hands it back, `own_ids` the ids of the
+    # walls this roof was built over. A CLOSER that was merged away (the
+    # house wall a garage roof dies into) is not this roof's and is left out.
+    def self.swallowed_own_ids(swallowed, own_ids)
+      return [] unless USE_SWALLOWED_OWNERS
+      ((swallowed || {}).values.flatten.compact.uniq) & Array(own_ids)
+    end
+
     # PURE. The plane of one roof side, from its EAVE line: `pt` any point
     # on that line in plan, `up` a plan vector pointing INBOARD (towards
     # the ridge), `z0` the deck height ON the eave line, `slope` rise/run.
@@ -1762,7 +1777,8 @@ module InteriorPro
       # ran off to it (roof_parts_report: a trim face x -7178..2127). Only
       # a caller that knows it added closers asks for this; every old
       # call passes nil and gets the polygon it always got.
-      poly, edata = drop_flat_corners(poly, edata, flat_tol) if flat_tol
+      sw = {}
+      poly, edata = drop_flat_corners(poly, edata, flat_tol, sw) if flat_tol
       out = outer_offset(poly, edata, overhang)
       return nil unless out
       pts = out.map { |p| [p[0].x.to_f, p[0].y.to_f] }
@@ -1771,15 +1787,32 @@ module InteriorPro
         pts.reverse!
         ids = ids.reverse.rotate(1) # keep edge i -> wall alignment
       end
-      { pts: pts, wall_ids: ids }
+      res = { pts: pts, wall_ids: ids }
+      # only when something really was merged, so every old caller gets
+      # back the very same two-key hash it always got
+      res[:swallowed] = sw unless sw.empty?
+      res
     end
 
     # PURE: the loop with every corner that turns less than `tol_deg`
     # taken out; the two edges either side become one, keeping the longer
     # edge's wall. Runs until nothing is left to take out.
-    def self.drop_flat_corners(poly, edata, tol_deg)
+    #
+    # THE WALL THAT LOSES IS NOT GONE (2026-10-01). Measured on his Aetna
+    # house (roof_low_report.txt, and the roof audit he ran the same day):
+    # the garage's back wall (83.5") lies on the line of the divider
+    # (166.5") and the house's 68ea wall (84.5") on the same divider, so
+    # both were merged away here - and from then on no roof claimed them.
+    # A Gable click on either answered "this wall has no roof over it".
+    # `swallowed` (optional) is filled with { kept wall id => [the ids it
+    # took over] } so the builder can still say whose walls they are. The
+    # polygon that comes back is exactly the one it always was.
+    def self.drop_flat_corners(poly, edata, tol_deg, swallowed = nil)
       poly = poly.dup
       edata = edata.dup
+      wid = lambda do |e|
+        e && e[:wall] ? e[:wall].get_attribute('InteriorPro', 'id') : nil
+      end
       loop do
         n = poly.length
         break if n < 4
@@ -1806,6 +1839,16 @@ module InteriorPro
         l_prev = poly[prev].distance(poly[i])
         l_next = poly[i].distance(poly[(i + 1) % n])
         keep = l_prev >= l_next ? edata[prev] : edata[i]
+        if swallowed
+          lost = l_prev >= l_next ? edata[i] : edata[prev]
+          kid = wid.call(keep)
+          lid = wid.call(lost)
+          if kid && lid && kid != lid
+            # ...and whatever the loser had already taken over comes along
+            swallowed[kid] = ((swallowed[kid] || []) + [lid] +
+                              (swallowed.delete(lid) || [])).uniq
+          end
+        end
         edata[prev] = keep
         poly.delete_at(i)
         edata.delete_at(i)
@@ -3065,6 +3108,13 @@ module InteriorPro
           puts '[Roof] plan not decomposable - strip-gable fallback' if want_gable
           if gables.empty? && s[:style] == 'gable'
             gables = pick_gable_edges(poly)
+            # A WING THAT DIES INTO A WALL GABLES ITS FAR END (2026-10-01).
+            # See abut_gable_edges. nil = not that case, the old pick stays.
+            far = abut_gable_edges(poly, wall_ids, abut_ids)
+            if far
+              puts "[Roof] gable: the ridge runs INTO the wall this roof dies against - gable on the far end (edge #{far.join(', ')})"
+              gables = far
+            end
             # ...but never onto a bowed wall's facets, and never onto the
             # cut line under the storey above.
             gables = gables.reject do |i|
@@ -4170,7 +4220,14 @@ module InteriorPro
       # each of those was clicked (2026-08-26, step 2 of Edit Roof).
       # ...minus the abut edges: the divider is the UPPER wall's, and a
       # gable click on it must find the roof above, not this one.
-      save_roof_marks!(grp, wall_ids - abut_ids)
+      # ...plus the walls of THIS building that lie on a longer wall's
+      # line and were merged into it (2026-10-01) - see drop_flat_corners.
+      lost_own = swallowed_own_ids(ep[:swallowed],
+                                   own_walls.map { |w| w.get_attribute('InteriorPro', 'id') })
+      unless lost_own.empty?
+        puts "[Roof] #{lost_own.length} wall(s) lying on a longer wall's line still belong to this roof: #{lost_own.map { |x| x.to_s[0, 8] }.join(' ')}"
+      end
+      save_roof_marks!(grp, (wall_ids - abut_ids) + lost_own)
       grp.set_attribute('InteriorPro', 'created_at', Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
       grp.set_attribute('InteriorPro', 'plugin_version', '0.1')
       # THE VALLEY INTO THE ROOF ABOVE (2026-09-15, step 2 of the valley).
@@ -8561,6 +8618,39 @@ module InteriorPro
         end
       end
       best
+    end
+
+    # A GABLE ROOF THAT DIES INTO A TALLER WALL (2026-10-01).
+    #
+    # Measured on his Aetna garage, by the roof audit he ran and again here:
+    # style Gable, no marks, and the roof came out as ONE slope with the
+    # ridge at 218" and no ridge cap. pick_gable_edges takes the two SHORT
+    # ends - on a garage 284 x 280.5 those are the two SIDES - and the side
+    # against the house is an abut edge that does not move either. Three
+    # edges standing still and one moving is a shed. Marking the front wall
+    # Gable by hand gave the right roof (two slopes, ridge 149" at 6:12,
+    # 116.5" at 3:12), which is also what the stamped roof plan draws: the
+    # garage ridge runs INTO the house.
+    #
+    # So for exactly that case - four edges, ONE of them an abut edge - the
+    # gable goes on the edge FACING the abut edge, and the two sides slope.
+    # Anything else (no abut edge, several, a plan that is not four-sided)
+    # answers nil and the old pick stands, untouched.
+    USE_ABUT_GABLE_PICK = true unless const_defined?(:USE_ABUT_GABLE_PICK, false)
+
+    def self.abut_gable_edges(poly, wall_ids, abut_ids)
+      return nil unless USE_ABUT_GABLE_PICK
+      n = poly.length
+      return nil unless n == 4
+      ab = (0...n).select { |i| wall_ids[i] && Array(abut_ids).include?(wall_ids[i]) }
+      return nil unless ab.length == 1
+      a = ab.first
+      da = vnorm(vsub(poly[(a + 1) % n], poly[a]))
+      far = (a + 2) % n
+      df = vnorm(vsub(poly[(far + 1) % n], poly[far]))
+      # the far edge has to FACE the abut edge: running the other way
+      return nil unless vdot(da, df) < -0.9
+      [far]
     end
 
     def self.pick_gable_edges(poly)
