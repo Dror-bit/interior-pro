@@ -63,7 +63,8 @@ end
   def self.next_pid; @next_pid += 1; end
 
   class Edge
-    attr_accessor :soft, :smooth, :a, :b
+    attr_accessor :soft, :smooth, :hidden, :a, :b
+    def hidden?; @hidden == true; end
     def initialize(a, b); @a = a; @b = b; end
     def start; Vertex.new(@a); end
     def end; Vertex.new(@b); end

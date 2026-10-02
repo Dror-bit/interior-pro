@@ -866,7 +866,7 @@ module InteriorPro
             next if others.any? { |r| plane_z(r, j[0], j[1]) < zj - 0.05 }
             # ...and the lower roof gets that far: its ridge is not under the rib
             next if plane_z(pair[0], j[0], j[1]) < zj - 0.05
-            out << { j: [j[0], j[1]], rib: rib, lo: pair, hp: hp }
+            out << { j: [j[0], j[1]], rib: rib, lo: pair, hp: hp, q: q, others: others, lo_pts: lo[:pts] }
           end
         end
       end
@@ -914,6 +914,178 @@ module InteriorPro
         out = nxt
       end
       out
+    end
+
+    # ONE SURFACE, ONE SHEET (2026-10-02). With the garage brought down
+    # onto the house's east slope the two roofs are one plane there - but
+    # still two roofs. Measured on his model (corner_hole_report.txt, and
+    # the pictures): the house's east slope still ran whole into its
+    # corner UNDER the garage roof, in the very same plane (deck at 99.0
+    # and top at 99.5, both roofs), and the outline of that buried corner
+    # and the garage's own edges drew thin black lines across what should
+    # read as one sheet of shingles - the "red triangle" of his picture.
+    #   * the taller roof gives up the part of that slope the lower roof
+    #     lies on (valley_cover_polys, cut by valley_cut_deck!);
+    #   * the edges the two roofs then share on that plane are hidden, on
+    #     both (valley_hide_seams!). Nothing is erased by the hiding.
+    # false = both left as they were.
+    USE_VALLEY_FLUSH_CLEAN = true unless const_defined?(:USE_VALLEY_FLUSH_CLEAN, false)
+
+    # PURE. For the TALLER roof: the part of each slope past a rib that a
+    # lower roof lies on - the lower roof's own outline, held to this roof's
+    # outline, to the far side of the rib (where plane `q` is this roof),
+    # and to where the lower roof stands at q's height or above it.
+    # `trims` as valley_cap_trims hands them out. Returns
+    #   [{ poly: [[x, y, z]..] on q, plane: q, seams: [[[x, y], [x, y]]..] }]
+    # `seams` are the lines the two roofs share on that plane: every side of
+    # the cut, and the rib from the cut up to the point where the lower
+    # roof's ridge arrives.
+    def self.valley_cover_polys(pts, trims)
+      out = []
+      return out unless USE_VALLEY_FLUSH_CLEAN
+      Array(trims).each do |t|
+        q = t[:q]
+        next if q.nil? || t[:lo_pts].nil?
+        rg = t[:lo_pts].map { |v| [v[0].to_f, v[1].to_f] }
+        (0...pts.length).each do |i|
+          inw = edge_inward(pts, i)
+          next if inw.nil?
+          rg = clip_halfplane(rg, pts[i], inw, true)
+        end
+        rg = clip_under(rg, q, t[:hp])
+        Array(t[:others]).each { |r| rg = clip_under(rg, q, r) unless r.equal?(q) }
+        low = [q[0], q[1], q[2] - 0.05]
+        t[:lo].each { |l| rg = clip_under(rg, low, l) }
+        next if rg.length < 3 || poly_area2(rg).abs < 2.0
+        on_outline = lambda do |v|
+          (0...pts.length).any? do |i|
+            el = edge_line(pts, i)
+            el && ((v[0] - el[0][0]) * el[1][1] - (v[1] - el[0][1]) * el[1][0]).abs < 0.05
+          end
+        end
+        # EVERY side of the cut, this roof's own outline too (2026-10-02,
+        # measured: the skin's edge face still stands on the eave line under
+        # the lower roof, x -134, y 452.5..481.5, and its top edge lies IN
+        # the lower roof's sheet - 29" of black line on it).
+        seams = []
+        rg.each_index do |i|
+          a = rg[i]
+          b = rg[(i + 1) % rg.length]
+          seams << [a, b]
+        end
+        rp, rd = t[:rib]
+        rg.each do |v|
+          next if on_outline.call(v)
+          next unless ((v[0] - rp[0]) * rd[1] - (v[1] - rp[1]) * rd[0]).abs < 0.05
+          seams << [v, t[:j]] if Math.hypot(v[0] - t[:j][0], v[1] - t[:j][1]) > 0.5
+        end
+        out << { poly: rg.map { |v| [v[0], v[1], plane_z(q, v[0], v[1])] }, plane: q, seams: seams }
+      end
+      out
+    end
+
+    # PURE. The edges of the carried pieces that lie on a rib of the taller
+    # roof with NO height between the two roofs: [[plane, [x, y], [x, y]]].
+    def self.valley_flush_rib_edges(polys, hi_plane, others)
+      out = []
+      return out unless USE_VALLEY_FLUSH_CLEAN
+      Array(polys).each do |pl, poly|
+        poly.each_index do |i|
+          a = poly[i]
+          b = poly[(i + 1) % poly.length]
+          next unless Array(others).any? do |q|
+            [a, b].all? { |v| (plane_z(hi_plane, v[0], v[1]) - plane_z(q, v[0], v[1])).abs < 0.02 }
+          end
+          next unless [a, b].all? { |v| (plane_z(pl, v[0], v[1]) - plane_z(hi_plane, v[0], v[1])).abs < 0.02 }
+          out << [pl, a, b]
+        end
+      end
+      out
+    end
+
+    # PURE. The stretch of the abut LINE - carried on past the end of the
+    # abut edge, as far as the taller roof reaches - where the low roof
+    # ends lying IN another slope of the taller roof (no step). The mirror
+    # of valley_abut_steps. Returns [[pl, q, [x, y], [x, y]]].
+    def self.valley_abut_flush(lo_a, lo_b, hi_plane, others, abut, len, hi_pts)
+      out = []
+      return out unless USE_VALLEY_FLUSH_CLEAN
+      oth = Array(others)
+      at = lambda { |t| [abut[0][0] + abut[1][0] * t, abut[0][1] + abut[1][1] * t] }
+      [[lo_a, lo_b], [lo_b, lo_a]].each do |pl, mate|
+        oth.each_index do |k|
+          q = oth[k]
+          next unless (pl[0] - q[0]).abs < 1.0e-6 && (pl[1] - q[1]).abs < 1.0e-6 && (pl[2] - q[2]).abs < 0.05
+          t0 = -1.0e4
+          t1 = len.to_f
+          fns = [lambda { |x, y| plane_z(hi_plane, x, y) - plane_z(q, x, y) },
+                 lambda { |x, y| plane_z(mate, x, y) - plane_z(pl, x, y) }]
+          oth.each_index { |j| fns << lambda { |x, y| plane_z(oth[j], x, y) - plane_z(q, x, y) } unless j == k }
+          (0...hi_pts.length).each do |i|
+            inw = edge_inward(hi_pts, i)
+            next if inw.nil?
+            hp0 = hi_pts[i]
+            fns << lambda { |x, y| (x - hp0[0]) * inw[0] + (y - hp0[1]) * inw[1] }
+          end
+          fns.each do |fn|
+            fa = fn.call(*at.call(t0))
+            fb = fn.call(*at.call(t1))
+            if fa < -1.0e-9 && fb < -1.0e-9
+              t1 = t0 - 1.0
+              break
+            end
+            next if fa >= -1.0e-9 && fb >= -1.0e-9
+            tx = t0 + (t1 - t0) * fa / (fa - fb)
+            fa < 0.0 ? (t0 = tx) : (t1 = tx)
+          end
+          next if t1 - t0 < 0.5
+          out << [pl, q, at.call(t0), at.call(t1)]
+        end
+      end
+      out
+    end
+
+    # Hide the edges of this roof that lie on those lines, at the height of
+    # the plane handed in with each (the top skin). `segs` = [[plane, [x, y],
+    # [x, y]]]. A line is drawn over each stretch first, so an edge that
+    # runs on past its end is split there and only the stretch is hidden.
+    # Hidden, not erased: every face keeps its outline.
+    def self.valley_hide_seams!(grp, segs)
+      return 0 unless USE_VALLEY_FLUSH_CLEAN
+      n = 0
+      Array(segs).each do |pl, a, b|
+        len = Math.hypot(b[0] - a[0], b[1] - a[1])
+        next if len < 0.5
+        d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
+        begin
+          grp.entities.add_line(Geom::Point3d.new(a[0], a[1], plane_z(pl, a[0], a[1])),
+                                Geom::Point3d.new(b[0], b[1], plane_z(pl, b[0], b[1])))
+        rescue StandardError
+          nil
+        end
+        grp.entities.grep(Sketchup::Edge).each do |e|
+          next unless e.valid?
+          ok = [e.start.position, e.end.position].all? do |v|
+            rx = v.x.to_f - a[0]
+            ry = v.y.to_f - a[1]
+            t = rx * d[0] + ry * d[1]
+            (rx * d[1] - ry * d[0]).abs < 0.05 && t > -0.05 && t < len + 0.05 &&
+              (v.z.to_f - plane_z(pl, v.x.to_f, v.y.to_f)).abs < 0.06
+          end
+          next unless ok
+          # HIDDEN ONLY (2026-10-02, measured on his model: a dark smear
+          # down the garage's slope from its back line). These edges often
+          # carry an upright face as well - the slab's edge strip, left
+          # standing inside the roof - and a SMOOTH edge blends the sheet's
+          # shading with that face's. Hidden draws no line and shades nothing.
+          e.hidden = true
+          n += 1
+        end
+      end
+      n
+    rescue StandardError => e
+      puts "[Roof] valley_hide_seams!: #{e.message}"
+      n
     end
 
     # PURE. THE STEP ON THE ABUT LINE (2026-10-02). Past the rib the low
@@ -1108,9 +1280,31 @@ module InteriorPro
       end
       puts format('[Roof] valley: the top skin carried on too (%d face(s), %d edge strip(s) taken out)',
                   top.length, gone.length)
+      # ...AND THE JOINT ITSELF, on the abut line under each carried piece
+      # (2026-10-02, measured: y 481.5, x -192.5..-163 stayed drawn). An
+      # edge strip that is longer than the piece is not taken out above, so
+      # that edge has THREE faces and soften_same_plane_joints! leaves it.
+      # One sheet carrying on is not a line: hidden.
+      joint = []
+      tris.each do |pl, tri|
+        ons = tri.select do |p|
+          ((p[0] - abut[0][0]) * abut[1][1] - (p[1] - abut[0][1]) * abut[1][0]).abs < 0.02
+        end
+        next if ons.length < 2
+        a, b = ons.minmax_by { |p| (p[0] - abut[0][0]) * abut[1][0] + (p[1] - abut[0][1]) * abut[1][1] }
+        joint << [pl, a, b]
+      end
+      hj = valley_hide_seams!(grp, joint)
+      puts "[Roof] valley: #{hj} edge(s) hidden on the line where this roof's sheet carries on" if hj > 0
       unless others_top.empty?
         st = valley_rib_risers!(grp, tris, hi_top, others_top, roof_mat)
         puts "[Roof] valley: #{st} step face(s) where the carried roof stops on the taller roof's rib" if st > 0
+        # ...and where there is NO step - the two roofs are one surface -
+        # the line between them is not drawn. See valley_hide_seams!.
+        segs = valley_flush_rib_edges(tris, hi_top, others_top)
+        segs += valley_abut_flush(la, lb, hi_top, others_top, abut, len, hi[:pts]).map { |pl, _q, a, b| [pl, a, b] }
+        hs = valley_hide_seams!(grp, segs)
+        puts "[Roof] valley: #{hs} edge(s) hidden where this roof and the taller one are one surface" if hs > 0
       end
       top
     rescue StandardError => e
@@ -4522,6 +4716,21 @@ module InteriorPro
           valley_sweep_under!(grp, v)
           cutplans << v[:poly].map { |p| [p[0], p[1]] }
         end
+        # ...AND THE SLOPE PAST THE RIB, WHERE THE LOWER ROOF LIES ON IT
+        # (2026-10-02) - see valley_cover_polys.
+        @valley_seams = []
+        begin
+          cvs = valley_cover_polys(poly, valley_cap_trims(poly, gable_flags, slope, band_top, ridge.to_f, lvl, grp))
+          cvs.each do |c|
+            n = valley_cut_deck!(grp, c[:poly], c[:plane])
+            cutplans << c[:poly].map { |p| [p[0], p[1]] }
+            top = [c[:plane][0], c[:plane][1], c[:plane][2] + dz.to_f]
+            c[:seams].each { |a, b| @valley_seams << [top, a, b] }
+            puts "[Roof] valley: #{n} face(s) of this roof taken out where the lower roof lies on its other slope"
+          end
+        rescue StandardError => e
+          puts "[Roof] valley cover cut: #{e.message}"
+        end
         valley_cull_pieces!(grp, cutplans) unless cutplans.empty?
       end
       if s[:fascia]
@@ -5078,6 +5287,11 @@ module InteriorPro
       # ...and last of all, the cut lines that cut nothing - see
       # valley_hide_cut_lines!. After everything else, so a line is judged
       # by the faces that are really left on its two sides.
+      if USE_ROOF_VALLEY && defined?(@valley_seams) && @valley_seams && !@valley_seams.empty?
+        hs = valley_hide_seams!(grp, @valley_seams)
+        @valley_seams = []
+        puts "[Roof] valley: #{hs} edge(s) hidden where this roof and the lower one are one surface" if hs > 0
+      end
       if USE_ROOF_VALLEY
         hid = valley_hide_cut_lines!
         puts "[Roof] valley: #{hid} cut line(s) left across a flat surface hidden" if hid > 0
