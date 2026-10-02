@@ -459,7 +459,7 @@ module InteriorPro
     # built and the ridge line with each other.
     # `abut_e` are the indices of the roof's abut edges - handed in by
     # the builder, which knows them; never guessed here.
-    def self.valley_extend!(grp, roof_mat, under_mat, abut_e)
+    def self.valley_extend!(grp, roof_mat, under_mat, abut_e, dz = 0.0)
       return nil unless USE_ROOF_VALLEY
       lo = roof_geom(grp)
       return nil if lo.nil?
@@ -494,25 +494,11 @@ module InteriorPro
       reach = (apex[0] - mid[0]) * out[0] + (apex[1] - mid[1]) * out[1]
       return nil if reach <= 0.5
 
-      ridge = planes_meet(lo_a, lo_b)
-      return nil if ridge.nil?
-      b = lines_meet_xy(ridge[0], ridge[1], abut[0], abut[1])
-      return nil if b.nil?
-
+      len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
       made = []
-      [lo_a, lo_b].each do |pl|
-        vl = planes_meet(pl, hi_plane)
-        next if vl.nil?
-        a = lines_meet_xy(vl[0], vl[1], abut[0], abut[1])
-        next if a.nil?
-        # the leg must actually land ON the abut edge, between its ends
-        t = (a[0] - abut[0][0]) * abut[1][0] + (a[1] - abut[0][1]) * abut[1][1]
-        len = Math.hypot(a2[0] - abut[0][0], a2[1] - abut[0][1])
-        next if t < -0.5 || t > len + 0.5
-        tri = [a, b, [apex[0], apex[1]]]
-        area2 = ((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) -
-                 (tri[2][0] - tri[0][0]) * (tri[1][1] - tri[0][1])).abs
-        next if area2 < 1.0
+      valley_carry_tris(lo_a, lo_b, hi_plane, abut, len).each do |pl, tri|
+        # counter-clockwise in plan, so the face is born facing UP
+        tri = tri.reverse if poly_area2(tri) < 0.0
         pts3 = tri.map { |p| Geom::Point3d.new(p[0], p[1], plane_z(pl, p[0], p[1])) }
         f = grp.entities.add_face(pts3)
         next if f.nil?
@@ -520,10 +506,159 @@ module InteriorPro
         made << f
       end
       puts "[Roof] valley: #{made.length} plane(s) carried on to the roof above"
-      made.empty? ? nil : { apex: apex, faces: made }
+      return nil if made.empty?
+      top = valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, lo[:slope])
+      unless top.empty?
+        js = soften_same_plane_joints!(made + top)
+        puts "[Roof] valley: #{js} joint(s) with the roof already there softened" if js > 0
+      end
+      { apex: apex, faces: top.length == made.length ? top : made, deck: made, skin: top }
     rescue StandardError => e
       puts "[Roof] valley_extend!: #{e.message}"
       nil
+    end
+
+    # PURE. The triangles a low roof's two planes are carried on over, past
+    # its abut line: for each plane [plane, [leg foot on the abut line, the
+    # ridge's point on the abut line, the apex]] in plan. `abut` is the abut
+    # edge as [point, unit direction], `len` its length - a leg that does
+    # not land ON the edge gives no triangle.
+    def self.valley_carry_tris(lo_a, lo_b, hi_plane, abut, len)
+      apex = planes_apex(lo_a, lo_b, hi_plane)
+      ridge = planes_meet(lo_a, lo_b)
+      return [] if apex.nil? || ridge.nil?
+      b = lines_meet_xy(ridge[0], ridge[1], abut[0], abut[1])
+      return [] if b.nil?
+      out = []
+      [lo_a, lo_b].each do |pl|
+        vl = planes_meet(pl, hi_plane)
+        next if vl.nil?
+        a = lines_meet_xy(vl[0], vl[1], abut[0], abut[1])
+        next if a.nil?
+        # the leg must actually land ON the abut edge, between its ends
+        t = (a[0] - abut[0][0]) * abut[1][0] + (a[1] - abut[0][1]) * abut[1][1]
+        next if t < -0.5 || t > len + 0.5
+        tri = [a, b, [apex[0], apex[1]]]
+        area2 = ((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) -
+                 (tri[2][0] - tri[0][0]) * (tri[1][1] - tri[0][1])).abs
+        next if area2 < 1.0
+        out << [pl, tri]
+      end
+      out
+    end
+
+    # THE SHINGLES RUN ON TO THE VALLEY TOO (2026-10-02, his picture and
+    # arrows: "מפסיק את שכבת החומר לפני שהוא מגיע לקצה הגג"). The roof is a
+    # SLAB: the deck below and a top skin `dz` above it, which is the one
+    # the shingles, the tiles and the ridge cap sit on. valley_extend!
+    # carried only the DECK on to the valley, so past the abut line the
+    # roof stood half an inch lower - measured on his model
+    # (valley_skin_report.txt): the two carried triangles at +0.00, no
+    # face at +0.52 past y=481.5, and the slab's own edge ribbon standing
+    # across the roof on that line.
+    #
+    # Here the same two triangles are built again on the TOP skin: the low
+    # roof's planes lifted by its own dz, met with the taller roof's plane
+    # lifted by ITS dz - so the legs are where the two skins really meet.
+    # The edge ribbon under them is taken out (it is inside the roof now)
+    # and the joints with the faces already there are softened, so no line
+    # is drawn where one sheet simply carries on.
+    #   InteriorPro::RoofManager::USE_VALLEY_SKIN = false  -> deck only
+    USE_VALLEY_SKIN = true unless const_defined?(:USE_VALLEY_SKIN, false)
+
+    def self.valley_extend_skin!(grp, hi_grp, hi, lo_a, lo_b, hi_plane, abut, len, dz, roof_mat, slope = nil)
+      return [] unless USE_VALLEY_SKIN
+      return [] if dz.to_f <= 0.001
+      hi_t = begin
+        roof_settings(hi_grp)[:thickness].to_f
+      rescue StandardError
+        DEFAULT_ROOF_THICKNESS
+      end
+      hi_top = [hi_plane[0], hi_plane[1], hi_plane[2] + slab_lift(hi_t, hi[:slope])]
+      la = [lo_a[0], lo_a[1], lo_a[2] + dz.to_f]
+      lb = [lo_b[0], lo_b[1], lo_b[2] + dz.to_f]
+      tris = valley_carry_tris(la, lb, hi_top, abut, len)
+      top = []
+      tris.each do |pl, tri|
+        ccw = poly_area2(tri) < 0.0 ? tri.reverse : tri
+        pts3 = ccw.map { |p| Geom::Point3d.new(p[0], p[1], plane_z(pl, p[0], p[1])) }
+        f = grp.entities.add_face(pts3)
+        next if f.nil?
+        f.reverse! if f.respond_to?(:reverse!) && f.normal.z < 0
+        f.material = roof_mat
+        f.back_material = roof_mat
+        top << f
+      end
+      return top if top.empty?
+      # the slab's edge ribbon on the abut line, between each leg's foot and
+      # the ridge: upright faces ON that line, between the deck and the skin
+      # ...AND A LITTLE PAST THE FOOT (measured on his model the first time
+      # this ran: "0 edge strip(s) taken out", and the ribbon listed as
+      # x -192.50..-149.44 - 2.06" past the foot at -151.5). The valley's
+      # own sweep cuts the ribbon on the taller roof's DECK plane, and the
+      # ribbon's top is the skin, dz higher: it reaches that plane dz/slope
+      # further along. That tail lies under the taller roof's skin and goes
+      # with the rest.
+      pad = slope.to_f > 0.01 ? [dz.to_f / slope.to_f + 0.25, 6.0].min : 0.05
+      gone = []
+      tris.each do |pl, tri|
+        ta, tb = [tri[0], tri[1]].map do |p|
+          (p[0] - abut[0][0]) * abut[1][0] + (p[1] - abut[0][1]) * abut[1][1]
+        end
+        t0, t1 = [ta, tb].minmax
+        grp.entities.grep(Sketchup::Face).each do |f|
+          next if top.include?(f) || gone.include?(f)
+          next if f.normal.z.abs > 0.02
+          vs = f.vertices.map(&:position)
+          next unless vs.all? do |v|
+            rx = v.x.to_f - abut[0][0]
+            ry = v.y.to_f - abut[0][1]
+            t = rx * abut[1][0] + ry * abut[1][1]
+            off = (rx * abut[1][1] - ry * abut[1][0]).abs
+            zd = v.z.to_f - (plane_z(pl, v.x.to_f, v.y.to_f) - dz.to_f)
+            off < 0.02 && t >= t0 - pad && t <= t1 + pad && zd > -0.05 && zd < dz.to_f + 0.05
+          end
+          gone << f
+        end
+      end
+      unless gone.empty?
+        edges = gone.flat_map { |f| f.respond_to?(:edges) ? f.edges : [] }.uniq
+        grp.entities.erase_entities(gone)
+        loose = edges.select { |e| e.valid? && e.faces.empty? }
+        grp.entities.erase_entities(loose) unless loose.empty?
+      end
+      puts format('[Roof] valley: the top skin carried on too (%d face(s), %d edge strip(s) taken out)',
+                  top.length, gone.length)
+      top
+    rescue StandardError => e
+      puts "[Roof] valley_extend_skin!: #{e.message}"
+      []
+    end
+
+    # One sheet carrying on is not a line: every edge of these faces that
+    # is shared with ONE other face on the same plane is softened. A real
+    # crease (the ridge, a valley) has two different normals and stays.
+    # The test stub's faces have no edges, so this is a no-op there.
+    def self.soften_same_plane_joints!(faces)
+      n = 0
+      faces.each do |f|
+        next unless f.respond_to?(:edges) && f.valid?
+        f.edges.each do |e|
+          fs = e.faces
+          next unless fs.length == 2
+          n1 = fs[0].normal
+          n2 = fs[1].normal
+          next unless (n1.x * n2.x + n1.y * n2.y + n1.z * n2.z).abs > 0.99995
+          next if e.soft? && e.smooth?
+          e.soft = true
+          e.smooth = true
+          n += 1
+        end
+      end
+      n
+    rescue StandardError => e
+      puts "[Roof] soften_same_plane_joints!: #{e.message}"
+      0
     end
 
     # The roof this low one runs into: another roof on the same storey,
@@ -4303,7 +4438,7 @@ module InteriorPro
       # entered and this roof is exactly the one it was yesterday.
       if USE_ROOF_VALLEY && !abut_ids.empty?
         abut_e = wall_ids.each_index.select { |i| abut_ids.include?(wall_ids[i]) }
-        ext = valley_extend!(grp, roof_mat, trim_mat, abut_e)
+        ext = valley_extend!(grp, roof_mat, trim_mat, abut_e, dz)
         # THE RIDGE CAP RUNS ON TO THE APEX (2026-09-18, his list: "רידג'
         # קאפ לגראז' נעלם אחרי ההארכה"). Measured on his model
         # (ridge_report.txt): the garage's cap stops at t=-17, the
