@@ -270,6 +270,9 @@ module InteriorPro
     # Kill switch. While this is false nothing below is CALLED by the
     # builder and both roofs come out exactly as they do today.
     USE_ROOF_VALLEY = false unless const_defined?(:USE_ROOF_VALLEY, false)
+    # false = the cut regions run on past the end of the house, as before
+    # 2026-10-01. See valley_inside_regions.
+    USE_VALLEY_SPAN_CLIP = true unless const_defined?(:USE_VALLEY_SPAN_CLIP, false)
 
     # A WALL MERGED INTO A LONGER ONE STILL BELONGS TO ITS ROOF
     # (2026-10-01). false = the roof claims only the walls its outline
@@ -956,19 +959,40 @@ module InteriorPro
           next if d <= 0.0
           hp = edge_plane(hg, i)
           next if hp.nil?
-          best = [el, inw, d, hp] if best.nil? || d < best[2]
+          best = [el, inw, d, hp, i] if best.nil? || d < best[2]
         end
         next if best.nil?
         el, inw, = best
         hp = best[3]
         wall = [el[0][0] + inw[0] * hg[:oh].to_f,
                 el[0][1] + inw[1] * hg[:oh].to_f]
+        # WHERE THE HOUSE ACTUALLY STANDS ALONG THAT LINE (2026-10-01).
+        # A half plane runs for ever, and his Aetna garage is WIDER than
+        # the house: 83.5" of it stand past the house's east wall
+        # (roof_low_report.txt). "Past the wall line" was true there too,
+        # so the garage roof was cut back and a wall triangle was built
+        # with no house behind either of them. The region is now also
+        # held between the two ends of the facing edge - where the taller
+        # ROOF ends, its own overhang included, because his first model
+        # (rt153) has the garage flush with the end of the house and the
+        # cut there rightly takes that overhang strip too. A garage that
+        # sits wholly against the house is between the two ends already,
+        # and nothing changes for it.
+        fe = best[4]
+        end_a = hg[:pts][fe]
+        end_b = hg[:pts][(fe + 1) % hg[:pts].length]
+        fdir = el[1]
         pair.each_index do |k|
           pl = pair[k]
           other = pair[1 - k]
           rg = pts.map { |p| [p[0].to_f, p[1].to_f] }
           # 1. past the taller roof's wall line
           rg = clip_halfplane(rg, wall, inw, true)
+          # ...and between the two ends of that wall
+          if USE_VALLEY_SPAN_CLIP
+            rg = clip_halfplane(rg, end_a, fdir, true)
+            rg = clip_halfplane(rg, end_b, fdir, false)
+          end
           # 2. under its plane, and 3. this plane's own side of the ridge
           rg = clip_under(rg, pl, hp)
           rg = clip_under(rg, pl, other)
@@ -3036,6 +3060,11 @@ module InteriorPro
       end
       poly = ep[:pts]
       wall_ids = ep[:wall_ids]
+      # ...and straight across a narrow recess - see bridge_notches.
+      poly, wall_ids, notch_lost = bridge_notches(poly, wall_ids, abut_ids)
+      unless notch_lost.empty?
+        puts "[Roof] the eave runs straight across a narrow recess (#{notch_lost.length} wall(s) inside it: #{notch_lost.map { |x| x.to_s[0, 8] }.join(' ')})"
+      end
       cells = nil
       speeds = nil
       gables = []
@@ -4148,6 +4177,13 @@ module InteriorPro
         build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
                                s[:overhang], framed, band_top, slope, cells)
       end
+      # ...and the wall that stands on the abut line with NO taller wall
+      # behind it (2026-10-01) - see build_stub_wall_tops!.
+      if s[:gable_walls] && cells && !abut_ids.empty? && s[:style] != 'flat'
+        build_stub_wall_tops!(grp, poly, cells, wall_ids, abut_ids, ep[:swallowed],
+                              own_walls.map { |w| w.get_attribute('InteriorPro', 'id') },
+                              z0, slope, s[:overhang])
+      end
       # NO BAND UNDER THE EAVE (2026-09-06). A first round filled the space
       # the lift opened over each eave wall with a wall-thick prism, built
       # into the ROOF group. He looked at it and refused it: "נראה כאילו
@@ -4222,7 +4258,8 @@ module InteriorPro
       # gable click on it must find the roof above, not this one.
       # ...plus the walls of THIS building that lie on a longer wall's
       # line and were merged into it (2026-10-01) - see drop_flat_corners.
-      lost_own = swallowed_own_ids(ep[:swallowed],
+      # ...and the walls inside a recess the eave was carried across.
+      lost_own = swallowed_own_ids((ep[:swallowed] || {}).merge(notch: notch_lost),
                                    own_walls.map { |w| w.get_attribute('InteriorPro', 'id') })
       unless lost_own.empty?
         puts "[Roof] #{lost_own.length} wall(s) lying on a longer wall's line still belong to this roof: #{lost_own.map { |x| x.to_s[0, 8] }.join(' ')}"
@@ -5988,6 +6025,90 @@ module InteriorPro
       end
       regions << cur if cur
       regions.select { |r| r.length >= 2 && r.last[0] - r.first[0] > 0.5 }
+    end
+
+    # THE BACK WALL OF A ROOF THAT DIES INTO A HOUSE - THE PART THE HOUSE
+    # DOES NOT COVER (2026-10-01).
+    #
+    # His Aetna garage is wider than the house, so 83.5" of its back wall
+    # stand in the open (roof_low_report.txt). That wall lies on the line
+    # the garage roof dies into, the roof runs over it at full height, and
+    # the wall stops at its own top - 78" under a roof that is 84" to 105"
+    # up there. He looked at it twice: "החלק האחורי של הגראז' עדיין פתוח".
+    # The house wall closes the rest of that line; nothing closed this.
+    #
+    # A real builder runs the wall up to the roof, which is also what the
+    # satellite picture of the house shows. So for every OWN wall that was
+    # merged into an abut edge (drop_flat_corners hands those back), the
+    # same wall-thick prism a gable end gets is built over it: sampled off
+    # the roof's underside along the wall's own outer face, standing on the
+    # wall's own top, in the wall's own materials. Nothing else is touched -
+    # no edge is split, no plane moves, the outline is what it was.
+    USE_STUB_WALL_TOPS = true unless const_defined?(:USE_STUB_WALL_TOPS, false)
+
+    # PURE. How far INBOARD of the roof edge (a, running along d) a wall's
+    # OUTER face stands: its centreline's distance from the edge line less
+    # half its thickness. nil when the wall cannot be read.
+    def self.wall_face_inboard(seg, a, d, th)
+      return nil if seg.nil?
+      inw = [-d[1], d[0]]
+      mx = (seg[:s].x.to_f + seg[:e].x.to_f) / 2.0
+      my = (seg[:s].y.to_f + seg[:e].y.to_f) / 2.0
+      vdot(inw, [mx - a[0], my - a[1]]) - th.to_f / 2.0
+    end
+
+    def self.build_stub_wall_tops!(grp, poly, cells, wall_ids, abut_ids,
+                                   swallowed, own_ids, z0, slope, overhang)
+      return 0 unless USE_STUB_WALL_TOPS
+      return 0 if cells.nil? || swallowed.nil? || swallowed.empty?
+      n = poly.length
+      made = 0
+      n.times do |i|
+        kid = wall_ids[i]
+        next unless kid && abut_ids.include?(kid)
+        (swallowed[kid] || []).each do |wid|
+          next unless own_ids.include?(wid)
+          wall = wall_by_id(wid)
+          if wall.nil?
+            puts "[Roof] back wall #{wid.to_s[0, 8]}: not found in the model - not raised"
+            next
+          end
+          th = wall.get_attribute('InteriorPro', 'thickness').to_f
+          next if th < 0.1
+          zbase = wall.get_attribute('InteriorPro', 'base_z').to_f +
+                  wall.get_attribute('InteriorPro', 'height').to_f
+          a = poly[i]
+          b = poly[(i + 1) % n]
+          d = vnorm(vsub(b, a))
+          len = vlen(vsub(b, a))
+          inw = [-d[1], d[0]]
+          face_in = wall_face_inboard(InteriorPro::RoomManager.centerline(wall), a, d, th)
+          if face_in.nil? || face_in < -0.5
+            puts "[Roof] back wall #{wid.to_s[0, 8]}: it does not stand under this roof edge - not raised"
+            next
+          end
+          lo, hi = wall_span_on_edge(wall, a, d, len, th)
+          prof = wall_line_profile(poly, i, cells, z0, slope, overhang, lo, hi,
+                                   inboard: face_in)
+          if prof.nil?
+            puts "[Roof] back wall #{wid.to_s[0, 8]}: no roof surface over it - not raised"
+            next
+          end
+          names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
+                  InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
+          chain_regions_above(prof.map { |t, z| [t, nil, z] }, zbase).each do |pp|
+            build_gable_top_prism!(grp, a, d, inw, face_in, th, zbase, pp, names, wall)
+            made += 1
+            puts format('[Roof] back wall %s raised to the roof: %.0f" long, %.0f" to %.0f" tall',
+                        wid.to_s[0, 8], pp.last[0] - pp.first[0],
+                        pp.map { |_t, z| z }.min - zbase, pp.map { |_t, z| z }.max - zbase)
+          end
+        end
+      end
+      made
+    rescue StandardError => e
+      puts "[Roof] build_stub_wall_tops!: #{e.message}"
+      0
     end
 
     def self.build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
@@ -8618,6 +8739,108 @@ module InteriorPro
         end
       end
       best
+    end
+
+    # THE ROOF RUNS STRAIGHT ACROSS A NARROW RECESS (2026-10-01).
+    #
+    # His Aetna house has an entry recess in the front wall: 45.5" wide
+    # between the walls, 35" deep. The eave outline followed it, which left
+    # a slot 21.5" wide in the roof - and worse, split the front of the house
+    # into two "wings", so the Gable style stood a full cross gable on each
+    # (measured: gable_edges [2, 3, 5, 6], four gable walls, in his model and
+    # again in tests/rt243.rb). The stamped roof plan (A-1.0) and the
+    # satellite picture both show what a builder does there: the eave runs
+    # straight across the recess and the roof is one slope - the recess is a
+    # covered entry, not a notch in the roof.
+    #
+    # So a U-shaped recess in the outline whose MOUTH is at most
+    # NOTCH_BRIDGE_MAX wide is bridged: its three edges go, and the two
+    # stretches of eave either side become one straight edge, on the line
+    # of the longer of the two. A wide recess - a courtyard, a real wing -
+    # is left exactly as it is.
+    #
+    # PURE. pts is the CCW outline, ids the wall of each edge, keep an
+    # optional list of ids whose edges must not be touched (abut edges).
+    # Returns [pts, ids, lost]: `lost` are the wall ids that no longer have
+    # an edge of their own, so the builder can still say whose walls they are.
+    USE_NOTCH_BRIDGE = true unless const_defined?(:USE_NOTCH_BRIDGE, false)
+    NOTCH_BRIDGE_MAX = 48.0 unless const_defined?(:NOTCH_BRIDGE_MAX, false)
+
+    def self.bridge_notches(pts, ids, keep = [], max_w = NOTCH_BRIDGE_MAX)
+      return [pts, ids, []] unless USE_NOTCH_BRIDGE
+      pts = pts.map { |p| [p[0].to_f, p[1].to_f] }
+      ids = ids.dup
+      lost = []
+      turn = lambda do |k|
+        n = pts.length
+        a = pts[(k - 1) % n]
+        b = pts[k]
+        c = pts[(k + 1) % n]
+        vcross(vsub(b, a), vsub(c, b))
+      end
+      loop do
+        n = pts.length
+        break if n < 6
+        hit = nil
+        n.times do |i|
+          i1 = (i + 1) % n
+          i2 = (i + 2) % n
+          i3 = (i + 3) % n
+          # mouth corner, two inside corners, mouth corner
+          next unless turn.call(i) > 1.0e-6 && turn.call(i1) < -1.0e-6 &&
+                      turn.call(i2) < -1.0e-6 && turn.call(i3) > 1.0e-6
+          next if vlen(vsub(pts[i3], pts[i])) > max_w
+          # a U: the two sides run back out the way they came in
+          next unless vdot(vnorm(vsub(pts[i1], pts[i])), vnorm(vsub(pts[i3], pts[i2]))) < -0.9
+          next if [ids[i], ids[i1], ids[i2]].any? { |x| x && keep.include?(x) }
+          hit = i
+          break
+        end
+        break if hit.nil?
+        i = hit
+        i1 = (i + 1) % n
+        i2 = (i + 2) % n
+        i3 = (i + 3) % n
+        pv = (i - 1) % n          # the eave edge arriving at the mouth
+        v0 = pts[i]
+        v3 = pts[i3]
+        d_in = vnorm(vsub(v0, pts[pv]))
+        d_out = vnorm(vsub(pts[(i3 + 1) % n], v3))
+        l_in = vlen(vsub(v0, pts[pv]))
+        l_out = vlen(vsub(pts[(i3 + 1) % n], v3))
+        # only two eaves that carry on in the same direction can become one
+        straight = vdot(d_in, d_out) > 0.999 &&
+                   vcross(d_in, vsub(v3, v0)).abs < 1.5 &&
+                   !(ids[pv] && keep.include?(ids[pv])) && !(ids[i3] && keep.include?(ids[i3])) &&
+                   n >= 8 # four corners go - at least a rectangle must be left
+        lost.concat([ids[i], ids[i1], ids[i2]])
+        if straight
+          # ONE edge, on the line of the longer stretch. The far end slides
+          # along its own next edge onto that line, so a half-inch jog
+          # between the two stretches does not leave a crooked eave.
+          if l_in >= l_out
+            far = (i3 + 1) % n
+            nx = [d_in[1], -d_in[0]]
+            off = vdot(vsub(pts[far], v0), nx)
+            pts[far] = vsub(pts[far], vmul(nx, off))
+            lost << ids[i3]
+          else
+            nx = [d_out[1], -d_out[0]]
+            off = vdot(vsub(pts[pv], v3), nx)
+            pts[pv] = vsub(pts[pv], vmul(nx, off))
+            lost << ids[pv]
+            ids[pv] = ids[i3]
+          end
+          dead = [i, i1, i2, i3]
+        else
+          # not in line: a plain bridge across the mouth, with no wall
+          ids[i] = nil
+          dead = [i1, i2]
+        end
+        pts = pts.each_index.reject { |k| dead.include?(k) }.map { |k| pts[k] }
+        ids = ids.each_index.reject { |k| dead.include?(k) }.map { |k| ids[k] }
+      end
+      [pts, ids, lost.compact.uniq - ids.compact]
     end
 
     # A GABLE ROOF THAT DIES INTO A TALLER WALL (2026-10-01).
