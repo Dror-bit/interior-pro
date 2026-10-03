@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 309 ירוקות (רובי + JS, 2026-10-02).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 310 ירוקות (רובי + JS, 2026-10-02 לילה).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -454,7 +454,18 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-02 ערב): גגות — כפתור למתיחת צלעות ההיפ
+## הצעד הנוכחי (2026-10-02 לילה): גגות — גמלון באמצע גג נסגר; הבא: שארית הדוח של ChatGPT
+גמלון באמצע גג ("גג אמא") והמוסך שמתחבר אליו נסגרו על Aetna — "ניראה מעולה". הכל ב-`HANDOFF_2026-10-02C.md`.
+**החוק שלו:** קודם קובעים את גג האמא (הגדול); הגג הנמוך מתחבר אליו ומשתנה לפיו. החיבור = משטח אחד, שהמים לא ייתקעו.
+**האמא כותבת על עצמה, הנמוך קורא:** `cross_edges` (איזה קצה הוא הגמלון באמצע), `cross_walls` (על איזה קיר הוא עומד).
+לא לנחש את זה מהגיאומטריה. וההודעה "…the lower one are one surface" נעולה ב-rt256 — לא לנסח מחדש.
+**ראשון בצ'אט הבא:** פקודת commit אחת (הוא לא אישר שהריץ את ארבע הפקודות של הסבב).
+**הבא, בסדר שלו:** (1) גג המוסך עדיין מדפיס "ignoring 1 stale/off-loop gable mark" על סימון של גג האמא — לתקן;
+סעיף 6 (דורמר 36→60) — לשאול על איזה דורמר; (2) **כלי משיכת קצוות של גגות** — לשאול עם תמונה מרונדרת, למדוד קודם;
+(3) הדרך השנייה לגמלון, דרך חלון הדורמר ("גם וגם").
+חלונות — לא לגעת בלי שיגיד.
+
+## (קודם) 2026-10-02 ערב: גגות — כפתור למתיחת צלעות ההיפ
 מוסך Hip שנכנס לבית Hip נסגר על מודל Aetna — "ניראה פצצה". הכל ב-`HANDOFF_2026-10-02B.md`.
 גג שנמחק ונבנה מאפס מתחבר לבד (מעבר שני). גג המוסך **יורד לבד** 2.875" כדי שיהיה משטח אחד עם גג הבית.
 **הבא, בסדר שהוא קבע:** (1) לסיים את הדוח של ChatGPT — סימון גמלון על קיר שנבלע, וסעיף 6 (דורמר);
@@ -579,6 +590,14 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
 written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):
+- `USE_CROSS_WALL_CLOSE = false` - the lower roof does not close the wall of the gable above it; the inner
+  wall behind shows between the lower roof and the head of the gable's wall (`tests/rt257.rb`).
+- `USE_CROSS_SEAM_HIDE = false` - the outlines of the piece a lower roof and a gable in the middle share
+  are drawn again (`tests/rt257.rb`).
+- `USE_CROSS_JOIN = false` - a lower roof is built as if the gable in the middle of the roof above were not
+  there: not set lower, carried on, cap not stopped, nothing cut (`tests/rt257.rb`).
+- `USE_CROSS_GABLE = false` (and `CROSS_GABLE_MIN = 24.0`) - a Gable mark on a wall with no edge of its own
+  is dropped again ("ignoring ... off-loop gable mark"); no gable in the middle of a roof (`tests/rt257.rb`).
 - `USE_VALLEY_FLUSH_CLEAN = false` - hip into hip: the taller roof keeps the corner of its slope under the
   lower roof, and the edges the two share are drawn again (`tests/rt256.rb`).
 - `USE_VALLEY_CAP_TRIM = false` - the taller roof's rib keeps its caps all the way down, and the lower
