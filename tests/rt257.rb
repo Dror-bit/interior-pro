@@ -20,7 +20,9 @@
 #   * the kill switch brings the old answer back;
 #   * the roof BELOW (his garage) meets it: set 2.875" lower onto its east
 #     slope, not carried on, its cap stopped on the gable's edge, and what
-#     lies under or in the gable cut off (USE_CROSS_JOIN).
+#     lies under or in the gable cut off (USE_CROSS_JOIN);
+#   * the wall of the gable, between the lower roof and the head of that wall,
+#     is closed by the lower roof (USE_CROSS_WALL_CLOSE).
 ENV['REAL_ROOMS'] = '1'
 require 'stringio'
 require './sketchup_stub'
@@ -264,6 +266,82 @@ if RF.respond_to?(:cross_inside_regions)
   ok('the pieces UNDER the gable start on its WALL line - the strip under its rake overhang is kept',
      und.length == 2 && und.all? { |r| (r[:poly].map { |p| p[1] }.min - 464.5).abs < 0.01 }, und.map { |r| r[:poly].map { |p| p[1].round(1) }.min })
 end
+
+# ---- 6. NO LINE WHERE THE TWO ARE ONE SHEET (USE_CROSS_SEAM_HIDE) -------------------------
+# Measured on his model (cross_join_top.png): the gable's own roof edge was drawn from
+# the garage's ridge to the corner, across what is one surface. The stub's faces have no
+# edges to hide, so what is pinned is WHICH lines each roof hands to the hide pass.
+ok('the seam code is loaded', RF.respond_to?(:cross_cover_seams) && RF.respond_to?(:cross_region))
+if RF.respond_to?(:cross_cover_seams)
+  hm, = build('gable', %w[h5])
+  mf = footprint(hm)
+  sm = RF.cross_cover_seams(mf, 0.25, hm.get_attribute('InteriorPro', 'eave_z').to_f - 3.0,
+                            hm.get_attribute('InteriorPro', 'ridge_z').to_f, 1, hm,
+                            Array(hm.get_attribute('InteriorPro', 'cross_edges')))
+  ends = sm.map { |_q, a2, b2| [a2, b2].map { |v| [v[0].round(1), v[1].round(1)] }.sort }
+  ok('the mother hides her own gable edge from the garage s ridge to the corner - and nothing else',
+     ends == [[[-192.5, 452.5], [-134.0, 452.5]]], ends)
+  ok('...at the height of the gable s own plane there',
+     sm.length == 1 && (RF.plane_z(sm[0][0], -192.5, 452.5) - (hm.get_attribute('InteriorPro', 'eave_z').to_f - 3.0 + 0.25 * 58.5)).abs < 0.01)
+  ok('a roof with no gable in the middle hands out nothing',
+     RF.cross_cover_seams(mf, 0.25, 101.0, 147.25, 1, hm, []) == [])
+  RF.send(:remove_const, :USE_CROSS_SEAM_HIDE)
+  RF.const_set(:USE_CROSS_SEAM_HIDE, false)
+  ok('switched off: nothing is handed out',
+     RF.cross_cover_seams(mf, 0.25, hm.get_attribute('InteriorPro', 'eave_z').to_f - 3.0,
+                          hm.get_attribute('InteriorPro', 'ridge_z').to_f, 1, hm,
+                          Array(hm.get_attribute('InteriorPro', 'cross_edges'))) == [])
+  RF.send(:remove_const, :USE_CROSS_SEAM_HIDE)
+  RF.const_set(:USE_CROSS_SEAM_HIDE, true)
+end
+
+# ---- 7. THE WALL OF THE GABLE, ABOVE THE LOWER ROOF (USE_CROSS_WALL_CLOSE) ----------------
+# Measured on his model (white_tri_report.txt): a white triangle over the garage roof on
+# the gable's wall line, x -317.5 .. -263, up to 96" - the inner wall between the house
+# and the garage (4743a286, white), showing between the garage roof and the head of the
+# wall the gable stands on. The garage roof closes it with one face in that wall's
+# outside material.
+ok('the closing code is loaded', RF.respond_to?(:cross_wall_closer) && RF.respond_to?(:cross_wall_closers))
+if RF.respond_to?(:cross_wall_closer)
+  a = [-419.0, 452.5]
+  b = [-134.0, 452.5]
+  c = { edge: 2, a: a, b: b, d: [1.0, 0.0], inw: [0.0, 1.0], len: 285.0,
+        p0: RF.plane_abc(a, [1.0, 0.0], 0.25, 99.0), p1: RF.plane_abc(b, [-1.0, 0.0], 0.25, 99.0),
+        base: RF.plane_abc(a, [0.0, 1.0], 0.25, 99.0) }
+  gp = [[-50.5, 481.5], [-146.0, 481.5], [-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0]]
+  # his garage after it came down: deck 78.125 on its edges
+  gw = RF.plane_abc([-334.5, 300.0], [1.0, 0.0], 0.25, 78.125)
+  ge = RF.plane_abc([-50.5, 300.0], [-1.0, 0.0], 0.25, 78.125)
+  r3 = lambda { |f| f && f.map { |p| p.map { |v| v.round(3) } } }
+  f = r3.call(RF.cross_wall_closer(gp, 12.0, gw, ge, c, 12.0, 96.0))
+  ok('his numbers: a triangle from the garage s wall line to where its roof reaches the head of the wall',
+     f == [[-322.5, 464.5, 81.125], [-263.0, 464.5, 96.0], [-322.5, 464.5, 96.0]], f)
+  ok('the slope that lies in the gable s sheet stands over the head of the wall: nothing',
+     RF.cross_wall_closer(gp, 12.0, ge, gw, c, 12.0, 96.0).nil?)
+  ok('a head of wall under the lower roof: nothing', RF.cross_wall_closer(gp, 12.0, gw, ge, c, 12.0, 80.0).nil?)
+  f = r3.call(RF.cross_wall_closer(gp, 12.0, gw, ge, c, 12.0, 140.0))
+  ok('a head of wall over the lower roof s ridge: four corners, and it stops on that ridge',
+     f == [[-322.5, 464.5, 81.125], [-192.5, 464.5, 113.625], [-192.5, 464.5, 140.0], [-322.5, 464.5, 140.0]], f)
+  far = gp.map { |x, y| [x, y - 300.0] }
+  ok('a roof that never reaches the gable s wall line: nothing', RF.cross_wall_closer(far, 12.0, gw, ge, c, 12.0, 96.0).nil?)
+end
+hc, clog = build('gable', %w[h5])
+gar = garage_of
+ok('the mother says which wall her gable stands on',
+   Array(hc.get_attribute('InteriorPro', 'cross_walls')) == %w[h5], hc.get_attribute('InteriorPro', 'cross_walls'))
+gz = gar.get_attribute('InteriorPro', 'eave_z').to_f
+xr = -322.5 + (96.0 - gz) / 0.25
+tri = [[-322.5, 464.5, gz.round(1)], [xr.round(1), 464.5, 96.0], [-322.5, 464.5, 96.0]]
+ok('the real path: the garage roof carries that face', has_face?(faces(gar), tri), [tri, faces(gar).select { |f| f.all? { |p| p[1] == 464.5 } }])
+ok('...and says so', clog =~ /closed the wall of the gable above this roof, \d+" x \d+"/, clog.lines.grep(/closed/))
+_, plog7 = build('gable', [])
+ok('no gable up there: no such face', plog7 !~ /closed the wall of the gable/ && !has_face?(faces(garage_of), tri))
+RF.send(:remove_const, :USE_CROSS_WALL_CLOSE) if RF.const_defined?(:USE_CROSS_WALL_CLOSE, false)
+RF.const_set(:USE_CROSS_WALL_CLOSE, false)
+_, olog7 = build('gable', %w[h5])
+ok('switched off: not built', olog7 !~ /closed the wall of the gable/ && !has_face?(faces(garage_of), tri))
+RF.send(:remove_const, :USE_CROSS_WALL_CLOSE)
+RF.const_set(:USE_CROSS_WALL_CLOSE, true)
 
 # the join switch alone: the gable stays, the garage is built as if it were not there
 RF.send(:remove_const, :USE_CROSS_JOIN)
