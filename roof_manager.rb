@@ -2454,6 +2454,30 @@ module InteriorPro
       nil
     end
 
+    # WHICH DROPPED MARKS ANOTHER ROOF ANSWERS FOR (2026-10-04). The Gable
+    # marks are ONE list for the whole model, and every roof used to speak
+    # about all of it: on his Aetna model the garage roof printed "ignoring
+    # 1 stale/off-loop gable mark(s)" on every build about 68ea3160 - the
+    # wall the gable in the middle of the HOUSE roof stands on. Measured
+    # (cross_wall_report.txt): one mark on the model, that one, and the
+    # house roof had built it. Nothing was stale and nothing was ignored -
+    # the last open line of the roof audit.
+    # A mark is another roof's when a roof that STANDS says it stands on
+    # that wall (its saved set_walls) and the wall is not one of this
+    # roof's own. A wall that is gone, a wall no roof stands on and a wall
+    # of this roof with no edge of its own are all still reported.
+    # `replace` is the roof being rebuilt: it does not answer for itself.
+    def self.foreign_marks(dead, own_walls, replace = nil)
+      dead = Array(dead)
+      return [] if dead.empty?
+      own = Array(own_walls).map { |w| w.get_attribute('InteriorPro', 'id') }.compact
+      theirs = roofs.reject { |r| r == replace }.flat_map { |r| roof_wall_ids(r) }
+      (dead & theirs) - own
+    rescue StandardError => e
+      puts "[Roof] foreign_marks: #{e.message}"
+      []
+    end
+
     # ---------- materials ----------
 
     def self.hex_to_color(hex)
@@ -4000,7 +4024,12 @@ module InteriorPro
         # (2026-08-05: a stale id after wall split/join blocked Gable style)
         loop_ids = wall_ids.compact
         dead = marked.reject { |id2| loop_ids.include?(id2) }
-        puts "[Roof] ignoring #{dead.length} stale/off-loop gable mark(s)" unless dead.empty?
+        # A MARK ON ANOTHER ROOF'S WALL IS NOT THIS ROOF'S TO REPORT
+        # (2026-10-04) - see foreign_marks. It leaves this roof's list
+        # exactly as before; only the line is kept for the marks nobody
+        # else answers for.
+        told = dead - foreign_marks(dead, own_walls, replace)
+        puts "[Roof] ignoring #{told.length} stale/off-loop gable mark(s)" unless told.empty?
         marked -= dead
         # an abut edge is the upper wall's - a gable mark on that WALL
         # belongs to the roof above, never to the cut line down here
