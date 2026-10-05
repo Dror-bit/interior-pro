@@ -167,7 +167,9 @@ module InteriorPro
         #   which is everything the plain panel ever built.
         built =
           if tgt
-            RoofManager.build_roof!(**kw, replace: tgt)
+            # ...and the roofs it meets follow (2026-10-04) - see
+            # RoofManager.meet_follow!.
+            RoofManager.meet_follow!(RoofManager.build_roof!(**kw, replace: tgt))
           elsif rlevel.to_s == 'all'
             RoofManager.wall_levels.reverse.map do |lv|
               RoofManager.build_roof!(**kw, level: lv)

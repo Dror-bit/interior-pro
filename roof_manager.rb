@@ -351,6 +351,90 @@ module InteriorPro
       made
     end
 
+    # WHEN ONE ROOF CHANGES, THE ROOFS IT MEETS FOLLOW (2026-10-04). His
+    # law of 2026-10-02: "קודם אנחנו קובעים את גג האמא, הגג הגדול, ואליו הגג
+    # של הגראג' מתחבר ומשתנה לפי גג האמא" - and two days later: "עכשיו החזרתי
+    # את הגג להיפ וגג הגראג שוב לא משתלב טוב". Measured on his Aetna model
+    # (roof_meet_report.txt + pictures, 20:26): he took the Gable end off
+    # the wall in the middle of the house roof; set_roof_end! rebuilt the
+    # roof that OWNS that wall and only it, so the garage roof still stood
+    # as it was built for the gable that was gone - 2.875" low, stopped on
+    # the gable's line, its cap short - and from straight above the floor
+    # showed through the gap. One rebuild of the garage and then of the
+    # house (foreign_mark_report.txt, 20:27) and the two met again.
+    # So a roof changed from the Gable Ends tool or the Edit Roof panel is
+    # followed by the roofs it meets, the way his console line does it:
+    #   * every LOWER roof that reaches it is built again (it reads the
+    #     taller roof's planes and what she wrote about herself);
+    #   * then this roof once more, to be cut for the lower ones as they
+    #     now stand;
+    #   * every TALLER roof that reaches it is built again, to be cut for
+    #     this one.
+    # A roof that meets nobody is built once, exactly as before.
+    #   InteriorPro::RoofManager::USE_MEET_FOLLOW = false  -> only the roof
+    #   he changed is rebuilt, as before.
+    USE_MEET_FOLLOW = true unless const_defined?(:USE_MEET_FOLLOW, false)
+
+    # PURE. `g` the roof that changed, `others` the other standing roofs,
+    # all as roof_geom gives them (nil = unreadable, left alone). Returns
+    # [lower, taller]: the indices of the ones on the same storey, at
+    # another ridge height, whose outline reaches g's - the very test
+    # valley_redo_indices uses, half inch and inch included.
+    def self.meet_partner_indices(g, others)
+      return [[], []] if g.nil?
+      box = lambda do |q|
+        xs = q[:pts].map { |p| p[0] }
+        ys = q[:pts].map { |p| p[1] }
+        [xs.min, xs.max, ys.min, ys.max]
+      end
+      a = box.call(g)
+      low = []
+      tall = []
+      Array(others).each_with_index do |h, i|
+        next if h.nil?
+        next unless h[:level] == g[:level]
+        dz = h[:ridge_z].to_f - g[:ridge_z].to_f
+        next unless dz.abs > 0.5
+        b = box.call(h)
+        next unless a[0] <= b[1] + 1.0 && b[0] <= a[1] + 1.0 && a[2] <= b[3] + 1.0 && b[2] <= a[3] + 1.0
+        (dz < 0 ? low : tall) << i
+      end
+      [low, tall]
+    end
+
+    # `roof` = the group one click just rebuilt. Returns the group that
+    # stands for it afterwards (a new one when it was built once more).
+    def self.meet_follow!(roof)
+      return roof unless USE_ROOF_VALLEY && USE_MEET_FOLLOW
+      return roof unless roof && roof.respond_to?(:valid?) && roof.valid?
+      return roof if @meet_following
+      rest = roofs.reject { |r| r == roof }
+      low, tall = meet_partner_indices(roof_geom(roof), rest.map { |r| roof_geom(r) })
+      return roof if low.empty? && tall.empty?
+      @meet_following = true
+      begin
+        low.each do |i|
+          puts '[Roof] valley: the roof above changed - this roof is built again to meet it'
+          build_roof!(replace: rest[i])
+        end
+        unless low.empty?
+          puts '[Roof] valley: the roof below was built again - this roof is built once more, cut for it'
+          again = build_roof!(replace: roof)
+          roof = again if again
+        end
+        tall.each do |i|
+          puts '[Roof] valley: the roof below changed - this roof is built again, cut for it'
+          build_roof!(replace: rest[i])
+        end
+      ensure
+        @meet_following = false
+      end
+      roof
+    rescue StandardError => e
+      puts "[Roof] meet_follow!: #{e.message}"
+      roof
+    end
+
     # A WALL MERGED INTO A LONGER ONE STILL BELONGS TO ITS ROOF
     # (2026-10-01). false = the roof claims only the walls its outline
     # kept, as before: a wall lying on a longer wall's line has no roof.
@@ -6770,7 +6854,7 @@ module InteriorPro
         own = roof_of_wall_id(id)
         st  = ids.empty? ? nil : 'shed'
         if own
-          build_roof!(replace: own, style: st)
+          meet_follow!(build_roof!(replace: own, style: st))
         else
           build_roof!(style: st)
         end
@@ -6995,7 +7079,7 @@ module InteriorPro
         # takes the old whole-model rebuild, exactly as before. `own` was
         # asked for above, before anything was written.
         if own
-          build_roof!(replace: own, style: style_override)
+          meet_follow!(build_roof!(replace: own, style: style_override))
         elsif roofs.any? { |r2| !roof_wall_ids(r2).empty? }
           # NO ROOF OVER THIS WALL (2026-09-13). Measured off his console:
           # he marked a GROUND FLOOR wall Gable, that storey had no roof at
