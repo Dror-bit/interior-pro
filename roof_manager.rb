@@ -4104,6 +4104,33 @@ module InteriorPro
             poly, wall_ids, = split_edge_spans(poly, wall_ids, [], csp)
           end
         end
+        # AN EDGE PULLED OUT (2026-10-05) - see pull_edges. Only an end he
+        # marked Gable, only on an outline the over-framing builds. The
+        # gable in the middle that is pulled out is a wing with a depth of
+        # its own from here on, so it leaves the list of wings with none -
+        # but stays in cross_ids, which is what the roof says about itself
+        # to the roofs that meet it.
+        pulled = {}
+        pull_undo = nil
+        cross_flat = cross_ids
+        want_pull = USE_EDGE_PULL ? edge_pulls.select { |id2, _v| wall_ids.include?(id2) } : {}
+        if !want_pull.empty? && !(abut_ids.empty? && s[:style] != 'shed' && rectilinear?(poly))
+          # NOT SILENTLY (the law of 2026-09-23)
+          puts "[Roof] a pulled edge is not built on this kind of roof yet (it dies into a wall, it is a shed, or its " \
+               "outline is not square) - #{want_pull.length} pull(s) left out: #{want_pull.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
+        elsif !want_pull.empty?
+          eaves = want_pull.keys - marked
+          unless eaves.empty?
+            puts "[Roof] #{eaves.length} edge(s) carry a pull but are not Gable ends - only a gable end is pulled out for now: " \
+                 "#{eaves.map { |x| x.to_s[0, 8] }.join(' ')}"
+          end
+          want_pull = want_pull.select { |id2, _v| marked.include?(id2) }
+          unless want_pull.empty?
+            pull_undo = [poly, wall_ids]
+            poly, wall_ids, pulled = pull_edges(poly, wall_ids, want_pull)
+            cross_flat = cross_ids - pulled.keys
+          end
+        end
         # ignore marks whose wall no longer exists in this roof loop
         # (2026-08-05: a stale id after wall split/join blocked Gable style)
         loop_ids = wall_ids.compact
@@ -4160,8 +4187,40 @@ module InteriorPro
         # is exactly what it was before that mistake.
         dutch_marked = dutch_wall_ids & marked
         framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked,
-                             hip_marked, cross_ids) \
+                             hip_marked, cross_flat) \
                  if want_gable && abut_ids.empty? && s[:style] != 'shed'
+        if pull_undo
+          if framed && pulled.keys.all? { |id2| (0...poly.length).any? { |i2| wall_ids[i2] == id2 && framed[:edges].include?(i2) } }
+            pulled.each do |id2, v|
+              puts format('[Roof] edge %s pulled out %.0f"', id2.to_s[0, 8], v)
+            end
+            # A gable in the middle that is pulled out is a wing with a depth
+            # now - but it still stands in the middle of the mother's slope,
+            # and no wall closes the space under it. So the mother gives up
+            # the triangle between its two valleys exactly as before (the V
+            # in build_main_rect!): no shelf of her eave is left hanging
+            # across the foot of the gable, under its soffit.
+            mid = cross_ids & pulled.keys
+            unless mid.empty?
+              framed[:wings].each do |w|
+                w[:cross] = true if side_gabled?(w[:rect], OPP_SIDE[w[:mouth]], poly, wall_ids, mid)
+              end
+            end
+          else
+            # NOT SILENTLY. The outline goes back to what it was; the number
+            # stays saved.
+            puts "[Roof] the pulled edge is not built here (the outline cannot be framed with it) - " \
+                 "#{pulled.length} pull(s) left out: #{pulled.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
+            poly, wall_ids = pull_undo
+            pulled = {}
+            cross_flat = cross_ids
+            gables = (0...poly.length).select { |i| wall_ids[i] && marked.include?(wall_ids[i]) }
+            want_gable = !gables.empty? || s[:style] == 'gable'
+            framed = framed_plan(poly, wall_ids, marked, s[:style], dutch_marked,
+                                 hip_marked, cross_flat) \
+                     if want_gable && abut_ids.empty? && s[:style] != 'shed'
+          end
+        end
         if cross_undo
           if framed && !(framed[:wings] || []).none? { |w| w[:cross] }
             framed[:wings].each do |w|
@@ -4926,7 +4985,8 @@ module InteriorPro
             end
             if defined?(cross_ids) && cross_ids && !cross_ids.empty?
               cxe2 = (0...poly.length).select { |i2| wall_ids[i2] && cross_ids.include?(wall_ids[i2]) }
-              cross_cover_seams(poly, slope, band_top, ridge.to_f, lvl, grp, cxe2).each do |q, a, b|
+              cross_cover_seams(poly, slope, band_top, ridge.to_f, lvl, grp, cxe2,
+                                cxe2.map { |i2| (pulled || {})[wall_ids[i2]].to_f }).each do |q, a, b|
                 @valley_seams << [[q[0], q[1], q[2] + dz.to_f], a, b]
               end
             end
@@ -5216,7 +5276,8 @@ module InteriorPro
                                  sloped: s[:soffit_slope] == true,
                                  inset: s[:fascia] ? -RAKE_K_IN : 0.0,
                                  reach: rch,
-                                 returns: rake_returns(poly, i, abut_flags))
+                                 returns: rake_returns(poly, i, abut_flags),
+                                 extra: (pulled || {})[wall_ids[i]].to_f)
             end
           else
             # The rake twin ENDS where it MEETS the level edge's own
@@ -5354,7 +5415,8 @@ module InteriorPro
       stub_e = gables.select { |gi| stub_ids.include?(wall_ids[gi]) }
       if s[:gable_walls] && zmap && !(gables - stub_e).empty?
         build_gable_wall_tops!(grp, poly, gables - stub_e, wall_ids, zmap, z0,
-                               s[:overhang], framed, band_top, slope, cells)
+                               s[:overhang], framed, band_top, slope, cells,
+                               (defined?(pulled) ? pulled : nil))
       end
       # ...and the wall that stands on the abut line with NO taller wall
       # behind it (2026-10-01) - see build_stub_wall_tops!.
@@ -5437,6 +5499,9 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'cross_edges', cxe) unless cxe.empty?
         # ...and the wall each of them stands on, in the same order
         grp.set_attribute('InteriorPro', 'cross_walls', cxe.map { |i| wall_ids[i] }) unless cxe.empty?
+        # ...and how far each is pulled out of the side it stands on (2026-10-05)
+        cxp = cxe.map { |i| (pulled || {})[wall_ids[i]].to_f }
+        grp.set_attribute('InteriorPro', 'cross_pulls', cxp) if cxp.any? { |v| v > 0.01 }
       end
       grp.set_attribute('InteriorPro', 'eave_z', z0)
       grp.set_attribute('InteriorPro', 'ridge_z', ridge)
@@ -6865,6 +6930,156 @@ module InteriorPro
       false
     end
 
+    # ---------- A ROOF EDGE PULLED OUT (2026-10-05) ----------
+    # His words: "כלי משיכת קצוות של גגות" - and of the gable in the middle of
+    # his Aetna house: "הגג הקדמי של הגמלון צריך לבלוט קדימה כמו בתוכנית". Asked
+    # with a picture of his own roof (pull_question.png), he chose 1: click an
+    # edge of the roof and the WHOLE edge comes out.
+    # The number is saved on the model by wall id, beside the roof-end marks,
+    # and the builder moves that edge of the outline straight out by it before
+    # anything else is worked out - so the planes, the rake, the soffit and the
+    # roofs that meet this one all follow the outline they are given.
+    # Step 1: GABLE ends only (a rake only gets longer along the ridge; an eave
+    # pulled out would have to come DOWN its own slope - not built yet, and the
+    # builder says so).
+    #   InteriorPro::RoofManager::USE_EDGE_PULL = false  -> the saved numbers
+    #   are ignored and every roof is the roof it was.
+    USE_EDGE_PULL = true unless const_defined?(:USE_EDGE_PULL, false)
+    EDGE_PULL_MAX = 240.0 unless const_defined?(:EDGE_PULL_MAX, false)
+
+    # { wall id => inches out } - only the walls that carry a number.
+    def self.edge_pulls
+      m = Sketchup.active_model
+      ids = m.get_attribute('InteriorPro', 'roof_pull_wall_ids') || []
+      ins = m.get_attribute('InteriorPro', 'roof_pull_in') || []
+      out = {}
+      ids.each_with_index do |id, k|
+        v = ins[k].to_f
+        out[id] = v if v > 0.01
+      end
+      out
+    rescue StandardError
+      {}
+    end
+
+    # Save the number for one wall - 0 takes it off. The number ONLY: the
+    # caller rebuilds (the Roof End menu saves it and then sets the end,
+    # which rebuilds once). Numbers on walls that are gone are dropped.
+    def self.save_edge_pull!(id, inches)
+      return 0.0 if id.nil?
+      live = live_wall_ids
+      h = edge_pulls.select { |k, _v| live.include?(k) }
+      v = [[inches.to_f, 0.0].max, EDGE_PULL_MAX].min
+      was = h[id].to_f
+      v > 0.01 ? h[id] = v : h.delete(id)
+      m = Sketchup.active_model
+      m.set_attribute('InteriorPro', 'roof_pull_wall_ids', h.keys)
+      m.set_attribute('InteriorPro', 'roof_pull_in', h.values)
+      puts format('[Roof] wall %s: pulled out %.1f" (was %.1f")', id, v, was) if (v - was).abs > 0.001
+      v
+    rescue StandardError => e
+      puts "[Roof] save_edge_pull!: #{e.message}"
+      0.0
+    end
+
+    # Pull one wall's roof edge out and rebuild the roof over it - and the
+    # roofs it meets follow (meet_follow!). The one call for anything that
+    # is not the Roof End menu.
+    def self.set_edge_pull!(wall, inches)
+      return false unless wall && wall.respond_to?(:valid?) && wall.valid?
+      id = wall.get_attribute('InteriorPro', 'id')
+      return false if id.nil?
+      save_edge_pull!(id, inches)
+      own = roof_of_wall_id(id)
+      if own
+        meet_follow!(build_roof!(replace: own))
+      else
+        puts "[Roof] wall #{id}: no roof over it - nothing was rebuilt"
+      end
+      true
+    rescue StandardError => e
+      puts "[Roof] set_edge_pull!: #{e.message}"
+      false
+    end
+
+    # PURE. What he typed in the Pull box, in inches: a bare number is
+    # inches, 2' and 2'6" are read the SketchUp way. Never negative.
+    def self.parse_pull(txt)
+      t = txt.to_s.strip
+      return 0.0 if t.empty?
+      v = if t =~ /['"]/ && t.respond_to?(:to_l)
+            t.to_l.to_f
+          elsif t =~ /\A([0-9.]+)\s*'\s*(?:([0-9.]+)\s*"?)?\z/
+            Regexp.last_match(1).to_f * 12.0 + Regexp.last_match(2).to_f
+          else
+            t.sub(/"\z/, '').to_f
+          end
+      v.negative? ? 0.0 : v
+    rescue StandardError
+      0.0
+    end
+
+    # PURE. Moves every edge whose wall id is in `pulls` straight out by its
+    # number (CCW outline: out is to the right of the way the edge runs).
+    # A neighbour that runs square to the pulled edge just gets longer; one
+    # that runs on along the same line (the foot of a gable in the middle)
+    # stays where it is and a new short edge joins the two, with no wall of
+    # its own (id nil). Returns [poly, wall_ids, { id => inches }].
+    def self.pull_edges(poly, wall_ids, pulls)
+      n = poly.length
+      return [poly, wall_ids, {}] if n < 3 || pulls.nil? || pulls.empty?
+      done = {}
+      pts = []
+      ids = []
+      dir = lambda do |k|
+        a = poly[k % n]
+        b = poly[(k + 1) % n]
+        l = Math.hypot(b[0] - a[0], b[1] - a[1])
+        l < 1.0e-6 ? nil : [(b[0] - a[0]) / l, (b[1] - a[1]) / l]
+      end
+      square = lambda do |d, e|
+        !d.nil? && !e.nil? && (d[0] * e[0] + d[1] * e[1]).abs < 1.0e-3
+      end
+      amount = lambda do |k|
+        id = wall_ids[k % n]
+        v = id.nil? ? 0.0 : pulls[id].to_f
+        v > 0.01 ? [v, EDGE_PULL_MAX].min : 0.0
+      end
+      n.times do |i|
+        p_prev = amount.call(i - 1)
+        p_cur = amount.call(i)
+        d_prev = dir.call(i - 1)
+        d_cur = dir.call(i)
+        v = poly[i]
+        if d_prev.nil? || d_cur.nil? || (p_prev < 0.01 && p_cur < 0.01)
+          pts << [v[0], v[1]]
+          ids << wall_ids[i]
+          next
+        end
+        o_prev = [d_prev[1] * p_prev, -d_prev[0] * p_prev]
+        o_cur = [d_cur[1] * p_cur, -d_cur[0] * p_cur]
+        if square.call(d_prev, d_cur)
+          # a corner: each edge slides along the other one's line
+          pts << [v[0] + o_prev[0] + o_cur[0], v[1] + o_prev[1] + o_cur[1]]
+          ids << wall_ids[i]
+        else
+          # the same line runs on: the end of the edge before, a short
+          # edge across, the start of this one
+          a = [v[0] + o_prev[0], v[1] + o_prev[1]]
+          b = [v[0] + o_cur[0], v[1] + o_cur[1]]
+          pts << a
+          if Math.hypot(b[0] - a[0], b[1] - a[1]) > 1.0e-6
+            ids << nil
+            pts << b
+          end
+          ids << wall_ids[i]
+        end
+        done[wall_ids[i - 1]] = p_prev if p_prev > 0.01
+        done[wall_ids[i]] = p_cur if p_cur > 0.01
+      end
+      [pts, ids, done]
+    end
+
     # ---------- gable-end marking (the Gable Ends click tool) ----------
 
     def self.gable_wall_ids
@@ -7369,7 +7584,8 @@ module InteriorPro
     def self.cross_gables_of(grp, g)
       return [] unless USE_CROSS_GABLE && USE_CROSS_JOIN
       return [] if grp.nil? || g.nil?
-      Array(grp.get_attribute('InteriorPro', 'cross_edges')).map { |i| cross_gable_at(g, i.to_i) }.compact
+      pl = Array(grp.get_attribute('InteriorPro', 'cross_pulls'))
+      Array(grp.get_attribute('InteriorPro', 'cross_edges')).each_with_index.map { |i, k| cross_gable_at(g, i.to_i, pl[k].to_f) }.compact
     rescue StandardError
       []
     end
@@ -7377,7 +7593,10 @@ module InteriorPro
     # PURE. The gable standing on edge `i` of an outline, from its pts,
     # slope and deck_z alone - so the roof that OWNS the gable can ask
     # while it is still being built.
-    def self.cross_gable_at(g, i)
+    # `pull` (2026-10-05): the edge stands that far out of the side the
+    # gable belongs to, so the slope it stands on rises from a line that far
+    # behind it - and so does its wall.
+    def self.cross_gable_at(g, i, pull = 0.0)
       n = g[:pts].length
       return nil if i.negative? || i >= n
       a = g[:pts][i]
@@ -7386,10 +7605,12 @@ module InteriorPro
       inw = edge_inward(g[:pts], i)
       return nil if len < 1.0 || inw.nil?
       d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
-      { edge: i, a: a, b: b, d: d, inw: inw, len: len,
+      pv = pull.to_f
+      back = [a[0] + inw[0] * pv, a[1] + inw[1] * pv]
+      { edge: i, a: a, b: b, d: d, inw: inw, len: len, pull: pv,
         p0: plane_abc(a, d, g[:slope], g[:deck_z]),
         p1: plane_abc(b, [-d[0], -d[1]], g[:slope], g[:deck_z]),
-        base: plane_abc(a, inw, g[:slope], g[:deck_z]) }
+        base: plane_abc(back, inw, g[:slope], g[:deck_z]) }
     end
 
     # PURE. The part of a lower roof's outline `lo_pts` where its plane `pl`
@@ -7424,11 +7645,11 @@ module InteriorPro
     # gable-in-the-middle edges on which a lower roof lies in the gable's
     # sheet. `cross_edges` are the indices of those edges in `pts`.
     # Returns [[gable plane, [x, y], [x, y]]].
-    def self.cross_cover_seams(pts, slope, deck_z, ridge_z, lvl, skip_grp, cross_edges)
+    def self.cross_cover_seams(pts, slope, deck_z, ridge_z, lvl, skip_grp, cross_edges, cross_pulls = nil)
       out = []
       return out unless USE_ROOF_VALLEY && USE_CROSS_GABLE && USE_CROSS_JOIN && USE_CROSS_SEAM_HIDE
       hg = { pts: pts, slope: slope, deck_z: deck_z }
-      cs = Array(cross_edges).map { |i| cross_gable_at(hg, i.to_i) }.compact
+      cs = Array(cross_edges).each_with_index.map { |i, k| cross_gable_at(hg, i.to_i, Array(cross_pulls)[k].to_f) }.compact
       return out if cs.empty?
       roofs.each do |lo_grp|
         next if lo_grp == skip_grp || !lo_grp.valid?
@@ -7591,7 +7812,8 @@ module InteriorPro
             mate = pair[1 - k]
             [[c[:p0], c[:p1]], [c[:p1], c[:p0]]].each do |q, q2|
               flush = (pl[0] - q[0]).abs < 1.0e-6 && (pl[1] - q[1]).abs < 1.0e-6 && (pl[2] - q[2]).abs < 0.05
-              from = flush ? c[:a] : [c[:a][0] + c[:inw][0] * hg[:oh].to_f, c[:a][1] + c[:inw][1] * hg[:oh].to_f]
+              wall_in = hg[:oh].to_f + c[:pull].to_f
+              from = flush ? c[:a] : [c[:a][0] + c[:inw][0] * wall_in, c[:a][1] + c[:inw][1] * wall_in]
               rg = cross_region(pts, c, from, pl, mate, q, q2)
               next if rg.length < 3 || poly_area2(rg).abs < 2.0
               out << { poly: rg.map { |v| [v[0], v[1], plane_z(pl, v[0], v[1])] }, plane: pl, hp: q, flush: flush }
@@ -7628,7 +7850,8 @@ module InteriorPro
     # wall the gable stands on.
     def self.cross_wall_closer(lo_pts, lo_oh, pl, mate, c, hi_oh, top_z)
       top = top_z.to_f
-      wl = [c[:a][0] + c[:inw][0] * hi_oh.to_f, c[:a][1] + c[:inw][1] * hi_oh.to_f]
+      wall_in = hi_oh.to_f + c[:pull].to_f
+      wl = [c[:a][0] + c[:inw][0] * wall_in, c[:a][1] + c[:inw][1] * wall_in]
       at = lambda { |t| [wl[0] + c[:d][0] * t, wl[1] + c[:d][1] * t] }
       ts = []
       n = lo_pts.length
@@ -7957,7 +8180,7 @@ module InteriorPro
 
     def self.build_gable_wall_tops!(grp, poly, gables, wall_ids, zmap, z0,
                                     overhang, framed, band_top, slope,
-                                    cells = nil)
+                                    cells = nil, pulls = nil)
       owners = framed ? framed_line_owners(framed) : {}
       surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
       gables.each do |i|
@@ -7982,6 +8205,8 @@ module InteriorPro
                 lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
               end
         inw = [-d[1], d[0]] # inward for CCW
+        # a pulled-out edge stands that much further from its wall (2026-10-05)
+        wall_in = overhang.to_f + (pulls && wall_ids[i] ? pulls[wall_ids[i]].to_f : 0.0)
         names = InteriorPro::WallTool.respond_to?(:wall_side_material_names) ?
                 InteriorPro::WallTool.wall_side_material_names(wall) : [nil, nil]
         # WHERE THE WALL REALLY STOPS (2026-08-26). The poly edge is the
@@ -8071,7 +8296,7 @@ module InteriorPro
                                               overhang, lo, hi)
         if prof_src
           chain_regions_above(prof_src.map { |t, z| [t, nil, z] }, zbase).each do |pp|
-            build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, pp,
+            build_gable_top_prism!(grp, a, d, inw, wall_in, th, zbase, pp,
                                    names, wall)
           end
         else
@@ -8084,7 +8309,7 @@ module InteriorPro
             wall_visible_profile(prof, a, d, cov).each do |pp|
               cp = clip_profile(pp, lo, hi)
               next if cp.empty?
-              build_gable_top_prism!(grp, a, d, inw, overhang, th, zbase, cp,
+              build_gable_top_prism!(grp, a, d, inw, wall_in, th, zbase, cp,
                                      names, wall)
             end
           end
@@ -9518,7 +9743,7 @@ module InteriorPro
     # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
                                 cover: nil, surface: nil, sloped: false,
-                                reach: nil, inset: 0.0, returns: nil)
+                                reach: nil, inset: 0.0, returns: nil, extra: 0.0)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
@@ -9535,7 +9760,10 @@ module InteriorPro
       # that 3/4" off its width, not off the overhang.
       ins = inset.to_f                         # 0.0 = the old flush-to-line
       off = [-d[1] * ins, d[0] * ins]          # inward for CCW
-      wide = oh - ins
+      # `extra` (2026-10-05): an edge pulled out stands that much further
+      # from its wall, and the board still runs all the way in to it. The
+      # box returns at its ends keep the side eaves' own overhang.
+      wide = oh + extra.to_f - ins
       return if wide < 0.5
       inw = [-d[1] * wide, d[0] * wide] # inward for CCW - the rake board goes the other way
       # `reach` (2026-08-27): the eave closes the same BODY the wall and the

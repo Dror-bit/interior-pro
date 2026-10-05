@@ -20,7 +20,7 @@ module InteriorPro
 
     def activate
       @preview_wall = nil
-      Sketchup.set_status_text('Click a wall to choose its roof end: hip, gable, Dutch gable or shed', SB_PROMPT)
+      Sketchup.set_status_text('Click a wall to choose its roof end (hip, gable, Dutch gable or shed) and how far its edge is pulled out', SB_PROMPT)
     end
 
     def deactivate(view)
@@ -68,11 +68,30 @@ module InteriorPro
       # לאותה הצלע ואז לבחור איזה סוג של גימור של גג"). It opens showing
       # what this end IS, so the menu doubles as the answer to "what did
       # I set here?" - and Cancel leaves it exactly as it was.
-      res = UI.inputbox(['Roof end'], [NAMES[cur]], [NAMES.values.join('|')],
+      # ...AND HOW FAR THE EDGE IS PULLED OUT (2026-10-05, the user: "כלי
+      # משיכת קצוות של גגות" - he chose "click an edge and the whole edge
+      # comes out"). One more number in the menu of that edge, beside its
+      # kind: no second tool for the same edge. 0 = where the roof always
+      # stood. Saved first, so the ONE rebuild set_roof_end! does below
+      # already builds it - and the roofs this one meets follow.
+      rm = InteriorPro::RoofManager
+      was = rm.respond_to?(:edge_pulls) ? rm.edge_pulls[wid].to_f : 0.0
+      res = UI.inputbox(['Roof end', 'Pull out (in)'],
+                        [NAMES[cur], was.round(2).to_s.sub(/\.0\z/, '')],
+                        [NAMES.values.join('|'), ''],
                         'Interior Pro - Roof End')
       return unless res
       kind = NAMES.key(res[0]) || :hip
-      InteriorPro::RoofManager.set_roof_end!(wall, kind, [p3.x.to_f, p3.y.to_f])
+      if rm.respond_to?(:save_edge_pull!)
+        pull = rm.parse_pull(res[1])
+        if pull > 0.01 && kind != :gable
+          UI.messagebox('Only a Gable end can be pulled out for now. ' \
+                        'The end was set; the pull was left at 0.')
+          pull = 0.0
+        end
+        rm.save_edge_pull!(wid, pull)
+      end
+      rm.set_roof_end!(wall, kind, [p3.x.to_f, p3.y.to_f])
       view.invalidate
     rescue StandardError => e
       puts "[RoofGableTool] error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
