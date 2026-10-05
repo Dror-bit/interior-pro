@@ -197,9 +197,13 @@ ok('0 = face for face the roof with no pull', norm(faces(r0)) == pf)
 auto, = box_roof([], {})
 af = norm(faces(auto))
 r, log = box_roof([], { 'b' => 30.0 })
-ok('a gable the STYLE chose, not he: not pulled, and it says so', log =~ /carry a pull but are not Gable ends/ && norm(faces(r)) == af, log.lines.grep(/pull/))
+ok('a gable the STYLE chose, not he: not pulled, and it says why', log =~ /edge b is not pulled out: it is a gable end/ && norm(faces(r)) == af, log.lines.grep(/pull/))
+RF.send(:remove_const, :USE_EAVE_PULL)
+RF.const_set(:USE_EAVE_PULL, false)
 r, log = box_roof(%w[b], { 'a' => 30.0 })
-ok('an eave: not pulled, and it says so', log =~ /carry a pull but are not Gable ends.*: a$/ && norm(faces(r)) == pf, log.lines.grep(/pull/))
+ok('an eave, with the eave pull switched off (step 1): not pulled, and it says so', log =~ /carry a pull but are not Gable ends.*: a$/ && norm(faces(r)) == pf, log.lines.grep(/pull/))
+RF.send(:remove_const, :USE_EAVE_PULL)
+RF.const_set(:USE_EAVE_PULL, true)
 r, log = box_roof(%w[b], { 'b' => 30.0 }, style: 'shed')
 ok('a shed: left out, and it says so', log =~ /a pulled edge is not built on this kind of roof yet/, log.lines.grep(/pull/))
 
@@ -299,7 +303,13 @@ ok('0 in the menu puts the edge back: face for face the roofs before the pull', 
                                                                               norm(faces(garage)) == FLAT[:garage])
 UI.next_inputbox = ['Hip', '36']
 log = quiet { tool.onLButtonDown(0, 10, 10, FakeView.new(wall('h5'), [-360.0, 464.5])) }
-ok('a pull typed on an end that is not Gable is not saved', RF.edge_pulls == {} && RF.gable_wall_ids == [] && log !~ /pulled out 36/)
+ok('a pull typed on a Hip end is saved (an eave, step 2) - and this wall, with no edge of its own, says why it is not built',
+   RF.edge_pulls == { 'h5' => 36.0 } && RF.gable_wall_ids == [] && log !~ /pulled out 36"/, [RF.edge_pulls, log.lines.grep(/pull/)])
+UI.next_inputbox = ['Dutch gable', '36']
+quiet { tool.onLButtonDown(0, 10, 10, FakeView.new(wall('h5'), [-360.0, 464.5])) }
+ok('a pull typed on a Dutch end is not saved', RF.edge_pulls == {}, RF.edge_pulls)
+UI.next_inputbox = ['Hip', '0']
+quiet { tool.onLButtonDown(0, 10, 10, FakeView.new(wall('h5'), [-360.0, 464.5])) }
 UI.next_inputbox = nil
 quiet { tool.onLButtonDown(0, 10, 10, FakeView.new(wall('h5'), [-360.0, 464.5])) }
 ok('Cancel changes nothing', RF.edge_pulls == {} && RF.gable_wall_ids == [])

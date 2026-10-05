@@ -4112,15 +4112,29 @@ module InteriorPro
         # to the roofs that meet it.
         pulled = {}
         pull_undo = nil
+        eave_want = {}
         cross_flat = cross_ids
         want_pull = USE_EDGE_PULL ? edge_pulls.select { |id2, _v| wall_ids.include?(id2) } : {}
+        # NOT SILENTLY: a number on one of this roof's own walls that has no
+        # edge of its own here (it lies on a longer wall's line)
+        if USE_EDGE_PULL
+          own_ids2 = own_walls.map { |w| w.get_attribute('InteriorPro', 'id') }
+          lone = edge_pulls.keys.select { |id2| own_ids2.include?(id2) && !wall_ids.include?(id2) }
+          unless lone.empty?
+            puts "[Roof] #{lone.length} wall(s) carry a pull but have no edge of their own on this roof - nothing is pulled there: " \
+                 "#{lone.map { |x| x.to_s[0, 8] }.join(' ')}"
+          end
+        end
         if !want_pull.empty? && !(abut_ids.empty? && s[:style] != 'shed' && rectilinear?(poly))
           # NOT SILENTLY (the law of 2026-09-23)
           puts "[Roof] a pulled edge is not built on this kind of roof yet (it dies into a wall, it is a shed, or its " \
                "outline is not square) - #{want_pull.length} pull(s) left out: #{want_pull.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
         elsif !want_pull.empty?
           eaves = want_pull.keys - marked
-          unless eaves.empty?
+          if !eaves.empty? && USE_EAVE_PULL
+            # an eave: decided once the plan knows which edges are gables
+            eave_want = want_pull.select { |id2, _v| eaves.include?(id2) }
+          elsif !eaves.empty?
             puts "[Roof] #{eaves.length} edge(s) carry a pull but are not Gable ends - only a gable end is pulled out for now: " \
                  "#{eaves.map { |x| x.to_s[0, 8] }.join(' ')}"
           end
@@ -4513,6 +4527,59 @@ module InteriorPro
       # together. Now a plain gable end can stand beside a Dutch one on
       # the same roof, and it must keep its rake board.
       gables -= (framed[:dutch_edges] || []) if framed && s[:dutch_depth].to_f > 0.01
+      # AN EAVE PULLED OUT (2026-10-05) - see eave_pull_plan. The plan above
+      # was made on the outline as it stood, and stays: only the outline the
+      # dressing follows moves. eave_src keeps the old one - the strips are
+      # laid from its lines, and it is what the roof says about itself.
+      eave_pull = {}
+      eave_src = nil
+      if defined?(eave_want) && eave_want && !eave_want.empty?
+        if framed.nil?
+          puts "[Roof] an eave pulled out is not built on this kind of roof yet (its outline is not framed) - " \
+               "#{eave_want.length} pull(s) left out: #{eave_want.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
+        else
+          own2 = framed_line_owners(framed)
+          whole = {}
+          gables.each do |gi|
+            r2 = framed_edge_span(framed, poly, gi, own2)
+            l2 = vlen(vsub(poly[(gi + 1) % poly.length], poly[gi]))
+            whole[gi] = !r2.nil? && r2[0].abs < 0.5 && (r2[1] - l2).abs < 0.5
+          end
+          eave_pull, why2 = eave_pull_plan(poly, wall_ids, gables, eave_want, whole)
+          why2.each { |id2, r2| puts "[Roof] edge #{id2.to_s[0, 8]} is not pulled out: #{r2}" }
+          unless eave_pull.empty?
+            p2, w2, = pull_edges(poly, wall_ids, nil, eave_pull)
+            if p2.length == poly.length && w2 == wall_ids
+              eave_src = poly
+              poly = p2
+              eave_pull.each do |i2, v2|
+                if wall_ids[i2].nil?
+                  puts format('[Roof] the short eave beside it (no wall of its own) goes out %.0f" with it - the two still meet at one height', v2)
+                else
+                  puts format('[Roof] eave %s pulled out %.0f" - it ends %.1f" lower', wall_ids[i2].to_s[0, 8], v2, slope * v2)
+                end
+              end
+              puts '[Roof] no gutter on a pulled-out eave yet' if s[:gutter]
+            else
+              puts "[Roof] the pulled eave is not built here (its outline came out with another number of edges) - #{eave_pull.length} pull(s) left out"
+              eave_pull = {}
+            end
+          end
+        end
+      end
+      # the strips of roof from each old eave line out to the new one:
+      # [first corner, second corner, the way out, how far]
+      eave_strips = eave_pull.map do |i2, v2|
+        a2 = eave_src[i2]
+        b2 = eave_src[(i2 + 1) % eave_src.length]
+        d2 = vnorm(vsub(b2, a2))
+        # ...and its two corners on the NEW outline: square out from the old
+        # ones, or - where the eave beside it went out too - on the valley
+        [a2, b2, [d2[1], -d2[0]], v2, poly[i2], poly[(i2 + 1) % poly.length]]
+      end
+      # ...and which of them only went out WITH the eave beside them: the
+      # side of a pulled-out gable, an edge with no wall of its own.
+      eave_follow = USE_EAVE_CORNER_FOLLOW ? eave_pull.keys.select { |k2| wall_ids[k2].nil? } : []
       lvl_edges = framed || cells.nil? ? [] : level_gable_edges(poly, gables, cells)
       rakes = gables - lvl_edges
       gable_flags = Array.new(poly.length, false)
@@ -4529,6 +4596,14 @@ module InteriorPro
           gable_flags[i] = true
           abut_flags[i] = true
         end
+      end
+      # ...and what the level BANDS skip: the same, plus an eave that was
+      # pulled out - it wears its own, lower down (2026-10-05). With no
+      # pulled eave this IS gable_flags, the very same list.
+      band_skip = gable_flags
+      unless eave_pull.empty?
+        band_skip = gable_flags.dup
+        eave_pull.each_key { |i2| band_skip[i2] = true }
       end
       # WHICH CORNERS THE METAL EDGE MAY WRAP (2026-09-01). It wraps a
       # gable rake because there is a rake drip out there to land on. At
@@ -4548,7 +4623,7 @@ module InteriorPro
                                              s[:dutch_depth],
                                              slab_lift(s[:thickness], slope) > 0.001 ?
                                              nil : 0.0,
-                                             fascia_depth_of(s))
+                                             fascia_depth_of(s), eave_strips)
         band_top = z0 - slope * s[:overhang]
       else
         ridge, zmap = build_hip_geometry!(grp, poly, cells, z0, slope, s[:overhang],
@@ -4576,6 +4651,25 @@ module InteriorPro
       # the eave corner to the ridge point and drew the diagonal line.
       # Same lambda, just created earlier; nil on hip/flat as before.
       surf = framed ? lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, nil) } : nil
+      # ...BUT A PULLED-OUT EAVE IS ITS OWN SILHOUETTE (2026-10-05). Its new
+      # line lies outside every rect of the plan, lower than all of them; at
+      # an inside corner it ends right under the eave of the wing beside it,
+      # and there the test above said "another roof runs over this corner"
+      # and threw the corner out - the slab's edge then fell back to the
+      # wall height. On that line the question is not asked.
+      if surf && !eave_pull.empty?
+        plain_surf = surf
+        elines = eave_pull.keys.map { |i2| [poly[i2], poly[(i2 + 1) % poly.length]] }
+        surf = lambda do |cx, cy|
+          on = elines.any? do |a2, b2|
+            l2 = vlen(vsub(b2, a2))
+            d2 = vnorm(vsub(b2, a2))
+            t2 = (cx - a2[0]) * d2[0] + (cy - a2[1]) * d2[1]
+            ((cx - a2[0]) * d2[1] - (cy - a2[1]) * d2[0]).abs < 0.05 && t2 > -0.05 && t2 < l2 + 0.05
+          end
+          on ? nil : plain_surf.call(cx, cy)
+        end
+      end
       dz = slab_lift(s[:thickness], s[:style] == 'flat' ? 0.0 : slope)
       shell_before = grp.entities.grep(Sketchup::Face)
       if dz > 0.001
@@ -4584,7 +4678,7 @@ module InteriorPro
         elsif framed
           build_framed_geometry!(grp, framed, z0 + dz, slope, s[:overhang],
                                  roof_mat, roof_mat, nil, s[:dutch_depth], dz,
-                                 fascia_depth_of(s))
+                                 fascia_depth_of(s), eave_strips)
         else
           build_hip_geometry!(grp, poly, cells, z0 + dz, slope, s[:overhang],
                               roof_mat, roof_mat)
@@ -4795,6 +4889,14 @@ module InteriorPro
       # it, so a level corner miters at 45 like any two eaves.
       rake_corners = gable_flags.dup
       gable_spans = nil
+      # WHERE A RAKE STARTS (2026-10-05): at the eave height - or, beside an
+      # eave that was pulled out, at THAT eave's own lower height, so the
+      # stretch that runs on down to the new corner is still rake and not
+      # taken for a level piece of eave. No pulled eave = band_top, as ever.
+      rake_base = lambda do |i2|
+        next band_top if eave_pull.empty?
+        band_top - slope * [eave_pull[(i2 - 1) % poly.length].to_f, eave_pull[(i2 + 1) % poly.length].to_f].max
+      end
       if zmap && !rakes.empty?
         gable_spans = {}
         rakes.each do |i|
@@ -4810,10 +4912,10 @@ module InteriorPro
               t1, _, zz1 = ch[k2]
               t1 - t0 < 1.0e-6 ? zz1 : zz0 + (zz1 - zz0) * (t - t0) / (t1 - t0)
             end
-            rake_corners[i] = [zt.call(2.0) > band_top + 0.05,
-                               zt.call(len_e - 2.0) > band_top + 0.05]
+            rake_corners[i] = [zt.call(2.0) > rake_base.call(i) + 0.05,
+                               zt.call(len_e - 2.0) > rake_base.call(i) + 0.05]
           end
-          gable_spans[i] = chain_regions_above(ch, band_top)
+          gable_spans[i] = chain_regions_above(ch, rake_base.call(i))
                            .map { |rg| [rg.first[0], rg.last[0]] }
         end
       end
@@ -5010,7 +5112,7 @@ module InteriorPro
       end
       if s[:fascia]
         build_band!(grp, poly, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth],
-                    gable_flags, gable_spans)
+                    band_skip, gable_spans)
         # rake boards: the fascia climbing the sloped edges of a gable end.
         # One per gabled poly edge, but running the whole BODY that edge
         # closes (framed_edge_span, 2026-08-27) - the wall under it does the
@@ -5025,11 +5127,12 @@ module InteriorPro
           rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-            rch = framed_edge_span(framed, poly, i, owners)
+            rch = eave_reach(framed_edge_span(framed, poly, i, owners), poly.length, i, eave_pull)
             build_rake_board!(grp, poly, i, zmap, s[:fascia_depth],
                               cover: cover_blind_at_ends(cov, poly, i, rch),
                               surface: surf, reach: rch,
-                              k_in: RAKE_K_IN, k_out: RAKE_K_OUT)
+                              k_in: RAKE_K_IN, k_out: RAKE_K_OUT,
+                              straight: !eave_pull.empty?)
           end
         elsif zmap
           # A rake board ENDS where it MEETS the level edge's fascia
@@ -5060,7 +5163,7 @@ module InteriorPro
           abut_flags[i2] ? false : g
         end
         build_band!(grp, poly, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH,
-                    gable_flags, gable_spans, wrap_corners, d_in + DRIP_THICK)
+                    band_skip, gable_spans, wrap_corners, d_in + DRIP_THICK)
         # ...and the same thin strip climbing the gable rakes (user
         # 2026-08-24). build_band! skips a gabled edge entirely, so without
         # this the drip stopped dead at the corner. It rides on the rake
@@ -5072,11 +5175,11 @@ module InteriorPro
           rakes.each do |i|
             key = line_key(poly, i)
             cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-            rch = framed_edge_span(framed, poly, i, owners)
+            rch = eave_reach(framed_edge_span(framed, poly, i, owners), poly.length, i, eave_pull)
             build_rake_board!(grp, poly, i, zmap, DRIP_DEPTH,
                               cover: cover_blind_at_ends(cov, poly, i, rch),
                               surface: surf, k_in: d_in, k_out: d_in + DRIP_THICK,
-                              reach: rch)
+                              reach: rch, straight: !eave_pull.empty?)
           end
         elsif zmap
           rakes.each do |i|
@@ -5116,6 +5219,56 @@ module InteriorPro
                       flags, nil, sqf, d_in + DRIP_THICK)
         end
       end
+      # ---------- AN EAVE PULLED OUT (2026-10-05) -----------------------
+      # The same fascia and drip every eave gets, at THIS edge's own
+      # height: slope x pull under band_top, where its piece of the plane
+      # ends. Built like the top edge of a shed just above - one edge,
+      # every other skipped - but mitred and wrapped like a plain eave.
+      # Every eave pulled by the SAME number in one go: two of them that
+      # meet at an inside corner are one band, mitred there.
+      eave_pull.group_by { |_le, pv| pv.round(3) }.each_value do |same|
+        pv = same[0][1]
+        ze = band_top - slope * pv
+        flags = Array.new(poly.length, true)
+        same.each { |le, _pv| flags[le] = false }
+        if s[:fascia]
+          build_band!(grp, poly, -FASCIA_THICK, 0.0, ze, ze - s[:fascia_depth], flags, nil)
+        end
+        if s[:drip]
+          d_in2 = s[:fascia] ? RAKE_K_OUT : 0.0
+          wr2 = rake_corners.each_with_index.map { |g2, i2| abut_flags[i2] ? false : g2 }
+          build_band!(grp, poly, 0.0, DRIP_THICK, ze, ze - DRIP_DEPTH, flags, nil, wr2, d_in2 + DRIP_THICK)
+        end
+      end
+      # ...AND THE SHORT EAVE BESIDE IT KEEPS ITS OWN (2026-10-05). At an
+      # inside corner the pulled eave slides out along the eave next to it,
+      # and the outline loses that stretch of the neighbour - but the
+      # neighbour's roof still ends there, right over the pulled-out piece.
+      # Its fascia and drip are put back on the lost stretch, off the
+      # outline as it stood (eave_src); the soffit follows in its block.
+      eave_lost = []
+      unless eave_pull.empty?
+        n2 = poly.length
+        eave_pull.each do |le, pv|
+          [[(le - 1) % n2, true], [(le + 1) % n2, false]].each do |k2, before|
+            next if gables.include?(k2) || eave_pull.key?(k2)
+            l2 = vlen(vsub(eave_src[(k2 + 1) % n2], eave_src[k2]))
+            # the part of edge k2 that is STILL on the outline is dropped here
+            keep = before ? [[0.0, l2 - pv]] : [[pv, l2]]
+            eave_lost << [k2, le, keep, before, pv]
+          end
+        end
+      end
+      eave_lost.each do |k2, _le, keep, _before, _pv|
+        flags = Array.new(poly.length, true)
+        flags[k2] = false
+        if s[:fascia]
+          build_band!(grp, eave_src, -FASCIA_THICK, 0.0, band_top, band_top - s[:fascia_depth], flags, { k2 => keep })
+        end
+        if s[:drip]
+          build_band!(grp, eave_src, 0.0, DRIP_THICK, band_top, band_top - DRIP_DEPTH, flags, { k2 => keep })
+        end
+      end
       # ---------- THE GUTTER (2026-08-28) -------------------------------
       # It hangs on the fascia's OUTER face, k = 0 - which is the whole
       # reason the fascia was left free (2026-08-25). Nothing already on
@@ -5141,7 +5294,12 @@ module InteriorPro
             gspans = (gable_spans || {}).dup
             valley_over.each { |e2, sp| gspans[e2] = (gspans[e2] || []) + sp }
           end
-          build_profile_band!(grp, poly, gsec, band_top, rake_corners,
+          gut_skip = rake_corners
+          unless eave_pull.empty?
+            gut_skip = rake_corners.dup
+            eave_pull.each_key { |i2| gut_skip[i2] = true }
+          end
+          build_profile_band!(grp, poly, gsec, band_top, gut_skip,
                               gspans, rake_corners,
                               s[:fascia] ? RAKE_K_OUT : 0.0,
                               gutter_outer_len(s[:gutter_profile], gw, gh))
@@ -5194,7 +5352,7 @@ module InteriorPro
               next nil if dpath.nil?
               [tube_rings(dpath, dprof), tube_rings(dpath, offset_closed_left(dprof, DS_WALL))]
             end
-            build_downspouts!(grp, poly, gable_flags, rings_at,
+            build_downspouts!(grp, poly, band_skip, rings_at,
                               gmat || trim_mat, ds_off, nil,
                               s[:overhang].to_f, valley_over,
                               (defined?(lspans) && lspans ? lspans : nil))
@@ -5239,7 +5397,7 @@ module InteriorPro
           # rake_corners already carries the per-end answer; the drip and
           # the gutter read it since 2026-09-08.
           build_band!(grp, poly, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
-                      gable_flags, gable_spans, rake_corners, RAKE_K_IN, rise)
+                      band_skip, gable_spans, rake_corners, RAKE_K_IN, rise)
           # ...and the same board under a shed's LEVEL top edge, at that
           # edge's own height (2026-08-26). Built inside this block so it
           # is painted and seam-softened with every other soffit face.
@@ -5259,6 +5417,64 @@ module InteriorPro
             build_band!(grp, poly, sb2[:k_in], sb2[:k_out], sb2[:z_top],
                         sb2[:z_bot], flags, nil, gable_flags, 0.0, rise2)
           end
+          # ...and under an eave that was pulled out (2026-10-05): the same
+          # board at that edge's own height, one overhang PLUS the pull
+          # wide, so it still runs from the fascia all the way in to the
+          # wall. Cut square at both ends - on the rake board at a gable
+          # corner, on the line of the short eave at an inside one.
+          eave_pull.group_by { |_le, pv| pv.round(3) }.each_value do |same|
+            pv = same[0][1]
+            ze = band_top - slope * pv
+            sb3 = soffit_band(s[:overhang].to_f + pv, s[:fascia_depth], s[:fascia], ze)
+            next if sb3.nil?
+            # NO BOX AT THE FOOT OF THE GABLE (2026-10-05, his words on the
+            # 36" box that stood there: "לפני שנגעת היא לא הייתה שם, אנחנו
+            # תיקנו אותה ביחד" - the law of 2026-10-04, rake_straight_ends).
+            # The side of the pulled-out gable wears NO flat board: the
+            # gable's own sloped board runs down over it to the corner, where
+            # it hangs at the very height the long eave's flat board ends at.
+            # So the long eave's board is cut square on that line, and
+            # nothing is left to step over.
+            flags = Array.new(poly.length, true)
+            same.each { |le, _pv| flags[le] = false unless eave_follow.include?(le) }
+            sq3 = Array.new(poly.length, false)
+            same.each do |le, _pv|
+              sq3[(le - 1) % poly.length] = true
+              sq3[(le + 1) % poly.length] = true
+            end
+            # ...but two pulled eaves with a wall each mitre on each other
+            same.each { |le, _pv| sq3[le] = false unless eave_follow.include?(le) }
+            build_band!(grp, poly, sb3[:k_in], sb3[:k_out], sb3[:z_top], sb3[:z_bot],
+                        flags, nil, sq3, RAKE_K_IN, soffit_rise(sb3, slope, s[:soffit_slope]))
+          end
+          # ...the short eave beside it: its own board on the stretch the
+          # outline lost, run square across the corner to the wall line of
+          # the pulled eave (that corner square was half the pulled eave's
+          # old board, which is gone)...
+          (defined?(eave_lost) && eave_lost ? eave_lost : []).each do |k2, le, keep, _before, _pv|
+            flags = Array.new(poly.length, true)
+            flags[k2] = false
+            sq4 = Array.new(poly.length, false)
+            sq4[le] = true
+            build_band!(grp, eave_src, sb[:k_in], sb[:k_out], sb[:z_top], sb[:z_bot],
+                        flags, { k2 => keep }, sq4, -s[:overhang].to_f, rise)
+          end
+          # ...and the END of the pulled eave's box there: between its own
+          # board, slope x pull lower, and the short eave's board above it
+          # the box stood open on the line of the short eave. One upright
+          # face closes it, from its fascia back to the wall.
+          (defined?(eave_lost) && eave_lost ? eave_lost : []).each do |k2, le, _keep, before, pv|
+            ze = band_top - slope * pv
+            lo_z = ze - s[:fascia_depth].to_f
+            hi_z = sb[:z_bot]
+            next if hi_z - lo_z < 0.05
+            c2 = before ? eave_src[le] : eave_src[(le + 1) % eave_src.length]   # the inside corner, as it stood
+            dk = vnorm(vsub(eave_src[(k2 + 1) % eave_src.length], eave_src[k2]))
+            outv = before ? [-dk[0], -dk[1]] : dk                                # along the short eave, away from the wall
+            p_out = [c2[0] + outv[0] * (pv - (s[:fascia] ? FASCIA_THICK : 0.0)), c2[1] + outv[1] * (pv - (s[:fascia] ? FASCIA_THICK : 0.0))]
+            p_in = [c2[0] - outv[0] * s[:overhang].to_f, c2[1] - outv[1] * s[:overhang].to_f]
+            add_ring!(grp, [[p_out[0], p_out[1], lo_z], [p_in[0], p_in[1], lo_z], [p_in[0], p_in[1], hi_z], [p_out[0], p_out[1], hi_z]])
+          end
         end
         # ...and the same board climbing the gable rakes, so the overhang
         # is closed all the way round and not only on the flat eaves
@@ -5269,15 +5485,30 @@ module InteriorPro
             rakes.each do |i|
               key = line_key(poly, i)
               cov = lambda { |cx, cy| framed_cover_z(framed, band_top, slope, cx, cy, owners[key]) }
-              rch = framed_edge_span(framed, poly, i, owners)
+              rch = eave_reach(framed_edge_span(framed, poly, i, owners), poly.length, i, eave_pull)
+              rret = rake_returns(poly, i, abut_flags)
+              fol_a = eave_follow.include?((i - 1) % poly.length)
+              fol_b = eave_follow.include?((i + 1) % poly.length)
+              if fol_a || fol_b
+                rret = (rret || [true, true]).dup
+                rret[0] = false if fol_a
+                rret[1] = false if fol_b
+                if rch && s[:fascia]
+                  rch = [rch[0] + (fol_a ? FASCIA_THICK : 0.0), rch[1] - (fol_b ? FASCIA_THICK : 0.0)]
+                end
+              end
               build_rake_soffit!(grp, poly, i, zmap, s[:fascia_depth], s[:overhang],
                                  cover: cover_blind_at_ends(cov, poly, i, rch),
                                  surface: surf,
                                  sloped: s[:soffit_slope] == true,
                                  inset: s[:fascia] ? -RAKE_K_IN : 0.0,
                                  reach: rch,
-                                 returns: rake_returns(poly, i, abut_flags),
-                                 extra: (pulled || {})[wall_ids[i]].to_f)
+                                 returns: rret,
+                                 extra: (pulled || {})[wall_ids[i]].to_f,
+                                 ret: (eave_pull.empty? ? nil :
+                                       [s[:overhang].to_f + eave_pull[(i - 1) % poly.length].to_f,
+                                        s[:overhang].to_f + eave_pull[(i + 1) % poly.length].to_f]),
+                                 straight: !eave_pull.empty?)
             end
           else
             # The rake twin ENDS where it MEETS the level edge's own
@@ -5317,7 +5548,7 @@ module InteriorPro
           spec = beam_spec(style)
           drop = beams ? 0.0 : s[:fascia_depth].to_f
           build_eave_beams!(grp, poly, sb[:k_in], sb[:k_out], band_top - drop,
-                            gable_flags, spec, s[:soffit_slope] ? slope : 0.0)
+                            band_skip, spec, s[:soffit_slope] ? slope : 0.0)
           # ...and up the gable rakes (user 2026-08-25: "וגם איפה שיש גיבל").
           # With a SLOPED soffit the lowest lookout is culled - see `clear`
           # over build_rake_beams!.
@@ -5505,7 +5736,10 @@ module InteriorPro
       end
       grp.set_attribute('InteriorPro', 'eave_z', z0)
       grp.set_attribute('InteriorPro', 'ridge_z', ridge)
-      grp.set_attribute('InteriorPro', 'footprint_xy', poly.flatten)
+      # the outline its PLANES rise from - before any eave was pulled out
+      # (2026-10-05); the pulled eaves are told beside it
+      grp.set_attribute('InteriorPro', 'footprint_xy', (eave_src || poly).flatten)
+      grp.set_attribute('InteriorPro', 'eave_pulls', eave_pull.to_a.flatten) unless eave_pull.empty?
       # ...and the full settings this roof was built from, so it can be
       # rebuilt from itself later (2026-08-26, step 1 of Edit Roof). The
       # single-value attributes above stay exactly where they are - other
@@ -5582,6 +5816,34 @@ module InteriorPro
       # ...and last of all, the cut lines that cut nothing - see
       # valley_hide_cut_lines!. After everything else, so a line is judged
       # by the faces that are really left on its two sides.
+      unless eave_strips.empty?
+        esegs = []
+        vsegs = []
+        vseen = {}
+        eave_strips.each do |a2, b2, out2, pv2, an2, bn2|
+          pl2 = plane_abc(a2, [-out2[0], -out2[1]], slope, band_top)
+          next if pl2.nil?
+          top2 = [pl2[0], pl2[1], pl2[2] + dz.to_f]
+          esegs << [pl2, a2, b2]
+          esegs << [top2, a2, b2]
+          # ...and the VALLEY between two pieces that went out together: the
+          # valley above it wears no line (2026-09-08), so its last stretch,
+          # from the old inside corner to the new one, wears none either.
+          [[a2, an2], [b2, bn2]].each do |c0, c1|
+            next if c1.nil?
+            next if Math.hypot(c1[0] - c0[0] - out2[0] * pv2, c1[1] - c0[1] - out2[1] * pv2) < 0.05   # square out: a corner of the outline
+            key = [c0, c1].map { |q| q.map { |x| x.to_f.round(2) } }
+            next if vseen[key]
+            vseen[key] = true
+            vsegs << [pl2, c0, c1]
+            vsegs << [top2, c0, c1]
+          end
+        end
+        hid2 = valley_hide_seams!(grp, esegs)
+        puts "[Roof] #{hid2} edge(s) hidden on the old eave line - the slope and its pulled-out piece are one surface" if hid2 > 0
+        hid3 = vsegs.empty? ? 0 : valley_hide_seams!(grp, vsegs)
+        puts "[Roof] #{hid3} edge(s) hidden on the valley between two pulled-out pieces - one line with the valley above it" if hid3 > 0
+      end
       if USE_ROOF_VALLEY && defined?(@valley_seams) && @valley_seams && !@valley_seams.empty?
         hs = valley_hide_seams!(grp, @valley_seams)
         @valley_seams = []
@@ -6962,6 +7224,119 @@ module InteriorPro
       {}
     end
 
+    # AN EAVE PULLED OUT (2026-10-05, step 2). Asked with a picture of his own
+    # roof (next_question.png), he chose 1: an ordinary side of the roof - the
+    # low one, where the gutter hangs - can be pulled out too, and the roof
+    # carries on there, out and DOWN its own slope.
+    # A gable end only gets longer along the ridge, so pull_edges moving the
+    # outline is the whole of it. An eave is different: its plane must not
+    # move. So the roof itself is built exactly as it was, and one more piece
+    # of the same plane is laid from the old eave line out to the new one
+    # (build_framed_geometry!'s strips); the outline the dressing follows is
+    # the pulled one, and that edge wears its fascia, drip and soffit at its
+    # OWN height - slope x pull lower than every other eave - the way the top
+    # edge of a shed already wears them at its own.
+    # Step 2 builds it where it is clean and says so everywhere else:
+    #   * on a roof the over-framing builds;
+    #   * an edge that is one whole eave (not a gable, not part gable);
+    #   * each neighbour either a gable end that closes its own body and no
+    #     more (its rake just runs on down), or an eave that runs OUT from
+    #     this one at an inside corner (it just gets shorter);
+    #   * no gutter on it yet.
+    # The saved outline ('footprint_xy') stays the one BEFORE the eave was
+    # pulled: every roof that meets this one reads its planes off that.
+    #   InteriorPro::RoofManager::USE_EAVE_PULL = false  -> an eave with a
+    #   number is left where it was (and says so), as in step 1.
+    USE_EAVE_PULL = true unless const_defined?(:USE_EAVE_PULL, false)
+
+    # THE SHORT EAVE BESIDE IT GOES OUT WITH IT (2026-10-05, his words: "הכלי
+    # לא משנה גובה אלא מותח את הגג" - asked with corner_options.png, he
+    # answered 1). At the foot of a gable that was pulled out the eave
+    # meets a short edge with no wall of its own - the side of that gable.
+    # The two met at ONE height. Pulling the eave alone slid it out UNDER
+    # that short edge: the eave ended slope x pull lower and the gable's
+    # side stood over it on a wedge. Now the short edge goes out by the
+    # same number: both planes carry on, the valley between them runs on
+    # to the new corner, and the two eaves still meet at one height.
+    #   InteriorPro::RoofManager::USE_EAVE_CORNER_FOLLOW = false  -> the short
+    #   edge stays and only gets shorter, as on the morning of 2026-10-05.
+    USE_EAVE_CORNER_FOLLOW = true unless const_defined?(:USE_EAVE_CORNER_FOLLOW, false)
+
+    # PURE. `want` = { wall id => inches } for edges that are not marked
+    # Gable. `gables` = the gable edge indices; `spans` = for each of those,
+    # true when that edge closes exactly its own body (nil = unknown, taken
+    # as no). Returns [{ edge index => inches }, { wall id => why not }].
+    def self.eave_pull_plan(poly, wall_ids, gables, want, spans = {})
+      out = {}
+      why = {}
+      n = poly.length
+      dir = lambda do |k|
+        a = poly[k % n]
+        b = poly[(k + 1) % n]
+        l = Math.hypot(b[0] - a[0], b[1] - a[1])
+        l < 1.0e-6 ? nil : [(b[0] - a[0]) / l, (b[1] - a[1]) / l, l]
+      end
+      Array(want).each do |id, v|
+        idx = (0...n).select { |k| wall_ids[k] == id }
+        if idx.length != 1
+          why[id] = 'its wall has no edge of its own on this roof, or more than one'
+          next
+        end
+        i = idx[0]
+        if gables.include?(i)
+          why[id] = 'it is a gable end (or part of it is) - set its end to Gable in the menu and it is pulled as a gable'
+          next
+        end
+        d = dir.call(i)
+        bad = nil
+        fol = {}
+        [[i - 1, true], [i + 1, false]].each do |k, before|
+          k %= n
+          e = dir.call(k)
+          if d.nil? || e.nil? || (d[0] * e[0] + d[1] * e[1]).abs > 1.0e-3
+            bad = 'the edge beside it runs straight on, or at an angle - it is pulled out between two square corners for now'
+          elsif gables.include?(k)
+            bad = 'the gable beside it runs on past its own body' unless spans[k]
+          else
+            # an eave beside it: fine only where it runs OUT from this edge
+            # (an inside corner) and is longer than the pull
+            cr = d[0] * e[1] - d[1] * e[0]          # > 0: the next one turns left (a convex corner of a CCW outline)
+            runs_out = before ? cr > 0 : cr < 0
+            if !runs_out
+              bad = 'the edge beside it is an eave at an outside corner (a hip corner) - not built yet'
+            elsif e[2] <= v.to_f + 1.0
+              bad = 'the short edge beside it is not longer than the pull'
+            elsif want.key?(wall_ids[k])
+              bad = 'the edge beside it is pulled too'
+            elsif USE_EAVE_CORNER_FOLLOW && wall_ids[k].nil?
+              # no wall of its own: it goes out with this one - when its far
+              # end stands square on a gable that closes its own body (the
+              # rake there just runs on down to the new corner)
+              far = (before ? k - 1 : k + 1) % n
+              g = dir.call(far)
+              fol[k] = v.to_f if gables.include?(far) && spans[far] && !g.nil? && (e[0] * g[0] + e[1] * g[1]).abs < 1.0e-3
+            end
+          end
+          break if bad
+        end
+        if bad
+          why[id] = bad
+          next
+        end
+        out[i] = [v.to_f, EDGE_PULL_MAX].min
+        fol.each_key { |k| out[k] = out[i] }
+      end
+      [out, why]
+    end
+
+    # PURE. The reach of a rake board along gable edge i, carried on to the
+    # new corner where the eave beside it was pulled out. `rch` is in the
+    # edge's own parameter (from its first corner, which has already moved).
+    def self.eave_reach(rch, n, i, eave_pull)
+      return rch if rch.nil? || eave_pull.nil? || eave_pull.empty?
+      [rch[0] - eave_pull[(i - 1) % n].to_f, rch[1] + eave_pull[(i + 1) % n].to_f]
+    end
+
     # Save the number for one wall - 0 takes it off. The number ONLY: the
     # caller rebuilds (the Roof End menu saves it and then sets the end,
     # which rebuilds once). Numbers on walls that are gone are dropped.
@@ -7025,9 +7400,11 @@ module InteriorPro
     # that runs on along the same line (the foot of a gable in the middle)
     # stays where it is and a new short edge joins the two, with no wall of
     # its own (id nil). Returns [poly, wall_ids, { id => inches }].
-    def self.pull_edges(poly, wall_ids, pulls)
+    # `by_index` = { edge index => inches } instead of the ids: an edge with
+    # no wall of its own can be moved that way too (2026-10-05).
+    def self.pull_edges(poly, wall_ids, pulls, by_index = nil)
       n = poly.length
-      return [poly, wall_ids, {}] if n < 3 || pulls.nil? || pulls.empty?
+      return [poly, wall_ids, {}] if n < 3 || ((pulls.nil? || pulls.empty?) && (by_index.nil? || by_index.empty?))
       done = {}
       pts = []
       ids = []
@@ -7042,7 +7419,7 @@ module InteriorPro
       end
       amount = lambda do |k|
         id = wall_ids[k % n]
-        v = id.nil? ? 0.0 : pulls[id].to_f
+        v = by_index ? by_index[k % n].to_f : (id.nil? ? 0.0 : pulls[id].to_f)
         v > 0.01 ? [v, EDGE_PULL_MAX].min : 0.0
       end
       n.times do |i|
@@ -9279,8 +9656,13 @@ module InteriorPro
     # 2026-08-05B); otherwise clipped to this edge with interpolated z at
     # the ends. Returns nil when no usable profile. Shared by the rake
     # boards and the real gable walls (2026-08-08).
+    # `straight` (2026-10-05): a node that lies ON the straight line between
+    # its two neighbours is taken out, so one board runs through it. Beside
+    # an eave that was pulled out the rake carries on down past the old
+    # corner at the very same slope - and the old corner, still a node,
+    # cut the rake board, its soffit and its box return in two there.
     def self.edge_profile_chain(poly, i, zmap, full: false, surface: nil,
-                                reach: nil)
+                                reach: nil, straight: false)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
@@ -9337,6 +9719,19 @@ module InteriorPro
                 [[hi, at.call(hi), zat.call(hi)]]
         return nil if chain.length < 2
       end
+      if straight && chain.length > 2
+        kept = [chain.first]
+        (1...(chain.length - 1)).each do |k|
+          p0 = kept.last
+          p2 = chain[k + 1]
+          c = chain[k]
+          span = p2[0] - p0[0]
+          zl = span.abs < 1.0e-9 ? p0[2] : p0[2] + (p2[2] - p0[2]) * (c[0] - p0[0]) / span
+          kept << c unless (c[2] - zl).abs < 0.01
+        end
+        kept << chain.last
+        chain = kept
+      end
       chain
     end
 
@@ -9348,7 +9743,7 @@ module InteriorPro
     # drip sits relative to the flat fascia.
     def self.build_rake_board!(grp, poly, i, zmap, depth, full: false, cover: nil,
                                surface: nil, k_in: 0.0, k_out: FASCIA_THICK,
-                               reach: nil)
+                               reach: nil, straight: false)
       a = poly[i]
       b = poly[(i + 1) % poly.length]
       d = vnorm(vsub(b, a))
@@ -9360,7 +9755,7 @@ module InteriorPro
       # same span build_gable_wall_tops! uses, so wall and fascia always end
       # on the same line. nil = the poly edge, exactly as before.
       chain = edge_profile_chain(poly, i, zmap, full: full, surface: surface,
-                                 reach: reach)
+                                 reach: reach, straight: straight)
       return if chain.nil?
       # full profile (framed path, 2026-08-05B): the rake runs the WHOLE
       # gable-end plane - over covering wings too - eave to apex to eave.
@@ -9460,13 +9855,18 @@ module InteriorPro
     # 12" hole with a step face at its far end (measured on his model:
     # the rake soffit stopped at y=239.25, one overhang short of the wall
     # at 251.25). nil = both allowed, exactly as before.
-    def self.rake_soffit_segments(ra, rb, len, overhang, returns = nil)
+    # `ret` (2026-10-05): [head, tail] - how LONG each return is, when the
+    # eave it returns to was pulled out and its flat board is that much
+    # wider. nil = one overhang at both ends, exactly as before.
+    def self.rake_soffit_segments(ra, rb, len, overhang, returns = nil, ret = nil)
       oh = overhang.to_f
+      oh_h = ret ? ret[0].to_f : oh
+      oh_t = ret ? ret[1].to_f : oh
       segs = []
       a = ra.to_f
       b = rb.to_f
       # a return needs its own overhang PLUS something left to slope
-      roomy = (b - a) > oh + 0.5
+      roomy = (b - a) > [oh_h, oh_t].max + 0.5
       # A CORNER IS A POINT, not a side (2026-08-27). Until the eave learned
       # to run past the marked wall, t could never be negative, so "t <= 0"
       # and "t == 0" were the same test. With `reach` the board starts at
@@ -9478,19 +9878,19 @@ module InteriorPro
         head &&= returns[0]
         tail &&= returns[1]
       end
-      if head && tail && (b - a) <= 2 * oh + 0.5    # no room for both returns
+      if head && tail && (b - a) <= oh_h + oh_t + 0.5    # no room for both returns
         head = false
         tail = false
       end
       if head
-        segs << [a, a + oh, true]
-        a += oh
+        segs << [a, a + oh_h, true]
+        a += oh_h
       end
       if tail
-        b -= oh
+        b -= oh_t
       end
       segs << [a, b, false] if b - a > 1.0e-6
-      segs << [b, b + oh, true] if tail
+      segs << [b, b + oh_t, true] if tail
       segs
     end
 
@@ -9743,7 +10143,8 @@ module InteriorPro
     # tilted board itself covers the corner square.
     def self.build_rake_soffit!(grp, poly, i, zmap, depth, overhang,
                                 cover: nil, surface: nil, sloped: false,
-                                reach: nil, inset: 0.0, returns: nil, extra: 0.0)
+                                reach: nil, inset: 0.0, returns: nil, extra: 0.0, ret: nil,
+                                straight: false)
       oh = overhang.to_f
       return if oh < 1.0
       a = poly[i]
@@ -9768,7 +10169,7 @@ module InteriorPro
       inw = [-d[1] * wide, d[0] * wide] # inward for CCW - the rake board goes the other way
       # `reach` (2026-08-27): the eave closes the same BODY the wall and the
       # fascia now close, so all three end on one line. nil = the poly edge.
-      chain = edge_profile_chain(poly, i, zmap, surface: surface, reach: reach)
+      chain = edge_profile_chain(poly, i, zmap, surface: surface, reach: reach, straight: straight)
       return if chain.nil?
       seams = []
       zmin = chain.map { |c| c[2] }.min
@@ -9792,7 +10193,7 @@ module InteriorPro
             f = (t - ra) / span
             [q1[0] + (q2[0] - q1[0]) * f, q1[1] + (q2[1] - q1[1]) * f]
           end
-          segs = rake_soffit_segments(ra, rb, len, oh, returns)
+          segs = rake_soffit_segments(ra, rb, len, oh, returns, ret)
           segs.each do |sa, sb, level|
             # A sliver shorter than SketchUp's own 1/1000" tolerance has
             # two ends it treats as ONE point, and the face it would make
@@ -10852,7 +11253,8 @@ module InteriorPro
     # Build the whole framed roof. Returns [ridge, zmap] or nil.
     def self.build_framed_geometry!(grp, plan, z0, slope, overhang,
                                     roof_mat, under_mat, valleys = nil,
-                                    dutch = 0.0, dutch_dz = nil, dutch_dep = 0.0)
+                                    dutch = 0.0, dutch_dz = nil, dutch_dep = 0.0,
+                                    strips = nil)
       st = { grp: grp, z0: z0, delta: -slope * overhang.to_f, slope: slope,
              roof_mat: roof_mat, under_mat: under_mat, ridge: z0, zmap: {},
              valleys: valleys, dutch: dutch.to_f, dutch_dz: dutch_dz,
@@ -10862,6 +11264,18 @@ module InteriorPro
       plan[:wings].each_with_index do |w, wi|
         cov = lambda { |x, y| framed_cover_z(plan, st[:z0] + st[:delta], st[:slope], x, y, wi) }
         build_wing_rect!(st, w[:rect], w[:mouth], w[:gabled], cov)
+      end
+      # AN EAVE PULLED OUT (2026-10-05): one more piece of the SAME plane,
+      # from the old eave line out to the new one. Nothing above moves; the
+      # piece only carries the slope on, so at the new line it stands
+      # slope x pull lower - and its two corners go into zmap at that
+      # height, which is how every board that follows the outline finds it.
+      Array(strips).each do |a, b, out, pv, an, bn|
+        z0d = st[:z0] + st[:delta]
+        sl = st[:slope]
+        lift = lambda { |q| z0d - sl * ((q[0] - a[0]) * out[0] + (q[1] - a[1]) * out[1]) }
+        framed_face!(st, [a, an || [a[0] + out[0] * pv, a[1] + out[1] * pv],
+                          bn || [b[0] + out[0] * pv, b[1] + out[1] * pv], b], lift)
       end
       [st[:ridge], st[:zmap]]
     rescue StandardError => e

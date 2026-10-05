@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 310 ירוקות (רובי + JS, 2026-10-02 לילה).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 316 ירוקות (רובי + JS, 2026-10-05).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -466,7 +466,24 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-02 לילה): גגות — גמלון באמצע גג נסגר; הבא: שארית הדוח של ChatGPT
+## הצעד הנוכחי (2026-10-05 ערב): גגות — משיכת איב נסגרה ("ניראה טוב"); לשאול מה הבא
+הכל ב-`HANDOFF_2026-10-05.md` (חלק ב'). **איב שנמשך:** אותו שדה "Pull out (in)" על קיר שאינו Gable — הגג ממשיך
+באותו שיפוע (הקצה יורד שיפוע×משיכה). **החוקים שלו מהסבב:** (1) "הכלי לא משנה גובה אלא מותח את הגג" — מה שנפגש
+באותו גובה לפני המשיכה נפגש באותו גובה אחריה: הצד הקצר של גמלון משוך (צלע בלי קיר) יוצא **יחד** עם האיב שלידו,
+העמק ממשיך לפינה החדשה (`USE_EAVE_CORNER_FOLLOW`); (2) **בלי קובייה ברגל הגמלון** — תיקון שנסגר איתו לא חוזר
+בגלל תכונה חדשה: לבדוק את הפינות שכבר תוקנו אחרי כל שינוי בגיאומטריה שלהן. (3) כשהוא אומר "לא נכון" — לא לנחש
+מה: להסתכל בתמונת המבט שלו (`*_his_view.png`) ולשאול עם תמונה מה מפריע.
+**הבא:** לשאול אותו מה הצעד הבא (גרירה בעכבר / הדרך השנייה לגמלון / משהו אחר). פתוח: אין גאטר על איב משוך;
+איב ליד פינת היפ או ליד צלע שממשיכה ישר — מסורב עם שורה; איב ליד צלע **עם קיר** בפינה פנימית עדיין רק "מתקצר"
+(נשאר שם המשולש שהוא לא אהב — לא נמצא במודל שלו כרגע).
+
+## (קודם) (2026-10-05): גגות — משיכת צלע, צעד 1 נסגר ("נכון"); לשאול מה הבא במשיכה
+הכל ב-`HANDOFF_2026-10-05.md`. הדוח של ChatGPT נסגר. **משיכת צלע:** כלי Gable Ends → לחיצה על קיר → "Pull out (in)".
+רק צלע שסומנה Gable בינתיים. גג שהשתנה — הגגות שנוגעים בו נבנים לבד (`meet_follow!`).
+**הבא:** לשאול אותו (שאלה אחת, עם תמונה אם צריך) מה הצעד הבא במשיכה: איב שנמשך / גרירה בעכבר / משהו אחר.
+פתוח קטן: הולנדי עם עומק 0 או על גמלון באמצע עדיין שותק. חלונות — לא לגעת בלי שיגיד.
+
+## (קודם) (2026-10-02 לילה): גגות — גמלון באמצע גג נסגר; הבא: שארית הדוח של ChatGPT
 גמלון באמצע גג ("גג אמא") והמוסך שמתחבר אליו נסגרו על Aetna — "ניראה מעולה". הכל ב-`HANDOFF_2026-10-02C.md`.
 **החוק שלו:** קודם קובעים את גג האמא (הגדול); הגג הנמוך מתחבר אליו ומשתנה לפיו. החיבור = משטח אחד, שהמים לא ייתקעו.
 **האמא כותבת על עצמה, הנמוך קורא:** `cross_edges` (איזה קצה הוא הגמלון באמצע), `cross_walls` (על איזה קיר הוא עומד).
@@ -602,6 +619,17 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
 written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):
+- `USE_EAVE_PULL = false` - an eave (an edge not marked Gable) that carries a number stays where it was and
+  says so; only gable ends are pulled (2026-10-05, `tests/rt262.rb`).
+- `USE_EAVE_CORNER_FOLLOW = false` - beside a pulled eave the short side of a pulled-out gable (no wall of its
+  own) stays and only gets shorter: the wedge at the inside corner and the 36" box at the gable's foot come
+  back (2026-10-05, `tests/rt262.rb`).
+- `USE_EDGE_PULL = false` - the numbers saved by "Pull out (in)" are ignored; every roof edge stands where its
+  walls put it (2026-10-05, `tests/rt261.rb`).
+- `USE_STRAIGHT_RAKE_FOOT = false` - the foot of a gable in the middle of a roof gets its box return back, and
+  the 12" gap under it (2026-10-04, `tests/rt260.rb`).
+- `USE_MEET_FOLLOW = false` - a roof changed from Gable Ends / Edit Roof is rebuilt alone; the roofs it meets
+  stay as they were built (2026-10-04, `tests/rt259.rb`).
 - `USE_CROSS_WALL_CLOSE = false` - the lower roof does not close the wall of the gable above it; the inner
   wall behind shows between the lower roof and the head of the gable's wall (`tests/rt257.rb`).
 - `USE_CROSS_SEAM_HIDE = false` - the outlines of the piece a lower roof and a gable in the middle share
