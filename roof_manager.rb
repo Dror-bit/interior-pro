@@ -9272,9 +9272,51 @@ module InteriorPro
     # Which ends of rake edge i may build a box return: not the end that
     # shares its corner with an ABUT edge (2026-09-11). PURE.
     def self.rake_returns(poly, i, abut_flags)
-      return nil if abut_flags.nil?
       n = poly.length
-      [!abut_flags[(i - 1) % n], !abut_flags[(i + 1) % n]]
+      out = abut_flags.nil? ? [true, true] : [!abut_flags[(i - 1) % n], !abut_flags[(i + 1) % n]]
+      st = USE_STRAIGHT_RAKE_FOOT ? rake_straight_ends(poly, i) : [false, false]
+      return nil if abut_flags.nil? && !st[0] && !st[1] # nil = both allowed, as before
+      [out[0] && !st[0], out[1] && !st[1]]
+    end
+
+    # THE FOOT OF A GABLE IN THE MIDDLE OF A ROOF HAS NO BOX (2026-10-04).
+    # His picture of the entry of the Aetna house, and his words: "במקרה הזה
+    # לא צריך כאן קובייה אם הם ממשיכים אפילו שיפוע שונה וצריך לסגור את החור
+    # שם". Measured (fascia_corner_report.txt, corner -419.0,452.5): the eave
+    # of the house roof and the rake of the gable in its middle lie on ONE
+    # line. The box return was drawn for a corner of the building - there
+    # the eave's flat board turns the corner and fills the level square
+    # under the foot of the rake. On one straight line nothing turns: the
+    # flat board ended square on the corner (z 93.0), the rake's board began
+    # one overhang further on (x -407, z 96.0) behind its step and skirt -
+    # the "cube" - and between the two, 12" x 11.25", the rays went straight
+    # up to the underside of the deck (99.8 - 101.8).
+    # So an end of a rake whose neighbour runs STRAIGHT ON builds no box
+    # return: the rake's own board starts on the corner, at the very height
+    # the flat one ends at (it hangs one fascia depth under the same line),
+    # and the two boards meet there - at two slopes, on one line.
+    #   InteriorPro::RoofManager::USE_STRAIGHT_RAKE_FOOT = false  -> the box
+    #   return, and the gap, as before.
+    USE_STRAIGHT_RAKE_FOOT = true unless const_defined?(:USE_STRAIGHT_RAKE_FOOT, false)
+
+    # PURE. [at the start?, at the end?] - whether the edge before / after
+    # rake edge i carries on along the very same line (not a corner at all,
+    # only a point where the roof over the line changes).
+    def self.rake_straight_ends(poly, i)
+      n = poly.length
+      return [false, false] if n < 3
+      dir = lambda do |k|
+        a = poly[k % n]
+        b = poly[(k + 1) % n]
+        l = Math.hypot(b[0] - a[0], b[1] - a[1])
+        l < 1.0e-6 ? nil : [(b[0] - a[0]) / l, (b[1] - a[1]) / l]
+      end
+      d = dir.call(i)
+      return [false, false] if d.nil?
+      same = lambda do |e|
+        !e.nil? && (d[0] * e[1] - d[1] * e[0]).abs < 1.0e-3 && d[0] * e[0] + d[1] * e[1] > 0.0
+      end
+      [same.call(dir.call(i - 1)), same.call(dir.call(i + 1))]
     end
 
     # Drop points that repeat their neighbour. PURE, pinned by rt84.
