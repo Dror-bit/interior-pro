@@ -80,6 +80,7 @@ module InteriorPro
       roof_manager.rb
       roof_dialog.rb
       roof_gable_tool.rb
+      roof_pull_tool.rb
       roof_shed_tool.rb
       roof_edit_tool.rb
       dormer_manager.rb

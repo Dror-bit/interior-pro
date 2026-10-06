@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 316 ירוקות (רובי + JS, 2026-10-05).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 317 ירוקות (רובי + JS, 2026-10-06).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -466,7 +466,14 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-05 ערב): גגות — משיכת איב נסגרה ("ניראה טוב"); לשאול מה הבא
+## הצעד הנוכחי (2026-10-06): גגות — כפתור Pull Roof Edge נבנה ("מעולה"); לשאול מה הבא
+הכל ב-`HANDOFF_2026-10-06.md`. הוא ביקש: *"קודם כל תיצור כפתור לשינויים האלו"* — המשיכה קיבלה כפתור משלה בסרגל הגגות
+(אחרי Downspout): לחיצה על קיר → שדה אחד "Pull out (in)" → `set_edge_pull!`. `roof_pull_tool.rb` (`RoofPullTool < RoofGableTool`),
+`tests/rt263.rb`, דגל `RoofPullTool::USE_PULL_TOOL`. כל לחיצה כותבת שורה ל-`roof_pull_trace.txt` — **לקרוא אותו לפני שאומרים
+"עובד אצלו"** (כשהוא ענה "מעולה" הקובץ עוד לא היה קיים).
+**פתוח:** השדה "Pull out (in)" עדיין גם בתפריט Gable Ends (שתי דרכים לאותו דבר — לשאול אם להוריד); גרירה בעכבר בכפתור החדש.
+
+## (קודם) (2026-10-05 ערב): גגות — משיכת איב נסגרה ("ניראה טוב"); לשאול מה הבא
 הכל ב-`HANDOFF_2026-10-05.md` (חלק ב'). **איב שנמשך:** אותו שדה "Pull out (in)" על קיר שאינו Gable — הגג ממשיך
 באותו שיפוע (הקצה יורד שיפוע×משיכה). **החוקים שלו מהסבב:** (1) "הכלי לא משנה גובה אלא מותח את הגג" — מה שנפגש
 באותו גובה לפני המשיכה נפגש באותו גובה אחריה: הצד הקצר של גמלון משוך (צלע בלי קיר) יוצא **יחד** עם האיב שלידו,
@@ -619,6 +626,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 
 Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
 written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):
+- `InteriorPro::RoofPullTool::USE_PULL_TOOL = false` - the Pull Roof Edge button says it is switched off and changes
+  nothing; the Roof End menu still carries the number (2026-10-06, `tests/rt263.rb`).
 - `USE_EAVE_PULL = false` - an eave (an edge not marked Gable) that carries a number stays where it was and
   says so; only gable ends are pulled (2026-10-05, `tests/rt262.rb`).
 - `USE_EAVE_CORNER_FOLLOW = false` - beside a pulled eave the short side of a pulled-out gable (no wall of its

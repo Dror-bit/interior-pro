@@ -645,6 +645,23 @@ module InteriorPro
       dspout_cmd.large_icon = icon_path('downspout')
       tb.add_item(dspout_cmd)
 
+      # Pull Roof Edge (2026-10-06, the user: "קודם כל תיצור כפתור לשינויים
+      # האלו"). Click a wall, type how far the roof edge over it comes
+      # out - the number the Roof End menu already carries, on a button
+      # of its own. It closes the ROOF buttons, before the skylight
+      # family. Same story as Edit Roof above: the length guard skips a
+      # populated bar whole, so this shows up on the next SketchUp
+      # restart, never twice.
+      rpull_cmd = UI::Command.new('Pull Roof Edge') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofPullTool.new)
+      }
+      rpull_cmd.tooltip = 'Pull Roof Edge - click a wall, type how far its roof edge comes out'
+      rpull_cmd.status_bar_text =
+        'Click a wall and type how far the roof edge over it is pulled out (0 = back where it was)'
+      rpull_cmd.small_icon = icon_path('roof_pull')
+      rpull_cmd.large_icon = icon_path('roof_pull')
+      tb.add_item(rpull_cmd)
+
       # Skylight (2026-09-14). A hole in the slope with a low curb and one
       # sheet of glass - "כמו חלון תמונה רק להחליף צבעים". Click a roof.
       # It sits with the ROOF buttons, not the dormer ones (the user,
