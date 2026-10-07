@@ -14,6 +14,56 @@ module InteriorPro
     MARK_R     = 8.0 unless const_defined?(:MARK_R, false)
     MARK_TEXT_H = 4.2 unless const_defined?(:MARK_TEXT_H, false)
 
+    # One of ours is ours wherever it sits (2026-10-07).
+    #
+    # The plan used to look only at the top level of the model. On 6 Bronco Ln
+    # the whole house - our walls, doors, windows, roof - had been put inside
+    # one ordinary group, so the sheet found no walls at all and the house
+    # could only be brought in as loose lines, roof included. The user: "התוסף
+    # צריך לזהות את הקירות גם אם הם בתוך קבוצה".
+    #
+    # false = only the top level is read, exactly as before.
+    USE_NESTED_OWN = true unless const_defined?(:USE_NESTED_OWN, false)
+    NEST_DEPTH     = 6    unless const_defined?(:NEST_DEPTH, false)
+
+    # One of our things found INSIDE a plain group or component.
+    #
+    # It stands in for the real entity - every question about attributes goes
+    # straight through - with one difference: asked where it is, it answers in
+    # WORLD terms, the placement of everything it sits inside included. That
+    # one answer is what lets the rest of this file stay as it was: it has
+    # always drawn a wall through wall.transformation.
+    #
+    # Things at the top level are never wrapped. They are handed over as the
+    # entities they are, so a model built the ordinary way takes the old road
+    # line for line.
+    class Placed
+      attr_reader :entity, :outer_xf
+
+      def initialize(entity, outer_xf)
+        @entity   = entity
+        @outer_xf = outer_xf
+      end
+
+      def transformation
+        @outer_xf * @entity.transformation
+      end
+
+      def is_a?(klass)
+        @entity.is_a?(klass) || super
+      end
+      alias kind_of? is_a?
+
+      def respond_to_missing?(name, priv = false)
+        @entity.respond_to?(name, priv) || super
+      end
+
+      def method_missing(name, *args, &blk)
+        return super unless @entity.respond_to?(name)
+        @entity.send(name, *args, &blk)
+      end
+    end
+
     class << self
       # Rebuild the whole 2D plan layer from attributes.
       def build!
@@ -106,9 +156,100 @@ module InteriorPro
 
       # ---- model queries ---------------------------------------------------
 
+      # Everything the plan may read: the top level exactly as it always was,
+      # and after it - USE_NESTED_OWN - each of our things that sits inside a
+      # plain group or component, wrapped in Placed.
+      def plan_entities(model)
+        out = model.entities.to_a
+        return out unless USE_NESTED_OWN
+        nested_own(model.entities, nil, 0, out)
+        out
+      end
+
+      # ents is searched for PLAIN containers (no type of ours) and whatever of
+      # ours sits in them. outer = the placement of everything above, nil at
+      # the top level.
+      #   - What is inside one of ours is its body, never searched: a wall's
+      #     own parts are not more walls.
+      #   - A container that is hidden, or on a tag that is switched off, has
+      #     been set aside by the user and is not searched.
+      def nested_own(ents, outer, depth, out)
+        ents.each do |e|
+          next unless e.is_a?(Sketchup::Group) ||
+                      (defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance))
+          next unless e.valid?
+          if e.get_attribute('InteriorPro', 'type')
+            out << Placed.new(e, outer) if outer
+            next
+          end
+          next if depth >= NEST_DEPTH
+          if set_aside?(e)
+            say_set_aside(e) if depth.zero?
+            next
+          end
+          kids = defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance) ? e.definition.entities : e.entities
+          nested_own(kids, outer ? outer * e.transformation : e.transformation, depth + 1, out)
+        end
+      rescue StandardError => err
+        puts "[Plan2D] nested_own: #{err.class}: #{err.message}"
+      end
+
+      def set_aside?(e)
+        return true if e.respond_to?(:hidden?) && e.hidden?
+        lay = e.respond_to?(:layer) ? e.layer : nil
+        lay && lay.respond_to?(:visible?) && !lay.visible?
+      rescue StandardError
+        false
+      end
+
+      # Said ONCE per group: the plan is rebuilt on every click in the sheet
+      # window, and a line per rebuild would bury the console.
+      def say_set_aside(e)
+        return unless holds_own?(e)
+        @said_aside ||= {}
+        key = e.respond_to?(:entityID) ? e.entityID : e.object_id
+        return if @said_aside[key]
+        @said_aside[key] = true
+        puts "[Plan2D] group #{e.respond_to?(:name) ? e.name.to_s.inspect : ''} is hidden or its tag is off - " \
+             'the walls inside it are left off the plan'
+      rescue StandardError
+        nil
+      end
+
+      # Only so a hidden house can be SAID, not silently skipped.
+      def holds_own?(e)
+        kids = defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance) ? e.definition.entities : e.entities
+        kids.any? { |k| k.respond_to?(:get_attribute) && k.get_attribute('InteriorPro', 'type') }
+      rescue StandardError
+        false
+      end
+
+      # The placement of whatever a thing sits inside - nil at the top level.
+      def outer_of(thing)
+        thing.respond_to?(:outer_xf) ? thing.outer_xf : nil
+      end
+
+      # Where a thing sits inside its own container, never the world.
+      def own_xf(thing)
+        thing.respond_to?(:entity) ? thing.entity.transformation : thing.transformation
+      end
+
+      # Two placements are the same placement when they send the same four
+      # points to the same four places.
+      def same_outer?(a, b)
+        return a.nil? && b.nil? if a.nil? || b.nil?
+        return true if a.equal?(b)
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]].all? do |x, y, z|
+          pa = Geom::Point3d.new(x, y, z).transform(a)
+          pb = Geom::Point3d.new(x, y, z).transform(b)
+          (pa.x.to_f - pb.x.to_f).abs < 1e-6 && (pa.y.to_f - pb.y.to_f).abs < 1e-6 &&
+            (pa.z.to_f - pb.z.to_f).abs < 1e-6
+        end
+      end
+
       def walls(model)
-        model.entities.grep(Sketchup::Group).select do |g|
-          g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
+        plan_entities(model).select do |g|
+          g.is_a?(Sketchup::Group) && g.valid? && g.get_attribute('InteriorPro', 'type') == 'wall'
         end
       end
 
@@ -124,7 +265,7 @@ module InteriorPro
       def hosted_bodies(model)
         doors = []
         windows = []
-        model.entities.to_a.each do |e|
+        plan_entities(model).each do |e|
           next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
           next unless e.valid?
           tp = e.get_attribute('InteriorPro', 'type')
@@ -197,6 +338,7 @@ module InteriorPro
         d = {
           id:        wall.get_attribute('InteriorPro', 'id'),
           xform:     wall.transformation,
+          outer:     outer_of(wall),
           s: s, e: e, u: u,
           n:         Geom::Vector3d.new(-u.y, u.x, 0),   # LEFT perpendicular
           len:       len,
@@ -799,9 +941,13 @@ module InteriorPro
         e = d[:e]
         walls(Sketchup.active_model).each do |w|
           next if w.get_attribute('InteriorPro', 'id') == d[:id]
+          # Neighbours are the walls of the SAME house: measured inside the
+          # group they share, the way this has always been measured at the top
+          # level - so nothing changes there (2026-10-07).
+          next unless same_outer?(d[:outer], outer_of(w))
           sx = w.get_attribute('InteriorPro', 'start_x')
           next if sx.nil?
-          xf = w.transformation
+          xf = own_xf(w)
           th = w.get_attribute('InteriorPro', 'thickness').to_f
           ws = Geom::Point3d.new(sx.to_f, w.get_attribute('InteriorPro', 'start_y').to_f, 0).transform(xf)
           we = Geom::Point3d.new(w.get_attribute('InteriorPro', 'end_x').to_f,
@@ -843,7 +989,7 @@ module InteriorPro
       # Shapes drawn with the editor's Line tool (type='sketch2d'). Outline
       # only - no fill, no hatch (same house rule as the floor hatch).
       def draw_sketches(ents, model)
-        model.entities.grep(Sketchup::Group).each do |g|
+        plan_entities(model).select { |g| g.is_a?(Sketchup::Group) }.each do |g|
           next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'sketch2d'
           pts = g.get_attribute('InteriorPro', 'pts')
           next unless pts.is_a?(Array) && pts.length >= 4
@@ -899,8 +1045,8 @@ module InteriorPro
       HATCH_ANGLE   = 45.0 unless const_defined?(:HATCH_ANGLE, false)
 
       def draw_room_labels(ents, model)
-        rooms = model.entities.grep(Sketchup::Group).select do |g|
-          g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
+        rooms = plan_entities(model).select do |g|
+          g.is_a?(Sketchup::Group) && g.valid? && g.get_attribute('InteriorPro', 'type') == 'room'
         end
         rooms.each do |r|
           flat = r.get_attribute('InteriorPro', 'boundary_xy')
@@ -910,6 +1056,13 @@ module InteriorPro
           ys = poly.map(&:last)
           cx = xs.sum / xs.length
           cy = ys.sum / ys.length
+          # A room inside a group: its outline is written in the group's own
+          # terms, so the name is carried out to where the group stands.
+          if (oxf = outer_of(r))
+            c = Geom::Point3d.new(cx, cy, 0).transform(oxf)
+            cx = c.x.to_f
+            cy = c.y.to_f
+          end
           # (floor hatch intentionally NOT drawn — user preference 2026-07-30)
           name = (r.get_attribute('InteriorPro', 'name') || 'Room').to_s.upcase
           area = r.get_attribute('InteriorPro', 'area_sqft').to_f
