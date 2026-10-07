@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 335 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 340 ירוקות (72 JS + 268 רובי, נמדד 2026-10-07 14:58, אחרי החיתוך והתמונות).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -501,7 +501,31 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 13:50): סיבוב השרטוט נבנה; הבא בתור שלו: סיבוב תמונות, עריכת מספר מידה, חיתוך, כמה תמונות בדף, כיתוב
+## הצעד הנוכחי (2026-10-07 15:00): **הקופסה** — שלבים 1, 2, 3 ו-6 בנויים בתיקייה החיה. **שום דבר מהם לא נבדק אצלו ולא נשמר ב-git** (ה-commit האחרון: סיבוב השרטוט, 13:53). קודם כל: שיבדוק, ו-commit אחד.
+מה יש: השרטוט בקופסה (זזה בידית, פינות = גודל, **צלעות = חיתוך**), ו**תמונה בקופסה משלה** (לחיצה בוחרת, גרירה מזיזה, פינה = גודל,
+צלע = חיתוך, העיגול מסובב, Delete מוריד תמונה שנוספה לדף), תמונה גם בדף השרטוט וכמה תמונות בדף ("להוסיף לדף הפתוח" תחת תמונות).
+פרטים, מה נמדד ומה פתוח: `HANDOFF_2026-10-07.md` חלקים ה' ו-ו'. מתגים: `PlanCanvas::USE_VIEW_BOX`, `PlanSheetDialog::USE_BOX_CROP`,
+`PlanCanvas::USE_PIC_BOX`. **נשארו מהתוכנית:** שלב 4 (לשחק בפנים — לוודא בקופסה קטנה) ושלב 5 (הקופסה של השרטוט כולה מסתובבת).
+**הוא התלונן פעמיים שכל פקודה לוקחת המון זמן** ("אומיגד לקח לך מלא זמן", "כל פקודה מליון זמן") — צעד אחד קטן בכל פעם, ולשלוח לו
+לבדיקה ברגע שחלק מוכן. מה שהיה לפני זה (שלבים 1+2):
+הוא אישר ("כן תתחיל... אתה יכול לעשות שני שינויים ואחרי שאתה מסיים נמשיך משם"). מה נבנה ואיך — `HANDOFF_2026-10-07.md` חלק ה'.
+בקצרה: `STATE.view_box` = `[x, y, w, h]` באינצ'ים של נייר, `STATE.scale_f` = אינצ'ים של נייר לרגל (גודל חופשי; `nil` = קנה מידה מהרשימה).
+מתג: `PlanCanvas::USE_VIEW_BOX`. **שני דברים שבחרתי בלי לשאול ואמרתי לו:** בטייטל בלוק כתוב `N.T.S.` כשהגודל חופשי; הידיות
+נראות תמיד עם חץ הבחירה (אין "לוחצים על השרטוט כדי לבחור" כמו במצגת). **לא נבדק אצלו.** מה שהיה לפני זה:
+סיבוב השרטוט נשמר ב-git (13:53). כשהתחלתי סיבוב תמונות הוא עצר ותיאר מה הוא אוהב ב-Rayon, בלשונו: *"השרטוט הוא כאילו חצי
+תמונה — הוא נמצא בתוך כמו קופסה משל עצמו. את הקופסה אני יכול להגדיל ולהקטין בעיקר מהפינות, אני יכול לחתוך מהצלעות, ואני
+יכול להתאים את גודל הסקייל ולשחק איתו בתוך המסגרת הזאת, וכמובן אני גם יכול לסובב אותה ולהזיז אותה על הדף... וזה נותן לי
+אופציה להכניס בתוך דף אחד נגיד גם שרטוט או שתיים וגם תמונה."* ו**הגבול שהוא קבע:** *"בהמשך... אוכל לבחור דף ולהכניס אליו
+איזה שרטוט שאני רוצה, אבל כרגע בוא נישאר עם דף השרטוט הראשי."* הוא ביקש שני דברים לפני שמתחילים: לקרוא על Rayon, ומצגת
+על איך בדיוק אני בונה. **המצגת נשלחה** (ארטיפקט "הקופסה של השרטוט — תוכנית בנייה", 15 שקפים, תמונות מהדף שלו). הכל ב-`HANDOFF_2026-10-07.md` חלק ד'.
+**מה הוא החליט על שלושת הרעיונות (14:10), בלשונו:** *"הקופסה לא צריכה להיצמד, אבל כן טוב לקבוע שוליים לדף שהקופסה לא תוכל
+לצאת מהם. לא רוצה שקנה המידה יקפוץ — אני רוצה שתהיה אופציה להגדיל ידנית, ושלהגדיר בגדלים נכונים, כי לא כל אחד צריך את זה לפי
+סקייל אלא רק לראות הכל ביחד. דבר אחרון: הסקייל הוא רק לבחירה של שרטוטים, התמונות לא צריכות סקייל."* כלומר: (1) **בלי הצמדה**,
+אבל הקופסה **לא יוצאת משולי הדף**; (2) גרירת פינה = **גודל חופשי, בלי קפיצות**, ולצד זה אפשר לבחור קנה מידה מדויק מהרשימה;
+(3) **קנה מידה רק לשרטוט** — לתמונה אין. על המנעול הוא לא אמר כלום: **לא לבנות**. על סדר השלבים הוא לא התנגד ולא אישר במפורש.
+פתוח שצריך לשאול בשלב 2: מה כתוב ב"Scale:" בטייטל בלוק כשהגודל חופשי ואינו קנה מידה מהרשימה.
+
+## (קודם, אותו יום) (2026-10-07 13:50): סיבוב השרטוט נבנה; הבא בתור שלו: סיבוב תמונות, עריכת מספר מידה, חיתוך, כמה תמונות בדף, כיתוב
 הכל ב-`HANDOFF_2026-10-07.md` (חלק ג'). **מה הוא החליט על הכיתוב** (שתי הודעות, אחרי תמונה): *"הכל צריך להסתובב"* ואז
 *"רגע, הכל מסתובב התכוונתי למידות, אבל הכל חייב להישאר קריא"* — מספרי מידות מסתובבים עם הקו שלהם ואף פעם לא הפוכים;
 שמות חדרים, שטח ותגים נשארים ישרים על הדף. **אצלו עוד לא נבדק.**
@@ -691,6 +715,25 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_PIC_BOX = false` - `st['image_geo']` and `st['pics']` are ignored: one picture to a sheet,
+  filling it, none on the plan sheet, no handles on pictures, and "onto the open sheet" is not offered (`tests/t74.js`,
+  `tests/rt274.rb`). On: a picture is a box - `box` [x, y, w, h] in paper inches (the part that is SEEN), `crop`
+  [left, bottom, right, top] as shares of the whole file, `rot` degrees about the middle of the box. `image_geo["2"]` is
+  the picture that owns picture sheet 2; `pics[j]` (`path`, `on` = 'plan' / 'schedules' / 'image:2') is one added onto a
+  sheet. Laid out in `PlanCanvas.place_pictures!`; drawn by `PlanPDF.draw_placed_image` and by `shapeSVG` in the window,
+  from the same four numbers. A picture shape carries `:pic` ("m:2" / "x:5"), `:iw`, `:ih` (`PlanPDF.image_size` - reads
+  only the head of the file). No scale anywhere - his rule. Throwing a picture sheet away: `shift_pics!`.
+- `InteriorPro::PlanSheetDialog::USE_BOX_CROP = false` - a side of the drawing's box moves the whole box, as on the day
+  the box was built (`tests/t73.js`, `tests/rt273.rb`). On: a side CUTS - only it moves, and the window moves
+  `origin_x/origin_y` by half the cut (through the turn and the size) so every line stays on its spot of the paper.
+  Nothing new is saved for a cut: `view_box` and the origin, both of which were already saved.
+- `InteriorPro::PlanCanvas::USE_VIEW_BOX = false` - the box saved in the sheet state (`view_box`, `scale_f`) is ignored: the
+  drawing gets the whole sheet inside the margins at a scale from the list, as before, and the window shows no corner
+  squares and no grip (`tests/t72.js`, `tests/rt272.rb`). On: with the select arrow the drawing's frame has four corner
+  squares (drag = box and drawing grow together about the opposite corner, any size - `scale_f`, paper inches per foot,
+  set on `PlanDoc::View#scale_free`) and a grip + four edge strips (drag = the box moves on the sheet). The box cannot
+  leave `Page#view_area` (what `layout_pages!` gave the drawing after the tables). Picking a scale from the list clears
+  `scale_f`. Title block prints `N.T.S.` for a free size. The handles are HTML over the sheet, like `#rothandle`.
 - `InteriorPro::PlanCanvas::USE_VIEW_ROTATION = false` - the angle saved in the sheet state (`rotation`) is ignored: the
   drawing is laid square to the paper and the window shows no handle (`tests/t71.js`, `tests/rt271.rb`). On: a handle by
   the bottom right corner of the drawing's frame turns it about the middle of the frame. Lines turn in `PlanDoc::View`;

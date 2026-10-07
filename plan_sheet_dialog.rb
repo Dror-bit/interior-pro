@@ -60,6 +60,11 @@ module InteriorPro
     # addSiteLine in the page and add_site_line here). false = the two buttons
     # are not shown and Ruby takes no drawn line.
     USE_LINE_DRAW = true unless const_defined?(:USE_LINE_DRAW, false)
+    # A SIDE of the drawing's box cuts the drawing: only that side moves and
+    # the drawing stays where it is on the sheet (2026-10-07, see dragBox in
+    # the page). false = a side moves the whole box, as it did the day the box
+    # was built.
+    USE_BOX_CROP = true unless const_defined?(:USE_BOX_CROP, false)
     # A set of loose lines too big to live on the model is kept in a file
     # beside the model instead of only in memory, so what he rubbed out and
     # what he drew are still there after SketchUp is closed (2026-10-07, see
@@ -455,11 +460,18 @@ module InteriorPro
           end
         end
 
-        dlg.add_action_callback('drop_finish') do |_|
+        dlg.add_action_callback('drop_finish') do |_, json|
           begin
             list = Array(@drop_list)
             @drop_list = []
-            add_images!(dlg, list)
+            # "onto the sheet that is open" (2026-10-07): the window says which
+            # sheet. Nothing said = a sheet of its own for each, as always.
+            on = begin
+              json.to_s.empty? ? nil : JSON.parse(json.to_s)['on']
+            rescue StandardError
+              nil
+            end
+            add_images!(dlg, list, on)
           rescue StandardError => e
             puts "[Sheet] drop_finish: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
             dlg.execute_script("dropFailed(#{JSON.generate(e.message)})")
@@ -536,6 +548,10 @@ module InteriorPro
                 # every picture after the one that went shuffles down. Without
                 # this the ticks would silently start pointing one sheet along.
                 skip = shift_image_keys(skip, i)
+                # and so do the boxes: the one this picture had goes with it,
+                # the pictures added to its sheet go with the sheet, and the
+                # ones after it shuffle down
+                shift_pics!(st, i)
               end
               st['images'] = list
             when 'schedules'
@@ -801,6 +817,10 @@ module InteriorPro
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
           rotate: InteriorPro::PlanCanvas::USE_VIEW_ROTATION,
+          pic_box: InteriorPro::PlanCanvas::USE_PIC_BOX,
+          pics: pic_payload(st),
+          view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
+          box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -934,6 +954,37 @@ module InteriorPro
         end
       end
 
+      # Picture sheet number `removed` has just been thrown away (2026-10-07).
+      # Its own box is forgotten, the pictures that were added to it go with
+      # it, and everything that named a later picture sheet moves down one -
+      # the same shuffle shift_image_keys does for the ticks.
+      def shift_pics!(st, removed)
+        geo = st['image_geo']
+        if geo.is_a?(Hash)
+          out = {}
+          geo.each do |k, v|
+            n = k.to_s.to_i
+            next if n == removed
+            out[(n > removed ? n - 1 : n).to_s] = v
+          end
+          st['image_geo'] = out
+        end
+        pics = st['pics']
+        if pics.is_a?(Array)
+          st['pics'] = pics.each_with_object([]) do |pc, keep|
+            next unless pc.is_a?(Hash)
+            on = pc['on'].to_s
+            if on.start_with?('image:')
+              n = on.split(':', 2).last.to_i
+              next if n == removed
+              pc = pc.merge('on' => "image:#{n > removed ? n - 1 : n}")
+            end
+            keep << pc
+          end
+        end
+        st
+      end
+
       # Takes the same shapes out of the document Ruby is holding, so it does
       # not have to be built again. gone = line numbers, HIGHEST FIRST;
       # before = how many lines there were. false = could not, build it again.
@@ -1045,6 +1096,11 @@ module InteriorPro
           'site_pids' => [], 'site_z_max' => nil, 'site_soft' => false,
           'images' => [], 'image_title' => 'RENDERING', 'marks' => [],
           'note_arrow' => true, 'strip' => false, 'open' => {}, 'logo' => nil,
+          # Pictures in boxes of their own (2026-10-07, PlanCanvas.place_pictures!):
+          # the box of a picture that owns a sheet, by its place in 'images',
+          # and the pictures added to a sheet that was already there. Both
+          # empty is every model made before this.
+          'image_geo' => {}, 'pics' => [],
           # How far the drawing is turned on its sheet, in degrees, anticlockwise
           # (2026-10-07). 0 is every drawing made before this existed.
           'rotation' => 0,
@@ -1079,7 +1135,9 @@ module InteriorPro
       # Settings that are remembered but have no default: where the plan sits,
       # which sheet is open, the zoom.
       def extra_state_keys
-        %w[origin_x origin_y date active zoom]
+        # view_box / scale_f: the drawing's box and a size set by hand (2026-10-07).
+        # No default on purpose - nil is "the whole sheet, the scale from the list".
+        %w[origin_x origin_y date active zoom view_box scale_f]
       end
 
       # -------------------------------------------------- the free geometry
@@ -1410,14 +1468,22 @@ module InteriorPro
       # sheet full of renders still saves onto the model. The pixels are read
       # again when the PDF is written.
 
-      def add_images!(dlg, paths)
+      # on = the sheet they go ONTO ('plan', 'schedules', 'image:2'), each in a
+      # box of its own. nil = a sheet of its own for each, as always.
+      def add_images!(dlg, paths, on = nil)
         wanted = Array(paths).map { |p| p.to_s.tr('\\', '/') }.reject(&:empty?)
         if wanted.empty?
           dlg.execute_script('imageReport(0, null)')
           return
         end
         st = load_state
-        st['images'] = Array(st['images']) + wanted
+        on = nil unless InteriorPro::PlanCanvas::USE_PIC_BOX &&
+                        on.to_s =~ /\A(plan|schedules|image:\d+)\z/
+        if on
+          st['pics'] = Array(st['pics']) + wanted.map { |p| { 'path' => p, 'on' => on.to_s } }
+        else
+          st['images'] = Array(st['images']) + wanted
+        end
         save_state(st)
         @doc = nil
         push_all(dlg)
@@ -1497,6 +1563,15 @@ module InteriorPro
         Array(st['images']).each_with_index.map do |p, i|
           { 'i' => i, 'path' => p, 'name' => File.basename(p.to_s),
             'url' => file_url(p), 'there' => File.file?(p.to_s) }
+        end
+      end
+
+      # An address for every picture that was added ONTO a sheet. The owners
+      # of the picture sheets are in image_payload, as they always were.
+      def pic_payload(st)
+        Array(st['pics']).select { |pc| pc.is_a?(Hash) && !pc['path'].to_s.empty? }.map do |pc|
+          p = pc['path'].to_s
+          { 'path' => p, 'name' => File.basename(p), 'url' => file_url(p), 'there' => File.file?(p) }
         end
       end
 
@@ -1706,6 +1781,27 @@ module InteriorPro
                          width:24px; height:24px; margin:-12px 0 0 -12px; }
             #rothandle.on { display:block; }
             #rothandle svg { width:24px; height:24px; display:block; }
+            /* The drawing's box (2026-10-07): a square on each corner to make
+               it bigger or smaller, a grip and four thin strips along its
+               sides to move it. Elements of their own over the sheet, for the
+               same reasons the turning handle is. */
+            .boxc { position:absolute; display:none; z-index:6; width:12px;
+                    height:12px; margin:-6px 0 0 -6px; background:#fff;
+                    border:2px solid #1f6feb; }
+            .boxc.on { display:block; }
+            .boxe { position:absolute; display:none; z-index:4; }
+            .boxe.on { display:block; }
+            /* a small bar in the middle of each side: this is where the box
+               is cut. Drawn by the style sheet, so it is not an element. */
+            .boxe::after { content:''; position:absolute; left:50%; top:50%;
+                           background:#fff; border:2px solid #1f6feb;
+                           border-radius:3px; }
+            #boxe-n::after, #boxe-s::after { width:22px; height:6px; margin:-5px 0 0 -13px; }
+            #boxe-w::after, #boxe-e::after { width:6px; height:22px; margin:-13px 0 0 -5px; }
+            #boxmove { position:absolute; display:none; z-index:6; width:24px;
+                       height:24px; margin:-12px 0 0 -12px; }
+            #boxmove.on { display:block; }
+            #boxmove svg { width:24px; height:24px; display:block; }
             #rotdeg { position:absolute; right:28px; top:3px; display:none;
                       font:700 14px Helvetica,Arial,sans-serif; color:#1f6feb;
                       background:rgba(255,255,255,.9); padding:0 4px;
@@ -1850,6 +1946,13 @@ module InteriorPro
                 <div class="bd">
                   <button id="addmany" class="go2">העלאת תמונות</button>
                   <input type="file" id="filepick" multiple accept="image/jpeg,image/png">
+                  <!-- Still ONE way in (2026-10-07). This only says WHERE the
+                       pictures land: a sheet of its own for each, as always,
+                       or onto the sheet that is open - beside the drawing, or
+                       beside another picture. -->
+                  <label class="chk" id="pichererow" style="margin-top:6px">
+                    <input type="checkbox" id="pichere"> להוסיף לדף הפתוח, לא דף חדש לכל תמונה
+                  </label>
                   <div id="imginfo" class="hint">אחת או כמה, או גרור אותן לחלון.</div>
                 </div>
               </div>
@@ -1895,7 +1998,11 @@ module InteriorPro
                     Shift+גרירה = מזיז את הדף עצמו.<br>
                     לחיצה על סימון בוחרת, Delete מוחק.<br>
                     לחיצה כפולה על הערה פותחת אותה לעריכה.<br>
-                    הידית בפינה למטה מסובבת את השרטוט.</div>
+                    הידית בפינה למטה מסובבת את השרטוט.<br>
+                    ריבוע בפינה מגדיל ומקטין את השרטוט.<br>
+                    הפס באמצע כל צלע חותך את השרטוט מהצד הזה.<br>
+                    העיגול עם ארבעת החצים מזיז את השרטוט על הדף.<br>
+                    תמונה: לחיצה בוחרת, גרירה מזיזה, פינה משנה גודל, צלע חותכת, הידית מסובבת.</div>
                 </div>
               </div>
 
@@ -1934,6 +2041,21 @@ module InteriorPro
                 </g></svg>
                 <span id="rotdeg"></span>
               </div>
+              <div id="boxmove" title="הזז את השרטוט על הדף">
+                <svg viewBox="-12 -12 24 24"><g fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle r="11" fill="#fff" stroke="#1f6feb" stroke-width="1.2"/>
+                  <path d="M0 -7 L0 7 M-7 0 L7 0" stroke="#1f6feb" stroke-width="1.8"/>
+                  <path d="M0 -7 L-2.4 -4.6 M0 -7 L2.4 -4.6 M0 7 L-2.4 4.6 M0 7 L2.4 4.6 M-7 0 L-4.6 -2.4 M-7 0 L-4.6 2.4 M7 0 L4.6 -2.4 M7 0 L4.6 2.4" stroke="#1f6feb" stroke-width="1.8"/>
+                </g></svg>
+              </div>
+              <div id="boxc-nw" class="boxc"></div>
+              <div id="boxc-ne" class="boxc"></div>
+              <div id="boxc-sw" class="boxc"></div>
+              <div id="boxc-se" class="boxc"></div>
+              <div id="boxe-n" class="boxe"></div>
+              <div id="boxe-s" class="boxe"></div>
+              <div id="boxe-w" class="boxe"></div>
+              <div id="boxe-e" class="boxe"></div>
               <!-- There was a - / fit / + bar pinned to this corner. It sat on
                    top of the drawing and the user asked for it gone: the wheel
                    already zooms, and it zooms where he is pointing. -->
@@ -2051,7 +2173,7 @@ module InteriorPro
           // Where the handle sits: just outside the bottom right corner of the
           // drawing's frame, in pixels on the sheet.
           function rotHandleAt(v,k,ph){
-            return [(v.x+v.w)*k+15, (ph-v.y)*k+5];
+            return [(v.x+v.w)*k+22, (ph-v.y)*k+8];      // clear of the square on that corner
           }
 
           // The direction of the mouse from the middle of the frame, in
@@ -2079,7 +2201,21 @@ module InteriorPro
 
           // He takes hold of the handle.
           function startTurn(e){
-            if(!ROTON||MODE!=='hand'||CARRY||TCARRY||!VIEW) return;
+            if(MODE!=='hand'||CARRY||TCARRY) return;
+            var tg=boxTarget();
+            if(tg && tg.pic){
+              // a picture: its whole box turns, about its own middle
+              if(!PICON||!LIVEK) return;
+              if(TSEL) closeTextBar();
+              var pr=picRect(tg.pic);
+              ROT={pic:tg.pic, p0:pr, s0:picKeep(tg.pic), was:picsSnap(),
+                   a0:angleAbout(e, pr.x+pr.w/2, pr.y+pr.h/2), r0:pr.rot, moved:false};
+              paintRot();
+              if(e.preventDefault) e.preventDefault();
+              if(e.stopPropagation) e.stopPropagation();
+              return;
+            }
+            if(!ROTON||!VIEW) return;
             if(TSEL) closeTextBar();
             ROT={a0:rotAngleAt(e), r0:viewTurn().deg, moved:false};
             paintRot();
@@ -2091,7 +2227,22 @@ module InteriorPro
           // only there with the select arrow, on a sheet that has a drawing.
           // While he is turning, the angle is written beside it.
           function paintRot(){
+            paintBoxH();            // the box's own handles go wherever this one goes
             var h=$('rothandle'); if(!h||!h.style) return;
+            var tg=(MODE==='hand') ? boxTarget() : null;
+            if(tg && tg.pic && PICON && LIVEK){
+              // by the bottom right corner of the PICTURE, turned as it is turned
+              var pr=picRect(tg.pic), pq=picScreen(pr, pr.w*LIVEK/2+22, pr.h*LIVEK/2+8);
+              h.style.left=pq[0].toFixed(1)+'px';
+              h.style.top=pq[1].toFixed(1)+'px';
+              h.className='on';
+              var pd=$('rotdeg');
+              if(pd&&pd.style){
+                pd.textContent = (ROT&&ROT.pic) ? (pr.rot+'°') : '';
+                pd.style.display = (ROT&&ROT.pic) ? 'block' : 'none';
+              }
+              return;
+            }
             var v=PAGE ? (PAGE.views||[])[0] : null;
             if(!ROTON||MODE!=='hand'||!VIEW||!v){ h.className=''; return; }
             var c=rotHandleAt(v,VIEW.k,PAGE.height), w=$('sheetWrap');
@@ -2103,6 +2254,505 @@ module InteriorPro
               d.textContent = ROT ? (viewTurn().deg+'°') : '';
               d.style.display = ROT ? 'block' : 'none';
             }
+          }
+
+          // ---- the drawing's own box (2026-10-07) --------------------------
+          //
+          // What he likes in Rayon: "השרטוט הוא כאילו חצי תמונה - הוא נמצא בתוך
+          // כמו קופסה משל עצמו. את הקופסה אני יכול להגדיל ולהקטין בעיקר
+          // מהפינות... ולהזיז אותה על הדף." And on how: "הקופסה לא צריכה
+          // להיצמד, אבל... שוליים לדף שהקופסה לא תוכל לצאת מהם. לא רוצה שקנה
+          // המידה יקפוץ - אני רוצה שתהיה אופציה להגדיל ידנית."
+          //
+          //   a square on each corner   the box AND the drawing grow or shrink
+          //                             together, about the opposite corner -
+          //                             any size, nothing snaps
+          //   the grip                  the box moves about the sheet, and the
+          //                             drawing goes with it
+          //   a side                    CUTS: "אני יכול לחתוך מהצלעות". Only
+          //                             that side moves; the drawing stays
+          //                             exactly where it is on the sheet, and
+          //                             less of it (or more of it) is seen
+          //   the margins               the box cannot leave what they leave
+          //                             (PAGE.view_area, worked out by Ruby)
+          //   the scale list            picking a scale there puts the drawing
+          //                             back on an exact scale
+          //
+          // While he drags, the window moves the view it was given; on letting
+          // go the two numbers go to Ruby with everything else (STATE.view_box,
+          // STATE.scale_f) and Ruby lays the sheet out from them - the same
+          // routine the PDF comes from.
+          //
+          // The iron law: Escape in the middle puts the box back; Ctrl+Z takes
+          // the last move or resize back; the zoom and the place do not change.
+          var BOXON=true;      // told by Ruby
+          var CROPON=true;     // told by Ruby: a side cuts (false = a side moves the box)
+          var BOXD=null;       // {kind, mx, my, v0, s0, o0, was, moved} while a handle is held
+          var BOX_MIN=1.0;     // paper inches, either way
+
+          function planView(){ return PAGE ? ((PAGE.views||[])[0]||null) : null; }
+
+          // What the margins leave - the box may not leave it.
+          function boxArea(){
+            if(!PAGE || !planView()) return null;
+            var a=PAGE.view_area;
+            if(a && a.length===4) return a;
+            // a sheet from before Ruby said so: the same sum PlanDoc.new_sheet does
+            var m=(typeof PAGE.margin==='number') ? PAGE.margin : 0.5;
+            return [m+0.25, m+1.1+0.25, PAGE.width-2*m-0.5, PAGE.height-2*m-1.1-0.5];
+          }
+
+          function setBox(v, x, y, w, h){ v.x=x; v.y=y; v.w=w; v.h=h; }
+
+          // He takes hold of a corner ('nw','ne','sw','se'), of a side
+          // ('n','s','w','e') or of the box ('move').
+          function startBox(kind,e){
+            if(MODE!=='hand'||CARRY||TCARRY) return;
+            var tg=boxTarget();
+            if(tg && tg.pic){ startPic(tg.pic, kind, e); return; }
+            if(!BOXON||!VIEW) return;
+            var v=planView(); if(!v||!boxArea()) return;
+            if(kind.length===1 && !CROPON) kind='move';
+            if(TSEL) closeTextBar();
+            BOXD={kind:kind, mx:e.clientX, my:e.clientY, v0:{x:v.x, y:v.y, w:v.w, h:v.h},
+                  s0:scaleFactor(STATE.scale)*12,
+                  o0:{x:STATE.origin_x, y:STATE.origin_y},
+                  was:{box:(STATE.view_box ? STATE.view_box.slice() : null),
+                       scale_f:(STATE.scale_f>0 ? STATE.scale_f : null)},
+                  moved:false};
+            if(e.preventDefault) e.preventDefault();
+            if(e.stopPropagation) e.stopPropagation();
+          }
+
+          // The mouse has moved with a handle held.
+          function dragBox(e){
+            if(BOXD.pic){ dragPic(e); return; }
+            var v=planView(), a=boxArea();
+            if(!v||!a||!VIEW) return;
+            var o=BOXD.v0, k=VIEW.k;
+            var dx=(e.clientX-BOXD.mx)/k, dy=-(e.clientY-BOXD.my)/k;      // paper inches; up is up
+            var nx, ny, nw=o.w, nh=o.h, f=1;
+            if(BOXD.kind==='move'){
+              nx=Math.min(Math.max(o.x+dx, a[0]), a[0]+a[2]-o.w);
+              ny=Math.min(Math.max(o.y+dy, a[1]), a[1]+a[3]-o.h);
+            } else if(BOXD.kind.length===1){
+              // A SIDE CUTS. Only that side moves: never past the margin, and
+              // never closer than an inch to the side across from it.
+              var hold=function(d,lo,hi){ return Math.max(lo, Math.min(d, hi)); };
+              var d;
+              nx=o.x; ny=o.y;
+              if(BOXD.kind==='e'){ d=hold(dx, BOX_MIN-o.w, a[0]+a[2]-(o.x+o.w)); nw=o.w+d; }
+              if(BOXD.kind==='w'){ d=hold(dx, a[0]-o.x, o.w-BOX_MIN); nx=o.x+d; nw=o.w-d; }
+              if(BOXD.kind==='n'){ d=hold(dy, BOX_MIN-o.h, a[1]+a[3]-(o.y+o.h)); nh=o.h+d; }
+              if(BOXD.kind==='s'){ d=hold(dy, a[1]-o.y, o.h-BOX_MIN); ny=o.y+d; nh=o.h-d; }
+              // The drawing is hung from the MIDDLE of its box, and the middle
+              // has just moved by half of what the side moved. So the point of
+              // the house that sits in the middle moves the same way, and
+              // every line stays on the very spot of the paper it was on.
+              var mcx=(nx+nw/2)-(o.x+o.w/2), mcy=(ny+nh/2)-(o.y+o.h/2);
+              var ct=viewTurn(), csf=BOXD.s0/12;
+              STATE.origin_x=BOXD.o0.x+(mcx*ct.c+mcy*ct.s)/csf;
+              STATE.origin_y=BOXD.o0.y+(-mcx*ct.s+mcy*ct.c)/csf;
+            } else {
+              var sx=(BOXD.kind.indexOf('e')>=0) ? 1 : -1, sy=(BOXD.kind.indexOf('n')>=0) ? 1 : -1;
+              // the corner across from the one he holds stays where it is
+              var ax=(sx>0) ? o.x : o.x+o.w, ay=(sy>0) ? o.y : o.y+o.h;
+              // how far along the box's own diagonal the mouse has gone
+              f=1+((dx*sx)*o.w+(dy*sy)*o.h)/(o.w*o.w+o.h*o.h);
+              // never past the margins, never smaller than a box worth having
+              var fmax=Math.min(((sx>0) ? a[0]+a[2]-ax : ax-a[0])/o.w, ((sy>0) ? a[1]+a[3]-ay : ay-a[1])/o.h);
+              var fmin=Math.min(Math.max(BOX_MIN/o.w, BOX_MIN/o.h), fmax);
+              f=Math.max(fmin, Math.min(f, fmax));
+              nw=o.w*f; nh=o.h*f;
+              nx=(sx>0) ? ax : ax-nw; ny=(sy>0) ? ay : ay-nh;
+            }
+            var same=Math.abs(nx-o.x)<1e-9 && Math.abs(ny-o.y)<1e-9 && Math.abs(nw-o.w)<1e-9 && Math.abs(nh-o.h)<1e-9;
+            if(same){
+              // back where it started (or it had nowhere to go): as if never touched
+              setBox(v, o.x, o.y, o.w, o.h);
+              STATE.view_box=BOXD.was.box; STATE.scale_f=BOXD.was.scale_f;
+              STATE.origin_x=BOXD.o0.x; STATE.origin_y=BOXD.o0.y;
+              BOXD.moved=false;
+            } else {
+              setBox(v, nx, ny, nw, nh);
+              STATE.view_box=[nx, ny, nw, nh];
+              // the drawing grows with its box: a size set by hand, any number
+              // (a side only cuts - the size of the drawing is not touched)
+              if(BOXD.kind.length===2) STATE.scale_f=BOXD.s0*f;
+              BOXD.moved=true;
+            }
+            render(true);
+          }
+
+          // Escape with the round arrow held: the angle goes back.
+          function dropTurn(){
+            var rr=ROT; ROT=null;
+            if(!rr) return;
+            if(rr.pic){ picPut(rr.pic, rr.s0); picsBack(rr.was); }
+            else STATE.rotation=rr.r0;
+          }
+
+          // Escape with a handle held: the box, the size and the place of the
+          // drawing go back to what they were when he took hold.
+          function dropBox(){
+            var bd=BOXD; BOXD=null;
+            if(!bd) return;
+            if(bd.pic){ picPut(bd.pic, bd.s0); picsBack(bd.was); return; }
+            restoreBox(bd.was);
+            STATE.origin_x=bd.o0.x; STATE.origin_y=bd.o0.y;
+          }
+
+          // Put the box and the size back the way a step remembered them.
+          function restoreBox(was){
+            var v=planView(), a=boxArea();
+            STATE.view_box = was.box ? was.box.slice() : null;
+            STATE.scale_f = was.scale_f || null;
+            // a cut moved the middle of the box, and the house with it: taken
+            // back by the same amount, so a slide of the drawing made SINCE is kept
+            if(typeof was.dox==='number' && typeof was.doy==='number'){ STATE.origin_x-=was.dox; STATE.origin_y-=was.doy; }
+            if(v){
+              var b = was.box || a;            // no box of his own = all the margins leave
+              if(b) setBox(v, b[0], b[1], b[2], b[3]);
+            }
+            paintScale();
+          }
+
+          // The scale list says what the drawing is at: one of its scales, or
+          // "any size" when he set the size by hand.
+          var FREE_SCALE='גודל חופשי';
+          function paintScale(){
+            var free=BOXON && STATE && STATE.scale_f>0;
+            fill('scale', free ? [FREE_SCALE].concat(SCALES) : SCALES, free ? FREE_SCALE : STATE.scale);
+          }
+
+          // Put the box's handles on its corners and sides, or put them away:
+          // they are only there with the select arrow, on a sheet with a drawing.
+          function paintBoxH(){
+            var tg=(MODE==='hand') ? boxTarget() : null;
+            var v=tg ? (tg.view||null) : null, pc=tg ? (tg.pic||null) : null;
+            var on=!!((v && BOXON && VIEW) || (pc && PICON && LIVEK));
+            var cls={boxmove:'', 'boxc-nw':'boxc', 'boxc-ne':'boxc', 'boxc-sw':'boxc', 'boxc-se':'boxc',
+                     'boxe-n':'boxe', 'boxe-s':'boxe', 'boxe-w':'boxe', 'boxe-e':'boxe'};
+            for(var id in cls){
+              var h=$(id); if(!h||!h.style) return;
+              h.className=(cls[id]+(on ? ' on' : '')).replace(/^ /,'');
+            }
+            if(!on) return;
+            if(pc){
+              // A picture's box can be TURNED, so every handle is put by its
+              // own middle, the turned way round, and turned with the box.
+              var pr=picRect(pc), PW=pr.w*LIVEK, PH=pr.h*LIVEK, ptr=pr.rot ? ('rotate('+(-pr.rot)+'deg)') : '';
+              var putp=function(id,u,vv,ww,hh){
+                var q=picScreen(pr,u,vv), st=$(id).style;
+                if(ww===undefined){ st.left=q[0].toFixed(1)+'px'; st.top=q[1].toFixed(1)+'px'; }
+                else {
+                  ww=Math.max(ww,0); hh=Math.max(hh,0);
+                  st.left=(q[0]-ww/2).toFixed(1)+'px'; st.top=(q[1]-hh/2).toFixed(1)+'px';
+                  st.width=ww.toFixed(1)+'px'; st.height=hh.toFixed(1)+'px';
+                }
+                st.transform=ptr;
+              };
+              putp('boxc-nw',-PW/2,-PH/2); putp('boxc-ne',PW/2,-PH/2); putp('boxc-sw',-PW/2,PH/2); putp('boxc-se',PW/2,PH/2);
+              putp('boxmove',-PW/2-22,-PH/2-8);
+              putp('boxe-n',0,-PH/2,PW-16,8); putp('boxe-s',0,PH/2,PW-16,8);
+              putp('boxe-w',-PW/2,0,8,PH-16); putp('boxe-e',PW/2,0,8,PH-16);
+              return;
+            }
+            for(var id2 in cls){ $(id2).style.transform=''; }      // the drawing's box is never turned
+            var wr=$('sheetWrap'), k=VIEW.k;
+            var L=(wr.offsetLeft||0)+v.x*k, T=(wr.offsetTop||0)+(PAGE.height-v.y-v.h)*k, W=v.w*k, H=v.h*k;
+            var put=function(id,x,y,ww,hh){
+              var st=$(id).style;
+              st.left=x.toFixed(1)+'px'; st.top=y.toFixed(1)+'px';
+              if(ww!==undefined){ st.width=Math.max(ww,0).toFixed(1)+'px'; st.height=Math.max(hh,0).toFixed(1)+'px'; }
+            };
+            put('boxc-nw',L,T); put('boxc-ne',L+W,T); put('boxc-sw',L,T+H); put('boxc-se',L+W,T+H);
+            put('boxmove',L-22,T-8);
+            put('boxe-n',L+8,T-4,W-16,8); put('boxe-s',L+8,T+H-4,W-16,8);
+            put('boxe-w',L-4,T+8,8,H-16); put('boxe-e',L+W-4,T+8,8,H-16);
+          }
+
+          // ---- pictures in boxes of their own (2026-10-07) ------------------
+          //
+          // "אני רוצה שתהיה אפשרות לסובב את השרטוט וגם את התמונות", "אני גם
+          // יכול לבחור מה יראו מהתמונה... חיתוך", "שיהיה אפשרי להוסיף כמה
+          // תמונות בדף, או תמונות גם בדף השרטוט". And: "הסקייל הוא רק לבחירה
+          // של שרטוטים, התמונות לא צריכות סקייל."
+          //
+          // A picture is a box on its sheet, handled by the SAME squares, bars,
+          // grip and round arrow as the drawing's box:
+          //   a click on it      picks it: the handles go onto it
+          //   dragging it        moves it (the grip does too)
+          //   a corner           bigger or smaller, about the opposite corner
+          //   a side             CUTS it: the picture stays where it is, less
+          //                      of it (or more, up to its own edge) is seen
+          //   the round arrow    turns the whole box about its middle
+          //   Delete             takes a picture that was ADDED to a sheet off it
+          //   the margins        it cannot leave what they leave (PAGE.pic_area)
+          //
+          // What is saved is three things a picture - box, crop, rot - see
+          // PlanCanvas.place_pictures!, which lays them out for the PDF. While
+          // he drags, the window changes the shape it was given; on letting go
+          // the three go to Ruby with everything else and Ruby answers with the
+          // sheet as it prints.
+          //
+          // The iron law: Escape in the middle puts it back; Ctrl+Z takes the
+          // last step back; the zoom and the place do not change.
+          var PICON=true;      // told by Ruby
+          var BSEL=null;       // the picture he picked, by its name ('m:0', 'x:2'); null = none
+          var LIVEK=0;         // pixels to the paper inch, on the sheet he is working on
+          var PIC_MIN=0.5;     // paper inches, either way
+
+          // Every picture on the open sheet that can be handled, bottom one first.
+          function pagePics(){
+            var out=[]; if(!PAGE||!PICON||!STATE) return out;
+            var hid=STATE.hidden||[];
+            (PAGE.layers||[]).forEach(function(l){
+              if(hid.indexOf(l.name)>=0) return;
+              (l.shapes||[]).forEach(function(s){
+                if(s.type==='image' && s.pic && (s.placed || (s.iw>0 && s.ih>0))) out.push(s);
+              });
+            });
+            return out;
+          }
+
+          // What the margins leave for a picture.
+          function picArea(){
+            if(!PAGE) return null;
+            var a=PAGE.pic_area;
+            if(a && a.length===4) return a;
+            var m=(typeof PAGE.margin==='number') ? PAGE.margin : 0.5;
+            return [m+0.25, m+1.1+0.25, PAGE.width-2*m-0.5, PAGE.height-2*m-1.1-0.5];
+          }
+
+          // Where a picture is on the paper: {x,y,w,h, rot, crop}. One that was
+          // never touched sits in the middle of its space at its own
+          // proportions - the same sum plan_pdf and the browser both do.
+          function picRect(s){
+            if(s.placed) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:(s.crop||[0,0,0,0]).slice()};
+            var w=s.w, h=s.h;
+            if(!s.stretch && s.iw>0 && s.ih>0){
+              if(s.iw/s.ih > s.w/s.h) h=s.w*s.ih/s.iw; else w=s.h*s.iw/s.ih;
+            }
+            return {x:s.x+(s.w-w)/2, y:s.y+(s.h-h)/2, w:w, h:h, rot:0, crop:[0,0,0,0]};
+          }
+
+          // The shape as it stands, and put back that way.
+          function picKeep(s){ return {placed:s.placed, x:s.x, y:s.y, w:s.w, h:s.h, rot:s.rot, crop:(s.crop ? s.crop.slice() : s.crop)}; }
+          function picPut(s,q){
+            s.x=q.x; s.y=q.y; s.w=q.w; s.h=q.h;
+            if(q.placed) s.placed=q.placed; else delete s.placed;
+            if(q.rot===undefined) delete s.rot; else s.rot=q.rot;
+            if(q.crop===undefined) delete s.crop; else s.crop=q.crop.slice();
+          }
+
+          // Where this picture's three things are kept: null if nowhere.
+          function picName(s){
+            var id=String(s.pic||''), n=parseInt(id.slice(2),10);
+            return (id.charAt(1)===':' && n>=0) ? {main:id.charAt(0)==='m', n:n} : null;
+          }
+
+          // The picture now lies at r: on the sheet here, and in what is saved.
+          function setPic(s,r){
+            s.placed=true; s.x=r.x; s.y=r.y; s.w=r.w; s.h=r.h; s.rot=r.rot; s.crop=r.crop.slice();
+            var nm=picName(s); if(!nm) return;
+            if(nm.main){
+              if(!STATE.image_geo) STATE.image_geo={};
+              STATE.image_geo[String(nm.n)]={box:[r.x,r.y,r.w,r.h], rot:r.rot, crop:r.crop.slice()};
+            } else if(STATE.pics && STATE.pics[nm.n]){
+              STATE.pics[nm.n].box=[r.x,r.y,r.w,r.h]; STATE.pics[nm.n].rot=r.rot; STATE.pics[nm.n].crop=r.crop.slice();
+            }
+          }
+
+          // Everything saved about pictures, as one piece - a step for Ctrl+Z.
+          function picsSnap(){ return JSON.stringify({pics:STATE.pics||[], geo:STATE.image_geo||{}}); }
+          function picsBack(snap){ var o=JSON.parse(snap); STATE.pics=o.pics; STATE.image_geo=o.geo; }
+
+          // After a step is taken back: the pictures on the open sheet go where
+          // what is saved says. (One added or taken off comes with Ruby's answer.)
+          function picsToShapes(){
+            pagePics().forEach(function(s){
+              var nm=picName(s); if(!nm) return;
+              var g=nm.main ? (STATE.image_geo||{})[String(nm.n)] : (STATE.pics||[])[nm.n];
+              if(g && g.box){
+                s.placed=true; s.x=g.box[0]; s.y=g.box[1]; s.w=g.box[2]; s.h=g.box[3];
+                s.rot=+g.rot||0; s.crop=(g.crop||[0,0,0,0]).slice();
+              } else if(nm.main){
+                var a=picArea();
+                delete s.placed; s.x=a[0]; s.y=a[1]; s.w=a[2]; s.h=a[3]; s.rot=0; s.crop=[0,0,0,0];
+              }
+            });
+          }
+
+          // Half the room a picture takes up once it is turned: [across, up].
+          function picHalf(r){
+            var t=r.rot*Math.PI/180, c=Math.abs(Math.cos(t)), n=Math.abs(Math.sin(t));
+            return [(r.w*c+r.h*n)/2, (r.w*n+r.h*c)/2];
+          }
+
+          function picIn(r,a){
+            var hf=picHalf(r), cx=r.x+r.w/2, cy=r.y+r.h/2, e=1e-7;
+            return cx-hf[0]>=a[0]-e && cx+hf[0]<=a[0]+a[2]+e && cy-hf[1]>=a[1]-e && cy+hf[1]<=a[1]+a[3]+e;
+          }
+
+          // Held on the sheet: first small enough, then in. The same sum as
+          // PlanCanvas.pic_inside, so Ruby has nothing left to correct.
+          function picHold(r,a){
+            var cx=r.x+r.w/2, cy=r.y+r.h/2, w=Math.max(r.w,PIC_MIN), h=Math.max(r.h,PIC_MIN);
+            var hf=picHalf({w:w, h:h, rot:r.rot});
+            var f=Math.min(a[2]/(2*hf[0]), a[3]/(2*hf[1]), 1);
+            if(f<1){ w*=f; h*=f; hf=[hf[0]*f, hf[1]*f]; }
+            cx=Math.min(Math.max(cx, a[0]+hf[0]), a[0]+a[2]-hf[0]);
+            cy=Math.min(Math.max(cy, a[1]+hf[1]), a[1]+a[3]-hf[1]);
+            return {x:cx-w/2, y:cy-h/2, w:w, h:h, rot:r.rot, crop:r.crop.slice()};
+          }
+
+          // A spot (u to the right, v down, in pixels from the picture's middle,
+          // before turning) -> where it is in the stage.
+          function picScreen(r,u,v){
+            var wr=$('sheetWrap'), t=r.rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
+            return [(wr.offsetLeft||0)+(r.x+r.w/2)*LIVEK+u*c+v*n,
+                    (wr.offsetTop||0)+(PAGE.height-(r.y+r.h/2))*LIVEK-u*n+v*c];
+          }
+
+          // The direction of the mouse from a point of the paper, in degrees,
+          // anticlockwise.
+          function angleAbout(e,cx,cy){
+            var p=mouseAt(e); if(!p||!PAGE||!LIVEK) return null;
+            return Math.atan2(-(p[1]-(PAGE.height-cy)*LIVEK), p[0]-cx*LIVEK)*180/Math.PI;
+          }
+
+          // The picture under the mouse - the one drawn on top wins.
+          function hitPic(e){
+            var p=mouseAt(e); if(!p||!PAGE||!LIVEK) return null;
+            var px=p[0]/LIVEK, py=PAGE.height-p[1]/LIVEK, pics=pagePics();
+            for(var i=pics.length-1;i>=0;i--){
+              var r=picRect(pics[i]), t=r.rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
+              var dx=px-(r.x+r.w/2), dy=py-(r.y+r.h/2);
+              if(Math.abs(dx*c+dy*n)<=r.w/2 && Math.abs(-dx*n+dy*c)<=r.h/2) return pics[i];
+            }
+            return null;
+          }
+
+          // What the handles are on: the picture he picked; or the drawing's
+          // box; or, on a sheet with no drawing, the first picture.
+          function boxTarget(){
+            if(!PAGE) return null;
+            var pics=pagePics();
+            if(BSEL!==null) for(var i=0;i<pics.length;i++) if(pics[i].pic===BSEL) return {pic:pics[i]};
+            var v=planView();
+            if(v) return (BOXON && VIEW) ? {view:v} : null;
+            return pics.length ? {pic:pics[0]} : null;
+          }
+
+          // The picture of that name on the sheet as it is NOW. Ruby's answer to
+          // the last step swaps every shape for a new one; a pull begun a
+          // moment before that answer must go on moving the one that is drawn.
+          function picLive(s){
+            var pics=pagePics();
+            for(var i=0;i<pics.length;i++) if(pics[i].pic===s.pic) return pics[i];
+            return s;
+          }
+
+          // He takes hold of a picture: by a corner, a side, or the whole of it.
+          function startPic(s,kind,e){
+            if(!PICON||!LIVEK||!picArea()) return;
+            if(TSEL) closeTextBar();
+            BOXD={kind:kind, mx:e.clientX, my:e.clientY, pic:s, p0:picRect(s), s0:picKeep(s),
+                  was:picsSnap(), moved:false};
+            if(e.preventDefault) e.preventDefault();
+            if(e.stopPropagation) e.stopPropagation();
+          }
+
+          // The mouse has moved with a picture held.
+          function dragPic(e){
+            BOXD.pic=picLive(BOXD.pic);
+            var s=BOXD.pic, o=BOXD.p0, a=picArea(), k=LIVEK, kind=BOXD.kind;
+            if(!a||!k) return;
+            var dx=(e.clientX-BOXD.mx)/k, dy=-(e.clientY-BOXD.my)/k;      // paper inches; up is up
+            var t=o.rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
+            var lx=dx*c+dy*n, ly=-dx*n+dy*c;            // the same pull, in the picture's own frame
+            var cx0=o.x+o.w/2, cy0=o.y+o.h/2, r;
+            // the picture at w by h, its middle moved (ux, uy) in its own frame
+            var made=function(w,h,ux,uy,crop){
+              var cx=cx0+ux*c-uy*n, cy=cy0+ux*n+uy*c;
+              return {x:cx-w/2, y:cy-h/2, w:w, h:h, rot:o.rot, crop:crop};
+            };
+            if(kind==='move'){
+              var hf=picHalf(o);
+              var mx=Math.min(Math.max(cx0+dx, a[0]+hf[0]), a[0]+a[2]-hf[0]);
+              var my=Math.min(Math.max(cy0+dy, a[1]+hf[1]), a[1]+a[3]-hf[1]);
+              r={x:mx-o.w/2, y:my-o.h/2, w:o.w, h:o.h, rot:o.rot, crop:o.crop.slice()};
+            } else {
+              var build, amt;       // build(u) = the picture when u of the pull is taken; amt = all of it
+              if(kind.length===2){
+                // A CORNER: bigger or smaller, the corner across from it stays put
+                var sx=(kind.indexOf('e')>=0) ? 1 : -1, sy=(kind.indexOf('n')>=0) ? 1 : -1;
+                var f=1+((lx*sx)*o.w+(ly*sy)*o.h)/(o.w*o.w+o.h*o.h);
+                f=Math.max(f, Math.min(1, PIC_MIN/Math.min(o.w,o.h)));
+                amt=f-1;
+                build=function(u){ return made(o.w*(1+u), o.h*(1+u), sx*o.w*u/2, sy*o.h*u/2, o.crop.slice()); };
+              } else {
+                // A SIDE CUTS: the picture stays where it is and that side
+                // moves over it - never past the picture's own edge.
+                var horiz=(kind==='e'||kind==='w'), sgn=(kind==='e'||kind==='n') ? 1 : -1;
+                var len=horiz ? o.w : o.h, ci={w:0, s:1, e:2, n:3}[kind];
+                var seen=horiz ? (1-o.crop[0]-o.crop[2]) : (1-o.crop[1]-o.crop[3]);
+                var full=len/Math.max(seen,0.01);       // the WHOLE picture that way, on the paper
+                var d=(horiz ? lx : ly)*sgn;             // how far the side has gone OUT
+                d=Math.max(Math.min(0, PIC_MIN-len), Math.min(d, o.crop[ci]*full));
+                amt=d;
+                build=function(u){
+                  var cr=o.crop.slice(); cr[ci]=Math.max(0, o.crop[ci]-u/full);
+                  return horiz ? made(o.w+u, o.h, sgn*u/2, 0, cr) : made(o.w, o.h+u, 0, sgn*u/2, cr);
+                };
+              }
+              r=build(amt);
+              if(amt>0 && !picIn(r,a)){
+                // it would pass the margins: as far as it can go and no further
+                var lo=0, hi=amt;
+                for(var i=0;i<40;i++){ var md=(lo+hi)/2; if(picIn(build(md),a)) lo=md; else hi=md; }
+                r=build(lo);
+              }
+            }
+            var same=Math.abs(r.x-o.x)<1e-9 && Math.abs(r.y-o.y)<1e-9 && Math.abs(r.w-o.w)<1e-9 && Math.abs(r.h-o.h)<1e-9;
+            if(same){
+              // back where it started (or it had nowhere to go): as if never touched
+              picPut(s, BOXD.s0); picsBack(BOXD.was);
+              BOXD.moved=false;
+            } else {
+              setPic(s, r);
+              BOXD.moved=true;
+            }
+            render(true);
+          }
+
+          // Delete: a picture that was added to a sheet comes off it. The one a
+          // picture sheet was made for goes with its sheet, by the x in the list.
+          function dropPic(){
+            var id=String(BSEL||'');
+            if(id.charAt(0)!=='x'){
+              $('markinfo').textContent='התמונה הזאת היא הדף עצמו. כדי להוריד אותה, מחק את הדף ב-× ברשימת הדפים.';
+              return;
+            }
+            var j=parseInt(id.slice(2),10);
+            if(!STATE.pics||!STATE.pics[j]) return;
+            var was=picsSnap();
+            STATE.pics.splice(j,1);
+            // off the sheet here at once; the ones after it move down one, as
+            // they will be numbered when Ruby answers
+            (DOC.pages||[]).forEach(function(pg){
+              (pg.layers||[]).forEach(function(l){
+                l.shapes=(l.shapes||[]).filter(function(q){ return q.pic!==id; });
+                l.shapes.forEach(function(q){
+                  var nm=q.pic ? picName(q) : null;
+                  if(nm && !nm.main && nm.n>j) q.pic='x:'+(nm.n-1);
+                });
+              });
+            });
+            BSEL=null;
+            if(UNDOON){ UNDO.push({g:++UGROUP, pics:was}); if(UNDO.length>300) UNDO.shift(); }
+            push(); render(); showMarks();
           }
 
           // The pointer over the handle: the same round arrow, so it says "turn".
@@ -2117,7 +2767,12 @@ module InteriorPro
 
           function $(id){ return document.getElementById(id); }
 
-          function scaleFactor(lbl){ return SF[lbl] || 0.25/12; }
+          // A size he set by hand (STATE.scale_f, paper inches to the foot) wins
+          // over the scale named in the list - see the box, below.
+          function scaleFactor(lbl){
+            if(BOXON && STATE && STATE.scale_f>0) return STATE.scale_f/12;
+            return SF[lbl] || 0.25/12;
+          }
 
           // ---- drawing ---------------------------------------------------
           function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
@@ -2179,6 +2834,25 @@ module InteriorPro
                   cx+=cols[ci]||1.2;
                 });
               });
+            } else if(s.type==='image' && s.placed){
+              // A picture in a box of its own: the part of it that is seen
+              // fills the box, and the box is turned about its middle. The
+              // same numbers plan_pdf prints (draw_placed_image).
+              var pa=tp(s.x,s.y), PX=pa[0]*k, PY=(ph-pa[1]-s.h)*k, PW=s.w*k, PH=s.h*k;
+              var cr=s.crop||[0,0,0,0], piw=(s.iw>0 ? s.iw : 1000), pih=(s.ih>0 ? s.ih : 1000), prot=+s.rot||0;
+              o.push(prot ? ('<g transform="rotate('+(-prot)+','+(PX+PW/2).toFixed(2)+','+(PY+PH/2).toFixed(2)+')">') : '<g>');
+              var pu=URLS[s.path];
+              if(pu){
+                o.push('<svg x="'+PX.toFixed(2)+'" y="'+PY.toFixed(2)+'" width="'+PW.toFixed(2)+'" height="'+PH.toFixed(2)+
+                       '" viewBox="'+(cr[0]*piw).toFixed(3)+' '+(cr[3]*pih).toFixed(3)+' '+
+                       (piw*(1-cr[0]-cr[2])).toFixed(3)+' '+(pih*(1-cr[1]-cr[3])).toFixed(3)+
+                       '" preserveAspectRatio="none"><image width="'+piw+'" height="'+pih+
+                       '" preserveAspectRatio="none" href="'+pu+'"/></svg>');
+              } else {
+                o.push('<rect x="'+PX.toFixed(1)+'" y="'+PY.toFixed(1)+'" width="'+PW.toFixed(1)+'" height="'+PH.toFixed(1)+
+                       '" fill="none" stroke="#bbb" stroke-dasharray="3 3"/>');
+              }
+              o.push('</g>');
             } else if(s.type==='image'){
               var a=tp(s.x,s.y);
               var ix=(a[0]*k).toFixed(1), iy=((ph-(s.y+s.h))*k).toFixed(1);
@@ -2290,7 +2964,7 @@ module InteriorPro
             o.push('<rect width="100%" height="100%" fill="#fff"/>');
 
             var v=(pg.views||[])[0];
-            if(live) VIEW=null;
+            if(live){ VIEW=null; LIVEK=k; }
             VROT=0;
             if(v){
               var sf=scaleFactor(STATE.scale);
@@ -3706,7 +4380,9 @@ module InteriorPro
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
               cancelCarry();
-              if(ROT){ STATE.rotation=ROT.r0; ROT=null; }
+              if(ROT){ dropTurn(); }
+              if(BOXD){ dropBox(); }
+              BSEL=null;
               BAND=null; SELS=[];
               PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
               DRAWSNAP=null; CHAIN0=null;
@@ -3717,7 +4393,9 @@ module InteriorPro
             cancelCarry();                       // a mark in the hand goes home
             SSEL=[];                             // and the picked lines are let go
             TCARRY=null; TDRAG=null; MDRAG=null; // a label or a mark mid-drag stays put
-            if(ROT){ STATE.rotation=ROT.r0; ROT=null; }   // a drawing half turned goes back as it was
+            if(ROT){ dropTurn(); }                         // a drawing or a picture half turned goes back as it was
+            BSEL=null;                                     // and a picked picture is let go
+            if(BOXD){ dropBox(); }                         // and a box half moved, half sized or half cut
             if(DRAG){
               if(DRAG.pan){
                 var stg=$('stage'); stg.scrollLeft=DRAG.sl; stg.scrollTop=DRAG.st;
@@ -3738,7 +4416,7 @@ module InteriorPro
 
           function setMode(m){
             if((m==='line'||m==='chain') && !LINEDRAW) m='hand';
-            DRAWSNAP=null; CHAIN0=null; ROT=null;
+            DRAWSNAP=null; CHAIN0=null; ROT=null; BOXD=null; BSEL=null;
             cancelCarry();
             BAND=null; SELS=[];
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
@@ -3778,6 +4456,8 @@ module InteriorPro
             if(SELS.length>1) tip=SELS.length+' נבחרו. לחיצה מרימה את כולם יחד, Delete מוחק את כולם.';
             if(MODE==='hand'&&SSEL.length)
               tip=SSEL.length+(SSEL.length===1?' קו נבחר':' קווים נבחרו')+' · Shift+לחיצה מוסיף או מוריד · Delete מוחק · Ctrl+Z מחזיר · Esc משחרר.';
+            if(MODE==='hand'&&BSEL!==null)
+              tip='תמונה נבחרה. גרור כדי להזיז · ריבוע בפינה משנה גודל · פס בצלע חותך · העיגול עם החץ מסובב · Delete מוריד אותה מהדף · Esc משחרר.';
             if(CARRY||TCARRY) tip='מחזיק — הזז ולחץ כדי להניח. Esc מחזיר.';
             paintDimOff();
             // No free geometry is no longer a dead end - the eraser still
@@ -3842,7 +4522,7 @@ module InteriorPro
                 return;
               }
               if(MODE==='hand'&&!MDRAG&&!DRAG){
-                svg.style.cursor = hitMark(e) ? 'move' : arrowCursor();
+                svg.style.cursor = (hitMark(e) || (PICON && hitPic(e))) ? 'move' : arrowCursor();
               }
             };
 
@@ -3854,6 +4534,21 @@ module InteriorPro
                 // else gets to happen on it.
                 if(CARRY){ dropCarry(); e.preventDefault(); return; }
                 if(TCARRY){ dropTextCarry(); e.preventDefault(); return; }
+                // A PICTURE under the mouse: it is picked - the handles go
+                // onto it - and it moves with the mouse from this very press.
+                var hpic=PICON ? hitPic(e) : null;
+                if(hpic){
+                  if(TSEL) closeTextBar();
+                  var had=(SEL!==null||SELS.length||SSEL.length);
+                  SEL=null; SELS=[]; SSEL=[];
+                  BSEL=hpic.pic;
+                  startBox('move',e);
+                  if(had) render(); else paintRot();
+                  showMarks();
+                  e.preventDefault();
+                  return;
+                }
+                if(BSEL!==null){ BSEL=null; paintRot(); }   // a press anywhere else lets the picture go
                 var h=hitMark(e);
                 if(h){
                   if(TSEL) closeTextBar();
@@ -4038,6 +4733,25 @@ module InteriorPro
           }
 
           function onMove(e){
+            if(BOXD){ dragBox(e); return; }
+            if(ROT && ROT.pic){
+              var po=ROT.p0, pang=angleAbout(e, po.x+po.w/2, po.y+po.h/2);
+              ROT.pic=picLive(ROT.pic);
+              if(pang!==null && ROT.a0!==null){
+                var pnr=snapTurn(ROT.r0+(pang-ROT.a0));
+                if(pnr!==(ROT.moved ? (+ROT.pic.rot||0) : ROT.r0)){
+                  if(pnr===ROT.r0){
+                    picPut(ROT.pic, ROT.s0); picsBack(ROT.was); ROT.moved=false;
+                  } else {
+                    // turned, it takes up other room: it is held on the sheet
+                    setPic(ROT.pic, picHold({x:po.x, y:po.y, w:po.w, h:po.h, rot:pnr, crop:po.crop}, picArea()));
+                    ROT.moved=true;
+                  }
+                  render(true);
+                }
+              }
+              return;
+            }
             if(ROT){
               var ra=rotAngleAt(e);
               if(ra!==null && ROT.a0!==null){
@@ -4129,6 +4843,41 @@ module InteriorPro
           }
 
           function onUp(){
+            if(BOXD && BOXD.pic){
+              var pb=BOXD;
+              BOXD=null;
+              if(pb.moved){
+                // one pull is one step for Ctrl+Z, and Ruby is told once
+                if(UNDOON){ UNDO.push({g:++UGROUP, pics:pb.was}); if(UNDO.length>300) UNDO.shift(); }
+                push();
+              }
+              render(); showMarks();
+              return;
+            }
+            if(ROT && ROT.pic){
+              var pt=ROT;
+              ROT=null;
+              if(pt.moved){
+                if(UNDOON){ UNDO.push({g:++UGROUP, pics:pt.was}); if(UNDO.length>300) UNDO.shift(); }
+                push();
+              }
+              render(); showMarks();
+              return;
+            }
+            if(BOXD){
+              var bd=BOXD;
+              BOXD=null;
+              if(bd.moved){
+                // how far a cut moved the drawing's own middle - Ctrl+Z takes exactly that back
+                if(bd.kind.length===1){ bd.was.dox=STATE.origin_x-bd.o0.x; bd.was.doy=STATE.origin_y-bd.o0.y; }
+                // one pull of a handle is one step for Ctrl+Z, and Ruby is told once
+                if(UNDOON){ UNDO.push({g:++UGROUP, box:bd.was}); if(UNDO.length>300) UNDO.shift(); }
+                paintScale();
+                push();
+              }
+              render(); showMarks();
+              return;
+            }
             if(ROT){
               var rr=ROT;
               ROT=null;
@@ -4250,20 +4999,34 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
-            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null;
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
               if(u.site) siteBack=siteBack.concat(u.site);
               if(u.added) addBack=addBack.concat(u.added);
               if(u.rot!==undefined) rotBack=u.rot;
+              if(u.box!==undefined) boxBack=u.box;
+              if(u.pics!==undefined) picBack=u.pics;
             }
             // nothing half done survives an undo - it was drawn on the sheet as it was
             SSEL=[];
             cancelCarry();
             TCARRY=null; TDRAG=null; MDRAG=null; BAND=null; SELS=[]; SEL=null;
             PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; SNAPPED=null;
-            DRAWSNAP=null; CHAIN0=null; ROT=null;
+            DRAWSNAP=null; CHAIN0=null; ROT=null; BOXD=null;
+            if(picBack!==null){
+              // the pictures go back to where they were, and Ruby lays the sheet out again
+              picsBack(picBack);
+              picsToShapes();
+              BSEL=null;
+              sketchup.set_state(JSON.stringify(STATE));
+            }
+            if(boxBack!==null){
+              // the box and the size go back to what they were, and Ruby lays the sheet out again
+              restoreBox(boxBack);
+              sketchup.set_state(JSON.stringify(STATE));
+            }
             if(rotBack!==null){
               // the drawing goes back to the angle it had, and Ruby turns the writing back with it
               STATE.rotation=rotBack;
@@ -4326,6 +5089,12 @@ module InteriorPro
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
             ROTON = (p.rotate!==false);
+            BOXON = (p.view_box!==false);
+            CROPON = (p.box_crop!==false);
+            PICON = (p.pic_box!==false);
+            BSEL=null;
+            if($('pichererow') && $('pichererow').style) $('pichererow').style.display = PICON ? '' : 'none';
+            BOXD=null;
             ROT=null;
             if(STATE.rotation===undefined||STATE.rotation===null) STATE.rotation=0;
             if($('tools2')) $('tools2').style.display = LINEDRAW ? '' : 'none';
@@ -4339,6 +5108,7 @@ module InteriorPro
             // logo and saw nothing but the empty dashed box (2026-08-14).
             URLS={};
             (p.images||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
+            (p.pics||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
             if(p.logo && p.logo.url) URLS[p.logo.path]=p.logo.url;
             if(STATE.active===undefined||STATE.active===null) STATE.active=0;
             // A sheet sent AGAIN to a window that is already open is a
@@ -4374,7 +5144,7 @@ module InteriorPro
             var first = (STATE.origin_x===undefined||STATE.origin_x===null);
             if(first) centerPlan(true);
             fill('size',p.page_sizes,STATE.size);
-            fill('scale',SCALES,STATE.scale);
+            paintScale();
             $('address').value=DOC.job_address||'';
             $('num').value=STATE.sheet_number||'';
             $('title').value=STATE.sheet_title||'';
@@ -4456,6 +5226,7 @@ module InteriorPro
           function goToPage(i){
             if(!DOC||!DOC.pages.length) return;
             STATE.active=Math.max(0, Math.min(DOC.pages.length-1, i));
+            BSEL=null;                       // the picked picture was on the sheet he just left
             fillPages(); showFit(); render(); push();
           }
 
@@ -4650,7 +5421,7 @@ module InteriorPro
             tag('markstag', n ? (n + ' על הדף') : '');
             var imgs=(DOC&&DOC.pages||[]).filter(function(p){ return p.kind==='image'; }).length;
             tag('imgtag', imgs ? (imgs + ' דפים') : '');
-            tag('papertag', (STATE.size||'') + ' · ' + (STATE.scale||''));
+            tag('papertag', (STATE.size||'') + ' · ' + ((BOXON && STATE.scale_f>0) ? 'חופשי' : (STATE.scale||'')));
             tag('sitetag', STATE.site_count ? (STATE.site_count + ' קווים') : '');
           }
 
@@ -4697,7 +5468,7 @@ module InteriorPro
               var ts=turnedSize();
               if(ts[0]*SF[s]<=v.w&&ts[1]*SF[s]<=v.h) best=s;
             });
-            if(best){ STATE.scale=best; $('scale').value=best; }
+            if(best){ STATE.scale=best; STATE.scale_f=null; paintScale(); $('scale').value=best; }
             centerPlan(true);
             ZOOM=null; STATE.zoom=null;
             showFit(); render(); push();
@@ -4747,6 +5518,12 @@ module InteriorPro
               if(/\.(jpe?g|png)$/i.test(f.name)) files.push(f);
             }
             if(!files.length){ $('imginfo').textContent='לא היו תמונות בגרירה'; return; }
+            // WHERE they land (2026-10-07): onto the sheet that is open, each
+            // in a box of its own, when he ticked that - otherwise a sheet
+            // each, as always. Remembered now, in case he turns the page
+            // while they are being carried across.
+            DROP.on=(PICON && PAGE && $('pichere') && $('pichere').checked===true) ? pageKey(PAGE) : null;
+            DROP.snap=DROP.on ? picsSnap() : null;
             DROP.list=files; DROP.fi=0; DROP.busy=true;
             setBusy(true);
             nextFile();
@@ -4761,7 +5538,8 @@ module InteriorPro
           function nextFile(){
             if(DROP.fi>=DROP.list.length){
               $('imginfo').textContent='מסיים...';
-              sketchup.drop_finish();
+              if(DROP.on) sketchup.drop_finish(JSON.stringify({on:DROP.on}));
+              else sketchup.drop_finish();
               DROP.busy=false; setBusy(false);
               return;
             }
@@ -4820,8 +5598,14 @@ module InteriorPro
           }
 
           function imageReport(n, err){
+            var here=!!DROP.snap;
+            if(here){
+              // pictures put onto a sheet are a step like any other: Ctrl+Z takes them off again
+              if(n && !err && UNDOON){ UNDO.push({g:++UGROUP, pics:DROP.snap}); if(UNDO.length>300) UNDO.shift(); }
+              DROP.snap=null;
+            }
             $('imginfo').textContent = err ? ('שגיאה: '+err)
-              : (n ? (n===1 ? 'נוספה תמונה אחת' : ('נוספו '+n+' תמונות'))
+              : (n ? ((n===1 ? 'נוספה תמונה אחת' : ('נוספו '+n+' תמונות'))+(here ? ' לדף הזה' : ''))
                    : 'לא נבחר כלום');
           }
 
@@ -4903,7 +5687,13 @@ module InteriorPro
           // ---- wiring -----------------------------------------------------
           window.addEventListener('load',function(){
             $('size').onchange=function(){ STATE.size=this.value; push(); };
-            $('scale').onchange=function(){ STATE.scale=this.value; showFit(); render(); push(); };
+            // Picking a scale from the list puts the drawing on that EXACT scale:
+            // a size set by hand is forgotten. ("Any size" itself is not a choice.)
+            $('scale').onchange=function(){
+              if(this.value===FREE_SCALE) return;
+              STATE.scale=this.value; STATE.scale_f=null; paintScale();
+              showFit(); render(); push();
+            };
             $('ownpage').onchange=function(){ STATE.tables_own_page=this.checked; push(); };
             $('stage').addEventListener('wheel',function(e){
               e.preventDefault();
@@ -4925,6 +5715,19 @@ module InteriorPro
             $('tnote').onclick=function(){ setMode('note'); };
             $('terase').onclick=function(){ setMode('erase'); };
             $('tline').onclick=function(){ setMode('line'); };
+            ['nw','ne','sw','se'].forEach(function(c){
+              var el=$('boxc-'+c);
+              el.onmousedown=function(e){ startBox(c,e); };
+              if(el.style) el.style.cursor=(c==='nw'||c==='se') ? 'nwse-resize' : 'nesw-resize';
+            });
+            $('boxmove').onmousedown=function(e){ startBox('move',e); };
+            if($('boxmove').style) $('boxmove').style.cursor='move';
+            // a side cuts the drawing from that side
+            ['n','s','w','e'].forEach(function(d){
+              var el=$('boxe-'+d);
+              el.onmousedown=function(e){ startBox(d,e); };
+              if(el.style) el.style.cursor=(d==='n'||d==='s') ? 'ns-resize' : 'ew-resize';
+            });
             $('rothandle').onmousedown=function(e){ startTurn(e); };
             if($('rothandle').style) $('rothandle').style.cursor=turnCursor();
             $('tchain').onclick=function(){ setMode('chain'); };
@@ -5027,6 +5830,7 @@ module InteriorPro
               if(e.key==='Delete'||e.key==='Backspace'){
                 if(SSEL.length){ e.preventDefault(); dropPicked(); }
                 else if(SEL!==null){ e.preventDefault(); dropMark(); }
+                else if(BSEL!==null){ e.preventDefault(); dropPic(); }
               } else if(e.key==='Escape'){
                 e.preventDefault();
                 escapeAll();
@@ -5085,6 +5889,8 @@ module InteriorPro
             var deep=0;
             window.addEventListener('dragenter',function(e){
               e.preventDefault(); deep++; $('curtain').className='on';
+              $('curtain').textContent = (PICON && $('pichere') && $('pichere').checked===true)
+                ? 'שחרר כאן — התמונות יתווספו לדף הפתוח' : 'שחרר כאן — כל תמונה תקבל דף';
             });
             window.addEventListener('dragover',function(e){ e.preventDefault(); });
             window.addEventListener('dragleave',function(e){

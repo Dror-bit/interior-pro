@@ -91,6 +91,49 @@ module InteriorPro
 
     def self.forget_images!
       @image_cache = {}
+      @size_cache  = {}
+    end
+
+    # How many pixels across and down a picture is: [w, h], or nil if the file
+    # cannot be read as a JPEG or a PNG (2026-10-07).
+    #
+    # A picture in a box of its own is laid out from its PROPORTIONS, and the
+    # sheet is laid out again on every click in the window - so this must not
+    # read an 8 MB render each time, nor unpack a see-through PNG to learn two
+    # numbers. Only the head of the file is read (a JPEG's size can sit behind
+    # a long EXIF block, so the read grows until it is found), and the answer
+    # is remembered until the file changes.
+    def self.image_size(path)
+      p = path.to_s
+      return nil if p.empty? || !File.file?(p)
+      @size_cache ||= {}
+      stamp = [File.size(p), File.mtime(p).to_f]
+      hit = @size_cache[p]
+      return hit[1] if hit && hit[0] == stamp
+      size = nil
+      File.open(p, 'rb') do |f|
+        head = f.read(65_536).to_s.b
+        if head.byteslice(0, 8) == PNG_MAGIC
+          w, h = head.byteslice(16, 8).to_s.unpack('N2')
+          size = [w, h] if w.to_i > 0 && h.to_i > 0
+        elsif head.byteslice(0, 2) == "\xFF\xD8".b
+          loop do
+            info = jpeg_info(head)
+            if info
+              size = [info[:w], info[:h]]
+              break
+            end
+            more = f.read(head.bytesize * 3)
+            break if more.nil? || more.empty?
+            head << more.b
+          end
+        end
+      end
+      @size_cache[p] = [stamp, size]
+      size
+    rescue StandardError => e
+      puts "[PlanPDF] cannot size image #{p}: #{e.message}"
+      nil
     end
 
     # nil, or:
@@ -404,6 +447,7 @@ module InteriorPro
     # The picture itself if the file could be read; the old empty frame if it
     # could not, so a missing render never loses the whole sheet.
     def self.draw_image(st, s, to_paper, scale, imgs)
+      return draw_placed_image(st, s, to_paper, scale, imgs) if s[:placed]
       x, y = to_paper.call(s[:x], s[:y])
       w = s[:w].to_f * scale
       h = s[:h].to_f * scale
@@ -426,6 +470,52 @@ module InteriorPro
       st << '0.75 w 0.6 G'
       st << "#{n(dx * PT)} #{n(dy * PT)} #{n(dw * PT)} #{n(dh * PT)} re S"
       st << '0 G'
+    end
+
+    # A picture in a box of its own (2026-10-07, PlanCanvas.place_pictures!).
+    #
+    # Not the rule above. The box IS the picture: x, y, w, h is where the part
+    # of it that is seen lies on the paper, :crop says how much of the file is
+    # cut off each side - [left, bottom, right, top], each a share of the whole
+    # picture - and :rot turns the box about its own middle, anticlockwise.
+    # The window draws the same four numbers the same way (shapeSVG).
+    def self.draw_placed_image(st, s, to_paper, scale, imgs)
+      x, y = to_paper.call(s[:x], s[:y])
+      w = s[:w].to_f * scale
+      h = s[:h].to_f * scale
+      nm   = imgs && imgs.name_for(s[:path])
+      info = nm && imgs.info_for(nm)
+      cl, cb, cr, ct = Array(s[:crop]).map(&:to_f)
+      cl ||= 0.0; cb ||= 0.0; cr ||= 0.0; ct ||= 0.0
+      rot = s[:rot].to_f
+
+      st.save
+      unless rot.zero?
+        r  = rot * Math::PI / 180.0
+        c  = Math.cos(r)
+        sn = Math.sin(r)
+        cx = (x + w / 2.0) * PT
+        cy = (y + h / 2.0) * PT
+        # six places, not three: this is multiplied by a point that can be
+        # 2,500 points from the corner of the sheet
+        m = [c, sn, -sn, c].map { |v| format('%.6f', v) }.join(' ')
+        st << "#{m} #{n(cx - c * cx + sn * cy)} #{n(cy - sn * cx - c * cy)} cm"
+      end
+      if nm && info
+        fw = w / [1.0 - cl - cr, 0.01].max           # the WHOLE picture, on the paper
+        fh = h / [1.0 - cb - ct, 0.01].max
+        st.save
+        st << "#{n(x * PT)} #{n(y * PT)} #{n(w * PT)} #{n(h * PT)} re W n"
+        st << "#{n(fw * PT)} 0 0 #{n(fh * PT)} #{n((x - cl * fw) * PT)} #{n((y - cb * fh) * PT)} cm"
+        st << "/#{nm} Do"
+        st.restore
+      end
+      if s[:frame] || !(nm && info)
+        st << '0.75 w 0.6 G'
+        st << "#{n(x * PT)} #{n(y * PT)} #{n(w * PT)} #{n(h * PT)} re S"
+        st << '0 G'
+      end
+      st.restore
     end
 
     def self.draw_text(st, s, to_paper, scale, turn = 0.0)

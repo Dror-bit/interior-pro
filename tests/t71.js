@@ -192,8 +192,8 @@ ok("the room name is drawn level", /<text [^>]*>ROOM 2<\/text>/.test(html0) && !
 // ---- the handle
 const hp = hpos(), fr = api.get("PAGE").views[0], k0 = V0.k;
 ok("THE HANDLE IS THERE, by the bottom right corner of the drawing's frame  <<< THE RULE",
-   handle().className === "on" && near(parseFloat(handle().style.left), (fr.x + fr.w) * k0 + 15, 0.1) &&
-   near(parseFloat(handle().style.top), (api.get("PAGE").height - fr.y) * k0 + 5, 0.1), [handle().className, handle().style]);
+   handle().className === "on" && near(parseFloat(handle().style.left), (fr.x + fr.w) * k0 + 22, 0.1) &&
+   near(parseFloat(handle().style.top), (api.get("PAGE").height - fr.y) * k0 + 8, 0.1), [handle().className, handle().style]);
 ok("it is not written into the drawing - it cannot print or reach a thumbnail", html0.indexOf("rothandle") < 0);
 ok("the pointer over it is the round arrow, a picture", /data:image\/svg\+xml/.test(String(handle().style.cursor)), String(handle().style.cursor).slice(0, 30));
 api.call("setMode", "dim");

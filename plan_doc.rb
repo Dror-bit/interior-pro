@@ -301,7 +301,20 @@ module InteriorPro
         self.rotation = 0.0
       end
 
+      # A size he set BY HAND, by pulling a corner of the drawing's box
+      # (2026-10-07): paper inches to the foot, any number at all, not one of
+      # the scales in the list. nil = the drawing is at the scale named in
+      # @scale, as every drawing was before this existed.
+      attr_reader :scale_free
+
+      def scale_free=(per_foot)
+        f = per_foot.nil? ? nil : per_foot.to_f
+        @scale_free = (f && f.finite? && f > 0) ? f : nil
+      end
+
       def scale_factor
+        sf = @scale_free
+        return sf / 12.0 if sf
         PlanDoc.scale_factor(@scale)
       end
 
@@ -388,7 +401,7 @@ module InteriorPro
       def to_h
         { name: @name, x: @x, y: @y, w: @w, h: @h, canvas: @canvas,
           scale: @scale, origin_x: @origin_x, origin_y: @origin_y,
-          frame: @frame, rotation: rotation }
+          frame: @frame, rotation: rotation, scale_free: @scale_free }
       end
     end
 
@@ -398,6 +411,13 @@ module InteriorPro
       include HasLayers
       attr_reader :name, :width, :height
       attr_accessor :number, :size_name, :orientation, :margin, :views
+      # The part of the sheet the drawing's box may sit in: inside the margins,
+      # above the title block, clear of the tables. [x, y, w, h], paper inches.
+      # The box cannot leave it (2026-10-07). nil on a sheet with no drawing.
+      attr_accessor :view_area
+      # The part of the sheet a PICTURE in a box of its own may sit in: inside
+      # the margins, above the title block (2026-10-07). On every sheet.
+      attr_accessor :pic_area
       # What kind of sheet this is ('plan', 'schedules', 'image') and, for a
       # picture sheet, which picture in the user's list it came from. The sheet
       # window shows one list of every page and lets him delete one; without
@@ -439,8 +459,9 @@ module InteriorPro
         { name: @name, number: @number, size_name: @size_name,
           orientation: @orientation, width: @width, height: @height,
           margin: @margin, kind: @kind, ref: @ref,
-          sheet_number: @sheet_number, views: @views.map(&:to_h),
-          layers: layers.map(&:to_h) }
+          sheet_number: @sheet_number, view_area: @view_area,
+          pic_area: @pic_area,
+          views: @views.map(&:to_h), layers: layers.map(&:to_h) }
       end
 
       # The number printed in the title block, kept so the page list in the
@@ -527,7 +548,9 @@ module InteriorPro
 
       view = opts[:scale_from] ? page.view(opts[:scale_from]) : page.views.first
       # a sheet with no drawing on it (a table sheet) is not to any scale
-      scale_str = view ? PlanDoc.scale_text(view.scale) : 'N.T.S.'
+      # a drawing sized by hand is not at any scale that has a name
+      free = view && view.respond_to?(:scale_free) && view.scale_free
+      scale_str = (view && !free) ? PlanDoc.scale_text(view.scale) : 'N.T.S.'
 
       rows = [
         ['Job address :', doc.job_address.to_s],
@@ -578,6 +601,7 @@ module InteriorPro
                     fw - 2 * pad, fh - tb - 2 * pad,
                     opts[:canvas] || 'MODEL',
                     opts[:scale] || DEFAULT_SCALE)
+      page.views.last.scale_free = opts[:scale_free] if opts[:scale_free]
       build_title_block!(page, doc, opts)
       page
     end

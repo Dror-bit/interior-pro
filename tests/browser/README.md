@@ -30,6 +30,10 @@ not on his machine.
 | drawtest.js   | the two drawing tools: ring on a real corner, ms per mouse move, clicks, Escape, Ctrl+Z |
 | rottest.js    | turning the drawing by its handle: ms per step, Escape, Ctrl+Z; screenshots to lay beside the PDF |
 | gen_rot.rb    | (runs on his machine, in a copy) his real plan TURNED: the payload for the window and the PDF Ruby prints |
+| boxtest.js    | the drawing in a box of its own: a corner (box and drawing grow together), the grip (box moves), the margins, Escape, Ctrl+Z; ms per step |
+| croptest.js   | a side of the box cuts the drawing: do the lines stay on their spot, ms per step, a turned drawing, the margins, Escape, Ctrl+Z; writes the state it ends on |
+| pictest.js    | pictures in boxes of their own, with real picture files: pick, drag, corner, cut, turn, Escape, Ctrl+Z, the picture sheet; ms per step; writes the state it ends on. Needs a payload Ruby laid out with pictures in it (gen_box.rb, STATE_JSON naming files) and a folder with the same files |
+| gen_box.rb    | (runs on his machine, in a copy) his real plan in a box (and turned): the payload for the window and the PDF Ruby prints. STATE_JSON=file lays a state the window saved over it, OUT_NAME=crop names the files, ALL_PAGES=1 prints every sheet |
 | shot.js       | screenshots (fit and zoomed) to compare pixel for pixel before/after  |
 
 `window.sketchup` is a stand-in in every script: Ruby's answers are played back

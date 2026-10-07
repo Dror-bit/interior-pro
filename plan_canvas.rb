@@ -31,6 +31,19 @@ module InteriorPro
     # turn_texts!). false = the number is ignored and every drawing is laid
     # square to the paper, as before.
     USE_VIEW_ROTATION = true unless const_defined?(:USE_VIEW_ROTATION, false)
+    # The drawing sits in a BOX he can move about the sheet and make bigger or
+    # smaller (2026-10-07, st['view_box'] and st['scale_f'], see place_view_box!).
+    # false = both are ignored: the box fills the sheet and the drawing is at
+    # the scale picked from the list, as before.
+    USE_VIEW_BOX = true unless const_defined?(:USE_VIEW_BOX, false)
+    VIEW_BOX_MIN = 1.0 unless const_defined?(:VIEW_BOX_MIN, false)   # paper inches, either way
+    # A PICTURE sits in a box of its own too: moved, made bigger or smaller,
+    # cut from its sides, turned - and there can be more than one on a sheet,
+    # on the plan sheet as well (2026-10-07, st['image_geo'] and st['pics'],
+    # see place_pictures!). false = both are ignored: one picture to a sheet,
+    # filling it, as before.
+    USE_PIC_BOX = true unless const_defined?(:USE_PIC_BOX, false)
+    PIC_MIN     = 0.5  unless const_defined?(:PIC_MIN, false)        # paper inches, either way
     CIRCLE_SEGMENTS = 32 unless const_defined?(:CIRCLE_SEGMENTS, false)
 
     def self.fill_for(mat)
@@ -325,6 +338,7 @@ module InteriorPro
         p1 = pd.new_sheet(doc, title,
                           size: size, orientation: orient,
                           scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
+                          scale_free: view_scale_free(st),
                           sheet_number: num, sheet_title: title)
         p1.kind = 'plan'
         p1.sheet_number = num
@@ -345,6 +359,9 @@ module InteriorPro
 
       if p1
         v = p1.views.first
+        # what the margins, the title block and the tables leave: the box may not leave it
+        p1.view_area = [v.x, v.y, v.w, v.h]
+        place_view_box!(v, st, p1.view_area)
         v.rotation = rot
         b = doc.canvas('MODEL').bounds
         if st['origin_x'] && st['origin_y']
@@ -406,6 +423,9 @@ module InteriorPro
         pb.views.first.centre_on!(doc.canvas('MODEL').bounds)
       end
 
+      # every picture that has a box of its own goes into it, on its sheet
+      place_pictures!(doc, st)
+
       # LAST, after every page exists.
       #
       # doc.pages.clear runs at the top of this method and the pages are built
@@ -420,6 +440,221 @@ module InteriorPro
       turn_texts!(doc, rot)
 
       apply_visibility!(doc, hidden)
+      doc
+    end
+
+    # --------------------------------------------- the drawing's own box
+    #
+    # 2026-10-07. What he likes in Rayon, in his words: "השרטוט הוא כאילו חצי
+    # תמונה - הוא נמצא בתוך כמו קופסה משל עצמו. את הקופסה אני יכול להגדיל
+    # ולהקטין בעיקר מהפינות... ולהזיז אותה על הדף." And when the plan was
+    # shown to him: "הקופסה לא צריכה להיצמד, אבל כן טוב לקבוע שוליים לדף
+    # שהקופסה לא תוכל לצאת מהם. לא רוצה שקנה המידה יקפוץ - אני רוצה שתהיה
+    # אופציה להגדיל ידנית, ושלהגדיר בגדלים נכונים."
+    #
+    # So the window on the plan sheet is no longer always the whole sheet:
+    #   st['view_box'] = [x, y, w, h]   where the box is, paper inches from the
+    #                                   bottom left of the sheet. nil = the
+    #                                   whole of what the margins leave, which
+    #                                   is every sheet made before this.
+    #   st['scale_f']  = a number       paper inches to the foot, set by pulling
+    #                                   a corner: any size, nothing snaps. nil =
+    #                                   the scale picked from the list (and
+    #                                   picking one from the list clears this).
+    # The box is HELD INSIDE THE MARGINS here, every time, whatever was saved -
+    # a smaller page, the tables switched on beside the plan, a model from
+    # another day - so the paper can never print a box hanging off the sheet.
+    def self.view_scale_free(st)
+      return nil unless USE_VIEW_BOX
+      f = st['scale_f'] || st[:scale_f]
+      return nil unless f.is_a?(Numeric)
+      f = f.to_f
+      (f.finite? && f > 0.0005 && f < 48.0) ? f : nil
+    end
+
+    # [x, y, w, h] held inside area [x, y, w, h]: first small enough, then in.
+    def self.box_inside(box, area)
+      ax, ay, aw, ah = area.map(&:to_f)
+      x, y, w, h = box.map(&:to_f)
+      w = [[w, VIEW_BOX_MIN].max, aw].min
+      h = [[h, VIEW_BOX_MIN].max, ah].min
+      x = [[x, ax].max, ax + aw - w].min
+      y = [[y, ay].max, ay + ah - h].min
+      [x, y, w, h]
+    end
+
+    def self.place_view_box!(view, st, area)
+      return view unless USE_VIEW_BOX
+      box = st['view_box'] || st[:view_box]
+      return view unless box.is_a?(Array) && box.length == 4 &&
+                         box.all? { |n| n.is_a?(Numeric) && n.to_f.finite? } &&
+                         box[2].to_f > 0 && box[3].to_f > 0
+      view.x, view.y, view.w, view.h = box_inside(box, area)
+      view
+    end
+
+    # ------------------------------------------- pictures in boxes of their own
+    #
+    # 2026-10-07. "אני רוצה שתהיה אפשרות לסובב את השרטוט וגם את התמונות", "אני גם
+    # יכול לבחור מה יראו מהתמונה או מהשרטוט - חיתוך", "שיהיה אפשרי להוסיף כמה
+    # תמונות בדף, או תמונות גם בדף השרטוט". And on how: "הסקייל הוא רק לבחירה
+    # של שרטוטים, התמונות לא צריכות סקייל."
+    #
+    # So a picture is a BOX on its sheet, the way the drawing is, with no scale:
+    #   box   [x, y, w, h]   where the part of the picture that is SEEN lies,
+    #                        paper inches from the bottom left of the sheet
+    #   crop  [l, b, r, t]   how much of the file is cut off each side, each a
+    #                        share (0..1) of the whole picture
+    #   rot   degrees        the box turned about its own middle, anticlockwise
+    # A corner makes the box and the picture bigger or smaller together; a side
+    # changes the crop and leaves the picture where it is; nothing here knows
+    # which was pulled - the window writes the three and this lays them out.
+    #
+    # Two places hold them, because there are two kinds of picture:
+    #   st['image_geo'] = { "2" => {box, crop, rot} }
+    #       the picture that OWNS picture sheet number 2 (st['images'][2]).
+    #       Nothing saved = it fills its sheet, at its own proportions, exactly
+    #       as every picture did before this.
+    #   st['pics'] = [ { 'path' =>, 'on' => 'plan' | 'schedules' | 'image:2',
+    #                    'box' =>, 'crop' =>, 'rot' => } ]
+    #       a picture ADDED to a sheet that already exists - the plan sheet, or
+    #       beside another picture. No box yet = a place is given to it here.
+    #
+    # Every picture shape that can be handled carries :pic - "m:2" for the
+    # owner of sheet 2, "x:5" for st['pics'][5] - so the window can tell Ruby
+    # which one he moved, and :iw / :ih, its size in pixels.
+    #
+    # HELD ON THE SHEET here, every time, whatever was saved: a box bigger than
+    # the sheet is made smaller, one hanging off it is pushed back in.
+    def self.pic_page_key(pg)
+      k = pg.kind.to_s
+      k = 'plan' if k.empty?
+      k == 'image' ? "image:#{pg.ref}" : k       # the same three lines as PlanSheetDialog.page_key
+    end
+
+    # Inside the margins, above the title block: [x, y, w, h].
+    def self.pic_area(pg)
+      fx, fy, fw, fh = pg.frame
+      tb  = InteriorPro::PlanDoc::TITLE_HEIGHT
+      pad = 0.25
+      [fx + pad, fy + tb + pad, fw - 2 * pad, fh - tb - 2 * pad]
+    end
+
+    def self.pic_size(path)
+      require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
+      InteriorPro::PlanPDF.image_size(path)
+    rescue StandardError, NameError
+      nil
+    end
+
+    # What was saved for one picture, checked. nil = nothing usable.
+    def self.pic_geo(raw)
+      return nil unless raw.is_a?(Hash)
+      box = raw['box'] || raw[:box]
+      return nil unless box.is_a?(Array) && box.length == 4 &&
+                        box.all? { |n| n.is_a?(Numeric) && n.to_f.finite? } &&
+                        box[2].to_f > 0 && box[3].to_f > 0
+      crop = raw['crop'] || raw[:crop]
+      crop = [0.0, 0.0, 0.0, 0.0] unless crop.is_a?(Array) && crop.length == 4 &&
+                                         crop.all? { |n| n.is_a?(Numeric) && n.to_f.finite? }
+      crop = crop.map { |n| [[n.to_f, 0.0].max, 0.95].min }
+      crop[0] = crop[2] = 0.0 if crop[0] + crop[2] > 0.95
+      crop[1] = crop[3] = 0.0 if crop[1] + crop[3] > 0.95
+      rot = (raw['rot'] || raw[:rot]).to_f
+      rot = 0.0 unless rot.finite?
+      rot -= 360.0 while rot > 180.0
+      rot += 360.0 while rot <= -180.0
+      { box: box.map(&:to_f), crop: crop, rot: rot }
+    end
+
+    # A box turned by rot, held inside area: first small enough, then in.
+    # Returns [x, y, w, h] - still the box before turning, about its middle.
+    def self.pic_inside(box, rot, area)
+      ax, ay, aw, ah = area.map(&:to_f)
+      x, y, w, h = box.map(&:to_f)
+      cx = x + w / 2.0
+      cy = y + h / 2.0
+      w = [w, PIC_MIN].max
+      h = [h, PIC_MIN].max
+      r = rot.to_f * Math::PI / 180.0
+      c = Math.cos(r).abs
+      s = Math.sin(r).abs
+      bw = w * c + h * s                    # the room it takes up once turned
+      bh = w * s + h * c
+      f  = [aw / bw, ah / bh, 1.0].min
+      if f < 1.0
+        w *= f; h *= f; bw *= f; bh *= f
+      end
+      cx = [[cx, ax + bw / 2.0].max, ax + aw - bw / 2.0].min
+      cy = [[cy, ay + bh / 2.0].max, ay + ah - bh / 2.0].min
+      [cx - w / 2.0, cy - h / 2.0, w, h]
+    end
+
+    # Where a picture just added to a sheet is put: in the middle, two fifths
+    # of the width, at its own proportions - and each one a little down and to
+    # the right of the last, so three added together do not hide each other.
+    def self.default_pic_box(area, size, nth)
+      ax, ay, aw, ah = area
+      ar = (size && size[1].to_f > 0) ? size[0].to_f / size[1].to_f : 1.5
+      w = aw * 0.4
+      h = w / ar
+      if h > ah * 0.6
+        h = ah * 0.6
+        w = h * ar
+      end
+      off = 0.4 * (nth % 6)
+      pic_inside([ax + (aw - w) / 2.0 + off, ay + (ah - h) / 2.0 - off, w, h], 0.0, area)
+    end
+
+    def self.place_pictures!(doc, st)
+      pd = InteriorPro::PlanDoc
+      doc.pages.each { |pg| pg.pic_area = pic_area(pg) if pg.respond_to?(:pic_area=) }
+      return doc unless USE_PIC_BOX
+      geo  = st['image_geo'] || st[:image_geo]
+      geo  = {} unless geo.is_a?(Hash)
+      pics = st['pics'] || st[:pics]
+      pics = [] unless pics.is_a?(Array)
+      doc.pages.each do |pg|
+        area = pg.pic_area
+        key  = pic_page_key(pg)
+        if pg.kind.to_s == 'image'
+          main = pg.layer(pd::IMAGE_LAYER).shapes.find { |s| s[:type] == :image }
+          if main
+            size = pic_size(main[:path])
+            main[:pic] = "m:#{pg.ref}"
+            if size
+              main[:iw] = size[0].to_f
+              main[:ih] = size[1].to_f
+            end
+            g = pic_geo(geo[pg.ref.to_s] || geo[pg.ref])
+            if g
+              main[:x], main[:y], main[:w], main[:h] = pic_inside(g[:box], g[:rot], area)
+              main[:placed] = true
+              main[:rot]    = g[:rot]
+              main[:crop]   = g[:crop]
+            end
+          end
+        end
+        nth = 0
+        pics.each_with_index do |raw, j|
+          next unless raw.is_a?(Hash)
+          next unless (raw['on'] || raw[:on]).to_s == key
+          path = (raw['path'] || raw[:path]).to_s
+          next if path.empty?
+          size = pic_size(path)
+          g    = pic_geo(raw)
+          box  = g ? pic_inside(g[:box], g[:rot], area) : default_pic_box(area, size, nth)
+          nth += 1
+          s = pg.layer(pd::IMAGE_LAYER).image(path, box[0], box[1], box[2], box[3],
+                                              placed: true, pic: "x:#{j}",
+                                              rot: (g ? g[:rot] : 0.0),
+                                              crop: (g ? g[:crop] : [0.0, 0.0, 0.0, 0.0]))
+          if size
+            s[:iw] = size[0].to_f
+            s[:ih] = size[1].to_f
+          end
+        end
+      end
       doc
     end
 
