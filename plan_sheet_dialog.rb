@@ -29,6 +29,14 @@ module InteriorPro
     # (2026-10-07, see zoomAt in the page). false = the older way, which could
     # only scroll and so ran away to one side.
     USE_ZOOM_TO_MOUSE = true unless const_defined?(:USE_ZOOM_TO_MOUSE, false)
+    # A sheet sent again to a window that is already open leaves the zoom where
+    # the user has it (2026-10-07, see loadSheet in the page). false = every
+    # refresh goes back to the zoom saved on the model, as before.
+    USE_KEEP_VIEW = true unless const_defined?(:USE_KEEP_VIEW, false)
+    # The wheel goes in to 200x instead of 14x, and past a certain closeness the
+    # lines stop getting fatter (2026-10-07, see ZMAX / KSTROKE in the page).
+    # false = stops at 14x and every line thickens with the zoom, as before.
+    USE_DEEP_ZOOM = true unless const_defined?(:USE_DEEP_ZOOM, false)
 
     class << self
       def show
@@ -549,6 +557,8 @@ module InteriorPro
           # paper start disagreeing. So Ruby says it out loud.
           fast: USE_FAST_SHEET,
           zoom_hold: USE_ZOOM_TO_MOUSE,
+          keep_view: USE_KEEP_VIEW,
+          deep_zoom: USE_DEEP_ZOOM,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -1355,7 +1365,7 @@ module InteriorPro
           function shapeSVG(s, tp, k, ph){
             var o=[];
             function P(x,y){ var p=tp(x,y); return (p[0]*k).toFixed(2)+','+((ph-p[1])*k).toFixed(2); }
-            var w = ((s.weight||0.012)*k).toFixed(2);
+            var w = ((s.weight||0.012)*Math.min(k,KSTROKE)).toFixed(2);
             if(s.type==='line'){
               o.push('<line x1="'+P(s.x1,s.y1).split(',')[0]+'" y1="'+P(s.x1,s.y1).split(',')[1]+
                      '" x2="'+P(s.x2,s.y2).split(',')[0]+'" y2="'+P(s.x2,s.y2).split(',')[1]+
@@ -1453,6 +1463,24 @@ module InteriorPro
           // Only open, unfilled polylines join a run. Everything else - walls,
           // fills, closed outlines, writing, tables - goes through shapeSVG
           // exactly as it always did.
+          // How close he can get, and how fat a line may grow (2026-10-07).
+          //
+          // "אני רוצה לעשות יותר זום אין." The wheel stopped at 14 times - on a
+          // whole lot drawn at 3/32" that is about four pixels to the inch of
+          // yard, and he was rubbing out lines closer together than that.
+          // Measured on his drawing in a browser up to 200 times: the same
+          // 170 ms a click all the way in, and the spot under the mouse holds.
+          //
+          // But a line on this sheet has a real PAPER thickness, and it was
+          // drawn that thickness times the zoom: at 50 times a hairline is
+          // 20 pixels wide and the treads of his stairs are one black smear.
+          // Getting closer showed him less. So the drawing keeps growing and
+          // the line stops: past KSTROKE pixels to the paper inch a line is
+          // drawn as if the zoom had stopped there. Every weight is held at
+          // the same point, so a heavy line stays heavier than a light one.
+          // Below it - the whole sheet, the page strip, any zoom up to about
+          // four - nothing is drawn differently. The PDF never sees any of it.
+          var ZMAX = 200, KSTROKE = 160;
           var FAST = true;
           function layerSVG(shapes,tp,k,ph,paper){
             var o=[], run=[], runW=null;
@@ -1465,7 +1493,7 @@ module InteriorPro
             (shapes||[]).forEach(function(s){
               if(paper) s.__paper=true;
               if(FAST && s.type==='polyline' && !s.fill && !s.closed && s.points && s.points.length>1){
-                var w=Math.max(((s.weight||0.012)*k).toFixed(2),0.6);
+                var w=Math.max(((s.weight||0.012)*Math.min(k,KSTROKE)).toFixed(2),0.6);
                 if(runW!==null && w!==runW) flush();
                 runW=w;
                 var d='M';
@@ -1649,7 +1677,7 @@ module InteriorPro
           // spot is back under the mouse. Works the same whether the sheet is
           // centred in the window or scrolled.
           function zoomAt(cx, cy, z){
-            z = Math.min(Math.max(z, 0.2), 14);
+            z = Math.min(Math.max(z, 0.2), ZMAX);
             var stage = $('stage');
             var svg = $('sheetWrap').firstChild;
             if(!svg){ setZoom(z); return; }
@@ -2969,10 +2997,14 @@ module InteriorPro
           // ---- talking to Ruby -------------------------------------------
           function push(){ sketchup.set_state(JSON.stringify(STATE)); }
 
+          var LOADED = false;      // has this window been given a sheet yet
+          var KEEPVIEW = true;
           function loadSheet(p){
             DOC=p.doc; STATE=p.state; BOUNDS=p.bounds; SCALES=p.scales;
             FAST = (p.fast!==false);
             ZHOLD = (p.zoom_hold!==false);
+            KEEPVIEW = (p.keep_view!==false);
+            if(p.deep_zoom===false){ ZMAX=14; KSTROKE=Infinity; } else { ZMAX=200; KSTROKE=160; }
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
             if(p.dim_label_off!==undefined && p.dim_label_off!==null)
               DIM_LABEL_OFF=p.dim_label_off;
@@ -2984,7 +3016,26 @@ module InteriorPro
             (p.images||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
             if(p.logo && p.logo.url) URLS[p.logo.path]=p.logo.url;
             if(STATE.active===undefined||STATE.active===null) STATE.active=0;
-            ZOOM = STATE.zoom || null;
+            // A sheet sent AGAIN to a window that is already open is a
+            // refresh, not a fresh start (2026-10-07).
+            //
+            // Rubbing out a line, adding what is selected, a new logo - each
+            // makes Ruby build the sheet again and send all of it, with the
+            // settings that are SAVED ON THE MODEL. The wheel never saves:
+            // it would mean a trip to Ruby and a full redraw for every click
+            // of it. So the saved zoom is whatever it was the last time
+            // something else was saved - usually nothing - and every refresh
+            // threw him back to the whole sheet in the corner of the window.
+            // Measured on his drawing: zoom 3.06 and scrolled to 901, 665;
+            // one line rubbed out; zoom "fit" and scrolled to 0, 0. His words:
+            // "הוא כאילו קופץ לי אחורה ואז אני מתחיל מהתחלה כאילו נכנסתי
+            // לתוכנה. הוא לא פשוט מוחק ואפשר להמשיך."
+            //
+            // The first sheet a window is given still opens on the saved zoom.
+            // After that the zoom on the screen is the one that counts.
+            if(LOADED && KEEPVIEW){ STATE.zoom = ZOOM; }
+            else { ZOOM = STATE.zoom || null; }
+            LOADED = true;
             PAGE=DOC.pages[0];
             SF={};
             // 12" = 1' means one foot of building is 12 paper inches

@@ -60,7 +60,7 @@ function rect() {
 
 // The routine under test, written the same way as in the window.
 function zoomAt(cx, cy, z) {
-  z = Math.min(Math.max(z, 0.2), 14);
+  z = Math.min(Math.max(z, 0.2), 200);   // 14 until 2026-10-07, see t65
   const r = rect();
   if (!r.width || !r.height) { state.k = z; return; }
   const fx = Math.max(0, Math.min(1, (cx - r.left) / r.width));
@@ -128,7 +128,7 @@ ok('a wheel out in the grey does not send the page to infinity',
 
 reset(1);
 zoomAt(400, 300, 999);
-ok('zoom stops at 14', state.k === 14, state.k);
+ok('zoom stops at 200', state.k === 200, state.k);
 zoomAt(400, 300, 0.00001);
 ok('and never goes below 0.2', state.k === 0.2, state.k);
 

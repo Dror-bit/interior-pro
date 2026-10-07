@@ -179,7 +179,7 @@ ok('mouse to the LEFT of the sheet: its left edge stays where it was', Math.abs(
 
 // the limits the old code had are still there
 reset(); sandbox.zoomAt(600, 400, 999);
-ok('it will not zoom in without end', vm.runInContext('ZOOM', sandbox) <= 14, vm.runInContext('ZOOM', sandbox));
+ok('it will not zoom in without end - but it goes well past the old 14 times', vm.runInContext('ZOOM', sandbox) === 200, vm.runInContext('ZOOM', sandbox));
 reset(); sandbox.zoomAt(600, 400, 0.00001);
 ok('nor out until the sheet is a dot', vm.runInContext('ZOOM', sandbox) >= 0.2, vm.runInContext('ZOOM', sandbox));
 

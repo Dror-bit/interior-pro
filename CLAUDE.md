@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 321 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 323 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -123,6 +123,37 @@ Live folder (edit in place, no RBZ):
 - commit דרך ה-CMD שלי, ואז לעדכן את קובץ המסירה. כשאני אומר "צ'אט חדש" —
   מסירה מלאה, לעדכן CLAUDE.md ו-NEXT_CHAT_PROMPT.md, ופקודת commit,
   והודעת פתיחה כזאת להדבקה.
+
+## חוק ברזל: הבסיס עובד בכל כלי ובכל חלון — בלי שהוא יבקש (2026-10-07)
+
+בלשונו: *"תרשום את זה גם בחוק ברזל בכל דבר שאנחנו בונים. זה דברים בסיסיים שאנחנו עובדים איתם
+כבר כמה חודשים, לא ייתכן שנמשיך לבזבז עליהם זמן."*
+
+הוא ביקש את כל אלה ביום אחד, אחד אחרי השני, על חלון שקיים כבר חודשיים. חלק מהם הוא כבר ביקש פעם
+(זום לעכבר — 2026-08-14) והיה צריך לבקש שוב. **כל כלי חדש וכל חלון חדש מקבל את כל הרשימה מהיום
+הראשון, וכל שינוי בכלי קיים נבדק מולה לפני שאומרים "מוכן":**
+
+1. **Escape יוצא מהפעולה.** כל פעולה שהתחילה — מחיקה, מידה, הערה, גרירה, בחירה, כלי פעיל — Escape מבטל אותה
+   ומחזיר לכלי הבחירה. בכל כלי של סקצ'אפ (`onCancel`) ובכל חלון HTML (`keydown`).
+2. **Ctrl+Z מחזיר.** כל דבר שנמחק, הוזז או שונה חוזר ב-Ctrl+Z, צעד אחד בכל לחיצה. במודל — פעולה אחת
+   (`start_operation` / `commit_operation`) לכל מעשה שלו. בחלון HTML — רשימת ביטול של החלון.
+3. **הגלגלת עושה זום למקום שהעכבר עליו.** לא למרכז, לא לפינה. הנקודה שמתחת לעכבר נשארת מתחת לעכבר,
+   בזום פנימה ובזום החוצה, בכל מקום על הדף.
+4. **אחרי פעולה התצוגה לא זזה.** מחק, הוסיף, לחץ Apply — אותו זום, אותו מקום, אותו כלי ביד. הוא ממשיך
+   מאיפה שהיה. רענון שמגיע מרובי לא מאפס שום דבר שהוא קבע על המסך.
+5. **זה מגיב מיד.** גרירה, זום, מחיקה — בלי המתנה. למדוד על השרטוט האמיתי שלו (חצר = 15,000 קווים),
+   לא על דוגמה של ארבעה קירות. מה שמצויר מחדש בכל תזוזת עכבר חייב להיות זול.
+6. **אפשר להתקרב כמה שצריך,** והקווים קריאים גם בזום עמוק.
+7. **נעילה על נקודות** — פינה, סוף קו, אמצע — ומראים איפה ננעל (החוק מ-2026-09-18 ומ-2026-09-23).
+8. **התוסף מזהה את מה שנבנה איתו בכל מקום** — גם בתוך קבוצה, גם בתוך רכיב. קיר הוא קיר.
+
+**איך בודקים:** לכל סעיף יש בדיקה על המסלול האמיתי (לא על הפונקציה לבד), ולפני "מוכן" עוברים על
+שמונת הסעיפים אחד-אחד מול הכלי. סעיף שלא שייך לכלי — כותבים למה. סעיף שלא נבדק — אומרים שלא נבדק.
+
+**איפה זה נשבר (2026-10-07, חלון Sheet, 6 Bronco Ln):** הזום ברח לצד אחד כי הדף מורכז בכוח ואי אפשר
+לגלול מתחת לאפס (`t35` היה ירוק — הוא בדק העתק של הקוד ותיבת גלילה שלא נגמרת); מחיקת קו החזירה אותו
+לדף המלא כי רובי שלח את הזום השמור והגלגלת אף פעם לא שומרת; כל צעד של גרירה בנה מחדש 15,394 אלמנטים;
+הזום נעצר בפי 14; ל-Escape ול-Ctrl+Z לא היה כלום על המחק.
 
 ## חוק: מה שנסגר בקובץ מדידה נכנס לכלי — שיקרה לבד (2026-10-04)
 
@@ -625,6 +656,11 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanSheetDialog::USE_DEEP_ZOOM = false` - the wheel stops at 14x again and every line thickens with the
+  zoom (a hairline is 20 px at 50x) (`tests/t65.js`). On: up to 200x, and past 160 px to the paper inch lines stop growing.
+- `InteriorPro::PlanSheetDialog::USE_KEEP_VIEW = false` - every time Ruby sends the sheet again (a line rubbed out, "add
+  what is selected", a logo...) the window goes back to the zoom saved on the model, which the wheel never updates: he is
+  thrown back to the whole sheet (`tests/t64.js`).
 - `InteriorPro::PlanSheetDialog::USE_ZOOM_TO_MOUSE = false` - the wheel only scrolls after zooming, the old way: zooming
   out at a corner the sheet slides to the middle instead of shrinking towards the mouse (`tests/t63.js`). The layout fix
   (a sheet bigger than the window is no longer centred, so its left side can be reached) is not behind the switch.
