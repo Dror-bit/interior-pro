@@ -529,7 +529,8 @@ module UI
     # do it to escape a size SketchUp remembered (2026-08-16).
     def set_size(w, h); @size = [w, h]; end
     attr_reader :size
-    def set_on_closed(&_b); end
+    def set_on_closed(&b); @on_closed = b; end
+    attr_reader :on_closed
     def show; @shown = true; end
     def shown?; @shown == true; end
     def close; @closed = true; end

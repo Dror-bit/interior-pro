@@ -60,6 +60,16 @@ module InteriorPro
     # addSiteLine in the page and add_site_line here). false = the two buttons
     # are not shown and Ruby takes no drawn line.
     USE_LINE_DRAW = true unless const_defined?(:USE_LINE_DRAW, false)
+    # A set of loose lines too big to live on the model is kept in a file
+    # beside the model instead of only in memory, so what he rubbed out and
+    # what he drew are still there after SketchUp is closed (2026-10-07, see
+    # site_file_later! and site_file_read). false = too big means memory only,
+    # gone when SketchUp closes, as before.
+    USE_SITE_FILE  = true unless const_defined?(:USE_SITE_FILE, false)
+    SITE_FILE_DIR  = 'InteriorPro_sheet'  unless const_defined?(:SITE_FILE_DIR, false)
+    SITE_FILE_EXT  = '.sheet_lines.json'  unless const_defined?(:SITE_FILE_EXT, false)
+    SITE_FILE_WAIT = 2.0                  unless const_defined?(:SITE_FILE_WAIT, false)
+    SITE_ID_ATTR   = 'sheet_site_id'      unless const_defined?(:SITE_ID_ATTR, false)
 
     class << self
       def show
@@ -67,6 +77,9 @@ module InteriorPro
           begin; @dialog.close; rescue StandardError; end
           @dialog = nil
         end
+        # Lines taken before the file beside the model existed - or before
+        # this code was loaded - are written down now, not at the next change.
+        site_file_ensure! if USE_SITE_FILE
         # Always read the model again when the window opens. Otherwise a door
         # or a window added since last time would be missing from the sheet
         # and from the tables (2026-08-12, the user hit exactly this).
@@ -110,7 +123,7 @@ module InteriorPro
               push_all(dlg)
               r = InteriorPro::PlanGeometry.last_report
               r[:total] = site_lines.length
-              r[:kept]  = @site_saved ? 1 : 0
+              r[:kept]  = site_kept? ? 1 : 0
               dlg.execute_script("siteReport(#{JSON.generate(sel.length)}, #{JSON.generate(r)})")
             end
           rescue StandardError => e
@@ -667,6 +680,7 @@ module InteriorPro
 
         dlg.add_action_callback('export_pdf') do |_, json|
           begin
+            site_file_flush! if USE_SITE_FILE
             st = JSON.parse(json.to_s)
             save_state(st)
             apply_state!(document, st)
@@ -692,6 +706,10 @@ module InteriorPro
             dlg.execute_script("exportFailed(#{JSON.generate(e.message)})")
           end
         end
+
+        # Closing the window does not wait for the two seconds: whatever is
+        # still to be written beside the model is written now.
+        dlg.set_on_closed { site_file_flush! } if USE_SITE_FILE && dlg.respond_to?(:set_on_closed)
 
         dlg.set_html(html)
         dlg.show
@@ -1037,13 +1055,20 @@ module InteriorPro
       SITE_ATTR_MAX  = 60_000 unless const_defined?(:SITE_ATTR_MAX, false)
 
       def site_lines
+        site_other_model_check! if USE_SITE_FILE
         return @site_lines if @site_lines
         raw = begin
           Sketchup.active_model.get_attribute(ATTR_DICT, SITE_ATTR)
         rescue StandardError
           nil
         end
-        @site_lines = raw ? (JSON.parse(raw.to_s) rescue []) : []
+        @site_lines = if raw
+                        (JSON.parse(raw.to_s) rescue [])
+                      else
+                        (USE_SITE_FILE && site_file_read) || []
+                      end
+        site_own! if USE_SITE_FILE
+        @site_lines
       end
 
       def site_lines=(lines)
@@ -1066,7 +1091,262 @@ module InteriorPro
           puts "[Sheet] site_lines: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           @site_saved = false
         end
+        if USE_SITE_FILE
+          site_own!
+          # too big for the model: beside the model. Small enough: the model
+          # holds it, and a file left from when it was big is taken away.
+          site_file_later!(@site_saved ? nil : json)
+        end
         @site_lines
+      end
+
+      # ------------------------------------- the lines, beside the model
+      #
+      # 2026-10-07, 6 Bronco Ln. A yard of 14,710 lines is 1.3 MB, the model
+      # takes 60 KB, and so the whole list lived in memory: he spent a day
+      # rubbing two thousand lines out and drawing new ones, and all of it
+      # would have gone the moment SketchUp closed. The window even said so
+      # ("יישאר עד סגירת סקצ'אפ") - which is an apology, not a feature.
+      #
+      # So a list too big for the model is written to
+      #     <the model's folder>/InteriorPro_sheet/<the model's name>.sheet_lines.json
+      # and read back when the sheet opens and the model holds no list.
+      #
+      # - NOT on every sweep of the eraser. The newest list waits two seconds
+      #   and is written once, so twenty sweeps in a row cost one write and a
+      #   sweep stays as quick as it was. Closing the window or exporting the
+      #   PDF writes at once.
+      # - Written to one side and then moved into place, so a crash in the
+      #   middle leaves the old file whole.
+      # - A model that has never been saved has no folder: memory only, as
+      #   before, and the trace says so once.
+      # - The model carries a small mark (SITE_ID_ATTR) and so does the file.
+      #   That is how a model saved under a NEW NAME still finds its lines,
+      #   and how the lines of one model are never shown on - or written
+      #   beside - another model opened in the same SketchUp.
+      # Every write and every read leaves a line in sheet_erase_trace.txt.
+
+      def site_model_path
+        Sketchup.active_model.path.to_s.tr('\\', '/')
+      rescue StandardError
+        ''
+      end
+
+      # nil = the model has never been saved, there is nowhere to write
+      def site_file_path(model_path = site_model_path)
+        return nil if model_path.to_s.empty?
+        File.join(File.dirname(model_path), SITE_FILE_DIR,
+                  "#{File.basename(model_path, '.*')}#{SITE_FILE_EXT}")
+      end
+
+      def site_token
+        t = Sketchup.active_model.get_attribute(ATTR_DICT, SITE_ID_ATTR).to_s
+        t.empty? ? nil : t
+      rescue StandardError
+        nil
+      end
+
+      # Will these lines still be there after SketchUp is closed?
+      def site_kept?
+        return true if @site_saved
+        USE_SITE_FILE && !site_file_path.nil?
+      end
+
+      # These lines belong to the model that is open now. A model with lines
+      # gets its mark here if it has none (or lost it to an undo).
+      def site_own!
+        tok = site_token
+        if tok.nil? && @site_lines && !@site_lines.empty?
+          tok = @site_owner || format('%08x%08x', rand(2**32), rand(2**32))
+          Sketchup.active_model.set_attribute(ATTR_DICT, SITE_ID_ATTR, tok)
+        end
+        @site_owner      = tok
+        @site_owner_path = site_model_path
+      rescue StandardError => e
+        puts "[Sheet] site_own!: #{e.class}: #{e.message}"
+      end
+
+      # Is the list in memory another model's? Then it is let go, and this
+      # model's own is read. Careful by design: a new path alone is "Save As",
+      # a missing mark alone is an undo - neither loses a line. Only a
+      # DIFFERENT mark, or no mark AND another path, is another model.
+      def site_other_model_check!
+        return if @site_lines.nil?
+        if @site_owner.nil? && @site_owner_path.nil?
+          site_own!            # taken before this code was loaded: they are this model's
+          return
+        end
+        tok   = site_token
+        other = if tok && @site_owner then tok != @site_owner
+                else site_model_path != @site_owner_path.to_s
+                end
+        unless other
+          site_own!
+          return
+        end
+        site_file_flush!       # what is waiting belongs to the model that was open
+        puts '[Sheet] another model is open: the loose lines of the last one are let go'
+        @site_lines      = nil
+        @site_dropped    = []
+        @site_saved      = nil
+        @site_owner      = nil
+        @site_owner_path = nil
+        @doc             = nil
+      rescue StandardError => e
+        puts "[Sheet] site_other_model_check!: #{e.class}: #{e.message}"
+      end
+
+      # The newest list is to be written (json) or its file taken away (nil) -
+      # in two seconds, once, however many times this is called before then.
+      def site_file_later!(json)
+        path = site_file_path
+        if path.nil?
+          if json && !@site_file_warned
+            @site_file_warned = true
+            erase_trace('lines file: the model has never been saved, so there is nowhere to keep ' \
+                        "#{@site_lines.length} lines - they stay until SketchUp is closed")
+          end
+          return
+        end
+        # something waiting for ANOTHER model's file goes first, to its own file
+        site_file_flush! if @site_file_job && @site_file_job[:path] != path
+        if json.nil? && !File.file?(path)
+          @site_file_job = nil               # nothing to write and nothing to take away
+          return
+        end
+        @site_file_job = { path: path, count: @site_lines.length,
+                           body: json && site_file_body(json) }
+        @site_file_timer ||= UI.start_timer(SITE_FILE_WAIT, false) { site_file_flush! }
+      rescue StandardError => e
+        puts "[Sheet] site_file_later!: #{e.class}: #{e.message}"
+      end
+
+      # The file is the list Ruby already made for measuring it, with a small
+      # head in front. The mark comes FIRST so it can be read without reading
+      # a megabyte.
+      def site_file_body(json)
+        m = site_model_path
+        "{\"id\":#{JSON.generate(@site_owner.to_s)},\"model\":#{JSON.generate(File.basename(m))}," \
+        "\"saved\":#{JSON.generate(Time.now.strftime('%Y-%m-%d %H:%M:%S'))}," \
+        "\"count\":#{@site_lines.length},\"lines\":#{json}}"
+      end
+
+      # Write what is waiting, now. true = written (or taken away).
+      def site_file_flush!
+        t = @site_file_timer
+        @site_file_timer = nil
+        begin
+          UI.stop_timer(t) if t
+        rescue StandardError
+          nil
+        end
+        job = @site_file_job
+        @site_file_job = nil
+        return false unless job
+        t0   = Time.now
+        path = job[:path]
+        name = File.basename(path)
+        if job[:body].nil?
+          if File.file?(path)
+            File.delete(path)
+            erase_trace("lines file: the list fits on the model again, #{name} taken away")
+          end
+          return true
+        end
+        dir = File.dirname(path)
+        Dir.mkdir(dir) unless File.directory?(dir)
+        tmp = "#{path}.tmp"
+        File.binwrite(tmp, job[:body])
+        begin
+          File.rename(tmp, path)
+        rescue StandardError
+          # held open by something else for a moment: write over it instead
+          File.binwrite(path, job[:body])
+          File.delete(tmp) if File.file?(tmp)
+        end
+        size  = File.size(path)
+        check = ''
+        if @site_file_checked != path
+          # the first time in this folder, read it back and count - before he
+          # is told it is safe to close SketchUp
+          back = site_file_parse(path)
+          if back && back[:lines].length == job[:count]
+            @site_file_checked = path
+            check = ', read back and counted'
+          else
+            check = ', READ BACK DOES NOT MATCH'
+          end
+        end
+        erase_trace("lines file: #{job[:count]} lines, #{(size / 1024.0).round} KB, " \
+                    "#{((Time.now - t0) * 1000).round} ms#{check} -> #{name}")
+        true
+      rescue StandardError => e
+        puts "[Sheet] site_file_flush!: #{e.class}: #{e.message}"
+        erase_trace("lines file: FAILED - #{e.class}: #{e.message}")
+        false
+      end
+
+      # { id:, lines: } out of a file, or nil if it is not one of ours.
+      def site_file_parse(path)
+        h = JSON.parse(File.read(path, mode: 'rb').force_encoding('UTF-8'))
+        lines = h.is_a?(Hash) ? h['lines'] : nil
+        return nil unless lines.is_a?(Array) && lines.all? { |l| l.is_a?(Array) }
+        { id: h['id'].to_s, lines: lines }
+      rescue StandardError => e
+        puts "[Sheet] site_file_parse: #{File.basename(path.to_s)}: #{e.class}: #{e.message}"
+        nil
+      end
+
+      # The list for THIS model, from beside it. nil = there is none.
+      def site_file_read
+        path = site_file_path
+        return nil unless path
+        tok  = site_token
+        from = nil
+        got  = nil
+        if File.file?(path)
+          got  = site_file_parse(path)
+          # a file with this model's name but another model's mark is not its list
+          got  = nil if got && tok && !got[:id].empty? && got[:id] != tok
+          from = path if got
+        end
+        if got.nil? && tok
+          # Saved under a new name since the file was written: the file still
+          # has the old name, and the mark inside it says whose it is.
+          dir = File.dirname(path)
+          if File.directory?(dir)
+            mine = Dir.children(dir).select { |n| n.end_with?(SITE_FILE_EXT) }
+                      .map { |n| File.join(dir, n) }
+                      .select { |f| File.open(f, 'rb') { |io| io.read(200).to_s } =~ /"id":"#{Regexp.escape(tok)}"/ }
+                      .max_by { |f| File.mtime(f) }
+            got  = mine && site_file_parse(mine)
+            from = mine if got
+          end
+        end
+        return nil unless got
+        @site_saved        = false
+        @site_file_checked = path if from == path
+        @site_owner        = got[:id] if tok.nil? && !got[:id].empty?   # the model lost its mark; the file kept it
+        erase_trace("lines file: #{got[:lines].length} lines read back from #{File.basename(from)}")
+        got[:lines]
+      rescue StandardError => e
+        puts "[Sheet] site_file_read: #{e.class}: #{e.message}"
+        nil
+      end
+
+      # When the window opens: a big list that is in memory and has no file
+      # yet gets one now. That is the list taken before this code existed.
+      def site_file_ensure!
+        lines = site_lines
+        return if lines.empty? || @site_file_job
+        path = site_file_path
+        return if path.nil? || File.file?(path)
+        return unless Sketchup.active_model.get_attribute(ATTR_DICT, SITE_ATTR).nil?
+        site_own!
+        site_file_later!(JSON.generate(lines))
+        site_file_flush!
+      rescue StandardError => e
+        puts "[Sheet] site_file_ensure!: #{e.class}: #{e.message}"
       end
 
       # What has been rubbed off the sheet since the last read or clear, kept
