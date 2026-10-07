@@ -25,6 +25,10 @@ module InteriorPro
     # layerSVG in the page). false = one element per line and the strip on
     # every redraw, as before.
     USE_FAST_SHEET = true unless const_defined?(:USE_FAST_SHEET, false)
+    # The wheel zooms to the spot under the mouse by PLACING the sheet there
+    # (2026-10-07, see zoomAt in the page). false = the older way, which could
+    # only scroll and so ran away to one side.
+    USE_ZOOM_TO_MOUSE = true unless const_defined?(:USE_ZOOM_TO_MOUSE, false)
 
     class << self
       def show
@@ -544,6 +548,7 @@ module InteriorPro
           # him grab it, and guessing the number here is how the window and the
           # paper start disagreeing. So Ruby says it out loud.
           fast: USE_FAST_SHEET,
+          zoom_hold: USE_ZOOM_TO_MOUSE,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -929,7 +934,7 @@ module InteriorPro
             #side { width:230px; flex:none; background:#2b2b2b; padding:12px;
                     overflow:auto; border-right:1px solid #111; }
             #stage { flex:1; overflow:auto; position:relative; padding:20px;
-                     display:flex; align-items:flex-start; justify-content:center; }
+                     display:flex; align-items:flex-start; justify-content:flex-start; }
             #sheetWrap { background:#fff; box-shadow:0 0 22px rgba(0,0,0,.55);
                          flex:none; margin:auto; }
             h4 { margin:14px 0 6px; font-size:11px; letter-spacing:.08em;
@@ -1660,9 +1665,47 @@ module InteriorPro
             var svg2 = $('sheetWrap').firstChild;
             if(!svg2) return;
             var r2 = svg2.getBoundingClientRect();
-            stage.scrollLeft += (r2.left + fx * r2.width)  - cx;
-            stage.scrollTop  += (r2.top  + fy * r2.height) - cy;
+            if(!ZHOLD){
+              stage.scrollLeft += (r2.left + fx * r2.width)  - cx;
+              stage.scrollTop  += (r2.top  + fy * r2.height) - cy;
+              return;
+            }
+            // PUT the sheet where that spot is back under the mouse
+            // (2026-10-07). The user, for the second time: "איפה שאני שם את
+            // העכבר ועושה זום אני רוצה שזה יהיה לשם".
+            //
+            // Scrolling alone could not do it, and measuring his own drawing
+            // in a browser showed why. A scroll box cannot scroll below zero:
+            // while the sheet still fits the window there is nothing to scroll
+            // at all, and once it is bigger the window kept it CENTRED, so
+            // half of what stuck out went off the left edge where no scroll
+            // bar reaches. With the mouse on the left of the sheet the spot
+            // under it slid 45 feet in six clicks of the wheel, always the
+            // same way - "it only goes to one place".
+            //
+            // So the sheet is given a place instead of being left to the
+            // layout: a margin when its corner belongs INSIDE the window, a
+            // scroll when it belongs outside, and a margin on the far side so
+            // the scroll has room to get there. Zooming out past "fits" works
+            // the same way - the sheet shrinks towards the mouse.
+            var wrap = $('sheetWrap');
+            var sr = stage.getBoundingClientRect();
+            var PAD = 20;                              // #stage padding
+            // Off the sheet the nearest edge is held where it IS, not dragged
+            // under the mouse.
+            var ax = Math.max(r.left, Math.min(r.left + r.width,  cx));
+            var ay = Math.max(r.top,  Math.min(r.top  + r.height, cy));
+            var L = ax - fx * r2.width, T = ay - fy * r2.height;    // the corner, on screen
+            var SL = sr.left + PAD, ST = sr.top + PAD;
+            var SR = sr.left + stage.clientWidth - PAD, SB = sr.top + stage.clientHeight - PAD;
+            wrap.style.marginLeft   = Math.max(0, L - SL) + 'px';
+            wrap.style.marginTop    = Math.max(0, T - ST) + 'px';
+            wrap.style.marginRight  = Math.max(0, SR - (L + r2.width)) + 'px';
+            wrap.style.marginBottom = Math.max(0, SB - (T + r2.height)) + 'px';
+            stage.scrollLeft = Math.max(0, SL - L);
+            stage.scrollTop  = Math.max(0, ST - T);
           }
+          var ZHOLD = true;
 
           // ---- from the screen back to the house --------------------------
           //
@@ -2929,6 +2972,7 @@ module InteriorPro
           function loadSheet(p){
             DOC=p.doc; STATE=p.state; BOUNDS=p.bounds; SCALES=p.scales;
             FAST = (p.fast!==false);
+            ZHOLD = (p.zoom_hold!==false);
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
             if(p.dim_label_off!==undefined && p.dim_label_off!==null)
               DIM_LABEL_OFF=p.dim_label_off;
