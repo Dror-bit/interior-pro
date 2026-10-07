@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 333 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 335 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -501,7 +501,18 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 אחה"צ): ציור קווים על הדף נבנה (שני כלים); הבא: הרשימה שלו — סיבוב, עריכת מספר מידה, חיתוך
+## הצעד הנוכחי (2026-10-07 13:50): סיבוב השרטוט נבנה; הבא בתור שלו: סיבוב תמונות, עריכת מספר מידה, חיתוך, כמה תמונות בדף, כיתוב
+הכל ב-`HANDOFF_2026-10-07.md` (חלק ג'). **מה הוא החליט על הכיתוב** (שתי הודעות, אחרי תמונה): *"הכל צריך להסתובב"* ואז
+*"רגע, הכל מסתובב התכוונתי למידות, אבל הכל חייב להישאר קריא"* — מספרי מידות מסתובבים עם הקו שלהם ואף פעם לא הפוכים;
+שמות חדרים, שטח ותגים נשארים ישרים על הדף. **אצלו עוד לא נבדק.**
+**התור (כל אחד צעד נפרד; לפני כל אחד תמונה אחת על השרטוט שלו + שאלה אחת):**
+1. סיבוב **תמונות** (ביקש "את השרטוט וגם את התמונות" — נבנה רק השרטוט).
+2. עריכת **המספר של מידה** — לכתוב בעצמו מה כתוב בתוך המידה.
+3. **חיתוך** — לבחור מה רואים מהתמונה או מהשרטוט (מסגרת עם ידיות, כמו ב-Rayon).
+4. **כמה תמונות בדף אחד**, ותמונות גם **בדף השרטוט**.
+5. **כיתוב חופשי** — חלון שכותבים בו טקסט ומוסיפים אותו בכל דף בתוכניות.
+
+## (קודם, אותו יום) (2026-10-07 אחה"צ): ציור קווים על הדף נבנה (שני כלים); הבא: הרשימה שלו — סיבוב, עריכת מספר מידה, חיתוך
 הכל ב-`HANDOFF_2026-10-07.md` (חלק ב'). הוא בחר **גם וגם**: כפתור "קו אחד" (שני קליקים) וכפתור "קו רציף" (כל קליק ממשיך).
 קו שצויר = קו חופשי רגיל בסוף `site_lines` / שכבת SITE (`add_site_line`, `undo_site_add`, דגל `USE_LINE_DRAW`, `t70`, `rt269`).
 נמדד בדפדפן על השרטוט שלו: 2 ms לתזוזת עכבר, 22 ms לקליק. **אצלו עוד לא נבדק** — לקרוא `sheet_erase_trace.txt` (שורות `draw:`).
@@ -680,6 +691,11 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_VIEW_ROTATION = false` - the angle saved in the sheet state (`rotation`) is ignored: the
+  drawing is laid square to the paper and the window shows no handle (`tests/t71.js`, `tests/rt271.rb`). On: a handle by
+  the bottom right corner of the drawing's frame turns it about the middle of the frame. Lines turn in `PlanDoc::View`;
+  which WRITING turns with them and which stays level is decided once, in `PlanCanvas.turn_texts!` - the window and
+  `plan_pdf.rb` both only add the sheet's angle to each piece's own. Do not teach either of them a rule.
 - `InteriorPro::PlanSheetDialog::USE_SITE_FILE = false` - a set of loose lines too big for the model (over 60 KB) lives in
   memory only and is gone when SketchUp closes, as before (`tests/rt270.rb`). On: it is written two seconds after the
   last change to `<model folder>/InteriorPro_sheet/<model name>.sheet_lines.json` and read back when the sheet opens;

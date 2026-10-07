@@ -365,7 +365,9 @@ module InteriorPro
     end
 
     # Draws one page. `to_paper` maps a shape's own units to paper inches.
-    def self.draw_shapes(st, shapes, to_paper, scale = 1.0, imgs = nil)
+    # `turn` is how far the window these shapes are seen through is turned, in
+    # degrees: the lines are already turned by to_paper, the writing needs telling.
+    def self.draw_shapes(st, shapes, to_paper, scale = 1.0, imgs = nil, turn = 0.0)
       shapes.each do |s|
         case s[:type]
         when :line
@@ -390,7 +392,7 @@ module InteriorPro
             st << 'S'
           end
         when :text
-          draw_text(st, s, to_paper, scale)
+          draw_text(st, s, to_paper, scale, turn)
         when :image
           draw_image(st, s, to_paper, scale, imgs)
         when :table
@@ -426,7 +428,7 @@ module InteriorPro
       st << '0 G'
     end
 
-    def self.draw_text(st, s, to_paper, scale)
+    def self.draw_text(st, s, to_paper, scale, turn = 0.0)
       str = s[:text].to_s
       return if str.empty?
       x, y = to_paper.call(s[:x], s[:y])
@@ -444,7 +446,7 @@ module InteriorPro
       dx = align == :center ? -w / 2.0 : 0.0
       dy = align == :center ? -cap / 2.0 : 0.0
 
-      ang = (s[:rotation] || 0.0) * Math::PI / 180.0
+      ang = ((s[:rotation] || 0.0) + turn.to_f) * Math::PI / 180.0
       st << 'BT'
       st << '0 g'
       st << "#{fnt} #{n(size)} Tf"
@@ -519,7 +521,8 @@ module InteriorPro
         st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re W n"
         canvas.layers.each do |lay|
           next unless lay.visible
-          draw_shapes(st, lay.shapes, to_paper, s, imgs)
+          draw_shapes(st, lay.shapes, to_paper, s, imgs,
+                      v.respond_to?(:rotation) ? v.rotation.to_f : 0.0)
         end
         st.restore
 

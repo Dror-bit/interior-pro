@@ -28,6 +28,8 @@ not on his machine.
 | undotest.js   | two sweeps, Escape mid-sweep, Ctrl+Z twice - real keyboard            |
 | picktest.js   | click, Shift+click, Delete, Ctrl+Z, a rubber band over the whole view |
 | drawtest.js   | the two drawing tools: ring on a real corner, ms per mouse move, clicks, Escape, Ctrl+Z |
+| rottest.js    | turning the drawing by its handle: ms per step, Escape, Ctrl+Z; screenshots to lay beside the PDF |
+| gen_rot.rb    | (runs on his machine, in a copy) his real plan TURNED: the payload for the window and the PDF Ruby prints |
 | shot.js       | screenshots (fit and zoomed) to compare pixel for pixel before/after  |
 
 `window.sketchup` is a stand-in in every script: Ruby's answers are played back

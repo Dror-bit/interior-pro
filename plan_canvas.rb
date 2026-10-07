@@ -27,6 +27,10 @@ module InteriorPro
     }.freeze unless const_defined?(:FILL_BY_MATERIAL, false)
 
     DEFAULT_FILL = [128, 128, 128].freeze unless const_defined?(:DEFAULT_FILL, false)
+    # The drawing can be TURNED on its sheet (2026-10-07, st['rotation'], see
+    # turn_texts!). false = the number is ignored and every drawing is laid
+    # square to the paper, as before.
+    USE_VIEW_ROTATION = true unless const_defined?(:USE_VIEW_ROTATION, false)
     CIRCLE_SEGMENTS = 32 unless const_defined?(:CIRCLE_SEGMENTS, false)
 
     def self.fill_for(mat)
@@ -292,6 +296,12 @@ module InteriorPro
       hidden = Array(st['hidden']).map(&:to_s)
       doc.pages.clear
 
+      # The writing is put back the way it was built before anything else
+      # looks at it; it is turned again, for the angle of THIS pass, at the
+      # very end. See turn_texts!.
+      unturn_texts!(doc)
+      rot = view_rotation(st)
+
       # The hand-drawn marks are redrawn here rather than when the model is
       # read, so a dimension the user just stretched shows up on the very next
       # frame instead of waiting for the next trip through SketchUp.
@@ -335,6 +345,7 @@ module InteriorPro
 
       if p1
         v = p1.views.first
+        v.rotation = rot
         b = doc.canvas('MODEL').bounds
         if st['origin_x'] && st['origin_y']
           v.origin_x = st['origin_x'].to_f
@@ -391,6 +402,7 @@ module InteriorPro
                           sheet_number: num, sheet_title: title)
         pb.kind = 'plan'
         pb.sheet_number = num
+        pb.views.first.rotation = rot
         pb.views.first.centre_on!(doc.canvas('MODEL').bounds)
       end
 
@@ -404,8 +416,133 @@ module InteriorPro
       apply_text_scale!(doc, st)
       # One label's own settings come after its group's, so they win.
       apply_text_overrides!(doc, st)
+      # and now the writing is turned, or held level, for this angle
+      turn_texts!(doc, rot)
 
       apply_visibility!(doc, hidden)
+      doc
+    end
+
+    # ------------------------------------------------- turning the drawing
+    #
+    # 2026-10-07. He asked to turn the drawing on its sheet with a handle on
+    # its corner, the way Rayon does it, and was shown his own house turned
+    # 35 degrees two ways. His answer, in two messages: "הכל צריך להסתובב" -
+    # and then - "רגע, הכל מסתובב התכוונתי למידות, אבל הכל חייב להישאר קריא".
+    #
+    # So, for a drawing turned by `rot` degrees:
+    #   - every LINE turns. That is the window on the sheet (PlanDoc::View)
+    #     and nothing in this file.
+    #   - a DIMENSION'S NUMBER turns with the line it measures, and so does
+    #     any writing that was laid along something, and a hand-written note
+    #     with its box. None of them is ever left upside down: past vertical
+    #     it is read from the other side, the same rule draw_mark_dim has
+    #     always had.
+    #   - a ROOM NAME, its area under it, and a door or window TAG stay level
+    #     on the page. They go where the room or the badge went, but they do
+    #     not tip over. A name and the area under it stay one above the other.
+    #
+    # HOW: the two things that draw a sheet - the window and plan_pdf - are
+    # kept simple. Each puts a piece of writing where the turned drawing puts
+    # its point and turns it by ITS OWN angle PLUS the sheet's. Everything
+    # that is a decision is made here, once, by rewriting the writing's point
+    # and angle so that simple rule gives the answer above. Two drawing
+    # routines cannot disagree about a rule neither of them knows.
+    #
+    # What a piece of writing was BUILT with is kept in :rk and put back by
+    # unturn_texts! at the top of every layout pass - the same reason :h0 and
+    # :x0 exist: layout_pages! runs on every click, on the same shapes.
+    def self.view_rotation(st)
+      return 0.0 unless USE_VIEW_ROTATION
+      d = (st['rotation'] || st[:rotation]).to_f
+      return 0.0 unless d.finite?
+      d -= 360.0 while d > 180.0
+      d += 360.0 while d <= -180.0
+      d
+    end
+
+    def self.unturn_texts!(doc)
+      doc.canvases.each do |cv|
+        cv.layers.each do |lay|
+          lay.shapes.each do |s|
+            next unless s[:type] == :text && s.key?(:rk)
+            s[:x], s[:y], s[:rotation] = s.delete(:rk)
+          end
+        end
+      end
+      doc
+    end
+
+    # Does this writing run WITH the drawing (true) or stay level (false)?
+    def self.text_follows?(layer_name, s)
+      return true if layer_name == LAYERS[:dimensions]
+      return true if s[:follow]
+      s[:rotation].to_f.abs > 0.01           # it was laid along something
+    end
+
+    # A room's name and the area under it are two pieces of writing built one
+    # above the other. Turned separately they would end up side by side, so
+    # each pair turns about the point half way between them and keeps its own
+    # up-and-down. Returns { shape => [ax, ay] }, by identity.
+    def self.room_anchors(lay)
+      out   = {}.compare_by_identity
+      texts = lay.shapes.select { |s| s[:type] == :text }
+      built = ->(s) { [s.key?(:x0) ? s[:x0].to_f : s[:x].to_f, s.key?(:y0) ? s[:y0].to_f : s[:y].to_f] }
+      i = 0
+      while i < texts.length - 1
+        a = texts[i]
+        b = texts[i + 1]
+        ax, ay = built.call(a)
+        bx, by = built.call(b)
+        if b[:text].to_s =~ /\A\d+ SF\z/ && a[:text].to_s !~ /\A\d+ SF\z/ && (ax - bx).abs < 1.0e-6
+          mid = [ax, (ay + by) / 2.0]
+          out[a] = mid
+          out[b] = mid
+          i += 2
+        else
+          i += 1
+        end
+      end
+      out
+    end
+
+    def self.turn_texts!(doc, rot)
+      return doc if rot.to_f.abs < 1.0e-9
+      r = rot * Math::PI / 180.0
+      c = Math.cos(r)
+      n = Math.sin(r)
+      cv = doc.canvas('MODEL')
+      cv.layers.each do |lay|
+        anchors = lay.name == LAYERS[:rooms] ? room_anchors(lay) : nil
+        lay.shapes.each do |s|
+          next unless s[:type] == :text
+          own = s[:rotation].to_f
+          s[:rk] = [s[:x], s[:y], s[:rotation]]
+          if text_follows?(lay.name, s)
+            # with the drawing, and never upside down
+            want = own + rot
+            want -= 180.0 while want > 90.0
+            want += 180.0 while want < -90.0
+            s[:rotation] = want - rot
+          else
+            # level on the page: the sheet's turn is taken back out
+            s[:rotation] = own - rot
+            an = anchors && anchors[s]
+            if an
+              # built at b, shoved by d, hanging off the anchor a:
+              #   on paper = where a went + (b - a) kept upright + d turned
+              bx = s.key?(:x0) ? s[:x0].to_f : s[:x].to_f
+              by = s.key?(:y0) ? s[:y0].to_f : s[:y].to_f
+              dx = s[:x].to_f - bx
+              dy = s[:y].to_f - by
+              ox = bx - an[0]
+              oy = by - an[1]
+              s[:x] = an[0] + (ox * c + oy * n) + dx
+              s[:y] = an[1] + (-ox * n + oy * c) + dy
+            end
+          end
+        end
+      end
       doc
     end
 
@@ -687,7 +824,7 @@ module InteriorPro
       h   = mark_text_h if h <= 0
       lx, ly = dim_label_xy(m, h)
       lay.text(InteriorPro::PlanGenerator.send(:fmt_feet, len),
-               lx, ly, h: h, align: :center, rotation: ang)
+               lx, ly, h: h, align: :center, rotation: ang, follow: true)
     end
 
     # Where a dimension's NUMBER sits (2026-08-19).
@@ -762,7 +899,7 @@ module InteriorPro
       x = mark_num(m, :x)
       y = mark_num(m, :y)
 
-      lay.text(txt, x, y, h: h, align: :center)
+      lay.text(txt, x, y, h: h, align: :center, follow: true)   # turns with its box
 
       w   = text_width(txt, h)
       pad = h * MARK_PAD

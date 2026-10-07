@@ -578,6 +578,28 @@ module InteriorPro
           end
         end
 
+        # Turning the drawing on its sheet (2026-10-07).
+        #
+        # Its own way in, for the same reason set_text_scale has one: the
+        # writing lives on the MODEL canvas, and set_state answers with the
+        # pages and the hand-drawn marks only. The lines turn in the window by
+        # themselves; which writing turns with them and which stays level is
+        # decided in PlanCanvas.turn_texts!, so the layers that carry writing
+        # go back - all of them except the loose lines, which have none and
+        # are a megabyte on his yard.
+        dlg.add_action_callback('set_rotation') do |_, json|
+          begin
+            r  = JSON.parse(json.to_s)
+            st = load_state
+            st['rotation'] = InteriorPro::PlanCanvas.view_rotation('rotation' => r['rotation'])
+            save_state(st)
+            apply_state!(document, st)
+            push_turned(dlg)
+          rescue StandardError => e
+            puts "[Sheet] set_rotation: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
         dlg.add_action_callback('set_state') do |_, json|
           begin
             st = JSON.parse(json.to_s)
@@ -778,6 +800,7 @@ module InteriorPro
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
+          rotate: InteriorPro::PlanCanvas::USE_VIEW_ROTATION,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -840,6 +863,18 @@ module InteriorPro
                            "#{JSON.generate(lay && lay.to_h)})")
       rescue StandardError => e
         puts "[Sheet] push_pages: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+      end
+
+      # After the drawing is turned: the pages, and every layer of the plan
+      # except the loose lines. See set_rotation.
+      def push_turned(dlg)
+        d    = document
+        lays = d.canvas('MODEL').layers
+                .reject { |l| l.name == InteriorPro::PlanGeometry::LAYER }
+        dlg.execute_script("applyLayers(#{JSON.generate(d.pages.map(&:to_h))}, " \
+                           "#{JSON.generate(lays.map(&:to_h))})")
+      rescue StandardError => e
+        puts "[Sheet] push_turned: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
       end
 
       # The click probe. On by default while this is being chased down; it
@@ -1010,6 +1045,9 @@ module InteriorPro
           'site_pids' => [], 'site_z_max' => nil, 'site_soft' => false,
           'images' => [], 'image_title' => 'RENDERING', 'marks' => [],
           'note_arrow' => true, 'strip' => false, 'open' => {}, 'logo' => nil,
+          # How far the drawing is turned on its sheet, in degrees, anticlockwise
+          # (2026-10-07). 0 is every drawing made before this existed.
+          'rotation' => 0,
           # Which sheets do NOT go into the PDF (2026-08-19). The user asked
           # for both, and they are different things: a TICK keeps the sheet in
           # the set and only leaves it out of the print, an X throws it away.
@@ -1660,6 +1698,18 @@ module InteriorPro
             #textbar .pc { color:#888; font-size:12px; }
             #textbar button { width:auto; margin:0; padding:6px 10px; flex:none; }
             #textbar button.tool { width:32px; padding:5px 0; color:#eee; }
+            /* The handle that turns the drawing (2026-10-07). An element of
+               its own over the sheet, not a mark inside the drawing: it must
+               never print, never reach a thumbnail, and never be counted as a
+               line. It sits inside #stage, so it scrolls with the paper. */
+            #rothandle { position:absolute; display:none; z-index:5;
+                         width:24px; height:24px; margin:-12px 0 0 -12px; }
+            #rothandle.on { display:block; }
+            #rothandle svg { width:24px; height:24px; display:block; }
+            #rotdeg { position:absolute; right:28px; top:3px; display:none;
+                      font:700 14px Helvetica,Arial,sans-serif; color:#1f6feb;
+                      background:rgba(255,255,255,.9); padding:0 4px;
+                      border-radius:3px; white-space:nowrap; direction:ltr; }
             #curtain { position:fixed; inset:0; z-index:50; display:none;
                        background:rgba(20,40,70,.82); color:#cfe4ff;
                        align-items:center; justify-content:center; font-size:22px;
@@ -1844,7 +1894,8 @@ module InteriorPro
                     גלגלת = זום לאן שהעכבר מצביע.<br>
                     Shift+גרירה = מזיז את הדף עצמו.<br>
                     לחיצה על סימון בוחרת, Delete מוחק.<br>
-                    לחיצה כפולה על הערה פותחת אותה לעריכה.</div>
+                    לחיצה כפולה על הערה פותחת אותה לעריכה.<br>
+                    הידית בפינה למטה מסובבת את השרטוט.</div>
                 </div>
               </div>
 
@@ -1875,6 +1926,14 @@ module InteriorPro
                 <button id="txdone" class="go">סיים</button>
               </div>
               <div id="sheetWrap"></div>
+              <div id="rothandle" title="סובב את השרטוט">
+                <svg viewBox="-12 -12 24 24"><g fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle r="11" fill="#fff" stroke="#1f6feb" stroke-width="1.2"/>
+                  <path d="M-5.2 3.4 A6.2 6.2 0 1 1 3.4 5.2" stroke="#1f6feb" stroke-width="1.8"/>
+                  <path d="M3.4 5.2 L3.9 1.4 M3.4 5.2 L7.1 4.7" stroke="#1f6feb" stroke-width="1.8"/>
+                </g></svg>
+                <span id="rotdeg"></span>
+              </div>
               <!-- There was a - / fit / + bar pinned to this corner. It sat on
                    top of the drawing and the user asked for it gone: the wheel
                    already zooms, and it zooms where he is pointing. -->
@@ -1947,6 +2006,115 @@ module InteriorPro
           var SF = {};      // scale label -> paper inches per model inch
           var ZOOM = null;  // null = fit the window; otherwise a multiplier
 
+          // ---- turning the drawing on its sheet (2026-10-07) ---------------
+          //
+          // "אני רוצה שתהיה אפשרות לסובב את השרטוט... כמו בתמונה שיש סימון על
+          // הפינה למטה של סיבוב." A handle sits by the bottom corner of the
+          // drawing's frame; he takes hold of it and drags, and the drawing
+          // turns about the middle of the frame.
+          //
+          // STATE.rotation is the angle, in degrees, anticlockwise. ALL of the
+          // turning is in two places: toPaper (the house onto the paper) and
+          // atMouse (the mouse back into the house). Every tool in this window
+          // goes through one of those two, so the eraser, the select arrow,
+          // the dimensions and the drawing tools all work on a turned sheet
+          // with nothing of their own to know.
+          //
+          // The WRITING is Ruby's: which of it turns with the drawing and
+          // which stays level is decided in PlanCanvas.turn_texts!, and the
+          // window only adds the sheet's angle to each piece's own. So while
+          // he is dragging, the writing rides round with the drawing, and when
+          // he lets go Ruby sends it back the way it prints (set_rotation).
+          //
+          // The iron law: Escape in the middle puts it back as it was; Ctrl+Z
+          // takes the last turn back; the zoom and the place do not change;
+          // near a quarter turn it locks onto the quarter turn.
+          var ROTON=true;      // told by Ruby
+          var ROT=null;        // {a0, r0, moved} while the handle is held
+          var VROT=0;          // the turn of the sheet being drawn right now
+          var ROT_SNAP=4;      // degrees either side of a quarter turn
+
+          function viewTurn(){
+            var d=(ROTON && STATE && +STATE.rotation) || 0;
+            if(!d) return {deg:0, c:1, s:0};
+            var r=d*Math.PI/180;
+            return {deg:d, c:Math.cos(r), s:Math.sin(r)};
+          }
+
+          // How wide and how tall the drawing is once it is turned.
+          function turnedSize(){
+            var bw=BOUNDS[2]-BOUNDS[0], bh=BOUNDS[3]-BOUNDS[1], t=viewTurn();
+            if(!t.deg) return [bw,bh];
+            return [Math.abs(bw*t.c)+Math.abs(bh*t.s), Math.abs(bw*t.s)+Math.abs(bh*t.c)];
+          }
+
+          // Where the handle sits: just outside the bottom right corner of the
+          // drawing's frame, in pixels on the sheet.
+          function rotHandleAt(v,k,ph){
+            return [(v.x+v.w)*k+15, (ph-v.y)*k+5];
+          }
+
+          // The direction of the mouse from the middle of the frame, in
+          // degrees, anticlockwise - the way the angle itself is counted.
+          function rotAngleAt(e){
+            if(!VIEW||!PAGE) return null;
+            var p=mouseAt(e); if(!p) return null;
+            var cxs=VIEW.cx*VIEW.k, cys=(PAGE.height-VIEW.cy)*VIEW.k;
+            return Math.atan2(-(p[1]-cys), p[0]-cxs)*180/Math.PI;
+          }
+
+          // A right angle wins: near a quarter turn it IS the quarter turn.
+          function snapTurn(d){
+            while(d>180) d-=360;
+            while(d<=-180) d+=360;
+            var q=Math.round(d/90)*90;
+            d = Math.abs(d-q)<ROT_SNAP ? q : Math.round(d*10)/10;
+            if(d<=-180) d+=360;
+            return d===0 ? 0 : d;
+          }
+
+          function sendTurn(){
+            sketchup.set_rotation(JSON.stringify({rotation:viewTurn().deg}));
+          }
+
+          // He takes hold of the handle.
+          function startTurn(e){
+            if(!ROTON||MODE!=='hand'||CARRY||TCARRY||!VIEW) return;
+            if(TSEL) closeTextBar();
+            ROT={a0:rotAngleAt(e), r0:viewTurn().deg, moved:false};
+            paintRot();
+            if(e.preventDefault) e.preventDefault();
+            if(e.stopPropagation) e.stopPropagation();
+          }
+
+          // Put the handle by the corner of the frame, or put it away: it is
+          // only there with the select arrow, on a sheet that has a drawing.
+          // While he is turning, the angle is written beside it.
+          function paintRot(){
+            var h=$('rothandle'); if(!h||!h.style) return;
+            var v=PAGE ? (PAGE.views||[])[0] : null;
+            if(!ROTON||MODE!=='hand'||!VIEW||!v){ h.className=''; return; }
+            var c=rotHandleAt(v,VIEW.k,PAGE.height), w=$('sheetWrap');
+            h.style.left=((w.offsetLeft||0)+c[0]).toFixed(1)+'px';
+            h.style.top=((w.offsetTop||0)+c[1]).toFixed(1)+'px';
+            h.className='on';
+            var d=$('rotdeg');
+            if(d&&d.style){
+              d.textContent = ROT ? (viewTurn().deg+'°') : '';
+              d.style.display = ROT ? 'block' : 'none';
+            }
+          }
+
+          // The pointer over the handle: the same round arrow, so it says "turn".
+          function turnCursor(){
+            var s='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-12 -12 24 24">'+
+                  '<g fill="none" stroke-linecap="round" stroke-linejoin="round">'+
+                  '<path d="M-6.5 4.2 A7.7 7.7 0 1 1 4.2 6.5 M4.2 6.5 L4.8 1.8 M4.2 6.5 L8.8 5.9" stroke="#fff" stroke-width="4.2"/>'+
+                  '<path d="M-6.5 4.2 A7.7 7.7 0 1 1 4.2 6.5 M4.2 6.5 L4.8 1.8 M4.2 6.5 L8.8 5.9" stroke="#000" stroke-width="1.8"/>'+
+                  '</g></svg>';
+            return 'url("data:image/svg+xml;utf8,'+encodeURIComponent(s)+'") 12 12, pointer';
+          }
+
           function $(id){ return document.getElementById(id); }
 
           function scaleFactor(lbl){ return SF[lbl] || 0.25/12; }
@@ -1980,7 +2148,9 @@ module InteriorPro
               if(fs<1.5) return '';
               var anchor = s.__paper ? 'start' : 'middle';
               var base   = s.__paper ? 'alphabetic' : 'central';
-              var rot = s.rotation ? ' transform="rotate('+(-s.rotation)+','+px.toFixed(1)+','+py.toFixed(1)+')"' : '';
+              // writing on the plan carries the sheet's turn as well as its own
+              var rdeg = (s.rotation||0) + (s.__paper ? 0 : VROT);
+              var rot = rdeg ? ' transform="rotate('+(-rdeg)+','+px.toFixed(1)+','+py.toFixed(1)+')"' : '';
               o.push('<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" font-family="Helvetica,Arial"'+
                      ' font-size="'+fs.toFixed(1)+'" text-anchor="'+anchor+'" dominant-baseline="'+base+
                      '" fill="#000"'+(s.bold?' font-weight="700"':'')+(s.italic?' font-style="italic"':'')+
@@ -2121,13 +2291,24 @@ module InteriorPro
 
             var v=(pg.views||[])[0];
             if(live) VIEW=null;
+            VROT=0;
             if(v){
               var sf=scaleFactor(STATE.scale);
               var cx=v.x+v.w/2, cy=v.y+v.h/2;
               var toPaper=function(mx,my){ return [cx+(mx-STATE.origin_x)*sf, cy+(my-STATE.origin_y)*sf]; };
+              // a turned drawing: the same, turned about the middle of the frame
+              var vt=viewTurn();
+              VROT=vt.deg;
+              if(vt.deg){
+                var rc=vt.c, rs=vt.s;
+                toPaper=function(mx,my){
+                  var dx=(mx-STATE.origin_x)*sf, dy=(my-STATE.origin_y)*sf;
+                  return [cx+dx*rc-dy*rs, cy+dx*rs+dy*rc];
+                };
+              }
               // remembered so a click on the screen can be turned back into a
               // place in the house
-              if(live) VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper};
+              if(live) VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper, rot:vt.deg, rc:vt.c, rs:vt.s};
               var cid='vclip'+(live?'':'t'+(pg.name||'').replace(/[^A-Za-z0-9]/g,''));
               o.push('<clipPath id="'+cid+'"><rect x="'+(v.x*k).toFixed(1)+'" y="'+((ph-v.y-v.h)*k).toFixed(1)+
                      '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+'"/></clipPath>');
@@ -2264,6 +2445,7 @@ module InteriorPro
             paintErase();
             paintSnap();
             paintDraw();
+            paintRot();
             paintTextPick();
             if(!(moving===true && FAST) && $('strip').className==='on') paintStrip();
           }
@@ -2302,6 +2484,7 @@ module InteriorPro
             if(!ZHOLD){
               stage.scrollLeft += (r2.left + fx * r2.width)  - cx;
               stage.scrollTop  += (r2.top  + fy * r2.height) - cy;
+              paintRot();
               return;
             }
             // PUT the sheet where that spot is back under the mouse
@@ -2338,6 +2521,7 @@ module InteriorPro
             wrap.style.marginBottom = Math.max(0, SB - (T + r2.height)) + 'px';
             stage.scrollLeft = Math.max(0, SL - L);
             stage.scrollTop  = Math.max(0, ST - T);
+            paintRot();                              // the sheet has just been given a new place
           }
           var ZHOLD = true;
 
@@ -2351,8 +2535,13 @@ module InteriorPro
             var r=svg.getBoundingClientRect();
             var px=(e.clientX-r.left)/VIEW.k;                 // paper inches
             var py=PAGE.height-(e.clientY-r.top)/VIEW.k;
-            return [(px-VIEW.cx)/VIEW.sf+STATE.origin_x,      // model inches
-                    (py-VIEW.cy)/VIEW.sf+STATE.origin_y];
+            if(!VIEW.rot)
+              return [(px-VIEW.cx)/VIEW.sf+STATE.origin_x,    // model inches
+                      (py-VIEW.cy)/VIEW.sf+STATE.origin_y];
+            // a turned drawing: the turn is taken back out
+            var qx=(px-VIEW.cx)/VIEW.sf, qy=(py-VIEW.cy)/VIEW.sf;
+            return [qx*VIEW.rc+qy*VIEW.rs+STATE.origin_x,
+                    -qx*VIEW.rs+qy*VIEW.rc+STATE.origin_y];
           }
 
           function marks(){ return STATE.marks||(STATE.marks=[]); }
@@ -3184,8 +3373,8 @@ module InteriorPro
             // the writing itself cannot move until Ruby redraws it
             var tc = TDRAG || TCARRY;
             if(tc){
-              b.x += tc.dx*VIEW.sf*VIEW.k;
-              b.y -= tc.dy*VIEW.sf*VIEW.k;      // paper y is up, screen y is down
+              b.x += (tc.dx*VIEW.rc-tc.dy*VIEW.rs)*VIEW.sf*VIEW.k;
+              b.y -= (tc.dx*VIEW.rs+tc.dy*VIEW.rc)*VIEW.sf*VIEW.k;      // paper y is up, screen y is down
             }
             var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
             n.setAttribute('id','txhi');
@@ -3517,6 +3706,7 @@ module InteriorPro
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
               cancelCarry();
+              if(ROT){ STATE.rotation=ROT.r0; ROT=null; }
               BAND=null; SELS=[];
               PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
               DRAWSNAP=null; CHAIN0=null;
@@ -3527,6 +3717,7 @@ module InteriorPro
             cancelCarry();                       // a mark in the hand goes home
             SSEL=[];                             // and the picked lines are let go
             TCARRY=null; TDRAG=null; MDRAG=null; // a label or a mark mid-drag stays put
+            if(ROT){ STATE.rotation=ROT.r0; ROT=null; }   // a drawing half turned goes back as it was
             if(DRAG){
               if(DRAG.pan){
                 var stg=$('stage'); stg.scrollLeft=DRAG.sl; stg.scrollTop=DRAG.st;
@@ -3547,7 +3738,7 @@ module InteriorPro
 
           function setMode(m){
             if((m==='line'||m==='chain') && !LINEDRAW) m='hand';
-            DRAWSNAP=null; CHAIN0=null;
+            DRAWSNAP=null; CHAIN0=null; ROT=null;
             cancelCarry();
             BAND=null; SELS=[];
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
@@ -3847,6 +4038,14 @@ module InteriorPro
           }
 
           function onMove(e){
+            if(ROT){
+              var ra=rotAngleAt(e);
+              if(ra!==null && ROT.a0!==null){
+                var nr=snapTurn(ROT.r0+(ra-ROT.a0));
+                if(nr!==viewTurn().deg){ STATE.rotation=nr; ROT.moved=true; render(true); }
+              }
+              return;
+            }
             if(BAND){
               var bq=mouseAt(e);
               if(bq){ BAND.x1=bq[0]; BAND.y1=bq[1]; BAND.moved=true; paintBand(); }
@@ -3915,12 +4114,32 @@ module InteriorPro
             }
             var k=fitK()*(ZOOM||1);
             var sf=scaleFactor(STATE.scale);
+            var mvt=viewTurn();
+            if(mvt.deg){
+              // on a turned drawing the plan still goes the way the mouse goes
+              var ex=(e.clientX-DRAG.x)/k/sf, ey=-(e.clientY-DRAG.y)/k/sf;
+              STATE.origin_x=DRAG.ox-(ex*mvt.c+ey*mvt.s);
+              STATE.origin_y=DRAG.oy-(-ex*mvt.s+ey*mvt.c);
+              render(true);
+              return;
+            }
             STATE.origin_x=DRAG.ox-(e.clientX-DRAG.x)/k/sf;
             STATE.origin_y=DRAG.oy+(e.clientY-DRAG.y)/k/sf;
             render(true);
           }
 
           function onUp(){
+            if(ROT){
+              var rr=ROT;
+              ROT=null;
+              if(rr.moved && viewTurn().deg!==rr.r0){
+                // one turn of the handle is one step for Ctrl+Z
+                if(UNDOON){ UNDO.push({g:++UGROUP, rot:rr.r0}); if(UNDO.length>300) UNDO.shift(); }
+                sendTurn();
+              }
+              render();
+              return;
+            }
             if(BAND){
               var band=BAND;
               BAND=null;
@@ -4031,19 +4250,25 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
-            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[];
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
               if(u.site) siteBack=siteBack.concat(u.site);
               if(u.added) addBack=addBack.concat(u.added);
+              if(u.rot!==undefined) rotBack=u.rot;
             }
             // nothing half done survives an undo - it was drawn on the sheet as it was
             SSEL=[];
             cancelCarry();
             TCARRY=null; TDRAG=null; MDRAG=null; BAND=null; SELS=[]; SEL=null;
             PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; SNAPPED=null;
-            DRAWSNAP=null; CHAIN0=null;
+            DRAWSNAP=null; CHAIN0=null; ROT=null;
+            if(rotBack!==null){
+              // the drawing goes back to the angle it had, and Ruby turns the writing back with it
+              STATE.rotation=rotBack;
+              sendTurn();
+            }
             if(addBack.length){
               // lines he DREW come off again: highest number first, and only
               // if that number still holds that very line
@@ -4100,6 +4325,9 @@ module InteriorPro
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
+            ROTON = (p.rotate!==false);
+            ROT=null;
+            if(STATE.rotation===undefined||STATE.rotation===null) STATE.rotation=0;
             if($('tools2')) $('tools2').style.display = LINEDRAW ? '' : 'none';
             SSEL=[];                 // the numbers belonged to the sheet that was just replaced
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
@@ -4196,6 +4424,14 @@ module InteriorPro
             buildLayers();
             showFit();
             render();
+          }
+
+          // The same, for several layers of the plan at once: after the
+          // drawing is turned, the writing on it comes back from Ruby the way
+          // it prints - turned with its line, or level on the page.
+          function applyLayers(pages, layers){
+            (layers||[]).forEach(function(l){ putLayer('MODEL', l); });
+            applyPages(pages, null);
           }
 
           // Drop a layer Ruby just rebuilt in over the one we were holding.
@@ -4458,7 +4694,8 @@ module InteriorPro
             var best=null;
             SCALES.forEach(function(s){
               if(best) return;
-              if((BOUNDS[2]-BOUNDS[0])*SF[s]<=v.w&&(BOUNDS[3]-BOUNDS[1])*SF[s]<=v.h) best=s;
+              var ts=turnedSize();
+              if(ts[0]*SF[s]<=v.w&&ts[1]*SF[s]<=v.h) best=s;
             });
             if(best){ STATE.scale=best; $('scale').value=best; }
             centerPlan(true);
@@ -4472,13 +4709,14 @@ module InteriorPro
             var v=pg&&(pg.views||[])[0];
             if(!BOUNDS||!v){ $('fit').textContent=''; return; }
             var sf=scaleFactor(STATE.scale);
-            var mw=(BOUNDS[2]-BOUNDS[0])*sf, mh=(BOUNDS[3]-BOUNDS[1])*sf;
+            var tz=turnedSize();
+            var mw=tz[0]*sf, mh=tz[1]*sf;
             if(mw<=v.w&&mh<=v.h){ $('fit').textContent='נכנס בדף ✓'; $('fit').style.color='#8fdf8f'; return; }
             var best=null;
             SCALES.forEach(function(s){
               if(best) return;
               var f=SF[s];
-              if((BOUNDS[2]-BOUNDS[0])*f<=v.w&&(BOUNDS[3]-BOUNDS[1])*f<=v.h) best=s;
+              if(tz[0]*f<=v.w&&tz[1]*f<=v.h) best=s;
             });
             $('fit').textContent='לא נכנס. הכי גדול שנכנס: '+(best||'—');
             $('fit').style.color='#f0a860';
@@ -4687,6 +4925,8 @@ module InteriorPro
             $('tnote').onclick=function(){ setMode('note'); };
             $('terase').onclick=function(){ setMode('erase'); };
             $('tline').onclick=function(){ setMode('line'); };
+            $('rothandle').onmousedown=function(e){ startTurn(e); };
+            if($('rothandle').style) $('rothandle').style.cursor=turnCursor();
             $('tchain').onclick=function(){ setMode('chain'); };
             $('tundo').onclick=function(){ undoMark(); };
             $('undrop').onclick=function(){ sketchup.restore_site_lines(); };

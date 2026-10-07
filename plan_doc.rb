@@ -265,6 +265,27 @@ module InteriorPro
     class View
       attr_accessor :name, :x, :y, :w, :h, :canvas, :scale,
                     :origin_x, :origin_y, :frame
+      # How far the drawing is TURNED inside this window, in degrees,
+      # anticlockwise (2026-10-07). It turns about the middle of the window -
+      # the same point the origin lands on - so turning it never slides it
+      # off the sheet. 0 is every drawing made before this existed.
+      # (a window made before this code was loaded has no angle at all: 0)
+      def rotation
+        @rotation || 0.0
+      end
+
+      def rotation=(deg)
+        d = deg.to_f
+        d = 0.0 unless d.finite?
+        d -= 360.0 while d > 180.0
+        d += 360.0 while d <= -180.0
+        @rotation = d
+        r = d * Math::PI / 180.0
+        # Exactly 1 and 0 for a drawing that is not turned, so its numbers are
+        # the numbers they always were, to the last digit.
+        @rot_c = d.zero? ? 1.0 : Math.cos(r)
+        @rot_s = d.zero? ? 0.0 : Math.sin(r)
+      end
 
       def initialize(name, x, y, w, h, canvas, scale = DEFAULT_SCALE)
         @name     = name.to_s
@@ -277,6 +298,7 @@ module InteriorPro
         @origin_x = 0.0
         @origin_y = 0.0
         @frame    = false   # draw a thin box round the window
+        self.rotation = 0.0
       end
 
       def scale_factor
@@ -292,23 +314,46 @@ module InteriorPro
       def model_to_paper(mx, my)
         s = scale_factor
         cx, cy = centre
-        [cx + (mx.to_f - @origin_x) * s, cy + (my.to_f - @origin_y) * s]
+        c  = @rot_c || 1.0
+        n  = @rot_s || 0.0
+        dx = (mx.to_f - @origin_x) * s
+        dy = (my.to_f - @origin_y) * s
+        [cx + dx * c - dy * n, cy + dx * n + dy * c]
       end
 
       # Paper inches -> model inches.
       def paper_to_model(px, py)
         s = scale_factor
         cx, cy = centre
-        [@origin_x + (px.to_f - cx) / s, @origin_y + (py.to_f - cy) / s]
+        c  = @rot_c || 1.0
+        n  = @rot_s || 0.0
+        qx = (px.to_f - cx) / s
+        qy = (py.to_f - cy) / s
+        [@origin_x + qx * c + qy * n, @origin_y - qx * n + qy * c]
       end
 
-      # Which slice of the model this window can show, as model inches.
+      # Which slice of the model this window can show, as model inches. For a
+      # turned drawing: the box round the turned window.
       def model_window
-        s = scale_factor
-        half_w = (@w / 2.0) / s
-        half_h = (@h / 2.0) / s
-        [@origin_x - half_w, @origin_y - half_h,
-         @origin_x + half_w, @origin_y + half_h]
+        if rotation.zero?
+          s = scale_factor
+          half_w = (@w / 2.0) / s
+          half_h = (@h / 2.0) / s
+          return [@origin_x - half_w, @origin_y - half_h,
+                  @origin_x + half_w, @origin_y + half_h]
+        end
+        pts = [[@x, @y], [@x + @w, @y], [@x + @w, @y + @h], [@x, @y + @h]]
+              .map { |px, py| paper_to_model(px, py) }
+        [pts.map(&:first).min, pts.map(&:last).min,
+         pts.map(&:first).max, pts.map(&:last).max]
+      end
+
+      # How wide and how tall the drawing is once it is turned, in model inches.
+      def turned_size(bounds)
+        mw = bounds[2] - bounds[0]
+        mh = bounds[3] - bounds[1]
+        return [mw, mh] if rotation.zero?
+        [(mw * @rot_c).abs + (mh * @rot_s).abs, (mw * @rot_s).abs + (mh * @rot_c).abs]
       end
 
       # Put the middle of the drawing in the middle of the window.
@@ -323,16 +368,15 @@ module InteriorPro
       def fits?(bounds)
         return true unless bounds
         s = scale_factor
-        (bounds[2] - bounds[0]) * s <= @w + 1e-9 &&
-          (bounds[3] - bounds[1]) * s <= @h + 1e-9
+        mw, mh = turned_size(bounds)
+        mw * s <= @w + 1e-9 && mh * s <= @h + 1e-9
       end
 
       # REPORTING ONLY. The biggest scale in the list that would hold this
       # drawing. Never changes the view - the user chooses.
       def fit_scale(bounds)
         return @scale unless bounds
-        mw = bounds[2] - bounds[0]
-        mh = bounds[3] - bounds[1]
+        mw, mh = turned_size(bounds)
         return nil if mw <= 0 && mh <= 0
         row = SCALES.find do |(_label, per_foot)|
           s = per_foot / 12.0
@@ -344,7 +388,7 @@ module InteriorPro
       def to_h
         { name: @name, x: @x, y: @y, w: @w, h: @h, canvas: @canvas,
           scale: @scale, origin_x: @origin_x, origin_y: @origin_y,
-          frame: @frame }
+          frame: @frame, rotation: rotation }
       end
     end
 
