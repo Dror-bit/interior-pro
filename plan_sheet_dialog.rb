@@ -55,6 +55,11 @@ module InteriorPro
     # more, a rubber band - and Delete takes every picked one at once
     # (2026-10-07, see SSEL in the page). false = only the eraser reaches them.
     USE_LINE_PICK = true unless const_defined?(:USE_LINE_PICK, false)
+    # Loose lines can be DRAWN on the sheet: one line with two clicks, or a
+    # running line that carries on from click to click (2026-10-07, see
+    # addSiteLine in the page and add_site_line here). false = the two buttons
+    # are not shown and Ruby takes no drawn line.
+    USE_LINE_DRAW = true unless const_defined?(:USE_LINE_DRAW, false)
 
     class << self
       def show
@@ -274,6 +279,100 @@ module InteriorPro
                         "#{((Time.now - t0) * 1000).round} ms")
           rescue StandardError => e
             puts "[Sheet] undo_site_drop: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # Drawing a line onto the sheet (2026-10-07).
+        #
+        # "הוספת קווים ע"י ציור" - and asked which way, he said both: one line
+        # with two clicks, and a running line that carries on from click to
+        # click. To Ruby they are the same thing, one line of two points at a
+        # time; the only difference is where the window starts the next one.
+        #
+        # A drawn line is a loose line like any other. It goes on the END of
+        # the same list, so shape number i is still line number i, and the
+        # eraser, the select arrow, Delete and Ctrl+Z reach it with no code of
+        # their own. NOTHING HERE TOUCHES THE MODEL.
+        #
+        # The quick road is the eraser's, the other way round: the window has
+        # already put the line on its own sheet and says how many lines there
+        # were before. If both sides agree, the list and the document Ruby is
+        # holding gain the same shape and the answer is two numbers. If they do
+        # not - or the sheet had no loose-line layer to add to - the sheet is
+        # built and sent, which puts the window right.
+        dlg.add_action_callback('add_site_line') do |_, json|
+          begin
+            t0  = Time.now
+            r   = JSON.parse(json.to_s)
+            pts = drawn_points(r['p'])
+            if !USE_LINE_DRAW || pts.nil?
+              why = USE_LINE_DRAW ? 'not a line' : 'switched off'
+              puts "[Sheet] add_site_line: #{why} - nothing added, the sheet is sent again"
+              @doc = nil
+              push_all(dlg)
+              erase_trace("draw: REFUSED - #{why}, sheet sent again")
+            else
+              lines  = site_lines
+              before = lines.length
+              quiet  = r['quiet'] == true && r['n'].to_i == before
+              self.site_lines = lines + [pts]
+              road = 'quick'
+              unless quiet && add_to_document!(pts, before)
+                road = quiet ? 'full (document out of step)' : 'full'
+                @doc = nil
+                push_all(dlg)
+              end
+              erase_trace("draw: 1 added, #{site_lines.length} on the sheet, #{road}, " \
+                          "#{((Time.now - t0) * 1000).round} ms")
+            end
+            dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, " \
+                               "#{JSON.generate(site_dropped.length)})")
+          rescue StandardError => e
+            puts "[Sheet] add_site_line: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # Ctrl+Z on a drawn line: it comes off again.
+        #
+        # The window has already taken it off its own sheet and says which
+        # number it had and what it was. Ruby believes it only if both sides
+        # count the same number of lines and that number really holds that
+        # line. Anything else: nothing is changed and the whole sheet is sent.
+        #
+        # It does NOT join the rubbed-out lines. Those are lines of the model's
+        # own drawing waiting to be put back; a line he drew and took back was
+        # never there, and "put back everything" must not bring it.
+        dlg.add_action_callback('undo_site_add') do |_, json|
+          begin
+            t0     = Time.now
+            r      = JSON.parse(json.to_s)
+            items  = Array(r['items']).map { |it| [it['i'].to_i, drawn_points(it['p'])] }
+            lines  = site_lines.dup
+            before = lines.length
+            good   = USE_SHEET_UNDO && !items.empty? && r['n'].to_i == before &&
+                     items.map(&:first).uniq.length == items.length &&
+                     items.all? { |i, pts| pts && i >= 0 && i < before && same_line?(lines[i], pts) }
+            road = 'quick'
+            if good
+              gone = items.map(&:first).sort.reverse       # highest first
+              gone.each { |i| lines.delete_at(i) }
+              self.site_lines = lines
+              unless drop_from_document!(gone, before)
+                road = 'full (document out of step)'
+                @doc = nil
+                push_all(dlg)
+              end
+            else
+              road = 'REFUSED - out of step, sheet sent again'
+              @doc = nil
+              push_all(dlg)
+            end
+            dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, " \
+                               "#{JSON.generate(site_dropped.length)})")
+            erase_trace("undo draw: #{good ? items.length : 0} off, #{site_lines.length} on the sheet, " \
+                        "#{road}, #{((Time.now - t0) * 1000).round} ms")
+          rescue StandardError => e
+            puts "[Sheet] undo_site_add: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
         end
 
@@ -660,6 +759,7 @@ module InteriorPro
           escape_exits: USE_ESCAPE_EXITS,
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
+          line_draw: USE_LINE_DRAW,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -813,6 +913,50 @@ module InteriorPro
         true
       rescue StandardError => e
         puts "[Sheet] put_back_in_document!: #{e.class}: #{e.message}"
+        false
+      end
+
+      # What the window sent as a drawn line, checked: exactly two points, four
+      # real numbers, not both in the same place. Rounded to a hundredth of an
+      # inch, the way PlanGeometry.snapshot writes every other loose line.
+      # nil = not a line.
+      def drawn_points(raw)
+        return nil unless raw.is_a?(Array) && raw.length == 2
+        pts = []
+        raw.each do |q|
+          return nil unless q.is_a?(Array) && q.length >= 2 && q[0].is_a?(Numeric) && q[1].is_a?(Numeric)
+          x = q[0].to_f
+          y = q[1].to_f
+          return nil unless x.finite? && y.finite?
+          pts << [x.round(2), y.round(2)]
+        end
+        return nil if pts[0] == pts[1]
+        pts
+      end
+
+      # Is this line of the list the two points the window says it is?
+      def same_line?(line, pts)
+        return false unless line.is_a?(Array) && line.length == 2
+        line.each_with_index.all? do |q, k|
+          q.is_a?(Array) && (q[0].to_f - pts[k][0]).abs < 0.011 && (q[1].to_f - pts[k][1]).abs < 0.011
+        end
+      rescue StandardError
+        false
+      end
+
+      # A drawn line goes onto the END of the loose lines in the document Ruby
+      # is holding, written the way PlanGeometry.build! writes every one of
+      # them, so the document does not have to be built again. before = how
+      # many lines there were. false = could not, build it again.
+      def add_to_document!(pts, before)
+        return true if @doc.nil?        # nothing built yet; the next build reads the list
+        cv  = @doc.canvas('MODEL')
+        lay = cv.layers.find { |l| l.name == InteriorPro::PlanGeometry::LAYER }
+        return false unless lay && lay.shapes.length == before
+        lay.polyline(pts, weight: 0.010)
+        true
+      rescue StandardError => e
+        puts "[Sheet] add_to_document!: #{e.class}: #{e.message}"
         false
       end
 
@@ -1327,6 +1471,27 @@ module InteriorPro
                       </g></svg>
                     </button>
                   </div>
+                  <!-- Drawing loose lines onto the sheet (2026-10-07). He
+                       asked for both: ONE line with two clicks, and a RUNNING
+                       line that carries on from click to click. -->
+                  <div class="row" id="tools2" style="margin-top:6px">
+                    <button id="tline" class="tool" title="קו אחד: שני קליקים">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M6.2 17.8 L17.8 6.2"/>
+                        <circle cx="5" cy="19" r="1.9"/>
+                        <circle cx="19" cy="5" r="1.9"/>
+                      </g></svg>
+                    </button>
+                    <button id="tchain" class="tool" title="קו רציף: כל קליק ממשיך מהקודם">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <path d="M4.2 16.6 L8.2 8.4 M10 8.6 L14.2 15.4 M15.8 15.4 L19.8 7.4"/>
+                        <circle cx="3.5" cy="18" r="1.6"/>
+                        <circle cx="9" cy="7" r="1.6"/>
+                        <circle cx="15" cy="17" r="1.6"/>
+                        <circle cx="20.5" cy="6" r="1.6"/>
+                      </g></svg>
+                    </button>
+                  </div>
                   <!-- How far a new dimension stands off the thing it
                        measures. Sitting ON the wall is what the user hit:
                        nothing to read and nothing to grab (2026-08-19).
@@ -1445,7 +1610,7 @@ module InteriorPro
           // Told by Ruby in the payload, never guessed here - see markTextH.
           var DIM_TEXT_H=5, DIM_LABEL_OFF=0.8;
           var URLS={};                // path -> file:/// address, for the sheet
-          var MODE='hand';            // hand | dim | note | erase
+          var MODE='hand';            // hand | dim | note | erase | line | chain
           var ERA=null;               // which SITE line the rubber is over
           var PEND=null;              // the first point of a dimension
           // The second point, and then the dimension is not finished yet
@@ -1818,6 +1983,7 @@ module InteriorPro
             hookDrag();
             paintErase();
             paintSnap();
+            paintDraw();
             paintTextPick();
             if(!(moving===true && FAST) && $('strip').className==='on') paintStrip();
           }
@@ -2259,6 +2425,188 @@ module InteriorPro
                 if(siteInBox(sh, band.x0, band.y0, band.x1, band.y1, touching)) SSEL.push(i);
               });
             }
+          }
+
+          // ---- drawing loose lines (2026-10-07) ----------------------------
+          //
+          // "הוספת קווים ע"י ציור." Asked which way, he said both:
+          //   line    two clicks make one line; the next click starts a new one
+          //   chain   every click carries on from the one before, the way the
+          //           Line tool in SketchUp does. Escape ends the run, and so
+          //           does coming back to the point it started from.
+          //
+          // A drawn line is a loose line like any other - a two-point shape on
+          // the END of the SITE layer, the same number in Ruby's list - so the
+          // eraser, the select arrow, Delete and Ctrl+Z reach it with nothing
+          // written for them here.
+          //
+          // The iron law in CLAUDE.md, line by line:
+          //   Escape    drops the half-drawn line, gives the arrow back (escapeAll)
+          //   Ctrl+Z    takes the last drawn line off again, one a press (undoLast)
+          //   the view  after a click: same zoom, same place, same tool in the hand
+          //   at once   the rubber line and the ring are two elements of their
+          //             own, painted without drawing the sheet again (paintDraw)
+          //   locking   corners and ends of lines (green), middles (cyan),
+          //             anywhere along a line (magenta) - and the click lands
+          //             on exactly the point the ring showed
+          var LINEDRAW=true;
+          var DRAWSNAP=null;      // {p:[x,y], kind:'end'|'mid'|'edge'|null}: where a click would land now
+          var CHAIN0=null;        // where the run being drawn started
+
+          // The colours every tool in the plugin uses for where it locked.
+          function snapColor(kind){
+            return kind==='end' ? '#2fbf5f' : kind==='mid' ? '#00b8d4' : kind==='edge' ? '#d63fd6' : null;
+          }
+
+          // Every straight piece drawn on the plan right now - walls, loose
+          // lines, anything on a layer that is switched on.
+          function eachSeg(fn){
+            if(!DOC||!STATE||!PAGE) return;
+            var v=(PAGE.views||[])[0]; if(!v) return;
+            var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
+            if(!cv) return;
+            var hid=STATE.hidden||[];
+            cv.layers.forEach(function(l){
+              if(hid.indexOf(l.name)>=0) return;
+              var sh=l.shapes||[];
+              for(var i=0;i<sh.length;i++){
+                var s=sh[i];
+                if(s.type==='line'){ fn(s.x1,s.y1,s.x2,s.y2); continue; }
+                var q=s.points; if(!q||q.length<2) continue;
+                for(var j=0;j<q.length-1;j++) fn(q[j][0],q[j][1],q[j+1][0],q[j+1][1]);
+                if((s.closed||s.type==='polygon')&&q.length>2)
+                  fn(q[q.length-1][0],q[q.length-1][1],q[0][0],q[0][1]);
+              }
+            });
+          }
+
+          // p is where the mouse really is, in model inches. Returns the point
+          // a click there lands on, and what it locked to. A corner or an end
+          // wins over a middle, a middle over "somewhere along the line".
+          //
+          // Worked out in model inches, with the reach turned into inches from
+          // SNAP_PX - so the pull is the same on the screen at any zoom, and
+          // fifteen thousand lines are thrown out by four comparisons each
+          // instead of being carried to the screen one point at a time.
+          function drawSnap(p){
+            if(!p||!VIEW) return {p:p||null, kind:null};
+            var tol=SNAP_PX/(VIEW.sf*VIEW.k);
+            var x=p[0], y=p[1];
+            var e=null, ed=tol, m=null, md=tol, g=null, gd=tol*0.75;
+            eachSeg(function(ax,ay,bx,by){
+              if((ax<x-tol&&bx<x-tol)||(ax>x+tol&&bx>x+tol)||
+                 (ay<y-tol&&by<y-tol)||(ay>y+tol&&by>y+tol)) return;
+              var d=Math.hypot(ax-x,ay-y); if(d<ed){ ed=d; e=[ax,ay]; }
+              d=Math.hypot(bx-x,by-y);     if(d<ed){ ed=d; e=[bx,by]; }
+              var mx=(ax+bx)/2, my=(ay+by)/2;
+              d=Math.hypot(mx-x,my-y);     if(d<md){ md=d; m=[mx,my]; }
+              var vx=bx-ax, vy=by-ay, L=vx*vx+vy*vy;
+              if(L>0){
+                var t=((x-ax)*vx+(y-ay)*vy)/L;
+                if(t>0&&t<1){
+                  var fx=ax+vx*t, fy=ay+vy*t;
+                  d=Math.hypot(fx-x,fy-y); if(d<gd){ gd=d; g=[fx,fy]; }
+                }
+              }
+            });
+            if(e) return {p:e, kind:'end'};
+            if(m) return {p:m, kind:'mid'};
+            if(g) return {p:g, kind:'edge'};
+            return {p:p, kind:null};
+          }
+
+          // The ring on the point the next click will land on, and the line
+          // being pulled out to it. Painted straight onto the drawing, like
+          // the eraser's highlight: going through render() on every move of
+          // the mouse would build every line on the sheet again.
+          function paintDraw(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#drawhi');
+            if(old) svg.removeChild(old);
+            if((MODE!=='line'&&MODE!=='chain')||!VIEW||!DRAWSNAP||!DRAWSNAP.p) return;
+            var NS='http://www.w3.org/2000/svg';
+            var g=document.createElementNS(NS,'g');
+            g.setAttribute('id','drawhi');
+            g.setAttribute('pointer-events','none');
+            var q=screenOf(DRAWSNAP.p[0],DRAWSNAP.p[1]);
+            if(PEND){
+              var a=screenOf(PEND[0],PEND[1]);
+              var ln=document.createElementNS(NS,'line');
+              ln.setAttribute('x1',a[0].toFixed(1)); ln.setAttribute('y1',a[1].toFixed(1));
+              ln.setAttribute('x2',q[0].toFixed(1)); ln.setAttribute('y2',q[1].toFixed(1));
+              ln.setAttribute('stroke','#1f6feb');
+              ln.setAttribute('stroke-width','1.5');
+              g.appendChild(ln);
+            }
+            var col=snapColor(DRAWSNAP.kind);
+            if(col){
+              var c=document.createElementNS(NS,'circle');
+              c.setAttribute('cx',q[0].toFixed(1)); c.setAttribute('cy',q[1].toFixed(1));
+              c.setAttribute('r','7');
+              c.setAttribute('fill','none');
+              c.setAttribute('stroke',col);
+              c.setAttribute('stroke-width','2.5');
+              g.appendChild(c);
+            }
+            svg.appendChild(g);
+          }
+
+          // One more loose line on the sheet, from a to b. On the sheet HERE
+          // at once, and Ruby is told what it is and how many lines there
+          // were, exactly as the eraser tells it what went. false = not added.
+          function addSiteLine(a,b){
+            if(a[0]===b[0]&&a[1]===b[1]) return false;
+            var lay=siteLayer();
+            if(!lay && rawSiteLayer()){
+              $('markinfo').textContent='השכבה SITE כבויה. הדלק אותה תחת "שכבות" כדי לצייר.';
+              return false;
+            }
+            var pts=[[a[0],a[1]],[b[0],b[1]]];
+            var s={type:'polyline', points:pts, closed:false, weight:0.01};
+            if(!lay){
+              // No loose line on this sheet yet, so there is no layer to put
+              // it on: Ruby makes one and sends the sheet. The step is still
+              // written down, so Ctrl+Z takes this line off like any other.
+              var n0=USITE_N||0;
+              if(UNDOON){ UNDO.push({g:++UGROUP, added:[{i:n0, s:s}]}); if(UNDO.length>300) UNDO.shift(); }
+              USITE_N=n0+1;
+              sketchup.add_site_line(JSON.stringify({p:pts}));
+              return true;
+            }
+            var n=lay.shapes.length;
+            lay.shapes.push(s);
+            if(UNDOON){ UNDO.push({g:++UGROUP, added:[{i:n, s:s}]}); if(UNDO.length>300) UNDO.shift(); }
+            USITE_N=lay.shapes.length;
+            STATE.site_count=lay.shapes.length;
+            render();
+            sketchup.add_site_line(JSON.stringify({p:pts, quiet:true, n:n}));
+            return true;
+          }
+
+          // One click of either drawing tool. p = where the mouse is, in
+          // model inches. The point used is the one the ring showed.
+          function drawClick(p){
+            if(!LINEDRAW) return;
+            var ds=drawSnap(p);
+            // a hundredth of an inch, like every other loose line
+            var pt=[Math.round(ds.p[0]*100)/100, Math.round(ds.p[1]*100)/100];
+            DRAWSNAP={p:pt, kind:ds.kind};
+            if(!PEND){
+              PEND=pt; CHAIN0=pt.slice();
+              paintDraw(); showMarks();
+              return;
+            }
+            // a second click on the very same spot is not a line
+            var a=screenOf(PEND[0],PEND[1]), b=screenOf(pt[0],pt[1]);
+            if(Math.hypot(a[0]-b[0],a[1]-b[1])<2) return;
+            if(!addSiteLine(PEND,pt)) return;
+            // line: done - the next click starts a new one.
+            // chain: the next line starts where this one ended, unless it has
+            // just come back to where the run began: the shape is closed.
+            var closed = CHAIN0 && pt[0]===CHAIN0[0] && pt[1]===CHAIN0[1];
+            if(MODE==='chain' && !closed){ PEND=pt; }
+            else { PEND=null; CHAIN0=null; }
+            paintDraw(); showMarks();
           }
 
           function paintSnap(){
@@ -2891,6 +3239,7 @@ module InteriorPro
               cancelCarry();
               BAND=null; SELS=[];
               PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
+              DRAWSNAP=null; CHAIN0=null;
               closeTextBar();
               render(); showMarks();
               return;
@@ -2909,6 +3258,7 @@ module InteriorPro
             BAND=null; SELS=[]; SEL=null;
             PEND=null; PEND2=null; PEND3=null; HOVER=null;
             ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
+            DRAWSNAP=null; CHAIN0=null;          // a half-drawn line is dropped, never finished
             hideNoteBar();
             closeTextBar();
             if(MODE!=='hand'){ setMode('hand'); return; }   // setMode redraws
@@ -2916,12 +3266,15 @@ module InteriorPro
           }
 
           function setMode(m){
+            if((m==='line'||m==='chain') && !LINEDRAW) m='hand';
+            DRAWSNAP=null; CHAIN0=null;
             cancelCarry();
             BAND=null; SELS=[];
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
             SSEL=[];
             if(m!=='hand') SEL=null;
-            ['thand','tdim','tnote','terase'].forEach(function(id){
+            // (the first four are written as they always were: rt65 looks for that list)
+            ['thand','tdim','tnote','terase'].concat(['tline','tchain']).forEach(function(id){
               $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
             });
             var svg=$('sheetWrap').firstChild;
@@ -2936,7 +3289,11 @@ module InteriorPro
             var tip={hand:'לחץ על קו או סימון כדי לבחור · Shift+לחיצה מוסיף · מתח ריבוע לבחירת כמה · Delete מוחק · Alt+גרירה מזיז את התוכנית.',
                      dim:'1 לחץ בהתחלה · 2 לחץ בסוף · 3 משוך את הקו מהקיר ולחץ.',
                      note:'1 לחץ על מה שההערה מדברת עליו · 2 איפה שהקו נשבר · 3 סוף הקו · ואז כתוב.',
-                     erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.'}[MODE];
+                     erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.',
+                     line:'1 לחץ איפה שהקו מתחיל · 2 לחץ איפה שהוא נגמר. ננעל על פינות, קצוות ואמצעים.',
+                     chain:'לחץ נקודה אחרי נקודה — כל לחיצה ממשיכה את הקו. Esc מסיים.'}[MODE];
+            if(MODE==='line'&&PEND) tip='2 עכשיו לחץ איפה שהקו נגמר. Esc מבטל.';
+            if(MODE==='chain'&&PEND) tip='לחץ על הנקודה הבאה. Esc מסיים · Ctrl+Z מוריד את הקו האחרון.';
             if(MODE==='note'&&PEND&&!PEND2) tip='2 עכשיו לחץ איפה שהקו נשבר.';
             if(MODE==='note'&&PEND&&PEND2&&!PEND3) tip='3 עכשיו לחץ בסוף הקו, שם ייכתב הטקסט.';
             if(MODE==='dim'&&PEND&&!PEND2) tip='2 עכשיו לחץ על הנקודה השנייה.';
@@ -3004,6 +3361,13 @@ module InteriorPro
                 var hp=snapPoint(atMouse(e));
                 if(PEND){ HOVER=hp; render(); }
                 else { paintSnap(); }
+                return;
+              }
+              if(MODE==='line'||MODE==='chain'){
+                // the ring shows where a click would land BEFORE he clicks,
+                // and the click uses that very point
+                DRAWSNAP=drawSnap(atMouse(e));
+                paintDraw();
                 return;
               }
               if(MODE==='hand'&&!MDRAG&&!DRAG){
@@ -3104,6 +3468,8 @@ module InteriorPro
             // drawing program does it. The leader and the box stay where they
             // are; only the writing changes.
             svg.ondblclick=function(e){
+              // while drawing, two quick clicks are two clicks of the drawing tool
+              if(MODE==='line'||MODE==='chain'){ e.preventDefault(); return; }
               var h=hitMark(e);
               // A note's own words come first - two clicks on a note has meant
               // "change what it says" since 2026-08-14 and that is not being
@@ -3145,6 +3511,7 @@ module InteriorPro
               }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
+              if(MODE==='line'||MODE==='chain'){ drawClick(p); return; }
               if(MODE==='dim'){
                 // THREE clicks, like every other drawing program:
                 //   1  what to measure from   (locks onto a corner)
@@ -3384,17 +3751,37 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
-            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[];
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[];
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
               if(u.site) siteBack=siteBack.concat(u.site);
+              if(u.added) addBack=addBack.concat(u.added);
             }
             // nothing half done survives an undo - it was drawn on the sheet as it was
             SSEL=[];
             cancelCarry();
             TCARRY=null; TDRAG=null; MDRAG=null; BAND=null; SELS=[]; SEL=null;
             PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; SNAPPED=null;
+            DRAWSNAP=null; CHAIN0=null;
+            if(addBack.length){
+              // lines he DREW come off again: highest number first, and only
+              // if that number still holds that very line
+              var al=rawSiteLayer();
+              if(al && al.shapes){
+                var an=al.shapes.length, offs=[];
+                addBack.sort(function(a,b){ return b.i-a.i; }).forEach(function(x){
+                  var cur=al.shapes[x.i];
+                  if(cur && cur.points && JSON.stringify(cur.points)===JSON.stringify(x.s.points)){
+                    al.shapes.splice(x.i,1);
+                    offs.push({i:x.i, p:x.s.points});
+                  }
+                });
+                STATE.site_count=al.shapes.length;
+                USITE_N=al.shapes.length;
+                if(offs.length) sketchup.undo_site_add(JSON.stringify({items:offs, n:an}));
+              }
+            }
             if(siteBack.length){
               var lay=rawSiteLayer();
               if(lay && lay.shapes){
@@ -3432,6 +3819,8 @@ module InteriorPro
             ESCEXITS = (p.escape_exits!==false);
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
+            LINEDRAW = (p.line_draw!==false);
+            if($('tools2')) $('tools2').style.display = LINEDRAW ? '' : 'none';
             SSEL=[];                 // the numbers belonged to the sheet that was just replaced
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
             if(p.dim_label_off!==undefined && p.dim_label_off!==null)
@@ -3502,7 +3891,7 @@ module InteriorPro
             // lines now, so those steps are forgotten rather than trusted.
             LASTMARKS=JSON.stringify(STATE.marks);
             var usl=rawSiteLayer(), usn=(usl&&usl.shapes) ? usl.shapes.length : 0;
-            if(USITE_N!==null && usn!==USITE_N) UNDO=UNDO.filter(function(u){ return !u.site; });
+            if(USITE_N!==null && usn!==USITE_N) UNDO=UNDO.filter(function(u){ return !u.site && !u.added; });
             USITE_N=usn;
             if(STATE.strip){
               $('strip').className='on';
@@ -3512,6 +3901,7 @@ module InteriorPro
             buildSections();
             showLogo(p.logo);
             fillPages();
+            if(!LINEDRAW && (MODE==='line'||MODE==='chain')) setMode('hand');
             showMarks();
             if(first){ fitPlan(); return; }
             showFit();
@@ -4016,6 +4406,8 @@ module InteriorPro
             $('tdim').onclick=function(){ setMode('dim'); };
             $('tnote').onclick=function(){ setMode('note'); };
             $('terase').onclick=function(){ setMode('erase'); };
+            $('tline').onclick=function(){ setMode('line'); };
+            $('tchain').onclick=function(){ setMode('chain'); };
             $('tundo').onclick=function(){ undoMark(); };
             $('undrop').onclick=function(){ sketchup.restore_site_lines(); };
             for(var tk in TS_FIELDS){

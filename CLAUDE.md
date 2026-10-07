@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 330 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 332 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -501,7 +501,17 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07): חלון Sheet — 11 שיפורים + חוק ברזל; הבא: ציור קווים, ואז הרשימה שלו
+## הצעד הנוכחי (2026-10-07 אחה"צ): ציור קווים על הדף נבנה (שני כלים); הבא: הרשימה שלו — סיבוב, עריכת מספר מידה, חיתוך
+הכל ב-`HANDOFF_2026-10-07.md` (חלק ב'). הוא בחר **גם וגם**: כפתור "קו אחד" (שני קליקים) וכפתור "קו רציף" (כל קליק ממשיך).
+קו שצויר = קו חופשי רגיל בסוף `site_lines` / שכבת SITE (`add_site_line`, `undo_site_add`, דגל `USE_LINE_DRAW`, `t70`, `rt269`).
+נמדד בדפדפן על השרטוט שלו: 2 ms לתזוזת עכבר, 22 ms לקליק. **אצלו עוד לא נבדק** — לקרוא `sheet_erase_trace.txt` (שורות `draw:`).
+**התור שלו (לפי הסדר שכתב, כל אחד צעד נפרד, לשאול עם תמונה לפני שבונים):**
+1. **סיבוב** של השרטוט וגם של התמונות — ידית סיבוב ליד הפינה התחתונה של המסגרת (שלח תמונה מ-Rayon).
+2. **עריכת המספר של מידה** — לכתוב בעצמו מה כתוב בתוך המידה.
+3. **חיתוך** — לבחור מה רואים מהתמונה או מהשרטוט (מסגרת View עם ידיות, שלח שתי תמונות מ-Rayon).
+פתוח וחשוב: בחצר גדולה (מעל 60KB) `site_lines` חי **רק בזיכרון** — מה שמחק ומה שצייר נעלם כשסוגרים את סקצ'אפ. נאמר לו; לשאול אם לתקן.
+
+## (קודם, אותו יום) (2026-10-07): חלון Sheet — 11 שיפורים + חוק ברזל; הבא: ציור קווים, ואז הרשימה שלו
 הכל ב-`HANDOFF_2026-10-07.md`. המודל: 6 Bronco Ln (בית של התוסף בתוך קבוצה אחת + חצר של 15,000 קווים; **בן חודשיים**).
 נסגר ונמדד אצלו: דף ריק, זיהוי בתוך קבוצה, מהירות, זום לעכבר, זום עמוק, תצוגה שלא קופצת, מחיקה מהירה, Ctrl+Z.
 **לא נבדק אצלו עדיין:** Escape בחלון, Escape בשישה כלים של סקצ'אפ, בחירת קווים (קליק / Shift / ריבוע / Delete).
@@ -668,6 +678,11 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanSheetDialog::USE_LINE_DRAW = false` - the two drawing buttons are not shown and Ruby takes no drawn
+  line (`tests/t70.js`, `tests/rt269.rb`). On: a line tool (two clicks = one line) and a running-line tool (every click
+  carries on; Escape or coming back to the start ends it). A drawn line is an ordinary loose line on the END of the SITE
+  layer / `site_lines`, so the eraser, the select arrow, Delete and Ctrl+Z reach it. Every one writes `draw:` /
+  `undo draw:` to `sheet_erase_trace.txt`.
 - `InteriorPro::PlanSheetDialog::USE_LINE_PICK = false` - loose lines cannot be picked with the select arrow; only the
   eraser reaches them (`tests/t69.js`). On: click, Shift+click, rubber band (left-to-right = inside, right-to-left =
   touching), Delete takes all of them as one Ctrl+Z step.

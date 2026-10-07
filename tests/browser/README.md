@@ -27,6 +27,7 @@ not on his machine.
 | erasetime.js  | one sweep of the eraser: ms in the window; does the view move         |
 | undotest.js   | two sweeps, Escape mid-sweep, Ctrl+Z twice - real keyboard            |
 | picktest.js   | click, Shift+click, Delete, Ctrl+Z, a rubber band over the whole view |
+| drawtest.js   | the two drawing tools: ring on a real corner, ms per mouse move, clicks, Escape, Ctrl+Z |
 | shot.js       | screenshots (fit and zoomed) to compare pixel for pixel before/after  |
 
 `window.sketchup` is a stand-in in every script: Ruby's answers are played back
