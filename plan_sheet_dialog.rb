@@ -20,6 +20,11 @@ module InteriorPro
     # The window is told where the paper really put the plan (2026-10-07,
     # see window_origin). false = it is handed the remembered place as before.
     USE_ORIGIN_SYNC = true unless const_defined?(:USE_ORIGIN_SYNC, false)
+    # The window draws a run of plain lines as ONE element and does not redraw
+    # the page strip while the plan is being moved or zoomed (2026-10-07, see
+    # layerSVG in the page). false = one element per line and the strip on
+    # every redraw, as before.
+    USE_FAST_SHEET = true unless const_defined?(:USE_FAST_SHEET, false)
 
     class << self
       def show
@@ -538,6 +543,7 @@ module InteriorPro
           # The window needs it to know WHERE that number is before it can let
           # him grab it, and guessing the number here is how the window and the
           # paper start disagreeing. So Ruby says it out loud.
+          fast: USE_FAST_SHEET,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -1425,6 +1431,53 @@ module InteriorPro
             return Math.min((stage.clientWidth-56)/PAGE.width,(stage.clientHeight-56)/PAGE.height);
           }
 
+          // A run of plain lines is ONE element, not one each (2026-10-07).
+          //
+          // 6 Bronco Ln: a back yard is 15,000 loose lines, and every one of
+          // them was its own <polyline>. The sheet is drawn again from nothing
+          // on every step of a drag and every click of the wheel, so each step
+          // threw away 15,394 elements and made 15,394 new ones - 286 ms a
+          // step, measured, with the page strip doubling it. He said it in
+          // three words: "זה זז לאט".
+          //
+          // The lines were never the problem; the ELEMENTS were. Consecutive
+          // open lines of one weight are written into a single <path> - same
+          // points, same weight, same order on the page, so the picture does
+          // not change by a pixel - and the same yard is 225 elements.
+          //
+          // Only open, unfilled polylines join a run. Everything else - walls,
+          // fills, closed outlines, writing, tables - goes through shapeSVG
+          // exactly as it always did.
+          var FAST = true;
+          function layerSVG(shapes,tp,k,ph,paper){
+            var o=[], run=[], runW=null;
+            function flush(){
+              if(run.length){
+                o.push('<path d="'+run.join('')+'" fill="none" stroke="#000" stroke-width="'+runW+'"/>');
+                run=[];
+              }
+            }
+            (shapes||[]).forEach(function(s){
+              if(paper) s.__paper=true;
+              if(FAST && s.type==='polyline' && !s.fill && !s.closed && s.points && s.points.length>1){
+                var w=Math.max(((s.weight||0.012)*k).toFixed(2),0.6);
+                if(runW!==null && w!==runW) flush();
+                runW=w;
+                var d='M';
+                for(var i=0;i<s.points.length;i++){
+                  var p=tp(s.points[i][0],s.points[i][1]);
+                  d+=(i?'L':'')+(p[0]*k).toFixed(2)+' '+((ph-p[1])*k).toFixed(2);
+                }
+                run.push(d);
+                return;
+              }
+              flush();
+              o.push(shapeSVG(s,tp,k,ph));
+            });
+            flush();
+            return o.join('');
+          }
+
           // ONE routine draws a sheet, whether it fills the window or sits in
           // the page strip at 180 pixels wide. Two drawing routines would drift
           // apart the same way the window and the PDF would, and the whole file
@@ -1457,7 +1510,7 @@ module InteriorPro
               var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
               if(cv) cv.layers.forEach(function(l){
                 if(STATE.hidden.indexOf(l.name)>=0) return;
-                l.shapes.forEach(function(s){ o.push(shapeSVG(s,toPaper,k,ph)); });
+                o.push(layerSVG(l.shapes,toPaper,k,ph,false));
               });
               o.push('</g>');
               // the window itself, so the user can see where the plan may sit
@@ -1468,7 +1521,7 @@ module InteriorPro
 
             (pg.layers||[]).forEach(function(l){
               if(STATE.hidden.indexOf(l.name)>=0) return;
-              l.shapes.forEach(function(s){ s.__paper=true; o.push(shapeSVG(s,same,k,ph)); });
+              o.push(layerSVG(l.shapes,same,k,ph,true));
             });
 
             if(live){
@@ -1560,7 +1613,12 @@ module InteriorPro
             return o.join('');
           }
 
-          function render(){
+          // moving = the plan is being dragged or zoomed right now. The little
+          // sheets down the side are not drawn again for every step of that:
+          // zooming does not change them at all, and a drag redraws them once,
+          // when Ruby answers the move. Drawing them on every step was half
+          // the cost of the step (2026-10-07).
+          function render(moving){
             PAGE=activePage();
             if(!DOC||!PAGE) return;
             $('sheetWrap').innerHTML=sheetSVG(PAGE, fitK()*(ZOOM||1), true);
@@ -1568,13 +1626,13 @@ module InteriorPro
             paintErase();
             paintSnap();
             paintTextPick();
-            if($('strip').className==='on') paintStrip();
+            if(!(moving===true && FAST) && $('strip').className==='on') paintStrip();
           }
 
           function setZoom(z){
             ZOOM = z;
             STATE.zoom = z;
-            render();
+            render(true);
           }
 
           // Zoom towards a point on the screen instead of towards a corner.
@@ -2807,7 +2865,7 @@ module InteriorPro
             var sf=scaleFactor(STATE.scale);
             STATE.origin_x=DRAG.ox-(e.clientX-DRAG.x)/k/sf;
             STATE.origin_y=DRAG.oy+(e.clientY-DRAG.y)/k/sf;
-            render();
+            render(true);
           }
 
           function onUp(){
@@ -2870,6 +2928,7 @@ module InteriorPro
 
           function loadSheet(p){
             DOC=p.doc; STATE=p.state; BOUNDS=p.bounds; SCALES=p.scales;
+            FAST = (p.fast!==false);
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
             if(p.dim_label_off!==undefined && p.dim_label_off!==null)
               DIM_LABEL_OFF=p.dim_label_off;

@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 319 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 320 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -625,6 +625,9 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanSheetDialog::USE_FAST_SHEET = false` - every loose line on the sheet is its own element again and the
+  page strip is redrawn on every step of a drag or zoom: a yard of 15,000 lines moves at 3 frames a second (`tests/t62.js`).
+  Sent to the window with the sheet, so close and reopen the window after changing it.
 - `InteriorPro::PlanGenerator::USE_NESTED_OWN = false` - the plan reads only the top level of the model again: walls,
   doors, windows, rooms that sit inside a plain group are not drawn, and "add what is selected" takes them as loose lines,
   roof included (`tests/rt265.rb`).
