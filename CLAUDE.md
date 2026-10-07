@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 317 ירוקות (רובי + JS, 2026-10-06).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 318 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -623,6 +623,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 חוזר ריק אחרי שסוגרים אותו בקוד.
 
 ## Kill switches (turn a feature off without deleting it)
+
+Sheet window, 2026-10-07:
+- `InteriorPro::PlanSheetDialog::USE_ORIGIN_SYNC = false` - the window is handed the remembered place of the plan even when
+  the paper went back to the middle: the PDF has the drawing and the window shows a white sheet (`tests/rt264.rb`).
 
 Roofs, 2026-10-01 / 10-02 (all in `InteriorPro::RoofManager` unless said otherwise; a constant
 written `unless const_defined?` is NOT re-read by reload - `remove_const` + `const_set`, then rebuild):

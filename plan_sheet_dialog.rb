@@ -17,6 +17,9 @@ module InteriorPro
   module PlanSheetDialog
     ATTR_DICT  = 'InteriorPro'    unless const_defined?(:ATTR_DICT, false)
     ATTR_STATE = 'sheet_state'    unless const_defined?(:ATTR_STATE, false)
+    # The window is told where the paper really put the plan (2026-10-07,
+    # see window_origin). false = it is handed the remembered place as before.
+    USE_ORIGIN_SYNC = true unless const_defined?(:USE_ORIGIN_SYNC, false)
 
     class << self
       def show
@@ -519,7 +522,8 @@ module InteriorPro
         st = load_state
         payload = {
           doc: d.to_h,
-          state: st.merge('site_count'   => site_lines.length,
+          state: st.merge(window_origin(d, st))
+                  .merge('site_count'   => site_lines.length,
                           'site_dropped' => site_dropped.length),
           page_sizes: InteriorPro::PlanDoc.page_size_names,
           scales: InteriorPro::PlanDoc.scale_labels,
@@ -540,6 +544,44 @@ module InteriorPro
         dlg.execute_script("loadSheet(#{JSON.generate(payload)})")
       rescue StandardError => e
         puts "[Sheet] push_all: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+      end
+
+      # Where the window should draw the plan, when that is NOT where the
+      # state says.
+      #
+      # The paper draws the plan from the VIEW's origin; the window draws it
+      # from the STATE's (sheetSVG / toPaper). They are the same two numbers -
+      # except when layout_pages! finds that the remembered place shows not one
+      # inch of the drawing and goes back to the middle. Then the PDF had the
+      # plan on it and the window drew a white sheet.
+      #
+      # 2026-10-07, 6 Bronco Ln: a landscape job, no wall of ours in the model.
+      # He brought the plan sheet back, added 21,276 lines of yard, the window
+      # said they were on the sheet, and the sheet was empty. Measured with
+      # debug_sheet_site.rb: remembered place 399, 671; the yard around
+      # 495, -1730; 26,780 lines inside the paper's window and none in his.
+      #
+      # So every full push says where the paper really is. Only then: a place
+      # that does show the drawing is his own and is passed through untouched,
+      # and with no place remembered at all nothing is invented, because "no
+      # place yet" is how the window knows to fit the drawing the first time.
+      # Nothing is written to the model here - the window saves the place
+      # itself the next time he touches anything.
+      def window_origin(doc, st)
+        return {} unless USE_ORIGIN_SYNC
+        return {} unless st['origin_x'] && st['origin_y']
+        pg = doc.pages.find { |p| p.kind.to_s == 'plan' }
+        v  = pg && pg.views.first
+        return {} unless v
+        return {} if (v.origin_x.to_f - st['origin_x'].to_f).abs < 0.001 &&
+                     (v.origin_y.to_f - st['origin_y'].to_f).abs < 0.001
+        puts format('[Sheet] the remembered place (%.1f, %.1f) shows nothing of the ' \
+                    'drawing - the window is moved to where the paper put it (%.1f, %.1f)',
+                    st['origin_x'].to_f, st['origin_y'].to_f, v.origin_x.to_f, v.origin_y.to_f)
+        { 'origin_x' => v.origin_x.to_f, 'origin_y' => v.origin_y.to_f }
+      rescue StandardError => e
+        puts "[Sheet] window_origin: #{e.class}: #{e.message}"
+        {}
       end
 
       # Only the paper changes when a control moves; the plan itself does not,
