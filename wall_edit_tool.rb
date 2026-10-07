@@ -24,6 +24,15 @@ module InteriorPro
       view.invalidate
     end
 
+    # Escape puts the tool down and gives him the select arrow back - line 1 of
+    # the iron law in CLAUDE.md (2026-10-07). This tool has no step to cancel,
+    # it only waits for a click, so before this Escape did nothing at all and
+    # he stayed in it until he picked another tool.
+    # reason 0 = Escape. (1 = the same tool picked again, 2 = an undo - stay.)
+    def onCancel(reason, _view)
+      Sketchup.active_model.select_tool(nil) if reason.to_i.zero?
+    end
+
     # Single click on a wall opens the edit dialog (double-click kept for habit).
     def onLButtonDown(flags, x, y, view)
       open_edit_for_pick(view, x, y)

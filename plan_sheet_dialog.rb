@@ -37,6 +37,24 @@ module InteriorPro
     # lines stop getting fatter (2026-10-07, see ZMAX / KSTROKE in the page).
     # false = stops at 14x and every line thickens with the zoom, as before.
     USE_DEEP_ZOOM = true unless const_defined?(:USE_DEEP_ZOOM, false)
+    # Rubbing a loose line out takes it off the sheet in the window at once and
+    # only tells Ruby which one went; nothing is built again (2026-10-07, see
+    # drop_site_line). false = the whole sheet is rebuilt and sent for every
+    # sweep of the eraser, as before.
+    USE_FAST_ERASE = true unless const_defined?(:USE_FAST_ERASE, false)
+    # Escape drops whatever is half done AND puts the select arrow back in his
+    # hand (2026-10-07, see escapeAll in the page). false = Escape only drops
+    # the half-done thing and leaves him in the same tool, as before.
+    USE_ESCAPE_EXITS = true unless const_defined?(:USE_ESCAPE_EXITS, false)
+    # Ctrl+Z in the sheet window takes back the last thing done to the drawing:
+    # lines rubbed out come back where they were, and so does any change to the
+    # hand-drawn dimensions and notes (2026-10-07, see undoLast in the page and
+    # undo_site_drop here). false = Ctrl+Z does nothing, as before.
+    USE_SHEET_UNDO = true unless const_defined?(:USE_SHEET_UNDO, false)
+    # Loose lines can be PICKED with the select arrow - a click, Shift+click for
+    # more, a rubber band - and Delete takes every picked one at once
+    # (2026-10-07, see SSEL in the page). false = only the eraser reaches them.
+    USE_LINE_PICK = true unless const_defined?(:USE_LINE_PICK, false)
 
     class << self
       def show
@@ -144,15 +162,37 @@ module InteriorPro
               dlg.execute_script("siteDropped(#{JSON.generate(lines.length)}, " \
                                  "#{JSON.generate(site_dropped.length)})")
             else
+              t0 = Time.now
+              # THE QUICK ROAD (2026-10-07). The window has ALREADY taken these
+              # lines off the sheet it is showing, by the same numbers, and is
+              # only saying which ones went. Nothing has to be built: the list
+              # loses them, the document Ruby is holding loses the same shapes
+              # (shape number i IS line number i, and stays so), and the answer
+              # is two numbers. The user: "לוקח לו קצת זמן עד שהוא מוחק וצריך
+              # שזה יהיה יותר מהיר" - before this, every sweep read the whole
+              # model again, built every wall and fifteen thousand lines, and
+              # sent a megabyte and a half back to be drawn from nothing.
+              #
+              # Only when both sides agree how many lines there were. If they
+              # do not, something is out of step and the old road - build it,
+              # send all of it - puts the window right.
+              before = lines.length
+              quiet  = USE_FAST_ERASE && r['quiet'] == true && r['n'].to_i == before
               gone.each do |i|
                 site_dropped.push(lines[i])
                 lines = lines[0, i] + lines[(i + 1)..-1]
               end
               self.site_lines = lines
-              @doc = nil
-              push_all(dlg)
+              road = 'quick'
+              unless quiet && drop_from_document!(gone, before)
+                road = quiet ? 'full (document out of step)' : 'full'
+                @doc = nil
+                push_all(dlg)
+              end
               dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, " \
                                  "#{JSON.generate(site_dropped.length)})")
+              erase_trace("#{gone.length} gone, #{site_lines.length} left, #{road}, " \
+                          "#{((Time.now - t0) * 1000).round} ms")
             end
           rescue StandardError => e
             puts "[Sheet] drop_site_line: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
@@ -177,6 +217,63 @@ module InteriorPro
             dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, 0)")
           rescue StandardError => e
             puts "[Sheet] restore_site_lines: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
+        # Ctrl+Z on rubbed-out lines (2026-10-07).
+        #
+        # "אם מחקתי משהו ואני לוחץ קונטרול Z הוא צריך לחזור." The button above
+        # puts back EVERYTHING rubbed out, at the end of the list. This puts back
+        # exactly the lines of ONE sweep, each at the number it had - so shape
+        # number i is still line number i, and the sweep before it can be taken
+        # back next, and the one before that.
+        #
+        # The window has already put the lines back on its own sheet and sends
+        # each one with its number. Ruby checks three things before believing
+        # it: both sides count the same number of lines, every number fits, and
+        # every line really is one that was rubbed out (it is waiting in
+        # site_dropped). Anything else is out of step, and the whole sheet is
+        # built and sent so the window shows what Ruby actually has.
+        dlg.add_action_callback('undo_site_drop') do |_, json|
+          begin
+            t0     = Time.now
+            r      = JSON.parse(json.to_s)
+            items  = Array(r['items']).map { |it| [it['i'].to_i, it['p']] }.sort_by(&:first)
+            lines  = site_lines.dup
+            left   = site_dropped.dup
+            before = lines.length
+            good   = USE_SHEET_UNDO && !items.empty? && r['n'].to_i == before
+            if good
+              items.each do |i, pts|
+                k = pts.is_a?(Array) ? left.index(pts) : nil
+                if k.nil? || i < 0 || i > lines.length
+                  good = false
+                  break
+                end
+                left.delete_at(k)
+                lines.insert(i, pts)
+              end
+            end
+            road = 'quick'
+            if good
+              self.site_lines   = lines
+              self.site_dropped = left
+              unless put_back_in_document!(items, before)
+                road = 'full (document out of step)'
+                @doc = nil
+                push_all(dlg)
+              end
+            else
+              road = 'REFUSED - out of step, sheet sent again'
+              @doc = nil
+              push_all(dlg)
+            end
+            dlg.execute_script("siteDropped(#{JSON.generate(site_lines.length)}, " \
+                               "#{JSON.generate(site_dropped.length)})")
+            erase_trace("undo: #{items.length} back, #{site_lines.length} on the sheet, #{road}, " \
+                        "#{((Time.now - t0) * 1000).round} ms")
+          rescue StandardError => e
+            puts "[Sheet] undo_site_drop: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
         end
 
@@ -559,6 +656,10 @@ module InteriorPro
           zoom_hold: USE_ZOOM_TO_MOUSE,
           keep_view: USE_KEEP_VIEW,
           deep_zoom: USE_DEEP_ZOOM,
+          fast_erase: USE_FAST_ERASE,
+          escape_exits: USE_ESCAPE_EXITS,
+          undo: USE_SHEET_UNDO,
+          line_pick: USE_LINE_PICK,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
           dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
         }
@@ -678,6 +779,52 @@ module InteriorPro
           next if n == removed
           out << "image:#{n > removed ? n - 1 : n}"
         end
+      end
+
+      # Takes the same shapes out of the document Ruby is holding, so it does
+      # not have to be built again. gone = line numbers, HIGHEST FIRST;
+      # before = how many lines there were. false = could not, build it again.
+      def drop_from_document!(gone, before)
+        return true if @doc.nil?        # nothing built yet; the next build reads the list
+        cv  = @doc.canvas('MODEL')
+        lay = cv.layers.find { |l| l.name == InteriorPro::PlanGeometry::LAYER }
+        return false unless lay && lay.shapes.length == before
+        gone.each { |i| lay.shapes.delete_at(i) }
+        cv.layers.delete(lay) if lay.shapes.empty?
+        true
+      rescue StandardError => e
+        puts "[Sheet] drop_from_document!: #{e.class}: #{e.message}"
+        false
+      end
+
+      # The other way: the same shapes go back into the document Ruby is
+      # holding, each at its number. items = [[number, points], ...] LOWEST
+      # FIRST; before = how many lines there were. false = build it again.
+      def put_back_in_document!(items, before)
+        return true if @doc.nil?
+        cv  = @doc.canvas('MODEL')
+        lay = cv.layers.find { |l| l.name == InteriorPro::PlanGeometry::LAYER }
+        lay = cv.layer(InteriorPro::PlanGeometry::LAYER) if lay.nil? && before.zero?
+        return false unless lay && lay.shapes.length == before
+        items.each do |i, pts|
+          lay.polyline(pts, weight: 0.010)          # written the way PlanGeometry.build! writes it
+          lay.shapes.insert(i, lay.shapes.pop)
+        end
+        true
+      rescue StandardError => e
+        puts "[Sheet] put_back_in_document!: #{e.class}: #{e.message}"
+        false
+      end
+
+      # One line per sweep of the eraser, beside the plugin: what went, which
+      # road it took and how long Ruby spent on it. Read it instead of asking
+      # him how it felt.
+      def erase_trace(text)
+        File.open(File.join(plugin_dir, 'sheet_erase_trace.txt'), 'a:UTF-8') do |f|
+          f.puts "#{Time.now.strftime('%Y-%m-%d %H:%M:%S')}  #{text}"
+        end
+      rescue StandardError
+        nil
       end
 
       # --------------------------------------------------------------- state
@@ -1560,6 +1707,19 @@ module InteriorPro
             if(live){
               // what is picked, drawn over the top. Presentation only - the mark
               // itself is still the one Ruby built, so the paper cannot drift.
+              // picked loose lines: ONE element however many there are - a
+              // rubber band over the whole yard picks thousands
+              if(SSEL.length && VIEW){
+                var psl=siteLayer(), pd='';
+                if(psl) SSEL.forEach(function(i){
+                  var ps=psl.shapes[i]; if(!ps||!ps.points) return;
+                  ps.points.forEach(function(q,j){
+                    var t=screenOf(q[0],q[1]);
+                    pd+=(j?'L':'M')+t[0].toFixed(1)+' '+t[1].toFixed(1);
+                  });
+                });
+                if(pd) o.push('<path id="sitepick" d="'+pd+'" fill="none" stroke="#1f6feb" stroke-width="2.5" opacity=".85"/>');
+              }
               var picked = SELS.length ? SELS : (SEL===null ? [] : [SEL]);
               picked.forEach(function(pi){
               if(marks()[pi] && VIEW){
@@ -1942,6 +2102,7 @@ module InteriorPro
           // does it, and one round trip per item would make it crawl - so the
           // sweep collects and the whole lot goes on letting go.
           var ERASWEEP=null;
+          var FASTERASE=true;  // rubbed-out lines leave the sheet here, at once
           var ERADONE=false;   // a sweep just ran; swallow the click behind it
 
           function eraShapePoints(x){
@@ -2013,12 +2174,91 @@ module InteriorPro
             return pts.some(inside);
           }
 
+          // ---- picking loose lines (2026-10-07) ----------------------------
+          //
+          // "בחירה של קווים גם עם שיפט ואז יכולת מחיקה של כולם ביחד."
+          //
+          // Until now a loose line could only be met by the eraser, one sweep
+          // at a time, and a sweep is a commitment: what it crosses is gone.
+          // Picking is the other way of working - gather first, look at what
+          // is lit up, THEN press Delete - and it is how every other thing in
+          // SketchUp is removed.
+          //
+          //   click on a line           picks it (and lets go of the rest)
+          //   Shift+click               adds it, or lets go of it if it was picked
+          //   rubber band, left to right  everything wholly inside the box
+          //   rubber band, right to left  everything the box touches - SketchUp's rule
+          //   Delete                    all of them, and any picked dimension or note,
+          //                             as ONE step for Ctrl+Z
+          //   Escape                    lets go of everything
+          //
+          // SSEL holds NUMBERS in the SITE layer, the same numbers the eraser
+          // and Ruby use. So it is emptied whenever those numbers change: a
+          // rub-out, an undo, a sheet from Ruby.
+          var SSEL=[], LINEPICK=true;
+
+          function segCross(p1,p2,p3,p4){
+            var d=function(a,b,c){ return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]); };
+            var d1=d(p3,p4,p1), d2=d(p3,p4,p2), d3=d(p1,p2,p3), d4=d(p1,p2,p4);
+            return ((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0));
+          }
+
+          // Is this loose line caught by the box? touching=false: every point
+          // of it is inside. touching=true: any part of it is.
+          function siteInBox(s, x0, y0, x1, y1, touching){
+            var a=Math.min(x0,x1), b=Math.max(x0,x1), c=Math.min(y0,y1), d=Math.max(y0,y1);
+            var pts=(s.points||[]).map(function(q){ return screenOf(q[0],q[1]); });
+            if(pts.length<2) return false;
+            var inside=function(t){ return t[0]>=a&&t[0]<=b&&t[1]>=c&&t[1]<=d; };
+            if(!touching) return pts.every(inside);
+            if(pts.some(inside)) return true;
+            for(var j=0;j<pts.length-1;j++){
+              if(segCross(pts[j],pts[j+1],[a,c],[b,c])||segCross(pts[j],pts[j+1],[b,c],[b,d])||
+                 segCross(pts[j],pts[j+1],[b,d],[a,d])||segCross(pts[j],pts[j+1],[a,d],[a,c])) return true;
+            }
+            return false;
+          }
+
+          // Shift+click: one thing joins what is picked, or leaves it.
+          function togglePick(x){
+            if(x.kind==='site'){
+              var at=SSEL.indexOf(x.i);
+              if(at>=0) SSEL.splice(at,1); else SSEL.push(x.i);
+              return;
+            }
+            if(!SELS.length && SEL!==null) SELS=[SEL];
+            var am=SELS.indexOf(x.i);
+            if(am>=0) SELS.splice(am,1); else SELS.push(x.i);
+            SEL = SELS.length ? SELS[0] : null;
+          }
+
+          // Delete: every picked line, and every picked dimension and note,
+          // through the same door as the eraser - so it is quick, it is one
+          // step for Ctrl+Z, and Ruby hears about it the same way.
+          function dropPicked(){
+            var list=[];
+            (SELS.length ? SELS : (SEL===null ? [] : [SEL])).forEach(function(i){ list.push({kind:'mark', i:i}); });
+            SSEL.forEach(function(i){ list.push({kind:'site', i:i}); });
+            SSEL=[]; SELS=[]; SEL=null;
+            if(!list.length) return;
+            eraseSweep(list);
+            render(); showMarks();
+          }
+
           function pickInBand(band){
             SELS=[];
             marks().forEach(function(m,i){
               if(markInBox(m, band.x0, band.y0, band.x1, band.y1)) SELS.push(i);
             });
             SEL = SELS.length ? SELS[0] : null;
+            SSEL=[];
+            var lay=LINEPICK ? siteLayer() : null;
+            if(lay && VIEW){
+              var touching = band.x1 < band.x0;       // pulled right to left
+              (lay.shapes||[]).forEach(function(sh,i){
+                if(siteInBox(sh, band.x0, band.y0, band.x1, band.y1, touching)) SSEL.push(i);
+              });
+            }
           }
 
           function paintSnap(){
@@ -2069,6 +2309,10 @@ module InteriorPro
           // they go here; site lines live in Ruby, so they go in ONE message.
           function eraseSweep(list){
             if(!list||!list.length) return;
+            UCUR=++UGROUP;           // everything this sweep takes is one Ctrl+Z
+            try { eraseSweepNow(list); } finally { UCUR=null; }
+          }
+          function eraseSweepNow(list){
             var seen={}, marksGone=[], siteGone=[];
             list.forEach(function(x){
               var k=eraKey(x); if(seen[k]) return; seen[k]=1;
@@ -2078,7 +2322,33 @@ module InteriorPro
             marksGone.sort(function(a,b){ return b-a; })
                      .forEach(function(i){ marks().splice(i,1); });
             if(marksGone.length){ SEL=null; push(); render(); showMarks(); }
-            if(siteGone.length) sketchup.drop_site_line(JSON.stringify({is:siteGone}));
+            if(siteGone.length){
+              // Off the sheet NOW, here, and Ruby is only told which ones
+              // went (2026-10-07). Waiting for Ruby to build the whole sheet
+              // again and send it back was the pause he felt after every
+              // sweep. The numbers are the ones Ruby holds - shape i is line
+              // i on both sides - and n says how many there were, so Ruby can
+              // tell if the two have drifted and send everything after all.
+              var lay=siteLayer();
+              if(FASTERASE && lay && lay.shapes){
+                SSEL=[];                     // the numbers are about to move
+                var n=lay.shapes.length, took=[];
+                siteGone.slice().sort(function(a,b){ return b-a; }).forEach(function(i){
+                  if(i>=0 && i<lay.shapes.length){ took.push({i:i, s:lay.shapes[i]}); lay.shapes.splice(i,1); }
+                });
+                if(UNDOON && took.length){
+                  UNDO.push({g:(UCUR!==null ? UCUR : ++UGROUP), site:took});
+                  if(UNDO.length>300) UNDO.shift();
+                }
+                USITE_N=lay.shapes.length;
+                ERA=null;
+                STATE.site_count=lay.shapes.length;
+                render();
+                sketchup.drop_site_line(JSON.stringify({is:siteGone, quiet:true, n:n}));
+              } else {
+                sketchup.drop_site_line(JSON.stringify({is:siteGone}));
+              }
+            }
           }
 
           // The eraser's own pointer, so the tool says what it is the way it
@@ -2595,10 +2865,61 @@ module InteriorPro
             push(); showMarks();
           }
 
+          // ESCAPE: out of whatever he is in the middle of (2026-10-07).
+          //
+          // The user: "אם אני מסמן משהו למחיקה או כל פעולה אחרת... ואני לוחץ
+          // אסקייפ, זה יוצא לי אוטומטית מהפעולה שאני עושה." It is the first
+          // line of the iron law in CLAUDE.md.
+          //
+          // What Escape did before: dropped a half-drawn dimension and what
+          // was picked, and left him holding the same tool. And it did NOT
+          // stop the eraser: a sweep already under way went on collecting and
+          // rubbed everything out when the mouse was let go - Escape pressed
+          // to save the lines, and the lines gone anyway.
+          //
+          // Now: everything half done is DROPPED, never finished -
+          //   a sweep of the eraser      nothing is rubbed out
+          //   a dimension or a note      the clicks so far are forgotten
+          //   something being carried    goes back where it was picked up
+          //   the plan being slid        goes back where it was
+          //   a rubber band, a pick      gone
+          // - and he is back on the select arrow, whatever tool he was in.
+          var ESCEXITS = true;
+          function escapeAll(){
+            if(!ESCEXITS){
+              // switched off: exactly what Escape did before 2026-10-07
+              cancelCarry();
+              BAND=null; SELS=[];
+              PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
+              closeTextBar();
+              render(); showMarks();
+              return;
+            }
+            cancelCarry();                       // a mark in the hand goes home
+            SSEL=[];                             // and the picked lines are let go
+            TCARRY=null; TDRAG=null; MDRAG=null; // a label or a mark mid-drag stays put
+            if(DRAG){
+              if(DRAG.pan){
+                var stg=$('stage'); stg.scrollLeft=DRAG.sl; stg.scrollTop=DRAG.st;
+              } else {
+                STATE.origin_x=DRAG.ox; STATE.origin_y=DRAG.oy;
+              }
+              DRAG=null;
+            }
+            BAND=null; SELS=[]; SEL=null;
+            PEND=null; PEND2=null; PEND3=null; HOVER=null;
+            ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
+            hideNoteBar();
+            closeTextBar();
+            if(MODE!=='hand'){ setMode('hand'); return; }   // setMode redraws
+            render(); showMarks();
+          }
+
           function setMode(m){
             cancelCarry();
             BAND=null; SELS=[];
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
+            SSEL=[];
             if(m!=='hand') SEL=null;
             ['thand','tdim','tnote','terase'].forEach(function(id){
               $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
@@ -2612,7 +2933,7 @@ module InteriorPro
           function showMarks(){
             var n=marks().length;
             $('tundo').disabled = !n;
-            var tip={hand:'לחץ על סימון כדי לבחור · מתח ריבוע לבחירת כמה · Delete מוחק · Alt+גרירה מזיז את התוכנית.',
+            var tip={hand:'לחץ על קו או סימון כדי לבחור · Shift+לחיצה מוסיף · מתח ריבוע לבחירת כמה · Delete מוחק · Alt+גרירה מזיז את התוכנית.',
                      dim:'1 לחץ בהתחלה · 2 לחץ בסוף · 3 משוך את הקו מהקיר ולחץ.',
                      note:'1 לחץ על מה שההערה מדברת עליו · 2 איפה שהקו נשבר · 3 סוף הקו · ואז כתוב.',
                      erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.'}[MODE];
@@ -2627,6 +2948,8 @@ module InteriorPro
                 tip='נבחר. לחץ על הקו או על המספר כדי להרים, הזז, ולחץ שוב להניח. חיצים לדיוק.';
             }
             if(SELS.length>1) tip=SELS.length+' נבחרו. לחיצה מרימה את כולם יחד, Delete מוחק את כולם.';
+            if(MODE==='hand'&&SSEL.length)
+              tip=SSEL.length+(SSEL.length===1?' קו נבחר':' קווים נבחרו')+' · Shift+לחיצה מוסיף או מוריד · Delete מוחק · Ctrl+Z מחזיר · Esc משחרר.';
             if(CARRY||TCARRY) tip='מחזיק — הזז ולחץ כדי להניח. Esc מחזיר.';
             paintDimOff();
             // No free geometry is no longer a dead end - the eraser still
@@ -2701,6 +3024,7 @@ module InteriorPro
                   if(TSEL) closeTextBar();
                   // clicking one thing picks that one thing, and drops
                   // whatever the band had picked before
+                  SSEL=[];
                   if(SELS.indexOf(h.i)<0) SELS=[h.i];
                   SEL=h.i;
                   MDRAG={part:h.part, at:atMouse(e)};
@@ -2719,6 +3043,7 @@ module InteriorPro
                 var ht=hitText(e);
                 if(ht){
                   SEL=null;
+                  SSEL=[];
                   TSEL=ht;
                   TDRAG={at:atMouse(e), dx:0, dy:0, moved:false};
                   TCARRY=null;
@@ -2753,7 +3078,8 @@ module InteriorPro
                  (PAGE.views||[])[0]){
                 var bp=mouseAt(e);
                 if(bp){
-                  BAND={x0:bp[0], y0:bp[1], x1:bp[0], y1:bp[1], moved:false};
+                  BAND={x0:bp[0], y0:bp[1], x1:bp[0], y1:bp[1], moved:false,
+                        hit:(LINEPICK ? hitSite(e) : null)};
                   paintBand();
                   e.preventDefault();
                   return;
@@ -2763,6 +3089,13 @@ module InteriorPro
               var pan = e.shiftKey || e.button===1 || !(PAGE.views||[])[0];
               DRAG={x:e.clientX,y:e.clientY,ox:STATE.origin_x,oy:STATE.origin_y,
                     pan:pan, sl:stage.scrollLeft, st:stage.scrollTop};
+              // Shift held: dragging still slides the view, as it always has.
+              // But a press that goes nowhere is a CLICK, and Shift+click adds
+              // to what is picked - so remember what was under it.
+              if(pan && e.shiftKey && MODE==='hand' && LINEPICK){
+                var sm=hitMark(e), shs=sm ? null : hitSite(e);
+                DRAG.pick = sm ? {kind:'mark', i:sm.i} : (shs!==null ? {kind:'site', i:shs} : null);
+              }
               svg.style.cursor= pan ? 'move' : arrowCursor();
               e.preventDefault();
             };
@@ -2928,6 +3261,7 @@ module InteriorPro
             if(!DRAG) return;
             var stage=$('stage');
             if(DRAG.pan){
+              if(Math.abs(e.clientX-DRAG.x)+Math.abs(e.clientY-DRAG.y)>3) DRAG.dragged=true;
               stage.scrollLeft = DRAG.sl-(e.clientX-DRAG.x);
               stage.scrollTop  = DRAG.st-(e.clientY-DRAG.y);
               return;
@@ -2944,7 +3278,13 @@ module InteriorPro
               var band=BAND;
               BAND=null;
               paintBand();
-              if(band.moved) pickInBand(band); else { SELS=[]; SEL=null; }
+              if(band.moved) pickInBand(band);
+              else {
+                // a plain click: on a loose line it picks that line, on empty
+                // paper it lets go of everything
+                SELS=[]; SEL=null;
+                SSEL=(band.hit!==null && band.hit!==undefined) ? [band.hit] : [];
+              }
               render(); showMarks();
               return;
             }
@@ -2988,14 +3328,97 @@ module InteriorPro
             }
             if(!DRAG) return;
             var moved=!DRAG.pan;
+            var shiftPick=(DRAG.pan && !DRAG.dragged) ? (DRAG.pick||null) : null;
             DRAG=null;
             var svg=$('sheetWrap').firstChild;
             if(svg) svg.style.cursor = MODE==='hand' ? arrowCursor() : 'crosshair';
+            if(shiftPick){ togglePick(shiftPick); render(); showMarks(); }
             if(moved) push();
           }
 
           // ---- talking to Ruby -------------------------------------------
-          function push(){ sketchup.set_state(JSON.stringify(STATE)); }
+          // ---- Ctrl+Z ------------------------------------------------------
+          //
+          // "אם מחקתי משהו ואני לוחץ קונטרול Z הוא צריך לחזור" (2026-10-07) -
+          // line 2 of the iron law in CLAUDE.md. This window had no undo at
+          // all: a line rubbed out by mistake could only come back by putting
+          // back EVERYTHING ever rubbed out.
+          //
+          // One list, newest last. Two kinds of step go on it:
+          //   marks  what the hand-drawn dimensions and notes were BEFORE the
+          //          change. Caught in push(), the one door every change to
+          //          them leaves by - so adding, moving, rewording and rubbing
+          //          one out are all caught, without each having to remember.
+          //   site   the loose lines one sweep of the eraser took, each with
+          //          the number it had, so it goes back exactly there.
+          // A sweep that took both is ONE step (same g), because to him it
+          // was one movement of the hand.
+          var UNDO=[], UGROUP=0, UCUR=null, UNDOON=true, UNDOING=false;
+          var LASTMARKS='[]';      // the marks as they were the last time they were saved
+          var USITE_N=null;        // how many loose lines the sheet has, by our own count
+
+          function noteMarksForUndo(){
+            var now=JSON.stringify(STATE.marks||[]);
+            if(now===LASTMARKS) return;
+            if(UNDOON && !UNDOING){
+              UNDO.push({g:(UCUR!==null ? UCUR : ++UGROUP), marks:LASTMARKS});
+              if(UNDO.length>300) UNDO.shift();
+            }
+            LASTMARKS=now;
+          }
+
+          function push(){
+            noteMarksForUndo();
+            sketchup.set_state(JSON.stringify(STATE));
+          }
+
+          // The SITE layer whether or not it is switched off: a line rubbed
+          // out while it was showing must be able to come back either way.
+          function rawSiteLayer(){
+            if(!DOC) return null;
+            var cv=(DOC.canvases||[]).filter(function(c){ return c.name==='MODEL'; })[0];
+            if(!cv) return null;
+            return (cv.layers||[]).filter(function(l){ return l.name==='SITE'; })[0]||null;
+          }
+
+          function undoLast(){
+            if(!UNDOON) return false;
+            if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[];
+            while(UNDO.length && UNDO[UNDO.length-1].g===g){
+              var u=UNDO.pop();
+              if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
+              if(u.site) siteBack=siteBack.concat(u.site);
+            }
+            // nothing half done survives an undo - it was drawn on the sheet as it was
+            SSEL=[];
+            cancelCarry();
+            TCARRY=null; TDRAG=null; MDRAG=null; BAND=null; SELS=[]; SEL=null;
+            PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; SNAPPED=null;
+            if(siteBack.length){
+              var lay=rawSiteLayer();
+              if(lay && lay.shapes){
+                var n=lay.shapes.length;
+                siteBack.sort(function(a,b){ return a.i-b.i; }).forEach(function(x){
+                  lay.shapes.splice(Math.min(x.i, lay.shapes.length), 0, x.s);
+                });
+                STATE.site_count=lay.shapes.length;
+                USITE_N=lay.shapes.length;
+                sketchup.undo_site_drop(JSON.stringify({
+                  items:siteBack.map(function(x){ return {i:x.i, p:x.s.points}; }), n:n}));
+              }
+            }
+            if(marksBack!==null){
+              UNDOING=true;
+              STATE.marks=JSON.parse(marksBack);
+              LASTMARKS=marksBack;
+              sketchup.set_state(JSON.stringify(STATE));
+              UNDOING=false;
+            }
+            render(); showMarks();
+            return true;
+          }
+
 
           var LOADED = false;      // has this window been given a sheet yet
           var KEEPVIEW = true;
@@ -3005,6 +3428,11 @@ module InteriorPro
             ZHOLD = (p.zoom_hold!==false);
             KEEPVIEW = (p.keep_view!==false);
             if(p.deep_zoom===false){ ZMAX=14; KSTROKE=Infinity; } else { ZMAX=200; KSTROKE=160; }
+            FASTERASE = (p.fast_erase!==false);
+            ESCEXITS = (p.escape_exits!==false);
+            UNDOON = (p.undo!==false);
+            LINEPICK = (p.line_pick!==false);
+            SSEL=[];                 // the numbers belonged to the sheet that was just replaced
             if(p.dim_text_h>0) DIM_TEXT_H=p.dim_text_h;
             if(p.dim_label_off!==undefined && p.dim_label_off!==null)
               DIM_LABEL_OFF=p.dim_label_off;
@@ -3067,6 +3495,15 @@ module InteriorPro
               if(again) TSEL.shape=again; else closeTextBar();
             }
             if(!STATE.marks) STATE.marks=[];
+            // A sheet from Ruby is the truth about the marks, so it is the new
+            // baseline. And if it does not have the number of loose lines this
+            // window counted, the list was read again or cleared behind the
+            // undo list's back: the numbers in those steps point at other
+            // lines now, so those steps are forgotten rather than trusted.
+            LASTMARKS=JSON.stringify(STATE.marks);
+            var usl=rawSiteLayer(), usn=(usl&&usl.shapes) ? usl.shapes.length : 0;
+            if(USITE_N!==null && usn!==USITE_N) UNDO=UNDO.filter(function(u){ return !u.site; });
+            USITE_N=usn;
             if(STATE.strip){
               $('strip').className='on';
               $('stripbtn').textContent='הסתר את הדפים';
@@ -3634,6 +4071,14 @@ module InteriorPro
               var t=(e.target&&e.target.tagName)||'';
               if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return;
               if(e.target && e.target.id==='pages') return;   // the list handles its own keys
+              // Ctrl+Z. By the KEY's place on the keyboard as well as its
+              // letter: with the keyboard in Hebrew that key types a zayin.
+              if((e.ctrlKey||e.metaKey) && !e.shiftKey && !e.altKey &&
+                 (e.code==='KeyZ'||e.key==='z'||e.key==='Z')){
+                e.preventDefault();
+                undoLast();
+                return;
+              }
               // The space bar picks the arrow up, the way it does in SketchUp.
               // Whatever tool he is in, one thump on the widest key on the
               // keyboard puts him back in select-and-drag - his words, and the
@@ -3668,13 +4113,11 @@ module InteriorPro
                 return;
               }
               if(e.key==='Delete'||e.key==='Backspace'){
-                if(SEL!==null){ e.preventDefault(); dropMark(); }
+                if(SSEL.length){ e.preventDefault(); dropPicked(); }
+                else if(SEL!==null){ e.preventDefault(); dropMark(); }
               } else if(e.key==='Escape'){
-                cancelCarry();
-                BAND=null; SELS=[];
-                PEND=null; PEND2=null; PEND3=null; HOVER=null; SEL=null; ERA=null;
-                closeTextBar();
-                render(); showMarks();
+                e.preventDefault();
+                escapeAll();
               }
             });
 

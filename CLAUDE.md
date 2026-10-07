@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 323 ירוקות (רובי + JS, 2026-10-07).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 330 ירוקות (רובי + JS, 2026-10-07).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -146,6 +146,10 @@ Live folder (edit in place, no RBZ):
 6. **אפשר להתקרב כמה שצריך,** והקווים קריאים גם בזום עמוק.
 7. **נעילה על נקודות** — פינה, סוף קו, אמצע — ומראים איפה ננעל (החוק מ-2026-09-18 ומ-2026-09-23).
 8. **התוסף מזהה את מה שנבנה איתו בכל מקום** — גם בתוך קבוצה, גם בתוך רכיב. קיר הוא קיר.
+
+**סעיף 1 נאכף בבדיקה:** `tests/rt268.rb` עובר על כל קובץ בתוסף שיש בו כלי ונופל אם לאחד מהם אין תשובה ל-Escape
+(`onCancel`, או מקש 27, או ירושה מכלי שיש לו). כלי חדש ששוכח — הבדיקה נופלת ביום שהוא נכתב. בכלים של סקצ'אפ שיש להם
+שלבים (קיר, דלת, אריחים) Escape מבטל את השלב ונשאר בכלי, כמו בסקצ'אפ; בכלים של לחיצה אחת ובחלון Sheet הוא מחזיר לחץ.
 
 **איך בודקים:** לכל סעיף יש בדיקה על המסלול האמיתי (לא על הפונקציה לבד), ולפני "מוכן" עוברים על
 שמונת הסעיפים אחד-אחד מול הכלי. סעיף שלא שייך לכלי — כותבים למה. סעיף שלא נבדק — אומרים שלא נבדק.
@@ -497,7 +501,15 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-06): גגות — כפתור Pull Roof Edge נבנה ("מעולה"); לשאול מה הבא
+## הצעד הנוכחי (2026-10-07): חלון Sheet — 11 שיפורים + חוק ברזל; הבא: ציור קווים, ואז הרשימה שלו
+הכל ב-`HANDOFF_2026-10-07.md`. המודל: 6 Bronco Ln (בית של התוסף בתוך קבוצה אחת + חצר של 15,000 קווים; **בן חודשיים**).
+נסגר ונמדד אצלו: דף ריק, זיהוי בתוך קבוצה, מהירות, זום לעכבר, זום עמוק, תצוגה שלא קופצת, מחיקה מהירה, Ctrl+Z.
+**לא נבדק אצלו עדיין:** Escape בחלון, Escape בשישה כלים של סקצ'אפ, בחירת קווים (קליק / Shift / ריבוע / Delete).
+**הבא:** (1) commit על מה שנשאר; (2) "הוספת קווים ע"י ציור" — לשאול עם תמונה, ולעבור על שמונת סעיפי חוק הברזל;
+(3) יש לו רשימה — לבקש אותה. **מדידה בדפדפן אמיתי** לפני שמבקשים ממנו להסתכל: `tests/browser/README.md`.
+פתוח: "הוסף את מה שנבחר" פעמיים מכפיל קווים; שתי קומות מצוירות אחת על השנייה; מזהי קירות כפולים במודל הישן.
+
+## (קודם) (2026-10-06): גגות — כפתור Pull Roof Edge נבנה ("מעולה"); לשאול מה הבא
 הכל ב-`HANDOFF_2026-10-06.md`. הוא ביקש: *"קודם כל תיצור כפתור לשינויים האלו"* — המשיכה קיבלה כפתור משלה בסרגל הגגות
 (אחרי Downspout): לחיצה על קיר → שדה אחד "Pull out (in)" → `set_edge_pull!`. `roof_pull_tool.rb` (`RoofPullTool < RoofGableTool`),
 `tests/rt263.rb`, דגל `RoofPullTool::USE_PULL_TOOL`. כל לחיצה כותבת שורה ל-`roof_pull_trace.txt` — **לקרוא אותו לפני שאומרים
@@ -656,6 +668,19 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanSheetDialog::USE_LINE_PICK = false` - loose lines cannot be picked with the select arrow; only the
+  eraser reaches them (`tests/t69.js`). On: click, Shift+click, rubber band (left-to-right = inside, right-to-left =
+  touching), Delete takes all of them as one Ctrl+Z step.
+- `InteriorPro::PlanSheetDialog::USE_SHEET_UNDO = false` - Ctrl+Z in the sheet window does nothing (`tests/t68.js`,
+  `tests/rt267.rb`). On: one press takes back one sweep of the eraser (each loose line at the number it had) or one change
+  to the hand-drawn dimensions and notes. NOT covered yet: a label of the plugin's own that was moved or resized
+  (`set_text_mark`), and there is no redo. Undo lines are in `sheet_erase_trace.txt` too.
+- `InteriorPro::PlanSheetDialog::USE_ESCAPE_EXITS = false` - Escape in the sheet window only forgets the half-drawn thing
+  and leaves him in the same tool; a sweep of the eraser already under way still rubs everything out (`tests/t67.js`).
+- `InteriorPro::PlanSheetDialog::USE_FAST_ERASE = false` - every sweep of the eraser over loose lines rebuilds the whole
+  sheet in Ruby and sends it again (`tests/rt266.rb`, `tests/t66.js`). On: the window takes the lines off at once and Ruby
+  drops the same shapes from the document it holds. Each sweep writes a line to `sheet_erase_trace.txt` (how many, which
+  road, how many ms in Ruby) - read it before saying how fast it is on his machine.
 - `InteriorPro::PlanSheetDialog::USE_DEEP_ZOOM = false` - the wheel stops at 14x again and every line thickens with the
   zoom (a hairline is 20 px at 50x) (`tests/t65.js`). On: up to 200x, and past 160 px to the paper inch lines stop growing.
 - `InteriorPro::PlanSheetDialog::USE_KEEP_VIEW = false` - every time Ruby sends the sheet again (a line rubbed out, "add
