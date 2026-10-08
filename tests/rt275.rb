@@ -237,7 +237,7 @@ rules = PC.text_rules
 ok('the window is sent the rules and the letter widths - it lays the lines by Ruby\'s own numbers',
    rules['pad'] == PC::TEXT_PAD && rules['lead'] == PC::TEXT_LEAD && rules['ascent'] == PC::TEXT_ASCENT && rules['pt'] == PC::TEXT_PT && rules['w'].length == 95 && rules['cap'] == PP::CAP_RATIO, rules.reject { |k, _| k == 'w' })
 src = File.read('plan_sheet_dialog.rb', encoding: 'UTF-8')
-ok('and they go with every sheet', src.include?('text_rules: InteriorPro::PlanCanvas.text_rules') && src.include?('text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX'))
+ok('and they go with every sheet', src.include?('text_rules: text_rules_for_window') && src =~ /def text_rules_for_window.{0,200}InteriorPro::PlanCanvas\.text_rules/m && src.include?('text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX'))
 
 # the trace: one line a change, read instead of asking him
 trace = File.join(PSD.plugin_dir, 'sheet_erase_trace.txt')

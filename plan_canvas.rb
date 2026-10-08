@@ -81,6 +81,20 @@ module InteriorPro
     TEXT_LEAD    = 1.25   unless const_defined?(:TEXT_LEAD, false)    # line to line, of the letter size
     TEXT_ASCENT  = 0.8    unless const_defined?(:TEXT_ASCENT, false)  # top of a line to its baseline, of the letter size
     TEXT_MAX_CHARS = 4000 unless const_defined?(:TEXT_MAX_CHARS, false)
+    # A lettering of its own on a box of writing or a label (2026-10-07,
+    # "סוגים שונים של פונטים כמו בלייאאוט"): 'font' = a family name from
+    # PlanPDF.shipped_fonts (assets/FONTS). The PDF sets it in that TrueType font and the window
+    # shows it in the same; both measure by the same table. Hebrew with no
+    # lettering picked is set in PlanPDF.hebrew_family. false = 'font' is
+    # ignored, and Hebrew prints as before (blank in the PDF).
+    USE_TEXT_FONT = true unless const_defined?(:USE_TEXT_FONT, false)
+    # The editor's own drawing pages ("שרטוט 1", "שרטוט 2" - the tabs beside
+    # "בית" in the 2D editor) can be put on sheets of their own (2026-10-07,
+    # "לבחור איזה שרטוט נכנס לאיזה דף"): st['drawn'] = [{'src' => 'draft:0'}].
+    # Each is a canvas DRAWN:i (the blue walls as bands, the lines, the
+    # dimensions) seen whole on a sheet of kind 'drawing'. false = no such
+    # sheets, whatever was saved.
+    USE_DRAWN_SHEETS = true unless const_defined?(:USE_DRAWN_SHEETS, false)
     CIRCLE_SEGMENTS = 32 unless const_defined?(:CIRCLE_SEGMENTS, false)
 
     def self.fill_for(mat)
@@ -320,6 +334,8 @@ module InteriorPro
       doc.logo_path   = opts[:logo]
 
       build(model, doc, 'MODEL', site: opts[:site] || {})
+      # the editor's own drawing pages, each a canvas of its own (2026-10-07)
+      build_drawn!(doc, draft_pages(model), opts[:drawn]) if USE_DRAWN_SHEETS
 
       st = {
         'size'            => opts[:size] || pd::DEFAULT_PAGE_SIZE,
@@ -380,6 +396,7 @@ module InteriorPro
       if pt.any?(doc) && !hidden.include?(pt::LAYER) && (st['tables_own_page'] != false || drop_plan)
         present << 'schedules'
       end
+      drawn_list(st, doc).each { |dr| present << "drawing:#{dr[:j]}" }
       Array(st['images']).each_with_index { |path, i| present << "image:#{i}" unless path.to_s.empty? }
       order = page_order(st, present)
       nums  = {}
@@ -450,6 +467,30 @@ module InteriorPro
         p2.sheet_number = last
       end
 
+      # The editor's drawings, one a sheet, after the schedules and before the
+      # pictures (2026-10-07). Each is seen whole, in the middle of its sheet,
+      # at the biggest scale from the list that holds it; the sheet is named
+      # after the drawing ("שרטוט 1") and numbered on from the plan.
+      drawn_list(st, doc).each do |dr|
+        j = dr[:j]
+        cvn = dr[:canvas]
+        last = nums["drawing:#{j}"] || (taken ? next_sheet_number(last) : num)
+        taken = true
+        pg = pd.new_sheet(doc, dr[:name], size: size, orientation: orient,
+                          scale: st['scale'] || pd::DEFAULT_SCALE, canvas: cvn,
+                          sheet_number: last, sheet_title: dr[:name])
+        pg.kind = 'drawing'
+        pg.ref  = j
+        pg.sheet_number = last
+        dv = pg.views.first
+        db = doc.canvas(cvn).bounds
+        if db
+          fs = dv.fit_scale(db)
+          dv.scale = fs if fs
+          dv.centre_on!(db)
+        end
+      end
+
       # One picture, one sheet, in the order the user put them in. Renders come
       # after the drawings, so A-101 stays the floor plan whatever he adds.
       img_title = st['image_title'].to_s.empty? ? 'RENDERING' : st['image_title'].to_s
@@ -507,6 +548,102 @@ module InteriorPro
       place_texts!(doc, st)
 
       apply_visibility!(doc, hidden)
+      doc
+    end
+
+    # ------------------------------------------ the editor's drawings on sheets
+    #
+    # 2026-10-07. The 2D editor has pages of its own beside the house
+    # ("שרטוט 1", "שרטוט 2": blue walls that never go to 3D, lines, dimensions),
+    # saved on the model in plan_draft. He asked to choose which drawing goes
+    # on which sheet. So st['drawn'] = [{'src' => 'draft:0'}, ...]: each entry
+    # is a sheet of kind 'drawing' (page key 'drawing:j', j its place in the
+    # list - thrown away and renumbered like a picture sheet), and each
+    # editor page named in it is read into a canvas 'DRAWN:i'.
+
+    # The editor's pages out of the draft on the model: [{name, pending,
+    # sketches, dims}], or [] (no draft, no pages, a draft that cannot be read).
+    def self.draft_pages(model)
+      raw = model.respond_to?(:get_attribute) ? model.get_attribute('InteriorPro', 'plan_draft') : nil
+      return [] if raw.to_s.empty?
+      d = JSON.parse(raw.to_s)
+      Array(d['pages']).each_with_index.map do |pg, i|
+        next nil unless pg.is_a?(Hash)
+        { i: i, name: (pg['name'].to_s.strip.empty? ? "שרטוט #{i + 1}" : pg['name'].to_s.strip),
+          pending: Array(pg['pending']), sketches: Array(pg['sketches']), dims: Array(pg['dims']) }
+      end.compact
+    rescue StandardError => e
+      puts "[PlanCanvas] draft_pages: #{e.class}: #{e.message}"
+      []
+    end
+
+    # What the window offers: [{i, name}] - the editor's pages by name.
+    def self.draft_names(model)
+      draft_pages(model).map { |p| { 'i' => p[:i], 'name' => p[:name] } }
+    end
+
+    # The sheets asked for, each with the canvas it shows - only those whose
+    # drawing exists (a page deleted in the editor leaves no sheet).
+    def self.drawn_list(st, doc)
+      return [] unless USE_DRAWN_SHEETS
+      # (j = its place in the saved list - the sheet's ref and key, so the x
+      # in the page list throws away the right one even past an entry that
+      # made no sheet)
+      Array(st['drawn'] || st[:drawn]).each_with_index.map do |dr, j|
+        next nil unless dr.is_a?(Hash)
+        src = (dr['src'] || dr[:src]).to_s
+        next nil unless src =~ /\Adraft:(\d+)\z/
+        cvn = "DRAWN:#{$1}"
+        next nil unless doc.canvas?(cvn)
+        { src: src, canvas: cvn, name: doc.canvas(cvn).drawn_name.to_s, j: j }
+      end.compact
+    end
+
+    # The canvases: every editor page a sheet asks for (wanted = st['drawn'];
+    # nil = all of them). Blue walls are bands (plan_editor's bandQuad:
+    # 'left' = the thickness to the left of start -> end), lines are
+    # polylines, the editor's dimension tags are drawn by the same routine
+    # as a hand dimension on the plan.
+    def self.build_drawn!(doc, pages, wanted = nil)
+      want = wanted.is_a?(Array) ? wanted.map { |d| d.is_a?(Hash) ? (d['src'] || d[:src]).to_s[/\Adraft:(\d+)\z/, 1] : nil }.compact.map(&:to_i) : nil
+      pages.each do |pg|
+        next if want && !want.include?(pg[:i])
+        cv = doc.canvas("DRAWN:#{pg[:i]}")
+        cv.layers.clear
+        cv.drawn_name = pg[:name] if cv.respond_to?(:drawn_name=)
+        walls = cv.layer(LAYERS[:walls])
+        pg[:pending].each do |w|
+          next unless w.is_a?(Hash)
+          sx, sy, ex, ey, th = %w[sx sy ex ey th].map { |k| w[k].to_f }
+          dx = ex - sx
+          dy = ey - sy
+          len = Math.hypot(dx, dy)
+          next if len < 0.01 || th <= 0
+          ux = dx / len
+          uy = dy / len
+          nx = -uy
+          ny = ux
+          ha = w['ha'].to_s
+          pq = ha == 'left' ? [th, 0.0] : (ha == 'right' ? [0.0, -th] : [th / 2.0, -th / 2.0])
+          pts = [[sx + nx * pq[0], sy + ny * pq[0]], [ex + nx * pq[0], ey + ny * pq[0]],
+                 [ex + nx * pq[1], ey + ny * pq[1]], [sx + nx * pq[1], sy + ny * pq[1]]]
+          walls.polygon(pts, fill: (w['cat'].to_s == 'interior' ? [205, 205, 205] : [64, 64, 64]), weight: 0.012)
+        end
+        lines = cv.layer(LAYERS[:sketch])
+        pg[:sketches].each do |k|
+          next unless k.is_a?(Hash) && k['pts'].is_a?(Array) && k['pts'].length >= 4
+          pts = k['pts'].each_slice(2).map { |x, y| [x.to_f, y.to_f] }
+          wt = k['weight'].to_f
+          wt = wt > 0 ? [[wt * 0.006, 0.006].max, 0.06].min : 0.012
+          lines.polyline(pts, weight: wt, closed: k['closed'] == true)
+        end
+        dims = cv.layer(LAYERS[:dimensions])
+        pg[:dims].each do |d|
+          next unless d.is_a?(Hash)
+          m = { t: 'dim', x1: d['x1'].to_f, y1: d['y1'].to_f, x2: d['x2'].to_f, y2: d['y2'].to_f, off: d['off'].to_f }
+          safely { draw_mark_dim(dims, m) }
+        end
+      end
       doc
     end
 
@@ -633,7 +770,9 @@ module InteriorPro
     def self.pic_page_key(pg)
       k = pg.kind.to_s
       k = 'plan' if k.empty?
-      k == 'image' ? "image:#{pg.ref}" : k       # the same three lines as PlanSheetDialog.page_key
+      return "image:#{pg.ref}" if k == 'image'     # the same lines as PlanSheetDialog.page_key
+      return "drawing:#{pg.ref}" if k == 'drawing'
+      k
     end
 
     # Inside the margins, above the title block: [x, y, w, h].
@@ -796,9 +935,16 @@ module InteriorPro
     def self.text_rules
       require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
       pp = InteriorPro::PlanPDF
-      { 'pad' => TEXT_PAD, 'lead' => TEXT_LEAD, 'ascent' => TEXT_ASCENT,
-        'pt' => TEXT_PT, 'pt_min' => TEXT_PT_MIN, 'pt_max' => TEXT_PT_MAX,
-        'cap' => pp::CAP_RATIO, 'w' => pp::W, 'bold' => pp::BOLD_BUMP }
+      r = { 'pad' => TEXT_PAD, 'lead' => TEXT_LEAD, 'ascent' => TEXT_ASCENT,
+            'pt' => TEXT_PT, 'pt_min' => TEXT_PT_MIN, 'pt_max' => TEXT_PT_MAX,
+            'cap' => pp::CAP_RATIO, 'w' => pp::W, 'bold' => pp::BOLD_BUMP }
+      # the letterings on offer and their width tables, and which one Hebrew
+      # is set in when none is picked - the window measures by these
+      if USE_TEXT_FONT && pp.const_defined?(:USE_TTF_FONTS) && pp::USE_TTF_FONTS
+        r['fonts'] = pp.font_tables
+        r['heb']   = pp.hebrew_family
+      end
+      r
     end
 
     def self.text_clean(t)
@@ -807,14 +953,14 @@ module InteriorPro
 
     # How wide a run of words is at pt points, in paper inches. The real
     # Helvetica widths plan_pdf prints with.
-    def self.text_width_in(str, pt, bold = false)
+    def self.text_width_in(str, pt, bold = false, font = nil)
       require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
-      InteriorPro::PlanPDF.text_width(str, pt.to_f, bold) / 72.0
+      InteriorPro::PlanPDF.text_width(str, pt.to_f, bold, USE_TEXT_FONT ? font : nil) / 72.0
     end
 
     # The words, in lines no wider than avail (paper inches). A line he broke
     # himself stays broken; a word wider than the box stays whole.
-    def self.text_wrap(text, avail, pt, bold = false)
+    def self.text_wrap(text, avail, pt, bold = false, font = nil)
       out = []
       text_clean(text).split("\n", -1).each do |para|
         words = para.split(/ +/).reject(&:empty?)
@@ -825,7 +971,7 @@ module InteriorPro
         cur = ''
         words.each do |w|
           try = cur.empty? ? w : "#{cur} #{w}"
-          if cur.empty? || text_width_in(try, pt, bold) <= avail + 1.0e-6
+          if cur.empty? || text_width_in(try, pt, bold, font) <= avail + 1.0e-6
             cur = try
           else
             out << cur
@@ -843,8 +989,8 @@ module InteriorPro
     end
 
     # The width a box needs to hold the words with no line broken but his own.
-    def self.text_natural_width(text, pt, bold = false)
-      text_wrap(text, 1.0e9, pt, bold).map { |l| text_width_in(l, pt, bold) }.max.to_f +
+    def self.text_natural_width(text, pt, bold = false, font = nil)
+      text_wrap(text, 1.0e9, pt, bold, font).map { |l| text_width_in(l, pt, bold, font) }.max.to_f +
         2.0 * TEXT_PAD * pt.to_f / 72.0
     end
 
@@ -861,6 +1007,10 @@ module InteriorPro
       end
       col = (raw.key?('color') ? raw['color'] : raw[:color]).to_s.downcase
       out[:color] = col if col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000'
+      # a lettering of its own: a family name, kept as written (the PDF and the
+      # window both know which are on offer)
+      f = (raw.key?('font') ? raw['font'] : raw[:font]).to_s.strip
+      out[:font] = f if USE_TEXT_FONT && !f.empty? && f.length <= 40
       out
     end
 
@@ -918,13 +1068,13 @@ module InteriorPro
         # no place saved: in the middle of the sheet, as wide as its words,
         # each one a little down and to the right of the last
         ax, ay, aw, ah = area.map(&:to_f)
-        w   = [text_natural_width(txt, pt, bold), aw].min
-        h0  = text_height(text_wrap(txt, w - 2.0 * pad, pt, bold).length, pt)
+        w   = [text_natural_width(txt, pt, bold, sty[:font]), aw].min
+        h0  = text_height(text_wrap(txt, w - 2.0 * pad, pt, bold, sty[:font]).length, pt)
         off = 0.4 * (nth % 6)
         x   = ax + (aw - w) / 2.0 + off
         y   = ay + (ah - h0) / 2.0 - off
       end
-      lines = text_wrap(txt, w - 2.0 * pad, pt, bold)
+      lines = text_wrap(txt, w - 2.0 * pad, pt, bold, sty[:font])
       h     = text_height(lines.length, pt)
       # the top left corner of the box stays where it was
       r = rot * Math::PI / 180.0
@@ -1300,6 +1450,9 @@ module InteriorPro
             s[:underline] = !!u unless u.nil?
             col = (o.key?('color') ? o['color'] : o[:color]).to_s
             s[:color] = col.downcase if col =~ /\A#[0-9a-fA-F]{6}\z/ && col.downcase != '#000000'
+            # a lettering of its own (2026-10-07)
+            fo = (o.key?('font') ? o['font'] : o[:font]).to_s.strip
+            s[:font] = fo if USE_TEXT_FONT && !fo.empty? && fo.length <= 40
             # His own words in place of the label's (2026-10-07): a dimension
             # number written over, a room renamed on the sheet. The KEY was
             # made from the words as built (name_texts! ran first), so the

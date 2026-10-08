@@ -512,6 +512,35 @@ module InteriorPro
           end
         end
 
+        # An editor drawing put on a sheet of its own (2026-10-07, "לבחור איזה
+        # שרטוט נכנס לאיזה דף"): {src: 'draft:0'}. The sheet comes after the
+        # schedules and before the pictures, and opens.
+        dlg.add_action_callback('add_drawing') do |_, json|
+          begin
+            r   = JSON.parse(json.to_s)
+            src = r['src'].to_s
+            names = InteriorPro::PlanCanvas.draft_names(Sketchup.active_model)
+            unless src =~ /\Adraft:(\d+)\z/ && names.any? { |d| d['i'] == $1.to_i }
+              dlg.execute_script("imageReport(0, #{JSON.generate('אין שרטוט כזה בעורך')})")
+              next
+            end
+            st = load_state
+            st['drawn'] = Array(st['drawn']) + [{ 'src' => src }]
+            save_state(st)
+            @doc = nil
+            at = document.pages.index { |pg| pg.kind == 'drawing' && pg.ref == st['drawn'].length - 1 }
+            if at
+              st['active'] = at
+              save_state(st)
+            end
+            erase_trace("drawing sheet: #{src} added, #{document.pages.length} pages")
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] add_drawing: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+            dlg.execute_script("imageReport(0, #{JSON.generate(e.message)})")
+          end
+        end
+
         dlg.add_action_callback('clear_logo') do |_|
           begin
             st = load_state
@@ -561,6 +590,18 @@ module InteriorPro
                 st['page_order'] = shift_image_keys(st['page_order'], i) if st['page_order'].is_a?(Array)
               end
               st['images'] = list
+            when 'drawing'
+              # an editor drawing's sheet (2026-10-07): off the list; the ones
+              # after it move down one, and everything named by them with them
+              list = Array(st['drawn'])
+              j = r['ref'].to_i
+              if j >= 0 && j < list.length
+                list.delete_at(j)
+                skip = shift_image_keys(skip, j, 'drawing:')
+                st['page_order'] = shift_image_keys(st['page_order'], j, 'drawing:') if st['page_order'].is_a?(Array)
+                shift_pics!(st, j, 'drawing:')
+              end
+              st['drawn'] = list
             when 'schedules'
               st['hidden'] = (Array(st['hidden']) +
                               [InteriorPro::PlanTables::LAYER]).uniq
@@ -696,6 +737,11 @@ module InteriorPro
                 cur['bold']   = !!r['bold']   if r.key?('bold')
                 cur['italic'] = !!r['italic'] if r.key?('italic')
                 cur['underline'] = !!r['underline'] if r.key?('underline')
+                # a lettering of its own (2026-10-07); emptied = the drawing's own
+                if r.key?('font')
+                  fo = r['font'].to_s.strip
+                  (fo.empty? || fo.length > 40) ? cur.delete('font') : (cur['font'] = fo)
+                end
                 if r.key?('color')
                   col = r['color'].to_s.downcase
                   (col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000') ? (cur['color'] = col) : cur.delete('color')
@@ -794,6 +840,7 @@ module InteriorPro
             size: st['size'], orientation: (st['orientation'] || 'landscape').to_sym,
             scale: st['scale'], address: st['address'], marks: st['marks'],
             logo: logo_path(st),
+            drawn: st['drawn'],
             sheet_number: st['sheet_number'], sheet_title: st['sheet_title'],
             date: st['date'],
             site: { lines: site_lines, pids: st['site_pids'],
@@ -849,10 +896,13 @@ module InteriorPro
           # writing in boxes of its own is handled by a picture's handles, so
           # it needs those switched on too
           text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX,
-          text_rules: InteriorPro::PlanCanvas.text_rules,
+          text_rules: text_rules_for_window,
           text_words: InteriorPro::PlanCanvas::USE_TEXT_WORDS,
           text_style: InteriorPro::PlanCanvas::USE_TEXT_STYLE,
           page_order: InteriorPro::PlanCanvas::USE_PAGE_ORDER,
+          drawn: InteriorPro::PlanCanvas::USE_DRAWN_SHEETS,
+          drafts: (InteriorPro::PlanCanvas::USE_DRAWN_SHEETS ? InteriorPro::PlanCanvas.draft_names(Sketchup.active_model) : []),
+          text_font: InteriorPro::PlanCanvas::USE_TEXT_FONT,
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
@@ -957,7 +1007,9 @@ module InteriorPro
       def page_key(pg)
         k = (pg.respond_to?(:kind) ? pg.kind.to_s : '')
         k = 'plan' if k.empty?
-        k == 'image' ? "image:#{pg.ref}" : k
+        return "image:#{pg.ref}" if k == 'image'
+        return "drawing:#{pg.ref}" if k == 'drawing'     # an editor drawing on a sheet (2026-10-07)
+        k
       end
 
       # Which sheets actually go into the PDF: everything except the ones he
@@ -976,15 +1028,16 @@ module InteriorPro
       # Picture number `removed` has just left st['images'], so every picture
       # after it moves down one. Returns the keys renumbered to match, with the
       # removed one dropped.
-      def shift_image_keys(keys, removed)
+      # (prefix: 'image:' for a picture sheet, 'drawing:' for an editor drawing's - 2026-10-07)
+      def shift_image_keys(keys, removed, prefix = 'image:')
         Array(keys).each_with_object([]) do |k, out|
-          unless k.to_s.start_with?('image:')
+          unless k.to_s.start_with?(prefix)
             out << k
             next
           end
           n = k.to_s.split(':', 2).last.to_i
           next if n == removed
-          out << "image:#{n > removed ? n - 1 : n}"
+          out << "#{prefix}#{n > removed ? n - 1 : n}"
         end
       end
 
@@ -992,9 +1045,9 @@ module InteriorPro
       # Its own box is forgotten, the pictures that were added to it go with
       # it, and everything that named a later picture sheet moves down one -
       # the same shuffle shift_image_keys does for the ticks.
-      def shift_pics!(st, removed)
+      def shift_pics!(st, removed, prefix = 'image:')
         geo = st['image_geo']
-        if geo.is_a?(Hash)
+        if geo.is_a?(Hash) && prefix == 'image:'
           out = {}
           geo.each do |k, v|
             n = k.to_s.to_i
@@ -1010,10 +1063,10 @@ module InteriorPro
           st[list] = rows.each_with_object([]) do |pc, keep|
             next unless pc.is_a?(Hash)
             on = pc['on'].to_s
-            if on.start_with?('image:')
+            if on.start_with?(prefix)
               n = on.split(':', 2).last.to_i
               next if n == removed
-              pc = pc.merge('on' => "image:#{n > removed ? n - 1 : n}")
+              pc = pc.merge('on' => "#{prefix}#{n > removed ? n - 1 : n}")
             end
             keep << pc
           end
@@ -1225,6 +1278,8 @@ module InteriorPro
           # The order of the sheets, dragged in the page list (2026-10-07): page
           # keys, like pdf_skip. Empty = the old order (plan, schedules, pictures).
           'page_order' => [],
+          # The editor's drawings on sheets of their own (2026-10-07): [{'src' => 'draft:0'}]
+          'drawn' => [],
           'drop_plan' => false,
           # How big the writing is, in per cent. 100 is the drawing exactly as
           # it always looked, so an old model that has never heard of this
@@ -1623,6 +1678,20 @@ module InteriorPro
         end
       end
 
+      # The rules of writing, with the letterings' files as addresses the
+      # window can load (@font-face), so the sheet shows the very fonts the
+      # PDF prints with (2026-10-08).
+      def text_rules_for_window
+        r = InteriorPro::PlanCanvas.text_rules
+        if r['fonts'].is_a?(Hash)
+          r['fonts'].each_value do |t|
+            t['url']  = file_url(t['path'])  if t['path']
+            t['urlb'] = file_url(t['pathb']) if t['pathb']
+          end
+        end
+        r
+      end
+
       def logo_dir
         st = load_state
         st['logo'].to_s.empty? ? default_dir : File.dirname(st['logo'].to_s)
@@ -1894,6 +1963,18 @@ module InteriorPro
                box at the side, under the group sizes - one place, like Word:
                "אני לוחץ על טקסט מסוים ואז אני משנה את ההגדרות בחלון ההגדרות".
                It used to be a bar floating over the sheet. */
+            /* the letterings, each name in its own letters (2026-10-08) */
+            #txfontbox { position:relative; margin-top:6px; }
+            #txfontbtn { width:100%; text-align:right; font-size:15px; padding:4px 8px; }
+            #txfontmenu { display:none; position:absolute; right:0; left:0; top:100%; z-index:30;
+                          background:#2a2a2a; border:1px solid #555; border-radius:4px;
+                          box-shadow:0 4px 14px rgba(0,0,0,.5); }
+            #txfontmenu.on { display:block; }
+            #txfontmenu div { padding:6px 10px; cursor:pointer; font-size:17px; text-align:right;
+                              border-bottom:1px solid #383838; color:#eee; }
+            #txfontmenu div:last-child { border-bottom:none; }
+            #txfontmenu div:hover { background:#3b5a86; }
+            #txfontmenu div.on { background:#1f6feb; color:#fff; }
             #textbar { display:block; margin-top:0; padding-top:0;
                        border-top:none; opacity:.45; pointer-events:none; }
             /* always there, under the group sizes ("הגדרות הטקסט צריכות להיות
@@ -1988,6 +2069,10 @@ module InteriorPro
                 <h4><span class="ar">&#9656;</span>דפים<span class="tag" id="pagestag"></span></h4>
                 <div class="bd">
                   <div id="pages" tabindex="0"></div>
+                  <div id="drawadd" class="row" style="display:none;margin-top:6px">
+                    <select id="drawsrc" style="flex:1"></select>
+                    <button id="drawbtn" class="go2" style="width:auto;flex:none;padding:0 10px">הוסף דף</button>
+                  </div>
                   <button id="stripbtn">הצג את הדפים ובחר מה יוצא ל-PDF</button>
                 </div>
               </div>
@@ -2032,6 +2117,11 @@ module InteriorPro
                       <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
                       <button id="txunder" class="tool" title="קו תחתון"><u>U</u></button>
                       <input id="txcolor" type="color" value="#000000" title="צבע">
+                    </div>
+                    <div id="txfontbox" style="display:none">
+                      <select id="txfont" style="display:none"></select>
+                      <button id="txfontbtn" title="סוג כתב">כתב רגיל</button>
+                      <div id="txfontmenu"></div>
                     </div>
                     <input id="txwords" placeholder="מה כתוב" title="מה כתוב במקום המספר. ריק = המספר האמיתי">
                     <div class="row" style="margin-top:6px">
@@ -2462,7 +2552,7 @@ module InteriorPro
               }
               return;
             }
-            var v=PAGE ? (PAGE.views||[])[0] : null;
+            var v=pageView();
             if(!ROTON||MODE!=='hand'||!VIEW||!v){ h.className=''; return; }
             var c=rotHandleAt(v,VIEW.k,PAGE.height), w=$('sheetWrap');
             if(boxTurns() && viewTurn().deg){
@@ -2514,7 +2604,14 @@ module InteriorPro
           var BOXD=null;       // {kind, mx, my, v0, s0, o0, was, moved} while a handle is held
           var BOX_MIN=1.0;     // paper inches, either way
 
-          function planView(){ return PAGE ? ((PAGE.views||[])[0]||null) : null; }
+          // The view the hand tools work in: the plan sheet's. An editor
+          // drawing's sheet (kind 'drawing') is seen, not worked on - no box,
+          // no turn, no marks; it pans like a picture sheet (2026-10-07).
+          function pageView(){
+            var v=PAGE ? ((PAGE.views||[])[0]||null) : null;
+            return (v && PAGE.kind!=='drawing') ? v : null;
+          }
+          function planView(){ return pageView(); }
 
           // What the margins leave - the box may not leave it.
           function boxArea(){
@@ -2838,7 +2935,7 @@ module InteriorPro
           // never touched sits in the middle of its space at its own
           // proportions - the same sum plan_pdf and the browser both do.
           function picRect(s){
-            if(s.txt) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:[0,0,0,0], txt:true, pt:s.pt, text:s.text, bold:!!s.bold};
+            if(s.txt) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:[0,0,0,0], txt:true, pt:s.pt, text:s.text, bold:!!s.bold, font:(s.font||null)};
             if(s.placed) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:(s.crop||[0,0,0,0]).slice()};
             var w=s.w, h=s.h;
             if(!s.stretch && s.iw>0 && s.ih>0){
@@ -3043,10 +3140,10 @@ module InteriorPro
                 // the lines are laid again to fit. The top of the box stays
                 // where it is; it is never narrower than its longest word.
                 var tsg=(kind==='e') ? 1 : -1, tpad=TXR.pad*o.pt/72, tmin=PIC_MIN;
-                tbWrap(o.text, 0, o.pt, o.bold).forEach(function(wd){ tmin=Math.max(tmin, tbWidth(wd,o.pt,o.bold)+2*tpad); });
+                tbWrap(o.text, 0, o.pt, o.bold, o.font).forEach(function(wd){ tmin=Math.max(tmin, tbWidth(wd,o.pt,o.bold,o.font)+2*tpad); });
                 amt=Math.max(Math.min(0, tmin-o.w), lx*tsg);
                 build=function(u){
-                  var nw=o.w+u, nh=tbHeight(tbWrap(o.text, nw-2*tpad, o.pt, o.bold).length, o.pt);
+                  var nw=o.w+u, nh=tbHeight(tbWrap(o.text, nw-2*tpad, o.pt, o.bold, o.font).length, o.pt);
                   var q=made(nw, nh, tsg*u/2, -(nh-o.h)/2, o.crop.slice());
                   q.pt=o.pt;
                   return q;
@@ -3172,11 +3269,15 @@ module InteriorPro
 
           // How wide a run of words is at pt points, in paper inches - the
           // Helvetica widths the PDF prints with.
-          function tbWidth(str,pt,bold){
+          function tbWidth(str,pt,bold,font){
             var tot=0, W=TXR.w||[];
+            // a lettering of its own, or letters Helvetica has not got: THE
+            // TABLE RUBY MEASURES BY (text_rules.fonts, PlanPDF.width_table)
+            var fam=fontFor(str,font), tab=fam ? TXR.fonts[fam] : null;
             Array.from(String(str)).forEach(function(ch){
               var c=ch.codePointAt(0);
-              tot += (c>=32 && c<=126 && W[c-32]) ? W[c-32] : 556;
+              if(tab) tot += (tab.w[c]!==undefined) ? tab.w[c] : tab.dw;
+              else tot += (c>=32 && c<=126 && W[c-32]) ? W[c-32] : 556;
             });
             // bold letters are wider, by the amount plan_pdf counts (BOLD_BUMP)
             return tot/1000*pt/72*(bold ? (TXR.bold||1.06) : 1);
@@ -3193,12 +3294,14 @@ module InteriorPro
             if(tx.underline===true) o.underline=true;
             var c=String(tx.color||'').toLowerCase();
             if(/^#[0-9a-f]{6}$/.test(c) && c!=='#000000') o.color=c;
+            var f=String(tx.font||'').trim();
+            if(TXFONT && f && f.length<=40) o.font=f;
             return o;
           }
 
           // The words, in lines no wider than avail. A line he broke himself
           // stays broken; a word wider than the box stays whole.
-          function tbWrap(text,avail,pt,bold){
+          function tbWrap(text,avail,pt,bold,font){
             var out=[];
             tbClean(text).split('\n').forEach(function(para){
               var words=para.split(/ +/).filter(function(w){ return w!==''; });
@@ -3206,7 +3309,7 @@ module InteriorPro
               var cur='';
               words.forEach(function(w){
                 var t=(cur==='') ? w : cur+' '+w;
-                if(cur==='' || tbWidth(t,pt,bold)<=avail+1e-6) cur=t;
+                if(cur==='' || tbWidth(t,pt,bold,font)<=avail+1e-6) cur=t;
                 else { out.push(cur); cur=w; }
               });
               out.push(cur);
@@ -3217,9 +3320,9 @@ module InteriorPro
           function tbHeight(n,pt){ var fs=pt/72; return 2*TXR.pad*fs+(n-1)*TXR.lead*fs+fs; }
 
           // The width a box needs to hold the words with no line broken but his own.
-          function tbNatural(text,pt,bold){
+          function tbNatural(text,pt,bold,font){
             var m=0;
-            tbWrap(text,1e9,pt,bold).forEach(function(l){ m=Math.max(m, tbWidth(l,pt,bold)); });
+            tbWrap(text,1e9,pt,bold,font).forEach(function(l){ m=Math.max(m, tbWidth(l,pt,bold,font)); });
             return m+2*TXR.pad*pt/72;
           }
 
@@ -3238,6 +3341,7 @@ module InteriorPro
               if(en.italic) sh.italic=true;
               if(en.underline) sh.underline=true;
               if(en.color) sh.color=en.color;
+              if(en.font) sh.font=en.font;
               out.push(sh);
             });
             return out;
@@ -3262,7 +3366,7 @@ module InteriorPro
                       rot:(+tx.rot||0), crop:[0,0,0,0], pt:pt, text:tbClean(tx.text)};
               var sy=tbStyle(tx);
               for(var sk in sy) en[sk]=sy[sk];
-              en.lines=tbWrap(en.text, en.w-2*TXR.pad*pt/72, pt, en.bold);
+              en.lines=tbWrap(en.text, en.w-2*TXR.pad*pt/72, pt, en.bold, en.font);
               list.push(en);
               shapes=shapes.concat(tbShapes(en));
             });
@@ -3284,7 +3388,7 @@ module InteriorPro
           function tbFit(tx,w){
             var b=tx.box, rot=(+tx.rot||0), t=rot*Math.PI/180, c=rot ? Math.cos(t) : 1, n=rot ? Math.sin(t) : 0;
             if(w===undefined) w=b[2];
-            var h=tbHeight(tbWrap(tx.text, w-2*TXR.pad*tx.pt/72, tx.pt, tbStyle(tx).bold).length, tx.pt);
+            var h=tbHeight(tbWrap(tx.text, w-2*TXR.pad*tx.pt/72, tx.pt, tbStyle(tx).bold, tbStyle(tx).font).length, tx.pt);
             var cx=b[0]+b[2]/2, cy=b[1]+b[3]/2;
             var tlx=cx+(-b[2]/2)*c-(b[3]/2)*n, tly=cy+(-b[2]/2)*n+(b[3]/2)*c;
             var ncx=tlx-((-w/2)*c-(h/2)*n), ncy=tly-((-w/2)*n+(h/2)*c);
@@ -3339,7 +3443,7 @@ module InteriorPro
               // a new one is as wide as its words - as far as the margin, and
               // from there the lines break
               var room=a ? Math.max(a[0]+a[2]-tx.box[0], PIC_MIN) : 1e9;
-              w=Math.min(tbNatural(words,pt,tbStyle(tx).bold), room);
+              w=Math.min(tbNatural(words,pt,tbStyle(tx).bold,tbStyle(tx).font), room);
             } else if(pt!==tx.pt){
               w=w*pt/tx.pt;        // bigger letters, wider box: the lines break where they did
             }
@@ -3390,6 +3494,7 @@ module InteriorPro
               // typed in the letters it will be drawn in
               ed.style.fontWeight=en.bold ? '700' : '';
               ed.style.fontStyle=en.italic ? 'italic' : '';
+              ed.style.fontFamily=fontCss(en.text, en.font);
               ed.style.textDecoration=en.underline ? 'underline' : '';
               ed.style.color=en.color || '';
               ed.className='on';
@@ -3420,6 +3525,7 @@ module InteriorPro
             ed.style.padding='1px 2px';
             ed.style.fontWeight=TSEL.shape.bold ? '700' : '';
             ed.style.fontStyle=TSEL.shape.italic ? 'italic' : '';
+            ed.style.fontFamily=fontCss(TSEL.shape.text, TSEL.shape.font);
             ed.style.textDecoration=TSEL.shape.underline ? 'underline' : '';
             ed.style.color=/^#[0-9a-f]{6}$/i.test(String(TSEL.shape.color||'')) ? TSEL.shape.color : '';
             var rd=(TSEL.shape.rotation||0)+(TSEL.paper ? 0 : VROT);
@@ -3642,7 +3748,7 @@ module InteriorPro
               // writing on the plan carries the sheet's turn as well as its own
               var rdeg = (s.rotation||0) + (s.__paper ? 0 : VROT);
               var rot = rdeg ? ' transform="rotate('+(-rdeg)+','+px.toFixed(1)+','+py.toFixed(1)+')"' : '';
-              o.push('<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" font-family="Helvetica,Arial"'+
+              o.push('<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" font-family="'+esc(fontCss(s.text, s.font))+'"'+
                      ' font-size="'+fs.toFixed(1)+'" text-anchor="'+anchor+'" dominant-baseline="'+base+
                      '" fill="'+(/^#[0-9a-f]{6}$/i.test(String(s.color||'')) ? s.color : '#000')+'"'+(s.bold?' font-weight="700"':'')+(s.italic?' font-style="italic"':'')+
                      (s.underline?' text-decoration="underline"':'')+rot+'>'+esc(s.text)+'</text>');
@@ -3811,20 +3917,29 @@ module InteriorPro
             if(v){
               var sf=scaleFactor(STATE.scale);
               var cx=v.x+v.w/2, cy=v.y+v.h/2;
-              var toPaper=function(mx,my){ return [cx+(mx-STATE.origin_x)*sf, cy+(my-STATE.origin_y)*sf]; };
+              // an editor drawing's sheet (2026-10-07): seen whole, at the scale
+              // and place Ruby gave ITS view - not the plan's (dOx/dOy); the
+              // plan is drawn from STATE.origin, read as it is drawn
+              var dOx=null, dOy=null;
+              if(pg.kind==='drawing'){ sf=SF[v.scale]||(0.25/12); dOx=v.origin_x||0; dOy=v.origin_y||0; }
+              var toPaper=function(mx,my){
+                var ox=(dOx===null) ? STATE.origin_x : dOx, oy=(dOy===null) ? STATE.origin_y : dOy;
+                return [cx+(mx-ox)*sf, cy+(my-oy)*sf];
+              };
               // a turned drawing: the same, turned about the middle of the frame
-              var vt=viewTurn();
+              var vt=(pg.kind==='drawing') ? {deg:0, c:1, s:0} : viewTurn();
               VROT=vt.deg;
               if(vt.deg){
                 var rc=vt.c, rs=vt.s;
                 toPaper=function(mx,my){
-                  var dx=(mx-STATE.origin_x)*sf, dy=(my-STATE.origin_y)*sf;
+                  var ox=(dOx===null) ? STATE.origin_x : dOx, oy=(dOy===null) ? STATE.origin_y : dOy;
+                  var dx=(mx-ox)*sf, dy=(my-oy)*sf;
                   return [cx+dx*rc-dy*rs, cy+dx*rs+dy*rc];
                 };
               }
               // remembered so a click on the screen can be turned back into a
               // place in the house
-              if(live) VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper, rot:vt.deg, rc:vt.c, rs:vt.s};
+              if(live && pg.kind!=='drawing') VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper, rot:vt.deg, rc:vt.c, rs:vt.s};
               var cid='vclip'+(live?'':'t'+(pg.name||'').replace(/[^A-Za-z0-9]/g,''));
               // a box that turns as a whole: the clip and the frame are the
               // rectangle turned about its middle (2026-10-07, stage 5)
@@ -4097,7 +4212,7 @@ module InteriorPro
 
           function eachVertex(fn){
             if(!DOC||!STATE||!PAGE) return;
-            var v=(PAGE.views||[])[0]; if(!v) return;
+            var v=pageView(); if(!v) return;
             var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
             if(!cv) return;
             var hid=STATE.hidden||[];
@@ -4208,7 +4323,7 @@ module InteriorPro
           function siteLayer(){
             if(!DOC||!PAGE||!STATE) return null;
             if((STATE.hidden||[]).indexOf('SITE')>=0) return null;   // switched off
-            var v=(PAGE.views||[])[0]; if(!v) return null;
+            var v=pageView(); if(!v) return null;
             var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
             if(!cv) return null;
             return (cv.layers||[]).filter(function(l){ return l.name==='SITE'; })[0]||null;
@@ -4465,7 +4580,7 @@ module InteriorPro
           // lines, anything on a layer that is switched on.
           function eachSeg(fn){
             if(!DOC||!STATE||!PAGE) return;
-            var v=(PAGE.views||[])[0]; if(!v) return;
+            var v=pageView(); if(!v) return;
             var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
             if(!cv) return;
             var hid=STATE.hidden||[];
@@ -4837,6 +4952,9 @@ module InteriorPro
           // is a step of its own and Ruby is told once.
           var TXSTYLE=true;    // told by Ruby
           var PGORDER=true;    // told by Ruby: a sheet in the page list can be dragged up or down
+          var DRAWNON=true;    // told by Ruby: an editor drawing can be put on a sheet of its own
+          var TXFONT=true;     // told by Ruby: a lettering of its own on writing
+          var DRAFTS=[];       // the editor's drawings on offer: [{i, name}]
           var PGDRAG=null, PGJUST=false;
           var TXB=null;        // the box of writing the panel is on, by its number; null = none
 
@@ -4881,6 +4999,7 @@ module InteriorPro
             $('txunder').className  = 'tool'+(sy.underline?' on':'');
             if(act!==$('txcolor')) $('txcolor').value = sy.color || '#000000';
             $('txwhat').textContent = tbClean(tx.text).split('\n')[0].slice(0,22);
+            if($('txfont') && act!==$('txfont')) fontPick((sy.font && TXR.fonts && TXR.fonts[sy.font]) ? sy.font : '');
             boxBarUnits(true);
             bar.className='on';
             if(first) openSection('text', true);      // the box at the side opens on it
@@ -4898,6 +5017,10 @@ module InteriorPro
             if(what.color!==undefined){
               var c=String(what.color||'').toLowerCase();
               if(/^#[0-9a-f]{6}$/.test(c) && c!=='#000000') tx.color=c; else delete tx.color;
+            }
+            if(what.font!==undefined){
+              var fo=String(what.font||'').trim();
+              if(TXFONT && fo && fo.length<=40) tx.font=fo; else delete tx.font;
             }
             var pt=null;
             if(what.pt!==undefined){
@@ -4946,6 +5069,7 @@ module InteriorPro
             $('txitalic').className = 'tool'+(hit.shape.italic?' on':'');
             $('txunder').className  = 'tool'+(hit.shape.underline?' on':'');
             $('txcolor').value = /^#[0-9a-f]{6}$/i.test(String(hit.shape.color||'')) ? String(hit.shape.color).toLowerCase() : '#000000';
+            if($('txfont')) fontPick((hit.shape.font && TXR.fonts && TXR.fonts[hit.shape.font]) ? hit.shape.font : '');
             $('txwhat').textContent = String(hit.shape.text||'').slice(0,22);
             // His own words for this label (2026-10-07). A hand dimension keeps
             // them on the MARK itself (label), so they survive the dimension
@@ -5124,7 +5248,8 @@ module InteriorPro
                       bold:$('txbold').className.indexOf('on')>=0,
                       italic:$('txitalic').className.indexOf('on')>=0,
                       underline:$('txunder').className.indexOf('on')>=0,
-                      color:String($('txcolor').value||'#000000').toLowerCase() };
+                      color:String($('txcolor').value||'#000000').toLowerCase(),
+                      font:($('txfont') ? String($('txfont').value||'') : '') };
             if(extra) for(var k in extra) out[k]=extra[k];
             sketchup.set_text_mark(JSON.stringify(out));
           }
@@ -5656,7 +5781,7 @@ module InteriorPro
               // used to live on this gesture; it is on Alt-drag now, and the
               // hint line says so. Shift still pans the view.
               if(MODE==='hand' && !e.shiftKey && !e.altKey && e.button!==1 &&
-                 (PAGE.views||[])[0]){
+                 pageView()){
                 var bp=mouseAt(e);
                 if(bp){
                   BAND={x0:bp[0], y0:bp[1], x1:bp[0], y1:bp[1], moved:false,
@@ -5667,7 +5792,7 @@ module InteriorPro
                 }
               }
               var stage=$('stage');
-              var pan = e.shiftKey || e.button===1 || !(PAGE.views||[])[0];
+              var pan = e.shiftKey || e.button===1 || !pageView();
               DRAG={x:e.clientX,y:e.clientY,ox:STATE.origin_x,oy:STATE.origin_y,
                     pan:pan, sl:stage.scrollLeft, st:stage.scrollTop};
               // Shift held: dragging still slides the view, as it always has.
@@ -6177,8 +6302,13 @@ module InteriorPro
             TXWORDS = (p.text_words!==false);
             TXSTYLE = (p.text_style!==false);
             PGORDER = (p.page_order!==false);
+            DRAWNON = (p.drawn!==false);
+            TXFONT = (p.text_font!==false);
+            DRAFTS = p.drafts || [];
+            fillDrafts();
             if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
+            fillFonts();           // the letterings on offer, from the rules just given
             // a sheet from Ruby while words were open: the bar is shut, what Ruby has is the truth
             if(TBED){ TBED=null; if($('tbbar')) $('tbbar').className=''; }
             if(!STATE.texts) STATE.texts=[];
@@ -6382,7 +6512,9 @@ module InteriorPro
           // quietly start meaning a different sheet.
           function pageKey(p){
             var k=(p&&p.kind)||'plan';
-            return k==='image' ? ('image:'+p.ref) : k;
+            if(k==='image') return 'image:'+p.ref;
+            if(k==='drawing') return 'drawing:'+p.ref;     // an editor drawing on a sheet (2026-10-07)
+            return k;
           }
 
           // The tick keeps the sheet in the set and only leaves it out of the
@@ -6533,6 +6665,106 @@ module InteriorPro
             fillPages(); showFit(); render(); push();
           }
 
+          // ---- the editor's drawings, on sheets of their own (2026-10-07) ----
+          // The list under the pages: which editor drawing ("שרטוט 1"...) to
+          // put on a sheet of its own. Shown only when the editor has one.
+          function fillDrafts(){
+            var box=$('drawadd'), sel=$('drawsrc');
+            if(!box||!sel) return;
+            var on=DRAWNON && DRAFTS.length>0;
+            if(box.style) box.style.display = on ? '' : 'none';
+            if(!on) return;
+            var cur=sel.value;
+            sel.innerHTML='';
+            DRAFTS.forEach(function(d){
+              var o=document.createElement('option'); o.value='draft:'+d.i; o.textContent=d.name;
+              if(o.value===cur) o.selected=true;
+              sel.appendChild(o);
+            });
+          }
+          function addDrawing(){
+            var sel=$('drawsrc'); if(!sel||!sel.value) return;
+            sketchup.add_drawing(JSON.stringify({src:sel.value}));
+          }
+
+          // ---- a lettering of its own (2026-10-07) -------------------------
+          // The letterings on offer, as Ruby found them on this computer
+          // (TXR.fonts); "" = the drawing's own (Helvetica; Hebrew in TXR.heb).
+          function fontNames(){ return (TXFONT && TXR && TXR.fonts) ? Object.keys(TXR.fonts) : []; }
+          function fillFonts(){
+            var sel=$('txfont'), box=$('txfontbox'), menu=$('txfontmenu'); if(!sel) return;
+            var names=fontNames();
+            if(box && box.style) box.style.display = names.length ? '' : 'none';
+            var cur=sel.value;
+            sel.innerHTML='';
+            [''].concat(names).forEach(function(nm){
+              var o=document.createElement('option'); o.value=nm; o.textContent=nm||'כתב רגיל';
+              if(nm===cur) o.selected=true;
+              sel.appendChild(o);
+            });
+            // the letterings' own files, so the sheet draws the very letters the PDF prints
+            fontFaces();
+            // the list he picks from: every name in its own letters
+            if(menu){
+              menu.innerHTML='';
+              [''].concat(names).forEach(function(nm){
+                var d=document.createElement('div');
+                d.textContent = nm || 'כתב רגיל';
+                if(nm && d.style) d.style.fontFamily = fontCss('A', nm);
+                d.setAttribute('data-font', nm);
+                d.onclick=function(e){
+                  if(e && e.stopPropagation) e.stopPropagation();
+                  fontMenu(false);
+                  if(sel.value!==nm){ sel.value=nm; if(sel.onchange) sel.onchange(); }
+                  paintFontBtn();
+                };
+                menu.appendChild(d);
+              });
+            }
+            paintFontBtn();
+          }
+          // @font-face for every lettering on offer, from the files beside the plugin
+          function fontFaces(){
+            if(!document.head || !document.createElement) return;
+            var st=$('ipfonts');
+            if(!st){ st=document.createElement('style'); st.id='ipfonts'; document.head.appendChild(st); }
+            var css='';
+            fontNames().forEach(function(f){
+              var t=TXR.fonts[f]; if(!t||!t.url) return;
+              css += '@font-face{font-family:"'+f+'";src:url("'+t.url+'");font-weight:400;font-style:normal;}\n';
+              if(t.urlb) css += '@font-face{font-family:"'+f+'";src:url("'+t.urlb+'");font-weight:700;font-style:normal;}\n';
+            });
+            st.textContent=css;
+          }
+          // the button says which lettering is picked, in that lettering
+          function paintFontBtn(){
+            var sel=$('txfont'), b=$('txfontbtn'), menu=$('txfontmenu'); if(!sel||!b) return;
+            var v=sel.value||'';
+            b.textContent = v || 'כתב רגיל';
+            if(b.style) b.style.fontFamily = v ? fontCss('A', v) : '';
+            if(menu) Array.prototype.forEach.call(menu.children||[], function(d){ d.className = (d.getAttribute('data-font')===v) ? 'on' : ''; });
+          }
+          // the lettering picked for what is in the panel, shown on the button
+          function fontPick(v){
+            var sel=$('txfont'); if(!sel) return;
+            sel.value = v || '';
+            paintFontBtn();
+          }
+          function fontMenu(on){
+            var m=$('txfontmenu'); if(!m) return false;
+            var was = m.className==='on';
+            m.className = on ? 'on' : '';
+            return was;
+          }
+          // the family a run is measured and shown in: the one picked if it is
+          // on offer, else the Hebrew one when the run needs it, else none
+          function fontFor(str,font){
+            if(!TXFONT||!TXR||!TXR.fonts) return null;
+            if(font && TXR.fonts[font]) return font;
+            return (TXR.heb && TXR.fonts[TXR.heb] && /[\u0590-\u05FF\uFB1D-\uFB4F]/.test(String(str))) ? TXR.heb : null;
+          }
+          function fontCss(str,font){ var f=fontFor(str,font); return f ? (f+',Arial,sans-serif') : 'Helvetica,Arial'; }
+
           function fill(id,list,val){
             var el=$(id); el.innerHTML='';
             list.forEach(function(s){
@@ -6644,7 +6876,7 @@ module InteriorPro
           // The user pressed a button, so this one MAY change the scale: the
           // biggest one in his list that holds the whole drawing, centred.
           function fitPlan(){
-            var pg=activePage(), v=pg&&(pg.views||[])[0];
+            var pg=activePage(), v=pg&&(pg.views||[])[0]&&pageView();
             if(!BOUNDS||!v) return;
             var best=null;
             SCALES.forEach(function(s){
@@ -6661,7 +6893,7 @@ module InteriorPro
           // says what would fit. never changes the scale by itself.
           function showFit(){
             var pg=activePage();
-            var v=pg&&(pg.views||[])[0];
+            var v=pg&&(pg.views||[])[0]&&pageView();
             if(!BOUNDS||!v){ $('fit').textContent=''; return; }
             var sf=scaleFactor(STATE.scale);
             var tz=turnedSize();
@@ -7006,12 +7238,17 @@ module InteriorPro
               sendTextMark();
             };
             $('txcolor').onchange=function(){ if(boxBarSet({color:this.value})) return; sendTextMark(); };
+            $('txfont').onchange=function(){ if(boxBarSet({font:this.value})) return; sendTextMark(); };
+            $('txfontbtn').onclick=function(e){ if(e&&e.stopPropagation) e.stopPropagation(); fontMenu($('txfontmenu').className!=='on'); };
+            // a press anywhere else shuts the list
+            document.addEventListener('mousedown', function(e){ var m=$('txfontmenu'); if(m && m.className==='on' && !(e.target && (e.target===$('txfontbtn') || (e.target.parentNode===m)))) fontMenu(false); });
+            $('drawbtn').onclick=function(){ addDrawing(); };
             // Back to whatever its group says, rather than back to 100 - the
             // group is the drawing's own standard and that is what "normal"
             // means for one label inside it.
             $('txreset').onclick=function(){
               // a box of writing: plain black letters again (its size is his)
-              if(boxBarSet({bold:false, italic:false, underline:false, color:'#000000'})) return;
+              if(boxBarSet({bold:false, italic:false, underline:false, color:'#000000', font:''})) return;
               if(!TSEL) return;
               sketchup.set_text_mark(JSON.stringify({key:TSEL.key, clear:true}));
               closeTextBar();
@@ -7051,6 +7288,7 @@ module InteriorPro
             // not while the cursor is in the address or sheet-number boxes.
             window.addEventListener('keydown',function(e){
               if(e.key==='Escape' && pageDragCancel()){ e.preventDefault(); return; }
+              if(e.key==='Escape' && fontMenu(false)){ e.preventDefault(); return; }       // the list of letterings shuts
               var t=(e.target&&e.target.tagName)||'';
               if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return;
               if(e.target && e.target.id==='pages') return;   // the list handles its own keys

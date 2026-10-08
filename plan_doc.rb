@@ -217,6 +217,8 @@ module InteriorPro
     class Canvas
       include HasLayers
       attr_reader :name
+      # the name of the editor drawing this canvas was read from (2026-10-07)
+      attr_accessor :drawn_name
 
       def initialize(name)
         @name = name.to_s

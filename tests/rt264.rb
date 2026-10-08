@@ -103,7 +103,7 @@ end
 # 0. the window really does draw from the state - the reason any of this matters
 # ---------------------------------------------------------------------------
 ok('the window draws the plan from STATE.origin (if this changes, re-read this suite)',
-   SRC.include?('(mx-STATE.origin_x)*sf') && SRC.include?('(my-STATE.origin_y)*sf'))
+   SRC.include?('ox=(dOx===null) ? STATE.origin_x : dOx') && SRC.include?('(mx-ox)*sf') && SRC.include?('(my-oy)*sf'))   # (since 2026-10-07 an editor drawing's sheet has an origin of its own, dOx)
 
 # ---------------------------------------------------------------------------
 # 1. HIS CASE: a remembered place that shows nothing, window opened

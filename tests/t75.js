@@ -238,7 +238,7 @@ const barOpen = () => el("tbbar").className === "on";
 
 ok("the window has the switch, and it is on", safe("TXTON") === true, safe("TXTON"));
 const rb = fs.readFileSync("plan_sheet_dialog.rb", "utf8");
-ok("Ruby sends the switch and its rules with the sheet", /text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX/.test(rb) && /text_rules: InteriorPro::PlanCanvas\.text_rules/.test(rb));
+ok("Ruby sends the switch and its rules with the sheet", /text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX/.test(rb) && /text_rules: text_rules_for_window/.test(rb) && /def text_rules_for_window[\s\S]{0,200}InteriorPro::PlanCanvas\.text_rules/.test(rb));   // (since 2026-10-08 the rules go through text_rules_for_window, which adds the letterings' files)
 ["tbWidth", "tbWrap", "tbHeight", "tbNatural", "tbShapes", "pageTexts", "tbRebuild", "tbFit", "tbHold", "tbOpen", "tbLive", "tbSave", "tbCancel", "textClick"].forEach(fn =>
   ok("it defines " + fn, typeof safe(fn) === "function", typeof safe(fn)));
 const page = fs.readFileSync("sheet.html", "utf8");

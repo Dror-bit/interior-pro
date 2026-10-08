@@ -501,7 +501,22 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 21:05): שלב 5 — הקופסה של השרטוט כולה מסתובבת — מחכה לבדיקה שלו
+## הצעד הנוכחי (2026-10-08 05:40): הפונטים — 4 שמגיעים עם התוסף (assets/FONTS), כל שם בכתב שלו — ב-live, מחכה לבדיקה שלו
+הכל ב-`HANDOFF_2026-10-07.md` חלק י"ז (ולפניו ט"ו–ט"ז: דפי שרטוט, עברית ב-PDF). **לא נבדקו אצלו:** שלב 5, 6, 7. ה-commit של 6+7 עוד לא רץ.
+**אם הכתבים לא נראים אצלו בחלון** (CEF + @font-face מ-file://): `load '.../debug_fonts.rb'` וקוראים `fonts_window.json` בגשר.
+אחרי הבדיקה: **הרשימה החדשה שלו (20:44)**.
+
+## (קודם) (2026-10-08 05:05): 6+7 (דפי שרטוט של העורך; סוג כתב + עברית ב-PDF) ב-live — מחכים לבדיקה שלו, יחד עם שלב 5
+הכל ב-`HANDOFF_2026-10-07.md` חלקים ט"ו–ט"ז. **לא נבדקו אצלו:** שלב 5 (חלק י"ד), 6, 7. ה-commit של הלוגו+שלב 5 רץ; 6+7 עוד לא.
+אחרי הבדיקה: **הרשימה החדשה שלו (20:44)** — הערה לכל כיוון + עריכת כיתוב הערה; להוריד את ה-hints; שם הפרויקט = הכתובת בטייטל בלוק ושם קובץ ה-PDF;
+זום אווט עד הסוף מרכז את הדף. (סוג כתב = 7, נסגר.)
+
+## (קודם) (2026-10-07 21:23): הוא הלך לישון באמצע 6+7 — הקוד ב-`OneDrive\InteriorPro\work\wip_67`, לא בתיקייה החיה
+מחר הוא כותב "תמשיך". **קודם:** לקרוא `HANDOFF_2026-10-07.md` חלק ט"ו (מה בנוי, 3 אדומות ב-t81 ואיך לתקן), לתקן, run_all, להעתיק ל-live, ואז
+ההוראות שלו לבדיקה. **לפני ההעתקה:** לוודא ב-`.git/COMMIT_EDITMSG` אם ה-commit של הלוגו+שלב 5 רץ; אם לא — פקודה מצטברת אחת.
+שלב 5 (חלק י"ד) הועתק ל-live ולא נבדק אצלו. הרשימה החדשה שלו (20:44) — אחרי 6+7.
+
+## (קודם, אותו יום) (2026-10-07 21:05): שלב 5 — הקופסה של השרטוט כולה מסתובבת — מחכה לבדיקה שלו
 הכל ב-`HANDOFF_2026-10-07.md` חלק י"ד. אחריו, בסדר שלו: לבחור איזה שרטוט נכנס לאיזה דף; סוג כתב / עברית ב-PDF. **ואז הרשימה החדשה שלו (20:44)** — חמישה דברים, ב-HANDOFF.
 (20:40, לא נבדק אצלו עדיין אבל אמר "מעולה": "איך זה עובד" הוסר + הלוגו של VISUALIZE קבוע — חלק י"ג. ה-commit שלהם עוד לא רץ — לתת פקודה מצטברת.)
 
@@ -785,6 +800,18 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_DRAWN_SHEETS = false` - no sheet is made for an editor drawing, whatever `st['drawn']` says, and
+  the window offers none (`tests/rt281.rb`, `tests/t81.js`). On: the editor's own drawing pages ("שרטוט 1"...) can each go on a sheet
+  of kind 'drawing' (page key 'drawing:j'), after the schedules and before the pictures, seen whole at the biggest scale from the
+  list that holds them - seen, not worked on.
+- `InteriorPro::PlanPDF::USE_TTF_FONTS = false` - the three Helveticas only: a run with letters they have not got (Hebrew) prints
+  as spaces, as before, and no font is written into the PDF (`tests/rt282.rb`). On: such a run, or one in a lettering he picked, is
+  set in one of the fonts that SHIP WITH THE PLUGIN (assets/FONTS/*.ttf - he picked Architects Daughter, Shadows Into Light, David
+  Libre, Suez One; PlanPDF.shipped_fonts) written into the file, Hebrew laid right to left the way the browser lays it (PlanPDF.visual -
+  held against Chromium, tests/browser/bidi.js). The window loads the same files by @font-face.
+- `InteriorPro::PlanCanvas::USE_TEXT_FONT = false` - 'font' on a box of writing or a label is ignored and the lettering list in the
+  panel is put away (`tests/rt282.rb`, `tests/t81.js`). On: the panel offers the letterings found, the words are shown and MEASURED
+  in the one picked (text_rules['fonts'] - the table Ruby measures by), and the PDF sets them in it. Needs USE_TTF_FONTS.
 - `InteriorPro::PlanCanvas::USE_BOX_TURN = false` - the drawing's frame stays square to the paper and only the lines inside it turn,
   as on the day the turn was built; a turned box is not held by its turned room (`tests/rt280.rb`, `tests/t80.js`; rt271/rt273 take
   that road with the switch off). On: the frame, the clip and the handles turn with the drawing about the middle of the box (the PDF clips
