@@ -76,7 +76,7 @@ ok('Ruby owns the switch and sends it with the sheet',
    /if\(p\.deep_zoom===false\)\{ ZMAX=14; KSTROKE=Infinity; \}/.test(js));
 
 // ------------------------------------------------------------- 1. closer
-ok('the wheel is no longer stopped at 14 times', /z = Math\.min\(Math\.max\(z, 0\.2\), ZMAX\);/.test(js) &&
+ok('the wheel is no longer stopped at 14 times', /z = Math\.min\(Math\.max\(z, 1\), ZMAX\);/.test(js) &&
    !/Math\.max\(z, 0\.2\), 14\)/.test(js));
 
 // ------------------------------------------------- 2. the lines stay lines

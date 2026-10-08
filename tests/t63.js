@@ -181,17 +181,17 @@ ok('mouse to the LEFT of the sheet: its left edge stays where it was', Math.abs(
 reset(); sandbox.zoomAt(600, 400, 999);
 ok('it will not zoom in without end - but it goes well past the old 14 times', vm.runInContext('ZOOM', sandbox) === 200, vm.runInContext('ZOOM', sandbox));
 reset(); sandbox.zoomAt(600, 400, 0.00001);
-ok('nor out until the sheet is a dot', vm.runInContext('ZOOM', sandbox) >= 0.2, vm.runInContext('ZOOM', sandbox));
+ok('nor out past "fits" - the sheet is never smaller than the window (2026-10-07)', vm.runInContext('ZOOM', sandbox) >= 1, vm.runInContext('ZOOM', sandbox));
 
 // ------------------------------------------------------------------ the switch
 // Zooming OUT at a corner: the sheet fits the window, so there is nothing to
 // scroll, and the old arithmetic can only watch it shrink towards the middle.
+// (since 2026-10-07 the wheel stops at "fits", so the sheet is first zoomed in)
+reset(); wheel(...PLACES['the top left'], 6);
 const held = drift(...PLACES['the top left'], -4);
-vm.runInContext('ZHOLD=false', sandbox);
-const old = drift(...PLACES['the top left'], -4);
-vm.runInContext('ZHOLD=true', sandbox);
 ok('zooming OUT at a corner: the sheet shrinks towards the mouse', held < 0.2, +held.toFixed(2));
-ok('switched off, the old arithmetic is back - and there the corner slides away from the mouse', old > 20, +old.toFixed(1));
+reset(); wheel(...PLACES['the top left'], -6);
+ok('and out past "fits" nothing happens: ZOOM holds at 1 and the sheet stays where it was', vm.runInContext('ZOOM', sandbox) === 1);
 
 console.log(fails ? `\n*** ${fails} FAILED ***` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

@@ -283,7 +283,9 @@ ok('with the one that changed',
 // A panel you are typing into cannot live inside the thing you are scrolling.
 (function () {
   const css = fs.readFileSync('sheet.html', 'utf8');
-  ['#textbar', '#notebar'].forEach(function (id) {
+  // (#textbar moved INTO the side panel on 2026-10-07 - "one place, like
+  // Word" - so it is checked below, not here)
+  ['#notebar'].forEach(function (id) {
     const rule = css.slice(css.indexOf('\n            ' + id + ' {'));
     const block = rule.slice(0, rule.indexOf('}'));
     ok(id + ' floats over the window, not inside the scrolling area',
@@ -291,6 +293,17 @@ ok('with the one that changed',
     ok(id + ' is not positioned inside #stage any more',
        !/position:absolute/.test(block), block.slice(0, 90));
   });
+})();
+
+(function () {
+  const css = fs.readFileSync('sheet.html', 'utf8');
+  const rule = css.slice(css.indexOf('\n            #textbar {'));
+  const block = rule.slice(0, rule.indexOf('}'));
+  ok('#textbar lives in the side panel now (2026-10-07): not floating, not inside #stage',
+     !/position:fixed/.test(block) && !/position:absolute/.test(block), block.slice(0, 90));
+  const side = css.slice(css.indexOf('<div id="side">'), css.indexOf('<div id="stage">'));
+  ok('and its HTML sits inside the "גודל טקסט" box of the side panel, under the group sizes',
+     side.indexOf('id="textbar"') > side.indexOf('id="tsReset"') && side.indexOf('id="textbar"') > 0);
 })();
 
 ok('the label panel can be parked out of the way',

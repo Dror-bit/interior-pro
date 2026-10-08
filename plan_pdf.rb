@@ -537,8 +537,10 @@ module InteriorPro
       dy = align == :center ? -cap / 2.0 : 0.0
 
       ang = ((s[:rotation] || 0.0) + turn.to_f) * Math::PI / 180.0
+      # a colour of its own (2026-10-07): "#rrggbb" set on the label at the side
+      col = s[:color].to_s =~ /\A#([0-9a-fA-F]{6})\z/ ? [$1[0, 2], $1[2, 2], $1[4, 2]].map { |h| h.to_i(16) } : nil
       st << 'BT'
-      st << '0 g'
+      st << (col ? "#{grey(col)} rg" : '0 g')
       st << "#{fnt} #{n(size)} Tf"
       if ang.abs > 1e-6
         c = Math.cos(ang)
@@ -553,6 +555,19 @@ module InteriorPro
       st << "(#{esc(str)}) Tj"
       st << '0 Tc' if s[:tracking]
       st << 'ET'
+      st << '0 g' if col
+      # a line under the words (2026-10-07), drawn in the words' own frame so
+      # it turns with them: a little under the baseline, as wide as the words
+      if s[:underline]
+        c  = Math.cos(ang)
+        sn = Math.sin(ang)
+        st.save
+        st << "#{n(c)} #{n(sn)} #{n(-sn)} #{n(c)} #{n(x * PT)} #{n(y * PT)} cm"
+        st << "#{grey(col)} RG" if col
+        st << "#{n(size * 0.06)} w"
+        st << "#{n(dx)} #{n(dy - size * 0.12)} m #{n(dx + w)} #{n(dy - size * 0.12)} l S"
+        st.restore
+      end
     end
 
     def self.draw_table(st, s, to_paper, scale)

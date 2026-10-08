@@ -678,6 +678,16 @@ module InteriorPro
                 cur['pct']    = r['pct'].to_f if r.key?('pct')
                 cur['bold']   = !!r['bold']   if r.key?('bold')
                 cur['italic'] = !!r['italic'] if r.key?('italic')
+                cur['underline'] = !!r['underline'] if r.key?('underline')
+                if r.key?('color')
+                  col = r['color'].to_s.downcase
+                  (col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000') ? (cur['color'] = col) : cur.delete('color')
+                end
+                # his own words for the label (2026-10-07); emptied = the label's own
+                if r.key?('text')
+                  t = r['text'].to_s.strip
+                  t.empty? ? cur.delete('text') : (cur['text'] = t)
+                end
                 # Where he shoved it (2026-08-19). Merged, not replaced, so a
                 # drag does not wipe the size he set and the size box does not
                 # snap the label back.
@@ -826,6 +836,7 @@ module InteriorPro
           # it needs those switched on too
           text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX,
           text_rules: InteriorPro::PlanCanvas.text_rules,
+          text_words: InteriorPro::PlanCanvas::USE_TEXT_WORDS,
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
@@ -1827,27 +1838,18 @@ module InteriorPro
             #notebar input { flex:1; }
             #notebar button { width:auto; margin:0; padding:6px 12px; }
             #notebar button.tool { flex:none; width:36px; padding:5px 0; }
-            /* the same bar, for one piece of writing */
-            #textbar { position:fixed; top:22px; left:50%;
-                       transform:translateX(-50%); z-index:21; display:none;
-                       background:#2b2b2b; border:1px solid #1f6feb;
-                       border-radius:5px; padding:8px; gap:6px; width:400px;
-                       box-shadow:0 6px 24px rgba(0,0,0,.5); }
-            #textbar.on { display:flex; align-items:center; }
-            /* the grip: the bar is dragged by its name, so it can be parked
-               off the label it is changing */
-            #textbar .what { flex:1; color:#cfe4ff; font-size:12px;
-                             white-space:nowrap; overflow:hidden;
-                             text-overflow:ellipsis; cursor:move;
-                             user-select:none; padding:2px 4px;
-                             border-radius:3px; }
-            #textbar .what:hover { background:#37475e; }
-            #textbar input { width:64px; flex:none; text-align:center; }
-            #textbar .pc { color:#888; font-size:12px; }
-            #textbar button { width:auto; margin:0; padding:6px 10px; flex:none; }
-            #textbar button.tool { width:32px; padding:5px 0; color:#eee; }
-            /* the same bar again, for a box of writing: the words, how big,
-               done. (2026-10-07) */
+            /* One label's own settings (2026-10-07): INSIDE the "גודל טקסט"
+               box at the side, under the group sizes - one place, like Word:
+               "אני לוחץ על טקסט מסוים ואז אני משנה את ההגדרות בחלון ההגדרות".
+               It used to be a bar floating over the sheet. */
+            #textbar { display:block; margin-top:9px; padding-top:8px;
+                       border-top:1px solid #43587a; opacity:.45; pointer-events:none; }
+            /* always there, under the group sizes ("הגדרות הטקסט צריכות להיות
+               פה"); it comes alive when a label is clicked */
+            #textbar.on { opacity:1; pointer-events:auto; }
+            /* the bar a box of writing is typed in (2026-10-07). FIXED, like the
+               note bar - the day this rule went missing the bar sat in the
+               flow at the top of #stage and squeezed the sheet to a thumbnail. */
             #tbbar { position:fixed; top:22px; left:50%;
                      transform:translateX(-50%); z-index:22; display:none;
                      background:#2b2b2b; border:1px solid #1f6feb;
@@ -1863,6 +1865,14 @@ module InteriorPro
             #tbbar .col input { text-align:center; }
             #tbbar button { margin:0; padding:6px 10px; }
             #tbbar .hint { margin:0; }
+            #textbar .what { color:#cfe4ff; font-size:12px; white-space:nowrap;
+                             overflow:hidden; text-overflow:ellipsis;
+                             padding:2px 4px; direction:ltr; text-align:left; }
+            #textbar .row button.tool { padding:5px 0; }
+            #textbar input#txcolor { width:44px; flex:none; height:31px; padding:2px 3px;
+                                     cursor:pointer; }
+            #textbar input#txwords { width:100%; margin-top:6px; direction:auto; }
+            #textbar .row button { width:auto; flex:1; margin-top:0; }
             /* The handle that turns the drawing (2026-10-07). An element of
                its own over the sheet, not a mark inside the drawing: it must
                never print, never reach a thumbnail, and never be counted as a
@@ -1942,6 +1952,24 @@ module InteriorPro
                   <div class="tsrow"><span>טבלאות</span><input id="tsTables" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <button id="tsReset">חזור ל-100%</button>
                   <div class="hint">100% = הגודל שהיה תמיד. משפיע גם על התצוגה וגם על ה-PDF.</div>
+                  <!-- the label he clicked on: its own size, weight, line,
+                       colour and words. Shown while one is picked. -->
+                  <div id="textbar">
+                    <div class="hint" style="margin:0" id="txhead">הכיתוב שנבחר (לחץ על כיתוב בדף):</div>
+                    <div id="txwhat" class="what"></div>
+                    <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc">%</span></div>
+                    <div class="row" style="margin-top:6px">
+                      <button id="txbold" class="tool" title="מודגש"><b>B</b></button>
+                      <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
+                      <button id="txunder" class="tool" title="קו תחתון"><u>U</u></button>
+                      <input id="txcolor" type="color" value="#000000" title="צבע">
+                    </div>
+                    <input id="txwords" placeholder="מה כתוב" title="מה כתוב במקום המספר. ריק = המספר האמיתי">
+                    <div class="row" style="margin-top:6px">
+                      <button id="txreset" title="חזרה להגדרות הקבוצה">אפס</button>
+                      <button id="txdone">סיים</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2095,6 +2123,7 @@ module InteriorPro
                     Shift+גרירה = מזיז את הדף עצמו.<br>
                     לחיצה על סימון בוחרת, Delete מוחק.<br>
                     לחיצה כפולה על הערה פותחת אותה לעריכה.<br>
+                    לחיצה כפולה על מספר של מידה: כותבים מה שרוצים במקומו (ריק = חוזר למספר).<br>
                     הידית בפינה למטה מסובבת את השרטוט.<br>
                     ריבוע בפינה מגדיל ומקטין את השרטוט.<br>
                     הפס באמצע כל צלע חותך את השרטוט מהצד הזה.<br>
@@ -2120,15 +2149,6 @@ module InteriorPro
                 </button>
                 <button id="noteok" class="go">הוסף</button>
                 <button id="notecancel">ביטול</button>
-              </div>
-              <div id="textbar">
-                <span id="txwhat" class="what"></span>
-                <input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים">
-                <span class="pc">%</span>
-                <button id="txbold" class="tool" title="מודגש"><b>B</b></button>
-                <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
-                <button id="txreset">אפס</button>
-                <button id="txdone" class="go">סיים</button>
               </div>
               <div id="tbbar">
                 <textarea id="tbtext" dir="auto" maxlength="4000" placeholder="מה לכתוב כאן?"></textarea>
@@ -2526,7 +2546,7 @@ module InteriorPro
 
           // The scale list says what the drawing is at: one of its scales, or
           // "any size" when he set the size by hand.
-          var FREE_SCALE='גודל חופשי';
+          var FREE_SCALE='scale';      // his name for a size set by hand (2026-10-07, "את גודל חופשי תקרא לו scale")
           function paintScale(){
             var free=BOXON && STATE && STATE.scale_f>0;
             fill('scale', free ? [FREE_SCALE].concat(SCALES) : SCALES, free ? FREE_SCALE : STATE.scale);
@@ -3235,8 +3255,8 @@ module InteriorPro
               var rot = rdeg ? ' transform="rotate('+(-rdeg)+','+px.toFixed(1)+','+py.toFixed(1)+')"' : '';
               o.push('<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" font-family="Helvetica,Arial"'+
                      ' font-size="'+fs.toFixed(1)+'" text-anchor="'+anchor+'" dominant-baseline="'+base+
-                     '" fill="#000"'+(s.bold?' font-weight="700"':'')+(s.italic?' font-style="italic"':'')+
-                     rot+'>'+esc(s.text)+'</text>');
+                     '" fill="'+(/^#[0-9a-f]{6}$/i.test(String(s.color||'')) ? s.color : '#000')+'"'+(s.bold?' font-weight="700"':'')+(s.italic?' font-style="italic"':'')+
+                     (s.underline?' text-decoration="underline"':'')+rot+'>'+esc(s.text)+'</text>');
             } else if(s.type==='table'){
               var cols=s.col_widths||[], rh=s.row_h||0.22, th=s.h||0.1;
               var all=[s.headers||[]].concat(s.rows||[]);
@@ -3577,7 +3597,9 @@ module InteriorPro
           // spot is back under the mouse. Works the same whether the sheet is
           // centred in the window or scrolled.
           function zoomAt(cx, cy, z){
-            z = Math.min(Math.max(z, 0.2), ZMAX);
+            // never smaller than the window (2026-10-07, "אין למה שתהיה אפשרות
+            // להקטין את הדף"): "fits" is as far out as the wheel goes
+            z = Math.min(Math.max(z, 1), ZMAX);
             var stage = $('stage');
             var svg = $('sheetWrap').firstChild;
             if(!svg){ setZoom(z); return; }
@@ -4312,6 +4334,24 @@ module InteriorPro
           // the label's key (PlanCanvas.text_key) so it survives the sheet
           // being rebuilt from the model.
           var TSEL=null;   // {key, shape, paper} - the label being changed
+          var TXWORDS=true;  // told by Ruby: his own words may replace a label's
+          // The words box: a hand dimension's go onto the mark, any other
+          // label's go to Ruby under the label's key. Empty = back to its own.
+          function sendTextWords(){
+            if(!TSEL||!TXWORDS) return;
+            var t=String($('txwords').value||'').replace(/\s+/g,' ').trim();
+            if(TSEL.dim!==undefined && TSEL.dim!==null && marks()[TSEL.dim]){
+              var m=marks()[TSEL.dim];
+              if(t){ if(m.label===t) return; m.label=t; }
+              else { if(m.label===undefined) return; delete m.label; }
+              push(); render(); showMarks();
+              return;
+            }
+            var cur=textMarks()[TSEL.key]||{};
+            if((cur.text||'')===t) return;
+            if(!cur.text && t===String(TSEL.shape.text||'')) return;   // its own words again: nothing to say
+            sketchup.set_text_mark(JSON.stringify({key:TSEL.key, text:t}));
+          }
           // A label being shoved right now. Ruby draws the writing, so the
           // window cannot really move it until Ruby has heard - a round trip
           // per mouse move would crawl. So the highlight box moves live and
@@ -4380,7 +4420,7 @@ module InteriorPro
 
           function textMarks(){ return STATE.text_marks||(STATE.text_marks={}); }
 
-          function openTextBar(hit){
+          function openTextBar(hit, quiet){
             TSEL=hit;
             var m=textMarks()[hit.key]||{};
             // What it is RIGHT NOW, not what was overridden - so the number in
@@ -4390,12 +4430,26 @@ module InteriorPro
             $('txsize').value = isFinite(shown)&&shown>0 ? shown : 100;
             $('txbold').className   = 'tool'+(hit.shape.bold?' on':'');
             $('txitalic').className = 'tool'+(hit.shape.italic?' on':'');
+            $('txunder').className  = 'tool'+(hit.shape.underline?' on':'');
+            $('txcolor').value = /^#[0-9a-f]{6}$/i.test(String(hit.shape.color||'')) ? String(hit.shape.color).toLowerCase() : '#000000';
             $('txwhat').textContent = String(hit.shape.text||'').slice(0,22);
+            // His own words for this label (2026-10-07). A hand dimension keeps
+            // them on the MARK itself (label), so they survive the dimension
+            // being stretched; every other label keeps them under its key.
+            var wb=$('txwords');
+            if(wb){
+              var hd=(hit.dim!==undefined && hit.dim!==null) ? marks()[hit.dim] : null;
+              wb.value = hd ? (hd.label||'') : (m.text||String(hit.shape.text||''));
+              wb.placeholder = (hd || /^(DIMENSIONS|NOTES)\|/.test(String(hit.key))) ? String(hit.shape.text||'') : 'מה כתוב';
+              if(wb.style) wb.style.display = TXWORDS ? '' : 'none';
+            }
             $('textbar').className='on';
+            openSection('text', true);          // the box at the side opens on the label
             placeTextBar();
             paintTextPick();
-            $('txsize').focus();
-            $('txsize').select();
+            // from two clicks the size box is ready to type in; from ONE click
+            // (quiet) the keyboard stays with the sheet, so the arrows still nudge
+            if(!quiet){ $('txsize').focus(); $('txsize').select(); }
           }
 
           // Shutting the note bar, from OUT HERE.
@@ -4431,8 +4485,7 @@ module InteriorPro
 
           function placeTextBar(){
             var el=$('textbar');
-            if(!TBAR){ el.style.left='50%'; el.style.top='22px';
-                       el.style.transform='translateX(-50%)'; return; }
+            if(!TBAR){ el.style.transform=''; return; }     // it sits in the side panel now
             el.style.left=TBAR.x+'px';
             el.style.top=TBAR.y+'px';
             el.style.transform='none';
@@ -4478,7 +4531,7 @@ module InteriorPro
               eachText(function(s,paper){
                 if(!found && s.key===want) found={key:s.key, shape:s, paper:paper};
               });
-              if(found) TSEL=found;
+              if(found){ found.dim=TSEL.dim; TSEL=found; }   // (the mark a dimension's number belongs to rides along)
             }
             var b=textBox(TSEL.shape, TSEL.paper);
             // while it is being shoved, the box follows the mouse even though
@@ -4552,7 +4605,9 @@ module InteriorPro
             $('txsize').value=v;
             var out={ key:TSEL.key, pct:v,
                       bold:$('txbold').className.indexOf('on')>=0,
-                      italic:$('txitalic').className.indexOf('on')>=0 };
+                      italic:$('txitalic').className.indexOf('on')>=0,
+                      underline:$('txunder').className.indexOf('on')>=0,
+                      color:String($('txcolor').value||'#000000').toLowerCase() };
             if(extra) for(var k in extra) out[k]=extra[k];
             sketchup.set_text_mark(JSON.stringify(out));
           }
@@ -4595,6 +4650,18 @@ module InteriorPro
             var off=(m.off===undefined||m.off===null)?0:m.off;
             var nx=-uy*off, ny=ux*off;
             return [m.x1+nx,m.y1+ny,m.x2+nx,m.y2+ny,ux,uy,len];
+          }
+
+          // What a hand dimension's number reads: his own words if he wrote
+          // any, else the measured length the way Ruby prints it (feet and
+          // inches to the nearest eighth, the sum fmt_feet does).
+          function dimLabelText(m){
+            if(TXWORDS && m.label) return String(m.label);
+            // the same sum as PlanGenerator.fmt_feet: inches to a tenth
+            var L=dimLine(m), len=L[6], ft=Math.floor(len/12), inch=Math.round((len-ft*12)*10)/10;
+            if(inch>=12){ ft+=1; inch=0; }
+            var is=(inch%1===0) ? String(inch) : inch.toFixed(1);
+            return ft>0 ? (ft+"'-"+is+'"') : (is+'"');
           }
 
           function dimLabelXY(m){
@@ -5032,7 +5099,12 @@ module InteriorPro
                   TDRAG={at:atMouse(e), dx:0, dy:0, moved:false};
                   TCARRY=null;
                   svg.style.cursor='move';
-                  paintTextPick(); showMarks();
+                  // ONE click: its settings are in the box at the side at once
+                  // (2026-10-07, "אני לוחץ על טקסט מסוים ואז אני משנה את
+                  // ההגדרות בחלון ההגדרות", like Word). Quiet: the keyboard
+                  // stays with the sheet.
+                  openTextBar(ht, true);
+                  showMarks();
                   e.preventDefault();
                   return;
                 }
@@ -5100,7 +5172,20 @@ module InteriorPro
               // of whatever writing is under the mouse.
               if(!h || marks()[h.i].t!=='note'){
                 var ht=hitText(e);
-                if(ht){ hideNoteBar(); openTextBar(ht); e.preventDefault(); }
+                if(!ht && h && marks()[h.i].t==='dim'){
+                  // two clicks on a hand dimension's LINE, not its number:
+                  // still its number that opens
+                  var lp=dimLabelXY(marks()[h.i]), bd=1e9;
+                  eachText(function(s2,paper){
+                    if(paper || !s2.key || !/^NOTES\|/.test(s2.key)) return;
+                    var d=Math.hypot(s2.x-lp[0], s2.y-lp[1]);
+                    if(d<bd && d<markTextH()*2){ bd=d; ht={key:s2.key, shape:s2, paper:false}; }
+                  });
+                }
+                if(ht){
+                  if(h && marks()[h.i].t==='dim') ht.dim=h.i;     // the words go onto the mark
+                  hideNoteBar(); openTextBar(ht); e.preventDefault();
+                }
                 return;
               }
               closeTextBar();
@@ -5558,6 +5643,8 @@ module InteriorPro
             CROPON = (p.box_crop!==false);
             PICON = (p.pic_box!==false);
             TXTON = (p.text_box!==false) && PICON;
+            TXWORDS = (p.text_words!==false);
+            if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
             // a sheet from Ruby while words were open: the bar is shut, what Ruby has is the truth
             if(TBED){ TBED=null; if($('tbbar')) $('tbbar').className=''; }
@@ -5600,7 +5687,7 @@ module InteriorPro
             // The first sheet a window is given still opens on the saved zoom.
             // After that the zoom on the screen is the one that counts.
             if(LOADED && KEEPVIEW){ STATE.zoom = ZOOM; }
-            else { ZOOM = STATE.zoom || null; }
+            else { ZOOM = (STATE.zoom > 1) ? STATE.zoom : null; }   // a sheet saved smaller than the window opens fitted
             LOADED = true;
             PAGE=DOC.pages[0];
             SF={};
@@ -5895,7 +5982,7 @@ module InteriorPro
             tag('markstag', n ? (n + ' על הדף') : '');
             var imgs=(DOC&&DOC.pages||[]).filter(function(p){ return p.kind==='image'; }).length;
             tag('imgtag', imgs ? (imgs + ' דפים') : '');
-            tag('papertag', (STATE.size||'') + ' · ' + ((BOXON && STATE.scale_f>0) ? 'חופשי' : (STATE.scale||'')));
+            tag('papertag', (STATE.size||'') + ' · ' + ((BOXON && STATE.scale_f>0) ? 'scale' : (STATE.scale||'')));
             tag('sitetag', STATE.site_count ? (STATE.site_count + ' קווים') : '');
           }
 
@@ -6248,6 +6335,11 @@ module InteriorPro
             $('tsReset').onclick=function(){ resetTextScale(); };
 
             $('txsize').onchange=function(){ sendTextMark(); };
+            $('txwords').onchange=function(){ sendTextWords(); };
+            $('txwords').onkeydown=function(e){
+              if(e.key==='Enter'){ e.preventDefault(); sendTextWords(); closeTextBar(); }
+              else if(e.key==='Escape'){ e.preventDefault(); closeTextBar(); }
+            };
             $('txsize').onkeydown=function(e){
               if(e.key==='Enter'){ e.preventDefault(); sendTextMark(); }
             };
@@ -6259,6 +6351,11 @@ module InteriorPro
               this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
               sendTextMark();
             };
+            $('txunder').onclick=function(){
+              this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              sendTextMark();
+            };
+            $('txcolor').onchange=function(){ sendTextMark(); };
             // Back to whatever its group says, rather than back to 100 - the
             // group is the drawing's own standard and that is what "normal"
             // means for one label inside it.
@@ -6268,8 +6365,7 @@ module InteriorPro
               closeTextBar();
             };
             $('txdone').onclick=function(){ closeTextBar(); };
-            $('txwhat').onmousedown=function(e){ dragTextBar(e); };
-            $('txwhat').title='גרור כדי להזיז את החלונית';
+            // (the bar lives in the side panel now: nothing to drag)
 
             $('stripbtn').onclick=function(){ toggleStrip(); };
             $('logopick').onclick=function(){

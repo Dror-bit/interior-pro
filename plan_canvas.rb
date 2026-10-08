@@ -49,6 +49,12 @@ module InteriorPro
     # (2026-10-07, st['texts'], see place_texts!). false = the list is ignored
     # and no sheet carries any.
     USE_TEXT_BOX = true unless const_defined?(:USE_TEXT_BOX, false)
+    # The NUMBER of a dimension - and any other label - can be written over by
+    # hand (2026-10-07, "אני רוצה שיהיה אפשרי לערוך את המידות - את המספרים
+    # שלהם בתוך"; asked whether the words replace the number for good or sit
+    # beside a number that keeps counting, he chose: they REPLACE it). false =
+    # a hand dimension's `label` and a label's `text` override are ignored.
+    USE_TEXT_WORDS = true unless const_defined?(:USE_TEXT_WORDS, false)
     TEXT_LAYER   = 'TEXT' unless const_defined?(:TEXT_LAYER, false)
     TEXT_PT      = 24.0   unless const_defined?(:TEXT_PT, false)      # the size a new one starts at, in points
     TEXT_PT_MIN  = 4.0    unless const_defined?(:TEXT_PT_MIN, false)
@@ -1148,6 +1154,10 @@ module InteriorPro
       seen = Hash.new(0)
       lay.shapes.each do |s|
         next unless s[:type] == :text
+        # the words as BUILT: a label written over by hand (:t0, see
+        # apply_text_overrides!) is keyed by the words it was built with,
+        # and goes back to them here - layout_pages! runs on every click
+        s[:text] = s[:t0] if s.key?(:t0)
         t = s[:text].to_s
         seen[t] += 1
         s[:key] = text_key(lay.name, t, seen[t])
@@ -1180,6 +1190,24 @@ module InteriorPro
             i = o.key?('italic') ? o['italic'] : o[:italic]
             s[:bold]   = !!b unless b.nil?
             s[:italic] = !!i unless i.nil?
+            # underline and colour (2026-10-07): "גודל כיתוב, אפשרות להדגשה,
+            # קו מתחת, סוג כתב וצבע" - in the one panel at the side, like Word.
+            # Colour is "#rrggbb"; black means "no colour" and is not kept.
+            u = o.key?('underline') ? o['underline'] : o[:underline]
+            s[:underline] = !!u unless u.nil?
+            col = (o.key?('color') ? o['color'] : o[:color]).to_s
+            s[:color] = col.downcase if col =~ /\A#[0-9a-fA-F]{6}\z/ && col.downcase != '#000000'
+            # His own words in place of the label's (2026-10-07): a dimension
+            # number written over, a room renamed on the sheet. The KEY was
+            # made from the words as built (name_texts! ran first), so the
+            # choice finds its label again after the sheet is rebuilt.
+            if USE_TEXT_WORDS
+              t = o.key?('text') ? o['text'] : o[:text]
+              if t.is_a?(String) && !t.strip.empty?
+                s[:t0] = s[:text].to_s unless s.key?(:t0)
+                s[:text] = t.to_s
+              end
+            end
             # Where he shoved it (2026-08-19). The user could already pick any
             # ONE label on the sheet and change its size; what he could not do
             # was move it, and the labels he most wanted to move - the
@@ -1295,7 +1323,10 @@ module InteriorPro
       h   = mark_num(m, :h)
       h   = mark_text_h if h <= 0
       lx, ly = dim_label_xy(m, h)
-      lay.text(InteriorPro::PlanGenerator.send(:fmt_feet, len),
+      # His own words instead of the measured number, if he wrote any
+      # (2026-10-07). They stay whatever the dimension is stretched to.
+      words = USE_TEXT_WORDS ? (m['label'] || m[:label]).to_s.strip : ''
+      lay.text(words.empty? ? InteriorPro::PlanGenerator.send(:fmt_feet, len) : words,
                lx, ly, h: h, align: :center, rotation: ang, follow: true)
     end
 

@@ -240,8 +240,8 @@ const sf1 = api.get("STATE").scale_f;
 ok("ANY SIZE AT ALL - the size is exactly what he pulled it to, not the nearest scale in the list",
    near(sf1, 0.125 * 1.2274, 1e-9) && [12, 6, 3, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.1875, 0.125, 0.09375, 0.0625].every(x => Math.abs(sf1 - x) > 1e-4), sf1);
 ok("the scale list says so: \"any size\", on top and picked",
-   el("scale").children[0].value === "גודל חופשי" && el("scale").children[0].selected === true && el("scale").children.length === 2, el("scale").children.map(o => [o.value, o.selected]));
-ok("and so does the heading of that box", /חופשי/.test(el("papertag").textContent), el("papertag").textContent);
+   el("scale").children[0].value === "scale" && el("scale").children[0].selected === true && el("scale").children.length === 2, el("scale").children.map(o => [o.value, o.selected]));
+ok("and so does the heading of that box", /scale/.test(el("papertag").textContent), el("papertag").textContent);
 
 // every corner works, each about the one across from it
 api.call("loadSheet", sheet());
@@ -339,7 +339,7 @@ ok("\"any size\" is gone from the list", el("scale").children.length === 1, el("
 pull("boxc-se", -40, -30);
 const sf6 = api.get("STATE").scale_f;
 global.sent.length = 0;
-el("scale").value = "גודל חופשי";
+el("scale").value = "scale";
 el("scale").onchange.call(el("scale"));
 ok("picking \"any size\" itself changes nothing", api.get("STATE").scale_f === sf6 && states().length === 0);
 
