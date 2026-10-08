@@ -163,7 +163,18 @@ end
 got = ET.make_all!(rooms, cut: 24, style: 'lines')
 ok('two rooms = four pictures, the wet room first', got == %w[/e/Bath_1_A_lines.png /e/Bath_1_B_lines.png /e/Hall_A_lines.png /e/Hall_B_lines.png], got)
 st = psd.load_state
-ok('all four are on the sheet with their names', st['image_titles']['/e/Hall_B_lines.png'] == 'Hall - B' && st['images'].last == '/e/Hall_B_lines.png', st['image_titles'])
+# since 14:00 (USE_ONE_SHEET): a room is ONE sheet named after it, its other walls beside the first (rt287)
+ok('one sheet a room, named after it, the other wall beside it',
+   st['image_titles']['/e/Bath_1_A_lines.png'] == 'Bath 1' && st['image_titles']['/e/Hall_A_lines.png'] == 'Hall' &&
+   st['images'].last == '/e/Hall_A_lines.png' && !st['images'].include?('/e/Hall_B_lines.png') &&
+   st['pics'].any? { |r| r['path'] == '/e/Hall_B_lines.png' && r['on'] == "image:#{st['images'].index('/e/Hall_A_lines.png')}" }, [st['images'], st['image_titles'], st['pics']])
+ET.send(:remove_const, :USE_ONE_SHEET)
+ET.const_set(:USE_ONE_SHEET, false)
+ET.make_all!(rooms, cut: 24, style: 'lines')
+st = psd.load_state
+ok('switched off: all four are on the sheet with their names, one sheet a wall', st['image_titles']['/e/Hall_B_lines.png'] == 'Hall - B' && st['images'].last == '/e/Hall_B_lines.png', st['image_titles'])
+ET.send(:remove_const, :USE_ONE_SHEET)
+ET.const_set(:USE_ONE_SHEET, true)
 
 # ---- the distance: one for the house, one for a room, one for a wall (2026-10-08, 11:59)
 h = { 'house' => '60', 'room' => '', 'walls' => { 'A' => '12' } }

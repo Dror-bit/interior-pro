@@ -1226,13 +1226,17 @@ module InteriorPro
       doc.pages.each do |pg|
         next unless pg.kind.to_s == 'image'
         next unless pg.layer?(pd::IMAGE_LAYER)
-        main = pg.layer(pd::IMAGE_LAYER).shapes.find { |s| s[:type] == :image }
-        next unless main
-        dims = all[main[:path].to_s.tr('\\', '/')]
-        next unless dims.is_a?(Array) && !dims.empty?
-        lay = pg.layer(ELEV_DIM_LAYER)
+        # every picture on the sheet that has dimensions - the one that owns it and, since
+        # 14:00 (a room's walls on one sheet), the ones added beside it
+        shots = pg.layer(pd::IMAGE_LAYER).shapes.select { |s| s[:type] == :image }
+        lay = nil
         @elev_seen = Hash.new(0)
-        dims.each { |d| safely { draw_elev_dim(lay, main, d) } }
+        shots.each do |main|
+          dims = all[main[:path].to_s.tr('\\', '/')]
+          next unless dims.is_a?(Array) && !dims.empty?
+          lay ||= pg.layer(ELEV_DIM_LAYER)
+          dims.each { |d| safely { draw_elev_dim(lay, main, d) } }
+        end
       end
       doc
     end
@@ -1304,9 +1308,12 @@ module InteriorPro
         yf = elev_pt(main, u1, d['v'])[1]
         yl = yf - d['row'].to_i * ELEV_ROW
         ln.call(x1, yl, x2, yl)
-        [x1, x2].each do |x|
+        reach = d['r'].is_a?(Array) ? d['r'] : []
+        [[x1, u1, reach[0]], [x2, u2, reach[1]]].each do |x, uu, rv|
           ln.call(x - t, yl - t, x + t, yl + t)
-          ln.call(x, yf - ELEV_GAP, x, yl - ELEV_OVER)
+          # a part's line runs up to its middle (ElevationTool::USE_PART_REACH, 13:54)
+          top = rv ? elev_pt(main, uu, rv)[1] : yf - ELEV_GAP
+          ln.call(x, top, x, yl - ELEV_OVER)
         end
         p = tr.call((x1 + x2) / 2.0 - tw / 2.0, yl + 0.035)
         lay.text(words, p[0], p[1], opts.merge(rotation: rot))
@@ -1320,9 +1327,11 @@ module InteriorPro
         # they do not show (13:58: off the corner the first column sat on the wall)
         xl = [xr, rx + rw].max + d['col'].to_i * ELEV_ROW
         ln.call(xl, y1, xl, y2)
-        [y1, y2].each do |y|
+        [y1, y2].each_with_index do |y, i|
           ln.call(xl - t, y - t, xl + t, y + t)
-          ln.call(xr + ELEV_GAP, y, xl + ELEV_OVER, y)
+          # the top of a part's height runs across from its middle (USE_PART_REACH, 13:54)
+          x0 = i == 1 && d['u0'] ? elev_pt(main, d['u0'], v2)[0] : xr + ELEV_GAP
+          ln.call(x0, y, xl + ELEV_OVER, y)
         end
         p = tr.call(xl - 0.035, (y1 + y2) / 2.0 - tw / 2.0)
         lay.text(words, p[0], p[1], opts.merge(rotation: rot + 90.0))

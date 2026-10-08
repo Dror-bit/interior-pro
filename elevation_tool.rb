@@ -35,6 +35,17 @@ module InteriorPro
     # "רק את הגובה של כל דבר והמרחק מהקיר הצדדי", and "1" = to the middle). Off = the whole set
     # as one box, its width in the chain and its bottom and top at the side, as before.
     USE_PART_MIDDLES = true unless const_defined?(:USE_PART_MIDDLES, false)
+    # 13:54, his words: "שהקווים יגעו בנקודה שאליו הוא מתייחס" - a part's lines run TO its
+    # middle: the chain's line up from under the floor, the height's line across from the
+    # side ('r' on a chain dimension, 'u0' on a height). Off = they stop at the floor and at
+    # the corner, as at 13:50.
+    USE_PART_REACH = true unless const_defined?(:USE_PART_REACH, false)
+    # 14:00, after a picture of a sheet with the room's four walls in a row ("ניראה מעולה"):
+    # all the walls of a room go onto ONE picture sheet, each in a box of its own, side by side
+    # at one scale, in the top half of the sheet (the rest is his: pictures, another room). A box
+    # he already moved stays where he put it. Off = one sheet a wall, as before.
+    USE_ONE_SHEET = true unless const_defined?(:USE_ONE_SHEET, false)
+    ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
     NEST_DEPTH = 4 unless const_defined?(:NEST_DEPTH, false)
     MARGIN = 12.0 unless const_defined?(:MARGIN, false)         # inches of air round the wall
@@ -370,9 +381,20 @@ module InteriorPro
         run = []
         stops.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
         run[-1] = len
+        parts = items.select { |it| it[:kind] == 'part' }
+        # how high the line from a stop of the chain reaches: the highest part's middle on it
+        reach = lambda do |a|
+          zs = parts.select { |it| (it[:a0].to_f - a).abs <= DIM_MIN }.map { |it| [[it[:z1].to_f, 0.0].max, wall_h.to_f].min }
+          zs.empty? ? nil : vz.call(zs.max)
+        end
         if run.size > 2
           run.reverse.each_cons(2) do |q, p|     # left to right as the picture shows it
-            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p) }
+            dd = { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p) }
+            if USE_PART_REACH
+              r = [reach.call(q), reach.call(p)]
+              dd['r'] = r if r.any?
+            end
+            out << dd
           end
         end
         out << { 'k' => 'h', 'row' => (run.size > 2 ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)],
@@ -383,7 +405,9 @@ module InteriorPro
             zm = [[it[:z1].to_f, 0.0].max, wall_h.to_f].min
             next if zm <= DIM_MIN
             col += 1
-            out << { 'k' => 'v', 'col' => col, 'v' => [vz.call(0.0), vz.call(zm)], 'u' => ux.call(0.0), 't' => fmt_in(zm) }
+            dd = { 'k' => 'v', 'col' => col, 'v' => [vz.call(0.0), vz.call(zm)], 'u' => ux.call(0.0), 't' => fmt_in(zm) }
+            dd['u0'] = ux.call(it[:a0].to_f) if USE_PART_REACH
+            out << dd
             next
           end
           z0 = [[it[:z0].to_f, 0.0].max, wall_h.to_f].min
@@ -532,7 +556,8 @@ module InteriorPro
         st['image_titles'] = tt.select { |p, _| st['images'].include?(p) }
         dd = st['image_dims'].is_a?(Hash) ? st['image_dims'] : {}
         dims.each { |p, d| dd[p.to_s.tr('\\', '/')] = d }
-        st['image_dims'] = dd.select { |p, _| st['images'].include?(p) }
+        onp = Array(st['pics']).map { |r| r.is_a?(Hash) ? r['path'].to_s.tr('\\', '/') : nil }
+        st['image_dims'] = dd.select { |p, _| st['images'].include?(p) || onp.include?(p) }
         psd.save_state(st)
         begin
           dlg = psd.instance_variable_get(:@dialog)
@@ -546,11 +571,104 @@ module InteriorPro
         fresh.size
       end
 
+      # ---- one sheet for the room (USE_ONE_SHEET, 2026-10-08 14:00) ---------------
+      #
+      # The first wall OWNS the sheet (st['images']), the others are pictures added to it
+      # (st['pics'], on 'image:N'). Each gets a box only if it has none yet - so after he
+      # moves or resizes one, taking the pictures again leaves it there.
+
+      # Boxes for pictures in a row, at one scale, in the top half of area [x, y, w, h].
+      # sizes: [[w_px, h_px]]; cols: how many columns of heights stand right of each.
+      def row_boxes(area, sizes, cols)
+        ax, ay, aw, ah = area.map(&:to_f)
+        er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
+        gaps = cols.map { |c| c.to_i * er + ROW_GAP }
+        room_w = aw - gaps[0...-1].sum - gaps.last.to_f
+        wpx = sizes.sum { |s| s[0].to_f }
+        hpx = sizes.map { |s| s[1].to_f }.max
+        k = [room_w / wpx, (ah * 0.5 - 3 * er) / hpx].min     # paper inches a pixel
+        x = ax
+        sizes.each_with_index.map do |s, i|
+          w = s[0].to_f * k
+          h = s[1].to_f * k
+          b = [x, ay + ah - h, w, h]
+          x += w + gaps[i]
+          b
+        end
+      end
+
+      def add_room_sheet!(paths, sheet_title, dims = {})
+        return 0 if paths.empty?
+        psd = InteriorPro::PlanSheetDialog
+        pc = InteriorPro::PlanCanvas
+        fresh = paths.map { |p| p.to_s.tr('\\', '/') }
+        main = fresh.first
+        rest = fresh[1..-1]
+        st = psd.load_state
+        # a wall that had a sheet of its own (before this, or taken one by one) gives it up
+        Array(st['images']).map { |p| p.to_s.tr('\\', '/') }.each_with_index.select { |p, _| rest.include?(p) }.map(&:last).reverse.each do |i|
+          st['images'] = Array(st['images']).each_with_index.reject { |_, j| j == i }.map(&:first)
+          st['pdf_skip'] = psd.send(:shift_image_keys, st['pdf_skip'], i) if st['pdf_skip']
+          st['page_order'] = psd.send(:shift_image_keys, st['page_order'], i) if st['page_order'].is_a?(Array)
+          psd.send(:shift_pics!, st, i)
+        end
+        have = Array(st['images']).map { |p| p.to_s.tr('\\', '/') }
+        st['images'] = have.include?(main) ? have : have + [main]
+        n = st['images'].index(main)
+        on = "image:#{n}"
+        tt = st['image_titles'].is_a?(Hash) ? st['image_titles'] : {}
+        tt[main] = sheet_title.to_s
+        st['image_titles'] = tt
+        pics = Array(st['pics']).select { |r| r.is_a?(Hash) }
+        rest.each { |p| pics << { 'path' => p, 'on' => on } unless pics.any? { |r| r['path'].to_s.tr('\\', '/') == p && r['on'].to_s == on } }
+        st['pics'] = pics
+        dd = st['image_dims'].is_a?(Hash) ? st['image_dims'] : {}
+        dims.each { |p, d| dd[p.to_s.tr('\\', '/')] = d }
+        st['image_dims'] = dd
+        psd.save_state(st)
+        # the boxes: only the ones he has not placed
+        geo = st['image_geo'].is_a?(Hash) ? st['image_geo'] : {}
+        mine = fresh.map { |p| p == main ? geo[n.to_s] : pics.find { |r| r['path'].to_s.tr('\\', '/') == p && r['on'].to_s == on } }
+        need = mine.each_with_index.map { |g, i| i.zero? ? !(g.is_a?(Hash) && g['box']) : !g['box'] }
+        # the first time the room is put on one sheet, the wall that owned it is laid in the row too
+        need[0] = true if need.size > 1 && need[1..-1].all?
+        if need.any?
+          psd.instance_variable_set(:@doc, nil)
+          pg = psd.document.pages.find { |q| q.kind.to_s == 'image' && q.ref.to_i == n }
+          if pg
+            sizes = fresh.map { |p| pc.pic_size(p) || [1333, 1440] }
+            cols = fresh.map { |p| Array(dd[p]).map { |x| x['col'].to_i }.max.to_i }
+            boxes = row_boxes(pc.pic_area(pg), sizes, cols)
+            fresh.each_with_index do |p, i|
+              next unless need[i]
+              if i.zero?
+                geo[n.to_s] = { 'box' => boxes[i], 'rot' => 0.0, 'crop' => [0.0, 0.0, 0.0, 0.0] }
+              else
+                mine[i]['box'] = boxes[i]
+                mine[i]['rot'] = 0.0
+                mine[i]['crop'] = [0.0, 0.0, 0.0, 0.0]
+              end
+            end
+            st['image_geo'] = geo
+            psd.save_state(st)
+          end
+        end
+        begin
+          dlg = psd.instance_variable_get(:@dialog)
+          psd.instance_variable_set(:@doc, nil)
+          psd.send(:push_all, dlg) if dlg
+        rescue StandardError => e
+          puts "[Elevation] sheet window not refreshed: #{e.message}"
+        end
+        trace("one sheet: #{File.basename(main)} owns image:#{n}, #{rest.size} beside it, #{need.count(true)} boxes laid")
+        fresh.size
+      end
+
       # the whole job from the panel: shoot, then onto the sheet
       def make!(room, cut: nil, style: 'lines')
         paths = shoot!(room, cut: cut, style: style)
         dims = paths.each_with_object({}) { |p, h| d = last_dims[p.to_s.tr('\\', '/')]; h[p] = d if d }
-        n = add_to_sheet!(paths, titles_for(room, paths), dims)
+        n = USE_ONE_SHEET ? add_room_sheet!(paths, room_name(room), dims) : add_to_sheet!(paths, titles_for(room, paths), dims)
         trace("#{room_name(room)}: #{paths.size} pictures, #{n} onto the sheet")
         paths
       end

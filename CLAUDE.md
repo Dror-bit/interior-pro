@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 361 שורות PASS (נמדד 2026-10-08 13:50, אחרי rt286).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 362 שורות PASS (נמדד 2026-10-08 14:30, אחרי rt287).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -833,6 +833,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Elevations, 2026-10-08:
+- `InteriorPro::ElevationTool::USE_ONE_SHEET = false` - one picture sheet a wall, as before (`tests/rt287.rb`, rt284). On: a room's
+  walls on ONE sheet named after the room, side by side at one scale in the top half, each a box he can move/size; a moved box stays.
+- `InteriorPro::ElevationTool::USE_PART_REACH = false` - a part's lines stop at the floor and the corner (`tests/rt286.rb`). On: they run
+  to the part's middle.
 - `InteriorPro::ElevationTool::USE_PART_MIDDLES = false` - a fixture made of parts (shower set) is one box again: its width
   in the chain, its bottom and top at the side (`tests/rt286.rb`). On: each part at its MIDDLE - one stop in the chain, one height.
 - `InteriorPro::ElevationTool::USE_ELEVATIONS = false` - the Elevations button says it is switched off and takes no picture
