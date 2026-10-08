@@ -748,8 +748,24 @@ module InteriorPro
             else
               st = load_state
               m  = (st['text_marks'] || {}).dup
+              # an elevation's number: its look is one setting for all of them (13:09, "2")
+              skey = shared_text_key(key)
               if r['clear']
                 m.delete(key)
+                m.delete(skey) if skey != key
+              elsif skey != key
+                cur = (m[skey] || {}).dup
+                cur['pct'] = r['pct'].to_f if r.key?('pct')
+                %w[bold italic underline].each { |k| cur[k] = !!r[k] if r.key?(k) }
+                if r.key?('font')
+                  fo = r['font'].to_s.strip
+                  (fo.empty? || fo.length > 40) ? cur.delete('font') : (cur['font'] = fo)
+                end
+                if r.key?('color')
+                  col = r['color'].to_s.downcase
+                  (col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000') ? (cur['color'] = col) : cur.delete('color')
+                end
+                m[skey] = cur
               else
                 cur = (m[key] || {}).dup
                 cur['pct']    = r['pct'].to_f if r.key?('pct')
@@ -1344,6 +1360,15 @@ module InteriorPro
           # One label at a time, keyed by PlanCanvas.text_key. Empty until he
           # double-clicks something, so an old model is untouched.
           'text_marks' => {} }
+      end
+
+      # The key a label's look is kept under: its own, or - for the numbers of an
+      # elevation's dimensions - the one key they all share (PlanCanvas::ELEV_SHARED_KEY).
+      def shared_text_key(key)
+        pc = InteriorPro::PlanCanvas
+        k = key.to_s
+        return k unless pc.const_defined?(:ELEV_DIM_LAYER) && k.start_with?("#{pc::ELEV_DIM_LAYER}|")
+        pc::ELEV_SHARED_KEY
       end
 
       # Settings that are remembered but have no default: where the plan sits,
@@ -5118,6 +5143,10 @@ module InteriorPro
           // writing easier to hit, and the worst case is that a click near a
           // tag opens that tag.
           function textBox(s, paper){
+            // a sheet with no drawing on it (a picture sheet) has no VIEW - its writing is
+            // on the paper and LIVEK is the same pixels to the inch (13:19, measured: view null,
+            // so nothing on an elevation's sheet could be hit)
+            var K = VIEW ? VIEW.k : LIVEK;
             var h = s.h * (paper ? 1 : scaleFactor(STATE.scale));  // paper inches
             var w = Math.max(String(s.text||'').length * h * 0.55, h * 0.8);
             var p = paper ? [s.x, s.y] : VIEW.toPaper(s.x, s.y);
@@ -5125,8 +5154,14 @@ module InteriorPro
             // Writing put straight on the sheet hangs off its start point;
             // writing on the plan is centred on it. Same rule as shapeSVG.
             if(paper){ cx = p[0] + w/2; cy = p[1] + h/2; }
-            return { x:(cx - w/2)*VIEW.k, y:(PAGE.height - cy - h/2)*VIEW.k,
-                     w:w*VIEW.k, h:h*VIEW.k };
+            // standing upright (an elevation's height, 2026-10-08): it runs UP from its
+            // start point and lies to the LEFT of it
+            if(paper && Math.abs(((+s.rotation||0) % 360 + 360) % 360 - 90) < 1){
+              cx = p[0] - h/2; cy = p[1] + w/2;
+              return { x:(cx - h/2)*K, y:(PAGE.height - cy - w/2)*K, w:h*K, h:w*K };
+            }
+            return { x:(cx - w/2)*K, y:(PAGE.height - cy - h/2)*K,
+                     w:w*K, h:h*K };
           }
 
           // Every piece of writing on the sheet right now, with its key.
@@ -5156,9 +5191,10 @@ module InteriorPro
           }
 
           function hitText(e){
-            var p=mouseAt(e); if(!p||!VIEW||!PAGE) return null;
+            var p=mouseAt(e); if(!p||!PAGE||!(VIEW||LIVEK)) return null;
             var X=p[0], Y=p[1], best=null, ba=Infinity;
             eachText(function(s,paper){
+              if(!paper && !VIEW) return;
               var b=textBox(s,paper);
               if(X<b.x||X>b.x+b.w||Y<b.y||Y>b.y+b.h) return;
               var a=b.w*b.h;             // the tightest box wins, not the first
@@ -5416,7 +5452,7 @@ module InteriorPro
             var svg=$('sheetWrap').firstChild; if(!svg) return;
             var old=svg.querySelector('#txhi');
             if(old&&old.parentNode) old.parentNode.removeChild(old);
-            if(!TSEL||!VIEW||!PAGE) return;
+            if(!TSEL||!(VIEW||(TSEL.paper&&LIVEK))||!PAGE) return;
             // The document is rebuilt from the model on every change, so the
             // shape object we are holding is a ghost the moment Ruby answers.
             // Find the label by its KEY again - that is what the key is for.
@@ -5988,6 +6024,10 @@ module InteriorPro
                 // A PICTURE under the mouse: it is picked - the handles go
                 // onto it - and it moves with the mouse from this very press.
                 var hpic=PICON ? hitPic(e) : null;
+                // An elevation's dimension number lies ON its picture (2026-10-08, 13:15 -
+                // "1": the press picked the picture and never reached the number). The
+                // number wins, so its settings open like any label's.
+                if(hpic){ var hx=hitText(e); if(hx && String(hx.key).indexOf('ELEV_DIMS|')===0) hpic=null; }
                 if(hpic){
                   if(TSEL) closeTextBar();
                   var had=(SEL!==null||SELS.length||SSEL.length);

@@ -543,6 +543,10 @@ module InteriorPro
 
       # every picture that has a box of its own goes into it, on its sheet
       place_pictures!(doc, st)
+      # the elevations' own dimensions, over their pictures - BEFORE the sizing passes, so
+      # each number gets a name (name_texts!) and can be picked in the window like any label;
+      # its size, weight and colour are ONE setting for all of them (ELEV_SHARED_KEY)
+      place_elev_dims!(doc, st)
 
       # LAST, after every page exists.
       #
@@ -563,9 +567,6 @@ module InteriorPro
       # be picked on its own, and a line of a box is not picked on its own -
       # the box is.
       place_texts!(doc, st)
-      # the elevations' own dimensions, over their pictures (after every sizing pass:
-      # they are drawn at their size, like the boxes of writing)
-      place_elev_dims!(doc, st)
 
       apply_visibility!(doc, hidden)
       doc
@@ -1191,10 +1192,34 @@ module InteriorPro
     ELEV_GAP    = 0.03 unless const_defined?(:ELEV_GAP, false)     # air between the thing and its witness line
     ELEV_OVER   = 0.05 unless const_defined?(:ELEV_OVER, false)    # the witness line past the dimension line
 
+    # His choice (13:09, "2"): the size of the elevations' numbers is ONE setting for all of
+    # them. The window's panel sends a picked number's size / B / I / U / colour / lettering
+    # under that number's own key; set_text_mark keeps them under this one key instead
+    # (PlanSheetDialog.shared_text_key), and they are read back here, before the words are
+    # laid, so a bigger number is still in the middle of its line.
+    ELEV_SHARED_KEY = 'ELEV_DIMS|*' unless const_defined?(:ELEV_SHARED_KEY, false)
+
+    def self.elev_style(st)
+      marks = st['text_marks'] || st[:text_marks]
+      o = marks.is_a?(Hash) ? marks[ELEV_SHARED_KEY] : nil
+      o = {} unless o.is_a?(Hash)
+      pct = o['pct'].to_f
+      pct = 100.0 if pct <= 0
+      pct = [[pct, TEXT_PCT_MIN].max, TEXT_PCT_MAX].min
+      sty = {}
+      %w[bold italic underline].each { |k| sty[k.to_sym] = true if o[k] }
+      col = o['color'].to_s
+      sty[:color] = col.downcase if col =~ /\A#[0-9a-fA-F]{6}\z/ && col.downcase != '#000000'
+      fo = o['font'].to_s.strip
+      sty[:font] = fo if USE_TEXT_FONT && !fo.empty? && fo.length <= 40
+      [ELEV_TEXT_H * pct / 100.0, sty]
+    end
+
     def self.place_elev_dims!(doc, st)
       return doc unless USE_ELEV_DIMS
       all = st['image_dims'] || st[:image_dims]
       return doc unless all.is_a?(Hash) && !all.empty?
+      @elev_h, @elev_sty = elev_style(st)
       pd = InteriorPro::PlanDoc
       doc.pages.each do |pg|
         next unless pg.kind.to_s == 'image'
@@ -1241,8 +1266,11 @@ module InteriorPro
       ln = ->(x1, y1, x2, y2) { a = tr.call(x1, y1); b = tr.call(x2, y2); lay.line(a[0], a[1], b[0], b[1], elev_dim: true) }
       t = ELEV_TICK / 2.0
       words = d['t'].to_s
-      fs = ELEV_TEXT_H / InteriorPro::PlanPDF::CAP_RATIO * 72.0
-      tw = text_width_in(words, fs)
+      th = @elev_h || ELEV_TEXT_H
+      sty = @elev_sty || {}
+      fs = th / InteriorPro::PlanPDF::CAP_RATIO * 72.0
+      tw = text_width_in(words, fs, sty[:bold], sty[:font])
+      opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty)
       if d['k'].to_s == 'h'
         u1, u2 = Array(d['u']).map(&:to_f)
         x1 = elev_pt(main, u1, d['v'])[0]
@@ -1255,7 +1283,7 @@ module InteriorPro
           ln.call(x, yf - ELEV_GAP, x, yl - ELEV_OVER)
         end
         p = tr.call((x1 + x2) / 2.0 - tw / 2.0, yl + 0.035)
-        lay.text(words, p[0], p[1], h: ELEV_TEXT_H, align: :left, rotation: rot, elev_dim: true)
+        lay.text(words, p[0], p[1], opts.merge(rotation: rot))
       else
         v1, v2 = Array(d['v']).map(&:to_f)
         y1 = elev_pt(main, d['u'], v1)[1]
@@ -1271,7 +1299,7 @@ module InteriorPro
           ln.call(xr + ELEV_GAP, y, xl + ELEV_OVER, y)
         end
         p = tr.call(xl - 0.035, (y1 + y2) / 2.0 - tw / 2.0)
-        lay.text(words, p[0], p[1], h: ELEV_TEXT_H, align: :left, rotation: rot + 90.0, elev_dim: true)
+        lay.text(words, p[0], p[1], opts.merge(rotation: rot + 90.0))
       end
     end
 

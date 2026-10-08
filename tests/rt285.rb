@@ -110,6 +110,28 @@ t96 = lay.shapes.find { |s| s[:type] == :text && s[:text] == '96"' }
 ok('the wall\'s height stands upright, right of the room\'s corner', t96[:rotation] == 90.0 && t96[:x] > main[:x] + main[:w] * (99.1 / 111.1), t96)
 ok('every line is a line on paper (some ticks, some witness lines)', lay.shapes.count { |s| s[:type] == :line } >= 4 * 6, lay.shapes.size)
 
+ok('each number has a name, so it can be picked in the window', lay.shapes.select { |s| s[:type] == :text }.all? { |s| s[:key].to_s.start_with?('ELEV_DIMS|') })
+ok('picking any number keeps its look under the one shared key (his "2", 13:09)',
+   psd.shared_text_key('ELEV_DIMS|96"|1') == PC::ELEV_SHARED_KEY && psd.shared_text_key('DIMENSIONS|12\'-0"|1') == 'DIMENSIONS|12\'-0"|1')
+st = psd.load_state
+st['text_marks'] = { PC::ELEV_SHARED_KEY => { 'pct' => 200, 'bold' => true } }
+psd.save_state(st)
+psd.instance_variable_set(:@doc, nil)
+doc = psd.document
+pg = doc.pages.find { |p| p.kind == 'image' }
+tx = pg.layers.find { |l| l.name == PC::ELEV_DIM_LAYER }.shapes.select { |s| s[:type] == :text }
+ok('200% on the shared key = every number twice the size, bold; 100% is still the built size',
+   tx.all? { |s| (s[:h] - 2 * PC::ELEV_TEXT_H).abs < 1e-9 && s[:bold] && (s[:h0] - PC::ELEV_TEXT_H).abs < 1e-9 }, tx.map { |s| [s[:h], s[:h0], s[:bold]] })
+t2 = tx.find { |s| s[:text] == '87 1/8"' }
+ok('a bigger number is still in the middle of its line', (t2[:x] - (t87[:x] - (PC.text_width_in('87 1/8"', 2 * PC::ELEV_TEXT_H / InteriorPro::PlanPDF::CAP_RATIO * 72, true) - PC.text_width_in('87 1/8"', PC::ELEV_TEXT_H / InteriorPro::PlanPDF::CAP_RATIO * 72)) / 2.0)).abs < 1e-6, [t2[:x], t87[:x]])
+
+# the window: a press on a number that lies on its picture picks the NUMBER (13:15, "1")
+src = File.read('./plan_sheet_dialog.rb', encoding: 'utf-8')
+ok('the window lets an elevation\'s number win over its picture', src.include?("indexOf('ELEV_DIMS|')===0) hpic=null"))
+ok('an upright number can be hit where it stands', src.include?('Math.abs(((+s.rotation||0) % 360 + 360) % 360 - 90) < 1'))
+
+ok('writing can be hit on a sheet with no drawing (VIEW is null there - 13:19)', src.include?('var K = VIEW ? VIEW.k : LIVEK;') && src.include?('!PAGE||!(VIEW||LIVEK)'))
+
 PC.send(:remove_const, :USE_ELEV_DIMS)
 PC.const_set(:USE_ELEV_DIMS, false)
 psd.instance_variable_set(:@doc, nil)
