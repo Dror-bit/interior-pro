@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 340 ירוקות (72 JS + 268 רובי, נמדד 2026-10-07 14:58, אחרי החיתוך והתמונות).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 342 ירוקות (73 JS + 269 רובי, נמדד 2026-10-07 15:40, אחרי קופסת הכיתוב).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -501,7 +501,23 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 15:00): **הקופסה** — שלבים 1, 2, 3 ו-6 בנויים בתיקייה החיה. **שום דבר מהם לא נבדק אצלו ולא נשמר ב-git** (ה-commit האחרון: סיבוב השרטוט, 13:53). קודם כל: שיבדוק, ו-commit אחד.
+## הצעד הנוכחי (2026-10-07 15:45): **קופסת כיתוב** נבנתה ואושרה ("מעולה"); הבא: עריכת המספר של מידה, ואז הרשימה שלו
+הקופסה (הזזה, פינות, חיתוך, תמונות) **נבדקה אצלו — "הכל עובד"** ונשמרה ב-git (15:08). אחר כך ביקש: *"קופסא עם כיתוב... צריכה
+להתנהג כמו שאר הקופסאות, ובקופסא יהיה אפשר לכתוב ולקבוע את גודל הכיתוב"* ו-*"עריכה של הכנסת המידות"*.
+**נבנה:** כפתור T ב"מידות והערות" → לחיצה על כל דף → חלונית (טקסט + "גודל" בנקודות) → הכיתוב על הדף מיד. אחר כך קופסה
+כמו תמונה: גרירה, פינה = אותיות+קופסה יחד, צד = רוחב (השורות נשברות מחדש, הגובה לפי השורות, הפינה השמאלית-העליונה
+נשארת), העיגול מסובב, לחיצה כפולה פותחת שוב, Delete, Escape, Ctrl+Z. **Enter = שורה חדשה** (ביקש), Ctrl+Enter / "הוסף" /
+לחיצה על הדף מסיימים. `st['texts']`, `PlanCanvas.place_texts!`, שכבת `TEXT` על הדף, `Page#text_boxes`; החלון מניח את
+אותן שורות באותם חישובים (`tbWrap`/`tbShapes` ↔ `text_wrap`/`text_line_shapes`, t75 ו-rt275 מחזיקים את שניהם לאותם
+מספרים). דגל: `PlanCanvas::USE_TEXT_BOX`. **trace:** כל שינוי בכיתוב = שורת `text box:` ב-`sheet_erase_trace.txt`.
+**תיקון שני (17:13, "עובד"):** לחיצה כפולה על המילים לא נפתחה אצלו — לחיצה על הכיתוב מציירת את הדף מחדש, הלחיצה השנייה
+נוחתת על אלמנט חדש והדפדפן לא מכריז dblclick (בידיות — אלמנטים קבועים — זה כן עבד). **חוק מהסבב:** לחיצה כפולה על משהו
+שמצויר ב-SVG של הדף נספרת ב-`startPic` (`TBLAST`, 450ms, 8px, `BOXD.dbl`, נפתח בשחרור אם לא זז) — לא ב-`ondblclick`.
+**מגבלה ידועה (נאמרה לו):** ל-PDF יש רק שלושה פונטים לטיניים — כיתוב בעברית נראה על המסך ויוצא ריק בהדפסה (rt275 מצמיד).
+**הבא:** עריכת המספר של מידה (ביקש באותה הודעה). אחר כך: שלב 4 / שלב 5 / כיתוב בעברית ב-PDF / לבחור איזה שרטוט לאיזה דף.
+**הוא התלונן שוב על הזמן** ("וואו למה זה לוקח כל כך הרבה זמן") — לשלוח לבדיקה ברגע שחלק עובד, לא לחכות לבדיקות המלאות.
+
+## (קודם, אותו יום) (2026-10-07 15:00): **הקופסה** — שלבים 1, 2, 3 ו-6 בנויים בתיקייה החיה. **שום דבר מהם לא נבדק אצלו ולא נשמר ב-git** (ה-commit האחרון: סיבוב השרטוט, 13:53). קודם כל: שיבדוק, ו-commit אחד.
 מה יש: השרטוט בקופסה (זזה בידית, פינות = גודל, **צלעות = חיתוך**), ו**תמונה בקופסה משלה** (לחיצה בוחרת, גרירה מזיזה, פינה = גודל,
 צלע = חיתוך, העיגול מסובב, Delete מוריד תמונה שנוספה לדף), תמונה גם בדף השרטוט וכמה תמונות בדף ("להוסיף לדף הפתוח" תחת תמונות).
 פרטים, מה נמדד ומה פתוח: `HANDOFF_2026-10-07.md` חלקים ה' ו-ו'. מתגים: `PlanCanvas::USE_VIEW_BOX`, `PlanSheetDialog::USE_BOX_CROP`,
@@ -715,6 +731,14 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_TEXT_BOX = false` - `st['texts']` is ignored: no sheet carries writing in a box, the T
+  button is put away (`tests/t75.js`, `tests/rt275.rb`). On: a piece of writing is a box on any sheet - `text`, `on`
+  ('plan' / 'schedules' / 'image:2'), `box` [x, y, w, h] paper inches, `rot`, `pt` (points). The WIDTH is his; the
+  HEIGHT is however many lines the words took at that width (`PlanCanvas.text_geo`), top left corner held. The words
+  are plain text shapes, one a line, on the sheet's TEXT layer (`place_texts!`, `text_line_shapes`), so plan_pdf
+  needs nothing new; the window lays the same lines by the same sums (`tbWrap`, `tbShapes`). Needs USE_PIC_BOX: the
+  handles are a picture's. Enter in the bar is a new line; Ctrl+Enter, the button or a press on the sheet ends it.
+  Every change writes a `text box:` line to `sheet_erase_trace.txt`. The PDF has Latin fonts only: Hebrew prints blank.
 - `InteriorPro::PlanCanvas::USE_PIC_BOX = false` - `st['image_geo']` and `st['pics']` are ignored: one picture to a sheet,
   filling it, none on the plan sheet, no handles on pictures, and "onto the open sheet" is not offered (`tests/t74.js`,
   `tests/rt274.rb`). On: a picture is a box - `box` [x, y, w, h] in paper inches (the part that is SEEN), `crop`

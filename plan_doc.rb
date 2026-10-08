@@ -418,6 +418,12 @@ module InteriorPro
       # The part of the sheet a PICTURE in a box of its own may sit in: inside
       # the margins, above the title block (2026-10-07). On every sheet.
       attr_accessor :pic_area
+      # Every piece of WRITING that sits in a box of its own on this sheet
+      # (2026-10-07, PlanCanvas.place_texts!): where the box is, how far it is
+      # turned, how big the letters are and the lines the words were laid in.
+      # The window puts its handles on these; the words themselves are plain
+      # text shapes on the sheet's TEXT layer, so the PDF needs nothing new.
+      attr_accessor :text_boxes
       # What kind of sheet this is ('plan', 'schedules', 'image') and, for a
       # picture sheet, which picture in the user's list it came from. The sheet
       # window shows one list of every page and lets him delete one; without
@@ -461,6 +467,7 @@ module InteriorPro
           margin: @margin, kind: @kind, ref: @ref,
           sheet_number: @sheet_number, view_area: @view_area,
           pic_area: @pic_area,
+          text_boxes: @text_boxes,
           views: @views.map(&:to_h), layers: layers.map(&:to_h) }
       end
 

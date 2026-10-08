@@ -618,10 +618,12 @@ module InteriorPro
 
         dlg.add_action_callback('set_state') do |_, json|
           begin
+            t0 = Time.now
             st = JSON.parse(json.to_s)
             save_state(st)
             apply_state!(document, st)
             push_pages(dlg)
+            text_trace(st, t0)
           rescue StandardError => e
             puts "[Sheet] set_state: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
@@ -789,6 +791,7 @@ module InteriorPro
       def push_all(dlg)
         d = document
         st = load_state
+        text_seen!(st)
         payload = {
           doc: d.to_h,
           state: st.merge(window_origin(d, st))
@@ -819,6 +822,10 @@ module InteriorPro
           rotate: InteriorPro::PlanCanvas::USE_VIEW_ROTATION,
           pic_box: InteriorPro::PlanCanvas::USE_PIC_BOX,
           pics: pic_payload(st),
+          # writing in boxes of its own is handled by a picture's handles, so
+          # it needs those switched on too
+          text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX,
+          text_rules: InteriorPro::PlanCanvas.text_rules,
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
@@ -969,9 +976,11 @@ module InteriorPro
           end
           st['image_geo'] = out
         end
-        pics = st['pics']
-        if pics.is_a?(Array)
-          st['pics'] = pics.each_with_object([]) do |pc, keep|
+        # the pictures added to a sheet, and the writing put on one, the same way
+        %w[pics texts].each do |list|
+          rows = st[list]
+          next unless rows.is_a?(Array)
+          st[list] = rows.each_with_object([]) do |pc, keep|
             next unless pc.is_a?(Hash)
             on = pc['on'].to_s
             if on.start_with?('image:')
@@ -983,6 +992,67 @@ module InteriorPro
           end
         end
         st
+      end
+
+      # ------------------------------------------ writing in boxes: the trace
+      #
+      # One line in sheet_erase_trace.txt every time the writing he put on the
+      # sheets changes: what changed, where Ruby laid it, how long the answer
+      # took. Read it instead of asking him how it went - the boxes of the
+      # drawing and of the pictures left no trace at all and all that could be
+      # said about them was what he said.
+      def text_rows(st)
+        Array(st['texts']).select { |t| t.is_a?(Hash) }
+      end
+
+      # what the writing was when the window was last sent everything
+      def text_seen!(st)
+        @texts_sig = JSON.generate(text_rows(st))
+      rescue StandardError
+        @texts_sig = nil
+      end
+
+      def text_trace(st, t0)
+        now = text_rows(st)
+        sig = JSON.generate(now)
+        was = @texts_sig
+        @texts_sig = sig
+        return if was.nil? || was == sig
+        old = begin
+          JSON.parse(was)
+        rescue StandardError
+          []
+        end
+        at = nil
+        what =
+          if now.length > old.length
+            at = now.length - 1
+            "#{now.length - old.length} added"
+          elsif now.length < old.length
+            "#{old.length - now.length} taken off"
+          else
+            at = (0...now.length).find { |k| now[k] != old[k] }
+            a = old[at] || {}
+            b = now[at] || {}
+            kinds = []
+            kinds << 'words'  if a['text'] != b['text']
+            kinds << 'size'   if a['pt'] != b['pt']
+            kinds << 'turned' if a['rot'].to_f != b['rot'].to_f
+            kinds << 'box'    if a['box'] != b['box']
+            "one changed (#{kinds.join(', ')})"
+          end
+        laid  = @doc ? @doc.pages.flat_map { |pg| Array(pg.text_boxes) } : []
+        where = ''
+        if at
+          en = laid.find { |e| e[:pic] == "t:#{at}" }
+          where = en ? format(', laid at [%.2f, %.2f, %.2f, %.2f] %.1f pt turned %.1f, %d lines',
+                              en[:x], en[:y], en[:w], en[:h], en[:pt], en[:rot], en[:lines].length)
+                     : ', NOT ON ANY SHEET'
+        end
+        erase_trace("text box: #{what}#{where}; #{now.length} saved, #{laid.length} on the sheets, " \
+                    "#{((Time.now - t0) * 1000).round} ms")
+      rescue StandardError => e
+        puts "[Sheet] text_trace: #{e.class}: #{e.message}"
       end
 
       # Takes the same shapes out of the document Ruby is holding, so it does
@@ -1101,6 +1171,9 @@ module InteriorPro
           # and the pictures added to a sheet that was already there. Both
           # empty is every model made before this.
           'image_geo' => {}, 'pics' => [],
+          # Writing in boxes of its own, on any sheet (2026-10-07,
+          # PlanCanvas.place_texts!). Empty is every model made before this.
+          'texts' => [],
           # How far the drawing is turned on its sheet, in degrees, anticlockwise
           # (2026-10-07). 0 is every drawing made before this existed.
           'rotation' => 0,
@@ -1773,6 +1846,23 @@ module InteriorPro
             #textbar .pc { color:#888; font-size:12px; }
             #textbar button { width:auto; margin:0; padding:6px 10px; flex:none; }
             #textbar button.tool { width:32px; padding:5px 0; color:#eee; }
+            /* the same bar again, for a box of writing: the words, how big,
+               done. (2026-10-07) */
+            #tbbar { position:fixed; top:22px; left:50%;
+                     transform:translateX(-50%); z-index:22; display:none;
+                     background:#2b2b2b; border:1px solid #1f6feb;
+                     border-radius:5px; padding:8px; gap:8px; width:470px;
+                     box-shadow:0 6px 24px rgba(0,0,0,.5); }
+            #tbbar.on { display:flex; align-items:stretch; }
+            #tbbar textarea { flex:1; min-height:74px; resize:vertical; padding:6px;
+                              background:#1e1e1e; color:#eee; border:1px solid #555;
+                              border-radius:3px; font:14px/1.35 Segoe UI, Arial, sans-serif; }
+            #tbbar .col { width:118px; flex:none; display:flex; flex-direction:column; gap:6px; }
+            #tbbar .col .row { align-items:center; }
+            #tbbar .col .row span { font-size:12px; color:#ccc; flex:none; }
+            #tbbar .col input { text-align:center; }
+            #tbbar button { margin:0; padding:6px 10px; }
+            #tbbar .hint { margin:0; }
             /* The handle that turns the drawing (2026-10-07). An element of
                its own over the sheet, not a mark inside the drawing: it must
                never print, never reach a thumbnail, and never be counted as a
@@ -1881,6 +1971,13 @@ module InteriorPro
                         <rect x="8.5" y="4" width="12.5" height="8" rx="1"/>
                         <path d="M8.5 10 L3 20"/>
                         <path d="M3 20 L4.6 16.2 M3 20 L6.8 18.4"/>
+                      </g></svg>
+                    </button>
+                    <!-- A box of writing, anywhere on any sheet (2026-10-07). -->
+                    <button id="ttext" class="tool" title="כיתוב: קופסה עם טקסט, בכל דף">
+                      <svg viewBox="0 0 24 24"><g class="s">
+                        <rect x="3" y="4.5" width="18" height="15" rx="1.5" stroke-dasharray="3 2.2"/>
+                        <path d="M8 9 L16 9 M12 9 L12 16"/>
                       </g></svg>
                     </button>
                     <button id="terase" class="tool" title="מחק קו מהתוכנית">
@@ -2002,7 +2099,8 @@ module InteriorPro
                     ריבוע בפינה מגדיל ומקטין את השרטוט.<br>
                     הפס באמצע כל צלע חותך את השרטוט מהצד הזה.<br>
                     העיגול עם ארבעת החצים מזיז את השרטוט על הדף.<br>
-                    תמונה: לחיצה בוחרת, גרירה מזיזה, פינה משנה גודל, צלע חותכת, הידית מסובבת.</div>
+                    תמונה: לחיצה בוחרת, גרירה מזיזה, פינה משנה גודל, צלע חותכת, הידית מסובבת.<br>
+                    כיתוב: הכפתור עם האות T, לחיצה על הדף, וכותבים. אחר כך הוא קופסה כמו תמונה: גרירה מזיזה, פינה מגדילה את האותיות, צד משנה רוחב, הידית מסובבת, לחיצה כפולה פותחת לכתיבה.</div>
                 </div>
               </div>
 
@@ -2031,6 +2129,15 @@ module InteriorPro
                 <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
                 <button id="txreset">אפס</button>
                 <button id="txdone" class="go">סיים</button>
+              </div>
+              <div id="tbbar">
+                <textarea id="tbtext" dir="auto" maxlength="4000" placeholder="מה לכתוב כאן?"></textarea>
+                <div class="col">
+                  <div class="row"><span>גודל</span><input id="tbsize" type="number" min="4" max="400" step="1" title="גודל האותיות, בנקודות"></div>
+                  <button id="tbok" class="go">הוסף</button>
+                  <button id="tbcancel">ביטול</button>
+                  <div class="hint">Enter = שורה חדשה · Ctrl+Enter או לחיצה על הדף מסיימים</div>
+                </div>
               </div>
               <div id="sheetWrap"></div>
               <div id="rothandle" title="סובב את השרטוט">
@@ -2201,7 +2308,7 @@ module InteriorPro
 
           // He takes hold of the handle.
           function startTurn(e){
-            if(MODE!=='hand'||CARRY||TCARRY) return;
+            if(MODE!=='hand'||CARRY||TCARRY||TBED) return;
             var tg=boxTarget();
             if(tg && tg.pic){
               // a picture: its whole box turns, about its own middle
@@ -2229,7 +2336,7 @@ module InteriorPro
           function paintRot(){
             paintBoxH();            // the box's own handles go wherever this one goes
             var h=$('rothandle'); if(!h||!h.style) return;
-            var tg=(MODE==='hand') ? boxTarget() : null;
+            var tg=(MODE==='hand' && !TBED) ? boxTarget() : null;
             if(tg && tg.pic && PICON && LIVEK){
               // by the bottom right corner of the PICTURE, turned as it is turned
               var pr=picRect(tg.pic), pq=picScreen(pr, pr.w*LIVEK/2+22, pr.h*LIVEK/2+8);
@@ -2307,7 +2414,7 @@ module InteriorPro
           // He takes hold of a corner ('nw','ne','sw','se'), of a side
           // ('n','s','w','e') or of the box ('move').
           function startBox(kind,e){
-            if(MODE!=='hand'||CARRY||TCARRY) return;
+            if(MODE!=='hand'||CARRY||TCARRY||TBED) return;
             var tg=boxTarget();
             if(tg && tg.pic){ startPic(tg.pic, kind, e); return; }
             if(!BOXON||!VIEW) return;
@@ -2428,7 +2535,7 @@ module InteriorPro
           // Put the box's handles on its corners and sides, or put them away:
           // they are only there with the select arrow, on a sheet with a drawing.
           function paintBoxH(){
-            var tg=(MODE==='hand') ? boxTarget() : null;
+            var tg=(MODE==='hand' && !TBED) ? boxTarget() : null;
             var v=tg ? (tg.view||null) : null, pc=tg ? (tg.pic||null) : null;
             var on=!!((v && BOXON && VIEW) || (pc && PICON && LIVEK));
             var cls={boxmove:'', 'boxc-nw':'boxc', 'boxc-ne':'boxc', 'boxc-sw':'boxc', 'boxc-se':'boxc',
@@ -2456,6 +2563,8 @@ module InteriorPro
               putp('boxmove',-PW/2-22,-PH/2-8);
               putp('boxe-n',0,-PH/2,PW-16,8); putp('boxe-s',0,PH/2,PW-16,8);
               putp('boxe-w',-PW/2,0,8,PH-16); putp('boxe-e',PW/2,0,8,PH-16);
+              // a box of writing is as tall as its lines: no bar on its top or its bottom
+              if(pc.txt){ $('boxe-n').className='boxe'; $('boxe-s').className='boxe'; }
               return;
             }
             for(var id2 in cls){ $(id2).style.transform=''; }      // the drawing's box is never turned
@@ -2513,7 +2622,8 @@ module InteriorPro
                 if(s.type==='image' && s.pic && (s.placed || (s.iw>0 && s.ih>0))) out.push(s);
               });
             });
-            return out;
+            // and every box of writing, handled the same way - last, so it is on top
+            return out.concat(pageTexts());
           }
 
           // What the margins leave for a picture.
@@ -2529,6 +2639,7 @@ module InteriorPro
           // never touched sits in the middle of its space at its own
           // proportions - the same sum plan_pdf and the browser both do.
           function picRect(s){
+            if(s.txt) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:[0,0,0,0], txt:true, pt:s.pt, text:s.text};
             if(s.placed) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:(s.crop||[0,0,0,0]).slice()};
             var w=s.w, h=s.h;
             if(!s.stretch && s.iw>0 && s.ih>0){
@@ -2549,11 +2660,20 @@ module InteriorPro
           // Where this picture's three things are kept: null if nowhere.
           function picName(s){
             var id=String(s.pic||''), n=parseInt(id.slice(2),10);
-            return (id.charAt(1)===':' && n>=0) ? {main:id.charAt(0)==='m', n:n} : null;
+            return (id.charAt(1)===':' && n>=0) ? {main:id.charAt(0)==='m', txt:id.charAt(0)==='t', n:n} : null;
           }
 
           // The picture now lies at r: on the sheet here, and in what is saved.
           function setPic(s,r){
+            if(s.txt){
+              // a box of writing: what is saved changes, and its lines are laid again from that
+              var tn=picName(s), tx=tn ? (STATE.texts||[])[tn.n] : null;
+              if(!tx) return;
+              tx.box=[r.x,r.y,r.w,r.h]; tx.rot=r.rot;
+              if(r.pt>0) tx.pt=r.pt;
+              tbRebuild();
+              return;
+            }
             s.placed=true; s.x=r.x; s.y=r.y; s.w=r.w; s.h=r.h; s.rot=r.rot; s.crop=r.crop.slice();
             var nm=picName(s); if(!nm) return;
             if(nm.main){
@@ -2565,14 +2685,18 @@ module InteriorPro
           }
 
           // Everything saved about pictures, as one piece - a step for Ctrl+Z.
-          function picsSnap(){ return JSON.stringify({pics:STATE.pics||[], geo:STATE.image_geo||{}}); }
-          function picsBack(snap){ var o=JSON.parse(snap); STATE.pics=o.pics; STATE.image_geo=o.geo; }
+          // (the writing in boxes rides in the same piece: one kind of step for all three)
+          function picsSnap(){ return JSON.stringify({pics:STATE.pics||[], geo:STATE.image_geo||{}, texts:STATE.texts||[]}); }
+          function picsBack(snap){
+            var o=JSON.parse(snap); STATE.pics=o.pics; STATE.image_geo=o.geo;
+            if(o.texts!==undefined){ STATE.texts=o.texts; tbRebuild(); }
+          }
 
           // After a step is taken back: the pictures on the open sheet go where
           // what is saved says. (One added or taken off comes with Ruby's answer.)
           function picsToShapes(){
             pagePics().forEach(function(s){
-              var nm=picName(s); if(!nm) return;
+              var nm=picName(s); if(!nm||nm.txt) return;
               var g=nm.main ? (STATE.image_geo||{})[String(nm.n)] : (STATE.pics||[])[nm.n];
               if(g && g.box){
                 s.placed=true; s.x=g.box[0]; s.y=g.box[1]; s.w=g.box[2]; s.h=g.box[3];
@@ -2642,7 +2766,8 @@ module InteriorPro
             if(BSEL!==null) for(var i=0;i<pics.length;i++) if(pics[i].pic===BSEL) return {pic:pics[i]};
             var v=planView();
             if(v) return (BOXON && VIEW) ? {view:v} : null;
-            return pics.length ? {pic:pics[0]} : null;
+            for(var j=0;j<pics.length;j++) if(!pics[j].txt) return {pic:pics[j]};
+            return null;
           }
 
           // The picture of that name on the sheet as it is NOW. Ruby's answer to
@@ -2657,9 +2782,22 @@ module InteriorPro
           // He takes hold of a picture: by a corner, a side, or the whole of it.
           function startPic(s,kind,e){
             if(!PICON||!LIVEK||!picArea()) return;
+            if(s.txt && (kind==='n'||kind==='s')) return;      // a box of writing is as tall as its lines
+            if(s.txt){
+              // Two presses on the same box of writing, close together, open
+              // it - counted HERE, not left to the browser's double click
+              // (2026-10-07, "זה עובד רק אם אני לוחץ על סימן ההזזה"). A press
+              // on the words redraws the sheet, so the browser's second click
+              // lands on a new element and its double click never comes.
+              // The box opens on LETTING GO of the second press, if it did not
+              // move - a quick press-and-drag stays a drag.
+              var now=Date.now();
+              var dbl=!!(TBLAST && TBLAST.pic===s.pic && now-TBLAST.t<450 && Math.hypot(e.clientX-TBLAST.x, e.clientY-TBLAST.y)<8);
+              TBLAST=dbl ? null : {pic:s.pic, t:now, x:e.clientX, y:e.clientY};
+            }
             if(TSEL) closeTextBar();
             BOXD={kind:kind, mx:e.clientX, my:e.clientY, pic:s, p0:picRect(s), s0:picKeep(s),
-                  was:picsSnap(), moved:false};
+                  was:picsSnap(), moved:false, dbl:!!(s.txt && dbl)};
             if(e.preventDefault) e.preventDefault();
             if(e.stopPropagation) e.stopPropagation();
           }
@@ -2673,6 +2811,7 @@ module InteriorPro
             var t=o.rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
             var lx=dx*c+dy*n, ly=-dx*n+dy*c;            // the same pull, in the picture's own frame
             var cx0=o.x+o.w/2, cy0=o.y+o.h/2, r;
+            var txt=!!o.txt;
             // the picture at w by h, its middle moved (ux, uy) in its own frame
             var made=function(w,h,ux,uy,crop){
               var cx=cx0+ux*c-uy*n, cy=cy0+ux*n+uy*c;
@@ -2689,9 +2828,29 @@ module InteriorPro
                 // A CORNER: bigger or smaller, the corner across from it stays put
                 var sx=(kind.indexOf('e')>=0) ? 1 : -1, sy=(kind.indexOf('n')>=0) ? 1 : -1;
                 var f=1+((lx*sx)*o.w+(ly*sy)*o.h)/(o.w*o.w+o.h*o.h);
-                f=Math.max(f, Math.min(1, PIC_MIN/Math.min(o.w,o.h)));
+                if(txt) f=Math.min(Math.max(f, Math.min(1, TXR.pt_min/o.pt)), Math.max(1, TXR.pt_max/o.pt));
+                else f=Math.max(f, Math.min(1, PIC_MIN/Math.min(o.w,o.h)));
                 amt=f-1;
-                build=function(u){ return made(o.w*(1+u), o.h*(1+u), sx*o.w*u/2, sy*o.h*u/2, o.crop.slice()); };
+                // (writing: the letters grow by the same amount as the box, so
+                // the lines break exactly where they did)
+                build=function(u){
+                  var q=made(o.w*(1+u), o.h*(1+u), sx*o.w*u/2, sy*o.h*u/2, o.crop.slice());
+                  if(txt) q.pt=o.pt*(1+u);
+                  return q;
+                };
+              } else if(txt){
+                // A SIDE OF A BOX OF WRITING makes it wider or narrower, and
+                // the lines are laid again to fit. The top of the box stays
+                // where it is; it is never narrower than its longest word.
+                var tsg=(kind==='e') ? 1 : -1, tpad=TXR.pad*o.pt/72, tmin=PIC_MIN;
+                tbWrap(o.text, 0, o.pt).forEach(function(wd){ tmin=Math.max(tmin, tbWidth(wd,o.pt)+2*tpad); });
+                amt=Math.max(Math.min(0, tmin-o.w), lx*tsg);
+                build=function(u){
+                  var nw=o.w+u, nh=tbHeight(tbWrap(o.text, nw-2*tpad, o.pt).length, o.pt);
+                  var q=made(nw, nh, tsg*u/2, -(nh-o.h)/2, o.crop.slice());
+                  q.pt=o.pt;
+                  return q;
+                };
               } else {
                 // A SIDE CUTS: the picture stays where it is and that side
                 // moves over it - never past the picture's own edge.
@@ -2715,6 +2874,11 @@ module InteriorPro
                 r=build(lo);
               }
             }
+            if(txt){
+              if(!(r.pt>0)) r.pt=o.pt;
+              r.txt=true; r.text=o.text;
+              if(!picIn(r,a)) r=tbHold(r,a);        // narrower is taller: held on the sheet
+            }
             var same=Math.abs(r.x-o.x)<1e-9 && Math.abs(r.y-o.y)<1e-9 && Math.abs(r.w-o.w)<1e-9 && Math.abs(r.h-o.h)<1e-9;
             if(same){
               // back where it started (or it had nowhere to go): as if never touched
@@ -2731,6 +2895,18 @@ module InteriorPro
           // picture sheet was made for goes with its sheet, by the x in the list.
           function dropPic(){
             var id=String(BSEL||'');
+            if(id.charAt(0)==='t'){
+              // a box of writing comes off its sheet; Ctrl+Z puts it back
+              var tj=parseInt(id.slice(2),10);
+              if(!STATE.texts||!STATE.texts[tj]) return;
+              var twas=picsSnap();
+              STATE.texts.splice(tj,1);
+              BSEL=null;
+              tbRebuild();
+              if(UNDOON){ UNDO.push({g:++UGROUP, pics:twas}); if(UNDO.length>300) UNDO.shift(); }
+              push(); render(); showMarks();
+              return;
+            }
             if(id.charAt(0)!=='x'){
               $('markinfo').textContent='התמונה הזאת היא הדף עצמו. כדי להוריד אותה, מחק את הדף ב-× ברשימת הדפים.';
               return;
@@ -2753,6 +2929,257 @@ module InteriorPro
             BSEL=null;
             if(UNDOON){ UNDO.push({g:++UGROUP, pics:was}); if(UNDO.length>300) UNDO.shift(); }
             push(); render(); showMarks();
+          }
+
+          // ---- writing in boxes of its own (2026-10-07) --------------------
+          //
+          // "אני רוצה להוסיף אופציה של קופסא עם כיתוב. כמובן שהקופסא צריכה
+          // להתנהג כמו שאר הקופסאות, ובקופסא יהיה אפשר לכתוב ולקבוע את גודל
+          // הכיתוב."
+          //
+          //   the T button, a click   a box of writing starts there; he types,
+          //                           and the box grows with the words
+          //   a click on it           picks it: the SAME squares, bars, grip
+          //                           and round arrow a picture has go onto it
+          //   dragging it             moves it about the sheet
+          //   a corner                box and letters bigger or smaller together
+          //   a side (left, right)    wider or narrower - the lines are laid again
+          //   the round arrow         turns the whole box about its middle
+          //   two clicks on it        opens its words and its size again
+          //   Delete                  takes it off the sheet
+          //   the margins             it cannot leave what they leave
+          //
+          // What is saved is STATE.texts - {text, on, box, rot, pt} - see
+          // PlanCanvas.place_texts!, which lays it out for the PDF. The words
+          // on the sheet are plain text shapes on the sheet's TEXT layer, one
+          // a line. The window lays the same lines by the same sums (tbWrap,
+          // tbShapes - Ruby's are text_wrap, text_line_shapes) so the words
+          // move under his hand without a trip to Ruby; t75 and rt275 hold the
+          // two to the same numbers. On letting go Ruby is told once, and
+          // answers with the sheet as it prints.
+          //
+          // The iron law: Escape drops what is half done (typing, a pull);
+          // Ctrl+Z takes the last step back; the zoom and the place stay.
+          var TXTON=true;      // told by Ruby
+          // the rules of a box of writing - Ruby's own numbers, sent with the sheet
+          var TXR={pad:0.25, lead:1.25, ascent:0.8, pt:24, pt_min:4, pt_max:400, cap:0.717, w:null};
+          var TBED=null;       // the box whose words are open: {n, fresh, was, free}
+          var TBLAST=null;     // the last press on a box of writing: {pic, t, x, y}
+
+          function tbClean(t){
+            return String(t===undefined||t===null ? '' : t).replace(/\r\n?/g,'\n').replace(/\t/g,' ');
+          }
+
+          // How wide a run of words is at pt points, in paper inches - the
+          // Helvetica widths the PDF prints with.
+          function tbWidth(str,pt){
+            var tot=0, W=TXR.w||[];
+            Array.from(String(str)).forEach(function(ch){
+              var c=ch.codePointAt(0);
+              tot += (c>=32 && c<=126 && W[c-32]) ? W[c-32] : 556;
+            });
+            return tot/1000*pt/72;
+          }
+
+          // The words, in lines no wider than avail. A line he broke himself
+          // stays broken; a word wider than the box stays whole.
+          function tbWrap(text,avail,pt){
+            var out=[];
+            tbClean(text).split('\n').forEach(function(para){
+              var words=para.split(/ +/).filter(function(w){ return w!==''; });
+              if(!words.length){ out.push(''); return; }
+              var cur='';
+              words.forEach(function(w){
+                var t=(cur==='') ? w : cur+' '+w;
+                if(cur==='' || tbWidth(t,pt)<=avail+1e-6) cur=t;
+                else { out.push(cur); cur=w; }
+              });
+              out.push(cur);
+            });
+            return out.length ? out : [''];
+          }
+
+          function tbHeight(n,pt){ var fs=pt/72; return 2*TXR.pad*fs+(n-1)*TXR.lead*fs+fs; }
+
+          // The width a box needs to hold the words with no line broken but his own.
+          function tbNatural(text,pt){
+            var m=0;
+            tbWrap(text,1e9,pt).forEach(function(l){ m=Math.max(m, tbWidth(l,pt)); });
+            return m+2*TXR.pad*pt/72;
+          }
+
+          // One plain text shape a line. THE SAME SUMS AS PlanCanvas.text_line_shapes.
+          function tbShapes(en){
+            var fs=en.pt/72, pad=TXR.pad*fs, pitch=TXR.lead*fs, rot=(+en.rot||0);
+            var t=rot*Math.PI/180, c=rot ? Math.cos(t) : 1, n=rot ? Math.sin(t) : 0;
+            var cx=en.x+en.w/2, cy=en.y+en.h/2, out=[];
+            (en.lines||[]).forEach(function(str,i){
+              if(str==='') return;
+              var lx=-en.w/2+pad, ly=en.h/2-(pad+TXR.ascent*fs+i*pitch);
+              out.push({type:'text', text:str, x:cx+lx*c-ly*n, y:cy+lx*n+ly*c, h:fs*(TXR.cap||0.717),
+                        align:'left', rotation:rot, tbox:en.pic, li:i});
+            });
+            return out;
+          }
+
+          // Every box of writing on the open sheet, as Ruby (or tbRebuild) laid it.
+          function pageTexts(){
+            if(!PAGE||!TXTON||!STATE) return [];
+            if((STATE.hidden||[]).indexOf('TEXT')>=0) return [];
+            return PAGE.text_boxes||[];
+          }
+
+          // The open sheet's writing, laid again from what is saved: the boxes
+          // the handles go on, and the lines on the TEXT layer.
+          function tbRebuild(){
+            if(!PAGE||!STATE) return;
+            var key=pageKey(PAGE), list=[], shapes=[];
+            (STATE.texts||[]).forEach(function(tx,j){
+              if(!tx || tx.on!==key || !tx.box || tx.box.length!==4) return;
+              var pt=(+tx.pt>0) ? +tx.pt : TXR.pt;
+              var en={pic:'t:'+j, txt:true, placed:true, x:tx.box[0], y:tx.box[1], w:tx.box[2], h:tx.box[3],
+                      rot:(+tx.rot||0), crop:[0,0,0,0], pt:pt, text:tbClean(tx.text)};
+              en.lines=tbWrap(en.text, en.w-2*TXR.pad*pt/72, pt);
+              list.push(en);
+              shapes=shapes.concat(tbShapes(en));
+            });
+            PAGE.text_boxes=list;
+            if(!PAGE.layers) PAGE.layers=[];
+            var lay=null;
+            PAGE.layers.forEach(function(l){ if(l.name==='TEXT') lay=l; });
+            if(!lay){
+              if(!shapes.length) return;
+              lay={name:'TEXT', visible:true, locked:false, shapes:[]};
+              PAGE.layers.push(lay);
+            }
+            lay.shapes=shapes;
+          }
+
+          // The words of one box laid again at width w (or the width it has).
+          // The TOP LEFT corner of the box stays where it is, turned or not -
+          // the same rule PlanCanvas.text_geo keeps.
+          function tbFit(tx,w){
+            var b=tx.box, rot=(+tx.rot||0), t=rot*Math.PI/180, c=rot ? Math.cos(t) : 1, n=rot ? Math.sin(t) : 0;
+            if(w===undefined) w=b[2];
+            var h=tbHeight(tbWrap(tx.text, w-2*TXR.pad*tx.pt/72, tx.pt).length, tx.pt);
+            var cx=b[0]+b[2]/2, cy=b[1]+b[3]/2;
+            var tlx=cx+(-b[2]/2)*c-(b[3]/2)*n, tly=cy+(-b[2]/2)*n+(b[3]/2)*c;
+            var ncx=tlx-((-w/2)*c-(h/2)*n), ncy=tly-((-w/2)*n+(h/2)*c);
+            tx.box=[ncx-w/2, ncy-h/2, w, h];
+          }
+
+          // Held on the sheet: first small enough, then in - and the letters
+          // are made smaller by the same amount. PlanCanvas.text_inside.
+          function tbHold(r,a){
+            var cx=r.x+r.w/2, cy=r.y+r.h/2, w=r.w, h=r.h, hf=picHalf({w:w, h:h, rot:r.rot});
+            var f=Math.min(a[2]/(2*hf[0]), a[3]/(2*hf[1]), 1);
+            if(f<1){ w*=f; h*=f; hf=[hf[0]*f, hf[1]*f]; }
+            cx=Math.min(Math.max(cx, a[0]+hf[0]), a[0]+a[2]-hf[0]);
+            cy=Math.min(Math.max(cy, a[1]+hf[1]), a[1]+a[3]-hf[1]);
+            return {x:cx-w/2, y:cy-h/2, w:w, h:h, rot:r.rot, crop:[0,0,0,0], txt:true, text:r.text,
+                    pt:(f<1 ? r.pt*f : r.pt)};
+          }
+
+          // The bar opens: on a box that is there (n), or on a new one whose
+          // top left corner is at `at` (paper inches).
+          function tbOpen(n,at){
+            if(!TXTON||!PAGE||!LIVEK||TBED) return;
+            hideNoteBar(); closeTextBar();
+            var was=picsSnap(), fresh=(n===null||n===undefined);
+            if(!STATE.texts) STATE.texts=[];
+            if(fresh){
+              var pt0=TXR.pt, h0=tbHeight(1,pt0);
+              STATE.texts.push({text:'', on:pageKey(PAGE), pt:pt0, rot:0, box:[at[0], at[1]-h0, tbNatural('',pt0), h0]});
+              n=STATE.texts.length-1;
+            }
+            var tx=STATE.texts[n];
+            if(!tx){ return; }
+            TBED={n:n, fresh:fresh, was:was, free:fresh};
+            $('tbtext').value=tx.text||'';
+            $('tbsize').value=Math.round((+tx.pt||TXR.pt)*10)/10;
+            $('tbok').textContent = fresh ? 'הוסף' : 'סיים';
+            $('tbbar').className='on';
+            BSEL='t:'+n;
+            tbRebuild(); render(); showMarks();
+            $('tbtext').focus();
+          }
+
+          // He typed, or changed the size: the box on the sheet follows at once.
+          function tbLive(){
+            if(!TBED) return;
+            var tx=(STATE.texts||[])[TBED.n]; if(!tx) return;
+            var a=picArea(), pt=parseFloat($('tbsize').value);
+            if(!isFinite(pt)||pt<=0) pt=+tx.pt||TXR.pt;
+            pt=Math.min(TXR.pt_max, Math.max(TXR.pt_min, pt));
+            var w=tx.box[2], words=tbClean($('tbtext').value);
+            if(TBED.free){
+              // a new one is as wide as its words - as far as the margin, and
+              // from there the lines break
+              var room=a ? Math.max(a[0]+a[2]-tx.box[0], PIC_MIN) : 1e9;
+              w=Math.min(tbNatural(words,pt), room);
+            } else if(pt!==tx.pt){
+              w=w*pt/tx.pt;        // bigger letters, wider box: the lines break where they did
+            }
+            tx.text=words; tx.pt=pt;
+            tbFit(tx,w);
+            if(a){
+              var r=tbHold({x:tx.box[0], y:tx.box[1], w:tx.box[2], h:tx.box[3], rot:(+tx.rot||0), pt:tx.pt}, a);
+              tx.box=[r.x,r.y,r.w,r.h]; tx.pt=r.pt;
+            }
+            tbRebuild(); render(true);
+          }
+
+          // Done: one step for Ctrl+Z, and Ruby is told once. Emptied = thrown away.
+          function tbSave(){
+            if(!TBED) return;
+            var ed=TBED, tx=(STATE.texts||[])[ed.n];
+            if(tx){
+              $('tbtext').value=String($('tbtext').value).replace(/\s+$/,'');
+              tbLive();
+            }
+            var empty=!tx || tbClean(tx.text).replace(/\s+/g,'')==='';
+            if(empty && ed.fresh){ tbCancel(); render(); showMarks(); return; }
+            TBED=null;
+            $('tbbar').className='';
+            var id='t:'+ed.n;
+            if(empty){ STATE.texts.splice(ed.n,1); id=null; tbRebuild(); }
+            if(picsSnap()===ed.was){ BSEL=id; render(); showMarks(); return; }     // nothing was changed
+            if(UNDOON){ UNDO.push({g:++UGROUP, pics:ed.was}); if(UNDO.length>300) UNDO.shift(); }
+            // the arrow is back in his hand with the box picked, so the very
+            // next thing he does can be to move it
+            if(MODE!=='hand') setMode('hand');
+            BSEL=id;
+            push(); render(); showMarks();
+          }
+
+          // Escape, or Cancel: as if the bar had never been opened.
+          function tbCancel(){
+            if(!TBED) return;
+            var ed=TBED;
+            TBED=null;
+            $('tbbar').className='';
+            picsBack(ed.was);
+            tbRebuild();
+            if(ed.fresh) BSEL=null;
+          }
+
+          // A click with the T tool: on a box of writing it opens that box, on
+          // empty paper it starts a new one there.
+          function textClick(e){
+            if(!TXTON||TBED) return;
+            var p=mouseAt(e), a=picArea();
+            if(!p||!PAGE||!LIVEK||!a) return;
+            if((STATE.hidden||[]).indexOf('TEXT')>=0){
+              $('markinfo').textContent='השכבה TEXT כבויה. הדלק אותה תחת "שכבות" כדי לכתוב.';
+              return;
+            }
+            var hp=hitPic(e);
+            if(hp && hp.txt){ tbOpen(parseInt(String(hp.pic).slice(2),10)); return; }
+            var px=p[0]/LIVEK, py=PAGE.height-p[1]/LIVEK, h0=tbHeight(1,TXR.pt);
+            // inside what the margins leave, with room for a line under it
+            px=Math.min(Math.max(px, a[0]), a[0]+a[2]-PIC_MIN);
+            py=Math.min(Math.max(py, a[1]+h0), a[1]+a[3]);
+            tbOpen(null,[px,py]);
           }
 
           // The pointer over the handle: the same round arrow, so it says "turn".
@@ -3005,6 +3432,17 @@ module InteriorPro
             });
 
             if(live){
+              // The box of writing he picked, or is writing in: a thin frame,
+              // so a box of two words is still a box he can see. On the screen
+              // only - it is never on the paper.
+              var tfid=TBED ? ('t:'+TBED.n) : ((BSEL!==null && String(BSEL).charAt(0)==='t') ? BSEL : null);
+              if(tfid!==null) pageTexts().forEach(function(te){
+                if(te.pic!==tfid) return;
+                var fx=te.x*k, fy=(ph-te.y-te.h)*k, fw=Math.max(te.w*k,2), fh=Math.max(te.h*k,2);
+                o.push('<rect id="tbframe" x="'+fx.toFixed(1)+'" y="'+fy.toFixed(1)+'" width="'+fw.toFixed(1)+
+                       '" height="'+fh.toFixed(1)+'" fill="none" stroke="#1f6feb" stroke-width="1" stroke-dasharray="5 4"'+
+                       (te.rot ? (' transform="rotate('+(-te.rot)+','+(fx+fw/2).toFixed(1)+','+(fy+fh/2).toFixed(1)+')"') : '')+'/>');
+              });
               // what is picked, drawn over the top. Presentation only - the mark
               // itself is still the one Ruby built, so the paper cannot drift.
               // picked loose lines: ONE element however many there are - a
@@ -4379,6 +4817,7 @@ module InteriorPro
           function escapeAll(){
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
+              tbCancel();
               cancelCarry();
               if(ROT){ dropTurn(); }
               if(BOXD){ dropBox(); }
@@ -4390,6 +4829,7 @@ module InteriorPro
               render(); showMarks();
               return;
             }
+            tbCancel();                          // words half written are dropped, never kept
             cancelCarry();                       // a mark in the hand goes home
             SSEL=[];                             // and the picked lines are let go
             TCARRY=null; TDRAG=null; MDRAG=null; // a label or a mark mid-drag stays put
@@ -4416,6 +4856,8 @@ module InteriorPro
 
           function setMode(m){
             if((m==='line'||m==='chain') && !LINEDRAW) m='hand';
+            if(m==='text' && !TXTON) m='hand';
+            tbCancel();                          // another tool: words half written are dropped
             DRAWSNAP=null; CHAIN0=null; ROT=null; BOXD=null; BSEL=null;
             cancelCarry();
             BAND=null; SELS=[];
@@ -4423,11 +4865,11 @@ module InteriorPro
             SSEL=[];
             if(m!=='hand') SEL=null;
             // (the first four are written as they always were: rt65 looks for that list)
-            ['thand','tdim','tnote','terase'].concat(['tline','tchain']).forEach(function(id){
+            ['thand','tdim','tnote','terase'].concat(['tline','tchain']).concat(['ttext']).forEach(function(id){
               $(id).className='tool'+(($(id).id==='t'+m)?' on':'');
             });
             var svg=$('sheetWrap').firstChild;
-            if(svg) svg.style.cursor = m==='hand' ? 'default' : 'crosshair';
+            if(svg) svg.style.cursor = m==='hand' ? 'default' : (m==='text' ? 'text' : 'crosshair');
             showMarks();
             render();
           }
@@ -4440,7 +4882,8 @@ module InteriorPro
                      note:'1 לחץ על מה שההערה מדברת עליו · 2 איפה שהקו נשבר · 3 סוף הקו · ואז כתוב.',
                      erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.',
                      line:'1 לחץ איפה שהקו מתחיל · 2 לחץ איפה שהוא נגמר. ננעל על פינות, קצוות ואמצעים.',
-                     chain:'לחץ נקודה אחרי נקודה — כל לחיצה ממשיכה את הקו. Esc מסיים.'}[MODE];
+                     chain:'לחץ נקודה אחרי נקודה — כל לחיצה ממשיכה את הקו. Esc מסיים.',
+                     text:'לחץ על הדף איפה שהכיתוב מתחיל, ואז כתוב. לחיצה על כיתוב קיים פותחת אותו.'}[MODE];
             if(MODE==='line'&&PEND) tip='2 עכשיו לחץ איפה שהקו נגמר. Esc מבטל.';
             if(MODE==='chain'&&PEND) tip='לחץ על הנקודה הבאה. Esc מסיים · Ctrl+Z מוריד את הקו האחרון.';
             if(MODE==='note'&&PEND&&!PEND2) tip='2 עכשיו לחץ איפה שהקו נשבר.';
@@ -4458,6 +4901,9 @@ module InteriorPro
               tip=SSEL.length+(SSEL.length===1?' קו נבחר':' קווים נבחרו')+' · Shift+לחיצה מוסיף או מוריד · Delete מוחק · Ctrl+Z מחזיר · Esc משחרר.';
             if(MODE==='hand'&&BSEL!==null)
               tip='תמונה נבחרה. גרור כדי להזיז · ריבוע בפינה משנה גודל · פס בצלע חותך · העיגול עם החץ מסובב · Delete מוריד אותה מהדף · Esc משחרר.';
+            if(MODE==='hand'&&BSEL!==null&&String(BSEL).charAt(0)==='t')
+              tip='כיתוב נבחר. גרור כדי להזיז · ריבוע בפינה מגדיל ומקטין את האותיות · פס בצד משנה את הרוחב · העיגול עם החץ מסובב · לחיצה כפולה פותחת לכתיבה · Delete מוחק · Esc משחרר.';
+            if(TBED) tip='כתוב בחלונית למעלה. Enter = שורה חדשה · Ctrl+Enter או לחיצה על הדף מסיימים · Esc מבטל.';
             if(CARRY||TCARRY) tip='מחזיק — הזז ולחץ כדי להניח. Esc מחזיר.';
             paintDimOff();
             // No free geometry is no longer a dead end - the eraser still
@@ -4476,7 +4922,7 @@ module InteriorPro
             var svg=$('sheetWrap').firstChild;
             if(!svg) return;
             svg.style.cursor = MODE==='hand' ? arrowCursor()
-                             : MODE==='erase' ? eraserCursor() : 'crosshair';
+                             : MODE==='erase' ? eraserCursor() : (MODE==='text' ? 'text' : 'crosshair');
 
             svg.onmousemove=function(e){
               if(MODE==='erase'){
@@ -4527,6 +4973,9 @@ module InteriorPro
             };
 
             svg.onmousedown=function(e){
+              // Words open in the bar: a press on the sheet is "I am done" - they
+              // are kept, and the press does nothing else.
+              if(TBED){ tbSave(); e.preventDefault(); return; }
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did.
               if(MODE==='hand'&&!e.shiftKey){
@@ -4548,7 +4997,12 @@ module InteriorPro
                   e.preventDefault();
                   return;
                 }
-                if(BSEL!==null){ BSEL=null; paintRot(); }   // a press anywhere else lets the picture go
+                if(BSEL!==null){
+                  // a press anywhere else lets the picture go (and a box of writing loses its frame)
+                  var wasText=String(BSEL).charAt(0)==='t';
+                  BSEL=null;
+                  if(wasText) render(); else paintRot();
+                }
                 var h=hitMark(e);
                 if(h){
                   if(TSEL) closeTextBar();
@@ -4636,6 +5090,9 @@ module InteriorPro
             svg.ondblclick=function(e){
               // while drawing, two quick clicks are two clicks of the drawing tool
               if(MODE==='line'||MODE==='chain'){ e.preventDefault(); return; }
+              // two clicks on a box of writing open its words and its size again
+              var hb=(MODE==='hand' && PICON && !TBED) ? hitPic(e) : null;
+              if(hb && hb.txt){ BOXD=null; tbOpen(parseInt(String(hb.pic).slice(2),10)); e.preventDefault(); return; }
               var h=hitMark(e);
               // A note's own words come first - two clicks on a note has meant
               // "change what it says" since 2026-08-14 and that is not being
@@ -4675,6 +5132,8 @@ module InteriorPro
                 eraseSweep([hi]);
                 return;
               }
+              // a box of writing goes on ANY sheet, with a drawing on it or not
+              if(MODE==='text'){ textClick(e); return; }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
               if(MODE==='line'||MODE==='chain'){ drawClick(p); return; }
@@ -4744,7 +5203,7 @@ module InteriorPro
                     picPut(ROT.pic, ROT.s0); picsBack(ROT.was); ROT.moved=false;
                   } else {
                     // turned, it takes up other room: it is held on the sheet
-                    setPic(ROT.pic, picHold({x:po.x, y:po.y, w:po.w, h:po.h, rot:pnr, crop:po.crop}, picArea()));
+                    setPic(ROT.pic, (po.txt ? tbHold : picHold)({x:po.x, y:po.y, w:po.w, h:po.h, rot:pnr, crop:po.crop, pt:po.pt, text:po.text}, picArea()));
                     ROT.moved=true;
                   }
                   render(true);
@@ -4846,7 +5305,13 @@ module InteriorPro
             if(BOXD && BOXD.pic){
               var pb=BOXD;
               BOXD=null;
+              if(pb.dbl && !pb.moved && pb.pic.txt){
+                // the second of two quick presses on a box of writing, let go where it was: it opens
+                tbOpen(parseInt(String(pb.pic.pic).slice(2),10));
+                return;
+              }
               if(pb.moved){
+                TBLAST=null;
                 // one pull is one step for Ctrl+Z, and Ruby is told once
                 if(UNDOON){ UNDO.push({g:++UGROUP, pics:pb.was}); if(UNDO.length>300) UNDO.shift(); }
                 push();
@@ -5092,6 +5557,12 @@ module InteriorPro
             BOXON = (p.view_box!==false);
             CROPON = (p.box_crop!==false);
             PICON = (p.pic_box!==false);
+            TXTON = (p.text_box!==false) && PICON;
+            if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
+            // a sheet from Ruby while words were open: the bar is shut, what Ruby has is the truth
+            if(TBED){ TBED=null; if($('tbbar')) $('tbbar').className=''; }
+            if(!STATE.texts) STATE.texts=[];
+            if($('ttext') && $('ttext').style) $('ttext').style.display = TXTON ? '' : 'none';
             BSEL=null;
             if($('pichererow') && $('pichererow').style) $('pichererow').style.display = PICON ? '' : 'none';
             BOXD=null;
@@ -5180,6 +5651,7 @@ module InteriorPro
             showLogo(p.logo);
             fillPages();
             if(!LINEDRAW && (MODE==='line'||MODE==='chain')) setMode('hand');
+            if(!TXTON && MODE==='text') setMode('hand');
             showMarks();
             if(first){ fitPlan(); return; }
             showFit();
@@ -5190,6 +5662,7 @@ module InteriorPro
             DOC.pages=pages;
             if(marksLayer) putLayer('MODEL', marksLayer);
             if(STATE.active>=pages.length) STATE.active=0;
+            if(TBED){ PAGE=activePage(); tbRebuild(); }
             fillPages();
             buildLayers();
             showFit();
@@ -5225,6 +5698,7 @@ module InteriorPro
           // show something the sheet does not.
           function goToPage(i){
             if(!DOC||!DOC.pages.length) return;
+            tbCancel();
             STATE.active=Math.max(0, Math.min(DOC.pages.length-1, i));
             BSEL=null;                       // the picked picture was on the sheet he just left
             fillPages(); showFit(); render(); push();
@@ -5715,6 +6189,24 @@ module InteriorPro
             $('tnote').onclick=function(){ setMode('note'); };
             $('terase').onclick=function(){ setMode('erase'); };
             $('tline').onclick=function(){ setMode('line'); };
+            $('ttext').onclick=function(){ setMode('text'); };
+            // the bar of a box of writing: what he types is on the sheet at once
+            $('tbtext').oninput=function(){ tbLive(); };
+            $('tbsize').oninput=function(){ tbLive(); };
+            $('tbsize').onchange=function(){ tbLive(); };
+            $('tbok').onclick=function(){ tbSave(); };
+            $('tbcancel').onclick=function(){ tbCancel(); render(); showMarks(); };
+            $('tbtext').onkeydown=function(e){
+              // Enter is a NEW LINE - he asked: "אם אני לוחץ אנטר אז אוכל לרדת
+              // שורה למטה ולהמשיך להקליד ולא שהריבוע יסגר לי". Ctrl+Enter, the
+              // button, or a press on the sheet is "I am done".
+              if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); tbSave(); }
+              else if(e.key==='Escape'){ e.preventDefault(); tbCancel(); render(); showMarks(); }
+            };
+            $('tbsize').onkeydown=function(e){
+              if(e.key==='Enter'){ e.preventDefault(); tbSave(); }
+              else if(e.key==='Escape'){ e.preventDefault(); tbCancel(); render(); showMarks(); }
+            };
             ['nw','ne','sw','se'].forEach(function(c){
               var el=$('boxc-'+c);
               el.onmousedown=function(e){ startBox(c,e); };
@@ -5729,6 +6221,21 @@ module InteriorPro
               if(el.style) el.style.cursor=(d==='n'||d==='s') ? 'ns-resize' : 'ew-resize';
             });
             $('rothandle').onmousedown=function(e){ startTurn(e); };
+            // Two clicks on a HANDLE of a box of writing open it too. A short
+            // line of writing is a dozen pixels tall at the zoom that shows the
+            // whole sheet, and the squares on its corners cover most of it: his
+            // second click landed on a square, the square took it, and the
+            // sheet never saw a double click (2026-10-07, "ניסיתי, לא נפתח").
+            ['boxc-nw','boxc-ne','boxc-sw','boxc-se','boxe-n','boxe-s','boxe-w','boxe-e','boxmove'].forEach(function(id){
+              $(id).ondblclick=function(e){
+                var tg=(MODE==='hand' && !TBED) ? boxTarget() : null;
+                if(!tg||!tg.pic||!tg.pic.txt) return;
+                BOXD=null;
+                tbOpen(parseInt(String(tg.pic.pic).slice(2),10));
+                if(e.preventDefault) e.preventDefault();
+                if(e.stopPropagation) e.stopPropagation();
+              };
+            });
             if($('rothandle').style) $('rothandle').style.cursor=turnCursor();
             $('tchain').onclick=function(){ setMode('chain'); };
             $('tundo').onclick=function(){ undoMark(); };

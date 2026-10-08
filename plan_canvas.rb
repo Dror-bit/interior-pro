@@ -44,6 +44,19 @@ module InteriorPro
     # filling it, as before.
     USE_PIC_BOX = true unless const_defined?(:USE_PIC_BOX, false)
     PIC_MIN     = 0.5  unless const_defined?(:PIC_MIN, false)        # paper inches, either way
+    # A piece of WRITING sits in a box of its own as well: put anywhere on any
+    # sheet, moved, made bigger or smaller, made wider or narrower, turned
+    # (2026-10-07, st['texts'], see place_texts!). false = the list is ignored
+    # and no sheet carries any.
+    USE_TEXT_BOX = true unless const_defined?(:USE_TEXT_BOX, false)
+    TEXT_LAYER   = 'TEXT' unless const_defined?(:TEXT_LAYER, false)
+    TEXT_PT      = 24.0   unless const_defined?(:TEXT_PT, false)      # the size a new one starts at, in points
+    TEXT_PT_MIN  = 4.0    unless const_defined?(:TEXT_PT_MIN, false)
+    TEXT_PT_MAX  = 400.0  unless const_defined?(:TEXT_PT_MAX, false)
+    TEXT_PAD     = 0.25   unless const_defined?(:TEXT_PAD, false)     # round the words, of the letter size
+    TEXT_LEAD    = 1.25   unless const_defined?(:TEXT_LEAD, false)    # line to line, of the letter size
+    TEXT_ASCENT  = 0.8    unless const_defined?(:TEXT_ASCENT, false)  # top of a line to its baseline, of the letter size
+    TEXT_MAX_CHARS = 4000 unless const_defined?(:TEXT_MAX_CHARS, false)
     CIRCLE_SEGMENTS = 32 unless const_defined?(:CIRCLE_SEGMENTS, false)
 
     def self.fill_for(mat)
@@ -438,6 +451,11 @@ module InteriorPro
       apply_text_overrides!(doc, st)
       # and now the writing is turned, or held level, for this angle
       turn_texts!(doc, rot)
+      # The writing he put on the sheets in boxes of its own. AFTER the sizing
+      # passes above, on purpose: those name every piece of writing so it can
+      # be picked on its own, and a line of a box is not picked on its own -
+      # the box is.
+      place_texts!(doc, st)
 
       apply_visibility!(doc, hidden)
       doc
@@ -653,6 +671,225 @@ module InteriorPro
             s[:iw] = size[0].to_f
             s[:ih] = size[1].to_f
           end
+        end
+      end
+      doc
+    end
+
+    # --------------------------------------------- writing in boxes of its own
+    #
+    # 2026-10-07. "אני רוצה להוסיף אופציה של קופסא עם כיתוב. כמובן שהקופסא צריכה
+    # להתנהג כמו שאר הקופסאות, ובקופסא יהיה אפשר לכתוב ולקבוע את גודל הכיתוב."
+    #
+    # So a piece of writing is a BOX on its sheet, the way a picture is:
+    #   st['texts'] = [ { 'text' => "the words, \n between lines",
+    #                     'on'   => 'plan' | 'schedules' | 'image:2',
+    #                     'box'  => [x, y, w, h],   paper inches from the bottom left
+    #                     'rot'  => degrees,        about the middle of the box
+    #                     'pt'   => 24 } ]          how big the letters are, in points
+    #
+    # The WIDTH of the box is his: the words are laid in lines that fit it. The
+    # HEIGHT is not - it is however many lines that took, worked out here every
+    # time, with the TOP LEFT corner of the box staying where it was. A corner
+    # of the box makes box and letters bigger together (the window scales 'pt'
+    # and the width by the same amount, so the lines break in the same places);
+    # a side makes it wider or narrower and the lines are laid again.
+    #
+    # What goes on the sheet is PLAIN TEXT SHAPES, one a line, on the sheet's
+    # own TEXT layer - turned about the middle of the box, each hung from the
+    # left end of its baseline. So plan_pdf and the window draw them with the
+    # code they already had, and cannot disagree about a rule neither knows.
+    # The window is also told the box itself (Page#text_boxes), to put the
+    # same handles on it that a picture has.
+    #
+    # The window lays the same lines by the same sums (tbWrap, tbShapes in
+    # plan_sheet_dialog.rb) so that the words move under his hand without a
+    # trip to Ruby. Two copies of one rule: rt275 and t75 check BOTH against
+    # the same numbers.
+    def self.text_rules
+      require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
+      pp = InteriorPro::PlanPDF
+      { 'pad' => TEXT_PAD, 'lead' => TEXT_LEAD, 'ascent' => TEXT_ASCENT,
+        'pt' => TEXT_PT, 'pt_min' => TEXT_PT_MIN, 'pt_max' => TEXT_PT_MAX,
+        'cap' => pp::CAP_RATIO, 'w' => pp::W }
+    end
+
+    def self.text_clean(t)
+      t.to_s.gsub(/\r\n?/, "\n").tr("\t", ' ')
+    end
+
+    # How wide a run of words is at pt points, in paper inches. The real
+    # Helvetica widths plan_pdf prints with.
+    def self.text_width_in(str, pt)
+      require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
+      InteriorPro::PlanPDF.text_width(str, pt.to_f) / 72.0
+    end
+
+    # The words, in lines no wider than avail (paper inches). A line he broke
+    # himself stays broken; a word wider than the box stays whole.
+    def self.text_wrap(text, avail, pt)
+      out = []
+      text_clean(text).split("\n", -1).each do |para|
+        words = para.split(/ +/).reject(&:empty?)
+        if words.empty?
+          out << ''
+          next
+        end
+        cur = ''
+        words.each do |w|
+          try = cur.empty? ? w : "#{cur} #{w}"
+          if cur.empty? || text_width_in(try, pt) <= avail + 1.0e-6
+            cur = try
+          else
+            out << cur
+            cur = w
+          end
+        end
+        out << cur
+      end
+      out.empty? ? [''] : out
+    end
+
+    def self.text_height(lines, pt)
+      fs = pt.to_f / 72.0
+      2.0 * TEXT_PAD * fs + (lines - 1) * TEXT_LEAD * fs + fs
+    end
+
+    # The width a box needs to hold the words with no line broken but his own.
+    def self.text_natural_width(text, pt)
+      text_wrap(text, 1.0e9, pt).map { |l| text_width_in(l, pt) }.max.to_f +
+        2.0 * TEXT_PAD * pt.to_f / 72.0
+    end
+
+    def self.text_pt(raw)
+      v = (raw['pt'] || raw[:pt])
+      v = v.is_a?(Numeric) ? v.to_f : TEXT_PT
+      v = TEXT_PT unless v.finite? && v > 0
+      [[v, TEXT_PT_MIN].max, TEXT_PT_MAX].min
+    end
+
+    # A box turned by rot, held inside area: first small enough, then in.
+    # Returns [[x, y, w, h], f] - f is how much smaller it had to be made, and
+    # the letters are made smaller by the same amount. (Not pic_inside: that
+    # one will not let a box be under half an inch, and one line of small
+    # writing is.)
+    def self.text_inside(box, rot, area)
+      ax, ay, aw, ah = area.map(&:to_f)
+      x, y, w, h = box.map(&:to_f)
+      cx = x + w / 2.0
+      cy = y + h / 2.0
+      r = rot.to_f * Math::PI / 180.0
+      c = Math.cos(r).abs
+      s = Math.sin(r).abs
+      bw = w * c + h * s
+      bh = w * s + h * c
+      f  = [aw / bw, ah / bh, 1.0].min
+      if f < 1.0
+        w *= f; h *= f; bw *= f; bh *= f
+      end
+      cx = [[cx, ax + bw / 2.0].max, ax + aw - bw / 2.0].min
+      cy = [[cy, ay + bh / 2.0].max, ay + ah - bh / 2.0].min
+      [[cx - w / 2.0, cy - h / 2.0, w, h], f]
+    end
+
+    # What was saved for one piece of writing, checked and laid out.
+    # nil = nothing to draw. nth = how many came before it on this sheet.
+    def self.text_geo(raw, area, nth = 0)
+      return nil unless raw.is_a?(Hash)
+      txt = text_clean(raw['text'] || raw[:text])[0, TEXT_MAX_CHARS]
+      return nil if txt.strip.empty?
+      pt  = text_pt(raw)
+      rot = (raw['rot'] || raw[:rot]).to_f
+      rot = 0.0 unless rot.finite?
+      rot -= 360.0 while rot > 180.0
+      rot += 360.0 while rot <= -180.0
+      pad = TEXT_PAD * pt / 72.0
+      box = raw['box'] || raw[:box]
+      if box.is_a?(Array) && box.length == 4 &&
+         box.all? { |n| n.is_a?(Numeric) && n.to_f.finite? } && box[2].to_f > 0
+        x, y, w, h0 = box.map(&:to_f)
+        h0 = 0.0 if h0 < 0
+      else
+        # no place saved: in the middle of the sheet, as wide as its words,
+        # each one a little down and to the right of the last
+        ax, ay, aw, ah = area.map(&:to_f)
+        w   = [text_natural_width(txt, pt), aw].min
+        h0  = text_height(text_wrap(txt, w - 2.0 * pad, pt).length, pt)
+        off = 0.4 * (nth % 6)
+        x   = ax + (aw - w) / 2.0 + off
+        y   = ay + (ah - h0) / 2.0 - off
+      end
+      lines = text_wrap(txt, w - 2.0 * pad, pt)
+      h     = text_height(lines.length, pt)
+      # the top left corner of the box stays where it was
+      r = rot * Math::PI / 180.0
+      c = rot.zero? ? 1.0 : Math.cos(r)
+      s = rot.zero? ? 0.0 : Math.sin(r)
+      cx  = x + w / 2.0
+      cy  = y + h0 / 2.0
+      tlx = cx + (-w / 2.0) * c - (h0 / 2.0) * s
+      tly = cy + (-w / 2.0) * s + (h0 / 2.0) * c
+      ncx = tlx - ((-w / 2.0) * c - (h / 2.0) * s)
+      ncy = tly - ((-w / 2.0) * s + (h / 2.0) * c)
+      held, f = text_inside([ncx - w / 2.0, ncy - h / 2.0, w, h], rot, area)
+      pt *= f if f < 1.0
+      { text: txt, pt: pt, rot: rot, box: held, lines: lines }
+    end
+
+    # One plain text shape a line: [ {text:, x:, y:, h:, rotation:, li:} ].
+    # THE SAME SUMS AS tbShapes IN THE WINDOW.
+    def self.text_line_shapes(g)
+      require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
+      x, y, w, h = g[:box]
+      fs    = g[:pt] / 72.0
+      pad   = TEXT_PAD * fs
+      pitch = TEXT_LEAD * fs
+      rot   = g[:rot].to_f
+      r = rot * Math::PI / 180.0
+      c = rot.zero? ? 1.0 : Math.cos(r)
+      s = rot.zero? ? 0.0 : Math.sin(r)
+      cx = x + w / 2.0
+      cy = y + h / 2.0
+      out = []
+      g[:lines].each_with_index do |str, i|
+        next if str.empty?
+        lx = -w / 2.0 + pad
+        ly = h / 2.0 - (pad + TEXT_ASCENT * fs + i * pitch)
+        out << { text: str, x: cx + lx * c - ly * s, y: cy + lx * s + ly * c,
+                 h: fs * InteriorPro::PlanPDF::CAP_RATIO, rotation: rot, li: i }
+      end
+      out
+    end
+
+    def self.place_texts!(doc, st)
+      doc.pages.each { |pg| pg.text_boxes = [] if pg.respond_to?(:text_boxes=) }
+      return doc unless USE_TEXT_BOX
+      list = st['texts'] || st[:texts]
+      return doc unless list.is_a?(Array) && !list.empty?
+      doc.pages.each do |pg|
+        next unless pg.respond_to?(:text_boxes=)
+        area = (pg.respond_to?(:pic_area) && pg.pic_area) || pic_area(pg)
+        key  = pic_page_key(pg)
+        nth  = 0
+        list.each_with_index do |raw, j|
+          next unless raw.is_a?(Hash)
+          next unless (raw['on'] || raw[:on]).to_s == key
+          g = safely { text_geo(raw, area, nth) }
+          next unless g
+          nth += 1
+          lay = pg.layer(TEXT_LAYER)
+          id  = "t:#{j}"
+          text_line_shapes(g).each do |ln|
+            lay.text(ln[:text], ln[:x], ln[:y], h: ln[:h], align: :left,
+                                                rotation: ln[:rotation], tbox: id, li: ln[:li])
+          end
+          bx = g[:box]
+          # shaped like a picture's shape on purpose: the window handles both
+          # with the same squares, bars, grip and round arrow
+          pg.text_boxes << { pic: id, txt: true, placed: true,
+                             x: bx[0], y: bx[1], w: bx[2], h: bx[3], rot: g[:rot],
+                             crop: [0.0, 0.0, 0.0, 0.0], pt: g[:pt],
+                             text: g[:text], lines: g[:lines] }
         end
       end
       doc
