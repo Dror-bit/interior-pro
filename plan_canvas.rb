@@ -49,6 +49,9 @@ module InteriorPro
     # (2026-10-07, st['texts'], see place_texts!). false = the list is ignored
     # and no sheet carries any.
     USE_TEXT_BOX = true unless const_defined?(:USE_TEXT_BOX, false)
+    # The automatic dimensions of an elevation (2026-10-08, st['image_dims'], see
+    # place_elev_dims!). false = they are kept but not drawn: the picture alone.
+    USE_ELEV_DIMS = true unless const_defined?(:USE_ELEV_DIMS, false)
     # The NUMBER of a dimension - and any other label - can be written over by
     # hand (2026-10-07, "אני רוצה שיהיה אפשרי לערוך את המידות - את המספרים
     # שלהם בתוך"; asked whether the words replace the number for good or sit
@@ -560,6 +563,9 @@ module InteriorPro
       # be picked on its own, and a line of a box is not picked on its own -
       # the box is.
       place_texts!(doc, st)
+      # the elevations' own dimensions, over their pictures (after every sizing pass:
+      # they are drawn at their size, like the boxes of writing)
+      place_elev_dims!(doc, st)
 
       apply_visibility!(doc, hidden)
       doc
@@ -1166,6 +1172,107 @@ module InteriorPro
         end
       end
       doc
+    end
+
+    # ------------------------------------------------- an elevation's dimensions
+    #
+    # 2026-10-08. The Elevations tool writes, for each picture it takes,
+    #   st['image_dims'][path] = [ { 'k' => 'h' | 'v', 'u', 'v', 'row' | 'col', 't' } ]
+    # in shares of the WHOLE picture (ElevationTool.dims_for). Here they are
+    # laid over the picture where it stands on its sheet - through its box,
+    # its crop and its turn - as plain lines and words on a layer of the page,
+    # so the window and plan_pdf draw them with nothing new. The rows and
+    # columns stand off the picture by paper inches, and the words are the size
+    # of writing, however big the picture was made.
+    ELEV_DIM_LAYER = 'ELEV_DIMS' unless const_defined?(:ELEV_DIM_LAYER, false)
+    ELEV_ROW    = 0.45 unless const_defined?(:ELEV_ROW, false)     # paper inches between rows
+    ELEV_TEXT_H = 0.11 unless const_defined?(:ELEV_TEXT_H, false) # capital height, paper inches
+    ELEV_TICK   = 0.06 unless const_defined?(:ELEV_TICK, false)
+    ELEV_GAP    = 0.03 unless const_defined?(:ELEV_GAP, false)     # air between the thing and its witness line
+    ELEV_OVER   = 0.05 unless const_defined?(:ELEV_OVER, false)    # the witness line past the dimension line
+
+    def self.place_elev_dims!(doc, st)
+      return doc unless USE_ELEV_DIMS
+      all = st['image_dims'] || st[:image_dims]
+      return doc unless all.is_a?(Hash) && !all.empty?
+      pd = InteriorPro::PlanDoc
+      doc.pages.each do |pg|
+        next unless pg.kind.to_s == 'image'
+        next unless pg.layer?(pd::IMAGE_LAYER)
+        main = pg.layer(pd::IMAGE_LAYER).shapes.find { |s| s[:type] == :image }
+        next unless main
+        dims = all[main[:path].to_s.tr('\\', '/')]
+        next unless dims.is_a?(Array) && !dims.empty?
+        lay = pg.layer(ELEV_DIM_LAYER)
+        dims.each { |d| safely { draw_elev_dim(lay, main, d) } }
+      end
+      doc
+    end
+
+    # Where the picture really lies on the paper: a placed picture IS its box; one
+    # that was never moved is fitted into its box at its own proportions, in the
+    # middle (PlanPDF.fit_box - the same sums the PDF and the window draw it by).
+    # Measured 13:58: without this the chain ran past both corners of the room.
+    def self.elev_rect(main)
+      x, y, w, h = main[:x].to_f, main[:y].to_f, main[:w].to_f, main[:h].to_f
+      return [x, y, w, h] if main[:placed] || main[:iw].to_f <= 0 || main[:ih].to_f <= 0
+      InteriorPro::PlanPDF.fit_box(main[:iw], main[:ih], x, y, w, h, main[:stretch])
+    end
+
+    # one share of the picture (u from its left, v from its bottom) -> the paper
+    def self.elev_pt(main, u, v)
+      x, y, w, h = elev_rect(main)
+      l, b, r, t = (main[:crop].is_a?(Array) && main[:crop].length == 4 ? main[:crop] : [0, 0, 0, 0]).map(&:to_f)
+      [x + (u.to_f - l) / (1.0 - l - r) * w, y + (v.to_f - b) / (1.0 - b - t) * h]
+    end
+
+    def self.draw_elev_dim(lay, main, d)
+      rot = main[:rot].to_f
+      ra = rot * Math::PI / 180.0
+      rx, ry, rw, rh = elev_rect(main)
+      cx = rx + rw / 2.0
+      cy = ry + rh / 2.0
+      tr = lambda do |px, py|
+        return [px, py] if rot.zero?
+        dx = px - cx
+        dy = py - cy
+        [cx + dx * Math.cos(ra) - dy * Math.sin(ra), cy + dx * Math.sin(ra) + dy * Math.cos(ra)]
+      end
+      ln = ->(x1, y1, x2, y2) { a = tr.call(x1, y1); b = tr.call(x2, y2); lay.line(a[0], a[1], b[0], b[1], elev_dim: true) }
+      t = ELEV_TICK / 2.0
+      words = d['t'].to_s
+      fs = ELEV_TEXT_H / InteriorPro::PlanPDF::CAP_RATIO * 72.0
+      tw = text_width_in(words, fs)
+      if d['k'].to_s == 'h'
+        u1, u2 = Array(d['u']).map(&:to_f)
+        x1 = elev_pt(main, u1, d['v'])[0]
+        x2 = elev_pt(main, u2, d['v'])[0]
+        yf = elev_pt(main, u1, d['v'])[1]
+        yl = yf - d['row'].to_i * ELEV_ROW
+        ln.call(x1, yl, x2, yl)
+        [x1, x2].each do |x|
+          ln.call(x - t, yl - t, x + t, yl + t)
+          ln.call(x, yf - ELEV_GAP, x, yl - ELEV_OVER)
+        end
+        p = tr.call((x1 + x2) / 2.0 - tw / 2.0, yl + 0.035)
+        lay.text(words, p[0], p[1], h: ELEV_TEXT_H, align: :left, rotation: rot, elev_dim: true)
+      else
+        v1, v2 = Array(d['v']).map(&:to_f)
+        y1 = elev_pt(main, d['u'], v1)[1]
+        y2 = elev_pt(main, d['u'], v2)[1]
+        xr = elev_pt(main, d['u'], v1)[0]
+        # the columns stand off the picture's right EDGE (past the cut wall beside the
+        # corner); the witness lines start at the corner and cross that wall, where
+        # they do not show (13:58: off the corner the first column sat on the wall)
+        xl = [xr, rx + rw].max + d['col'].to_i * ELEV_ROW
+        ln.call(xl, y1, xl, y2)
+        [y1, y2].each do |y|
+          ln.call(xl - t, y - t, xl + t, y + t)
+          ln.call(xr + ELEV_GAP, y, xl + ELEV_OVER, y)
+        end
+        p = tr.call(xl - 0.035, (y1 + y2) / 2.0 - tw / 2.0)
+        lay.text(words, p[0], p[1], h: ELEV_TEXT_H, align: :left, rotation: rot + 90.0, elev_dim: true)
+      end
     end
 
     # ------------------------------------------------- turning the drawing

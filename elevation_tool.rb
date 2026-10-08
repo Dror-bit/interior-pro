@@ -222,6 +222,147 @@ module InteriorPro
         SET_ASIDE.include?(type.to_s)
       end
 
+      # ---- automatic dimensions (2026-10-08) --------------------------------
+      #
+      # His words: "נכניס מידות למיקומים אוטומטים", shown a picture of his own
+      # Room 2 - North with a chain under the floor and heights at the side
+      # ("ניראה טוב"), and: "צריך גם את הניץ גובה מהריצפה גובה הניץ ורוחב".
+      #
+      # The NUMBERS come from the model, never from the picture: a niche from
+      # the wall's own `niches` row, a fixture and a tiled area from their box.
+      # Measured on his model (debug_elev_items.rb, 12:57): the niche on the
+      # East wall is 36 x 18 at 42" up, 17 1/8" from the corner.
+      #
+      # The sheet draws them OVER the picture as lines and words of its own
+      # (PlanCanvas.place_elev_dims!), so they are sharp in the PDF and the
+      # writing is the size of writing, whatever size the picture is.
+
+      DIM_MIN = 1.0 unless const_defined?(:DIM_MIN, false)   # two stops closer than this are one (a tile's thickness is not a dimension)
+
+      def last_dims
+        @last_dims ||= {}
+      end
+
+      # What one wall's dimensions measure, in the side's own numbers:
+      # [{ kind:, a0:, a1:, z0:, z1: }] - a along the side from side.a, z up from the floor.
+      #   niche     - on a wall face looking INTO the room, on this side's line
+      #   fixture   - its box reaches into the `cut` in front of the wall
+      #   tile_wall - a tiled area lying ON this wall (thin, at the face): along only
+      def side_items(side, cut, all, base_z)
+        dir = Geom::Vector3d.new(side.b.x - side.a.x, side.b.y - side.a.y, 0)
+        dir.normalize!
+        n = side.inward
+        al = ->(p) { (p.x - side.a.x) * dir.x + (p.y - side.a.y) * dir.y }
+        inn = ->(p) { (p.x - side.a.x) * n.x + (p.y - side.a.y) * n.y }
+        cut = cut.to_f > 0 ? cut.to_f : side.depth.to_f
+        out = []
+        all.each do |t|
+          case t.type
+          when 'wall'
+            next unless defined?(InteriorPro::TileNiche) && defined?(InteriorPro::TileWall)
+            outer = t.xf * t.ent.transformation.inverse
+            InteriorPro::TileNiche.read(t.ent).each do |ni|
+              fr = InteriorPro::TileWall.frame_for(t.ent, ni[:side])
+              next unless fr
+              nv = Geom::Vector3d.new(fr[:nx], fr[:ny], 0).transform(outer)
+              next unless nv.length > 0.5 && (nv.x * n.x + nv.y * n.y) / nv.length > 0.9
+              p0 = Geom::Point3d.new(*InteriorPro::TileWall.world(fr, ni[:u0], ni[:z0])).transform(outer)
+              p1 = Geom::Point3d.new(*InteriorPro::TileWall.world(fr, ni[:u0] + ni[:w], ni[:z0] + ni[:h])).transform(outer)
+              next unless inn.call(p0).abs < 1.5
+              a0, a1 = [al.call(p0), al.call(p1)].minmax
+              next if a1 <= 0 || a0 >= side.len
+              out << { kind: 'niche', a0: [a0, 0.0].max, a1: [a1, side.len].min,
+                       z0: [p0.z, p1.z].min - base_z, z1: [p0.z, p1.z].max - base_z }
+            end
+          when 'fixture', 'tile_wall'
+            pts = world_box(t)
+            next unless pts
+            ins = pts.map { |p| inn.call(p) }
+            als = pts.map { |p| al.call(p) }
+            if t.type == 'fixture'
+              next if ins.max < -1.0 || ins.min > cut
+            else
+              next unless ins.min > -0.5 && ins.max < 2.0
+            end
+            next if als.max <= 0 || als.min >= side.len
+            zs = pts.map(&:z)
+            out << { kind: t.type, a0: [als.min, 0.0].max, a1: [als.max, side.len].min,
+                     z0: zs.min - base_z, z1: zs.max - base_z }
+          end
+        end
+        out
+      end
+
+      def safely_items(side, cut, all, base_z)
+        side_items(side, cut, all, base_z)
+      rescue StandardError => e
+        puts "[Elevation] dimensions skipped on #{side.name}: #{e.class}: #{e.message}"
+        []
+      end
+
+      # the eight corners of a thing's box, in the world
+      def world_box(t)
+        ents = defined?(Sketchup::ComponentInstance) && t.ent.is_a?(Sketchup::ComponentInstance) ? t.ent.definition.entities : t.ent.entities
+        bb = Geom::BoundingBox.new
+        ents.each { |k| bb.add(k.bounds) if k.respond_to?(:bounds) }
+        return nil if bb.empty?
+        (0..7).map { |i| bb.corner(i).transform(t.xf) }
+      end
+
+      # 87.125 -> 87 1/8"   (to the sixteenth, the way he reads a tape)
+      def fmt_in(v)
+        s16 = (v.to_f * 16).round
+        i = s16 / 16
+        f = s16 % 16
+        return "#{i}\"" if f.zero?
+        g = f.gcd(16)
+        i.zero? ? "#{f / g}/#{16 / g}\"" : "#{i} #{f / g}/#{16 / g}\""
+      end
+
+      # The dimensions of one picture, in shares of the WHOLE picture (u from its
+      # left, v from its bottom) - the way the sheet places a picture (box + crop).
+      # The picture looks AT the wall from inside the room: side.b is on its left.
+      #   'k' => 'h': a run under the floor; 'u' => [u1, u2], 'v' => the floor, 'row' => 1 (the
+      #              chain: corner, every edge of every thing, corner) or 2 (the whole wall)
+      #   'k' => 'v': a run at the right; 'v' => [v1, v2], 'u' => the right corner, 'col' => 1..
+      #              one column a niche / fixture (floor -> bottom -> top), the wall's height last
+      # 't' => the words. Pure.
+      def dims_for(side, wall_h, items)
+        len = side.len.to_f
+        pw = len + 2 * MARGIN
+        ph = wall_h.to_f + 2 * MARGIN
+        ux = ->(a) { (MARGIN + len - a) / pw }
+        vz = ->(z) { (MARGIN + z) / ph }
+        out = []
+        stops = [0.0, len]
+        items.each { |it| stops << it[:a0].to_f << it[:a1].to_f }
+        stops = stops.map { |a| [[a, 0.0].max, len].min }.sort
+        run = []
+        stops.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
+        run[-1] = len
+        if run.size > 2
+          run.reverse.each_cons(2) do |q, p|     # left to right as the picture shows it
+            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p) }
+          end
+        end
+        out << { 'k' => 'h', 'row' => (run.size > 2 ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)],
+                 'v' => vz.call(0.0), 't' => fmt_in(len) }
+        col = 0
+        items.reject { |it| it[:kind] == 'tile_wall' }.sort_by { |it| it[:a0].to_f }.each do |it|
+          z0 = [[it[:z0].to_f, 0.0].max, wall_h.to_f].min
+          z1 = [[it[:z1].to_f, 0.0].max, wall_h.to_f].min
+          next if z1 - z0 <= DIM_MIN
+          zs = z0 > DIM_MIN ? [0.0, z0, z1] : [0.0, z1]
+          col += 1
+          zs.each_cons(2) do |p, q|
+            out << { 'k' => 'v', 'col' => col, 'v' => [vz.call(p), vz.call(q)], 'u' => ux.call(0.0), 't' => fmt_in(q - p) }
+          end
+        end
+        out << { 'k' => 'v', 'col' => col + 1, 'v' => [vz.call(0.0), vz.call(wall_h.to_f)], 'u' => ux.call(0.0),
+                 't' => fmt_in(wall_h.to_f) }
+        out
+      end
+
       # ---- files -------------------------------------------------------------
 
       def model_dir(model = Sketchup.active_model)
@@ -270,6 +411,7 @@ module InteriorPro
         saved = {}
         RENDER_KEYS.each { |k| saved[k] = ro[k] }
         hidden = []
+        last_dims.clear
         model.start_operation('Elevations', true)
         begin
           all = []
@@ -308,6 +450,12 @@ module InteriorPro
             view.refresh
             path = file_for(dir, name, side.name, style)
             ok = view.write_image(path, s[:w_px], s[:h_px], true)
+            # the automatic dimensions of this wall (2026-10-08), for the sheet to draw over it
+            if ok
+              its = safely_items(side, s[:cut], all, base_z)
+              last_dims[path.tr('\\', '/')] = dims_for(side, wall_h, its)
+              trace("#{name} side #{side.name}: dims #{its.map { |i| "#{i[:kind]} #{i[:a0].round(2)}..#{i[:a1].round(2)} z #{i[:z0].round(2)}..#{i[:z1].round(2)}" }.join('; ')}")
+            end
             sp.erase!
             trace("#{name} side #{side.name}: #{side.len.round(1)}\" long, cut #{s[:cut].round(1)}\", " \
                   "#{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
@@ -334,7 +482,8 @@ module InteriorPro
       # exactly as a dropped render does (st['images']). If the window is open
       # it is told to draw again.
       # titles: path => the name the sheet carries ("Room 2 - A"); st['image_titles']
-      def add_to_sheet!(paths, titles = {})
+      # dims: path => the automatic dimensions of that picture (dims_for); st['image_dims']
+      def add_to_sheet!(paths, titles = {}, dims = {})
         return 0 if paths.empty?
         psd = InteriorPro::PlanSheetDialog
         st = psd.load_state
@@ -344,6 +493,9 @@ module InteriorPro
         tt = st['image_titles'].is_a?(Hash) ? st['image_titles'] : {}
         titles.each { |p, t| tt[p.to_s.tr('\\', '/')] = t.to_s }
         st['image_titles'] = tt.select { |p, _| st['images'].include?(p) }
+        dd = st['image_dims'].is_a?(Hash) ? st['image_dims'] : {}
+        dims.each { |p, d| dd[p.to_s.tr('\\', '/')] = d }
+        st['image_dims'] = dd.select { |p, _| st['images'].include?(p) }
         psd.save_state(st)
         begin
           dlg = psd.instance_variable_get(:@dialog)
@@ -360,7 +512,8 @@ module InteriorPro
       # the whole job from the panel: shoot, then onto the sheet
       def make!(room, cut: nil, style: 'lines')
         paths = shoot!(room, cut: cut, style: style)
-        n = add_to_sheet!(paths, titles_for(room, paths))
+        dims = paths.each_with_object({}) { |p, h| d = last_dims[p.to_s.tr('\\', '/')]; h[p] = d if d }
+        n = add_to_sheet!(paths, titles_for(room, paths), dims)
         trace("#{room_name(room)}: #{paths.size} pictures, #{n} onto the sheet")
         paths
       end

@@ -1352,7 +1352,8 @@ module InteriorPro
         # view_box / scale_f: the drawing's box and a size set by hand (2026-10-07).
         # No default on purpose - nil is "the whole sheet, the scale from the list".
         # image_titles (2026-10-08): a name of its own for a picture, by path - the elevations.
-        %w[origin_x origin_y date active zoom view_box scale_f image_titles]
+        # image_dims (2026-10-08): the automatic dimensions of an elevation, by path.
+        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims]
       end
 
       # -------------------------------------------------- the free geometry
