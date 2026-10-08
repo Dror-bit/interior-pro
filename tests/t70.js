@@ -192,12 +192,12 @@ document.getElementById("tline").onclick();
 ok("the line button puts the line tool in his hand, and looks pressed",
    api.get("MODE") === "line" && /on/.test(document.getElementById("tline").className) && !/on/.test(document.getElementById("thand").className),
    [api.get("MODE"), document.getElementById("tline").className]);
-ok("the line under the tools says what to do", /1 לחץ איפה שהקו מתחיל/.test(info()), info());
+ok("the line under the tools explains nothing (2026-10-08, the small explanations are gone)", info() === "", info());
 
 global.sent.length = 0;
 tapM(-350, 200);
 ok("the first click draws nothing yet", n() === 9 && msgs("add_site_line").length === 0, n());
-ok("...it is remembered, and he is told to click the end", JSON.stringify(api.get("PEND")) === "[-350,200]" && /2 עכשיו לחץ איפה שהקו נגמר/.test(info()),
+ok("...it is remembered, and nothing is explained", JSON.stringify(api.get("PEND")) === "[-350,200]" && info() === "",
    [api.get("PEND"), info()]);
 hoverM(-250, 230);
 ok("a line is pulled out from the first click to the mouse, before he clicks", !!rubber() && rubber().stroke === "#1f6feb", hi());
@@ -278,7 +278,7 @@ ok("each one starts exactly where the one before ended",
 m = msgs("add_site_line");
 ok("Ruby is told of each, with the count as it grew", m.length === 3 && m.map(x => x.n).join() === "9,10,11" && m.every(x => x.quiet === true), m);
 ok("the run is still going: the next line would start at the last click", JSON.stringify(api.get("PEND")) === "[-50,230]" && api.get("MODE") === "chain");
-ok("and he is told how to stop", /Esc מסיים/.test(info()), info());
+ok("and nothing is explained", info() === "", info());
 hoverM(50, 200);
 ok("the line to the next point follows the mouse", !!rubber());
 key("Escape");

@@ -171,7 +171,7 @@ ok("the nine lines are far enough apart on the screen to tell apart", at(1)[0] -
 click(...at(3));
 ok("A CLICK ON A LINE PICKS IT  <<< THE RULE", JSON.stringify(picked()) === "[3]", picked());
 ok("and it is drawn in blue over itself", /id="sitepick"[^>]*stroke="#1f6feb"/.test(document.getElementById("sheetWrap").innerHTML));
-ok("the line under the window tells him what he can do now", /קו נבחר/.test(document.getElementById("markinfo").textContent),
+ok("the line under the tools explains nothing (2026-10-08, the small explanations are gone)", document.getElementById("markinfo").textContent === "",
    document.getElementById("markinfo").textContent);
 click(...at(6));
 ok("a click on another line picks that one instead", JSON.stringify(picked()) === "[6]", picked());
@@ -183,7 +183,7 @@ click(...at(8), { shiftKey: true });
 ok("and another", JSON.stringify(picked()) === "[3,6,8]", picked());
 click(...at(6), { shiftKey: true });
 ok("Shift+click on a picked line lets go of just that one", JSON.stringify(picked()) === "[3,8]", picked());
-ok("the count says so", /2 קווים נבחרו/.test(document.getElementById("markinfo").textContent), document.getElementById("markinfo").textContent);
+ok("and still nothing is explained", document.getElementById("markinfo").textContent === "", document.getElementById("markinfo").textContent);
 
 // Shift+DRAG is still the way to slide the view, and picks nothing
 const stage = document.getElementById("stage");

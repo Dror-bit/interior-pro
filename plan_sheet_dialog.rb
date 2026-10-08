@@ -65,6 +65,12 @@ module InteriorPro
     # the page). false = a side moves the whole box, as it did the day the box
     # was built.
     USE_BOX_CROP = true unless const_defined?(:USE_BOX_CROP, false)
+    # The second line of a note (the shoulder) goes where the third click is,
+    # any way at all, and the words sit past its end (2026-10-08, "הערה לא
+    # נמתחת לאן שאני רוצה בקו השני אלא רק לשני כיוונים"; see noteEnd in the
+    # page). Within NOTE_SNAP_DEG of level or upright it locks there. false =
+    # the shoulder is always level with the knee, as before.
+    USE_NOTE_ANY_WAY = true unless const_defined?(:USE_NOTE_ANY_WAY, false)
     # The VISUALIZE by Dror logo is in the title block of every sheet from the
     # start, from a file that ships with the plugin (2026-10-07, "זה צריך להיות
     # הלוגו של VISUALIZE"); a logo he picks himself still wins. false = a model
@@ -682,6 +688,7 @@ module InteriorPro
               erase_trace('page order: ' + document.pages.map { |pg| "#{page_key(pg)}=#{pg.sheet_number}" }.join('  '))
             end
             text_trace(st, t0)
+            note_trace(st)
           rescue StandardError => e
             puts "[Sheet] set_state: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
@@ -838,7 +845,7 @@ module InteriorPro
           InteriorPro::PlanCanvas.build_document(
             Sketchup.active_model,
             size: st['size'], orientation: (st['orientation'] || 'landscape').to_sym,
-            scale: st['scale'], address: st['address'], marks: st['marks'],
+            scale: st['scale'], address: job_name(st), marks: st['marks'],
             logo: logo_path(st),
             drawn: st['drawn'],
             sheet_number: st['sheet_number'], sheet_title: st['sheet_title'],
@@ -854,7 +861,7 @@ module InteriorPro
       # is rebuilt out of his choices, so the window and the PDF cannot drift
       # apart - there is only one layout routine and they both run it.
       def apply_state!(doc, st)
-        doc.job_address = st['address'].to_s if st.key?('address')
+        doc.job_address = job_name(st) if st.key?('address')
         doc.date        = st['date'] if st.key?('date')
         InteriorPro::PlanCanvas.layout_pages!(doc, st)
         doc
@@ -887,6 +894,7 @@ module InteriorPro
           deep_zoom: USE_DEEP_ZOOM,
           fast_erase: USE_FAST_ERASE,
           escape_exits: USE_ESCAPE_EXITS,
+          note_any: USE_NOTE_ANY_WAY,
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
@@ -1090,6 +1098,39 @@ module InteriorPro
         @texts_sig = JSON.generate(text_rows(st))
       rescue StandardError
         @texts_sig = nil
+      end
+
+      # A line in the trace for every change to a hand-drawn note (2026-10-08):
+      # added, taken off, its words changed, or moved. Read it before saying
+      # that changing a note's words works on his machine.
+      def note_trace(st)
+        now = Array(st['marks']).select { |m| (m['t'] || m[:t]).to_s == 'note' }
+                                .map { |m| %w[text x y kx ky lx ly arrow].map { |k| m[k] } }
+        sig = JSON.generate(now)
+        was = @notes_sig
+        @notes_sig = sig
+        return if was.nil? || was == sig
+        old = JSON.parse(was) rescue []
+        what =
+          if now.length > old.length
+            "#{now.length - old.length} added: '#{now.last[0]}'"
+          elsif now.length < old.length
+            "#{old.length - now.length} taken off"
+          else
+            at = (0...now.length).find { |k| now[k] != old[k] }
+            a = old[at] || []
+            b = now[at] || []
+            if a[0] != b[0]
+              "words of note #{at}: '#{a[0]}' -> '#{b[0]}'"
+            elsif a[7] != b[7]
+              "note #{at}: arrow #{b[7] == false ? 'off' : 'on'}"
+            else
+              "note #{at} moved"
+            end
+          end
+        erase_trace("note: #{what}; #{now.length} on the sheet")
+      rescue StandardError => e
+        puts "[Sheet] note_trace: #{e.class}: #{e.message}"
       end
 
       def text_trace(st, t0)
@@ -1811,10 +1852,32 @@ module InteriorPro
         File.directory?(d) ? d : home.tr('\\', '/')
       end
 
+      # The job in the title block (2026-10-08, "שם הפרויקט שבו הוא נשמר יהיה
+      # הכותרת כי זה בדרך כלל הכתובת"): what he typed in the address box, and
+      # when that is empty the name the model is saved under - which is the
+      # address, the way he names them. '' until the model has been saved.
+      def model_name
+        p = Sketchup.active_model.path.to_s.tr('\\', '/')
+        p.empty? ? '' : File.basename(p, '.*').strip
+      rescue StandardError
+        ''
+      end
+
+      def job_name(st)
+        a = (st['address'] || st[:address]).to_s.strip
+        a.empty? ? model_name : a
+      end
+
+      # The PDF is named after the job - the address (2026-10-08, "השם של
+      # הקובץ צריך להיות שם הפרויקט (הכתובת)"); the sheet number only when
+      # there is no job name at all. Only what Windows cannot take in a file
+      # name is replaced: spaces, commas and Hebrew stay.
       def default_name(st)
-        base = st['sheet_number'].to_s.strip
+        base = job_name(st)
+        base = st['sheet_number'].to_s.strip if base.empty?
+        base = base.gsub(%r{[\\/:*?"<>|]}, '_').sub(/[\s.]+\z/, '').strip
         base = 'plan' if base.empty?
-        "#{base.gsub(/[^A-Za-z0-9._-]/, '_')}.pdf"
+        "#{base}.pdf"
       end
 
       # ---------------------------------------------------------------- html
@@ -2104,12 +2167,10 @@ module InteriorPro
                   <div class="tsrow"><span>תגי דלת/חלון</span><input id="tsTags" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <div class="tsrow"><span>טבלאות</span><input id="tsTables" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <button id="tsReset">חזור ל-100%</button>
-                  <div class="hint">100% = הגודל שהיה תמיד. משפיע גם על התצוגה וגם על ה-PDF.</div>
                   </div>
                   <!-- the label he clicked on: its own size, weight, line,
                        colour and words. Shown while one is picked. -->
                   <div id="textbar">
-                    <div class="hint" style="margin:0" id="txhead">לחץ על כיתוב בדף — ההגדרות שלו כאן. לחיצה כפולה — כותבים עליו.</div>
                     <div id="txwhat" class="what"></div>
                     <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc" id="txunit">%</span></div>
                     <div class="row" style="margin-top:6px">
@@ -2117,6 +2178,15 @@ module InteriorPro
                       <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
                       <button id="txunder" class="tool" title="קו תחתון"><u>U</u></button>
                       <input id="txcolor" type="color" value="#000000" title="צבע">
+                    </div>
+                    <div class="row" id="txnote" style="display:none;margin-top:6px">
+                      <button id="txarrow" class="tool on" title="ראש חץ בקצה הקו">
+                        <svg viewBox="0 0 24 24"><g class="s">
+                          <rect x="12" y="3" width="9" height="7" rx="1"/>
+                          <path d="M12 8 L4 19"/>
+                          <path d="M4 19 L5.4 15.4 M4 19 L7.6 17.6"/>
+                        </g></svg>
+                      </button>
                     </div>
                     <div id="txfontbox" style="display:none">
                       <select id="txfont" style="display:none"></select>
@@ -2211,7 +2281,7 @@ module InteriorPro
                     <input id="dimoff" type="number" step="1" style="width:70px">
                     <span style="font-size:11px; color:#888; flex:none">אינץ'</span>
                   </div>
-                  <div id="markinfo" class="hint">בחר כלי ולחץ על הציור.</div>
+                  <div id="markinfo" class="hint"></div>
                 </div>
               </div>
 
@@ -2237,7 +2307,7 @@ module InteriorPro
                   <label class="chk" id="pichererow" style="margin-top:6px">
                     <input type="checkbox" id="pichere"> להוסיף לדף הפתוח, לא דף חדש לכל תמונה
                   </label>
-                  <div id="imginfo" class="hint">אחת או כמה, או גרור אותן לחלון.</div>
+                  <div id="imginfo" class="hint"></div>
                 </div>
               </div>
 
@@ -2266,7 +2336,6 @@ module InteriorPro
               <div class="sec" data-k="settings">
                 <h4><span class="ar">&#9656;</span>הגדרות<span class="tag" id="settag"></span></h4>
                 <div class="bd">
-                  <div class="hint" style="margin:0 0 6px">הלוגו שלך, בפינת הטייטל בלוק.</div>
                   <img id="logoshow" alt="">
                   <button id="logopick" class="go2">בחר קובץ לוגו</button>
                   <button id="logoclear">חזור ל-VISUALIZE by Dror</button>
@@ -2297,7 +2366,6 @@ module InteriorPro
                   <div class="row"><span>גודל</span><input id="tbsize" type="number" min="4" max="400" step="1" title="גודל האותיות, בנקודות"></div>
                   <button id="tbok" class="go">הוסף</button>
                   <button id="tbcancel">ביטול</button>
-                  <div class="hint">Enter = שורה חדשה · Ctrl+Enter או לחיצה על הדף מסיימים</div>
                 </div>
               </div>
               <div id="sheetWrap"></div>
@@ -3569,12 +3637,50 @@ module InteriorPro
           var LBLAST=null;     // the last press on a dimension or a label: {id, t, x, y}
           var LBDONE=0;        // when two presses last opened a label
 
-          // The label two clicks at the mouse open: any writing with a key,
-          // and for a hand dimension its number - wherever on the dimension
-          // he pressed. null on a note and on empty paper.
-          function labelUnder(e){
+          // A note's words are a label on the NOTES layer like any other
+          // (name_texts! keys them), so the box at the side and typing over
+          // them on the sheet are the label's own roads - not a bar of their
+          // own (2026-10-08, "הקופסא תהיה על הכיתוב עצמו וההגדרות יהיו
+          // בהגדרות טקסט"). The words sit on the note's x/y (draw_mark_note
+          // centres them there), which is how the two find each other.
+          function noteWords(i){
+            var m=marks()[i]; if(!m || m.t!=='note') return null;
+            var best=null, bd=markTextH()*2;
+            eachText(function(s,paper){
+              if(paper || !s.key || !/^NOTES\|/.test(s.key)) return;
+              var d=Math.hypot(s.x-m.x, s.y-m.y);
+              if(d<bd){ bd=d; best={key:s.key, shape:s, paper:false}; }
+            });
+            if(best) best.note=i;
+            return best;
+          }
+          function noteOfText(ht){
+            if(!ht || ht.paper || !/^NOTES\|/.test(String(ht.key))) return null;
+            var at=null, bd=markTextH()*2;
+            marks().forEach(function(m,i){
+              if(m.t!=='note') return;
+              var d=Math.hypot(ht.shape.x-m.x, ht.shape.y-m.y);
+              if(d<bd){ bd=d; at=i; }
+            });
+            return at;
+          }
+          // What is under the mouse, as a mark: a hand dimension or a note by
+          // its line and its points (hitMark) - or a note by its WORDS, whose
+          // far end is further from their middle than the grab reaches.
+          function markUnder(e){
             var h=hitMark(e);
-            if(h && marks()[h.i].t==='note') return null;
+            if(h) return h;
+            var ni=noteOfText(hitText(e));
+            return ni===null ? null : {i:ni, part:'all'};
+          }
+
+          // The label two clicks at the mouse open: any writing with a key,
+          // for a hand dimension its number - wherever on the dimension he
+          // pressed - and for a note its words, wherever on the note. null on
+          // empty paper.
+          function labelUnder(e){
+            var h=markUnder(e);
+            if(h && marks()[h.i].t==='note') return noteWords(h.i);
             var ht=hitText(e);
             if(!ht && h && marks()[h.i].t==='dim'){
               // on a hand dimension's LINE, not its number: still its number
@@ -3594,8 +3700,9 @@ module InteriorPro
           // The same order the press itself looks in.
           function pressName(e){
             if(PICON && hitPic(e)) return null;
-            var h=hitMark(e);
-            if(h) return marks()[h.i].t==='dim' ? ('m:'+h.i) : null;
+            var h=markUnder(e);
+            if(h) return marks()[h.i].t==='dim' ? ('m:'+h.i) :
+                         (marks()[h.i].t==='note' ? ('n:'+h.i) : null);
             var ht=hitText(e);
             return ht ? ('k:'+ht.key) : null;
           }
@@ -3610,6 +3717,10 @@ module InteriorPro
                          Math.hypot(e.clientX-last.x, e.clientY-last.y)<8);
             LBLAST=(twice || !id) ? null : {id:id, t:now, x:e.clientX, y:e.clientY};
             if(!twice) return false;
+            // (a note's words come through labelUnder too, 2026-10-08: until
+            // then a note was left to the browser's own double click, which
+            // never comes - the first press draws the sheet again and the
+            // thing he pressed is gone)
             var ht=labelUnder(e);
             if(!ht) return false;
             cancelCarry();
@@ -4056,7 +4167,7 @@ module InteriorPro
                     var ep = PEND3 || HOVER;
                     // the shoulder is level with the knee whatever height the
                     // mouse is at - he is choosing its LENGTH
-                    if(ep) dash(SP(PEND2[0],PEND2[1]), SP(ep[0],PEND2[1]), 1.5);
+                    if(ep){ var en=noteEnd(PEND2, ep); dash(SP(PEND2[0],PEND2[1]), SP(en[0],en[1]), 1.5); }
                   }
                 } else if(PEND2){
                   // stage three: the real thing, following the mouse. What he
@@ -4862,6 +4973,15 @@ module InteriorPro
               push(); render(); showMarks();
               return;
             }
+            // a note's words live on the note (2026-10-08); emptied = thrown
+            // away, as the note bar always had it
+            if(TSEL.note!==undefined && TSEL.note!==null && marks()[TSEL.note] && marks()[TSEL.note].t==='note'){
+              var nm=marks()[TSEL.note];
+              if(t){ if(nm.text===t) return; nm.text=t; }
+              else { marks().splice(TSEL.note,1); SEL=null; SELS=[]; closeTextBar(); }
+              push(); render(); showMarks();
+              return;
+            }
             var cur=textMarks()[TSEL.key]||{};
             if((cur.text||'')===t) return;
             if(!cur.text && t===String(TSEL.shape.text||'')) return;   // its own words again: nothing to say
@@ -5075,12 +5195,17 @@ module InteriorPro
             // them on the MARK itself (label), so they survive the dimension
             // being stretched; every other label keeps them under its key.
             var wb=$('txwords');
+            // a note (2026-10-08) keeps its words on the mark, like a hand dimension
+            var nt=(hit.note!==undefined && hit.note!==null && marks()[hit.note] && marks()[hit.note].t==='note') ? marks()[hit.note] : null;
             if(wb){
               var hd=(hit.dim!==undefined && hit.dim!==null) ? marks()[hit.dim] : null;
-              wb.value = hd ? (hd.label||'') : (m.text||String(hit.shape.text||''));
-              wb.placeholder = (hd || /^(DIMENSIONS|NOTES)\|/.test(String(hit.key))) ? String(hit.shape.text||'') : 'מה כתוב';
+              wb.value = hd ? (hd.label||'') : nt ? (nt.text||'') : (m.text||String(hit.shape.text||''));
+              wb.placeholder = nt ? 'מה כתוב' : (hd || /^(DIMENSIONS|NOTES)\|/.test(String(hit.key))) ? String(hit.shape.text||'') : 'מה כתוב';
               if(wb.style) wb.style.display = TXWORDS ? '' : 'none';
             }
+            // a note's own setting: the head on its leader
+            var nr=$('txnote'); if(nr && nr.style) nr.style.display = nt ? '' : 'none';
+            if(nt) $('txarrow').className = 'tool'+(nt.arrow===false ? '' : ' on');
             $('textbar').className='on';
             openSection('text', true);          // the box at the side opens on the label
             placeTextBar();
@@ -5109,6 +5234,7 @@ module InteriorPro
           function closeTextBar(){
             $('textbar').className='';
             TSEL=null;
+            var nr=$('txnote'); if(nr && nr.style) nr.style.display='none';
             if(LED && LED.kind==='label') tbEditHide();
             paintTextPick();
           }
@@ -5170,7 +5296,7 @@ module InteriorPro
               eachText(function(s,paper){
                 if(!found && s.key===want) found={key:s.key, shape:s, paper:paper};
               });
-              if(found){ found.dim=TSEL.dim; TSEL=found; }   // (the mark a dimension's number belongs to rides along)
+              if(found){ found.dim=TSEL.dim; found.note=TSEL.note; TSEL=found; }   // (the mark the words belong to rides along)
             }
             var b=textBox(TSEL.shape, TSEL.paper);
             // while it is being shoved, the box follows the mouse even though
@@ -5412,8 +5538,46 @@ module InteriorPro
           // Its own function so t52 can build the note THE WINDOW builds,
           // rather than a copy of it - saveNote lives inside the load handler
           // and no suite can reach in there.
+          // Where the shoulder really ends (2026-10-08): where he clicked,
+          // any way at all - but within NOTE_SNAP_DEG of level or upright it
+          // locks there, the same right-angle-wins rule every tool has. With
+          // the switch off it is level with the knee, as it always was.
+          function noteEnd(knee, end){
+            if(!NOTEANY) return [end[0], knee[1]];
+            var dx=end[0]-knee[0], dy=end[1]-knee[1];
+            var L=Math.sqrt(dx*dx+dy*dy);
+            if(L<1e-9) return [end[0], end[1]];
+            var a=Math.abs(Math.atan2(dy,dx))*180/Math.PI;     // 0..180
+            if(a<NOTE_SNAP_DEG || a>180-NOTE_SNAP_DEG) return [end[0], knee[1]];
+            if(Math.abs(a-90)<NOTE_SNAP_DEG) return [knee[0], end[1]];
+            return [end[0], end[1]];
+          }
+
           function noteMark(tip, knee, end, text, arrow, sf){
             var off = 0.7 / (sf || (1/96));
+            if(NOTEANY){
+              // The shoulder runs from the knee to where he clicked, any way.
+              // The words sit past its end along the same line: their middle
+              // is far enough out that the edge of their box meets the end of
+              // the line plus the pad - half the words when it runs level
+              // (exactly the old sum), half their height when it runs upright.
+              var e2=noteEnd(knee, end);
+              var ddx=e2[0]-knee[0], ddy=e2[1]-knee[1];
+              var DL=Math.sqrt(ddx*ddx+ddy*ddy);
+              if(DL>1e-9){
+                var ux=ddx/DL, uy=ddy/DL;
+                var th=markTextH();
+                var hw=String(text || '').length * th * 0.6 / 2, hh=th/2;
+                var along=Math.min(Math.abs(ux)>1e-9 ? hw/Math.abs(ux) : Infinity,
+                                   Math.abs(uy)>1e-9 ? hh/Math.abs(uy) : Infinity);
+                var go=along + off*0.12;
+                return {t:'note',
+                        x: e2[0] + ux*go, y: e2[1] + uy*go,
+                        kx: knee[0], ky: knee[1],
+                        lx: tip[0],  ly: tip[1],
+                        text: text, arrow: !!arrow};
+              }
+            }
             // Which way the shoulder runs is HIS - it is the third click.
             var away = (end[0] >= knee[0]) ? 1 : -1;
             // x/y is the MIDDLE of the words (draw_mark_note centres them), so
@@ -5525,6 +5689,8 @@ module InteriorPro
           //   a rubber band, a pick      gone
           // - and he is back on the select arrow, whatever tool he was in.
           var ESCEXITS = true;
+          var NOTEANY = true;          // told by Ruby: a note's shoulder goes any way
+          var NOTE_SNAP_DEG = 12;      // near level or upright, it locks there
           function escapeAll(){
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
@@ -5588,42 +5754,18 @@ module InteriorPro
           function showMarks(){
             var n=marks().length;
             $('tundo').disabled = !n;
-            var tip={hand:'לחץ על קו או סימון כדי לבחור · Shift+לחיצה מוסיף · מתח ריבוע לבחירת כמה · Delete מוחק · Alt+גרירה מזיז את התוכנית.',
-                     dim:'1 לחץ בהתחלה · 2 לחץ בסוף · 3 משוך את הקו מהקיר ולחץ.',
-                     note:'1 לחץ על מה שההערה מדברת עליו · 2 איפה שהקו נשבר · 3 סוף הקו · ואז כתוב.',
-                     erase:'העבר על מידה, הערה או קו — הם נצבעים. לחיצה או גרירה מוחקת. המודל לא משתנה.',
-                     line:'1 לחץ איפה שהקו מתחיל · 2 לחץ איפה שהוא נגמר. ננעל על פינות, קצוות ואמצעים.',
-                     chain:'לחץ נקודה אחרי נקודה — כל לחיצה ממשיכה את הקו. Esc מסיים.',
-                     text:'לחץ על הדף איפה שהכיתוב מתחיל, ואז כתוב. לחיצה על כיתוב קיים פותחת אותו.'}[MODE];
-            if(MODE==='line'&&PEND) tip='2 עכשיו לחץ איפה שהקו נגמר. Esc מבטל.';
-            if(MODE==='chain'&&PEND) tip='לחץ על הנקודה הבאה. Esc מסיים · Ctrl+Z מוריד את הקו האחרון.';
-            if(MODE==='note'&&PEND&&!PEND2) tip='2 עכשיו לחץ איפה שהקו נשבר.';
-            if(MODE==='note'&&PEND&&PEND2&&!PEND3) tip='3 עכשיו לחץ בסוף הקו, שם ייכתב הטקסט.';
-            if(MODE==='dim'&&PEND&&!PEND2) tip='2 עכשיו לחץ על הנקודה השנייה.';
-            if(MODE==='dim'&&PEND&&PEND2)
-              tip='3 משוך את הקו לאיפה שאתה רוצה ולחץ. Esc מבטל.';
-            if(MODE==='hand'&&SEL!==null){
-              tip='נבחר. לחיצה מרימה, לחיצה שנייה מניחה. Delete מוחק.';
-              if(marks()[SEL] && marks()[SEL].t==='dim')
-                tip='נבחר. לחץ על הקו או על המספר כדי להרים, הזז, ולחץ שוב להניח. חיצים לדיוק.';
-            }
-            if(SELS.length>1) tip=SELS.length+' נבחרו. לחיצה מרימה את כולם יחד, Delete מוחק את כולם.';
-            if(MODE==='hand'&&SSEL.length)
-              tip=SSEL.length+(SSEL.length===1?' קו נבחר':' קווים נבחרו')+' · Shift+לחיצה מוסיף או מוריד · Delete מוחק · Ctrl+Z מחזיר · Esc משחרר.';
-            if(MODE==='hand'&&BSEL!==null)
-              tip='תמונה נבחרה. גרור כדי להזיז · ריבוע בפינה משנה גודל · פס בצלע חותך · העיגול עם החץ מסובב · Delete מוריד אותה מהדף · Esc משחרר.';
-            if(MODE==='hand'&&BSEL!==null&&String(BSEL).charAt(0)==='t')
-              tip='כיתוב נבחר. גרור כדי להזיז · ריבוע בפינה מגדיל ומקטין את האותיות · פס בצד משנה את הרוחב · העיגול עם החץ מסובב · לחיצה כפולה פותחת לכתיבה · Delete מוחק · Esc משחרר.';
-            if(TBED) tip='כתוב בחלונית למעלה. Enter = שורה חדשה · Ctrl+Enter או לחיצה על הדף מסיימים · Esc מבטל.';
-            if(CARRY||TCARRY) tip='מחזיק — הזז ולחץ כדי להניח. Esc מחזיר.';
+            // The line under the tools used to explain every tool and every
+            // state ("1 לחץ בהתחלה · 2 לחץ בסוף · 3 משוך..."). All of it went
+            // on 2026-10-08 - "תעיף את כל ההסברים הקטנים בלבן, זה סתם מעצבן
+            // ולא הכרחי" - and the line says nothing now unless something is
+            // wrong (the count is in the heading, see headings()).
+            var tip='';
             paintDimOff();
             // No free geometry is no longer a dead end - the eraser still
             // takes dimensions and notes (2026-08-19).
             if(MODE==='erase'&&!siteLayer()&&!n)
               tip='אין מה למחוק על הדף הזה.';
-            // The mark counter belongs to the marks, not to the rubber.
-            $('markinfo').textContent = tip +
-              ((n && MODE!=='erase') ? ('  ·  ' + n + ' על הדף') : '');
+            $('markinfo').textContent = tip;
             headings();
           }
 
@@ -5722,7 +5864,7 @@ module InteriorPro
                   BSEL=null;
                   if(wasText) render(); else paintRot();
                 }
-                var h=hitMark(e);
+                var h=markUnder(e);
                 if(h){
                   if(TSEL) closeTextBar();
                   // clicking one thing picks that one thing, and drops
@@ -5732,6 +5874,10 @@ module InteriorPro
                   SEL=h.i;
                   MDRAG={part:h.part, at:atMouse(e)};
                   svg.style.cursor='move';
+                  // a note: its settings are in the box at the side at once,
+                  // the way a label's are (2026-10-08). Quiet: the keyboard
+                  // stays with the sheet.
+                  if(marks()[h.i].t==='note'){ var nw=noteWords(h.i); if(nw) openTextBar(nw, true); }
                   render(); showMarks();
                   e.preventDefault();
                   return;
@@ -5816,35 +5962,20 @@ module InteriorPro
               // two clicks on a box of writing open its words and its size again
               var hb=(MODE==='hand' && PICON && !TBED) ? hitPic(e) : null;
               if(hb && hb.txt){ BOXD=null; tbOpen(parseInt(String(hb.pic).slice(2),10)); e.preventDefault(); return; }
-              var h=hitMark(e);
-              // A note's own words come first - two clicks on a note has meant
-              // "change what it says" since 2026-08-14 and that is not being
-              // taken away. Anything else falls through to the size and weight
-              // of whatever writing is under the mouse.
-              if(!h || marks()[h.i].t!=='note'){
-                // two quick presses have just opened this label (pressTwice):
-                // this is the browser's own double click, coming late
-                if(LBDONE && Date.now()-LBDONE<700){ LBDONE=0; e.preventDefault(); return; }
-                var ht=labelUnder(e);
-                if(ht){
-                  hideNoteBar();
-                  if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);   // typed over the label itself
-                  e.preventDefault();
-                }
-                return;
+              // two quick presses have just opened this label or note
+              // (pressTwice): this is the browser's own double click, coming
+              // late, and it must not open it all over again
+              if(LBDONE && Date.now()-LBDONE<700){ LBDONE=0; e.preventDefault(); return; }
+              // Two clicks on a note have meant "change what it says" since
+              // 2026-08-14; since 2026-10-08 its words open the way any
+              // label's do - typed over themselves on the sheet (labelUnder
+              // finds them), not in a bar of their own.
+              var ht=labelUnder(e);
+              if(ht){
+                hideNoteBar();
+                if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);   // typed over the label itself
+                e.preventDefault();
               }
-              closeTextBar();
-              var m=marks()[h.i];
-              SEL=h.i;
-              EDIT=h.i;
-              PEND=null;
-              $('notebar').className='on';
-              $('notetext').value=m.text||'';
-              STATE.note_arrow = m.arrow!==false;
-              paintArrow();
-              $('notetext').focus();
-              $('notetext').select();
-              e.preventDefault();
             };
 
             svg.onclick=function(e){
@@ -6291,6 +6422,7 @@ module InteriorPro
             if(p.deep_zoom===false){ ZMAX=14; KSTROKE=Infinity; } else { ZMAX=200; KSTROKE=160; }
             FASTERASE = (p.fast_erase!==false);
             ESCEXITS = (p.escape_exits!==false);
+            NOTEANY = (p.note_any!==false);
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
@@ -6381,7 +6513,11 @@ module InteriorPro
             // with the same key. Point at the new one, or the blue box would
             // stay where the label used to be and the next change would be
             // worked out from a stale size.
-            if(TSEL){
+            if(TSEL && TSEL.note!==undefined && TSEL.note!==null){
+              // a note's words: by the note, since new words make a new key
+              var nw=noteWords(TSEL.note);
+              if(nw) TSEL=nw; else closeTextBar();
+            } else if(TSEL){
               var again=null;
               eachText(function(s){ if(s.key===TSEL.key) again=s; });
               if(again) TSEL.shape=again; else closeTextBar();
@@ -7348,6 +7484,16 @@ module InteriorPro
               if(e.key==='Enter'){ e.preventDefault(); this.blur(); }
             };
 
+            // the same head, for the note whose words are in the box at the side
+            $('txarrow').onclick=function(){
+              if(!TSEL || TSEL.note===undefined || TSEL.note===null) return;
+              var nm=marks()[TSEL.note]; if(!nm || nm.t!=='note') return;
+              nm.arrow=(nm.arrow===false);
+              STATE.note_arrow=nm.arrow;          // and the next note starts the same way, as the bar had it
+              this.className='tool'+(nm.arrow ? ' on' : '');
+              paintArrow();
+              push(); render(); showMarks();
+            };
             $('notearrow').onclick=function(){
               STATE.note_arrow = (STATE.note_arrow===false);
               paintArrow();

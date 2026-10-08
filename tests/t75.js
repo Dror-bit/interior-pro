@@ -280,7 +280,7 @@ ok("LAID AGAIN BY THE WINDOW FROM WHAT IS SAVED, IT IS THE SAME TO THE LAST DIGI
 open();
 el("ttext").onclick();
 ok("the T button is a tool like the others: it is the one that is lit", api.get("MODE") === "text" && el("ttext").className === "tool on" && el("thand").className === "tool");
-ok("the hint says what to do", /לחץ על הדף/.test(el("markinfo").textContent), el("markinfo").textContent);
+ok("nothing is explained under the tools (2026-10-08)", el("markinfo").textContent === "", el("markinfo").textContent);
 tclick(5, 20);
 ok("A CLICK ON THE SHEET OPENS THE BAR TO WRITE IN  <<< THE RULE", barOpen() && el("tbtext").value === "" && el("tbsize").value === 24 && el("tbok").textContent === "הוסף", [el("tbbar").className, el("tbsize").value]);
 ok("nothing is sent and nothing can be undone yet", states().length === 0 && api.get("UNDO").length === 0);
@@ -358,7 +358,7 @@ ok("THE SAME HANDLES GO ONTO IT: a square on each corner, the grip, the round ar
    el("boxmove").className === "on" && el("rothandle").className === "on");
 ok("a bar on its left and its right - and none on its top or bottom: a box of writing is as tall as its lines", el("boxe-w").className === "boxe on" && el("boxe-e").className === "boxe on" && el("boxe-n").className === "boxe" && el("boxe-s").className === "boxe");
 ok("a click alone changes nothing: nothing sent, nothing to undo", states().length === 0 && api.get("UNDO").length === 0 && eq(ST().texts[0].box, [10, 8, 3, 0.75]));
-ok("the hint says what can be done with it", /כיתוב נבחר/.test(el("markinfo").textContent), el("markinfo").textContent);
+ok("nothing is explained under the tools (2026-10-08)", el("markinfo").textContent === "", el("markinfo").textContent);
 const gh = tgrab("t:0", 100, 50, true);
 ok("DRAGGED, IT MOVES WITH THE MOUSE - the box and its words  <<< THE RULE", same4(trect("t:0"), [10 + 100 / K(), 8 - 50 / K(), 3, 0.75], 1e-9) && near(words()[0].x, 10.125 + 100 / K(), 1e-9) && near(words()[0].y, 8.225 - 50 / K(), 1e-9), [trect("t:0"), words()[0]]);
 ok("Ruby is not told on every step", states().length === 0);

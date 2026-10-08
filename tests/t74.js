@@ -235,7 +235,7 @@ ok("a bar on each side, the grip, and the round arrow by its bottom right corner
    ["n", "s", "w", "e"].every(d => el("boxe-" + d).className === "boxe on") && el("boxmove").className === "on" && el("rothandle").className === "on" &&
    near(parseFloat(el("rothandle").style.left), 28 * K() + 22, 0.06) && near(parseFloat(el("rothandle").style.top), (PH - 10) * K() + 8, 0.06), [el("rothandle").style.left, el("rothandle").style.top]);
 ok("a click alone changes nothing: nothing sent, nothing to undo", states().length === 0 && api.get("UNDO").length === 0 && same4(rect("x:0"), [20, 10, 8, 4]) && !ST().pics[0].box);
-ok("the hint says what can be done with it", /תמונה נבחרה/.test(el("markinfo").textContent), el("markinfo").textContent);
+ok("nothing is explained under the tools (2026-10-08)", el("markinfo").textContent === "", el("markinfo").textContent);
 
 // ---- dragging it
 const stage = document.getElementById("stage");
