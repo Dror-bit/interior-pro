@@ -501,7 +501,23 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-08 05:10): שלב 5, 6, 7 אושרו ("יופי"); הבא: הרשימה שלו מ-20:44 (ב-HANDOFF), צעד אחד בכל פעם
+## חוק: כל כיתוב בתוכנה — אותו פאנל, אותן יחידות, כותבים עליו (2026-10-08)
+
+בלשונו: *"כל כיתוב שקיים כרגע בתוכנה לא יפתח לו קופסא אלא הקופסא תהיה על הכיתוב עצמו וההגדרות יהיו בהגדרות טקסט"*, ואז, אחרי
+שראה "100%" על הערה: *"אני מבקש שוב שכל הכיתוב בתוכנה יהיה תחת אותם הגדרות... לכולם צריכות להיות אותן ההגדרות."*
+
+- **שום פס או חלונית לא נפתחים לכתיבה.** קופסת T, מספר מידה, שם חדר, תג, הערה — וגם הערה **חדשה** — נכתבים על הכיתוב עצמו
+  (`#tbedit`, `labelEditOpen` / `noteEditOpen`). הפס `#notebar` נשאר בקוד רק מאחורי `USE_NOTE_IN_PLACE = false`.
+- **ההגדרות באותו פאנל** ("הגדרות טקסט" בצד): גודל, B, I, U, צבע, כתב, המילים — ולהערה גם ראש החץ (`#txnote`).
+- **אותן יחידות: נקודות.** כיתוב של התוסף נשמר כ-`pct` (רובי), אבל החלון מציג ומקבל pt (`labelPt`, `sendTextMark`).
+- מה שנעשה למילים של הערה (גודל, bold, כתב, הזזה) — **הקופסה והקו עוקבים** (`PlanCanvas.fit_notes!`, `USE_NOTE_FIT`).
+- כלי חדש שמוסיף כיתוב — עובר דרך אותם מסלולים. פס משלו = הפרת החוק.
+
+## הצעד הנוכחי (2026-10-08 09:45): הרשימה שלו מ-20:44 נסגרה כולה + שלב 4 של הקופסה; הוא ביקש צ'אט חדש
+הכל ב-`HANDOFF_2026-10-08.md` (סעיפים 34–42). **358 PASS**. הבא: לשאול אותו מה הלאה (הרשימה שלו נגמרה).
+**בתחילת הצ'אט: לקרוא, לדווח במשפט, ולחכות ל"תתחיל".**
+
+## (קודם) (2026-10-08 05:10): שלב 5, 6, 7 אושרו ("יופי"); הבא: הרשימה שלו מ-20:44 (ב-HANDOFF), צעד אחד בכל פעם
 סדר: הערה לכל כיוון + עריכת כיתוב הערה; להוריד hints; שם פרויקט/כתובת בטייטל בלוק ושם קובץ ה-PDF; זום אווט מרכז את הדף. ה-commit של 6+7+פונטים — לוודא שרץ.
 
 ## (קודם) (2026-10-08 05:40): הפונטים — 4 שמגיעים עם התוסף (assets/FONTS), כל שם בכתב שלו — ב-live
@@ -772,6 +788,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
   "קירות פנים" on his plan, sent a picture, and said: *"עזוב את זה שזה לא
   נראה טוב ואנחנו צריכים לעבוד על זה."* A boxed label with a leader and an
   arrow. Parked deliberately, not forgotten. `PlanCanvas.draw_mark_note`.
+  (2026-10-08: the shoulder goes any way, the words are typed in place, the
+  box follows the words' size - he said "יופי"; the look itself was not raised again.)
 - **Colour on the sheet** (2026-08-17). Asked for, not built. There is NO
   concept of a line colour anywhere in the drawing document: `plan_doc.rb`
   carries weight and a polygon fill only, the window writes a hard-coded
@@ -801,6 +819,18 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 חוזר ריק אחרי שסוגרים אותו בקוד.
 
 ## Kill switches (turn a feature off without deleting it)
+
+Sheet window, 2026-10-08:
+- `InteriorPro::PlanSheetDialog::USE_NOTE_ANY_WAY = false` - a note's shoulder is level with the knee again, as before
+  (`tests/t52.js`). On: it runs where the third click is, any way; within 12 degrees of level or upright it locks there.
+- `InteriorPro::PlanSheetDialog::USE_NOTE_IN_PLACE = false` - the third click of a new note opens the note bar at the top
+  again (`tests/t82.js`). On: the words are typed on the sheet past the end of the shoulder (noteEditOpen); Enter or a
+  press on the sheet keeps them, Escape drops the half-drawn note.
+- `InteriorPro::PlanSheetDialog::USE_FIT_CENTRE = false` - zooming out stops at "fits" wherever the mouse left the sheet,
+  as before (`tests/t63.js`). On: at "fits" the margins and the scroll are taken back and the whole sheet sits in the middle.
+- `InteriorPro::PlanCanvas::USE_NOTE_FIT = false` - a note's box and leader are the ones drawn with the marks, at the built
+  size, whatever was done to the words (`tests/rt283.rb`). On: after apply_text_overrides! they are drawn again around
+  the words as they finally are (size, bold, lettering, shove) - only when something changed.
 
 Sheet window, 2026-10-07:
 - `InteriorPro::PlanCanvas::USE_DRAWN_SHEETS = false` - no sheet is made for an editor drawing, whatever `st['drawn']` says, and

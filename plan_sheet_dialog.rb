@@ -5967,8 +5967,12 @@ module InteriorPro
               // a new note half written: this press keeps it, and does nothing else
               if(LED && LED.kind==='note'){ noteEditKeep(); e.preventDefault(); return; }
               // In the hand tool a mark under the mouse is picked up; empty
-              // paper still drags the plan the way it always did.
-              if(MODE==='hand'&&!e.shiftKey){
+              // paper still drags the plan the way it always did. With Alt
+              // held nothing is picked at all: Alt+drag moves the DRAWING
+              // inside its box, whatever is under the mouse (2026-10-08,
+              // stage 4 of the box - in a small box there is always something
+              // under the mouse).
+              if(MODE==='hand'&&!e.shiftKey&&!e.altKey){
                 // The second of two quick presses on the same number opens its
                 // words (pressTwice) - before anything else is done with it.
                 if(pressTwice(e)){ e.preventDefault(); return; }
