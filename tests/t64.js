@@ -140,7 +140,7 @@ ok("Ruby owns the switch and sends it with the sheet",
 // ------------------------------------------------------------ the first sheet
 const first = again(); first.state.zoom = 2;
 api.call("loadSheet", first);
-ok("the FIRST sheet opens on the zoom that was saved with the model", api.get("ZOOM") === 2, api.get("ZOOM"));
+ok("the FIRST sheet opens on the WHOLE sheet, whatever zoom was saved (2026-10-07: \"הדף קטן מדי בחלון\")", api.get("ZOOM") === null, api.get("ZOOM"));
 
 // ------------------------------------------------------------------ his case
 api.call("setZoom", 3.06);                       // the wheel: nothing is saved

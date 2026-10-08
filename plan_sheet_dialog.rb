@@ -4824,10 +4824,11 @@ module InteriorPro
           // be READ instead of argued about. Wrapped whole: if the probe
           // itself throws it must not take the click down with it, which is
           // the exact failure it exists to catch.
-          function probeClick(e){
+          function probeClick(e, what){
             try {
               var p=mouseAt(e), am=atMouse(e);
-              var h=null, ht=null, hs=null;
+              var h=null, ht=null, hs=null, hp=null;
+              try { var pq=(PICON ? hitPic(e) : null); hp=pq ? pq.pic : null; } catch(err){ hp='ERROR '+String(err); }
               try { h=hitMark(e); } catch(err){ h={ERROR:String(err)}; }
               try { var t=hitText(e); ht=t?t.key:null; } catch(err){ ht='ERROR '+String(err); }
               try { hs=hitSite(e); } catch(err){ hs='ERROR '+String(err); }
@@ -4845,7 +4846,8 @@ module InteriorPro
                          dLabel: p?Math.round(Math.hypot(ls[0]-p[0],ls[1]-p[1])):null});
               });
               sketchup.sheet_probe(JSON.stringify({
-                mode:MODE, shift:!!e.shiftKey,
+                what:(what||'down'), mode:MODE, shift:!!e.shiftKey,
+                hitPic:hp, BSEL:BSEL, TBED:!!TBED, LED:(LED?LED.kind:null), TXWORDS:TXWORDS, TXTON:TXTON, editor:($('tbedit')?$('tbedit').className:null), textbar:$('textbar').className,
                 mouseScreen: p?[Math.round(p[0]),Math.round(p[1])]:null,
                 mouseModel: am?[Math.round(am[0]*10)/10,Math.round(am[1]*10)/10]:null,
                 svgSize: (function(){
@@ -5159,6 +5161,10 @@ module InteriorPro
             };
 
             svg.onmousedown=function(e){
+              // The probe goes first (2026-10-07): a press that hits something
+              // leaves this handler early, and until today it was never written
+              // down - the file said nothing about the clicks that mattered.
+              if(MODE==='hand'||MODE==='erase') probeClick(e, 'down');
               // Words open in the bar: a press on the sheet is "I am done" - they
               // are kept, and the press does nothing else.
               if(TBED){ tbSave(); e.preventDefault(); return; }
@@ -5231,9 +5237,7 @@ module InteriorPro
                 if(TSEL){ closeTextBar(); }
                 if(SEL!==null||SELS.length){ SEL=null; SELS=[]; render(); showMarks(); }
               }
-              // Write down what this press was given and what the hit test
-              // made of it (2026-08-19). See the sheet_probe callback.
-              if(MODE==='hand'||MODE==='erase') probeClick(e);
+              // (the probe already ran, at the top of this handler)
               // The eraser starts a SWEEP: whatever the mouse crosses from
               // here until it is let go goes together, the way dragging the
               // eraser across a drawing works in SketchUp (2026-08-19).
@@ -5280,6 +5284,7 @@ module InteriorPro
             // drawing program does it. The leader and the box stay where they
             // are; only the writing changes.
             svg.ondblclick=function(e){
+              probeClick(e, 'dblclick');
               // while drawing, two quick clicks are two clicks of the drawing tool
               if(MODE==='line'||MODE==='chain'){ e.preventDefault(); return; }
               // two clicks on a box of writing open its words and its size again
@@ -5809,7 +5814,11 @@ module InteriorPro
             // The first sheet a window is given still opens on the saved zoom.
             // After that the zoom on the screen is the one that counts.
             if(LOADED && KEEPVIEW){ STATE.zoom = ZOOM; }
-            else { ZOOM = (STATE.zoom > 1) ? STATE.zoom : null; }   // a sheet saved smaller than the window opens fitted
+            // The window ALWAYS opens on the whole sheet, as big as the window
+            // allows - whatever zoom was saved on the model (2026-10-07, twice:
+            // "הדף קטן מדי בחלון", "שוב שברת את גודל המסך"). The zoom he sets
+            // with the wheel is kept only while the window is open (KEEPVIEW).
+            else { ZOOM = null; }
             LOADED = true;
             PAGE=DOC.pages[0];
             SF={};
