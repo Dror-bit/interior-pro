@@ -184,8 +184,8 @@ ET.make_all!(rooms, cut: [{ 'house' => '60', 'room' => '24' }, { 'house' => '60'
 ok('each room gets its own cuts, in order', $seen_cuts == [['Bath 1', { 'house' => '60', 'room' => '24' }], ['Hall', { 'house' => '60' }]], $seen_cuts)
 
 # the floor, the ceiling and the roof are put aside for the shot - a line, not a slab (12:08)
-ok('floor, ceiling, roof are set aside', %w[floor floor_pattern ceiling roof foundation shower_floor shower_pattern shower_curb].all? { |t| ET.set_aside?(t) })
-ok('walls, tile, plumbing, the shower pan, doors and windows stay', %w[wall tile_wall tile_niche fixture door window room].none? { |t| ET.set_aside?(t) })
+ok('floor, ceiling, roof, the room\'s name lying on the floor are set aside', %w[floor floor_pattern ceiling roof foundation shower_floor shower_pattern shower_curb room].all? { |t| ET.set_aside?(t) })
+ok('walls, tile, plumbing, the shower pan, doors and windows stay', %w[wall tile_wall tile_niche fixture door window].none? { |t| ET.set_aside?(t) })
 # a reload reads the list again (12:33, measured on his model: the list loaded was the first one,
 # without shower_*, so the shower pan stayed in the picture as a dark strip under the tiles)
 ET.send(:remove_const, :SET_ASIDE)
