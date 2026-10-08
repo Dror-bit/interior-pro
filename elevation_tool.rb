@@ -51,6 +51,12 @@ module InteriorPro
     # written at the thing itself); under the floor only the whole wall (and a tub's width).
     # The tiles get none. Off = the long chain and every height on the right, as at 14:30.
     USE_CLEAN_DIMS = true unless const_defined?(:USE_CLEAN_DIMS, false)
+    # 16:10, the next of his list (the room's sheet he okayed at 14:00 had it on the left): the room
+    # seen from above - a parallel camera looking down, a section plane PLAN_CUT over the floor (the
+    # walls cut, dark, as a plan draws them), the same 12 px an inch as the walls so it stands at
+    # their scale; it is the FIRST picture of the room's sheet. Off = the walls only, as at 16:08.
+    USE_TOP_VIEW = true unless const_defined?(:USE_TOP_VIEW, false)
+    PLAN_CUT = 48.0 unless const_defined?(:PLAN_CUT, false)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
     NEST_DEPTH = 4 unless const_defined?(:NEST_DEPTH, false)
@@ -243,6 +249,28 @@ module InteriorPro
 
       def set_aside?(type)
         SET_ASIDE.include?(type.to_s)
+      end
+
+      # Where the camera and the plane stand for the view from above (USE_TOP_VIEW). Pure.
+      # North (the green axis) is up the picture, as on the plan.
+      def top_shot(poly, base_z)
+        xs = poly.map(&:x)
+        ys = poly.map(&:y)
+        w = xs.max - xs.min
+        d = ys.max - ys.min
+        cx = (xs.max + xs.min) / 2.0
+        cy = (ys.max + ys.min) / 2.0
+        z = base_z + PLAN_CUT
+        w_px = ((w + 2 * MARGIN) * PX_PER_IN).round
+        h_px = ((d + 2 * MARGIN) * PX_PER_IN).round
+        if [w_px, h_px].max > MAX_PX
+          f = MAX_PX / [w_px, h_px].max.to_f
+          w_px = (w_px * f).round
+          h_px = (h_px * f).round
+        end
+        { eye: Geom::Point3d.new(cx, cy, z - 0.5), target: Geom::Point3d.new(cx, cy, base_z),
+          up: Geom::Vector3d.new(0, 1, 0), plane_pt: Geom::Point3d.new(cx, cy, z), normal: Geom::Vector3d.new(0, 0, -1),
+          height: d + 2 * MARGIN, w_px: w_px, h_px: h_px }
       end
 
       # ---- automatic dimensions (2026-10-08) --------------------------------
@@ -587,6 +615,7 @@ module InteriorPro
           ro['DisplayDims'] = false
           ro['DisplaySketchAxes'] = false
           ro['RenderMode'] = (style == 'shaded' ? 3 : 1)
+          lines_drawn = []
           sides(poly).each do |side|
             s = shot(side, wall_h, cut_for(cut, side.name), base_z)
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
@@ -598,7 +627,8 @@ module InteriorPro
             [base_z, base_z + wall_h].each do |z|
               pa = Geom::Point3d.new(side.a.x + n.x * 0.5, side.a.y + n.y * 0.5, z)
               pb = Geom::Point3d.new(side.b.x + n.x * 0.5, side.b.y + n.y * 0.5, z)
-              model.entities.add_line(pa, pb)
+              ln = model.entities.add_line(pa, pb)
+              lines_drawn << ln if ln
             end
             cam = Sketchup::Camera.new(s[:eye], s[:target], Geom::Vector3d.new(0, 0, 1), false)
             cam.height = s[:height]
@@ -616,6 +646,24 @@ module InteriorPro
             trace("#{name} side #{side.name}: #{side.len.round(1)}\" long, cut #{s[:cut].round(1)}\", " \
                   "#{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
             paths << path if ok
+          end
+          # the room from above, first on its sheet (USE_TOP_VIEW, 16:10)
+          if USE_TOP_VIEW && USE_ONE_SHEET
+            # the walls' floor and ceiling lines would lie along the walls seen from above
+            gone = lines_drawn.select { |e| e.respond_to?(:valid?) && e.valid? }
+            model.entities.erase_entities(gone) unless gone.empty?
+            s = top_shot(poly, base_z)
+            sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
+            sp.activate
+            cam = Sketchup::Camera.new(s[:eye], s[:target], s[:up], false)
+            cam.height = s[:height]
+            view.camera = cam
+            view.refresh
+            path = file_for(dir, name, 'Plan', style)
+            ok = view.write_image(path, s[:w_px], s[:h_px], true)
+            sp.erase!
+            trace("#{name} from above: cut #{PLAN_CUT}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
+            paths.unshift(path) if ok
           end
         ensure
           hidden.each { |e| e.hidden = false if e.valid? }
