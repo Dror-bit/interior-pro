@@ -142,6 +142,11 @@ ok('and the room name is written at the very same point', room.(s0) == room.(s4)
 # ---------------------------------------------------------------------------
 # 3. a turned drawing, and a drawing at a size set by hand
 # ---------------------------------------------------------------------------
+# (the frame square to the paper, the lines turned inside it - the day this was
+# built. Since stage 5 the box turns as a whole and is held by its turned room;
+# that road is rt280's. Here the old road, with the switch off.)
+PC.send(:remove_const, :USE_BOX_TURN)
+PC.const_set(:USE_BOX_TURN, false)
 t0  = state('rotation' => 30.0)
 dt0 = laid(t0)
 pt0 = where(dt0)
@@ -149,6 +154,8 @@ t3  = cut(cut(cut(t0, area, :e, -7.0), area, :n, -3.0), area, :w, 2.0)
 dt3 = laid(t3)
 ok('A TURNED DRAWING, cut on three sides: the box', near4(rect(view(dt3)), [2.75, 1.85, 25.5, 18.4]) && near(view(dt3).rotation, 30.0), rect(view(dt3)))
 ok('A TURNED DRAWING: every line still on its spot', stayed(where(dt3), pt0), [where(dt3), pt0])
+PC.send(:remove_const, :USE_BOX_TURN)
+PC.const_set(:USE_BOX_TURN, true)
 
 h0  = state('view_box' => [2.0, 4.0, 16.0, 12.0], 'scale_f' => 0.11)
 dh0 = laid(h0)

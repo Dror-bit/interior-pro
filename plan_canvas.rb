@@ -66,6 +66,13 @@ module InteriorPro
     # st['page_order'] = page keys, see page_order). The sheet numbers run in
     # that order. false = the old fixed order: plan, schedules, pictures.
     USE_PAGE_ORDER = true unless const_defined?(:USE_PAGE_ORDER, false)
+    # The drawing's box turns AS A WHOLE (2026-10-07, stage 5 of the box:
+    # "הקופסה כולה מסתובבת"): its frame, its clip and its handles turn with the
+    # lines, about the middle of the box, and a box that would hang off the
+    # margins once turned is made smaller and pushed in - the way a picture
+    # is. false = the frame stays square to the paper and only the lines
+    # inside it turn, as on the day the turn was built. Needs USE_VIEW_ROTATION.
+    USE_BOX_TURN = true unless const_defined?(:USE_BOX_TURN, false)
     TEXT_LAYER   = 'TEXT' unless const_defined?(:TEXT_LAYER, false)
     TEXT_PT      = 24.0   unless const_defined?(:TEXT_PT, false)      # the size a new one starts at, in points
     TEXT_PT_MIN  = 4.0    unless const_defined?(:TEXT_PT_MIN, false)
@@ -411,8 +418,9 @@ module InteriorPro
         v = p1.views.first
         # what the margins, the title block and the tables leave: the box may not leave it
         p1.view_area = [v.x, v.y, v.w, v.h]
-        place_view_box!(v, st, p1.view_area)
+        place_view_box!(v, st, p1.view_area, rot)
         v.rotation = rot
+        v.box_turn = USE_BOX_TURN && USE_VIEW_ROTATION
         b = doc.canvas('MODEL').bounds
         if st['origin_x'] && st['origin_y']
           v.origin_x = st['origin_x'].to_f
@@ -470,6 +478,7 @@ module InteriorPro
         pb.kind = 'plan'
         pb.sheet_number = num
         pb.views.first.rotation = rot
+        pb.views.first.box_turn = USE_BOX_TURN && USE_VIEW_ROTATION
         pb.views.first.centre_on!(doc.canvas('MODEL').bounds)
       end
 
@@ -570,13 +579,21 @@ module InteriorPro
       [x, y, w, h]
     end
 
-    def self.place_view_box!(view, st, area)
+    # rot: how far the box is turned. A TURNED box (USE_BOX_TURN) is held
+    # inside the margins the way a picture is - first small enough, then in,
+    # by the room it takes up turned - the box he saved and the whole-of-the-
+    # margins box alike. Not turned: the same sums as always, to the digit.
+    def self.place_view_box!(view, st, area, rot = 0.0)
       return view unless USE_VIEW_BOX
       box = st['view_box'] || st[:view_box]
-      return view unless box.is_a?(Array) && box.length == 4 &&
-                         box.all? { |n| n.is_a?(Numeric) && n.to_f.finite? } &&
-                         box[2].to_f > 0 && box[3].to_f > 0
-      view.x, view.y, view.w, view.h = box_inside(box, area)
+      saved = box.is_a?(Array) && box.length == 4 &&
+              box.all? { |n| n.is_a?(Numeric) && n.to_f.finite? } &&
+              box[2].to_f > 0 && box[3].to_f > 0
+      turned = USE_BOX_TURN && USE_VIEW_ROTATION && rot.to_f != 0.0
+      return view unless saved || turned
+      box = [view.x, view.y, view.w, view.h] unless saved
+      view.x, view.y, view.w, view.h =
+        turned ? pic_inside(box, rot, area, VIEW_BOX_MIN) : box_inside(box, area)
       view
     end
 
@@ -656,13 +673,14 @@ module InteriorPro
 
     # A box turned by rot, held inside area: first small enough, then in.
     # Returns [x, y, w, h] - still the box before turning, about its middle.
-    def self.pic_inside(box, rot, area)
+    # (least: how small a side may be - a picture's, or the drawing's box's)
+    def self.pic_inside(box, rot, area, least = PIC_MIN)
       ax, ay, aw, ah = area.map(&:to_f)
       x, y, w, h = box.map(&:to_f)
       cx = x + w / 2.0
       cy = y + h / 2.0
-      w = [w, PIC_MIN].max
-      h = [h, PIC_MIN].max
+      w = [w, least].max
+      h = [h, least].max
       r = rot.to_f * Math::PI / 180.0
       c = Math.cos(r).abs
       s = Math.sin(r).abs

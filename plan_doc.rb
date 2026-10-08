@@ -307,6 +307,24 @@ module InteriorPro
       # @scale, as every drawing was before this existed.
       attr_reader :scale_free
 
+      # Does the window's own FRAME turn with the drawing (2026-10-07, "הקופסה
+      # כולה מסתובבת")? true = the clip, the frame and the handles are the
+      # rectangle turned about its middle - the drawing is a box on the sheet
+      # the way a picture is. false (and every window made before this) = the
+      # frame stays square to the paper and only the lines inside it turn.
+      attr_accessor :box_turn
+
+      # The four corners of the frame on the paper, anticlockwise from the
+      # bottom left - turned about the middle when the frame turns.
+      def frame_corners
+        pts = [[@x, @y], [@x + @w, @y], [@x + @w, @y + @h], [@x, @y + @h]]
+        return pts unless @box_turn && rotation != 0.0
+        cx, cy = centre
+        c = @rot_c || 1.0
+        n = @rot_s || 0.0
+        pts.map { |px, py| dx = px - cx; dy = py - cy; [cx + dx * c - dy * n, cy + dx * n + dy * c] }
+      end
+
       def scale_free=(per_foot)
         f = per_foot.nil? ? nil : per_foot.to_f
         @scale_free = (f && f.finite? && f > 0) ? f : nil
@@ -401,7 +419,8 @@ module InteriorPro
       def to_h
         { name: @name, x: @x, y: @y, w: @w, h: @h, canvas: @canvas,
           scale: @scale, origin_x: @origin_x, origin_y: @origin_y,
-          frame: @frame, rotation: rotation, scale_free: @scale_free }
+          frame: @frame, rotation: rotation, scale_free: @scale_free,
+          box_turn: @box_turn ? true : false }
       end
     end
 

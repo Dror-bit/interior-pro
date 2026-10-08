@@ -501,8 +501,13 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 20:30): סדר הדפים בגרירה ברשימה נבנה — מחכה לבדיקה שלו
-הכל ב-`HANDOFF_2026-10-07.md` חלק י"ב. הוא ביקש **רק** סדר דפים ב-PDF בגרירה (לא להעביר תמונה מדף לדף). אחריו הוא בוחר: לחיצה כפולה על הערה, שלב 4, שלב 5, דף לשרטוט, סוג כתב / עברית.
+## הצעד הנוכחי (2026-10-07 21:05): שלב 5 — הקופסה של השרטוט כולה מסתובבת — מחכה לבדיקה שלו
+הכל ב-`HANDOFF_2026-10-07.md` חלק י"ד. אחריו, בסדר שלו: לבחור איזה שרטוט נכנס לאיזה דף; סוג כתב / עברית ב-PDF. **ואז הרשימה החדשה שלו (20:44)** — חמישה דברים, ב-HANDOFF.
+(20:40, לא נבדק אצלו עדיין אבל אמר "מעולה": "איך זה עובד" הוסר + הלוגו של VISUALIZE קבוע — חלק י"ג. ה-commit שלהם עוד לא רץ — לתת פקודה מצטברת.)
+
+## (קודם, אותו יום) (2026-10-07 20:40): "איך זה עובד" הוסר + הלוגו של VISUALIZE קבוע
+הכל ב-`HANDOFF_2026-10-07.md` חלק י"ג. לפניו (חלק י"ב, "עובד" + תיקון השם): סדר הדפים בגרירה ברשימת הדפים — **רק** סדר, לא העברת תמונה מדף לדף.
+אחרי זה הוא בוחר: לחיצה כפולה על הערה (לא נפתחת), שלב 4, שלב 5, דף לשרטוט, סוג כתב / עברית ב-PDF.
 
 ## (קודם, אותו יום) (2026-10-07 19:30): ההגדרות בצד עובדות על קופסת כיתוב ("עובד"); הבא: תמונות בגרירה (סדר + מדף לדף)
 הכל ב-`HANDOFF_2026-10-07.md` חלק י"א. **נסגר ואושר:** אותו פאנל "הגדרות טקסט" — גודל (בנקודות), B, I, U, צבע — על קופסת T שמסומנת או
@@ -755,7 +760,9 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
   `stroke="#000"` and `plan_pdf.rb` a hard-coded `0 0 0 RG`. Four files have
   to change together or the preview and the PDF will disagree - which is the
   one thing that file set exists to prevent. It joins the double-click panel.
-- **The logo is per-MODEL, he wants it per-installation** (2026-08-17). It
+- **The logo is per-MODEL, he wants it per-installation** (2026-08-17). MOSTLY ANSWERED 2026-10-07: the VISUALIZE logo
+  ships with the plugin and is on every sheet of every model with nothing written on the model (`USE_DEFAULT_LOGO`). A logo he
+  PICKS is still per model. It
   lives in `sheet_state`, which is a model attribute. `Sketchup.write_default`
   / `read_default` is the right tool and the plugin does not use it anywhere
   yet. `text_scale` has the same question open.
@@ -778,6 +785,14 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_BOX_TURN = false` - the drawing's frame stays square to the paper and only the lines inside it turn,
+  as on the day the turn was built; a turned box is not held by its turned room (`tests/rt280.rb`, `tests/t80.js`; rt271/rt273 take
+  that road with the switch off). On: the frame, the clip and the handles turn with the drawing about the middle of the box (the PDF clips
+  to four corners), a box that would hang off the margins turned is made smaller AS A WHOLE (the scale untouched) and pushed in, and
+  the window sends Ruby the angle and the box together (set_rotation). Needs USE_VIEW_ROTATION and USE_VIEW_BOX.
+- `InteriorPro::PlanSheetDialog::USE_DEFAULT_LOGO = false` - a model with no logo picked prints the two words VISUALIZE / by Dror
+  set in type, as before, and the window shows no logo (`tests/rt279.rb`, `tests/t36.js`). On: `assets/LOGO/visualize_by_dror.jpg`
+  is the logo in the title block of every sheet until he picks one of his own; "back to VISUALIZE" returns to it.
 - `InteriorPro::PlanCanvas::USE_PAGE_ORDER = false` - `st['page_order']` is ignored and a row of the page list cannot be dragged:
   plan, schedules, pictures, numbered in that order, as before (`tests/t79.js`, `tests/rt278.rb`). On: he drags a row up or
   down; the sheets stand in his order in the window, the strip and the PDF, and the sheet numbers run in it.

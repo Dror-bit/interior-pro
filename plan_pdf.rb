@@ -623,7 +623,14 @@ module InteriorPro
         to_paper = ->(mx, my) { v.model_to_paper(mx, my) }
 
         st.save
-        st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re W n"
+        # a window whose frame turns with the drawing is clipped to the turned
+        # rectangle - four corners, not `re` (2026-10-07); any other, as before
+        turned = v.respond_to?(:box_turn) && v.box_turn && v.rotation.to_f != 0.0
+        if turned
+          st << v.frame_corners.each_with_index.map { |(px, py), i| "#{n(px * PT)} #{n(py * PT)} #{i.zero? ? 'm' : 'l'}" }.join(' ') + ' h W n'
+        else
+          st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re W n"
+        end
         canvas.layers.each do |lay|
           next unless lay.visible
           draw_shapes(st, lay.shapes, to_paper, s, imgs,
@@ -633,7 +640,11 @@ module InteriorPro
 
         if v.frame
           st << '0.5 G 0.4 w'
-          st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re S"
+          if turned
+            st << v.frame_corners.each_with_index.map { |(px, py), i| "#{n(px * PT)} #{n(py * PT)} #{i.zero? ? 'm' : 'l'}" }.join(' ') + ' h S'
+          else
+            st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re S"
+          end
           st << '0 G'
         end
       end

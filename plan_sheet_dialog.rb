@@ -65,6 +65,12 @@ module InteriorPro
     # the page). false = a side moves the whole box, as it did the day the box
     # was built.
     USE_BOX_CROP = true unless const_defined?(:USE_BOX_CROP, false)
+    # The VISUALIZE by Dror logo is in the title block of every sheet from the
+    # start, from a file that ships with the plugin (2026-10-07, "זה צריך להיות
+    # הלוגו של VISUALIZE"); a logo he picks himself still wins. false = a model
+    # with no logo picked prints the two words set in type, as before.
+    USE_DEFAULT_LOGO = true unless const_defined?(:USE_DEFAULT_LOGO, false)
+    DEFAULT_LOGO = 'assets/LOGO/visualize_by_dror.jpg' unless const_defined?(:DEFAULT_LOGO, false)
     # A set of loose lines too big to live on the model is kept in a file
     # beside the model instead of only in memory, so what he rubbed out and
     # what he drew are still there after SketchUp is closed (2026-10-07, see
@@ -609,9 +615,15 @@ module InteriorPro
             r  = JSON.parse(json.to_s)
             st = load_state
             st['rotation'] = InteriorPro::PlanCanvas.view_rotation('rotation' => r['rotation'])
+            # a box that turns as a whole may have been made smaller or pushed
+            # in by the turn (2026-10-07): the window sends where it left it
+            st['view_box'] = (r['view_box'].is_a?(Array) ? r['view_box'] : nil) if r.key?('view_box')
             save_state(st)
             apply_state!(document, st)
             push_turned(dlg)
+            pv = document.pages.map { |pg| pg.views.first }.compact.first
+            erase_trace(format('turn: %s deg, box [%.3f, %.3f, %.3f, %.3f]%s', st['rotation'], pv.x, pv.y, pv.w, pv.h,
+                               (pv.respond_to?(:box_turn) && pv.box_turn) ? ' (the box turns as a whole)' : '')) if pv
           rescue StandardError => e
             puts "[Sheet] set_rotation: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
           end
@@ -781,7 +793,7 @@ module InteriorPro
             Sketchup.active_model,
             size: st['size'], orientation: (st['orientation'] || 'landscape').to_sym,
             scale: st['scale'], address: st['address'], marks: st['marks'],
-            logo: (st['logo'].to_s.empty? ? nil : st['logo']),
+            logo: logo_path(st),
             sheet_number: st['sheet_number'], sheet_title: st['sheet_title'],
             date: st['date'],
             site: { lines: site_lines, pids: st['site_pids'],
@@ -815,10 +827,7 @@ module InteriorPro
           page_sizes: InteriorPro::PlanDoc.page_size_names,
           scales: InteriorPro::PlanDoc.scale_labels,
           images: image_payload(st),
-          logo: (st['logo'].to_s.empty? ? nil :
-                 { 'path' => st['logo'], 'name' => File.basename(st['logo'].to_s),
-                   'url' => file_url(st['logo']),
-                   'there' => File.file?(st['logo'].to_s) }),
+          logo: logo_payload(st),
           bounds: d.canvas('MODEL').bounds,
           # How tall a dimension's number is when the mark does not carry its
           # own height - which is every mark the window makes (2026-08-19).
@@ -1585,6 +1594,35 @@ module InteriorPro
         dlg.execute_script("imageReport(#{wanted.length}, null)")
       end
 
+      # The logo that ships with the plugin - the VISUALIZE by Dror picture -
+      # or nil when it is switched off or the file is not there (then the
+      # title block sets the two words in type, as it always did).
+      def default_logo
+        return nil unless USE_DEFAULT_LOGO
+        path = File.join(plugin_dir, DEFAULT_LOGO)
+        File.file?(path) ? path : nil
+      end
+
+      # What the title block prints: the logo he picked, else the built-in one.
+      def logo_path(st)
+        st['logo'].to_s.empty? ? default_logo : st['logo']
+      end
+
+      # What the window is told about it. 'builtin' => true is the shipped
+      # one: the window shows it and puts away the "back to VISUALIZE" button,
+      # because there is nothing to go back to.
+      def logo_payload(st)
+        if st['logo'].to_s.empty?
+          d = default_logo
+          return nil unless d
+          { 'path' => d, 'name' => 'VISUALIZE by Dror', 'url' => file_url(d),
+            'there' => true, 'builtin' => true }
+        else
+          { 'path' => st['logo'], 'name' => File.basename(st['logo'].to_s),
+            'url' => file_url(st['logo']), 'there' => File.file?(st['logo'].to_s) }
+        end
+      end
+
       def logo_dir
         st = load_state
         st['logo'].to_s.empty? ? default_dir : File.dirname(st['logo'].to_s)
@@ -2146,25 +2184,6 @@ module InteriorPro
                 </div>
               </div>
 
-              <div class="sec" data-k="help">
-                <h4><span class="ar">&#9656;</span>איך זה עובד</h4>
-                <div class="bd">
-                  <div class="hint">גרירה = מזיז את התוכנית על הדף.<br>
-                    גלגלת = זום לאן שהעכבר מצביע.<br>
-                    Shift+גרירה = מזיז את הדף עצמו.<br>
-                    לחיצה על סימון בוחרת, Delete מוחק.<br>
-                    לחיצה כפולה על הערה פותחת אותה לעריכה.<br>
-                    לחיצה כפולה על מספר של מידה: כותבים מה שרוצים במקומו (ריק = חוזר למספר).<br>
-                    הידית בפינה למטה מסובבת את השרטוט.<br>
-                    ריבוע בפינה מגדיל ומקטין את השרטוט.<br>
-                    הפס באמצע כל צלע חותך את השרטוט מהצד הזה.<br>
-                    העיגול עם ארבעת החצים מזיז את השרטוט על הדף.<br>
-                    תמונה: לחיצה בוחרת, גרירה מזיזה, פינה משנה גודל, צלע חותכת, הידית מסובבת.<br>
-                    כיתוב: הכפתור עם האות T, לחיצה על הדף, וכותבים בתוך הקופסה על הדף (Enter = שורה, Ctrl+Enter או לחיצה בחוץ מסיימים). אחר כך הוא קופסה כמו תמונה: גרירה מזיזה, פינה מגדילה את האותיות, צד משנה רוחב, הידית מסובבת, לחיצה כפולה פותחת לכתיבה.<br>
-                    לחיצה אחת על כל כיתוב: ההגדרות שלו ב"גודל טקסט". לחיצה כפולה: כותבים עליו.</div>
-                </div>
-              </div>
-
               <button id="pdf" class="go">Export PDF</button>
               <div id="msg"></div>
             </div>
@@ -2316,6 +2335,20 @@ module InteriorPro
           var VROT=0;          // the turn of the sheet being drawn right now
           var ROT_SNAP=4;      // degrees either side of a quarter turn
 
+          // Does the drawing's box turn as a whole - frame, clip and handles
+          // with the lines (2026-10-07, stage 5)? Ruby says so on the view.
+          function boxTurns(){
+            var v=planView();
+            return !!(ROTON && v && v.box_turn);
+          }
+
+          // The drawing's box as a turned rectangle on the paper, like picRect
+          // for a picture: {x, y, w, h, rot}. rot is 0 unless the box turns.
+          function viewRect(){
+            var v=planView(); if(!v) return null;
+            return {x:v.x, y:v.y, w:v.w, h:v.h, rot:(boxTurns() ? viewTurn().deg : 0), crop:[0,0,0,0]};
+          }
+
           function viewTurn(){
             var d=(ROTON && STATE && +STATE.rotation) || 0;
             if(!d) return {deg:0, c:1, s:0};
@@ -2356,7 +2389,28 @@ module InteriorPro
           }
 
           function sendTurn(){
-            sketchup.set_rotation(JSON.stringify({rotation:viewTurn().deg}));
+            var msg={rotation:viewTurn().deg};
+            // the box the turn left (a box that turns as a whole can be made
+            // smaller or pushed in by the turn) - null = all the margins leave
+            if(boxTurns()) msg.view_box = STATE.view_box ? STATE.view_box.slice() : null;
+            sketchup.set_rotation(JSON.stringify(msg));
+          }
+
+          // The box held on the sheet at this angle: a turned box that would
+          // hang off the margins is made smaller (as a whole, so the scale of
+          // the drawing is not touched) and pushed in - the same sum as
+          // PlanCanvas.pic_inside with the box's own least size.
+          function viewHold(r,a){ return picHold(r, a, BOX_MIN); }
+
+          // While the round arrow is held: the drawing's box at this angle.
+          // Only a box that turns as a whole can change by a turn.
+          function turnBoxTo(deg){
+            var v=planView(), a=boxArea();
+            if(!v||!a||!ROT||!ROT.v0||!boxTurns()) return;
+            var o=ROT.v0, hb=viewHold({x:o.x, y:o.y, w:o.w, h:o.h, rot:deg, crop:[0,0,0,0]}, a);
+            var same=Math.abs(hb.x-o.x)<1e-9 && Math.abs(hb.y-o.y)<1e-9 && Math.abs(hb.w-o.w)<1e-9 && Math.abs(hb.h-o.h)<1e-9;
+            if(same){ setBox(v, o.x, o.y, o.w, o.h); STATE.view_box=ROT.was.box ? ROT.was.box.slice() : null; }
+            else { setBox(v, hb.x, hb.y, hb.w, hb.h); STATE.view_box=[hb.x, hb.y, hb.w, hb.h]; }
           }
 
           // He takes hold of the handle.
@@ -2377,7 +2431,11 @@ module InteriorPro
             }
             if(!ROTON||!VIEW) return;
             if(TSEL) closeTextBar();
-            ROT={a0:rotAngleAt(e), r0:viewTurn().deg, moved:false};
+            var tv=planView();
+            ROT={a0:rotAngleAt(e), r0:viewTurn().deg, moved:false,
+                 // the box as it stands: a turn may make it smaller or push it in
+                 v0:(tv ? {x:tv.x, y:tv.y, w:tv.w, h:tv.h} : null),
+                 was:{box:(STATE.view_box ? STATE.view_box.slice() : null), scale_f:(STATE.scale_f>0 ? STATE.scale_f : null)}};
             paintRot();
             if(e.preventDefault) e.preventDefault();
             if(e.stopPropagation) e.stopPropagation();
@@ -2407,6 +2465,11 @@ module InteriorPro
             var v=PAGE ? (PAGE.views||[])[0] : null;
             if(!ROTON||MODE!=='hand'||!VIEW||!v){ h.className=''; return; }
             var c=rotHandleAt(v,VIEW.k,PAGE.height), w=$('sheetWrap');
+            if(boxTurns() && viewTurn().deg){
+              // the box turns as a whole: by ITS bottom right corner, turned
+              var vr=viewRect(), vq=picScreen(vr, vr.w*VIEW.k/2+22, vr.h*VIEW.k/2+8);
+              c=[vq[0]-(w.offsetLeft||0), vq[1]-(w.offsetTop||0)];
+            }
             h.style.left=((w.offsetLeft||0)+c[0]).toFixed(1)+'px';
             h.style.top=((w.offsetTop||0)+c[1]).toFixed(1)+'px';
             h.className='on';
@@ -2488,6 +2551,7 @@ module InteriorPro
           // The mouse has moved with a handle held.
           function dragBox(e){
             if(BOXD.pic){ dragPic(e); return; }
+            if(boxTurns() && viewTurn().deg){ dragBoxTurned(e); return; }
             var v=planView(), a=boxArea();
             if(!v||!a||!VIEW) return;
             var o=BOXD.v0, k=VIEW.k;
@@ -2545,12 +2609,88 @@ module InteriorPro
             render(true);
           }
 
+          // The same pull on a box that is TURNED (2026-10-07, stage 5): the
+          // corners and the sides are the box's own, so the pull is taken in
+          // the box's frame (lx along it, ly up it), the corner across from
+          // the one he holds stays put, a side cuts, and the box is held
+          // inside the margins by the room it takes up turned - as a picture
+          // is (dragPic). An unturned box goes the old road, to the digit.
+          function dragBoxTurned(e){
+            var v=planView(), a=boxArea();
+            if(!v||!a||!VIEW) return;
+            var o=BOXD.v0, k=VIEW.k, kind=BOXD.kind, rot=viewTurn().deg;
+            var dx=(e.clientX-BOXD.mx)/k, dy=-(e.clientY-BOXD.my)/k;      // paper inches; up is up
+            var t=rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
+            var lx=dx*c+dy*n, ly=-dx*n+dy*c;            // the same pull, in the box's own frame
+            var cx0=o.x+o.w/2, cy0=o.y+o.h/2, r;
+            // the box at w by h, its middle moved (ux, uy) in its own frame
+            var made=function(w,h,ux,uy){
+              var cx=cx0+ux*c-uy*n, cy=cy0+ux*n+uy*c;
+              return {x:cx-w/2, y:cy-h/2, w:w, h:h, rot:rot, crop:[0,0,0,0]};
+            };
+            if(kind==='move'){
+              var hf=picHalf({w:o.w, h:o.h, rot:rot});
+              var mx=Math.min(Math.max(cx0+dx, a[0]+hf[0]), a[0]+a[2]-hf[0]);
+              var my=Math.min(Math.max(cy0+dy, a[1]+hf[1]), a[1]+a[3]-hf[1]);
+              r={x:mx-o.w/2, y:my-o.h/2, w:o.w, h:o.h, rot:rot, crop:[0,0,0,0]};
+            } else {
+              var build, amt;       // build(u) = the box when u of the pull is taken; amt = all of it
+              if(kind.length===2){
+                // A CORNER: the box and the drawing grow or shrink together,
+                // the corner across from it stays put - never smaller than a box worth having
+                var sx=(kind.indexOf('e')>=0) ? 1 : -1, sy=(kind.indexOf('n')>=0) ? 1 : -1;
+                var f=1+((lx*sx)*o.w+(ly*sy)*o.h)/(o.w*o.w+o.h*o.h);
+                f=Math.max(f, Math.max(BOX_MIN/o.w, BOX_MIN/o.h));
+                amt=f-1;
+                build=function(u){ return made(o.w*(1+u), o.h*(1+u), sx*o.w*u/2, sy*o.h*u/2); };
+              } else {
+                // A SIDE CUTS: only that side moves - never closer than an
+                // inch to the side across from it
+                var horiz=(kind==='e'||kind==='w'), sgn=(kind==='e'||kind==='n') ? 1 : -1;
+                var len=horiz ? o.w : o.h;
+                amt=Math.max((horiz ? lx : ly)*sgn, BOX_MIN-len);
+                build=function(u){ return horiz ? made(o.w+u, o.h, sgn*u/2, 0) : made(o.w, o.h+u, 0, sgn*u/2); };
+              }
+              r=build(amt);
+              if(amt>0 && !picIn(r,a)){
+                // it would pass the margins: as far as it can go and no further
+                var lo=0, hi=amt;
+                for(var i=0;i<40;i++){ var md=(lo+hi)/2; if(picIn(build(md),a)) lo=md; else hi=md; }
+                r=build(lo);
+              }
+            }
+            var same=Math.abs(r.x-o.x)<1e-9 && Math.abs(r.y-o.y)<1e-9 && Math.abs(r.w-o.w)<1e-9 && Math.abs(r.h-o.h)<1e-9;
+            if(same){
+              // back where it started (or it had nowhere to go): as if never touched
+              setBox(v, o.x, o.y, o.w, o.h);
+              STATE.view_box=BOXD.was.box; STATE.scale_f=BOXD.was.scale_f;
+              STATE.origin_x=BOXD.o0.x; STATE.origin_y=BOXD.o0.y;
+              BOXD.moved=false;
+            } else {
+              setBox(v, r.x, r.y, r.w, r.h);
+              STATE.view_box=[r.x, r.y, r.w, r.h];
+              if(kind.length===2){
+                // the drawing grows with its box: a size set by hand, any number
+                STATE.scale_f=BOXD.s0*(r.w/o.w);
+              } else if(kind.length===1){
+                // a cut moved the middle of the box; the house hangs from the
+                // middle, so it is moved back by the same amount and every
+                // line stays on its spot of the paper (the same sum as dragBox)
+                var mcx=(r.x+r.w/2)-cx0, mcy=(r.y+r.h/2)-cy0, csf=BOXD.s0/12;
+                STATE.origin_x=BOXD.o0.x+(mcx*c+mcy*n)/csf;
+                STATE.origin_y=BOXD.o0.y+(-mcx*n+mcy*c)/csf;
+              }
+              BOXD.moved=true;
+            }
+            render(true);
+          }
+
           // Escape with the round arrow held: the angle goes back.
           function dropTurn(){
             var rr=ROT; ROT=null;
             if(!rr) return;
             if(rr.pic){ picPut(rr.pic, rr.s0); picsBack(rr.was); }
-            else STATE.rotation=rr.r0;
+            else { STATE.rotation=rr.r0; if(rr.was && boxTurns()) restoreBox(rr.was); }
           }
 
           // Escape with a handle held: the box, the size and the place of the
@@ -2573,6 +2713,9 @@ module InteriorPro
             if(typeof was.dox==='number' && typeof was.doy==='number'){ STATE.origin_x-=was.dox; STATE.origin_y-=was.doy; }
             if(v){
               var b = was.box || a;            // no box of his own = all the margins leave
+              // a box that turns as a whole is shown held inside the margins at
+              // its angle - what Ruby will answer with - not hanging off meanwhile
+              if(b && a && boxTurns() && viewTurn().deg){ var hb=viewHold({x:b[0], y:b[1], w:b[2], h:b[3], rot:viewTurn().deg, crop:[0,0,0,0]}, a); b=[hb.x, hb.y, hb.w, hb.h]; }
               if(b) setBox(v, b[0], b[1], b[2], b[3]);
             }
             paintScale();
@@ -2599,10 +2742,12 @@ module InteriorPro
               h.className=(cls[id]+(on ? ' on' : '')).replace(/^ /,'');
             }
             if(!on) return;
-            if(pc){
+            // the drawing's box, when it turns as a whole, is placed like a picture's
+            var tv=(!pc && boxTurns() && viewTurn().deg) ? viewRect() : null;
+            if(pc || tv){
               // A picture's box can be TURNED, so every handle is put by its
               // own middle, the turned way round, and turned with the box.
-              var pr=picRect(pc), PW=pr.w*LIVEK, PH=pr.h*LIVEK, ptr=pr.rot ? ('rotate('+(-pr.rot)+'deg)') : '';
+              var pr=pc ? picRect(pc) : tv, PW=pr.w*LIVEK, PH=pr.h*LIVEK, ptr=pr.rot ? ('rotate('+(-pr.rot)+'deg)') : '';
               var putp=function(id,u,vv,ww,hh){
                 var q=picScreen(pr,u,vv), st=$(id).style;
                 if(ww===undefined){ st.left=q[0].toFixed(1)+'px'; st.top=q[1].toFixed(1)+'px'; }
@@ -2618,7 +2763,7 @@ module InteriorPro
               putp('boxe-n',0,-PH/2,PW-16,8); putp('boxe-s',0,PH/2,PW-16,8);
               putp('boxe-w',-PW/2,0,8,PH-16); putp('boxe-e',PW/2,0,8,PH-16);
               // a box of writing is as tall as its lines: no bar on its top or its bottom
-              if(pc.txt){ $('boxe-n').className='boxe'; $('boxe-s').className='boxe'; }
+              if(pc && pc.txt){ $('boxe-n').className='boxe'; $('boxe-s').className='boxe'; }
               return;
             }
             for(var id2 in cls){ $(id2).style.transform=''; }      // the drawing's box is never turned
@@ -2775,8 +2920,9 @@ module InteriorPro
 
           // Held on the sheet: first small enough, then in. The same sum as
           // PlanCanvas.pic_inside, so Ruby has nothing left to correct.
-          function picHold(r,a){
-            var cx=r.x+r.w/2, cy=r.y+r.h/2, w=Math.max(r.w,PIC_MIN), h=Math.max(r.h,PIC_MIN);
+          function picHold(r,a,least){
+            if(!(least>0)) least=PIC_MIN;
+            var cx=r.x+r.w/2, cy=r.y+r.h/2, w=Math.max(r.w,least), h=Math.max(r.h,least);
             var hf=picHalf({w:w, h:h, rot:r.rot});
             var f=Math.min(a[2]/(2*hf[0]), a[3]/(2*hf[1]), 1);
             if(f<1){ w*=f; h*=f; hf=[hf[0]*f, hf[1]*f]; }
@@ -3680,8 +3826,11 @@ module InteriorPro
               // place in the house
               if(live) VIEW={k:k, sf:sf, cx:cx, cy:cy, toPaper:toPaper, rot:vt.deg, rc:vt.c, rs:vt.s};
               var cid='vclip'+(live?'':'t'+(pg.name||'').replace(/[^A-Za-z0-9]/g,''));
+              // a box that turns as a whole: the clip and the frame are the
+              // rectangle turned about its middle (2026-10-07, stage 5)
+              var vtr=(v.box_turn && ROTON && vt.deg) ? (' transform="rotate('+(-vt.deg)+','+(cx*k).toFixed(2)+','+((ph-cy)*k).toFixed(2)+')"') : '';
               o.push('<clipPath id="'+cid+'"><rect x="'+(v.x*k).toFixed(1)+'" y="'+((ph-v.y-v.h)*k).toFixed(1)+
-                     '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+'"/></clipPath>');
+                     '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+'"'+vtr+'/></clipPath>');
               o.push('<g clip-path="url(#'+cid+')">');
               var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
               if(cv) cv.layers.forEach(function(l){
@@ -3692,7 +3841,7 @@ module InteriorPro
               // the window itself, so the user can see where the plan may sit
               if(live) o.push('<rect x="'+(v.x*k).toFixed(1)+'" y="'+((ph-v.y-v.h)*k).toFixed(1)+
                      '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+
-                     '" fill="none" stroke="#bcd" stroke-width="1" stroke-dasharray="5 4"/>');
+                     '" fill="none" stroke="#bcd" stroke-width="1" stroke-dasharray="5 4"'+vtr+'/>');
             }
 
             (pg.layers||[]).forEach(function(l){
@@ -5671,7 +5820,7 @@ module InteriorPro
               var ra=rotAngleAt(e);
               if(ra!==null && ROT.a0!==null){
                 var nr=snapTurn(ROT.r0+(ra-ROT.a0));
-                if(nr!==viewTurn().deg){ STATE.rotation=nr; ROT.moved=true; render(true); }
+                if(nr!==viewTurn().deg){ STATE.rotation=nr; turnBoxTo(nr); ROT.moved=true; render(true); }
               }
               return;
             }
@@ -5803,8 +5952,8 @@ module InteriorPro
               var rr=ROT;
               ROT=null;
               if(rr.moved && viewTurn().deg!==rr.r0){
-                // one turn of the handle is one step for Ctrl+Z
-                if(UNDOON){ UNDO.push({g:++UGROUP, rot:rr.r0}); if(UNDO.length>300) UNDO.shift(); }
+                // one turn of the handle is one step for Ctrl+Z - the box it left goes back with the angle
+                if(UNDOON){ UNDO.push({g:++UGROUP, rot:rr.r0, rbox:(boxTurns() ? rr.was : undefined)}); if(UNDO.length>300) UNDO.shift(); }
                 sendTurn();
               }
               render();
@@ -5920,13 +6069,14 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
-            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null, orderBack=null;
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null, orderBack=null, rboxBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
               if(u.site) siteBack=siteBack.concat(u.site);
               if(u.added) addBack=addBack.concat(u.added);
               if(u.rot!==undefined) rotBack=u.rot;
+              if(u.rbox!==undefined) rboxBack=u.rbox;
               if(u.box!==undefined) boxBack=u.box;
               if(u.pics!==undefined) picBack=u.pics;
               if(u.order!==undefined) orderBack=u.order;
@@ -5958,7 +6108,9 @@ module InteriorPro
             }
             if(rotBack!==null){
               // the drawing goes back to the angle it had, and Ruby turns the writing back with it
+              // (a box that turns as a whole goes back to the box it had before the turn, too)
               STATE.rotation=rotBack;
+              if(rboxBack) restoreBox(rboxBack);
               sendTurn();
             }
             if(addBack.length){
@@ -6613,9 +6765,11 @@ module InteriorPro
             var img=$('logoshow');
             if(l && l.url && l.there){
               img.src=l.url; img.className='on';
-              $('logoinfo').textContent=l.name;
-              tag('settag','לוגו');
-              $('logoclear').style.display='';
+              // the one that ships with the plugin: nothing was changed, and
+              // there is nothing to go back to
+              $('logoinfo').textContent = l.builtin ? ('הלוגו הקבוע: '+l.name) : l.name;
+              tag('settag', l.builtin ? '' : 'לוגו');
+              $('logoclear').style.display = l.builtin ? 'none' : '';
             } else {
               img.removeAttribute('src'); img.className='';
               $('logoinfo').textContent = l && !l.there

@@ -160,7 +160,7 @@ const side = html.match(/<div id="side">([\s\S]*?)\n            <\/div>\s*\n    
 ok('the side is built out of boxes', !!side);
 const keys = [...html.matchAll(/data-k="([a-z]+)"/g)].map(m => m[1]);
 ok('every group has its own box',
-   ['pages', 'paper', 'marks', 'layers', 'images', 'model', 'title', 'settings', 'help']
+   ['pages', 'paper', 'marks', 'layers', 'images', 'model', 'title', 'settings']   // ('help' went on 2026-10-07)
      .every(k => keys.includes(k)), keys);
 ok('there is no heading left loose outside a box',
    !/\n\s*<h4>(?!<)/.test(side ? side[1] : ''), 'a bare <h4> is still there');
@@ -221,6 +221,21 @@ ok('a logo whose file has moved says so instead of showing nothing',
 sandbox.showLogo(null);
 ok('no logo means an empty box, not a broken picture',
    nodes.logoshow.className === '', nodes.logoshow.className);
+// The VISUALIZE by Dror logo that ships with the plugin (2026-10-07): in the
+// box like any logo, but nothing was changed and there is nothing to go back
+// to, so no tag on the heading and the "back" button is put away.
+sandbox.showLogo({ path: 'C:/plug/assets/LOGO/visualize_by_dror.jpg', name: 'VISUALIZE by Dror',
+                   url: 'file:///C:/plug/assets/LOGO/visualize_by_dror.jpg', there: true, builtin: true });
+ok('THE LOGO THAT SHIPS WITH THE PLUGIN is shown in the box',
+   nodes.logoshow.className === 'on' && nodes.logoshow.src === 'file:///C:/plug/assets/LOGO/visualize_by_dror.jpg', nodes.logoshow.src);
+ok('it says it is the built-in one', nodes.logoinfo.textContent.indexOf('VISUALIZE by Dror') >= 0, nodes.logoinfo.textContent);
+ok('no tag on the heading - nothing was changed', nodes.settag.textContent === '', nodes.settag.textContent);
+ok('and the "back to VISUALIZE" button is put away', nodes.logoclear.style.display === 'none', nodes.logoclear.style.display);
+sandbox.showLogo({ path: 'C:/a/logo.png', name: 'logo.png', url: 'file:///C:/a/logo.png', there: true });
+ok('a logo he picked brings the button back', nodes.logoclear.style.display === '' && nodes.settag.textContent !== '', nodes.logoclear.style.display);
+// the "how it works" box is gone (2026-10-07, "תעיף את איך זה עובד")
+ok('THE "HOW IT WORKS" BOX IS GONE', !html.includes('איך זה עובד') && !html.includes('data-k="help"'));
+ok('the other boxes are all still there', ['pages', 'paper', 'text', 'marks', 'layers', 'images', 'model', 'title', 'settings'].every(k => html.includes('data-k="' + k + '"')));
 
 // The bug the user hit: he picked a logo and the sheet showed an empty dashed
 // box. The window only knew the addresses of the RENDERS, and a logo is a

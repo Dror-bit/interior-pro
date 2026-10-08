@@ -219,8 +219,11 @@ b  = vq.model_to_paper(240.0, 0.0)
 ok('IN THE PDF THE WALL IS TURNED: its first stroke runs straight up the sheet',
    stream.include?("#{num.call(a[0] * 72)} #{num.call(a[1] * 72)} m") && stream.include?("#{num.call(b[0] * 72)} #{num.call(b[1] * 72)} l") &&
    near(a[0], b[0]) && b[1] > a[1], [a, b])
-ok('the frame it is clipped to is NOT turned',
-   stream.include?("#{num.call(vq.x * 72)} #{num.call(vq.y * 72)} #{num.call(vq.w * 72)} #{num.call(vq.h * 72)} re W n"))
+# (until 2026-10-07 the frame it was clipped to was NOT turned - `re W n` on the
+# square box. Since stage 5 of the box the frame turns as a whole: rt280.)
+ok('the frame it is clipped to IS turned with it - four corners, not a square',
+   !stream.include?("#{num.call(vq.x * 72)} #{num.call(vq.y * 72)} #{num.call(vq.w * 72)} #{num.call(vq.h * 72)} re W n") &&
+   stream.include?(vq.frame_corners.each_with_index.map { |(px, py), i| "#{num.call(px * 72)} #{num.call(py * 72)} #{i.zero? ? 'm' : 'l'}" }.join(' ') + ' h W n'))
 tm = ->(word) { stream[/BT(?:(?!ET).)*?\(#{Regexp.escape(word)}\) Tj/m].to_s[/^.* Tm$/] }
 ok('in the PDF the room name is level', tm.call('ROOM 1').to_s.start_with?('1 0 0 1 '), tm.call('ROOM 1'))
 ok('in the PDF the number along the level wall now runs up the sheet with it',
