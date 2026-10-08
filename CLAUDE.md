@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 348 שורות PASS (נמדד 2026-10-07 18:33, אחרי שתי הלחיצות על מספר).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 361 שורות PASS (נמדד 2026-10-08 13:50, אחרי rt286).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -833,6 +833,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Elevations, 2026-10-08:
+- `InteriorPro::ElevationTool::USE_PART_MIDDLES = false` - a fixture made of parts (shower set) is one box again: its width
+  in the chain, its bottom and top at the side (`tests/rt286.rb`). On: each part at its MIDDLE - one stop in the chain, one height.
 - `InteriorPro::ElevationTool::USE_ELEVATIONS = false` - the Elevations button says it is switched off and takes no picture
   (`tests/rt284.rb`). On: a parallel camera inside the room and a section plane `cut` inches from each wall; one PNG a wall
   (hidden line or colours) beside the model, each one a picture sheet named "Room - North" in the Sheet window

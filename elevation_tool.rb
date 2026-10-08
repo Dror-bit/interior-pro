@@ -29,6 +29,12 @@ require 'tmpdir'
 module InteriorPro
   module ElevationTool
     USE_ELEVATIONS = true unless const_defined?(:USE_ELEVATIONS, false)
+    # A fixture made of parts (a shower set: head, valve, hand shower - measured on his model,
+    # debug_fixture_parts.rb 13:42) is measured part by part, each at its MIDDLE: the height of
+    # the middle from the floor and where the middle stands along the wall (his words 13:41:
+    # "רק את הגובה של כל דבר והמרחק מהקיר הצדדי", and "1" = to the middle). Off = the whole set
+    # as one box, its width in the chain and its bottom and top at the side, as before.
+    USE_PART_MIDDLES = true unless const_defined?(:USE_PART_MIDDLES, false)
     D = 'InteriorPro' unless const_defined?(:D, false)
     NEST_DEPTH = 4 unless const_defined?(:NEST_DEPTH, false)
     MARGIN = 12.0 unless const_defined?(:MARGIN, false)         # inches of air round the wall
@@ -281,6 +287,17 @@ module InteriorPro
             als = pts.map { |p| al.call(p) }
             if t.type == 'fixture'
               next if ins.max < -1.0 || ins.min > cut
+              parts = USE_PART_MIDDLES ? part_boxes(t) : nil
+              if parts
+                parts.each do |pp|
+                  am = pp.map { |p| al.call(p) }
+                  am = (am.min + am.max) / 2.0
+                  next if am <= 0 || am >= side.len
+                  zm = (pp.map(&:z).min + pp.map(&:z).max) / 2.0 - base_z
+                  out << { kind: 'part', a0: am, a1: am, z0: zm, z1: zm }
+                end
+                next
+              end
             else
               next unless ins.min > -0.5 && ins.max < 2.0
             end
@@ -298,6 +315,19 @@ module InteriorPro
       rescue StandardError => e
         puts "[Elevation] dimensions skipped on #{side.name}: #{e.class}: #{e.message}"
         []
+      end
+
+      # The parts a fixture is made of (USE_PART_MIDDLES): the eight corners of each part's
+      # box in the world, or nil when it is not made of two parts or more (a tub, a toilet).
+      def part_boxes(t)
+        ents = defined?(Sketchup::ComponentInstance) && t.ent.is_a?(Sketchup::ComponentInstance) ? t.ent.definition.entities : t.ent.entities
+        kids = ents.select do |k|
+          (k.is_a?(Sketchup::Group) || (defined?(Sketchup::ComponentInstance) && k.is_a?(Sketchup::ComponentInstance))) &&
+            !(k.respond_to?(:hidden?) && k.hidden?)
+        end
+        return nil if kids.size < 2
+        boxes = kids.map { |k| world_box(Thing.new(k, t.xf * k.transformation, 'part')) }.compact
+        boxes.size >= 2 ? boxes : nil
       end
 
       # the eight corners of a thing's box, in the world
@@ -349,6 +379,13 @@ module InteriorPro
                  'v' => vz.call(0.0), 't' => fmt_in(len) }
         col = 0
         items.reject { |it| it[:kind] == 'tile_wall' }.sort_by { |it| it[:a0].to_f }.each do |it|
+          if it[:kind] == 'part'     # one height: the floor to the part's middle
+            zm = [[it[:z1].to_f, 0.0].max, wall_h.to_f].min
+            next if zm <= DIM_MIN
+            col += 1
+            out << { 'k' => 'v', 'col' => col, 'v' => [vz.call(0.0), vz.call(zm)], 'u' => ux.call(0.0), 't' => fmt_in(zm) }
+            next
+          end
           z0 = [[it[:z0].to_f, 0.0].max, wall_h.to_f].min
           z1 = [[it[:z1].to_f, 0.0].max, wall_h.to_f].min
           next if z1 - z0 <= DIM_MIN
