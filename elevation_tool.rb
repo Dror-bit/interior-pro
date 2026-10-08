@@ -40,9 +40,13 @@ module InteriorPro
     # Put aside for the shot (2026-10-08, after his Revit page): the floor and the ceiling are a
     # LINE in an elevation, not a slab seen edge-on, and the roof is not there at all. The walls
     # stay (cut, dark), and so does whatever hangs in the room - a lamp, a vent, the shower pan.
+    # Re-read on every reload (2026-10-08, measured on his model: the list loaded at 12:18 was the
+    # first one, without the shower_* types - `unless const_defined?` kept it, so the shower pan
+    # stayed in the picture as a dark strip under the tiles).
+    remove_const(:SET_ASIDE) if const_defined?(:SET_ASIDE, false)
     SET_ASIDE = %w[floor floor_pattern floor_patch subfloor underlay foundation ceiling roof dormer
                    skylight downspout plan2d sketch2d
-                   shower_floor shower_pattern shower_drain shower_curb].freeze unless const_defined?(:SET_ASIDE, false)
+                   shower_floor shower_pattern shower_drain shower_curb].freeze
 
     Thing = Struct.new(:ent, :xf, :type) unless const_defined?(:Thing, false)
     Side = Struct.new(:name, :a, :b, :len, :inward, :depth) unless const_defined?(:Side, false)

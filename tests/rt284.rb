@@ -186,5 +186,12 @@ ok('each room gets its own cuts, in order', $seen_cuts == [['Bath 1', { 'house' 
 # the floor, the ceiling and the roof are put aside for the shot - a line, not a slab (12:08)
 ok('floor, ceiling, roof are set aside', %w[floor floor_pattern ceiling roof foundation shower_floor shower_pattern shower_curb].all? { |t| ET.set_aside?(t) })
 ok('walls, tile, plumbing, the shower pan, doors and windows stay', %w[wall tile_wall tile_niche fixture door window room].none? { |t| ET.set_aside?(t) })
+# a reload reads the list again (12:33, measured on his model: the list loaded was the first one,
+# without shower_*, so the shower pan stayed in the picture as a dark strip under the tiles)
+ET.send(:remove_const, :SET_ASIDE)
+ET.const_set(:SET_ASIDE, %w[floor ceiling].freeze)
+$VERBOSE = nil
+load './elevation_tool.rb'
+ok('a reload reads SET_ASIDE again (the shower pan is set aside after reload)', ET.set_aside?('shower_floor') && ET.set_aside?('shower_curb'), ET::SET_ASIDE)
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
