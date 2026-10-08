@@ -61,6 +61,11 @@ module InteriorPro
     # 'italic', 'underline', 'color' - see text_style). false = the four are
     # ignored: plain black letters, as before.
     USE_TEXT_STYLE = true unless const_defined?(:USE_TEXT_STYLE, false)
+    # The sheets go into the PDF in the order he dragged them into in the page
+    # list (2026-10-07, "להחליף את מיקום הסדר של הדפים בפידיאף ע"י גרירה";
+    # st['page_order'] = page keys, see page_order). The sheet numbers run in
+    # that order. false = the old fixed order: plan, schedules, pictures.
+    USE_PAGE_ORDER = true unless const_defined?(:USE_PAGE_ORDER, false)
     TEXT_LAYER   = 'TEXT' unless const_defined?(:TEXT_LAYER, false)
     TEXT_PT      = 24.0   unless const_defined?(:TEXT_PT, false)      # the size a new one starts at, in points
     TEXT_PT_MIN  = 4.0    unless const_defined?(:TEXT_PT_MIN, false)
@@ -358,15 +363,35 @@ module InteriorPro
       # be told not to build it.
       drop_plan = st['drop_plan'] == true
 
+      # The order the sheets go in, worked out BEFORE any is built, because
+      # each sheet's number is written into its title block as it is built.
+      # The first sheet in the order takes the plan's number (A-101) and each
+      # after it the next one - with nothing dragged that is exactly the old
+      # numbering, the plan sheet thrown away included.
+      present = []
+      present << 'plan' unless drop_plan
+      if pt.any?(doc) && !hidden.include?(pt::LAYER) && (st['tables_own_page'] != false || drop_plan)
+        present << 'schedules'
+      end
+      Array(st['images']).each_with_index { |path, i| present << "image:#{i}" unless path.to_s.empty? }
+      order = page_order(st, present)
+      nums  = {}
+      order.each_with_index { |k, i| nums[k] = i.zero? ? num : next_sheet_number(nums[order[i - 1]]) }
+      # and a picture sheet is named by its place too: the one dragged to the
+      # front of the pictures is RENDERING 1 (2026-10-07, "אם דף 2 עלה להיות
+      # במקום דף 1 הוא עכשיו דף אחד"). Switched off: by its place in his list.
+      img_n = {}
+      order.select { |k| k.start_with?('image:') }.each_with_index { |k, j| img_n[k] = j + 1 } if USE_PAGE_ORDER
+
       p1 = nil
       unless drop_plan
         p1 = pd.new_sheet(doc, title,
                           size: size, orientation: orient,
                           scale: st['scale'] || pd::DEFAULT_SCALE, canvas: 'MODEL',
                           scale_free: view_scale_free(st),
-                          sheet_number: num, sheet_title: title)
+                          sheet_number: nums['plan'] || num, sheet_title: title)
         p1.kind = 'plan'
-        p1.sheet_number = num
+        p1.sheet_number = nums['plan'] || num
       end
 
       own       = st['tables_own_page'] != false
@@ -407,7 +432,7 @@ module InteriorPro
       last  = num
       taken = !p1.nil?
       if tables_on && own
-        last = taken ? next_sheet_number(last) : num
+        last = nums['schedules'] || (taken ? next_sheet_number(last) : num)
         taken = true
         p2 = doc.add_page('SCHEDULES', size, orient)
         pt.place!(p2, doc, full: true, zoom: tbl_zoom)
@@ -422,9 +447,9 @@ module InteriorPro
       img_title = st['image_title'].to_s.empty? ? 'RENDERING' : st['image_title'].to_s
       Array(st['images']).each_with_index do |path, i|
         next if path.to_s.empty?
-        last = taken ? next_sheet_number(last) : num
+        last = nums["image:#{i}"] || (taken ? next_sheet_number(last) : num)
         taken = true
-        pg = pd.new_image_sheet(doc, "#{img_title} #{i + 1}", path,
+        pg = pd.new_image_sheet(doc, "#{img_title} #{img_n["image:#{i}"] || i + 1}", path,
                                 size: size, orientation: orient,
                                 sheet_number: last, sheet_title: img_title)
         pg.kind = 'image'
@@ -448,6 +473,9 @@ module InteriorPro
         pb.views.first.centre_on!(doc.canvas('MODEL').bounds)
       end
 
+      # and the sheets stand in his order (nothing after this cares where a sheet is)
+      sort_pages!(doc, order)
+
       # every picture that has a box of its own goes into it, on its sheet
       place_pictures!(doc, st)
 
@@ -470,6 +498,35 @@ module InteriorPro
       place_texts!(doc, st)
 
       apply_visibility!(doc, hidden)
+      doc
+    end
+
+    # --------------------------------------------- the order of the sheets
+    #
+    # 2026-10-07. He drags a sheet up or down the page list; st['page_order'] is
+    # the page keys in the order he left them ('plan', 'schedules', 'image:2' -
+    # the same keys the ticks use, so a picture thrown away renumbers them the
+    # same way, shift_image_keys). `present` is the sheets this pass builds, in
+    # the old order. Keys he ordered come first, in his order; a sheet he never
+    # placed (a picture added after the drag) goes to the end.
+    def self.page_order(st, present)
+      return present.dup unless USE_PAGE_ORDER
+      want = Array(st['page_order']).map(&:to_s)
+      head = want.select { |k| present.include?(k) }.uniq
+      head + (present - head)
+    end
+
+    # Puts doc.pages in that order and numbers them 1, 2, 3 down the set.
+    def self.sort_pages!(doc, order)
+      return doc if order.nil? || order.empty?
+      at = {}
+      order.each_with_index { |k, i| at[k] = i }
+      n = order.length
+      sorted = doc.pages.each_with_index
+                        .sort_by { |pg, i| [at.fetch(pic_page_key(pg), n + i), i] }
+                        .map(&:first)
+      doc.pages.replace(sorted)
+      doc.pages.each_with_index { |pg, i| pg.number = i + 1 }
       doc
     end
 

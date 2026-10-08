@@ -501,7 +501,10 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 19:30): ההגדרות בצד עובדות על קופסת כיתוב ("עובד"); הבא: תמונות בגרירה (סדר + מדף לדף)
+## הצעד הנוכחי (2026-10-07 20:30): סדר הדפים בגרירה ברשימה נבנה — מחכה לבדיקה שלו
+הכל ב-`HANDOFF_2026-10-07.md` חלק י"ב. הוא ביקש **רק** סדר דפים ב-PDF בגרירה (לא להעביר תמונה מדף לדף). אחריו הוא בוחר: לחיצה כפולה על הערה, שלב 4, שלב 5, דף לשרטוט, סוג כתב / עברית.
+
+## (קודם, אותו יום) (2026-10-07 19:30): ההגדרות בצד עובדות על קופסת כיתוב ("עובד"); הבא: תמונות בגרירה (סדר + מדף לדף)
 הכל ב-`HANDOFF_2026-10-07.md` חלק י"א. **נסגר ואושר:** אותו פאנל "הגדרות טקסט" — גודל (בנקודות), B, I, U, צבע — על קופסת T שמסומנת או
 שמקלידים בה (`boxBarWant` / `paintBoxBar` / `boxBarSet`, `st['texts'][n]['bold'...]`, `PlanCanvas.text_style`, דגל `USE_TEXT_STYLE`).
 **הבא:** סדר התמונות בגרירה + העברת תמונה מדף לדף. **השאלה כבר נשאלה עם תמונה** (`drag_question.png` בתיקיית הגשר: 1 = הדפים הקטנים בצד, 2 = השמות ברשימה) — הוא עבר לצ'אט חדש לפני שענה. להראות שוב ולשאול 1 או 2.
@@ -775,6 +778,9 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_PAGE_ORDER = false` - `st['page_order']` is ignored and a row of the page list cannot be dragged:
+  plan, schedules, pictures, numbered in that order, as before (`tests/t79.js`, `tests/rt278.rb`). On: he drags a row up or
+  down; the sheets stand in his order in the window, the strip and the PDF, and the sheet numbers run in it.
 - `InteriorPro::PlanCanvas::USE_TEXT_STYLE = false` - `bold` / `italic` / `underline` / `color` saved on a box of writing are
   ignored: plain black letters, and the panel at the side does not go onto a box of writing - its size is set by the
   corner only, as before (`tests/t78.js` §4, `tests/rt275.rb`). On: the same panel a label has works on the box he picked

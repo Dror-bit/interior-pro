@@ -552,6 +552,7 @@ module InteriorPro
                 # the pictures added to its sheet go with the sheet, and the
                 # ones after it shuffle down
                 shift_pics!(st, i)
+                st['page_order'] = shift_image_keys(st['page_order'], i) if st['page_order'].is_a?(Array)
               end
               st['images'] = list
             when 'schedules'
@@ -620,9 +621,13 @@ module InteriorPro
           begin
             t0 = Time.now
             st = JSON.parse(json.to_s)
+            was_order = (load_state['page_order'] rescue nil)
             save_state(st)
             apply_state!(document, st)
             push_pages(dlg)
+            if st.key?('page_order') && st['page_order'] != was_order
+              erase_trace('page order: ' + document.pages.map { |pg| "#{page_key(pg)}=#{pg.sheet_number}" }.join('  '))
+            end
             text_trace(st, t0)
           rescue StandardError => e
             puts "[Sheet] set_state: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
@@ -838,6 +843,7 @@ module InteriorPro
           text_rules: InteriorPro::PlanCanvas.text_rules,
           text_words: InteriorPro::PlanCanvas::USE_TEXT_WORDS,
           text_style: InteriorPro::PlanCanvas::USE_TEXT_STYLE,
+          page_order: InteriorPro::PlanCanvas::USE_PAGE_ORDER,
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
@@ -1207,6 +1213,9 @@ module InteriorPro
           # The plan sheet, thrown away with the x. It is the only page that
           # needs a flag: a picture leaves through st['images'] and the
           # schedules through st['hidden'], both of which already existed.
+          # The order of the sheets, dragged in the page list (2026-10-07): page
+          # keys, like pdf_skip. Empty = the old order (plan, schedules, pictures).
+          'page_order' => [],
           'drop_plan' => false,
           # How big the writing is, in per cent. 100 is the drawing exactly as
           # it always looked, so an old model that has never heard of this
@@ -1798,6 +1807,9 @@ module InteriorPro
             .pg:last-child { border-bottom:none; }
             .pg:hover { background:#333; }
             .pg.sel { background:#1f6feb; color:#fff; }
+            .pg.drag { opacity:.45; }
+            .pg.dropb { box-shadow:inset 0 3px 0 #ffd400; }
+            .pg.dropa { box-shadow:inset 0 -3px 0 #ffd400; }
             .pg b { flex:none; font-weight:600; font-size:11px; opacity:.85;
                     direction:ltr; }
             .pg span { flex:1; overflow:hidden; text-overflow:ellipsis;
@@ -4675,6 +4687,8 @@ module InteriorPro
           // keyboard goes straight back to the box. With a box only picked it
           // is a step of its own and Ruby is told once.
           var TXSTYLE=true;    // told by Ruby
+          var PGORDER=true;    // told by Ruby: a sheet in the page list can be dragged up or down
+          var PGDRAG=null, PGJUST=false;
           var TXB=null;        // the box of writing the panel is on, by its number; null = none
 
           // The box the panel belongs to now: the one being typed in, else the picked one.
@@ -5906,7 +5920,7 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
-            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null;
+            var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null, orderBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
@@ -5915,6 +5929,7 @@ module InteriorPro
               if(u.rot!==undefined) rotBack=u.rot;
               if(u.box!==undefined) boxBack=u.box;
               if(u.pics!==undefined) picBack=u.pics;
+              if(u.order!==undefined) orderBack=u.order;
             }
             // nothing half done survives an undo - it was drawn on the sheet as it was
             SSEL=[];
@@ -5927,6 +5942,13 @@ module InteriorPro
               picsBack(picBack);
               picsToShapes();
               BSEL=null;
+              sketchup.set_state(JSON.stringify(STATE));
+            }
+            if(orderBack!==null){
+              // the sheets go back to the order they had, and Ruby numbers them again
+              STATE.page_order=orderBack.o;
+              orderPages(orderBack.keys);
+              fillPages(); showFit();
               sketchup.set_state(JSON.stringify(STATE));
             }
             if(boxBack!==null){
@@ -6002,6 +6024,7 @@ module InteriorPro
             TXTON = (p.text_box!==false) && PICON;
             TXWORDS = (p.text_words!==false);
             TXSTYLE = (p.text_style!==false);
+            PGORDER = (p.page_order!==false);
             if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
             // a sheet from Ruby while words were open: the bar is shut, what Ruby has is the truth
@@ -6232,7 +6255,8 @@ module InteriorPro
               if(out) off++;
               var row=document.createElement('div');
               row.className='pg'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
-              row.onclick=function(){ $('pages').focus(); goToPage(i); };
+              row.onclick=function(){ if(PGJUST){ PGJUST=false; return; } $('pages').focus(); goToPage(i); };
+              row.onmousedown=function(e){ pageDragStart(e, i); };
               // The tick moved to the THUMBNAILS (2026-08-19). The user:
               // "אני רוצה שהווי יעבור לתמונות של הדפים... כי מרגיש לי שיותר קל
               // לבחור דפים שרואים בהוצאה ל-PDF." So this list is the x - what
@@ -6270,6 +6294,91 @@ module InteriorPro
             var sel=box.querySelector('.pg.sel');
             if(sel && sel.scrollIntoView) sel.scrollIntoView({block:'nearest'});
             paintStrip();
+          }
+
+          // ---- the order of the sheets (2026-10-07) ------------------------
+          //
+          // He drags a row of the page list up or down: the sheet goes there,
+          // in the window, the strip and the PDF, and the sheet numbers run in
+          // the new order (Ruby numbers them - PlanCanvas.page_order). A press
+          // that does not move is still a click. Escape drops the drag; Ctrl+Z
+          // puts the old order back.
+          function pageDragStart(e, i){
+            if(!PGORDER || e.button!==0) return;
+            if(e.target && e.target.tagName==='BUTTON') return;      // the x
+            e.preventDefault();                                     // no text picked while dragging
+            $('pages').focus();
+            PGDRAG={from:i, y0:e.clientY, on:false};
+          }
+          // which gap the mouse is over: 0 = above the first row, n = below the last
+          function pageGapAt(y){
+            var rows=$('pages').querySelectorAll('.pg');
+            for(var k=0;k<rows.length;k++){
+              var r=rows[k].getBoundingClientRect();
+              if(y<r.top+r.height/2) return k;
+            }
+            return rows.length;
+          }
+          function pageDragPaint(gap){
+            var rows=$('pages').querySelectorAll('.pg');
+            for(var k=0;k<rows.length;k++){
+              var c=rows[k].className.replace(/ (dropb|dropa|drag)/g,'');
+              if(PGDRAG && PGDRAG.on && k===PGDRAG.from) c+=' drag';
+              if(gap!==null && gap!==undefined){
+                if(k===gap) c+=' dropb';
+                else if(gap===rows.length && k===rows.length-1) c+=' dropa';
+              }
+              rows[k].className=c;
+            }
+          }
+          function pageDragMove(e){
+            if(!PGDRAG) return false;
+            if(!PGDRAG.on){
+              if(Math.abs(e.clientY-PGDRAG.y0)<5) return true;
+              PGDRAG.on=true;
+            }
+            pageDragPaint(pageGapAt(e.clientY));
+            return true;
+          }
+          function pageDragEnd(e){
+            if(!PGDRAG) return false;
+            var d=PGDRAG; PGDRAG=null;
+            if(!d.on) return true;                                  // a plain click
+            PGJUST=true; setTimeout(function(){ PGJUST=false; }, 0);  // the click the browser sends after
+            var gap=pageGapAt(e.clientY);
+            var to = gap>d.from ? gap-1 : gap;
+            pageDragPaint(null);
+            if(to!==d.from) movePage(d.from, to);
+            return true;
+          }
+          function pageDragCancel(){
+            if(!PGDRAG) return false;
+            PGDRAG=null; pageDragPaint(null);
+            return true;
+          }
+          // DOC.pages in the order of these keys; the open sheet stays open
+          function orderPages(keys){
+            var cur=(DOC.pages||[])[STATE.active||0], ak=cur ? pageKey(cur) : null;
+            var at={}, n=keys.length;
+            keys.forEach(function(k,i){ at[k]=i; });
+            DOC.pages=(DOC.pages||[]).map(function(p,i){ return {p:p, i:i}; }).sort(function(a,b){
+              var x=at[pageKey(a.p)], y=at[pageKey(b.p)];
+              if(x===undefined) x=n+a.i;
+              if(y===undefined) y=n+b.i;
+              return (x-y) || (a.i-b.i);
+            }).map(function(o){ return o.p; });
+            if(ak!==null) DOC.pages.forEach(function(p,i){ if(pageKey(p)===ak) STATE.active=i; });
+          }
+          function movePage(from, to){
+            var was=(DOC.pages||[]).map(pageKey);
+            var keys=was.slice();
+            var k=keys.splice(from,1)[0];
+            keys.splice(to,0,k);
+            var wasOrder=STATE.page_order ? STATE.page_order.slice() : null;
+            STATE.page_order=keys;
+            orderPages(keys);
+            if(UNDOON){ UNDO.push({g:++UGROUP, order:{o:wasOrder, keys:was}}); if(UNDO.length>300) UNDO.shift(); }
+            fillPages(); showFit(); render(); push();
           }
 
           function fill(id,list,val){
@@ -6624,6 +6733,8 @@ module InteriorPro
             },{passive:false});
             window.addEventListener('mousemove',onMove);
             window.addEventListener('mouseup',onUp);
+            window.addEventListener('mousemove',function(e){ if(PGDRAG) pageDragMove(e); });
+            window.addEventListener('mouseup',function(e){ if(PGDRAG) pageDragEnd(e); });
             $('land').onclick=function(){ STATE.orientation='landscape'; push(); };
             $('port').onclick=function(){ STATE.orientation='portrait'; push(); };
             $('center').onclick=function(){ centerPlan(false); };
@@ -6776,11 +6887,16 @@ module InteriorPro
                 goToPage((STATE.active||0)+(e.key==='ArrowDown'?1:-1));
               } else if(e.key==='Home'){ e.preventDefault(); goToPage(0); }
               else if(e.key==='End'){ e.preventDefault(); goToPage((DOC.pages||[]).length-1); }
+              // a drag of a row dropped; Ctrl+Z from the list too (2026-10-07)
+              else if(e.key==='Escape' && pageDragCancel()){ e.preventDefault(); }
+              else if((e.ctrlKey||e.metaKey) && !e.shiftKey && !e.altKey &&
+                      (e.code==='KeyZ'||e.key==='z'||e.key==='Z')){ e.preventDefault(); undoLast(); }
             };
 
             // Delete removes what is picked. Not while he is typing a note, and
             // not while the cursor is in the address or sheet-number boxes.
             window.addEventListener('keydown',function(e){
+              if(e.key==='Escape' && pageDragCancel()){ e.preventDefault(); return; }
               var t=(e.target&&e.target.tagName)||'';
               if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return;
               if(e.target && e.target.id==='pages') return;   // the list handles its own keys
