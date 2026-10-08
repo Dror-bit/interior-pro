@@ -1842,8 +1842,8 @@ module InteriorPro
                box at the side, under the group sizes - one place, like Word:
                "אני לוחץ על טקסט מסוים ואז אני משנה את ההגדרות בחלון ההגדרות".
                It used to be a bar floating over the sheet. */
-            #textbar { display:block; margin-top:9px; padding-top:8px;
-                       border-top:1px solid #43587a; opacity:.45; pointer-events:none; }
+            #textbar { display:block; margin-top:0; padding-top:0;
+                       border-top:none; opacity:.45; pointer-events:none; }
             /* always there, under the group sizes ("הגדרות הטקסט צריכות להיות
                פה"); it comes alive when a label is clicked */
             #textbar.on { opacity:1; pointer-events:auto; }
@@ -1855,7 +1855,19 @@ module InteriorPro
                      background:#2b2b2b; border:1px solid #1f6feb;
                      border-radius:5px; padding:8px; gap:8px; width:470px;
                      box-shadow:0 6px 24px rgba(0,0,0,.5); }
-            #tbbar.on { display:flex; align-items:stretch; }
+            /* (2026-10-07, "אני לא רוצה שייפתח חלון עריכה... אני רוצה שהחלון
+               ייפתח שהוא הכיתוב עצמו", like LayOut) the bar stays in the page
+               as the keeper of the words and the size, but it is not shown:
+               the words are typed in #tbedit, laid over the box on the sheet. */
+            #tbbar.on { display:none; }
+            #tbedit { position:absolute; display:none; z-index:7; margin:0;
+                      background:#fff; color:#000; border:1px solid #1f6feb;
+                      outline:none; resize:none; overflow:hidden; white-space:pre-wrap;
+                      word-break:normal; overflow-wrap:normal;
+                      font-family:Helvetica,Arial,sans-serif; box-sizing:border-box;
+                      transform-origin:50% 50%; }
+            #tbedit.on { display:block; }
+            #tbedit.one { white-space:nowrap; }
             #tbbar textarea { flex:1; min-height:74px; resize:vertical; padding:6px;
                               background:#1e1e1e; color:#eee; border:1px solid #555;
                               border-radius:3px; font:14px/1.35 Segoe UI, Arial, sans-serif; }
@@ -1944,18 +1956,23 @@ module InteriorPro
               </div>
 
               <div class="sec" data-k="text">
-                <h4><span class="ar">&#9656;</span>גודל טקסט<span class="tag" id="texttag"></span></h4>
+                <h4><span class="ar">&#9656;</span>הגדרות טקסט<span class="tag" id="texttag"></span></h4>
                 <div class="bd">
+                  <!-- The four group sizes are KEPT (Ruby still honours them, and
+                       the suites drive them) but not shown: "לא הבנתי בשביל מה
+                       צריך את כל האחוזים האלו, תוריד אותם" (2026-10-07). -->
+                  <div id="tsgroups" style="display:none">
                   <div class="tsrow"><span>מידות</span><input id="tsDims" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <div class="tsrow"><span>שמות חדרים</span><input id="tsRooms" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <div class="tsrow"><span>תגי דלת/חלון</span><input id="tsTags" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <div class="tsrow"><span>טבלאות</span><input id="tsTables" type="number" min="25" max="400" step="5"><span class="pc">%</span></div>
                   <button id="tsReset">חזור ל-100%</button>
                   <div class="hint">100% = הגודל שהיה תמיד. משפיע גם על התצוגה וגם על ה-PDF.</div>
+                  </div>
                   <!-- the label he clicked on: its own size, weight, line,
                        colour and words. Shown while one is picked. -->
                   <div id="textbar">
-                    <div class="hint" style="margin:0" id="txhead">הכיתוב שנבחר (לחץ על כיתוב בדף):</div>
+                    <div class="hint" style="margin:0" id="txhead">לחץ על כיתוב בדף — ההגדרות שלו כאן. לחיצה כפולה — כותבים עליו.</div>
                     <div id="txwhat" class="what"></div>
                     <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc">%</span></div>
                     <div class="row" style="margin-top:6px">
@@ -2129,7 +2146,8 @@ module InteriorPro
                     הפס באמצע כל צלע חותך את השרטוט מהצד הזה.<br>
                     העיגול עם ארבעת החצים מזיז את השרטוט על הדף.<br>
                     תמונה: לחיצה בוחרת, גרירה מזיזה, פינה משנה גודל, צלע חותכת, הידית מסובבת.<br>
-                    כיתוב: הכפתור עם האות T, לחיצה על הדף, וכותבים. אחר כך הוא קופסה כמו תמונה: גרירה מזיזה, פינה מגדילה את האותיות, צד משנה רוחב, הידית מסובבת, לחיצה כפולה פותחת לכתיבה.</div>
+                    כיתוב: הכפתור עם האות T, לחיצה על הדף, וכותבים בתוך הקופסה על הדף (Enter = שורה, Ctrl+Enter או לחיצה בחוץ מסיימים). אחר כך הוא קופסה כמו תמונה: גרירה מזיזה, פינה מגדילה את האותיות, צד משנה רוחב, הידית מסובבת, לחיצה כפולה פותחת לכתיבה.<br>
+                    לחיצה אחת על כל כיתוב: ההגדרות שלו ב"גודל טקסט". לחיצה כפולה: כותבים עליו.</div>
                 </div>
               </div>
 
@@ -2175,6 +2193,7 @@ module InteriorPro
                   <path d="M0 -7 L-2.4 -4.6 M0 -7 L2.4 -4.6 M0 7 L-2.4 4.6 M0 7 L2.4 4.6 M-7 0 L-4.6 -2.4 M-7 0 L-4.6 2.4 M7 0 L4.6 -2.4 M7 0 L4.6 2.4" stroke="#1f6feb" stroke-width="1.8"/>
                 </g></svg>
               </div>
+              <textarea id="tbedit" dir="auto" maxlength="4000" spellcheck="false"></textarea>
               <div id="boxc-nw" class="boxc"></div>
               <div id="boxc-ne" class="boxc"></div>
               <div id="boxc-sw" class="boxc"></div>
@@ -3121,7 +3140,7 @@ module InteriorPro
             $('tbbar').className='on';
             BSEL='t:'+n;
             tbRebuild(); render(); showMarks();
-            $('tbtext').focus();
+            tbEditShow('box');             // the words are typed over the box itself
           }
 
           // He typed, or changed the size: the box on the sheet follows at once.
@@ -3149,6 +3168,102 @@ module InteriorPro
             tbRebuild(); render(true);
           }
 
+          // ---- typing ON the sheet (2026-10-07) -----------------------------
+          //
+          // "אני לא רוצה שייפתח חלון עריכה עם כתיבה לכל טקסט... אני רוצה שהחלון
+          // ייפתח שהוא הכיתוב עצמו, יש את זה בלייאאוט." So the words are typed
+          // in a box laid exactly over the writing on the sheet - same place,
+          // same size, same turn - and the sheet follows every letter. The
+          // hidden bar (#tbbar) still keeps the words and the size, so tbLive /
+          // tbSave / tbCancel are the one road, whichever way the words came.
+          //   a box of writing   the editor is the box: as wide, its lines wrap
+          //                      the same way, Enter is a new line
+          //   a label            one line over the label; Enter keeps, Escape drops
+          var LED=null;        // {kind:'box'} | {kind:'label', hit, m} while the editor is open
+
+          function tbEditEl(){ return $('tbedit'); }
+
+          // Over a box of writing: its place, its size, its turn.
+          function tbEditPlace(){
+            var ed=tbEditEl(); if(!ed||!ed.style) return;
+            if(!LED){ ed.className=''; return; }
+            var wr=$('sheetWrap');
+            if(LED.kind==='box'){
+              if(!TBED||!PAGE||!LIVEK){ ed.className=''; return; }
+              var en=null, want='t:'+TBED.n;
+              pageTexts().forEach(function(q){ if(q.pic===want) en=q; });
+              if(!en){ ed.className=''; return; }
+              var fs=en.pt/72*LIVEK, pad=TXR.pad*fs;
+              ed.style.left=((wr.offsetLeft||0)+en.x*LIVEK).toFixed(1)+'px';
+              ed.style.top=((wr.offsetTop||0)+(PAGE.height-en.y-en.h)*LIVEK).toFixed(1)+'px';
+              ed.style.width=Math.max(en.w*LIVEK, 12).toFixed(1)+'px';
+              ed.style.height=Math.max(en.h*LIVEK, 8).toFixed(1)+'px';
+              ed.style.fontSize=fs.toFixed(2)+'px';
+              ed.style.lineHeight=(TXR.lead*fs).toFixed(2)+'px';
+              ed.style.padding=pad.toFixed(2)+'px';
+              ed.style.transform=en.rot ? ('rotate('+(-en.rot)+'deg)') : '';
+              ed.className='on';
+              return;
+            }
+            // a label: one line over it
+            if(!TSEL||!VIEW||!PAGE){ ed.className=''; return; }
+            var b=textBox(TSEL.shape, TSEL.paper), fpx=b.h/0.717;
+            ed.style.left=((wr.offsetLeft||0)+b.x-2).toFixed(1)+'px';
+            ed.style.top=((wr.offsetTop||0)+b.y-(fpx-b.h)/2-2).toFixed(1)+'px';
+            ed.style.width=Math.max(b.w+4, fpx*6, 60).toFixed(1)+'px';
+            ed.style.height=(fpx*1.3+4).toFixed(1)+'px';
+            ed.style.fontSize=fpx.toFixed(2)+'px';
+            ed.style.lineHeight=(fpx*1.3).toFixed(2)+'px';
+            ed.style.padding='1px 2px';
+            var rd=(TSEL.shape.rotation||0)+(TSEL.paper ? 0 : VROT);
+            ed.style.transform=rd ? ('rotate('+(-rd)+'deg)') : '';
+            ed.className='on one';
+          }
+
+          function tbEditShow(kind){
+            var ed=tbEditEl(); if(!ed) return;
+            LED={kind:kind};
+            if(kind==='box'){ ed.value=$('tbtext').value; }
+            tbEditPlace();
+            if(ed.focus) ed.focus();
+            if(kind==='box' && ed.setSelectionRange && typeof ed.value==='string'){
+              try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch(e){}
+            } else if(ed.select) { try { ed.select(); } catch(e){} }
+          }
+
+          function tbEditHide(){
+            LED=null;
+            var ed=tbEditEl(); if(ed) ed.className='';
+          }
+
+          // Every letter typed on the sheet goes to the hidden bar and the box follows.
+          function tbEditInput(){
+            var ed=tbEditEl(); if(!ed||!LED) return;
+            if(LED.kind==='box'){ $('tbtext').value=ed.value; tbLive(); tbEditPlace(); }
+          }
+
+          // Two clicks on a label: its words, typed over it. Enter keeps them
+          // (a hand dimension's go onto the mark, any other's to Ruby under
+          // the label's key - sendTextWords); Escape drops them.
+          function labelEditOpen(hit){
+            if(!TXWORDS||!hit) return;
+            hideNoteBar();
+            openTextBar(hit, true);
+            var ed=tbEditEl(); if(!ed) return;
+            ed.value=String($('txwords').value||'');
+            if(!ed.value){ ed.value=String(hit.shape.text||''); }
+            tbEditShow('label');
+          }
+
+          function labelEditKeep(){
+            if(!LED||LED.kind!=='label'){ return; }
+            var ed=tbEditEl();
+            $('txwords').value=String(ed.value||'');
+            tbEditHide();
+            sendTextWords();
+            closeTextBar();
+          }
+
           // Done: one step for Ctrl+Z, and Ruby is told once. Emptied = thrown away.
           function tbSave(){
             if(!TBED) return;
@@ -3161,6 +3276,7 @@ module InteriorPro
             if(empty && ed.fresh){ tbCancel(); render(); showMarks(); return; }
             TBED=null;
             $('tbbar').className='';
+            tbEditHide();
             var id='t:'+ed.n;
             if(empty){ STATE.texts.splice(ed.n,1); id=null; tbRebuild(); }
             if(picsSnap()===ed.was){ BSEL=id; render(); showMarks(); return; }     // nothing was changed
@@ -3178,6 +3294,7 @@ module InteriorPro
             var ed=TBED;
             TBED=null;
             $('tbbar').className='';
+            tbEditHide();
             picsBack(ed.was);
             tbRebuild();
             if(ed.fresh) BSEL=null;
@@ -3579,6 +3696,7 @@ module InteriorPro
             paintDraw();
             paintRot();
             paintTextPick();
+            tbEditPlace();
             if(!(moving===true && FAST) && $('strip').className==='on') paintStrip();
           }
 
@@ -4471,6 +4589,7 @@ module InteriorPro
           function closeTextBar(){
             $('textbar').className='';
             TSEL=null;
+            if(LED && LED.kind==='label') tbEditHide();
             paintTextPick();
           }
 
@@ -5043,6 +5162,7 @@ module InteriorPro
               // Words open in the bar: a press on the sheet is "I am done" - they
               // are kept, and the press does nothing else.
               if(TBED){ tbSave(); e.preventDefault(); return; }
+              if(LED && LED.kind==='label'){ labelEditKeep(); }
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did.
               if(MODE==='hand'&&!e.shiftKey){
@@ -5184,7 +5304,9 @@ module InteriorPro
                 }
                 if(ht){
                   if(h && marks()[h.i].t==='dim') ht.dim=h.i;     // the words go onto the mark
-                  hideNoteBar(); openTextBar(ht); e.preventDefault();
+                  hideNoteBar();
+                  if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);   // typed over the label itself
+                  e.preventDefault();
                 }
                 return;
               }
@@ -6282,6 +6404,19 @@ module InteriorPro
             $('tbsize').oninput=function(){ tbLive(); };
             $('tbsize').onchange=function(){ tbLive(); };
             $('tbok').onclick=function(){ tbSave(); };
+            // the editor on the sheet
+            $('tbedit').oninput=function(){ tbEditInput(); };
+            $('tbedit').onmousedown=function(e){ if(e.stopPropagation) e.stopPropagation(); };
+            $('tbedit').onkeydown=function(e){
+              if(!LED) return;
+              if(LED.kind==='label'){
+                if(e.key==='Enter'){ e.preventDefault(); labelEditKeep(); }
+                else if(e.key==='Escape'){ e.preventDefault(); tbEditHide(); closeTextBar(); render(); showMarks(); }
+                return;
+              }
+              if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); tbSave(); }
+              else if(e.key==='Escape'){ e.preventDefault(); tbCancel(); render(); showMarks(); }
+            };
             $('tbcancel').onclick=function(){ tbCancel(); render(); showMarks(); };
             $('tbtext').onkeydown=function(e){
               // Enter is a NEW LINE - he asked: "אם אני לוחץ אנטר אז אוכל לרדת

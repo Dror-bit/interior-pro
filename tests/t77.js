@@ -214,7 +214,7 @@ api.call("closeTextBar");
 // two clicks still open it too, and then the size box IS ready to type in
 focused = false;
 { const c = api.call("screenOf", 120, 60); svg().ondblclick(ev(c[0], c[1])); }
-ok("two clicks: open, and the size box takes the keyboard", barOn() && focused);
+ok("two clicks: the panel opens AND the words are typed over the label itself (2026-10-07, like LayOut)", barOn() && !focused && el("tbedit").className === "on one" && el("tbedit").value === "W101", [barOn(), el("tbedit").className, el("tbedit").value]);
 api.call("closeTextBar");
 
 // the old floating bar is gone from over the sheet

@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 342 ירוקות (73 JS + 269 רובי, נמדד 2026-10-07 15:40, אחרי קופסת הכיתוב).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 346 ירוקות (76 JS + 270 רובי, נמדד 2026-10-07 17:45, אחרי הגדרות הטקסט).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -501,7 +501,19 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 15:45): **קופסת כיתוב** נבנתה ואושרה ("מעולה"); הבא: עריכת המספר של מידה, ואז הרשימה שלו
+## הצעד הנוכחי (2026-10-07 17:50): טקסט כמו ב-Word/LayOut נסגר ("כן עובד"); הבא: הרשימה שלו (תמונות בגרירה, שלב 4/5, דף לשרטוט)
+הכל ב-`HANDOFF_2026-10-07.md` חלק ח'. **מה נבנה ואושר:** (1) עריכת המספר של מידה — מילים שלו **מחליפות** את המספר ונשארות
+כשמותחים (בחר 1; `label` על המידה, `text_marks[key]['text']` לכל כיתוב אחר, `USE_TEXT_WORDS`); (2) **"הגדרות טקסט"** בצד:
+קליק אחד על כיתוב → גודל, B, I, **U**, **צבע**, מה כתוב — לקופסה בצד, לא חלונית צפה; U וצבע גם ב-PDF; ארבעת האחוזים של
+הקבוצות **מוסתרים** (`#tsgroups`, הלוגיקה נשארה); (3) **כתיבה בתוך הכיתוב על הדף** (`#tbedit` מעל הכיתוב, כמו LayOut) —
+לחיצה כפולה על כיתוב / קופסת כיתוב / T על הדף; החלונית `#tbbar` מוסתרת ונשארה כשומרת המילים; (4) "גודל חופשי" נקרא
+**scale**; (5) הגלגלת לא מקטינה מתחת ל"מתאים לחלון" (`z>=1`), דף שנשמר קטן נפתח במילוי.
+**תקלה בסבב:** בהעברת ההגדרות לצד נמחק בטעות ה-CSS של `#tbbar` → נפתח כבלוק מעל הדף ודחף את השרטוט לקטן ("הרסת לי את
+התוכנית"). **לקח:** חיתוך CSS לפי טווח אינדקסים מחק גם מה שהוכנס אחרי העוגן — להחליף לפי עוגנים מדויקים בלבד.
+**הרשימה שלו (17:35):** סידור סדר התמונות בגרירה; העברת תמונה מדף לדף תוך כדי גרירה. ואז: שלב 4, שלב 5, לבחור איזה שרטוט
+לאיזה דף, עברית ב-PDF. **כדאי צ'אט חדש** — הצ'אט הזה ארוך.
+
+## (קודם, אותו יום) (2026-10-07 15:45): **קופסת כיתוב** נבנתה ואושרה ("מעולה"); הבא: עריכת המספר של מידה, ואז הרשימה שלו
 הקופסה (הזזה, פינות, חיתוך, תמונות) **נבדקה אצלו — "הכל עובד"** ונשמרה ב-git (15:08). אחר כך ביקש: *"קופסא עם כיתוב... צריכה
 להתנהג כמו שאר הקופסאות, ובקופסא יהיה אפשר לכתוב ולקבוע את גודל הכיתוב"* ו-*"עריכה של הכנסת המידות"*.
 **נבנה:** כפתור T ב"מידות והערות" → לחיצה על כל דף → חלונית (טקסט + "גודל" בנקודות) → הכיתוב על הדף מיד. אחר כך קופסה
@@ -731,6 +743,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_TEXT_WORDS = false` - a hand dimension's `label` and a label's `text` override are
+  ignored: every number is the measured one; the words box in the side panel is put away and two clicks on a label
+  open its settings the old way (`tests/t76.js`, `tests/rt276.rb`, `t78`). On: his words REPLACE the number (he chose
+  that over a number that keeps counting) and are typed over the label itself on the sheet (`#tbedit`).
 - `InteriorPro::PlanCanvas::USE_TEXT_BOX = false` - `st['texts']` is ignored: no sheet carries writing in a box, the T
   button is put away (`tests/t75.js`, `tests/rt275.rb`). On: a piece of writing is a box on any sheet - `text`, `on`
   ('plan' / 'schedules' / 'image:2'), `box` [x, y, w, h] paper inches, `rot`, `pt` (points). The WIDTH is his; the
