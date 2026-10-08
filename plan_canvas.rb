@@ -55,6 +55,12 @@ module InteriorPro
     # beside a number that keeps counting, he chose: they REPLACE it). false =
     # a hand dimension's `label` and a label's `text` override are ignored.
     USE_TEXT_WORDS = true unless const_defined?(:USE_TEXT_WORDS, false)
+    # A box of writing can be lettered BOLD, ITALIC, UNDERLINED and in a COLOUR,
+    # from the settings at the side of the sheet window (2026-10-07, "כשאני רוצה
+    # להקליד פה זה לא נותן לי לשחק עם ההגדרות של הכיתוב"; st['texts'][n]['bold'],
+    # 'italic', 'underline', 'color' - see text_style). false = the four are
+    # ignored: plain black letters, as before.
+    USE_TEXT_STYLE = true unless const_defined?(:USE_TEXT_STYLE, false)
     TEXT_LAYER   = 'TEXT' unless const_defined?(:TEXT_LAYER, false)
     TEXT_PT      = 24.0   unless const_defined?(:TEXT_PT, false)      # the size a new one starts at, in points
     TEXT_PT_MIN  = 4.0    unless const_defined?(:TEXT_PT_MIN, false)
@@ -717,7 +723,7 @@ module InteriorPro
       pp = InteriorPro::PlanPDF
       { 'pad' => TEXT_PAD, 'lead' => TEXT_LEAD, 'ascent' => TEXT_ASCENT,
         'pt' => TEXT_PT, 'pt_min' => TEXT_PT_MIN, 'pt_max' => TEXT_PT_MAX,
-        'cap' => pp::CAP_RATIO, 'w' => pp::W }
+        'cap' => pp::CAP_RATIO, 'w' => pp::W, 'bold' => pp::BOLD_BUMP }
     end
 
     def self.text_clean(t)
@@ -726,14 +732,14 @@ module InteriorPro
 
     # How wide a run of words is at pt points, in paper inches. The real
     # Helvetica widths plan_pdf prints with.
-    def self.text_width_in(str, pt)
+    def self.text_width_in(str, pt, bold = false)
       require File.join(File.dirname(__FILE__), 'plan_pdf') unless defined?(InteriorPro::PlanPDF)
-      InteriorPro::PlanPDF.text_width(str, pt.to_f) / 72.0
+      InteriorPro::PlanPDF.text_width(str, pt.to_f, bold) / 72.0
     end
 
     # The words, in lines no wider than avail (paper inches). A line he broke
     # himself stays broken; a word wider than the box stays whole.
-    def self.text_wrap(text, avail, pt)
+    def self.text_wrap(text, avail, pt, bold = false)
       out = []
       text_clean(text).split("\n", -1).each do |para|
         words = para.split(/ +/).reject(&:empty?)
@@ -744,7 +750,7 @@ module InteriorPro
         cur = ''
         words.each do |w|
           try = cur.empty? ? w : "#{cur} #{w}"
-          if cur.empty? || text_width_in(try, pt) <= avail + 1.0e-6
+          if cur.empty? || text_width_in(try, pt, bold) <= avail + 1.0e-6
             cur = try
           else
             out << cur
@@ -762,9 +768,25 @@ module InteriorPro
     end
 
     # The width a box needs to hold the words with no line broken but his own.
-    def self.text_natural_width(text, pt)
-      text_wrap(text, 1.0e9, pt).map { |l| text_width_in(l, pt) }.max.to_f +
+    def self.text_natural_width(text, pt, bold = false)
+      text_wrap(text, 1.0e9, pt, bold).map { |l| text_width_in(l, pt, bold) }.max.to_f +
         2.0 * TEXT_PAD * pt.to_f / 72.0
+    end
+
+    # How one box of writing is lettered, checked: { bold: true, italic: true,
+    # underline: true, color: "#rrggbb" } - only what is set. Black is "no
+    # colour" and is not kept, the same rule a label's own settings have.
+    # THE SAME RULE AS tbStyle IN THE WINDOW.
+    def self.text_style(raw)
+      out = {}
+      return out unless USE_TEXT_STYLE && raw.is_a?(Hash)
+      %w[bold italic underline].each do |k|
+        v = raw.key?(k) ? raw[k] : raw[k.to_sym]
+        out[k.to_sym] = true if v == true
+      end
+      col = (raw.key?('color') ? raw['color'] : raw[:color]).to_s.downcase
+      out[:color] = col if col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000'
+      out
     end
 
     def self.text_pt(raw)
@@ -805,6 +827,8 @@ module InteriorPro
       txt = text_clean(raw['text'] || raw[:text])[0, TEXT_MAX_CHARS]
       return nil if txt.strip.empty?
       pt  = text_pt(raw)
+      sty  = text_style(raw)
+      bold = sty[:bold] == true        # bold letters are wider: the lines break by their widths
       rot = (raw['rot'] || raw[:rot]).to_f
       rot = 0.0 unless rot.finite?
       rot -= 360.0 while rot > 180.0
@@ -819,13 +843,13 @@ module InteriorPro
         # no place saved: in the middle of the sheet, as wide as its words,
         # each one a little down and to the right of the last
         ax, ay, aw, ah = area.map(&:to_f)
-        w   = [text_natural_width(txt, pt), aw].min
-        h0  = text_height(text_wrap(txt, w - 2.0 * pad, pt).length, pt)
+        w   = [text_natural_width(txt, pt, bold), aw].min
+        h0  = text_height(text_wrap(txt, w - 2.0 * pad, pt, bold).length, pt)
         off = 0.4 * (nth % 6)
         x   = ax + (aw - w) / 2.0 + off
         y   = ay + (ah - h0) / 2.0 - off
       end
-      lines = text_wrap(txt, w - 2.0 * pad, pt)
+      lines = text_wrap(txt, w - 2.0 * pad, pt, bold)
       h     = text_height(lines.length, pt)
       # the top left corner of the box stays where it was
       r = rot * Math::PI / 180.0
@@ -839,7 +863,7 @@ module InteriorPro
       ncy = tly - ((-w / 2.0) * s + (h / 2.0) * c)
       held, f = text_inside([ncx - w / 2.0, ncy - h / 2.0, w, h], rot, area)
       pt *= f if f < 1.0
-      { text: txt, pt: pt, rot: rot, box: held, lines: lines }
+      { text: txt, pt: pt, rot: rot, box: held, lines: lines, style: sty }
     end
 
     # One plain text shape a line: [ {text:, x:, y:, h:, rotation:, li:} ].
@@ -885,9 +909,13 @@ module InteriorPro
           nth += 1
           lay = pg.layer(TEXT_LAYER)
           id  = "t:#{j}"
+          sty = g[:style] || {}
           text_line_shapes(g).each do |ln|
-            lay.text(ln[:text], ln[:x], ln[:y], h: ln[:h], align: :left,
-                                                rotation: ln[:rotation], tbox: id, li: ln[:li])
+            sh = lay.text(ln[:text], ln[:x], ln[:y], h: ln[:h], align: :left,
+                                                     rotation: ln[:rotation], tbox: id, li: ln[:li])
+            # lettered the way he set it at the side. plan_pdf and the window
+            # already draw these four on any piece of writing (draw_text, shapeSVG)
+            sty.each { |k, v| sh[k] = v }
           end
           bx = g[:box]
           # shaped like a picture's shape on purpose: the window handles both
@@ -895,7 +923,7 @@ module InteriorPro
           pg.text_boxes << { pic: id, txt: true, placed: true,
                              x: bx[0], y: bx[1], w: bx[2], h: bx[3], rot: g[:rot],
                              crop: [0.0, 0.0, 0.0, 0.0], pt: g[:pt],
-                             text: g[:text], lines: g[:lines] }
+                             text: g[:text], lines: g[:lines] }.merge(sty)
         end
       end
       doc

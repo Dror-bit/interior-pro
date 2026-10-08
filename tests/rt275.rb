@@ -262,5 +262,41 @@ ensure
   File.binwrite(trace, kept) if kept
 end
 
+# ---------------------------------------------------------------------------
+# lettered: bold, italic, underlined, a colour - set at the side of the sheet
+# window, on the box he picked or is typing in (2026-10-07)
+# ---------------------------------------------------------------------------
+PP = InteriorPro::PlanPDF unless defined?(PP)
+ok('there is a switch for it, and it is on', PC.const_defined?(:USE_TEXT_STYLE, false) && PC::USE_TEXT_STYLE == true)
+ok('text_style keeps only what is set: true is true, anything else is not, black is no colour',
+   PC.text_style('bold' => true, 'italic' => false, 'underline' => 'yes', 'color' => '#000000') == { bold: true } &&
+   PC.text_style('color' => '#C0392B') == { color: '#c0392b' } && PC.text_style('color' => 'red') == {} && PC.text_style(nil) == {},
+   [PC.text_style('bold' => true, 'italic' => false, 'underline' => 'yes', 'color' => '#000000'), PC.text_style('color' => '#C0392B')])
+ok("bold letters are wider by plan_pdf's own amount - THE SAME NUMBER t78 HOLDS THE WINDOW TO",
+   near(PC.text_width_in('Pool', 72, true), 2.001 * 1.06) && PP::BOLD_BUMP == 1.06 && PC.text_rules['bold'] == PP::BOLD_BUMP, [PC.text_width_in('Pool', 72, true), PC.text_rules['bold']])
+ok('so a width that holds the plain words breaks the bold ones',
+   PC.text_wrap('Pool deck', 2.1955, 36) == ['Pool deck'] && PC.text_wrap('Pool deck', 2.1955, 36, true) == %w[Pool deck])
+ds = laid(state('texts' => [T1.merge('bold' => true, 'underline' => true, 'color' => '#C0392B')]))
+ws = words(plan(ds))
+bs = boxes(plan(ds))[0]
+ok('THE LINES ON THE SHEET CARRY IT - plan_pdf and the window draw from these',
+   !ws.empty? && ws.all? { |q| q[:bold] == true && q[:underline] == true && q[:color] == '#c0392b' && !q.key?(:italic) }, ws)
+ok('and so does the box the window is told of', bs && bs[:bold] == true && bs[:underline] == true && bs[:color] == '#c0392b' && !bs.key?(:italic), bs)
+plain = words(plan(laid(state('texts' => [T1]))))
+ok('nothing set: not one key more than before', !plain.empty? && plain.all? { |q| !q.key?(:bold) && !q.key?(:italic) && !q.key?(:underline) && !q.key?(:color) }, plain)
+begin
+  require 'stringio'
+  out = File.join(TMP, 'style.pdf')
+  PP.export(ds, out, pages: [plan(ds)])
+  raw = File.binread(out)
+  body = raw.scan(/stream\r?\n(.*?)endstream/m).map { |mm| (Zlib::Inflate.inflate(mm[0]) rescue mm[0]) }.join("\n")
+  ok('THE PDF PRINTS IT: the bold font, the colour, and a line under the words',
+     body =~ %r{0\.753 0\.224 0\.169 rg\s+/F2 [\d.]+ Tf[^E]*\(Pool deck\) Tj}m && body =~ /0\.753 0\.224 0\.169 RG/, body[/BT[^E]*\(Pool deck\) Tj.{0,200}/m])
+rescue StandardError => e
+  ok('THE PDF PRINTS IT', false, "#{e.class}: #{e.message}")
+end
+src = File.read(File.join(File.dirname(File.expand_path(__FILE__)), 'plan_sheet_dialog.rb'), encoding: 'UTF-8')
+ok('the window is told the switch, and the trace names a change of lettering', src.include?('text_style: InteriorPro::PlanCanvas::USE_TEXT_STYLE') && src.include?("kinds << 'style'"))
+
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

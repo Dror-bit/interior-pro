@@ -151,6 +151,7 @@ const key = (k, m) => (LISTEN.keydown || []).forEach(fn => fn(Object.assign({ ke
 const at = (n, yy) => api.call("screenOf", -400 + n * 100, yy === undefined ? 0 : yy);     // on line n
 
 const near = (a, b, tol) => Math.abs(a - b) < (tol === undefined ? 1e-6 : tol);
+const eq2 = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const el = id => document.getElementById(id);
 const ST = () => api.get("STATE");
 const PG = () => api.get("PAGE");
@@ -322,6 +323,73 @@ open();
   const lp = api.call("dimLabelXY", ST().marks[0]), c = api.call("screenOf", lp[0], lp[1]);
   down(c[0], c[1]); up(c[0], c[1]); down(c[0], c[1]); up(c[0], c[1]);
   ok("so the words open at the number's own turn", edOn() && ed().style.transform === "rotate(" + (-((api.get("TSEL").shape.rotation || 0) + 90)) + "deg)", ed().style.transform); }
+
+// ================================================================ 4. the settings at the side, on a box of writing (2026-10-07)
+// He sent a picture of himself typing in a box of writing with the panel at the side greyed out:
+// "כשאני רוצה להקליד פה זה לא נותן לי לשחק עם ההגדרות של הכיתוב." The same panel a label has now works on the box.
+["tbStyle", "boxBarWant", "boxBarUnits", "paintBoxBar", "boxBarSet"].forEach(fn => ok("it defines " + fn, typeof safe(fn) === "function"));
+const tbMid = id => { const e = tb(id); return scr(e.x + e.w / 2, e.y + e.h / 2); };
+const pickBox = id => { const c = tbMid(id); down(c[0], c[1]); up(c[0], c[1]); };
+const T0 = () => ST().texts[0];
+// two quick presses on the box: a fresh count each time (the suite presses faster than any hand)
+const twice = id => { api.set("TBLAST", null); const c = tbMid(id); down(c[0], c[1]); up(c[0], c[1]); down(c[0], c[1]); up(c[0], c[1]); };
+open(); key("Escape");       // (the label the last section left picked is let go)
+ok("nothing picked: the panel is on no box, and grey", api.call("boxBarWant") === null && el("textbar").className === "");
+pickBox("t:0");
+ok("A BOX OF WRITING PICKED: the panel is alive on it, the size in POINTS, the words box put away",
+   api.get("BSEL") === "t:0" && el("textbar").className === "on" && el("txunit").textContent === "pt" && +el("txsize").value === 36 && el("txwords").style.display === "none" && api.get("TXB") === 0,
+   [api.get("BSEL"), el("textbar").className, el("txunit").textContent, el("txsize").value, el("txwords").style.display]);
+let un = api.get("UNDO").length; m = states().length;
+el("txbold").onclick();
+ok("B: bold on the sheet at once - one step for Ctrl+Z, Ruby told once, the box still picked",
+   T0().bold === true && /font-weight="700"[^>]*>Pool deck</.test(html()) && api.get("UNDO").length === un + 1 && states().length === m + 1 && api.get("BSEL") === "t:0" && /on/.test(el("txbold").className),
+   [T0(), api.get("UNDO").length - un, states().length - m]);
+ok("what Ruby is sent says so", states()[states().length - 1].texts[0].bold === true);
+ok("bold letters are wider by plan_pdf's own amount - the same number rt275 holds Ruby to", near(api.call("tbWidth", "Pool", 72, true), 2.001 * 1.06, 1e-9) && near(api.call("tbWidth", "Pool", 72), 2.001, 1e-9));
+ok("so a width that holds the plain words breaks the bold ones", eq2(api.call("tbWrap", "Pool deck", 2.1955, 36), ["Pool deck"]) && eq2(api.call("tbWrap", "Pool deck", 2.1955, 36, true), ["Pool", "deck"]));
+el("txitalic").onclick(); el("txunder").onclick();
+ok("I and U the same way", T0().italic === true && T0().underline === true && /font-style="italic"/.test(html()) && /text-decoration="underline"/.test(html()));
+{ const w0 = T0().box[2]; el("txsize").value = "72"; el("txsize").onchange();
+  ok("THE SIZE BOX, in points: twice the letters, twice the width, the lines where they were", T0().pt === 72 && near(T0().box[2], w0 * 2, 1e-9) && tb("t:0").lines.length === 1, T0()); }
+el("txcolor").value = "#C0392B"; el("txcolor").onchange();
+ok("the colour, kept small-lettered; on the sheet at once", T0().color === "#c0392b" && /fill="#c0392b"[^>]*>Pool deck</.test(html()), T0());
+el("txcolor").value = "#000000"; el("txcolor").onchange();
+ok("black is no colour: nothing is kept", T0().color === undefined);
+key("z", { ctrlKey: true, code: "KeyZ" });
+ok("Ctrl+Z: one setting back at a time", T0().color === "#c0392b" && T0().pt === 72, T0());
+ok("(an undo lets the box go, as it does a picture: the panel is grey until it is picked again)", api.get("BSEL") === null && el("textbar").className === "");
+pickBox("t:0");
+el("txreset").onclick();
+ok("the reset button: plain black letters again, its size is his", T0().bold === undefined && T0().italic === undefined && T0().underline === undefined && T0().color === undefined && T0().pt === 72, T0());
+// while he is typing in it
+open();
+twice("t:0");
+ok("TYPING IN THE BOX: the panel is alive (it was grey in his picture)", !!api.get("TBED") && edOn() && el("textbar").className === "on" && el("txunit").textContent === "pt", [!!api.get("TBED"), el("textbar").className]);
+un = api.get("UNDO").length; m = states().length;
+el("txunder").onclick();
+ok("U while typing: on the sheet and in the editor at once; no step and no word to Ruby yet",
+   T0().underline === true && ed().style.textDecoration === "underline" && !!api.get("TBED") && api.get("UNDO").length === un && states().length === m, [T0(), ed().style.textDecoration]);
+el("txsize").value = "18"; el("txsize").onkeydown({ key: "Enter", preventDefault() {} });
+ok("the size while typing: the box follows, he is still typing", T0().pt === 18 && !!api.get("TBED") && near(parseFloat(ed().style.fontSize), 18 / 72 * K(), 0.01), [T0().pt, ed().style.fontSize]);
+typeOn("Pool deck now");
+keyOn("Enter", { ctrlKey: true });
+ok("done: the words, the line under them and the size are ONE step, and Ruby is told once",
+   !api.get("TBED") && T0().text === "Pool deck now" && T0().underline === true && T0().pt === 18 && api.get("UNDO").length === un + 1 && states().length === m + 1, [T0(), api.get("UNDO").length - un, states().length - m]);
+key("z", { ctrlKey: true, code: "KeyZ" });
+ok("Ctrl+Z takes all three back together", T0().text === "Pool deck" && T0().underline === undefined && T0().pt === 36, T0());
+twice("t:0");
+el("txitalic").onclick(); keyOn("Escape");
+ok("Escape while typing drops the setting with the words", !api.get("TBED") && T0().italic === undefined, T0());
+// let go; a label has its own road still
+{ const c = scr(30, 4); down(c[0], c[1]); up(c[0], c[1]); }
+ok("the box let go: the panel is grey again and counts in % again", api.get("BSEL") === null && el("textbar").className === "" && el("txunit").textContent === "%" && api.get("TXB") === null, [api.get("BSEL"), el("textbar").className, el("txunit").textContent]);
+{ const c = api.call("screenOf", 0, 0); down(c[0], c[1]); up(c[0], c[1]); key("Escape"); down(c[0], c[1]); up(c[0], c[1]); }
+ok("a label picked: the panel is the label's, in %, and B goes to Ruby under its key as it always did",
+   !!api.get("TSEL") && el("textbar").className === "on" && el("txunit").textContent === "%" && (global.sent.length = 0, el("txbold").onclick(), msgs("set_text_mark").length === 1 && msgs("set_text_mark")[0].bold === true), [el("textbar").className, el("txunit").textContent]);
+// switched off
+{ const s = sheet(); s.text_style = false; s.state.texts[0].bold = true; api.call("loadSheet", s); api.call("setMode", "hand"); }
+pickBox("t:0");
+ok("SWITCHED OFF (text_style): the panel does not go onto a box, and a saved 'bold' is not drawn", api.get("BSEL") === "t:0" && api.call("boxBarWant") === null && el("textbar").className === "" && !/font-weight="700"[^>]*>Pool deck</.test(html()));
 
 console.log(fails ? "\n*** " + fails + " FAILED ***" : "\nALL PASS");
 process.exit(fails ? 1 : 0);

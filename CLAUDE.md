@@ -501,7 +501,14 @@ its ends run into, and is it cut to end exactly there?
 רפאים בגובה קבוע שזז רק לצדדים, מספר + Enter = מרחק מהפינה לאמצע. `FixtureTool < TileNicheTool`.
 דגל: `FixtureLibrary::USE_FIXTURES`. ראה `HANDOFF_2026-09-25.md` (מה פתוח: עריכה/הזזה/מחיקה, חשמל).
 
-## הצעד הנוכחי (2026-10-07 18:35): P1 נסגרה ("זה עובד", ואז "1" על המקום); הבא: הגדרות בצד לקופסת T (P4 — זה מה שהוא התכוון ב-P2)
+## הצעד הנוכחי (2026-10-07 19:30): ההגדרות בצד עובדות על קופסת כיתוב ("עובד"); הבא: תמונות בגרירה (סדר + מדף לדף)
+הכל ב-`HANDOFF_2026-10-07.md` חלק י"א. **נסגר ואושר:** אותו פאנל "הגדרות טקסט" — גודל (בנקודות), B, I, U, צבע — על קופסת T שמסומנת או
+שמקלידים בה (`boxBarWant` / `paintBoxBar` / `boxBarSet`, `st['texts'][n]['bold'...]`, `PlanCanvas.text_style`, דגל `USE_TEXT_STYLE`).
+**הבא:** סדר התמונות בגרירה + העברת תמונה מדף לדף. **השאלה כבר נשאלה עם תמונה** (`drag_question.png` בתיקיית הגשר: 1 = הדפים הקטנים בצד, 2 = השמות ברשימה) — הוא עבר לצ'אט חדש לפני שענה. להראות שוב ולשאול 1 או 2.
+**שני חוקים מהסבב:** (1) **אחרי שהוא אישר צעד — לא שואלים "להתחיל?" שוב.** נותנים commit וממשיכים לצעד הבא שברשימה שלו (שאלתי פעם אחת יותר מדי
+והוא התפוצץ). (2) בתחילת צ'אט דווקא כן: לקרוא, לדווח, ולחכות ל"תתחיל".
+
+## (קודם, אותו יום) (2026-10-07 18:35): P1 נסגרה ("זה עובד", ואז "1" על המקום); הבא: הגדרות בצד לקופסת T (P4 — זה מה שהוא התכוון ב-P2)
 הכל ב-`HANDOFF_2026-10-07.md` חלק י'. **נסגר ואושר אצלו:** שתי לחיצות מהירות על מספר של מידה פותחות כתיבה עליו — החלון סופר
 בעצמו (`pressTwice`), כי הלחיצה הראשונה מציירת את הדף מחדש והדפדפן לא שולח double click בכלל (נמדד בדפדפן אמיתי, `tests/browser/dbltest.js`);
 והעורך יושב **על המספר עצמו** — אותו אמצע, אותה זווית, בלי מסגרת שנייה (`VROT` נדרס ע"י הרצועה בשרטוט מסובב; `tests/browser/edpos.js`).
@@ -768,6 +775,11 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Sheet window, 2026-10-07:
+- `InteriorPro::PlanCanvas::USE_TEXT_STYLE = false` - `bold` / `italic` / `underline` / `color` saved on a box of writing are
+  ignored: plain black letters, and the panel at the side does not go onto a box of writing - its size is set by the
+  corner only, as before (`tests/t78.js` §4, `tests/rt275.rb`). On: the same panel a label has works on the box he picked
+  or is typing in - size in POINTS, B, I, U, colour, on the whole box. Bold letters are wider (`PlanPDF::BOLD_BUMP`), so
+  the lines break by their widths in Ruby and in the window alike. Needs USE_TEXT_BOX.
 - `InteriorPro::PlanCanvas::USE_TEXT_WORDS = false` - a hand dimension's `label` and a label's `text` override are
   ignored: every number is the measured one; the words box in the side panel is put away and two clicks on a label
   open its settings the old way (`tests/t76.js`, `tests/rt276.rb`, `t78`). On: his words REPLACE the number (he chose

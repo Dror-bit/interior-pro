@@ -837,6 +837,7 @@ module InteriorPro
           text_box: InteriorPro::PlanCanvas::USE_TEXT_BOX && InteriorPro::PlanCanvas::USE_PIC_BOX,
           text_rules: InteriorPro::PlanCanvas.text_rules,
           text_words: InteriorPro::PlanCanvas::USE_TEXT_WORDS,
+          text_style: InteriorPro::PlanCanvas::USE_TEXT_STYLE,
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
@@ -1049,6 +1050,7 @@ module InteriorPro
             kinds << 'words'  if a['text'] != b['text']
             kinds << 'size'   if a['pt'] != b['pt']
             kinds << 'turned' if a['rot'].to_f != b['rot'].to_f
+            kinds << 'style'  if %w[bold italic underline color].any? { |k| a[k] != b[k] }
             kinds << 'box'    if a['box'] != b['box']
             "one changed (#{kinds.join(', ')})"
           end
@@ -1974,7 +1976,7 @@ module InteriorPro
                   <div id="textbar">
                     <div class="hint" style="margin:0" id="txhead">לחץ על כיתוב בדף — ההגדרות שלו כאן. לחיצה כפולה — כותבים עליו.</div>
                     <div id="txwhat" class="what"></div>
-                    <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc">%</span></div>
+                    <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc" id="txunit">%</span></div>
                     <div class="row" style="margin-top:6px">
                       <button id="txbold" class="tool" title="מודגש"><b>B</b></button>
                       <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
@@ -2373,6 +2375,7 @@ module InteriorPro
           // only there with the select arrow, on a sheet that has a drawing.
           // While he is turning, the angle is written beside it.
           function paintRot(){
+            paintBoxBar();          // and the settings at the side follow what is picked
             paintBoxH();            // the box's own handles go wherever this one goes
             var h=$('rothandle'); if(!h||!h.style) return;
             var tg=(MODE==='hand' && !TBED) ? boxTarget() : null;
@@ -2678,7 +2681,7 @@ module InteriorPro
           // never touched sits in the middle of its space at its own
           // proportions - the same sum plan_pdf and the browser both do.
           function picRect(s){
-            if(s.txt) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:[0,0,0,0], txt:true, pt:s.pt, text:s.text};
+            if(s.txt) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:[0,0,0,0], txt:true, pt:s.pt, text:s.text, bold:!!s.bold};
             if(s.placed) return {x:s.x, y:s.y, w:s.w, h:s.h, rot:(+s.rot||0), crop:(s.crop||[0,0,0,0]).slice()};
             var w=s.w, h=s.h;
             if(!s.stretch && s.iw>0 && s.ih>0){
@@ -2882,10 +2885,10 @@ module InteriorPro
                 // the lines are laid again to fit. The top of the box stays
                 // where it is; it is never narrower than its longest word.
                 var tsg=(kind==='e') ? 1 : -1, tpad=TXR.pad*o.pt/72, tmin=PIC_MIN;
-                tbWrap(o.text, 0, o.pt).forEach(function(wd){ tmin=Math.max(tmin, tbWidth(wd,o.pt)+2*tpad); });
+                tbWrap(o.text, 0, o.pt, o.bold).forEach(function(wd){ tmin=Math.max(tmin, tbWidth(wd,o.pt,o.bold)+2*tpad); });
                 amt=Math.max(Math.min(0, tmin-o.w), lx*tsg);
                 build=function(u){
-                  var nw=o.w+u, nh=tbHeight(tbWrap(o.text, nw-2*tpad, o.pt).length, o.pt);
+                  var nw=o.w+u, nh=tbHeight(tbWrap(o.text, nw-2*tpad, o.pt, o.bold).length, o.pt);
                   var q=made(nw, nh, tsg*u/2, -(nh-o.h)/2, o.crop.slice());
                   q.pt=o.pt;
                   return q;
@@ -3001,7 +3004,7 @@ module InteriorPro
           // Ctrl+Z takes the last step back; the zoom and the place stay.
           var TXTON=true;      // told by Ruby
           // the rules of a box of writing - Ruby's own numbers, sent with the sheet
-          var TXR={pad:0.25, lead:1.25, ascent:0.8, pt:24, pt_min:4, pt_max:400, cap:0.717, w:null};
+          var TXR={pad:0.25, lead:1.25, ascent:0.8, pt:24, pt_min:4, pt_max:400, cap:0.717, w:null, bold:1.06};
           var TBED=null;       // the box whose words are open: {n, fresh, was, free}
           var TBLAST=null;     // the last press on a box of writing: {pic, t, x, y}
 
@@ -3011,18 +3014,33 @@ module InteriorPro
 
           // How wide a run of words is at pt points, in paper inches - the
           // Helvetica widths the PDF prints with.
-          function tbWidth(str,pt){
+          function tbWidth(str,pt,bold){
             var tot=0, W=TXR.w||[];
             Array.from(String(str)).forEach(function(ch){
               var c=ch.codePointAt(0);
               tot += (c>=32 && c<=126 && W[c-32]) ? W[c-32] : 556;
             });
-            return tot/1000*pt/72;
+            // bold letters are wider, by the amount plan_pdf counts (BOLD_BUMP)
+            return tot/1000*pt/72*(bold ? (TXR.bold||1.06) : 1);
+          }
+
+          // How one box of writing is lettered, checked: {bold, italic,
+          // underline, color} - only what is set. THE SAME RULE AS
+          // PlanCanvas.text_style.
+          function tbStyle(tx){
+            var o={};
+            if(!TXSTYLE||!tx) return o;
+            if(tx.bold===true) o.bold=true;
+            if(tx.italic===true) o.italic=true;
+            if(tx.underline===true) o.underline=true;
+            var c=String(tx.color||'').toLowerCase();
+            if(/^#[0-9a-f]{6}$/.test(c) && c!=='#000000') o.color=c;
+            return o;
           }
 
           // The words, in lines no wider than avail. A line he broke himself
           // stays broken; a word wider than the box stays whole.
-          function tbWrap(text,avail,pt){
+          function tbWrap(text,avail,pt,bold){
             var out=[];
             tbClean(text).split('\n').forEach(function(para){
               var words=para.split(/ +/).filter(function(w){ return w!==''; });
@@ -3030,7 +3048,7 @@ module InteriorPro
               var cur='';
               words.forEach(function(w){
                 var t=(cur==='') ? w : cur+' '+w;
-                if(cur==='' || tbWidth(t,pt)<=avail+1e-6) cur=t;
+                if(cur==='' || tbWidth(t,pt,bold)<=avail+1e-6) cur=t;
                 else { out.push(cur); cur=w; }
               });
               out.push(cur);
@@ -3041,9 +3059,9 @@ module InteriorPro
           function tbHeight(n,pt){ var fs=pt/72; return 2*TXR.pad*fs+(n-1)*TXR.lead*fs+fs; }
 
           // The width a box needs to hold the words with no line broken but his own.
-          function tbNatural(text,pt){
+          function tbNatural(text,pt,bold){
             var m=0;
-            tbWrap(text,1e9,pt).forEach(function(l){ m=Math.max(m, tbWidth(l,pt)); });
+            tbWrap(text,1e9,pt,bold).forEach(function(l){ m=Math.max(m, tbWidth(l,pt,bold)); });
             return m+2*TXR.pad*pt/72;
           }
 
@@ -3055,8 +3073,14 @@ module InteriorPro
             (en.lines||[]).forEach(function(str,i){
               if(str==='') return;
               var lx=-en.w/2+pad, ly=en.h/2-(pad+TXR.ascent*fs+i*pitch);
-              out.push({type:'text', text:str, x:cx+lx*c-ly*n, y:cy+lx*n+ly*c, h:fs*(TXR.cap||0.717),
-                        align:'left', rotation:rot, tbox:en.pic, li:i});
+              var sh={type:'text', text:str, x:cx+lx*c-ly*n, y:cy+lx*n+ly*c, h:fs*(TXR.cap||0.717),
+                      align:'left', rotation:rot, tbox:en.pic, li:i};
+              // lettered the way he set it at the side
+              if(en.bold) sh.bold=true;
+              if(en.italic) sh.italic=true;
+              if(en.underline) sh.underline=true;
+              if(en.color) sh.color=en.color;
+              out.push(sh);
             });
             return out;
           }
@@ -3078,7 +3102,9 @@ module InteriorPro
               var pt=(+tx.pt>0) ? +tx.pt : TXR.pt;
               var en={pic:'t:'+j, txt:true, placed:true, x:tx.box[0], y:tx.box[1], w:tx.box[2], h:tx.box[3],
                       rot:(+tx.rot||0), crop:[0,0,0,0], pt:pt, text:tbClean(tx.text)};
-              en.lines=tbWrap(en.text, en.w-2*TXR.pad*pt/72, pt);
+              var sy=tbStyle(tx);
+              for(var sk in sy) en[sk]=sy[sk];
+              en.lines=tbWrap(en.text, en.w-2*TXR.pad*pt/72, pt, en.bold);
               list.push(en);
               shapes=shapes.concat(tbShapes(en));
             });
@@ -3100,7 +3126,7 @@ module InteriorPro
           function tbFit(tx,w){
             var b=tx.box, rot=(+tx.rot||0), t=rot*Math.PI/180, c=rot ? Math.cos(t) : 1, n=rot ? Math.sin(t) : 0;
             if(w===undefined) w=b[2];
-            var h=tbHeight(tbWrap(tx.text, w-2*TXR.pad*tx.pt/72, tx.pt).length, tx.pt);
+            var h=tbHeight(tbWrap(tx.text, w-2*TXR.pad*tx.pt/72, tx.pt, tbStyle(tx).bold).length, tx.pt);
             var cx=b[0]+b[2]/2, cy=b[1]+b[3]/2;
             var tlx=cx+(-b[2]/2)*c-(b[3]/2)*n, tly=cy+(-b[2]/2)*n+(b[3]/2)*c;
             var ncx=tlx-((-w/2)*c-(h/2)*n), ncy=tly-((-w/2)*n+(h/2)*c);
@@ -3155,7 +3181,7 @@ module InteriorPro
               // a new one is as wide as its words - as far as the margin, and
               // from there the lines break
               var room=a ? Math.max(a[0]+a[2]-tx.box[0], PIC_MIN) : 1e9;
-              w=Math.min(tbNatural(words,pt), room);
+              w=Math.min(tbNatural(words,pt,tbStyle(tx).bold), room);
             } else if(pt!==tx.pt){
               w=w*pt/tx.pt;        // bigger letters, wider box: the lines break where they did
             }
@@ -3203,6 +3229,11 @@ module InteriorPro
               ed.style.padding=pad.toFixed(2)+'px';
               ed.style.transform=en.rot ? ('rotate('+(-en.rot)+'deg)') : '';
               ed.style.textAlign='';
+              // typed in the letters it will be drawn in
+              ed.style.fontWeight=en.bold ? '700' : '';
+              ed.style.fontStyle=en.italic ? 'italic' : '';
+              ed.style.textDecoration=en.underline ? 'underline' : '';
+              ed.style.color=en.color || '';
               ed.className='on';
               return;
             }
@@ -3229,6 +3260,10 @@ module InteriorPro
             ed.style.fontSize=fpx.toFixed(2)+'px';
             ed.style.lineHeight=(fpx*1.3).toFixed(2)+'px';
             ed.style.padding='1px 2px';
+            ed.style.fontWeight=TSEL.shape.bold ? '700' : '';
+            ed.style.fontStyle=TSEL.shape.italic ? 'italic' : '';
+            ed.style.textDecoration=TSEL.shape.underline ? 'underline' : '';
+            ed.style.color=/^#[0-9a-f]{6}$/i.test(String(TSEL.shape.color||'')) ? TSEL.shape.color : '';
             var rd=(TSEL.shape.rotation||0)+(TSEL.paper ? 0 : VROT);
             ed.style.transform=rd ? ('rotate('+(-rd)+'deg)') : '';
             ed.className='on one';
@@ -4624,8 +4659,120 @@ module InteriorPro
 
           function textMarks(){ return STATE.text_marks||(STATE.text_marks={}); }
 
+          // ---- the settings of a box of writing, at the side (2026-10-07) ----
+          //
+          // He sent a picture of himself typing in a box of writing with the
+          // panel at the side greyed out: "כשאני רוצה להקליד פה זה לא נותן לי
+          // לשחק עם ההגדרות של הכיתוב." So the SAME panel a label has - size,
+          // B, I, U, colour - works on the box of writing he has picked or is
+          // typing in:
+          //   the size     in POINTS here (a label's is a percentage of its own)
+          //   B I U        on the whole box
+          //   the colour   of the whole box; black is "none"
+          //   the words    are typed on the sheet, so their box is put away
+          // While he is typing, a setting is part of that one piece of typing
+          // (one step for Ctrl+Z, kept or dropped with the words) and the
+          // keyboard goes straight back to the box. With a box only picked it
+          // is a step of its own and Ruby is told once.
+          var TXSTYLE=true;    // told by Ruby
+          var TXB=null;        // the box of writing the panel is on, by its number; null = none
+
+          // The box the panel belongs to now: the one being typed in, else the picked one.
+          function boxBarWant(){
+            if(!TXSTYLE||!TXTON||TSEL||!STATE) return null;
+            var n=null;
+            if(TBED) n=TBED.n;
+            else if(BSEL!==null && String(BSEL).charAt(0)==='t') n=parseInt(String(BSEL).slice(2),10);
+            return (n!==null && (STATE.texts||[])[n]) ? n : null;
+          }
+
+          // The size box counts in points for a box of writing, in per cent for a label.
+          function boxBarUnits(box){
+            var u=$('txunit'); if(u) u.textContent = box ? 'pt' : '%';
+            var sz=$('txsize');
+            if(sz){
+              sz.title = box ? 'גודל האותיות, בנקודות' : 'גודל באחוזים';
+              if(sz.setAttribute){
+                sz.setAttribute('min', box ? TXR.pt_min : 25);
+                sz.setAttribute('max', box ? TXR.pt_max : 400);
+                sz.setAttribute('step', box ? 1 : 5);
+              }
+            }
+            var wb=$('txwords'); if(wb && wb.style) wb.style.display = (box || !TXWORDS) ? 'none' : '';
+          }
+
+          // Keeps the panel in step with what is picked. Called every time the
+          // handles are painted, so it can never go on showing a box he let go.
+          function paintBoxBar(){
+            var bar=$('textbar'); if(!bar) return;
+            var n=boxBarWant();
+            if(n===null){
+              if(TXB!==null){ TXB=null; boxBarUnits(false); if(!TSEL) bar.className=''; }
+              return;
+            }
+            var tx=STATE.texts[n], sy=tbStyle(tx), first=(TXB!==n), act=document.activeElement;
+            TXB=n;
+            if(act!==$('txsize')) $('txsize').value=Math.round((+tx.pt||TXR.pt)*10)/10;
+            $('txbold').className   = 'tool'+(sy.bold?' on':'');
+            $('txitalic').className = 'tool'+(sy.italic?' on':'');
+            $('txunder').className  = 'tool'+(sy.underline?' on':'');
+            if(act!==$('txcolor')) $('txcolor').value = sy.color || '#000000';
+            $('txwhat').textContent = tbClean(tx.text).split('\n')[0].slice(0,22);
+            boxBarUnits(true);
+            bar.className='on';
+            if(first) openSection('text', true);      // the box at the side opens on it
+          }
+
+          // One or more settings of that box: {pt, bold, italic, underline,
+          // color}. false = the panel is not on a box of writing (a label's
+          // own road is taken instead).
+          function boxBarSet(what){
+            var n=boxBarWant(); if(n===null) return false;
+            var tx=STATE.texts[n], typing=!!TBED, was=typing ? null : picsSnap();
+            ['bold','italic','underline'].forEach(function(k){
+              if(what[k]!==undefined){ if(what[k]) tx[k]=true; else delete tx[k]; }
+            });
+            if(what.color!==undefined){
+              var c=String(what.color||'').toLowerCase();
+              if(/^#[0-9a-f]{6}$/.test(c) && c!=='#000000') tx.color=c; else delete tx.color;
+            }
+            var pt=null;
+            if(what.pt!==undefined){
+              pt=parseFloat(what.pt);
+              if(!isFinite(pt)||pt<=0) pt=+tx.pt||TXR.pt;
+              pt=Math.min(TXR.pt_max, Math.max(TXR.pt_min, pt));
+            }
+            if(typing){
+              // part of the typing: the box follows at once (tbLive reads the
+              // size from the hidden bar), and he goes on typing
+              if(pt!==null) $('tbsize').value=pt;
+              tbLive();
+              tbEditPlace();
+              paintBoxBar();
+              var ed=tbEditEl();
+              if(ed && ed.focus && what.pt===undefined) ed.focus();
+              return true;
+            }
+            // bigger letters, wider box: the lines break where they did. And
+            // bold letters are wider, so the lines are laid again either way.
+            var w=tx.box[2];
+            if(pt!==null && pt!==tx.pt){ w=w*pt/tx.pt; tx.pt=pt; }
+            tbFit(tx,w);
+            var a=picArea();
+            if(a){
+              var r=tbHold({x:tx.box[0], y:tx.box[1], w:tx.box[2], h:tx.box[3], rot:(+tx.rot||0), pt:tx.pt}, a);
+              tx.box=[r.x,r.y,r.w,r.h]; tx.pt=r.pt;
+            }
+            tbRebuild();
+            if(picsSnap()===was){ paintBoxBar(); return true; }      // nothing was changed
+            if(UNDOON){ UNDO.push({g:++UGROUP, pics:was}); if(UNDO.length>300) UNDO.shift(); }
+            push(); render(); showMarks();
+            return true;
+          }
+
           function openTextBar(hit, quiet){
             TSEL=hit;
+            TXB=null; boxBarUnits(false);       // the panel is a LABEL'S now: its size is a percentage
             var m=textMarks()[hit.key]||{};
             // What it is RIGHT NOW, not what was overridden - so the number in
             // the box is the number on the sheet and he is never editing blind.
@@ -5854,6 +6001,7 @@ module InteriorPro
             PICON = (p.pic_box!==false);
             TXTON = (p.text_box!==false) && PICON;
             TXWORDS = (p.text_words!==false);
+            TXSTYLE = (p.text_style!==false);
             if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
             // a sheet from Ruby while words were open: the bar is shut, what Ruby has is the truth
@@ -6561,37 +6709,57 @@ module InteriorPro
             }
             $('tsReset').onclick=function(){ resetTextScale(); };
 
-            $('txsize').onchange=function(){ sendTextMark(); };
+            $('txsize').onchange=function(){ if(boxBarSet({pt:this.value})) return; sendTextMark(); };
             $('txwords').onchange=function(){ sendTextWords(); };
             $('txwords').onkeydown=function(e){
               if(e.key==='Enter'){ e.preventDefault(); sendTextWords(); closeTextBar(); }
               else if(e.key==='Escape'){ e.preventDefault(); closeTextBar(); }
             };
             $('txsize').onkeydown=function(e){
-              if(e.key==='Enter'){ e.preventDefault(); sendTextMark(); }
+              if(e.key!=='Enter') return;
+              e.preventDefault();
+              if(boxBarSet({pt:this.value})){
+                // a box of writing: the size is set, and he is back in the words
+                var ed=tbEditEl(); if(TBED && ed && ed.focus) ed.focus();
+                return;
+              }
+              sendTextMark();
             };
             $('txbold').onclick=function(){
               this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              if(boxBarSet({bold:this.className.indexOf('on')>=0})) return;
               sendTextMark();
             };
             $('txitalic').onclick=function(){
               this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              if(boxBarSet({italic:this.className.indexOf('on')>=0})) return;
               sendTextMark();
             };
             $('txunder').onclick=function(){
               this.className='tool'+(this.className.indexOf('on')>=0?'':' on');
+              if(boxBarSet({underline:this.className.indexOf('on')>=0})) return;
               sendTextMark();
             };
-            $('txcolor').onchange=function(){ sendTextMark(); };
+            $('txcolor').onchange=function(){ if(boxBarSet({color:this.value})) return; sendTextMark(); };
             // Back to whatever its group says, rather than back to 100 - the
             // group is the drawing's own standard and that is what "normal"
             // means for one label inside it.
             $('txreset').onclick=function(){
+              // a box of writing: plain black letters again (its size is his)
+              if(boxBarSet({bold:false, italic:false, underline:false, color:'#000000'})) return;
               if(!TSEL) return;
               sketchup.set_text_mark(JSON.stringify({key:TSEL.key, clear:true}));
               closeTextBar();
             };
-            $('txdone').onclick=function(){ closeTextBar(); };
+            $('txdone').onclick=function(){
+              if(boxBarWant()!==null){
+                // a box of writing: what is typed is kept, and the box is let go
+                if(TBED) tbSave();
+                BSEL=null; render(); showMarks();
+                return;
+              }
+              closeTextBar();
+            };
             // (the bar lives in the side panel now: nothing to drag)
 
             $('stripbtn').onclick=function(){ toggleStrip(); };
