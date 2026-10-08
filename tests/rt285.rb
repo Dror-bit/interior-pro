@@ -127,8 +127,33 @@ ok('a bigger number is still in the middle of its line', (t2[:x] - (t87[:x] - (P
 
 # the window: a press on a number that lies on its picture picks the NUMBER (13:15, "1")
 src = File.read('./plan_sheet_dialog.rb', encoding: 'utf-8')
-ok('the window lets an elevation\'s number win over its picture', src.include?("indexOf('ELEV_DIMS|')===0) hpic=null"))
+ok('the window lets an elevation\'s number win over its picture', src.include?("if(hx && elevKey(hx.key)) hpic=null;"))
 ok('an upright number can be hit where it stands', src.include?('Math.abs(((+s.rotation||0) % 360 + 360) % 360 - 90) < 1'))
+
+# ONE click = all of them, TWO clicks = this one alone, its size and its words (13:26)
+psd.show
+dlg = psd.instance_variable_get(:@dialog)
+cb = dlg.callbacks['set_text_mark']
+st = psd.load_state; st['text_marks'] = {}; psd.save_state(st)
+cb.call(nil, JSON.generate({ 'key' => 'ELEV_DIMS|13"|1', 'pct' => 150 }))
+cb.call(nil, JSON.generate({ 'key' => 'ELEV_DIMS|96"|1', 'pct' => 300, 'one' => true }))
+cb.call(nil, JSON.generate({ 'key' => 'ELEV_DIMS|96"|1', 'text' => 'CEILING' }))
+tm = psd.load_state['text_marks']
+ok('one click: the size went to the shared key, not the number\'s', tm[PC::ELEV_SHARED_KEY] == { 'pct' => 150.0 } && !tm.key?('ELEV_DIMS|13"|1'), tm)
+ok('two clicks: the size and the words are that number\'s own', tm['ELEV_DIMS|96"|1'] == { 'pct' => 300.0, 'text' => 'CEILING' }, tm)
+psd.instance_variable_set(:@doc, nil)
+doc = psd.document
+pg = doc.pages.find { |p| p.kind == 'image' }
+tx = pg.layers.find { |l| l.name == PC::ELEV_DIM_LAYER }.shapes.select { |s| s[:type] == :text }
+own = tx.find { |s| s[:text] == 'CEILING' }
+rest = tx.reject { |s| s[:text] == 'CEILING' }
+ok('that number reads CEILING at 300%', own && (own[:h] - 3 * PC::ELEV_TEXT_H).abs < 1e-9, own)
+ok('the rest at the shared 150%', rest.size == 5 && rest.all? { |s| (s[:h] - 1.5 * PC::ELEV_TEXT_H).abs < 1e-9 }, rest.map { |s| [s[:text], s[:h]] })
+ok('it keeps its name after the words changed (picked again by the same key)', own && own[:key] == 'ELEV_DIMS|96"|1', own && own[:key])
+src2 = File.read('./plan_sheet_dialog.rb', encoding: 'utf-8')
+ok('the window: two clicks on a number set ONE, one click clears it, and every setting says so',
+   src2.include?('ONE=elevKey(ht.key);') && src2.include?('TSEL=ht; ONE=false;') && src2.include?('if(ONE) out.one=true;'))
+ok('two clicks reach a number that lies on its picture', src2.include?("if(PICON && hitPic(e)){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }"))
 
 ok('writing can be hit on a sheet with no drawing (VIEW is null there - 13:19)', src.include?('var K = VIEW ? VIEW.k : LIVEK;') && src.include?('!PAGE||!(VIEW||LIVEK)'))
 

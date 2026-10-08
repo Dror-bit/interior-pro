@@ -1220,6 +1220,8 @@ module InteriorPro
       all = st['image_dims'] || st[:image_dims]
       return doc unless all.is_a?(Hash) && !all.empty?
       @elev_h, @elev_sty = elev_style(st)
+      @elev_marks = st['text_marks'] || st[:text_marks]
+      @elev_marks = {} unless @elev_marks.is_a?(Hash)
       pd = InteriorPro::PlanDoc
       doc.pages.each do |pg|
         next unless pg.kind.to_s == 'image'
@@ -1229,6 +1231,7 @@ module InteriorPro
         dims = all[main[:path].to_s.tr('\\', '/')]
         next unless dims.is_a?(Array) && !dims.empty?
         lay = pg.layer(ELEV_DIM_LAYER)
+        @elev_seen = Hash.new(0)
         dims.each { |d| safely { draw_elev_dim(lay, main, d) } }
       end
       doc
@@ -1267,10 +1270,33 @@ module InteriorPro
       t = ELEV_TICK / 2.0
       words = d['t'].to_s
       th = @elev_h || ELEV_TEXT_H
-      sty = @elev_sty || {}
+      sty = (@elev_sty || {}).dup
+      # ONE number's own look and words (two clicks on it, 13:26), under the name
+      # name_texts! will give it - the same count of the same words down the layer
+      built = words
+      @elev_seen ||= Hash.new(0)
+      @elev_seen[built] += 1
+      own = (@elev_marks || {})[text_key(ELEV_DIM_LAYER, built, @elev_seen[built])]
+      t0 = nil
+      if own.is_a?(Hash)
+        pct = own['pct'].to_f
+        th = ELEV_TEXT_H * [[pct, TEXT_PCT_MIN].max, TEXT_PCT_MAX].min / 100.0 if pct > 0
+        %w[bold italic underline].each { |k| sty[k.to_sym] = !!own[k] if own.key?(k) }
+        col = own['color'].to_s
+        sty[:color] = col.downcase if col =~ /\A#[0-9a-fA-F]{6}\z/ && col.downcase != '#000000'
+        fo = own['font'].to_s.strip
+        sty[:font] = fo if USE_TEXT_FONT && !fo.empty? && fo.length <= 40
+        tx = own['text']
+        if USE_TEXT_WORDS && tx.is_a?(String) && !tx.strip.empty?
+          t0 = built
+          words = tx
+        end
+      end
+      sty.delete_if { |_, v| v == false }
       fs = th / InteriorPro::PlanPDF::CAP_RATIO * 72.0
       tw = text_width_in(words, fs, sty[:bold], sty[:font])
       opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty)
+      opts[:t0] = t0 if t0
       if d['k'].to_s == 'h'
         u1, u2 = Array(d['u']).map(&:to_f)
         x1 = elev_pt(main, u1, d['v'])[0]

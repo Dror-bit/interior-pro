@@ -749,11 +749,21 @@ module InteriorPro
               st = load_state
               m  = (st['text_marks'] || {}).dup
               # an elevation's number: its look is one setting for all of them (13:09, "2")
-              skey = shared_text_key(key)
+              # (two clicks on one of them, 13:26: 'one' = this number alone; its words and where
+              # it was shoved are always its own)
+              skey = r['one'] ? key : shared_text_key(key)
               if r['clear']
                 m.delete(key)
                 m.delete(skey) if skey != key
               elsif skey != key
+                own = (m[key] || {}).dup
+                if r.key?('text')
+                  t = r['text'].to_s.strip
+                  t.empty? ? own.delete('text') : (own['text'] = t)
+                end
+                own['dx'] = r['dx'].to_f if r.key?('dx')
+                own['dy'] = r['dy'].to_f if r.key?('dy')
+                own.empty? ? m.delete(key) : (m[key] = own)
                 cur = (m[skey] || {}).dup
                 cur['pct'] = r['pct'].to_f if r.key?('pct')
                 %w[bold italic underline].each { |k| cur[k] = !!r[k] if r.key?(k) }
@@ -765,7 +775,7 @@ module InteriorPro
                   col = r['color'].to_s.downcase
                   (col =~ /\A#[0-9a-f]{6}\z/ && col != '#000000') ? (cur['color'] = col) : cur.delete('color')
                 end
-                m[skey] = cur
+                m[skey] = cur unless cur.empty? && !m.key?(skey)
               else
                 cur = (m[key] || {}).dup
                 cur['pct']    = r['pct'].to_f if r.key?('pct')
@@ -3645,10 +3655,16 @@ module InteriorPro
             // are typed where they stand, not in a box beside them
             // (2026-10-07, "שהכיתוב ייפתח באותה הקופסה של הכיתוב עצמו ולא
             // בקופסה נפרדת").
-            if(!TSEL||!VIEW||!PAGE){ ed.className=''; return; }
-            var b=textBox(TSEL.shape, TSEL.paper), fpx=b.h/0.717;
-            var ew=Math.max(b.w+4, fpx*6, 60), eh=fpx*1.3+4;
-            if(TSEL.paper){
+            if(!TSEL||!(VIEW||(TSEL.paper&&LIVEK))||!PAGE){ ed.className=''; return; }
+            var b=textBox(TSEL.shape, TSEL.paper);
+            // upright writing (an elevation's height): the box is laid on its side
+            var up=TSEL.paper && Math.abs(((+TSEL.shape.rotation||0) % 360 + 360) % 360 - 90) < 1;
+            var fpx=(up ? b.w : b.h)/0.717;
+            var ew=Math.max((up ? b.h : b.w)+4, fpx*6, 60), eh=fpx*1.3+4;
+            if(up){
+              ed.style.left=((wr.offsetLeft||0)+b.x+b.w/2-ew/2).toFixed(1)+'px';
+              ed.style.textAlign='center';
+            } else if(TSEL.paper){
               // writing put straight on the sheet starts at its left end
               ed.style.left=((wr.offsetLeft||0)+b.x-2).toFixed(1)+'px';
               ed.style.textAlign='left';
@@ -3772,7 +3788,7 @@ module InteriorPro
           // dimension or a label. null = neither (a picture, a note, paper).
           // The same order the press itself looks in.
           function pressName(e){
-            if(PICON && hitPic(e)) return null;
+            if(PICON && hitPic(e)){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }
             var h=markUnder(e);
             if(h) return marks()[h.i].t==='dim' ? ('m:'+h.i) :
                          (marks()[h.i].t==='note' ? ('n:'+h.i) : null);
@@ -3801,6 +3817,7 @@ module InteriorPro
             hideNoteBar();
             LBDONE=now;
             if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);
+            ONE=elevKey(ht.key);           // two clicks on an elevation's number: this one alone
             return true;
           }
 
@@ -5099,6 +5116,11 @@ module InteriorPro
           // the label's key (PlanCanvas.text_key) so it survives the sheet
           // being rebuilt from the model.
           var TSEL=null;   // {key, shape, paper} - the label being changed
+          // An elevation's number (2026-10-08, 13:26): ONE click = the look of all of them,
+          // TWO clicks = this one alone, its size and its words. ONE is true while the panel
+          // is on a number opened by two clicks; Ruby is told so with every setting.
+          var ONE=false;
+          function elevKey(k){ return String(k||'').indexOf('ELEV_DIMS|')===0; }
           var TXWORDS=true;  // told by Ruby: his own words may replace a label's
           // The words box: a hand dimension's go onto the mark, any other
           // label's go to Ruby under the label's key. Empty = back to its own.
@@ -5398,7 +5420,7 @@ module InteriorPro
 
           function closeTextBar(){
             $('textbar').className='';
-            TSEL=null;
+            TSEL=null; ONE=false;
             var nr=$('txnote'); if(nr && nr.style) nr.style.display='none';
             if(LED && (LED.kind==='label' || LED.kind==='note')){ tbEditHide(); NOTEED=null; }
             paintTextPick();
@@ -5546,6 +5568,7 @@ module InteriorPro
                       color:String($('txcolor').value||'#000000').toLowerCase(),
                       font:($('txfont') ? String($('txfont').value||'') : '') };
             if(extra) for(var k in extra) out[k]=extra[k];
+            if(ONE) out.one=true;
             sketchup.set_text_mark(JSON.stringify(out));
           }
 
@@ -6027,7 +6050,7 @@ module InteriorPro
                 // An elevation's dimension number lies ON its picture (2026-10-08, 13:15 -
                 // "1": the press picked the picture and never reached the number). The
                 // number wins, so its settings open like any label's.
-                if(hpic){ var hx=hitText(e); if(hx && String(hx.key).indexOf('ELEV_DIMS|')===0) hpic=null; }
+                if(hpic){ var hx=hitText(e); if(hx && elevKey(hx.key)) hpic=null; }
                 if(hpic){
                   if(TSEL) closeTextBar();
                   var had=(SEL!==null||SELS.length||SSEL.length);
@@ -6074,7 +6097,7 @@ module InteriorPro
                 if(ht){
                   SEL=null;
                   SSEL=[];
-                  TSEL=ht;
+                  TSEL=ht; ONE=false;
                   TDRAG={at:atMouse(e), dx:0, dy:0, moved:false};
                   TCARRY=null;
                   svg.style.cursor='move';
