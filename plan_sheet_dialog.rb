@@ -3099,6 +3099,7 @@ module InteriorPro
               STATE.image_geo[String(nm.n)]={box:[r.x,r.y,r.w,r.h], rot:r.rot, crop:r.crop.slice()};
             } else if(STATE.pics && STATE.pics[nm.n]){
               STATE.pics[nm.n].box=[r.x,r.y,r.w,r.h]; STATE.pics[nm.n].rot=r.rot; STATE.pics[nm.n].crop=r.crop.slice();
+              STATE.pics[nm.n].auto=false;   // he placed it: taking the elevations again leaves it (15:57)
             }
           }
 

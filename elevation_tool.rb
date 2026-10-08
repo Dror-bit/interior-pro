@@ -45,6 +45,12 @@ module InteriorPro
     # at one scale, in the top half of the sheet (the rest is his: pictures, another room). A box
     # he already moved stays where he put it. Off = one sheet a wall, as before.
     USE_ONE_SHEET = true unless const_defined?(:USE_ONE_SHEET, false)
+    # 15:57, after a Chief Architect sheet of his: "רק צריך מידה אחת או שתיים לכל דבר כדי שיהיה קריא
+    # ונקי, וגם לפזר את המידות וגם לכתוב ליד הדבר עצמו". Each thing gets one or two numbers, by
+    # the wall NEARER to it (the heights in a column on that side, the distance from that wall
+    # written at the thing itself); under the floor only the whole wall (and a tub's width).
+    # The tiles get none. Off = the long chain and every height on the right, as at 14:30.
+    USE_CLEAN_DIMS = true unless const_defined?(:USE_CLEAN_DIMS, false)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
     NEST_DEPTH = 4 unless const_defined?(:NEST_DEPTH, false)
@@ -298,6 +304,9 @@ module InteriorPro
             als = pts.map { |p| al.call(p) }
             if t.type == 'fixture'
               next if ins.max < -1.0 || ins.min > cut
+              # (16:05, measured: the shower set on the North wall got numbers on the East wall,
+              # seen side-on 16" in) - clean numbers belong to the wall the thing stands on
+              next if USE_CLEAN_DIMS && ins.min > ON_WALL
               parts = USE_PART_MIDDLES ? part_boxes(t) : nil
               if parts
                 parts.each do |pp|
@@ -369,6 +378,7 @@ module InteriorPro
       #              one column a niche / fixture (floor -> bottom -> top), the wall's height last
       # 't' => the words. Pure.
       def dims_for(side, wall_h, items)
+        return dims_clean(side, wall_h, items) if USE_CLEAN_DIMS
         len = side.len.to_f
         pw = len + 2 * MARGIN
         ph = wall_h.to_f + 2 * MARGIN
@@ -421,6 +431,91 @@ module InteriorPro
         end
         out << { 'k' => 'v', 'col' => col + 1, 'v' => [vz.call(0.0), vz.call(wall_h.to_f)], 'u' => ux.call(0.0),
                  't' => fmt_in(wall_h.to_f) }
+        out
+      end
+
+      # USE_CLEAN_DIMS (15:57). The same shares as dims_for, and two more kinds:
+      #   'k' => 'v' with 'side' => 'L' | 'R': the column stands by that wall of the picture
+      #   'k' => 'hi': a run INSIDE the picture at the height 'v' - 'u' => [u1, u2]; 'from' =>
+      #               where its witness lines start (a niche's bottom), none = the line is the thing's
+      NICHE_UNDER = 6.0 unless const_defined?(:NICHE_UNDER, false)
+    ON_WALL = 3.0 unless const_defined?(:ON_WALL, false)        # a fixture this close to a wall stands on it
+    WORDS_APART = 8.0 unless const_defined?(:WORDS_APART, false) # two distances closer than this: the lower one's words go under its line   # inches under a niche for its width
+
+      def dims_clean(side, wall_h, items)
+        len = side.len.to_f
+        wh = wall_h.to_f
+        pw = len + 2 * MARGIN
+        ph = wh + 2 * MARGIN
+        ux = ->(a) { (MARGIN + len - a) / pw }
+        vz = ->(z) { (MARGIN + [[z, 0.0].max, wh].min) / ph }
+        out = []
+        cols = { 'L' => 0, 'R' => 0 }
+        # the picture's left wall is side.b (a = len), its right wall side.a (a = 0)
+        near = ->(a) { len - a < a ? 'L' : 'R' }
+        wall_a = ->(sd) { sd == 'L' ? len : 0.0 }
+        col = lambda do |sd, zs, u0 = nil|
+          cols[sd] += 1
+          zs.each_cons(2) do |p, q|
+            next if q - p <= DIM_MIN
+            d = { 'k' => 'v', 'side' => sd, 'col' => cols[sd], 'v' => [vz.call(p), vz.call(q)], 'u' => ux.call(wall_a.call(sd)), 't' => fmt_in(q - p) }
+            d['u0'] = ux.call(u0) if u0 && USE_PART_REACH && q == zs.last
+            out << d
+          end
+        end
+        row1 = []
+        said = []     # the parts' distances already written: [a, z]
+        items.sort_by { |it| [it[:a0].to_f, it[:z1].to_f] }.each do |it|
+          case it[:kind]
+          when 'niche'
+            a0, a1 = it[:a0].to_f, it[:a1].to_f
+            sd = near.call((a0 + a1) / 2.0)
+            z0 = it[:z0].to_f
+            z1 = it[:z1].to_f
+            col.call(sd, z0 > DIM_MIN ? [0.0, z0, z1] : [0.0, z1])
+            # its width just under it, from the nearer wall
+            w_a = wall_a.call(sd)
+            e_a = sd == 'L' ? a1 : a0
+            v = vz.call(z0 - NICHE_UNDER)
+            if (w_a - e_a).abs > DIM_MIN
+              out << { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(e_a)].sort, 'v' => v, 'from' => vz.call(z0), 't' => fmt_in((w_a - e_a).abs) }
+            end
+            out << { 'k' => 'hi', 'u' => [ux.call(a1), ux.call(a0)], 'v' => v, 'from' => vz.call(z0), 't' => fmt_in(a1 - a0) }
+          when 'part'
+            am = it[:a0].to_f
+            zm = it[:z1].to_f
+            next if zm <= DIM_MIN
+            sd = near.call(am)
+            col.call(sd, [0.0, zm], am)
+            w_a = wall_a.call(sd)
+            # one distance for parts that stand on one line (the valve and the head over it), at the lower;
+            # one close under another writes its words under its line (16:05: 21 3/16 on 30 7/8)
+            if (w_a - am).abs > DIM_MIN && said.none? { |a, _| (a - am).abs <= DIM_MIN }
+              d = { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(am)].sort, 'v' => vz.call(zm), 't' => fmt_in((w_a - am).abs) }
+              out << d
+              said << [am, zm, d]
+            end
+          when 'fixture'
+            a0, a1 = [[it[:a0].to_f, 0.0].max, len].min, [[it[:a1].to_f, 0.0].max, len].min
+            sd = near.call((a0 + a1) / 2.0)
+            col.call(sd, [0.0, it[:z1].to_f])
+            row1 << [a0, a1]
+          end
+        end
+        # one close under another writes its words under its line (16:05: 21 3/16 on 30 7/8)
+        said.sort_by { |x| x[1] }.each_cons(2) { |lo, hi| lo[2]['below'] = true if hi[1] - lo[1] < WORDS_APART }
+        if row1.any?
+          stops = ([0.0, len] + row1.flatten).sort
+          run = []
+          stops.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
+          run[-1] = len
+          run.reverse.each_cons(2) do |q, p|
+            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p) }
+          end
+        end
+        out << { 'k' => 'h', 'row' => (row1.any? ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)], 'v' => vz.call(0.0), 't' => fmt_in(len) }
+        cols['R'] += 1
+        out << { 'k' => 'v', 'side' => 'R', 'col' => cols['R'], 'v' => [vz.call(0.0), vz.call(wh)], 'u' => ux.call(0.0), 't' => fmt_in(wh) }
         out
       end
 
@@ -578,11 +673,16 @@ module InteriorPro
       # moves or resizes one, taking the pictures again leaves it there.
 
       # Boxes for pictures in a row, at one scale, in the top half of area [x, y, w, h].
-      # sizes: [[w_px, h_px]]; cols: how many columns of heights stand right of each.
+      # sizes: [[w_px, h_px]]; cols: how many columns of heights stand right of each - or
+      # [left, right] since the heights stand by both walls (USE_CLEAN_DIMS, 15:57).
       def row_boxes(area, sizes, cols)
         ax, ay, aw, ah = area.map(&:to_f)
         er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
-        gaps = cols.map { |c| c.to_i * er + ROW_GAP }
+        lr = cols.map { |c| c.is_a?(Array) ? [c[0].to_i, c[1].to_i] : [0, c.to_i] }
+        lead = lr.first[0] * er
+        gaps = lr.each_with_index.map { |(_, r), i| (r + (lr[i + 1] ? lr[i + 1][0] : 0)) * er + ROW_GAP }
+        ax += lead
+        aw -= lead
         room_w = aw - gaps[0...-1].sum - gaps.last.to_f
         wpx = sizes.sum { |s| s[0].to_f }
         hpx = sizes.map { |s| s[1].to_f }.max
@@ -629,21 +729,31 @@ module InteriorPro
         # the boxes: only the ones he has not placed
         geo = st['image_geo'].is_a?(Hash) ? st['image_geo'] : {}
         mine = fresh.map { |p| p == main ? geo[n.to_s] : pics.find { |r| r['path'].to_s.tr('\\', '/') == p && r['on'].to_s == on } }
-        need = mine.each_with_index.map { |g, i| i.zero? ? !(g.is_a?(Hash) && g['box']) : !g['box'] }
-        # the first time the room is put on one sheet, the wall that owned it is laid in the row too
-        need[0] = true if need.size > 1 && need[1..-1].all?
+        # a box is laid again while it is still the one laid here ('auto' true - also one from before
+        # 15:57, which carries no mark); one he moved (the window writes auto false) stays
+        need = mine.each_with_index.map do |g, i|
+          i.zero? ? !(g.is_a?(Hash) && g['box']) || g['auto'] == true : (!g['box'] || g['auto'] != false)
+        end
+        # the first time the room is put on one sheet (or a row laid before the mark existed),
+        # the wall that owns it is laid in the row too; the window writes a moved one without the mark
+        need[0] = true if need.size > 1 && mine[1..-1].none? { |g| g.key?('auto') }
         if need.any?
           psd.instance_variable_set(:@doc, nil)
           pg = psd.document.pages.find { |q| q.kind.to_s == 'image' && q.ref.to_i == n }
           if pg
             sizes = fresh.map { |p| pc.pic_size(p) || [1333, 1440] }
-            cols = fresh.map { |p| Array(dd[p]).map { |x| x['col'].to_i }.max.to_i }
+            cols = fresh.map do |p|
+              vs = Array(dd[p]).select { |x| x['k'] == 'v' }
+              [vs.select { |x| x['side'] == 'L' }.map { |x| x['col'].to_i }.max.to_i,
+               vs.reject { |x| x['side'] == 'L' }.map { |x| x['col'].to_i }.max.to_i]
+            end
             boxes = row_boxes(pc.pic_area(pg), sizes, cols)
             fresh.each_with_index do |p, i|
               next unless need[i]
               if i.zero?
-                geo[n.to_s] = { 'box' => boxes[i], 'rot' => 0.0, 'crop' => [0.0, 0.0, 0.0, 0.0] }
+                geo[n.to_s] = { 'box' => boxes[i], 'rot' => 0.0, 'crop' => [0.0, 0.0, 0.0, 0.0], 'auto' => true }
               else
+                mine[i]['auto'] = true
                 mine[i]['box'] = boxes[i]
                 mine[i]['rot'] = 0.0
                 mine[i]['crop'] = [0.0, 0.0, 0.0, 0.0]

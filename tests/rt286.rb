@@ -22,6 +22,9 @@ require './plan_canvas'
 require './plan_pdf'
 require './tile_niche'
 require './elevation_tool'
+# this file pins the long chain and the heights on the right (before 15:57) - rt288 holds the clean ones
+InteriorPro::ElevationTool.send(:remove_const, :USE_CLEAN_DIMS)
+InteriorPro::ElevationTool.const_set(:USE_CLEAN_DIMS, false)
 
 $fails = 0
 def ok(n, c, x = nil)

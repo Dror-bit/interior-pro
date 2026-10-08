@@ -85,12 +85,19 @@ ok('each wall\'s height stands right of its own picture',
 st = psd.load_state
 j = st['pics'].index { |r| r['path'] == '/e/Room_2_South_lines.png' }
 st['pics'][j]['box'] = [3.0, 2.0, 2.0, 2.2]
+st['pics'][j]['auto'] = false                    # what the window writes when he moves it
+st['image_geo']['1'] = { 'box' => [9.0, 2.0, 2.5, 2.7], 'rot' => 0.0, 'crop' => [0, 0, 0, 0] }   # and the first wall, as the window writes it
+west0 = st['pics'].find { |r| r['path'] == '/e/Room_2_West_lines.png' }['box']
+st['pics'].find { |r| r['path'] == '/e/Room_2_West_lines.png' }['box'] = [0.0, 0.0, 1.0, 1.0]   # laid here, never moved
 psd.save_state(st)
 ET.add_room_sheet!(paths, 'Room 2', dims)
 st = psd.load_state
 ok('taken again: still one sheet, nothing doubled', st['images'] == ['/e/Other_render.png', '/e/Room_2_North_lines.png'] &&
    st['pics'].count { |r| r['on'] == 'image:1' } == 3, [st['images'], st['pics']])
 ok('the wall he moved stays where he put it', st['pics'].find { |r| r['path'] == '/e/Room_2_South_lines.png' }['box'] == [3.0, 2.0, 2.0, 2.2], st['pics'])
+ok('the first wall he moved stays too', st['image_geo']['1']['box'] == [9.0, 2.0, 2.5, 2.7], st['image_geo'])
+ok('a wall he never moved is laid again in its place in the row', st['pics'].find { |r| r['path'] == '/e/Room_2_West_lines.png' }['box'] == west0, st['pics'])
+ok('the window marks a moved picture as his', File.read('./plan_sheet_dialog.rb', encoding: 'utf-8').include?('STATE.pics[nm.n].auto=false;'))
 
 ok('switch: USE_ONE_SHEET', ET::USE_ONE_SHEET == true)
 src = File.read('./elevation_tool.rb', encoding: 'utf-8')

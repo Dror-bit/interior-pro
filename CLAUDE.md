@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 362 שורות PASS (נמדד 2026-10-08 14:30, אחרי rt287).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 363 שורות PASS (נמדד 2026-10-08 16:08, אחרי rt288).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -833,6 +833,8 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Elevations, 2026-10-08:
+- `InteriorPro::ElevationTool::USE_CLEAN_DIMS = false` - the long chain under the floor and every height on the right, as at 14:30
+  (`tests/rt288.rb`; rt285/rt286 run with it off). On: one or two numbers a thing by the NEARER wall; only things standing on that wall.
 - `InteriorPro::ElevationTool::USE_ONE_SHEET = false` - one picture sheet a wall, as before (`tests/rt287.rb`, rt284). On: a room's
   walls on ONE sheet named after the room, side by side at one scale in the top half, each a box he can move/size; a moved box stays.
 - `InteriorPro::ElevationTool::USE_PART_REACH = false` - a part's lines stop at the floor and the corner (`tests/rt286.rb`). On: they run

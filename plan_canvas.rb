@@ -1317,6 +1317,35 @@ module InteriorPro
         end
         p = tr.call((x1 + x2) / 2.0 - tw / 2.0, yl + 0.035)
         lay.text(words, p[0], p[1], opts.merge(rotation: rot))
+      elsif d['k'].to_s == 'hi'
+        # inside the picture, by the thing itself (USE_CLEAN_DIMS, 15:57)
+        u1, u2 = Array(d['u']).map(&:to_f)
+        a = elev_pt(main, u1, d['v'])
+        b = elev_pt(main, u2, d['v'])
+        y = a[1]
+        ln.call(a[0], y, b[0], y)
+        yf = d['from'] ? elev_pt(main, u1, d['from'])[1] : nil
+        [a[0], b[0]].each do |x|
+          ln.call(x - t, y - t, x + t, y + t)
+          ln.call(x, yf - ELEV_GAP, x, y - ELEV_OVER) if yf
+        end
+        p = tr.call((a[0] + b[0]) / 2.0 - tw / 2.0, d['below'] ? y - 0.035 - th : y + 0.035)
+        lay.text(words, p[0], p[1], opts.merge(rotation: rot))
+      elsif d['side'].to_s == 'L'
+        # a column by the picture's LEFT wall (USE_CLEAN_DIMS, 15:57)
+        v1, v2 = Array(d['v']).map(&:to_f)
+        y1 = elev_pt(main, d['u'], v1)[1]
+        y2 = elev_pt(main, d['u'], v2)[1]
+        xr = elev_pt(main, d['u'], v1)[0]
+        xl = [xr, rx].min - d['col'].to_i * ELEV_ROW
+        ln.call(xl, y1, xl, y2)
+        [y1, y2].each_with_index do |y, i|
+          ln.call(xl - t, y - t, xl + t, y + t)
+          x0 = i == 1 && d['u0'] ? elev_pt(main, d['u0'], v2)[0] : xr - ELEV_GAP
+          ln.call(x0, y, xl - ELEV_OVER, y)
+        end
+        p = tr.call(xl - 0.035, (y1 + y2) / 2.0 - tw / 2.0)
+        lay.text(words, p[0], p[1], opts.merge(rotation: rot + 90.0))
       else
         v1, v2 = Array(d['v']).map(&:to_f)
         y1 = elev_pt(main, d['u'], v1)[1]
