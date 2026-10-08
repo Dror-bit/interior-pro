@@ -26,3 +26,4 @@ tests/dormer_dialog.rb
 tests/dormer_edit_tools.rb
 tests/roof_dialog.rb
 tests/window_manager.rb
+tests/elevation_tool.rb

@@ -103,6 +103,8 @@ module InteriorPro
       plan_canvas.rb
       plan_pdf.rb
       plan_sheet_dialog.rb
+      elevation_tool.rb
+      elevation_dialog.rb
       plan_editor.rb
       landscape/fence_math.rb
       landscape/fence_tool.rb

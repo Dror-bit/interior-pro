@@ -766,8 +766,9 @@ module InteriorPro
     # (TOOLBAR_ITEM_COUNT) would skip any item added there now.
     def self.setup_2d_toolbar
       tb = UI::Toolbar.new('Interior Pro 2D')
-      # two buttons now: the 2D editor and the sheet window (2026-08-12).
-      return if tb.length >= 2
+      # three buttons now: the 2D editor, the sheet window (2026-08-12) and
+      # Elevations (2026-10-08).
+      return if tb.length >= 3
 
       editor_cmd = UI::Command.new('2D Editor') {
         InteriorPro::PlanEditor.show
@@ -788,6 +789,17 @@ module InteriorPro
       sheet_cmd.small_icon = icon_path('sheet_pdf')
       sheet_cmd.large_icon = icon_path('sheet_pdf')
       tb.add_item(sheet_cmd)
+
+      # Elevations (2026-10-08): four pictures of a room, one per wall, onto
+      # the sheet. At the END of the bar, as the rule says.
+      elev_cmd = UI::Command.new('Elevations') {
+        InteriorPro::ElevationDialog.show
+      }
+      elev_cmd.tooltip = 'Elevations - the four walls of a room onto the sheet'
+      elev_cmd.status_bar_text = 'Pick a room: an elevation of each wall goes onto the sheet'
+      elev_cmd.small_icon = icon_path('elevation')
+      elev_cmd.large_icon = icon_path('elevation')
+      tb.add_item(elev_cmd)
 
       tb.restore
     end
