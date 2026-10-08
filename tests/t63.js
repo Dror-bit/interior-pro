@@ -193,5 +193,40 @@ ok('zooming OUT at a corner: the sheet shrinks towards the mouse', held < 0.2, +
 reset(); wheel(...PLACES['the top left'], -6);
 ok('and out past "fits" nothing happens: ZOOM holds at 1 and the sheet stays where it was', vm.runInContext('ZOOM', sandbox) === 1);
 
+// ------------------------------------------------- all the way out = the whole sheet, in the middle (2026-10-08)
+// His picture: zoomed in at one spot, wheel out at another - the sheet stopped
+// at "fits" with its top off the window and nothing to scroll. "כשאני עושה
+// זום אווט עד הסוף הוא יחזור למרכז את הדף באמצע."
+function centred() {
+  const r = svg.getBoundingClientRect();
+  const dx = (r.left + r.width / 2) - (stage.left + stage.clientWidth / 2);
+  const dy = (r.top + r.height / 2) - (stage.top + stage.clientHeight / 2);
+  return { dx: +dx.toFixed(2), dy: +dy.toFixed(2), whole: r.top >= stage.top - 0.01 && r.bottom <= stage.top + stage.clientHeight + 0.01 && r.left >= stage.left - 0.01 && r.right <= stage.left + stage.clientWidth + 0.01 };
+}
+ok('the window has the switch, and it is on', sandbox.FITCENTRE === true, sandbox.FITCENTRE);
+ok('Ruby owns the switch and sends it with the sheet', /fit_centre: USE_FIT_CENTRE/.test(src) && /USE_FIT_CENTRE = true unless/.test(src));
+reset(); wheel(...PLACES['the top left'], 8);
+const mid = [stage.left + stage.clientWidth - 100, stage.top + stage.clientHeight - 100];   // the wheel at another spot, bottom right
+wheel(mid[0], mid[1], 7);
+ok('(zoomed in at the top left, then in again at the bottom right: the sheet is not centred now)', !centred().whole || Math.abs(centred().dx) > 1, centred());
+wheel(mid[0], mid[1], -15);
+ok('ZOOM is back at "fits"', vm.runInContext('ZOOM', sandbox) === 1, vm.runInContext('ZOOM', sandbox));
+ok('ALL THE WAY OUT: THE WHOLE SHEET IS IN THE WINDOW, IN THE MIDDLE - top and all', centred().whole && Math.abs(centred().dx) < 0.5 && Math.abs(centred().dy) < 0.5, centred());
+ok('the place it was given is taken back (the layout centres it, the way it opens)', !px(wrap.style.marginLeft) && !px(wrap.style.marginTop) && stage.scrollLeft === 0 && stage.scrollTop === 0, [wrap.style, stage.scrollLeft, stage.scrollTop]);
+// one more click out changes nothing
+wheel(mid[0], mid[1], -1);
+ok('and one more click out: still whole, still in the middle', centred().whole && Math.abs(centred().dy) < 0.5, centred());
+// 1.15 in and 1.15 out is "fits" exactly, not a hair over it
+reset(); wheel(...PLACES['the top left'], 1); wheel(...PLACES['the top left'], -1);
+ok('one click in and one out is "fits" exactly - so it centres', vm.runInContext('ZOOM', sandbox) === 1 && centred().whole && Math.abs(centred().dy) < 0.5, [vm.runInContext('ZOOM', sandbox), centred()]);
+// zooming in again from "fits" still goes to the mouse
+reset(); const d1 = drift(...PLACES['the right'], 1);
+ok('zooming in from "fits" still goes to the spot under the mouse', d1 < 0.2, d1);
+// the switch
+sandbox.FITCENTRE = false;
+reset(); wheel(...PLACES['the top left'], 8); wheel(mid[0], mid[1], -8);
+ok('SWITCHED OFF: the sheet shrinks towards the mouse down to "fits" and stays where that leaves it, as before', vm.runInContext('ZOOM', sandbox) === 1 && (!centred().whole || Math.abs(centred().dy) > 1), centred());
+sandbox.FITCENTRE = true;
+
 console.log(fails ? `\n*** ${fails} FAILED ***` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

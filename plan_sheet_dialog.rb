@@ -77,6 +77,12 @@ module InteriorPro
     # shrinking towards the mouse down to "fits" and stays where that leaves
     # it, part of it off the top of the window, as before.
     USE_FIT_CENTRE = true unless const_defined?(:USE_FIT_CENTRE, false)
+    # A new note's words are typed on the sheet, where they will stand - past
+    # the end of the shoulder - and not in a bar at the top (2026-10-08, his
+    # rule: "כל כיתוב... לא יפתח לו קופסא אלא הקופסא תהיה על הכיתוב עצמו";
+    # see noteEditOpen in the page). false = the third click opens the note
+    # bar at the top, as before.
+    USE_NOTE_IN_PLACE = true unless const_defined?(:USE_NOTE_IN_PLACE, false)
     # The VISUALIZE by Dror logo is in the title block of every sheet from the
     # start, from a file that ships with the plugin (2026-10-07, "זה צריך להיות
     # הלוגו של VISUALIZE"); a logo he picks himself still wins. false = a model
@@ -902,6 +908,7 @@ module InteriorPro
           escape_exits: USE_ESCAPE_EXITS,
           note_any: USE_NOTE_ANY_WAY,
           fit_centre: USE_FIT_CENTRE,
+          note_in_place: USE_NOTE_IN_PLACE,
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
@@ -3542,7 +3549,12 @@ module InteriorPro
           //   a box of writing   the editor is the box: as wide, its lines wrap
           //                      the same way, Enter is a new line
           //   a label            one line over the label; Enter keeps, Escape drops
-          var LED=null;        // {kind:'box'} | {kind:'label', hit, m} while the editor is open
+          var LED=null;        // {kind:'box'} | {kind:'label'} | {kind:'note'} while the editor is open
+          // a NEW note being written on the sheet (2026-10-08): where its words
+          // begin on the screen and which way the shoulder runs there
+          var NOTEED=null;     // {ax, ay, sx, sy}
+          var NOTEJUST=0;      // when a new note was just kept - the click that kept it starts nothing
+          var NOTENEW=null;    // the number of the note just made, until the sheet comes back with it
 
           function tbEditEl(){ return $('tbedit'); }
 
@@ -3573,6 +3585,29 @@ module InteriorPro
               ed.style.textDecoration=en.underline ? 'underline' : '';
               ed.style.color=en.color || '';
               ed.className='on';
+              return;
+            }
+            // A NEW note: one line where its words will stand - just past the
+            // end of the shoulder, running the way the shoulder runs, in the
+            // letters a note gets (2026-10-08). Nothing is on the sheet yet
+            // but the dashed leader; the words go onto a mark when he is done.
+            if(LED.kind==='note'){
+              if(!NOTEED||!VIEW||!PAGE){ ed.className=''; return; }
+              var n=NOTEED, hpx=markTextH()*VIEW.sf*VIEW.k, npx=hpx/0.717;
+              var nw=Math.max(npx*14, 160), nh=npx*1.3+4;
+              var nleft = VROT ? (n.ax-nw/2) : (n.sx>0.3 ? n.ax : (n.sx<-0.3 ? n.ax-nw : n.ax-nw/2));
+              ed.style.left=((wr.offsetLeft||0)+nleft).toFixed(1)+'px';
+              ed.style.top=((wr.offsetTop||0)+n.ay-nh/2).toFixed(1)+'px';
+              ed.style.width=nw.toFixed(1)+'px';
+              ed.style.height=nh.toFixed(1)+'px';
+              ed.style.fontSize=npx.toFixed(2)+'px';
+              ed.style.lineHeight=(npx*1.3).toFixed(2)+'px';
+              ed.style.padding='1px 2px';
+              ed.style.textAlign = VROT ? 'center' : (n.sx>0.3 ? 'left' : (n.sx<-0.3 ? 'right' : 'center'));
+              ed.style.fontWeight=''; ed.style.fontStyle=''; ed.style.textDecoration=''; ed.style.color='';
+              ed.style.fontFamily=fontCss('', '');
+              ed.style.transform=VROT ? ('rotate('+(-VROT)+'deg)') : '';
+              ed.className='on one';
               return;
             }
             // A label: one line laid exactly over the label itself - the same
@@ -3614,6 +3649,7 @@ module InteriorPro
             if(kind==='box'){ ed.value=$('tbtext').value; }
             tbEditPlace();
             if(kind==='label') paintTextPick();     // the pick box steps aside: the editor IS the label now
+            if(kind==='note' && ed.value==='' && ed.setSelectionRange){ try { ed.setSelectionRange(0,0); } catch(e){} }
             if(ed.focus) ed.focus();
             if(kind==='box' && ed.setSelectionRange && typeof ed.value==='string'){
               try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch(e){}
@@ -3749,6 +3785,56 @@ module InteriorPro
             ed.value=String($('txwords').value||'');
             if(!ed.value){ ed.value=String(hit.shape.text||''); }
             tbEditShow('label');
+          }
+
+          // A new note (2026-10-08): the third click done, its words are typed
+          // where they will stand - no bar. Enter or a press on the sheet keeps
+          // them (a note is made, exactly as the bar made one); Escape drops
+          // the half-drawn note.
+          function noteEditOpen(){
+            if(!PEND||!PEND2||!PEND3||!VIEW) return false;
+            var sf=scaleFactor(STATE.scale);
+            var e2=noteEnd(PEND2, PEND3);
+            var ux=e2[0]-PEND2[0], uy=e2[1]-PEND2[1], L=Math.sqrt(ux*ux+uy*uy);
+            if(L<1e-9){ ux=1; uy=0; } else { ux/=L; uy/=L; }
+            var off=0.7/(sf||(1/96));
+            var a=screenOf(e2[0]+ux*off*0.12, e2[1]+uy*off*0.12);     // where the words begin, on the screen
+            var b=screenOf(e2[0]+ux*(off*0.12+10), e2[1]+uy*(off*0.12+10));
+            var sx=b[0]-a[0], sy=b[1]-a[1], SL=Math.sqrt(sx*sx+sy*sy);
+            if(SL<1e-9){ sx=1; sy=0; } else { sx/=SL; sy/=SL; }
+            NOTEED={ax:a[0], ay:a[1], sx:sx, sy:sy};
+            var ed=tbEditEl(); if(!ed) return false;
+            hideNoteBar2();
+            ed.value='';
+            tbEditShow('note');
+            return true;
+          }
+          // (the three clicks are kept: hideNoteBar forgets them)
+          function hideNoteBar2(){ $('notebar').className=''; EDIT=null; }
+
+          function noteEditKeep(){
+            if(!LED||LED.kind!=='note') return;
+            var ed=tbEditEl();
+            var t=String(ed.value||'').replace(/\s+/g,' ').trim();
+            var p1=PEND, p2=PEND2, p3=PEND3;
+            tbEditHide(); NOTEED=null;
+            hideNoteBar();                      // and the three clicks are forgotten
+            HOVER=null;
+            NOTEJUST=Date.now();
+            if(t && p1 && p2 && p3){
+              marks().push(noteMark(p1, p2, p3, t, STATE.note_arrow!==false, scaleFactor(STATE.scale)));
+              SEL=marks().length-1;
+              NOTENEW=SEL;                      // its settings go to the side when the sheet comes back
+              push();
+            }
+            render(); showMarks();
+          }
+
+          function noteEditDrop(){
+            if(!LED||LED.kind!=='note') return;
+            tbEditHide(); NOTEED=null;
+            hideNoteBar(); HOVER=null;
+            render(); showMarks();
           }
 
           function labelEditKeep(){
@@ -5273,7 +5359,7 @@ module InteriorPro
             $('textbar').className='';
             TSEL=null;
             var nr=$('txnote'); if(nr && nr.style) nr.style.display='none';
-            if(LED && LED.kind==='label') tbEditHide();
+            if(LED && (LED.kind==='label' || LED.kind==='note')){ tbEditHide(); NOTEED=null; }
             paintTextPick();
           }
 
@@ -5733,6 +5819,7 @@ module InteriorPro
           var ESCEXITS = true;
           var NOTEANY = true;          // told by Ruby: a note's shoulder goes any way
           var FITCENTRE = true;        // told by Ruby: all the way out = the whole sheet, in the middle
+          var NOTEPLACE = true;        // told by Ruby: a new note's words are typed on the sheet, not in a bar
           var NOTE_SNAP_DEG = 12;      // near level or upright, it locks there
           function escapeAll(){
             if(!ESCEXITS){
@@ -5877,6 +5964,8 @@ module InteriorPro
               // are kept, and the press does nothing else.
               if(TBED){ tbSave(); e.preventDefault(); return; }
               if(LED && LED.kind==='label'){ labelEditKeep(); }
+              // a new note half written: this press keeps it, and does nothing else
+              if(LED && LED.kind==='note'){ noteEditKeep(); e.preventDefault(); return; }
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did.
               if(MODE==='hand'&&!e.shiftKey){
@@ -6076,6 +6165,8 @@ module InteriorPro
                 // dragged them where he actually wanted them. Two jobs for one
                 // note, which is the thing he called out.
                 if($('notebar').className==='on') return;   // already typing
+                if(LED && LED.kind==='note') return;           // (typing on the sheet)
+                if(NOTEJUST && Date.now()-NOTEJUST<400) return; // the click that kept the last one
                 if(!PEND){
                   PEND=snapPoint(p); PEND2=null; PEND3=null; HOVER=PEND;
                   render(); showMarks(); return;
@@ -6087,6 +6178,9 @@ module InteriorPro
                 PEND3=p;
                 HOVER=p;
                 render();
+                // the words are typed where they will stand (2026-10-08);
+                // the bar at the top only with the switch off
+                if(NOTEPLACE && noteEditOpen()) return;
                 $('notebar').className='on';
                 $('notetext').value='';
                 paintArrow();
@@ -6467,6 +6561,7 @@ module InteriorPro
             ESCEXITS = (p.escape_exits!==false);
             NOTEANY = (p.note_any!==false);
             FITCENTRE = (p.fit_centre!==false);
+            NOTEPLACE = (p.note_in_place!==false);
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
@@ -6557,7 +6652,12 @@ module InteriorPro
             // with the same key. Point at the new one, or the blue box would
             // stay where the label used to be and the next change would be
             // worked out from a stale size.
-            if(TSEL && TSEL.note!==undefined && TSEL.note!==null){
+            if(NOTENEW!==null){
+              // the note just written on the sheet is here now: it is picked,
+              // and its settings are at the side, the way a press on it does
+              var fresh=noteWords(NOTENEW); NOTENEW=null;
+              if(fresh){ openTextBar(fresh, true); }
+            } else if(TSEL && TSEL.note!==undefined && TSEL.note!==null){
               // a note's words: by the note, since new words make a new key
               var nw=noteWords(TSEL.note);
               if(nw) TSEL=nw; else closeTextBar();
@@ -7329,6 +7429,11 @@ module InteriorPro
               if(LED.kind==='label'){
                 if(e.key==='Enter'){ e.preventDefault(); labelEditKeep(); }
                 else if(e.key==='Escape'){ e.preventDefault(); tbEditHide(); closeTextBar(); render(); showMarks(); }
+                return;
+              }
+              if(LED.kind==='note'){
+                if(e.key==='Enter'){ e.preventDefault(); noteEditKeep(); }
+                else if(e.key==='Escape'){ e.preventDefault(); noteEditDrop(); }
                 return;
               }
               if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); tbSave(); }
