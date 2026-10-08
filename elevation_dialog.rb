@@ -6,6 +6,7 @@
 # room, say how many inches from the wall are seen (empty = the whole room),
 # lines or shaded, and the four elevations land on the Sheet window as
 # picture sheets. It opens whole (fit_height), Escape closes it.
+require 'json'
 module InteriorPro
   module ElevationDialog
     def self.show
@@ -34,11 +35,17 @@ module InteriorPro
         min_width: 320, min_height: 220,
         max_width: 520, max_height: 700
       )
-      dlg.add_action_callback('make_elevations') do |_, idx, cut, style|
+      # idx = the rooms ticked, "0,2,3" (2026-10-08: as many rooms as he wants in one go)
+      # json (2026-10-08): { house: "60", style: "lines", rooms: [{ i: 0, cut: "24", walls: { A: "12" } }] }
+      # - the distance for the whole house, for a room, for one wall; the nearest wins
+      dlg.add_action_callback('make_elevations') do |_, json|
         begin
-          room = @rooms[idx.to_i]
-          raise 'pick a room' unless room
-          paths = InteriorPro::ElevationTool.make!(room, cut: cut.to_f, style: style.to_s)
+          req = JSON.parse(json.to_s)
+          rows = Array(req['rooms'])
+          picked = rows.map { |row| @rooms[row['i'].to_i] }
+          raise 'tick at least one room' if picked.empty? || picked.any?(&:nil?)
+          cuts = rows.map { |row| { 'house' => req['house'], 'room' => row['cut'], 'walls' => (row['walls'].is_a?(Hash) ? row['walls'] : {}) } }
+          paths = InteriorPro::ElevationTool.make_all!(picked, cut: cuts, style: req['style'].to_s)
           dlg.execute_script("done(#{paths.size})")
           InteriorPro::PlanSheetDialog.show unless InteriorPro::PlanSheetDialog.instance_variable_get(:@dialog)
         rescue StandardError => e
@@ -75,8 +82,17 @@ module InteriorPro
 
     def self.build_html(rooms)
       et = InteriorPro::ElevationTool
+      # the rooms with plumbing come first and are ticked; the rest are there to tick
+      wet = et.send(:wet_count, rooms)
       opts = rooms.each_with_index.map do |r, i|
-        "<option value=\"#{i}\">#{et.room_name(r).to_s.gsub('<', '&lt;')}</option>"
+        nm = et.room_name(r).to_s.gsub('<', '&lt;')
+        letters = et.sides(et.room_poly(r)).map(&:name)
+        walls = letters.map { |l| "<label class=\"wl\">#{l}: <input type=\"number\" class=\"wcut\" data-side=\"#{l}\" min=\"1\" step=\"1\" placeholder=\"in\"></label>" }.join
+        "<div class=\"rm\" data-i=\"#{i}\">" \
+        "<label><input type=\"checkbox\" class=\"tick\" value=\"#{i}\"#{i < wet ? ' checked' : ''}> #{nm}</label>" \
+        "<input type=\"number\" class=\"rcut\" min=\"1\" step=\"1\" placeholder=\"in\" title=\"distance for this room (in)\">" \
+        "<button type=\"button\" class=\"fold\" onclick=\"fold(this)\" title=\"one number a wall\">walls</button>" \
+        "<div class=\"walls\">#{walls}</div></div>"
       end.join
       <<~HTML
         <!DOCTYPE html>
@@ -90,6 +106,14 @@ module InteriorPro
           label { flex: 1; }
           select, input[type=number] { width: 130px; padding: 5px 6px; font-size: 13px;
                                border: 1px solid #bbb; border-radius: 4px; }
+          .rooms { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 10px; max-height: 200px; overflow: auto; }
+          .rm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+          .rm > label { flex: 1; }
+          .rm input.rcut { width: 64px; padding: 3px 4px; }
+          .fold { flex: 0; padding: 3px 8px; font-size: 11px; }
+          .walls { display: none; width: 100%; padding-left: 22px; gap: 8px; flex-wrap: wrap; }
+          .walls.open { display: flex; }
+          .wl input { width: 50px; padding: 2px 4px; margin-right: 4px; }
           .btns { display: flex; gap: 8px; margin-top: 16px; }
           button { flex: 1; padding: 9px 0; font-size: 13px; border-radius: 5px;
                    border: 1px solid #888; background: #fff; cursor: pointer; }
@@ -100,25 +124,42 @@ module InteriorPro
           #msg.err { color: #b00; }
         </style></head><body>
         <h3>Elevations</h3>
-        <div class="row"><label>Room</label><select id="room">#{opts}</select></div>
-        <div class="row"><label>Seen from the wall (in)</label>
+        <div class="row"><label>Distance from the wall, all rooms (in)</label>
           <input type="number" id="cut" min="1" step="1" placeholder="whole room"></div>
         <div class="row"><label>Style</label>
-          <select id="style"><option value="lines">Lines</option><option value="shaded">Shaded</option></select></div>
+          <select id="style"><option value="lines">Lines</option><option value="shaded">Colors</option></select></div>
+        <div class="row"><label>Rooms - a distance for the room; "walls" = a distance for one wall</label></div>
+        <div class="rooms" id="rooms">#{opts}</div>
         <div id="msg"></div>
         <div class="btns">
           <button onclick="sketchup.close_dialog()">Close</button>
-          <button class="go" id="go" onclick="go()">Make 4 elevations</button>
+          <button class="go" id="go" onclick="go()">Make elevations</button>
         </div>
         <script>
           function go() {
             var b = document.getElementById('go'); b.disabled = true; b.textContent = 'Working...';
             var m = document.getElementById('msg'); m.className = ''; m.textContent = '';
-            sketchup.make_elevations(document.getElementById('room').value,
-                                     document.getElementById('cut').value || '0',
-                                     document.getElementById('style').value);
+            var rows = [];
+            document.querySelectorAll('#rooms .rm').forEach(function (rm) {
+              if (!rm.querySelector('.tick').checked) return;
+              var walls = {};
+              rm.querySelectorAll('.wcut').forEach(function (w) { if (w.value) walls[w.dataset.side] = w.value; });
+              rows.push({ i: rm.dataset.i, cut: rm.querySelector('.rcut').value, walls: walls });
+            });
+            if (!rows.length) { failed('tick at least one room'); return; }
+            sketchup.make_elevations(JSON.stringify({ house: document.getElementById('cut').value,
+                                                      style: document.getElementById('style').value, rooms: rows }));
           }
-          function reset() { var b = document.getElementById('go'); b.disabled = false; b.textContent = 'Make 4 elevations'; }
+          // a number for the house fills every room; a room's number fills its walls - so he
+          // changes just the one wall that is different (2026-10-08)
+          function fillRooms(v) { document.querySelectorAll('#rooms .rm').forEach(function (rm) { rm.querySelector('.rcut').value = v; fillWalls(rm, v); }); }
+          function fillWalls(rm, v) { rm.querySelectorAll('.wcut').forEach(function (w) { w.value = v; }); }
+          document.getElementById('cut').addEventListener('input', function () { fillRooms(this.value); });
+          document.querySelectorAll('#rooms .rcut').forEach(function (r) {
+            r.addEventListener('input', function () { fillWalls(this.closest('.rm'), this.value); });
+          });
+          function fold(b) { var w = b.parentNode.querySelector('.walls'); w.classList.toggle('open'); ipFitSoon(); }
+          function reset() { var b = document.getElementById('go'); b.disabled = false; b.textContent = 'Make elevations'; }
           function done(n) { reset(); document.getElementById('msg').textContent = n + ' elevations are on the Sheet'; }
           function failed(why) { reset(); var m = document.getElementById('msg'); m.className = 'err'; m.textContent = why; }
           document.addEventListener('keydown', function (e) {

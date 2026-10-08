@@ -1351,7 +1351,8 @@ module InteriorPro
       def extra_state_keys
         # view_box / scale_f: the drawing's box and a size set by hand (2026-10-07).
         # No default on purpose - nil is "the whole sheet, the scale from the list".
-        %w[origin_x origin_y date active zoom view_box scale_f]
+        # image_titles (2026-10-08): a name of its own for a picture, by path - the elevations.
+        %w[origin_x origin_y date active zoom view_box scale_f image_titles]
       end
 
       # -------------------------------------------------- the free geometry
@@ -1994,6 +1995,9 @@ module InteriorPro
             .pg.drag { opacity:.45; }
             .pg.dropb { box-shadow:inset 0 3px 0 #ffd400; }
             .pg.dropa { box-shadow:inset 0 -3px 0 #ffd400; }
+            .thumb.drag { opacity:.45; }
+            .thumb.dropb .sheet { box-shadow:0 -6px 0 #ffd400; }
+            .thumb.dropa .sheet { box-shadow:0 6px 0 #ffd400; }
             .pg b { flex:none; font-weight:600; font-size:11px; opacity:.85;
                     direction:ltr; }
             .pg span { flex:1; overflow:hidden; text-overflow:ellipsis;
@@ -6758,7 +6762,9 @@ module InteriorPro
               var out=skip.indexOf(key)>=0;
               var d=document.createElement('div');
               d.className='thumb'+(i===(STATE.active||0)?' sel':'')+(out?' off':'');
-              d.onclick=function(){ goToPage(i); };
+              d.onclick=function(){ if(PGJUST){ PGJUST=false; return; } goToPage(i); };
+              // the little sheets drag up and down like the rows of the list (2026-10-08)
+              d.onmousedown=function(e){ pageDragStart(e, i, 'strip'); };
               d.innerHTML='<div class="sheet">'+sheetSVG(pg, W/pg.width, false)+'</div>';
               // the tick lives HERE now - next to the picture of the sheet, so
               // he is choosing pages he can see
@@ -6871,24 +6877,29 @@ module InteriorPro
           // the new order (Ruby numbers them - PlanCanvas.page_order). A press
           // that does not move is still a click. Escape drops the drag; Ctrl+Z
           // puts the old order back.
-          function pageDragStart(e, i){
+          // box: 'pages' (the list) or 'strip' (the little sheets, 2026-10-08) - the same drag
+          function pageDragStart(e, i, box){
             if(!PGORDER || e.button!==0) return;
-            if(e.target && e.target.tagName==='BUTTON') return;      // the x
+            if(e.target && (e.target.tagName==='BUTTON' || e.target.tagName==='INPUT')) return;      // the x, the tick
             e.preventDefault();                                     // no text picked while dragging
             $('pages').focus();
-            PGDRAG={from:i, y0:e.clientY, on:false};
+            PGDRAG={from:i, y0:e.clientY, on:false, box:box||'pages'};
+          }
+          function pageDragRows(box){
+            var b=box || (PGDRAG ? PGDRAG.box : 'pages');
+            return $(b).querySelectorAll(b==='strip' ? '.thumb' : '.pg');
           }
           // which gap the mouse is over: 0 = above the first row, n = below the last
           function pageGapAt(y){
-            var rows=$('pages').querySelectorAll('.pg');
+            var rows=pageDragRows();
             for(var k=0;k<rows.length;k++){
               var r=rows[k].getBoundingClientRect();
               if(y<r.top+r.height/2) return k;
             }
             return rows.length;
           }
-          function pageDragPaint(gap){
-            var rows=$('pages').querySelectorAll('.pg');
+          function pageDragPaint(gap, box){
+            var rows=pageDragRows(box);
             for(var k=0;k<rows.length;k++){
               var c=rows[k].className.replace(/ (dropb|dropa|drag)/g,'');
               if(PGDRAG && PGDRAG.on && k===PGDRAG.from) c+=' drag';
@@ -6910,18 +6921,18 @@ module InteriorPro
           }
           function pageDragEnd(e){
             if(!PGDRAG) return false;
-            var d=PGDRAG; PGDRAG=null;
-            if(!d.on) return true;                                  // a plain click
+            var d=PGDRAG;
+            if(!d.on){ PGDRAG=null; return true; }                  // a plain click
             PGJUST=true; setTimeout(function(){ PGJUST=false; }, 0);  // the click the browser sends after
             var gap=pageGapAt(e.clientY);
             var to = gap>d.from ? gap-1 : gap;
-            pageDragPaint(null);
+            PGDRAG=null; pageDragPaint(null, d.box);
             if(to!==d.from) movePage(d.from, to);
             return true;
           }
           function pageDragCancel(){
             if(!PGDRAG) return false;
-            PGDRAG=null; pageDragPaint(null);
+            var b=PGDRAG.box; PGDRAG=null; pageDragPaint(null, b);
             return true;
           }
           // DOC.pages in the order of these keys; the open sheet stays open

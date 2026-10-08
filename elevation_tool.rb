@@ -37,6 +37,13 @@ module InteriorPro
     OUT_DIR = 'InteriorPro_sheet/elevations' unless const_defined?(:OUT_DIR, false)
     TRACE = 'elevation_trace.txt' unless const_defined?(:TRACE, false)
 
+    # Put aside for the shot (2026-10-08, after his Revit page): the floor and the ceiling are a
+    # LINE in an elevation, not a slab seen edge-on, and the roof is not there at all. The walls
+    # stay (cut, dark), and so does whatever hangs in the room - a lamp, a vent, the shower pan.
+    SET_ASIDE = %w[floor floor_pattern floor_patch subfloor underlay foundation ceiling roof dormer
+                   skylight downspout plan2d sketch2d
+                   shower_floor shower_pattern shower_drain shower_curb].freeze unless const_defined?(:SET_ASIDE, false)
+
     Thing = Struct.new(:ent, :xf, :type) unless const_defined?(:Thing, false)
     Side = Struct.new(:name, :a, :b, :len, :inward, :depth) unless const_defined?(:Side, false)
 
@@ -44,10 +51,56 @@ module InteriorPro
       # ---- rooms ---------------------------------------------------------
 
       # every room of ours, also inside a plain group (the house in one group)
+      # the rooms with plumbing or tile in them FIRST (2026-10-08: he made the empty
+      # Room 1 before he found Room 2 in the list), then the rest in model order
       def rooms(model = Sketchup.active_model)
         out = []
         collect(model.entities, nil, 0, out)
-        out.select { |t| t.type == 'room' && room_poly(t) }
+        rs = out.select { |t| t.type == 'room' && room_poly(t) }
+        wet = out.select { |t| WET_TYPES.include?(t.type) }
+        rs.each_with_index.sort_by { |r, i| [holds_wet?(r, wet) ? 0 : 1, i] }.map(&:first)
+      end
+
+      # how many of the (sorted) rooms hold plumbing or tile - they stand first
+      def wet_count(rooms, model = Sketchup.active_model)
+        out = []
+        collect(model.entities, nil, 0, out)
+        wet = out.select { |t| WET_TYPES.include?(t.type) }
+        rooms.count { |r| holds_wet?(r, wet) }
+      end
+
+      WET_TYPES = %w[fixture tile_wall tile_niche shower_floor].freeze unless const_defined?(:WET_TYPES, false)
+
+      # does one of the wet things stand inside this room's outline
+      def holds_wet?(room, wet)
+        poly = room_poly(room)
+        return false unless poly
+        wet.any? do |w|
+          c = world_centre(w)
+          c && inside?(poly, c.x, c.y)
+        end
+      rescue StandardError
+        false
+      end
+
+      # the middle of a thing in the world: its box is given in its container's
+      # coordinates, so only what is OUTSIDE it is applied (as for a room's outline)
+      def world_centre(th)
+        outer = th.xf * th.ent.transformation.inverse
+        th.ent.bounds.center.transform(outer)
+      rescue StandardError
+        nil
+      end
+
+      def inside?(poly, px, py)
+        c = false
+        j = poly.size - 1
+        poly.each_with_index do |p, i|
+          q = poly[j]
+          c = !c if (p.y > py) != (q.y > py) && px < (q.x - p.x) * (py - p.y) / (q.y - p.y) + p.x
+          j = i
+        end
+        c
       end
 
       def collect(ents, outer, depth, out)
@@ -119,9 +172,24 @@ module InteriorPro
           left = Geom::Vector3d.new(-dir.y, dir.x, 0)
           inward = ccw ? left : left.reverse
           depth = poly.map { |p| (p.x - a.x) * inward.x + (p.y - a.y) * inward.y }.max
-          out << Side.new(('A'.ord + out.size).chr, a, b, len, inward, depth)
+          out << Side.new(compass(inward.reverse), a, b, len, inward, depth)
+        end
+        # two walls facing the same way (an L-shaped room): North, North2
+        seen = Hash.new(0)
+        out.each do |sd|
+          seen[sd.name] += 1
+          sd.name = "#{sd.name}#{seen[sd.name]}" if seen[sd.name] > 1
         end
         out
+      end
+
+      # the wall's name is the way it FACES (his rule, 2026-10-08: "קירות לפי כיווני שמיים"):
+      # the north wall of a room is the one you look north at. Green axis = north.
+      def compass(outward)
+        ang = Math.atan2(outward.y, outward.x) * 180.0 / Math::PI
+        ang += 360.0 if ang < 0
+        names = %w[East NorthEast North NorthWest West SouthWest South SouthEast]
+        names[((ang + 22.5) / 45.0).floor % 8]
       end
 
       # Where the camera and the plane stand for one side. cut = inches from
@@ -142,6 +210,10 @@ module InteriorPro
         end
         { eye: eye, target: mid, plane_pt: plane_pt, normal: n.reverse, cut: c,
           height: wall_h + 2 * MARGIN, w_px: w_px, h_px: h_px }
+      end
+
+      def set_aside?(type)
+        SET_ASIDE.include?(type.to_s)
       end
 
       # ---- files -------------------------------------------------------------
@@ -191,8 +263,16 @@ module InteriorPro
         ro = model.rendering_options
         saved = {}
         RENDER_KEYS.each { |k| saved[k] = ro[k] }
+        hidden = []
         model.start_operation('Elevations', true)
         begin
+          all = []
+          collect(model.entities, nil, 0, all)
+          all.each do |t|
+            next unless set_aside?(t.type) && t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+            t.ent.hidden = true
+            hidden << t.ent
+          end
           ro['DrawHorizon'] = false
           ro['DrawGround'] = false
           ro['BackgroundColor'] = Sketchup::Color.new(255, 255, 255)
@@ -204,9 +284,18 @@ module InteriorPro
           ro['DisplaySketchAxes'] = false
           ro['RenderMode'] = (style == 'shaded' ? 3 : 1)
           sides(poly).each do |side|
-            s = shot(side, wall_h, cut, base_z)
+            s = shot(side, wall_h, cut_for(cut, side.name), base_z)
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
             sp.activate
+            # the floor and the ceiling as one straight line each, whatever stands at the foot
+            # of the wall (12:12 - "אני רוצה שזה יהיה קו ישר"): two edges half an inch into
+            # the room, from corner to corner, that go with the aborted operation
+            n = side.inward
+            [base_z, base_z + wall_h].each do |z|
+              pa = Geom::Point3d.new(side.a.x + n.x * 0.5, side.a.y + n.y * 0.5, z)
+              pb = Geom::Point3d.new(side.b.x + n.x * 0.5, side.b.y + n.y * 0.5, z)
+              model.entities.add_line(pa, pb)
+            end
             cam = Sketchup::Camera.new(s[:eye], s[:target], Geom::Vector3d.new(0, 0, 1), false)
             cam.height = s[:height]
             view.camera = cam
@@ -219,6 +308,7 @@ module InteriorPro
             paths << path if ok
           end
         ensure
+          hidden.each { |e| e.hidden = false if e.valid? }
           model.abort_operation
           saved.each { |k, v| ro[k] = v unless v.nil? }
           begin
@@ -237,13 +327,17 @@ module InteriorPro
       # Each picture becomes a picture sheet of its own in the Sheet window,
       # exactly as a dropped render does (st['images']). If the window is open
       # it is told to draw again.
-      def add_to_sheet!(paths)
+      # titles: path => the name the sheet carries ("Room 2 - A"); st['image_titles']
+      def add_to_sheet!(paths, titles = {})
         return 0 if paths.empty?
         psd = InteriorPro::PlanSheetDialog
         st = psd.load_state
         have = Array(st['images']).map { |p| p.to_s.tr('\\', '/') }
         fresh = paths.map { |p| p.to_s.tr('\\', '/') }
         st['images'] = have.reject { |p| fresh.include?(p) } + fresh
+        tt = st['image_titles'].is_a?(Hash) ? st['image_titles'] : {}
+        titles.each { |p, t| tt[p.to_s.tr('\\', '/')] = t.to_s }
+        st['image_titles'] = tt.select { |p, _| st['images'].include?(p) }
         psd.save_state(st)
         begin
           dlg = psd.instance_variable_get(:@dialog)
@@ -260,9 +354,40 @@ module InteriorPro
       # the whole job from the panel: shoot, then onto the sheet
       def make!(room, cut: nil, style: 'lines')
         paths = shoot!(room, cut: cut, style: style)
-        n = add_to_sheet!(paths)
+        n = add_to_sheet!(paths, titles_for(room, paths))
         trace("#{room_name(room)}: #{paths.size} pictures, #{n} onto the sheet")
         paths
+      end
+
+      # several rooms in one go (2026-10-08): every picture of every room, in order
+      # cuts (2026-10-08, his rule: "מרחק לכל הבית, לכל חדר, ולכל קיר"): one number for
+      # all, or a Hash { 'house' => 60, 'room' => 24, 'walls' => { 'A' => 12 } } -
+      # the wall's own number wins, then the room's, then the house's; nothing = the whole room.
+      def cut_for(cut, side_name)
+        return cut unless cut.is_a?(Hash)
+        w = cut['walls'].is_a?(Hash) ? cut['walls'][side_name.to_s] : nil
+        [w, cut['room'], cut['house']].each do |v|
+          f = v.to_s.strip.empty? ? 0.0 : v.to_f
+          return f if f > 0
+        end
+        nil
+      end
+
+      # rooms: the Things; cuts: one number for all, or an Array of Hashes, one a room
+      def make_all!(rooms, cut: nil, style: 'lines')
+        rooms.each_with_index.flat_map do |r, i|
+          c = cut.is_a?(Array) ? cut[i] : cut
+          make!(r, cut: c, style: style)
+        end
+      end
+
+      # "Room 2 - A" from the file name's side letter
+      def titles_for(room, paths)
+        name = room_name(room)
+        paths.each_with_object({}) do |p, h|
+          side = File.basename(p, '.png')[/_([A-Za-z]+\d*)_[a-z]+\z/, 1] || '?'
+          h[p] = "#{name} - #{side}"
+        end
       end
 
       def trace(line)

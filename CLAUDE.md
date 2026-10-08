@@ -513,7 +513,12 @@ its ends run into, and is it cut to end exactly there?
 - מה שנעשה למילים של הערה (גודל, bold, כתב, הזזה) — **הקופסה והקו עוקבים** (`PlanCanvas.fit_notes!`, `USE_NOTE_FIT`).
 - כלי חדש שמוסיף כיתוב — עובר דרך אותם מסלולים. פס משלו = הפרת החוק.
 
-## הצעד הנוכחי (2026-10-08 09:45): הרשימה שלו מ-20:44 נסגרה כולה + שלב 4 של הקופסה; הוא ביקש צ'אט חדש
+## הצעד הנוכחי (2026-10-08 12:20): Elevations — נבנה ואושר; נעצר על "קו הרצפה — זה לא עובד" (לא נמדד); הוא ביקש צ'אט חדש
+הכל ב-`HANDOFF_2026-10-08B.md`. המודל שלו היום: **claud cold.skp** (Room 2 = מקלחת). **360 PASS**. **ה-commit של הסבב השני לא רץ** — פקודה ב-HANDOFF.
+**ראשון בצ'אט הבא:** לקרוא, לדווח במשפט, לחכות ל"תתחיל"; ואז להעתיק את התמונות (`elev_copy`) ולהסתכל על `Room_2_North_lines.png` לפני כל שינוי.
+השלבים הבאים (שלו): מידות אוטומטיות, שכבות, אסתטיקה, הערות — ב-HANDOFF.
+
+## (קודם) (2026-10-08 09:45): הרשימה שלו מ-20:44 נסגרה כולה + שלב 4 של הקופסה; הוא ביקש צ'אט חדש
 הכל ב-`HANDOFF_2026-10-08.md` (סעיפים 34–42). **358 PASS**. הבא: לשאול אותו מה הלאה (הרשימה שלו נגמרה).
 **בתחילת הצ'אט: לקרוא, לדווח במשפט, ולחכות ל"תתחיל".**
 
@@ -819,6 +824,13 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 חוזר ריק אחרי שסוגרים אותו בקוד.
 
 ## Kill switches (turn a feature off without deleting it)
+
+Elevations, 2026-10-08:
+- `InteriorPro::ElevationTool::USE_ELEVATIONS = false` - the Elevations button says it is switched off and takes no picture
+  (`tests/rt284.rb`). On: a parallel camera inside the room and a section plane `cut` inches from each wall; one PNG a wall
+  (hidden line or colours) beside the model, each one a picture sheet named "Room - North" in the Sheet window
+  (`st['image_titles']`). Floors, ceilings, roofs and the shower pan are hidden for the shot (`SET_ASIDE`); two drawn lines
+  stand for the floor and the ceiling.
 
 Sheet window, 2026-10-08:
 - `InteriorPro::PlanSheetDialog::USE_NOTE_ANY_WAY = false` - a note's shoulder is level with the knee again, as before

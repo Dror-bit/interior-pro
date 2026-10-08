@@ -68,13 +68,18 @@ ok('the outline is read in the world, not shifted by the group again',
 ok('the height comes from the bounding wall', ET.room_height(rooms[0], model) == 96.0)
 
 sides = ET.sides(poly)
-ok('four sides, A to D', sides.map(&:name) == %w[A B C D], sides.map(&:name))
+ok('four sides, named the way they face: East North West South', sides.map(&:name) == %w[East North West South], sides.map(&:name))
 a = sides[0]
-ok('side A is the 70.1" east wall', (a.len - 70.1).abs < 0.05, a.len)
-ok('side A looks INTO the room (west)', a.inward.x < -0.99 && a.inward.y.abs < 0.01, a.inward.to_a)
-ok('the room is 87.1" deep behind side A', (a.depth - 87.1).abs < 0.05, a.depth)
+ok('the East wall is 70.1"', (a.len - 70.1).abs < 0.05, a.len)
+ok('looking at the East wall = looking east, in is west', a.inward.x < -0.99 && a.inward.y.abs < 0.01, a.inward.to_a)
+ok('the room is 87.1" deep behind the East wall', (a.depth - 87.1).abs < 0.05, a.depth)
+ok('a wall facing north-east is NorthEast; one 10 degrees off east is East',
+   ET.compass(Geom::Vector3d.new(1, 1, 0)) == 'NorthEast' && ET.compass(Geom::Vector3d.new(0.985, 0.174, 0)) == 'East')
+lpoly = [[0, 0], [100, 0], [100, 50], [60, 50], [60, 100], [0, 100]].map { |x, y| Geom::Point3d.new(x, y, 0) }
+ok('an L-shaped room: the two walls that face the same way are numbered',
+   ET.sides(lpoly).map(&:name) == %w[South East North East2 North2 West], ET.sides(lpoly).map(&:name))
 b = sides[1]
-ok('side B is the 87.1" north wall, in = south', (b.len - 87.1).abs < 0.05 && b.inward.y < -0.99, [b.len, b.inward.to_a])
+ok('the North wall is 87.1", in = south', (b.len - 87.1).abs < 0.05 && b.inward.y < -0.99, [b.len, b.inward.to_a])
 
 # the shot: whole room = plane half an inch inside the far wall, eye half an inch before it
 s = ET.shot(a, 96.0, nil, 0.25)
@@ -88,7 +93,7 @@ s24 = ET.shot(a, 96.0, 24.0, 0.25)
 ok('24" asked = 24" cut', s24[:cut] == 24.0 && (s24[:plane_pt].x - -467.0).abs < 0.01, [s24[:cut], s24[:plane_pt].x])
 sbig = ET.shot(a, 96.0, 500.0, 0.25)
 ok('more than the room = the whole room', (sbig[:cut] - 86.6).abs < 0.05, sbig[:cut])
-wide = ET::Side.new('A', Geom::Point3d.new(0, 0, 0), Geom::Point3d.new(600, 0, 0), 600.0, Geom::Vector3d.new(0, 1, 0), 200.0)
+wide = ET::Side.new('North', Geom::Point3d.new(0, 0, 0), Geom::Point3d.new(600, 0, 0), 600.0, Geom::Vector3d.new(0, 1, 0), 200.0)
 sw = ET.shot(wide, 96.0, nil, 0)
 ok('a 50 ft wall is capped at MAX_PX wide and keeps its shape', sw[:w_px] == ET::MAX_PX && (sw[:h_px] - ET::MAX_PX * 120.0 / 624.0).abs < 1, [sw[:w_px], sw[:h_px]])
 
@@ -113,5 +118,73 @@ ok('nothing to add = nothing changed', ET.add_to_sheet!([]) == 0)
 model.path = 'C:/jobs/6 Bronco/6 Bronco Ln.skp'
 ok('pictures go to <model folder>/InteriorPro_sheet/elevations', ET.out_dir(model) == 'C:/jobs/6 Bronco/InteriorPro_sheet/elevations', ET.out_dir(model))
 
+# ---- several rooms, the wet one first, each sheet named (2026-10-08, 11:38)
+dry = house.entities.add_group
+dry.set_attribute('InteriorPro', 'type', 'room')
+dry.set_attribute('InteriorPro', 'name', 'Hall')
+dry.set_attribute('InteriorPro', 'boundary_xy', [0.0, 0.0, 100.0, 0.0, 100.0, 80.0, 0.0, 80.0])
+# a shower floor standing in Bath 1: a group whose body sits at the room's middle
+fx = house.entities.add_group
+fx.set_attribute('InteriorPro', 'type', 'shower_floor')
+# the real API answers bounds in the parent's coordinates; the stub's box is empty,
+# so the body is said to stand at the room's middle
+def fx.bounds; Sketchup::BBox.new(Geom::Point3d.new(-486.0, 367.0, 9.0)); end
+rooms = ET.rooms(model)
+ok('the room with plumbing stands first in the list', rooms.map { |r| ET.room_name(r) } == ['Bath 1', 'Hall'], rooms.map { |r| ET.room_name(r) })
+ok('wet_count says how many are ticked by default', ET.wet_count(rooms, model) == 1, ET.wet_count(rooms, model))
+titles = ET.titles_for(rooms[0], ['/e/Bath_1_North_lines.png', '/e/Bath_1_North2_lines.png'])
+ok('a sheet is named room - side', titles == { '/e/Bath_1_North_lines.png' => 'Bath 1 - North', '/e/Bath_1_North2_lines.png' => 'Bath 1 - North2' }, titles)
+ET.add_to_sheet!(['/e/Bath_1_North_lines.png', '/e/Bath_1_North2_lines.png'], titles)
+st = psd.load_state
+ok('the names survive save_state', st['image_titles'] == titles, st['image_titles'])
+st['images'] = st['images'] - ['/e/Bath_1_North2_lines.png']
+psd.save_state(st)
+ET.add_to_sheet!(['/e/Hall_North_lines.png'], { '/e/Hall_North_lines.png' => 'Hall - North' })
+st = psd.load_state
+ok('a picture that left takes its name with it', st['image_titles'].keys.sort == ['/e/Bath_1_North_lines.png', '/e/Hall_North_lines.png'], st['image_titles'].keys)
+# the sheet carries the name: plan_canvas names the page and the title block by it
+st = psd.load_state
+st['images'] = ['/renders/old.png', '/e/Bath_1_A_lines.png']
+st['image_titles'] = { '/e/Bath_1_A_lines.png' => 'Bath 1 - A' }
+psd.save_state(st)
+psd.instance_variable_set(:@doc, nil)
+doc = psd.document
+imgs = doc.pages.select { |pg| pg.kind == 'image' }
+ok('the render keeps RENDERING 1, the elevation sheet is Bath 1 - A', imgs.map(&:name) == ['RENDERING 1', 'Bath 1 - A'], imgs.map(&:name))
+ok('the title block of that sheet says Bath 1 - A', imgs[1].layers.any? { |l| l.shapes.any? { |sh| sh.inspect.include?('Bath 1 - A') } })
+ok('and not RENDERING', imgs[1].layers.none? { |l| l.shapes.any? { |sh| sh.inspect.include?('RENDERING') } })
+# several rooms in one go: make_all! walks them in order (the shot is stubbed here)
+class << ET
+  alias_method :real_shoot!, :shoot!
+  def shoot!(room, cut: nil, style: 'lines', model: nil)
+    ['A', 'B'].map { |sd| "/e/#{slug(room_name(room))}_#{sd}_#{style}.png" }
+  end
+end
+got = ET.make_all!(rooms, cut: 24, style: 'lines')
+ok('two rooms = four pictures, the wet room first', got == %w[/e/Bath_1_A_lines.png /e/Bath_1_B_lines.png /e/Hall_A_lines.png /e/Hall_B_lines.png], got)
+st = psd.load_state
+ok('all four are on the sheet with their names', st['image_titles']['/e/Hall_B_lines.png'] == 'Hall - B' && st['images'].last == '/e/Hall_B_lines.png', st['image_titles'])
+
+# ---- the distance: one for the house, one for a room, one for a wall (2026-10-08, 11:59)
+h = { 'house' => '60', 'room' => '', 'walls' => { 'A' => '12' } }
+ok('the wall\'s own number wins', ET.cut_for(h, 'A') == 12.0, ET.cut_for(h, 'A'))
+ok('no number for the wall = the room\'s, none = the house\'s', ET.cut_for(h, 'B') == 60.0, ET.cut_for(h, 'B'))
+ok('the room\'s number beats the house\'s', ET.cut_for({ 'house' => '60', 'room' => '24' }, 'B') == 24.0)
+ok('nothing anywhere = the whole room (nil)', ET.cut_for({ 'house' => '', 'room' => nil }, 'A').nil?)
+ok('a plain number still works', ET.cut_for(24, 'A') == 24)
+seen = []
+class << ET
+  def shoot!(room, cut: nil, style: 'lines', model: nil)
+    $seen_cuts << [room_name(room), cut]
+    ["/e/#{slug(room_name(room))}_A_#{style}.png"]
+  end
+end
+$seen_cuts = []
+ET.make_all!(rooms, cut: [{ 'house' => '60', 'room' => '24' }, { 'house' => '60' }], style: 'lines')
+ok('each room gets its own cuts, in order', $seen_cuts == [['Bath 1', { 'house' => '60', 'room' => '24' }], ['Hall', { 'house' => '60' }]], $seen_cuts)
+
+# the floor, the ceiling and the roof are put aside for the shot - a line, not a slab (12:08)
+ok('floor, ceiling, roof are set aside', %w[floor floor_pattern ceiling roof foundation shower_floor shower_pattern shower_curb].all? { |t| ET.set_aside?(t) })
+ok('walls, tile, plumbing, the shower pan, doors and windows stay', %w[wall tile_wall tile_niche fixture door window room].none? { |t| ET.set_aside?(t) })
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

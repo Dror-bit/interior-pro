@@ -214,5 +214,34 @@ open({ page_order: false });
 press(3); move(40); move(5); up(5);
 ok("SWITCHED OFF (page_order): dragging a row does nothing", JSON.stringify(keysNow()) === '["plan","image:0","image:1","image:2"]' && msgs("set_state").length === 0);
 
+// ---- the little sheets at the side drag too (2026-10-08) ----------------
+// He asked for the order from the pictures as well: "שגם הם יהיו ניתנות לגרירה".
+{ const sp = el("strip"); let h = ""; Object.defineProperty(sp, "innerHTML", { get() { return h; }, set(v) { h = v; if (v === "") sp.children = []; } }); }
+const thumbs = () => (el("strip").children || []).filter(c => /(^| )thumb( |$)/.test(c.className));
+el("strip").querySelectorAll = sel => sel === ".thumb" ? thumbs().map((r, i) => { r.getBoundingClientRect = () => ({ top: i * 20, height: 20, left: 0, width: 150 }); return r; }) : [];
+el("strip").querySelector = () => null;
+open();
+el("strip").className = "on";
+api.call("paintStrip");
+ok("the strip shows the four sheets", thumbs().length === 4, thumbs().length);
+ok("a little sheet is a handle", typeof thumbs()[3].onmousedown === "function");
+thumbs()[3].onmousedown(ev(70)); move(40); move(5);
+ok("WHILE DRAGGING A LITTLE SHEET: it is faded, a yellow line over the first; nothing sent yet",
+   /drag/.test(thumbs()[3].className) && /dropb/.test(thumbs()[0].className) && msgs("set_state").length === 0, thumbs().map(r => r.className));
+up(5);
+ok("LET GO AT THE TOP OF THE STRIP: that sheet is first - the list, the strip and the state agree",
+   JSON.stringify(keysNow()) === '["image:2","plan","image:0","image:1"]' && JSON.stringify(ST().page_order) === '["image:2","plan","image:0","image:1"]' &&
+   thumbs().length === 4 && thumbs().every(r => !/drop|drag/.test(r.className)), [keysNow(), thumbs().map(r => r.className)]);
+ok("the sheet he had open is still the open one", api.get("DOC").pages[ST().active].kind === "plan", ST().active);
+ok("one step for Ctrl+Z", api.get("UNDO").length === 1);
+thumbs()[1].onclick();
+ok("the click the browser sends after the drag is not a click on a sheet", api.get("DOC").pages[ST().active].kind === "plan", ST().active);
+thumbs()[1].onmousedown(ev(30, { target: { tagName: "INPUT", id: "" } })); move(5); up(5);
+ok("A PRESS ON THE TICK does not drag", api.get("PGDRAG") === null && JSON.stringify(keysNow()) === '["image:2","plan","image:0","image:1"]');
+thumbs()[2].onmousedown(ev(50)); move(20); key("Escape");
+ok("ESCAPE MID-DRAG on the strip: dropped, no line left", api.get("PGDRAG") === null && thumbs().every(r => !/drop|drag/.test(r.className)), thumbs().map(r => r.className));
+up(5);
+ok("and letting go after it changes nothing", JSON.stringify(keysNow()) === '["image:2","plan","image:0","image:1"]');
+
 console.log(fails ? "\n*** " + fails + " FAILED ***" : "\nALL PASS");
 process.exit(fails ? 1 : 0);

@@ -500,13 +500,19 @@ module InteriorPro
       # One picture, one sheet, in the order the user put them in. Renders come
       # after the drawings, so A-101 stays the floor plan whatever he adds.
       img_title = st['image_title'].to_s.empty? ? 'RENDERING' : st['image_title'].to_s
+      # a picture with a name of its own (2026-10-08, the elevations: "Room 2 - A"):
+      # st['image_titles'] by path. Named that way it is not numbered.
+      own_titles = st['image_titles'].is_a?(Hash) ? st['image_titles'] : {}
       Array(st['images']).each_with_index do |path, i|
         next if path.to_s.empty?
         last = nums["image:#{i}"] || (taken ? next_sheet_number(last) : num)
         taken = true
-        pg = pd.new_image_sheet(doc, "#{img_title} #{img_n["image:#{i}"] || i + 1}", path,
+        own = own_titles[path.to_s].to_s
+        t_sheet = own.empty? ? img_title : own
+        t_page = own.empty? ? "#{img_title} #{img_n["image:#{i}"] || i + 1}" : own
+        pg = pd.new_image_sheet(doc, t_page, path,
                                 size: size, orientation: orient,
-                                sheet_number: last, sheet_title: img_title)
+                                sheet_number: last, sheet_title: t_sheet)
         pg.kind = 'image'
         pg.ref  = i                 # which picture in the user's list this is
         pg.sheet_number = last
