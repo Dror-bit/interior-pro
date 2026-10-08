@@ -35,6 +35,8 @@ not on his machine.
 | pictest.js    | pictures in boxes of their own, with real picture files: pick, drag, corner, cut, turn, Escape, Ctrl+Z, the picture sheet; ms per step; writes the state it ends on. Needs a payload Ruby laid out with pictures in it (gen_box.rb, STATE_JSON naming files) and a folder with the same files |
 | gen_box.rb    | (runs on his machine, in a copy) his real plan in a box (and turned): the payload for the window and the PDF Ruby prints. STATE_JSON=file lays a state the window saved over it, OUT_NAME=crop names the files, ALL_PAGES=1 prints every sheet |
 | shot.js       | screenshots (fit and zoomed) to compare pixel for pixel before/after  |
+| dbltest.js    | two quick presses on a dimension's number (hand-drawn: number and line; a wall's): the words open over it, typing, Enter, Escape, Ctrl+Z, slow presses, one press; the view does not move. `node dbltest.js sheet.html perf_payload_dbl.json text_rules.json` - a payload from gen_box.rb, and PlanCanvas.text_rules as JSON. On the window before 2026-10-07 18:10 it fails: the browser sends no double click at all |
+| edpos.js      | where the words of a number open against the number itself: the angle of both and how far apart their middles are, strip on and off, on every payload given. `node edpos.js sheet.html text_rules.json payload...` - give it one with a TURNED drawing and picture sheets (gen_box.rb 90 with STATE_JSON naming pictures): that is his window |
 
 `window.sketchup` is a stand-in in every script: Ruby's answers are played back
 by hand where a script needs them. So these prove the WINDOW; Ruby's side is

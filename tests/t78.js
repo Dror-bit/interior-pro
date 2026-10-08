@@ -255,7 +255,12 @@ const lab = api.call("dimLabelXY", ST().marks[0]);
 dbl(lab[0], lab[1]);
 ok("TWO CLICKS ON A LABEL: one line typed over it, with its words", edOn() && ed().className === "on one" && ed().value === "8'-4\"" && api.get("TSEL") && api.get("TSEL").dim === 0, [ed().className, ed().value]);
 const lb = api.call("textBox", api.get("TSEL").shape, false);
-ok("over the label: its place, the letters its size", near(parseFloat(ed().style.left), wrapL() + lb.x - 2, 0.06) && near(parseFloat(ed().style.fontSize), lb.h / 0.717, 0.01), [ed().style.left, lb, ed().style.fontSize]);
+// 2026-10-07: "שהכיתוב ייפתח באותה הקופסה של הכיתוב עצמו ולא בקופסה נפרדת" - the editor has the label's own middle
+const lfp = lb.h / 0.717, lew = Math.max(lb.w + 4, lfp * 6, 60), leh = lfp * 1.3 + 4;
+ok("over the label ITSELF: the same middle, not a box beside it; the letters its size, centred",
+   near(parseFloat(ed().style.left) + lew / 2, wrapL() + lb.x + lb.w / 2, 0.06) && near(parseFloat(ed().style.top) + leh / 2, wrapT() + lb.y + lb.h / 2, 0.06) &&
+   near(parseFloat(ed().style.width), lew, 0.06) && ed().style.textAlign === "center" && near(parseFloat(ed().style.fontSize), lfp, 0.01),
+   [ed().style.left, ed().style.top, ed().style.width, ed().style.textAlign, lb, ed().style.fontSize]);
 ok("and the settings of that label are in the side panel at the same time", el("textbar").className === "on");
 ed().value = "8'-4\" V.I.F."; keyOn("Enter");
 m = states();
@@ -275,6 +280,48 @@ ok("a press on the sheet while typing over a label keeps what is there (its own 
 { const s = sheet(); s.text_words = false; api.call("loadSheet", s); api.call("setMode", "hand"); }
 dbl(0, 0);
 ok("SWITCHED OFF (text_words): two clicks open the panel the old way, nothing on the sheet", !edOn() && el("textbar").className === "on");
+
+// ================================================================ 3. two quick presses (2026-10-07)
+// "לחיצה כפולה על מספר של מידה לא פותחת עריכה אצלי." In a real browser the first press draws the sheet again, the
+// element that was pressed is gone, and the browser sends no click and no double click (tests/browser/dbltest.js).
+// So the window counts the presses itself. Driven here through onmousedown and the mouse-up only - never ondblclick.
+["labelUnder", "pressName", "pressTwice"].forEach(fn => ok("it defines " + fn, typeof safe(fn) === "function"));
+open();
+{ const lp = api.call("dimLabelXY", ST().marks[0]), c = api.call("screenOf", lp[0], lp[1]), m0 = JSON.stringify(ST().marks[0]);
+  down(c[0], c[1]); up(c[0], c[1]);
+  ok("one press on a hand dimension's number picks it up, as before", !!api.get("CARRY") && !edOn());
+  down(c[0], c[1]); up(c[0], c[1]);
+  ok("TWO QUICK PRESSES on it, with no double click from the browser: its words open over it",
+     edOn() && ed().className === "on one" && ed().value === "8'-4\"" && !!api.get("TSEL") && api.get("TSEL").dim === 0, [ed().className, ed().value]);
+  ok("nothing is carried, and the dimension did not move", !api.get("CARRY") && JSON.stringify(ST().marks[0]) === m0, ST().marks[0]);
+  svg().ondblclick(ev(c[0], c[1]));
+  ok("the browser's own double click, if it does come late, changes nothing", edOn() && ed().value === "8'-4\"");
+  ed().value = "TWICE"; keyOn("Enter");
+  ok("Enter keeps the words on the mark", ST().marks[0].label === "TWICE" && !edOn(), ST().marks[0]); }
+open();
+{ const lp = api.call("dimLabelXY", ST().marks[0]), c = api.call("screenOf", lp[0], lp[1]), real = Date.now; let t = real();
+  Date.now = () => t; down(c[0], c[1]); up(c[0], c[1]); t += 700; down(c[0], c[1]); up(c[0], c[1]); Date.now = real;
+  ok("two SLOW presses (700 ms apart): picked up and put down, nothing opens", !edOn() && !api.get("CARRY")); }
+open();
+{ const c = api.call("screenOf", 0, 0);
+  down(c[0], c[1]); up(c[0], c[1]); down(c[0], c[1]); up(c[0], c[1]);
+  ok("two quick presses on the plugin's own label: its words open, and it is not carried",
+     edOn() && ed().value === "ROOM 2" && api.get("TSEL").key === "ROOMS|ROOM 2|1" && !api.get("TCARRY"), [ed().className, ed().value]);
+  keyOn("Escape"); }
+open();
+{ const a = api.call("screenOf", 0, 0), lp = api.call("dimLabelXY", ST().marks[0]), b = api.call("screenOf", lp[0], lp[1]);
+  down(a[0], a[1]); up(a[0], a[1]); down(b[0], b[1]); up(b[0], b[1]);
+  ok("a quick press on one thing and then on another is not two presses on one thing", !edOn()); }
+// A turned drawing with the page strip on (his window, 2026-10-07): the little sheets are drawn after the big one, a
+// picture sheet has no turn, and it left 0 behind - the words opened a quarter turn off the number (tests/browser/edpos.js).
+{ const s = sheet(); s.state.rotation = 90; s.state.strip = true; s.rotate = true;
+  s.doc.pages.push({ name: "RENDERING 1", width: 36, height: 24, kind: "image", ref: 0, sheet_number: "A-102", layers: [] });
+  api.call("loadSheet", s); api.call("setMode", "hand");
+  ok("A TURNED DRAWING, THE PAGE STRIP ON, A PICTURE SHEET LAST: the little sheets do not leave their own turn behind",
+     el("strip").className === "on" && api.get("VROT") === 90, [el("strip").className, api.get("VROT")]);
+  const lp = api.call("dimLabelXY", ST().marks[0]), c = api.call("screenOf", lp[0], lp[1]);
+  down(c[0], c[1]); up(c[0], c[1]); down(c[0], c[1]); up(c[0], c[1]);
+  ok("so the words open at the number's own turn", edOn() && ed().style.transform === "rotate(" + (-((api.get("TSEL").shape.rotation || 0) + 90)) + "deg)", ed().style.transform); }
 
 console.log(fails ? "\n*** " + fails + " FAILED ***" : "\nALL PASS");
 process.exit(fails ? 1 : 0);

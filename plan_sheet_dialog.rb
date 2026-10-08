@@ -3202,16 +3202,30 @@ module InteriorPro
               ed.style.lineHeight=(TXR.lead*fs).toFixed(2)+'px';
               ed.style.padding=pad.toFixed(2)+'px';
               ed.style.transform=en.rot ? ('rotate('+(-en.rot)+'deg)') : '';
+              ed.style.textAlign='';
               ed.className='on';
               return;
             }
-            // a label: one line over it
+            // A label: one line laid exactly over the label itself - the same
+            // middle, the same turn, the same size of letters - so the words
+            // are typed where they stand, not in a box beside them
+            // (2026-10-07, "שהכיתוב ייפתח באותה הקופסה של הכיתוב עצמו ולא
+            // בקופסה נפרדת").
             if(!TSEL||!VIEW||!PAGE){ ed.className=''; return; }
             var b=textBox(TSEL.shape, TSEL.paper), fpx=b.h/0.717;
-            ed.style.left=((wr.offsetLeft||0)+b.x-2).toFixed(1)+'px';
-            ed.style.top=((wr.offsetTop||0)+b.y-(fpx-b.h)/2-2).toFixed(1)+'px';
-            ed.style.width=Math.max(b.w+4, fpx*6, 60).toFixed(1)+'px';
-            ed.style.height=(fpx*1.3+4).toFixed(1)+'px';
+            var ew=Math.max(b.w+4, fpx*6, 60), eh=fpx*1.3+4;
+            if(TSEL.paper){
+              // writing put straight on the sheet starts at its left end
+              ed.style.left=((wr.offsetLeft||0)+b.x-2).toFixed(1)+'px';
+              ed.style.textAlign='left';
+            } else {
+              // writing on the plan is centred on its point, and so is this
+              ed.style.left=((wr.offsetLeft||0)+b.x+b.w/2-ew/2).toFixed(1)+'px';
+              ed.style.textAlign='center';
+            }
+            ed.style.top=((wr.offsetTop||0)+b.y+b.h/2-eh/2).toFixed(1)+'px';
+            ed.style.width=ew.toFixed(1)+'px';
+            ed.style.height=eh.toFixed(1)+'px';
             ed.style.fontSize=fpx.toFixed(2)+'px';
             ed.style.lineHeight=(fpx*1.3).toFixed(2)+'px';
             ed.style.padding='1px 2px';
@@ -3225,6 +3239,7 @@ module InteriorPro
             LED={kind:kind};
             if(kind==='box'){ ed.value=$('tbtext').value; }
             tbEditPlace();
+            if(kind==='label') paintTextPick();     // the pick box steps aside: the editor IS the label now
             if(ed.focus) ed.focus();
             if(kind==='box' && ed.setSelectionRange && typeof ed.value==='string'){
               try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch(e){}
@@ -3240,6 +3255,70 @@ module InteriorPro
           function tbEditInput(){
             var ed=tbEditEl(); if(!ed||!LED) return;
             if(LED.kind==='box'){ $('tbtext').value=ed.value; tbLive(); tbEditPlace(); }
+          }
+
+          // ---- two presses on a number (2026-10-07) -------------------------
+          //
+          // "לחיצה כפולה על מספר של מידה לא פותחת עריכה." Measured in a real
+          // browser (tests/browser/dbltest.js): the first press picks the
+          // dimension and draws the sheet again, the element that was pressed
+          // is gone, and the browser sends no click and no double click at
+          // all. So two quick presses on the same number are counted HERE,
+          // the way TBLAST counts them for a box of writing, and the second
+          // one opens the words. A note is left to the browser's own double
+          // click, as it always was.
+          var LBLAST=null;     // the last press on a dimension or a label: {id, t, x, y}
+          var LBDONE=0;        // when two presses last opened a label
+
+          // The label two clicks at the mouse open: any writing with a key,
+          // and for a hand dimension its number - wherever on the dimension
+          // he pressed. null on a note and on empty paper.
+          function labelUnder(e){
+            var h=hitMark(e);
+            if(h && marks()[h.i].t==='note') return null;
+            var ht=hitText(e);
+            if(!ht && h && marks()[h.i].t==='dim'){
+              // on a hand dimension's LINE, not its number: still its number
+              var lp=dimLabelXY(marks()[h.i]), bd=1e9;
+              eachText(function(s2,paper){
+                if(paper || !s2.key || !/^NOTES\|/.test(s2.key)) return;
+                var d=Math.hypot(s2.x-lp[0], s2.y-lp[1]);
+                if(d<bd && d<markTextH()*2){ bd=d; ht={key:s2.key, shape:s2, paper:false}; }
+              });
+            }
+            if(ht && h && marks()[h.i].t==='dim') ht.dim=h.i;     // the words go onto the mark
+            return ht;
+          }
+
+          // What a press at the mouse takes hold of, by name: a hand
+          // dimension or a label. null = neither (a picture, a note, paper).
+          // The same order the press itself looks in.
+          function pressName(e){
+            if(PICON && hitPic(e)) return null;
+            var h=hitMark(e);
+            if(h) return marks()[h.i].t==='dim' ? ('m:'+h.i) : null;
+            var ht=hitText(e);
+            return ht ? ('k:'+ht.key) : null;
+          }
+
+          // Is this press the second of two quick ones on the same number?
+          // Then its words open, typed over it, and the press does nothing
+          // else. The first press picked the thing up; it is put back
+          // exactly where it was.
+          function pressTwice(e){
+            var id=pressName(e), now=Date.now(), last=LBLAST;
+            var twice=!!(id && last && last.id===id && now-last.t<450 &&
+                         Math.hypot(e.clientX-last.x, e.clientY-last.y)<8);
+            LBLAST=(twice || !id) ? null : {id:id, t:now, x:e.clientX, y:e.clientY};
+            if(!twice) return false;
+            var ht=labelUnder(e);
+            if(!ht) return false;
+            cancelCarry();
+            TDRAG=null; MDRAG=null;
+            hideNoteBar();
+            LBDONE=now;
+            if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);
+            return true;
           }
 
           // Two clicks on a label: its words, typed over it. Enter keeps them
@@ -3529,6 +3608,12 @@ module InteriorPro
 
             var v=(pg.views||[])[0];
             if(live){ VIEW=null; LIVEK=k; }
+            // VROT is the turn of the sheet being DRAWN. A little sheet in the
+            // page strip is drawn after the big one, and a picture sheet has no
+            // turn - it used to leave 0 behind, and the words of a number on a
+            // turned drawing then opened a quarter turn off (2026-10-07,
+            // measured: tests/browser/edpos.js). A little sheet hands it back.
+            var vkeep=VROT;
             VROT=0;
             if(v){
               var sf=scaleFactor(STATE.scale);
@@ -3678,6 +3763,7 @@ module InteriorPro
               }
             }
             o.push('</svg>');
+            if(!live) VROT=vkeep;
             return o.join('');
           }
 
@@ -4660,6 +4746,8 @@ module InteriorPro
               b.x += (tc.dx*VIEW.rc-tc.dy*VIEW.rs)*VIEW.sf*VIEW.k;
               b.y -= (tc.dx*VIEW.rs+tc.dy*VIEW.rc)*VIEW.sf*VIEW.k;      // paper y is up, screen y is down
             }
+            // while its words are being typed over it there is ONE box, the editor
+            if(LED && LED.kind==='label') return;
             var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
             n.setAttribute('id','txhi');
             n.setAttribute('x',b.x.toFixed(1)); n.setAttribute('y',b.y.toFixed(1));
@@ -5172,6 +5260,9 @@ module InteriorPro
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did.
               if(MODE==='hand'&&!e.shiftKey){
+                // The second of two quick presses on the same number opens its
+                // words (pressTwice) - before anything else is done with it.
+                if(pressTwice(e)){ e.preventDefault(); return; }
                 // Carrying something? Then this click PUTS IT DOWN. Nothing
                 // else gets to happen on it.
                 if(CARRY){ dropCarry(); e.preventDefault(); return; }
@@ -5296,19 +5387,11 @@ module InteriorPro
               // taken away. Anything else falls through to the size and weight
               // of whatever writing is under the mouse.
               if(!h || marks()[h.i].t!=='note'){
-                var ht=hitText(e);
-                if(!ht && h && marks()[h.i].t==='dim'){
-                  // two clicks on a hand dimension's LINE, not its number:
-                  // still its number that opens
-                  var lp=dimLabelXY(marks()[h.i]), bd=1e9;
-                  eachText(function(s2,paper){
-                    if(paper || !s2.key || !/^NOTES\|/.test(s2.key)) return;
-                    var d=Math.hypot(s2.x-lp[0], s2.y-lp[1]);
-                    if(d<bd && d<markTextH()*2){ bd=d; ht={key:s2.key, shape:s2, paper:false}; }
-                  });
-                }
+                // two quick presses have just opened this label (pressTwice):
+                // this is the browser's own double click, coming late
+                if(LBDONE && Date.now()-LBDONE<700){ LBDONE=0; e.preventDefault(); return; }
+                var ht=labelUnder(e);
                 if(ht){
-                  if(h && marks()[h.i].t==='dim') ht.dim=h.i;     // the words go onto the mark
                   hideNoteBar();
                   if(TXWORDS) labelEditOpen(ht); else openTextBar(ht);   // typed over the label itself
                   e.preventDefault();

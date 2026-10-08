@@ -277,8 +277,11 @@ ok('and one field at a time can be sent',
 dbl = SRC[/svg\.ondblclick=function\(e\)\{.*?\n            \};/m].to_s
 ok('a note still opens its own words first',
    dbl.include?("marks()[h.i].t!=='note'") && dbl.include?("$('notetext').value"), dbl[0, 200])
+# (2026-10-07: what two clicks open is worked out in labelUnder, which the window's own count of
+# two quick presses uses too - one routine, so the two roads cannot come to open different things)
+under = SRC[/function labelUnder\(e\)\{.*?\n          \}\n/m].to_s
 ok('and anything else falls through to the writing under the mouse',
-   dbl.include?('hitText(e)'))
+   dbl.include?('labelUnder(e)') && under.include?('hitText(e)'), under[0, 200])
 
 # The panel points at a shape from the document. A new document arrives on
 # every push, so it has to be re-found or the blue box lands on thin air.
