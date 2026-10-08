@@ -258,7 +258,7 @@ tm = msgs("set_text_mark");
 ok("and goes to Ruby under its key", tm.length === 1 && tm[0].key === "ROOMS|ROOM 2|1" && tm[0].text === "MASTER", tm);
 // the size box still does what it did, and does not carry the words
 open(); dbl(100, -150); global.sent.length = 0;
-el("txsize").value = "150"; api.call("sendTextMark");
+el("txsize").value = String(api.call("labelPt", api.get("TSEL").shape, api.get("TSEL").paper, true) * 1.5); api.call("sendTextMark");     // points since 2026-10-08; kept as a percentage of the built size
 tm = msgs("set_text_mark");
 ok("the size box still sends the size alone - a size does not reset the words", tm.length === 1 && tm[0].pct === 150 && tm[0].text === undefined, tm);
 

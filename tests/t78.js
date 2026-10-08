@@ -382,10 +382,11 @@ el("txitalic").onclick(); keyOn("Escape");
 ok("Escape while typing drops the setting with the words", !api.get("TBED") && T0().italic === undefined, T0());
 // let go; a label has its own road still
 { const c = scr(30, 4); down(c[0], c[1]); up(c[0], c[1]); }
-ok("the box let go: the panel is grey again and counts in % again", api.get("BSEL") === null && el("textbar").className === "" && el("txunit").textContent === "%" && api.get("TXB") === null, [api.get("BSEL"), el("textbar").className, el("txunit").textContent]);
+ok("the box let go: the panel is grey again (and still counts in pt - every piece of writing does, 2026-10-08)", api.get("BSEL") === null && el("textbar").className === "" && el("txunit").textContent === "pt" && api.get("TXB") === null, [api.get("BSEL"), el("textbar").className, el("txunit").textContent]);
 { const c = api.call("screenOf", 0, 0); down(c[0], c[1]); up(c[0], c[1]); key("Escape"); down(c[0], c[1]); up(c[0], c[1]); }
-ok("a label picked: the panel is the label's, in %, and B goes to Ruby under its key as it always did",
-   !!api.get("TSEL") && el("textbar").className === "on" && el("txunit").textContent === "%" && (global.sent.length = 0, el("txbold").onclick(), msgs("set_text_mark").length === 1 && msgs("set_text_mark")[0].bold === true), [el("textbar").className, el("txunit").textContent]);
+ok("a label picked: the panel is the label's, in pt like a box's, and B goes to Ruby under its key as it always did",
+   !!api.get("TSEL") && el("textbar").className === "on" && el("txunit").textContent === "pt" && (global.sent.length = 0, el("txbold").onclick(), msgs("set_text_mark").length === 1 && msgs("set_text_mark")[0].bold === true), [el("textbar").className, el("txunit").textContent]);
+ok("...and B alone does not change the size: 100% goes with it, as the box shows the built size", msgs("set_text_mark")[0].pct === 100, msgs("set_text_mark")[0]);
 // switched off
 { const s = sheet(); s.text_style = false; s.state.texts[0].bold = true; api.call("loadSheet", s); api.call("setMode", "hand"); }
 pickBox("t:0");

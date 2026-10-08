@@ -208,19 +208,27 @@ ok('the panel opens', document.getElementById('textbar').className === 'on');
 ok('it says which label is being changed',
    document.getElementById('txwhat').textContent === 'ROOM 2',
    document.getElementById('txwhat').textContent);
-ok('and starts at the size it is now',
-   +document.getElementById('txsize').value === 100,
-   document.getElementById('txsize').value);
+// In POINTS since 2026-10-08 ("כל הכיתוב בתוכנה יהיה תחת אותם הגדרות"):
+// ROOM 2 is 7" tall on the plan, 7/48" on 1/4" paper, and plan_pdf sets it
+// at h / 0.717 - 14.6 pt. What is KEPT is still a percentage of that.
+const PT0 = 7 / 48 / 0.717 * 72;
+ok('and starts at the size it is now - in POINTS, the unit every piece of writing counts in',
+   +document.getElementById('txsize').value === Math.round(PT0 * 10) / 10 &&
+   document.getElementById('txunit').textContent === 'pt',
+   [document.getElementById('txsize').value, document.getElementById('txunit').textContent]);
 
 global.sent = [];
-document.getElementById('txsize').value = '150';
+document.getElementById('txsize').value = String(PT0 * 1.5);
 api.call('sendTextMark');
 ok('a new size is sent to Ruby', global.sent.length === 1, global.sent);
 ok('under the name of the label, not its position',
    global.sent[0] && JSON.parse(global.sent[0].args[0]).key === 'ROOMS|ROOM 2|1',
    global.sent[0]);
-ok('with the number that was typed',
-   JSON.parse(global.sent[0].args[0]).pct === 150);
+ok('as a percentage of the size it was built at: one and a half times = 150',
+   JSON.parse(global.sent[0].args[0]).pct === 150, global.sent[0].args[0]);
+ok('and the box shows the size that was set',
+   +document.getElementById('txsize').value === Math.round(PT0 * 1.5 * 10) / 10,
+   document.getElementById('txsize').value);
 ok('by the callback Ruby is listening on',
    global.sent[0].name === 'set_text_mark', global.sent[0].name);
 
@@ -231,7 +239,7 @@ ok('by the callback Ruby is listening on',
 // number or a slip, and the kind answer is the normal size rather than writing
 // so small he cannot find it again to fix it. Ruby decides the same way, in
 // PlanCanvas.text_pct, so the two ends cannot disagree.
-[['0', 100], ['-9', 100], ['abc', 100], ['99999', 400]].forEach(function (pair) {
+[['0', 100], ['-9', 100], ['abc', 100], ['99999', 400], [String(PT0 * 0.1), 25]].forEach(function (pair) {
   global.sent = [];
   document.getElementById('txsize').value = pair[0];
   api.call('sendTextMark');

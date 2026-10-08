@@ -174,14 +174,59 @@ ok('rebuilding throws the old one away',
    end)
 
 # ------------------------------------------------------------- file naming
-ok('the saved file is named after the sheet',
+# (2026-10-08: the PDF is named after the JOB - the address in the title block,
+# which is the model's own name when he typed none - and the sheet number only
+# when there is no job name at all)
+Sketchup.active_model.path = ''
+ok('with no address and an unsaved model the file is named after the sheet',
    PSD.default_name('sheet_number' => 'A-101') == 'A-101.pdf',
    PSD.default_name('sheet_number' => 'A-101'))
-ok('a silly sheet number cannot make a silly file name',
-   PSD.default_name('sheet_number' => 'A/1 0:1') == 'A_1_0_1.pdf',
+ok('a silly sheet number cannot make a silly file name - and a space is not silly',
+   PSD.default_name('sheet_number' => 'A/1 0:1') == 'A_1 0_1.pdf',
    PSD.default_name('sheet_number' => 'A/1 0:1'))
 ok('no sheet number still gets a name',
    PSD.default_name('sheet_number' => '') == 'plan.pdf')
+ok('THE ADDRESS IN THE TITLE BLOCK NAMES THE FILE, commas and spaces and all',
+   PSD.default_name('address' => '6 Bronco Ln, Bell Canyon, CA 91307', 'sheet_number' => 'A-101') ==
+     '6 Bronco Ln, Bell Canyon, CA 91307.pdf',
+   PSD.default_name('address' => '6 Bronco Ln, Bell Canyon, CA 91307', 'sheet_number' => 'A-101'))
+ok('a Hebrew address stays Hebrew',
+   PSD.default_name('address' => 'רחוב הרצל 5, תל אביב') == 'רחוב הרצל 5, תל אביב.pdf',
+   PSD.default_name('address' => 'רחוב הרצל 5, תל אביב'))
+ok('only what Windows cannot take in a name is replaced',
+   PSD.default_name('address' => 'Lot 7: "Smith" <house> / phase 2?') == 'Lot 7_ _Smith_ _house_ _ phase 2_.pdf',
+   PSD.default_name('address' => 'Lot 7: "Smith" <house> / phase 2?'))
+ok('a trailing dot or space is dropped - Windows will not have them',
+   PSD.default_name('address' => 'Bell Canyon. ') == 'Bell Canyon.pdf',
+   PSD.default_name('address' => 'Bell Canyon. '))
+Sketchup.active_model.path = 'C:\\Users\\rordt\\Jobs\\6 Bronco Ln, Bell Canyon, CA 91307.skp'
+ok("no address typed: the MODEL'S NAME is the job - that is the address he saved it under",
+   PSD.job_name('address' => '') == '6 Bronco Ln, Bell Canyon, CA 91307',
+   PSD.job_name('address' => ''))
+ok('and the PDF is named after it',
+   PSD.default_name('address' => '', 'sheet_number' => 'A-101') == '6 Bronco Ln, Bell Canyon, CA 91307.pdf',
+   PSD.default_name('address' => '', 'sheet_number' => 'A-101'))
+ok('an address he typed still wins over the model name',
+   PSD.job_name('address' => '15723 E La Belle St') == '15723 E La Belle St')
+ok('and it reaches the title block: an empty address box prints the model name',
+   begin
+     d = PSD.document
+     PSD.apply_state!(d, 'address' => '')
+     d.job_address == '6 Bronco Ln, Bell Canyon, CA 91307'
+   end, PSD.document.job_address)
+ok('...and a typed one prints as typed',
+   begin
+     d = PSD.document
+     PSD.apply_state!(d, 'address' => '15723 E La Belle St')
+     d.job_address == '15723 E La Belle St'
+   end, PSD.document.job_address)
+ok('a document built fresh with no address carries the model name from the start',
+   begin
+     PSD.instance_variable_set(:@doc, nil)
+     Sketchup.active_model.delete_attribute('InteriorPro', 'sheet_state')
+     PSD.document.job_address == '6 Bronco Ln, Bell Canyon, CA 91307'
+   end, PSD.document.job_address)
+Sketchup.active_model.path = ''
 
 puts($fails.zero? ? "\nALL PASS" : "\n*** #{$fails} FAILED ***")
 exit($fails.zero? ? 0 : 1)

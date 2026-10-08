@@ -71,6 +71,12 @@ module InteriorPro
     # page). Within NOTE_SNAP_DEG of level or upright it locks there. false =
     # the shoulder is always level with the knee, as before.
     USE_NOTE_ANY_WAY = true unless const_defined?(:USE_NOTE_ANY_WAY, false)
+    # Zooming out all the way - to "fits" - puts the sheet back in the middle
+    # of the window, whole (2026-10-08, "כשאני עושה זום אווט עד הסוף הוא יחזור
+    # למרכז את הדף באמצע"; see zoomAt in the page). false = the sheet keeps
+    # shrinking towards the mouse down to "fits" and stays where that leaves
+    # it, part of it off the top of the window, as before.
+    USE_FIT_CENTRE = true unless const_defined?(:USE_FIT_CENTRE, false)
     # The VISUALIZE by Dror logo is in the title block of every sheet from the
     # start, from a file that ships with the plugin (2026-10-07, "זה צריך להיות
     # הלוגו של VISUALIZE"); a logo he picks himself still wins. false = a model
@@ -895,6 +901,7 @@ module InteriorPro
           fast_erase: USE_FAST_ERASE,
           escape_exits: USE_ESCAPE_EXITS,
           note_any: USE_NOTE_ANY_WAY,
+          fit_centre: USE_FIT_CENTRE,
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
@@ -2172,7 +2179,7 @@ module InteriorPro
                        colour and words. Shown while one is picked. -->
                   <div id="textbar">
                     <div id="txwhat" class="what"></div>
-                    <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="25" max="400" step="5" title="גודל באחוזים"><span class="pc" id="txunit">%</span></div>
+                    <div class="tsrow"><span>גודל</span><input id="txsize" type="number" min="4" max="400" step="1" title="גודל האותיות, בנקודות"><span class="pc" id="txunit">pt</span></div>
                     <div class="row" style="margin-top:6px">
                       <button id="txbold" class="tool" title="מודגש"><b>B</b></button>
                       <button id="txitalic" class="tool" title="נטוי"><i>I</i></button>
@@ -4226,7 +4233,23 @@ module InteriorPro
             // never smaller than the window (2026-10-07, "אין למה שתהיה אפשרות
             // להקטין את הדף"): "fits" is as far out as the wheel goes
             z = Math.min(Math.max(z, 1), ZMAX);
+            if(z < 1 + 1e-6) z = 1;                    // 1.15 in and 1.15 out is "fits", not a hair over
             var stage = $('stage');
+            // All the way out = the whole sheet, in the middle of the window
+            // (2026-10-08). Shrinking towards the mouse down to "fits" left
+            // the sheet wherever that put it - the top off the window in his
+            // picture, with nothing to scroll because the sheet fits - so at
+            // "fits" the place given to it is taken back and the layout
+            // centres it, the way it opens.
+            if(z===1 && FITCENTRE){
+              setZoom(1);
+              var w1=$('sheetWrap');
+              if(w1 && w1.style){ w1.style.marginLeft=''; w1.style.marginTop=''; w1.style.marginRight=''; w1.style.marginBottom=''; }
+              stage.scrollLeft = 0;
+              stage.scrollTop  = 0;
+              paintRot();
+              return;
+            }
             var svg = $('sheetWrap').firstChild;
             if(!svg){ setZoom(z); return; }
             var r = svg.getBoundingClientRect();
@@ -5087,19 +5110,35 @@ module InteriorPro
             return (n!==null && (STATE.texts||[])[n]) ? n : null;
           }
 
-          // The size box counts in points for a box of writing, in per cent for a label.
+          // The size box counts in POINTS for every piece of writing - a box of
+          // writing, a label of the plugin's own, a note - since 2026-10-08:
+          // "למה הוא מראה לי כאן את גודל הכיתוב כ-100 אחוז ולא כמו הכיתוב בקופסא
+          // שמראה לי במספרים... כל הכיתוב בתוכנה יהיה תחת אותם הגדרות". A
+          // label's size is still KEPT as a percentage of its built height
+          // (text_marks pct - Ruby's unit, and the group sizes' unit); the
+          // window turns points into that and back (labelPt, sendTextMark).
           function boxBarUnits(box){
-            var u=$('txunit'); if(u) u.textContent = box ? 'pt' : '%';
+            var u=$('txunit'); if(u) u.textContent = 'pt';
             var sz=$('txsize');
             if(sz){
-              sz.title = box ? 'גודל האותיות, בנקודות' : 'גודל באחוזים';
+              sz.title = 'גודל האותיות, בנקודות';
               if(sz.setAttribute){
-                sz.setAttribute('min', box ? TXR.pt_min : 25);
-                sz.setAttribute('max', box ? TXR.pt_max : 400);
-                sz.setAttribute('step', box ? 1 : 5);
+                sz.setAttribute('min', TXR.pt_min);
+                sz.setAttribute('max', TXR.pt_max);
+                sz.setAttribute('step', 1);
               }
             }
             var wb=$('txwords'); if(wb && wb.style) wb.style.display = (box || !TXWORDS) ? 'none' : '';
+          }
+
+          // A label's size in points: its cap height (model inches on the plan,
+          // paper inches on a sheet) brought to the paper, then to the font
+          // size plan_pdf sets it at (h / cap). built = at the height it was
+          // built with, which is what 100% means.
+          function labelPaperSf(paper){ return paper ? 1 : (VIEW ? VIEW.sf : scaleFactor(STATE.scale)); }
+          function labelPt(shape, paper, built){
+            var h = built ? ((shape.h0!==undefined && shape.h0!==null) ? +shape.h0 : +shape.h) : +shape.h;
+            return h * labelPaperSf(paper) / TXR.cap * 72;
           }
 
           // Keeps the panel in step with what is picked. Called every time the
@@ -5180,11 +5219,10 @@ module InteriorPro
             TSEL=hit;
             TXB=null; boxBarUnits(false);       // the panel is a LABEL'S now: its size is a percentage
             var m=textMarks()[hit.key]||{};
-            // What it is RIGHT NOW, not what was overridden - so the number in
-            // the box is the number on the sheet and he is never editing blind.
-            var shown = m.pct ? +m.pct
-                      : Math.round((hit.shape.h/(hit.shape.h0||hit.shape.h))*100);
-            $('txsize').value = isFinite(shown)&&shown>0 ? shown : 100;
+            // What it is RIGHT NOW, in points - so the number in the box is
+            // the size on the sheet and he is never editing blind.
+            var shown = Math.round(labelPt(hit.shape, hit.paper)*10)/10;
+            $('txsize').value = isFinite(shown)&&shown>0 ? shown : TXR.pt;
             $('txbold').className   = 'tool'+(hit.shape.bold?' on':'');
             $('txitalic').className = 'tool'+(hit.shape.italic?' on':'');
             $('txunder').className  = 'tool'+(hit.shape.underline?' on':'');
@@ -5366,11 +5404,15 @@ module InteriorPro
 
           function sendTextMark(extra){
             if(!TSEL) return;
+            // Typed in points; kept as a percentage of the built size. A zero,
+            // a minus or nonsense means the normal size, not the 25% floor
+            // (see t46), and the box then shows the size that was really set.
             var v=parseFloat($('txsize').value);
-            if(!isFinite(v)||v<=0) v=100;
-            v=Math.min(400,Math.max(25,v));
-            $('txsize').value=v;
-            var out={ key:TSEL.key, pct:v,
+            var pt0=labelPt(TSEL.shape, TSEL.paper, true);
+            var pct=(isFinite(v)&&v>0&&isFinite(pt0)&&pt0>0) ? Math.round(v/pt0*100) : 100;
+            pct=Math.min(400,Math.max(25,pct));
+            $('txsize').value=(isFinite(pt0)&&pt0>0) ? Math.round(pt0*pct/100*10)/10 : v;
+            var out={ key:TSEL.key, pct:pct,
                       bold:$('txbold').className.indexOf('on')>=0,
                       italic:$('txitalic').className.indexOf('on')>=0,
                       underline:$('txunder').className.indexOf('on')>=0,
@@ -5690,6 +5732,7 @@ module InteriorPro
           // - and he is back on the select arrow, whatever tool he was in.
           var ESCEXITS = true;
           var NOTEANY = true;          // told by Ruby: a note's shoulder goes any way
+          var FITCENTRE = true;        // told by Ruby: all the way out = the whole sheet, in the middle
           var NOTE_SNAP_DEG = 12;      // near level or upright, it locks there
           function escapeAll(){
             if(!ESCEXITS){
@@ -6423,6 +6466,7 @@ module InteriorPro
             FASTERASE = (p.fast_erase!==false);
             ESCEXITS = (p.escape_exits!==false);
             NOTEANY = (p.note_any!==false);
+            FITCENTRE = (p.fit_centre!==false);
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);

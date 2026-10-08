@@ -88,6 +88,12 @@ module InteriorPro
     # lettering picked is set in PlanPDF.hebrew_family. false = 'font' is
     # ignored, and Hebrew prints as before (blank in the PDF).
     USE_TEXT_FONT = true unless const_defined?(:USE_TEXT_FONT, false)
+    # A note's box and leader are drawn again from its words as they FINALLY
+    # are (2026-10-08, see fit_notes!): the words are a label like any other
+    # and take a size, a weight and a lettering from the panel at the side, so
+    # the box has to fit the words he sees. false = the box is the one drawn
+    # with the marks, at the built size, whatever was done to the words.
+    USE_NOTE_FIT = true unless const_defined?(:USE_NOTE_FIT, false)
     # The editor's own drawing pages ("שרטוט 1", "שרטוט 2" - the tabs beside
     # "בית" in the 2D editor) can be put on sheets of their own (2026-10-07,
     # "לבחור איזה שרטוט נכנס לאיזה דף"): st['drawn'] = [{'src' => 'draft:0'}].
@@ -539,6 +545,8 @@ module InteriorPro
       apply_text_scale!(doc, st)
       # One label's own settings come after its group's, so they win.
       apply_text_overrides!(doc, st)
+      # and a note's box is drawn again around its words as they are now
+      fit_notes!(doc, st)
       # and now the writing is turned, or held level, for this angle
       turn_texts!(doc, rot)
       # The writing he put on the sheets in boxes of its own. AFTER the sizing
@@ -1492,14 +1500,52 @@ module InteriorPro
       cv  = doc.canvas('MODEL')
       lay = cv.layer(MARK_LAYER)
       lay.shapes.clear
-      Array(st['marks']).each do |m|
+      Array(st['marks']).each_with_index do |m, i|
         h = m['t'] || m[:t]
         case h.to_s
         when 'dim'  then safely { draw_mark_dim(lay, m) }
-        when 'note' then safely { draw_mark_note(lay, m) }
+        when 'note' then safely { draw_mark_note(lay, m, i) }
         end
       end
       cv
+    end
+
+    # A note's box and leader, drawn again from its words as they finally are
+    # (2026-10-08). The words were drawn with the marks, before the sizing
+    # passes; by now they may be bigger, bold, or in a lettering of their own
+    # (text_marks on their key, or their group's size), or shoved. Every shape
+    # of a note carries its number (:note), so the frame is taken off and put
+    # back around the words - only when something about them changed.
+    def self.fit_notes!(doc, st)
+      return doc unless USE_NOTE_FIT
+      cv = doc.canvas('MODEL')
+      return doc unless cv.layer?(MARK_LAYER)
+      lay = cv.layer(MARK_LAYER)
+      notes = {}
+      Array(st['marks']).each_with_index do |m, i|
+        notes[i] = m if (m['t'] || m[:t]).to_s == 'note'
+      end
+      lay.shapes.select { |s| s[:type] == :text && !s[:note].nil? }.each do |s|
+        i = s[:note]
+        m = notes[i]
+        next unless m
+        h  = s[:h].to_f
+        h0 = s.key?(:h0) ? s[:h0].to_f : h
+        x  = s[:x].to_f
+        y  = s[:y].to_f
+        same = (h - h0).abs < 1.0e-9 && !s[:bold] && s[:font].to_s.empty? &&
+               !s.key?(:t0) && (x - mark_num(m, :x)).abs < 1.0e-9 && (y - mark_num(m, :y)).abs < 1.0e-9
+        next if same
+        lay.shapes.reject! { |q| q[:note] == i && q[:type] != :text }
+        w = begin
+          pp = InteriorPro::PlanPDF
+          pp.text_width(s[:text].to_s, h / pp::CAP_RATIO, !!s[:bold], (USE_TEXT_FONT ? s[:font] : nil))
+        rescue StandardError, NameError
+          text_width(s[:text].to_s, h)
+        end
+        safely { note_frame(lay, m, x, y, h, w, i) }
+      end
+      doc
     end
 
     def self.mark_num(m, key)
@@ -1650,7 +1696,7 @@ module InteriorPro
       str.to_s.length * h * 0.6         # only if plan_pdf is not there at all
     end
 
-    def self.draw_mark_note(lay, m)
+    def self.draw_mark_note(lay, m, i = nil)
       txt = (m['text'] || m[:text]).to_s
       return if txt.strip.empty?
       h = mark_num(m, :h)
@@ -1658,14 +1704,23 @@ module InteriorPro
       x = mark_num(m, :x)
       y = mark_num(m, :y)
 
-      lay.text(txt, x, y, h: h, align: :center, follow: true)   # turns with its box
+      opts = { h: h, align: :center, follow: true }   # turns with its box
+      opts[:note] = i unless i.nil?                    # its number, for fit_notes!
+      lay.text(txt, x, y, opts)
 
-      w   = text_width(txt, h)
+      note_frame(lay, m, x, y, h, text_width(txt, h), i)
+    end
+
+    # The box around a note's words and the leader out of it, for words that
+    # are w wide and h tall with their middle at x, y. tag = the note's number
+    # on every shape (nil = none), so fit_notes! can find them again.
+    def self.note_frame(lay, m, x, y, h, w, tag = nil)
+      op  = tag.nil? ? {} : { note: tag }
       pad = h * MARK_PAD
       bw  = w / 2.0 + pad
       bh  = h / 2.0 + pad
       lay.polygon([[x - bw, y - bh], [x + bw, y - bh],
-                   [x + bw, y + bh], [x - bw, y + bh]])
+                   [x + bw, y + bh], [x - bw, y + bh]], op)
 
       # the leader, if the user pointed at something
       return unless m.key?('lx') || m.key?(:lx)
@@ -1684,24 +1739,24 @@ module InteriorPro
         kx = mark_num(m, :kx)
         ky = mark_num(m, :ky)
         sx, sy = box_exit(x, y, bw, bh, kx, ky)
-        lay.line(sx, sy, kx, ky) if Math.hypot(kx - sx, ky - sy) >= 0.5
+        lay.line(sx, sy, kx, ky, op) if Math.hypot(kx - sx, ky - sy) >= 0.5
         return if Math.hypot(lx - kx, ly - ky) < 0.5
-        lay.line(kx, ky, lx, ly)
+        lay.line(kx, ky, lx, ly, op)
         arrow = m.key?('arrow') ? m['arrow'] : (m.key?(:arrow) ? m[:arrow] : true)
-        arrow_head(lay, kx, ky, lx, ly, h * MARK_ARROW) unless arrow == false
+        arrow_head(lay, kx, ky, lx, ly, h * MARK_ARROW, op) unless arrow == false
         return
       end
 
       sx, sy = box_exit(x, y, bw, bh, lx, ly)
       return if Math.hypot(lx - sx, ly - sy) < 0.5
-      lay.line(sx, sy, lx, ly)
+      lay.line(sx, sy, lx, ly, op)
 
       # With or without a head on the end. SketchUp's own text leader is a bare
       # line, and the user sent a picture of one - so both are offered and he
       # picks per note. A note written before this existed has no say in the
       # matter and keeps the head it already had.
       arrow = m.key?('arrow') ? m['arrow'] : (m.key?(:arrow) ? m[:arrow] : true)
-      arrow_head(lay, sx, sy, lx, ly, h * MARK_ARROW) unless arrow == false
+      arrow_head(lay, sx, sy, lx, ly, h * MARK_ARROW, op) unless arrow == false
     end
 
     # Where the line from the middle of the box leaves the box. Without this the
@@ -1716,7 +1771,7 @@ module InteriorPro
       [x + dx * t, y + dy * t]
     end
 
-    def self.arrow_head(lay, sx, sy, lx, ly, size)
+    def self.arrow_head(lay, sx, sy, lx, ly, size, op = {})
       dx = lx - sx
       dy = ly - sy
       len = Math.hypot(dx, dy)
@@ -1727,8 +1782,8 @@ module InteriorPro
       ny = ux
       back = size
       side = size * 0.38
-      lay.line(lx, ly, lx - ux * back + nx * side, ly - uy * back + ny * side)
-      lay.line(lx, ly, lx - ux * back - nx * side, ly - uy * back - ny * side)
+      lay.line(lx, ly, lx - ux * back + nx * side, ly - uy * back + ny * side, op)
+      lay.line(lx, ly, lx - ux * back - nx * side, ly - uy * back - ny * side, op)
     end
 
     # Do two [minx, miny, maxx, maxy] boxes touch at all?
