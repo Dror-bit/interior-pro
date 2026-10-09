@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 363 שורות PASS (נמדד 2026-10-08 16:08, אחרי rt288).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 364 שורות PASS (נמדד 2026-10-08 18:19, אחרי rt289).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -513,6 +513,11 @@ its ends run into, and is it cut to end exactly there?
 - מה שנעשה למילים של הערה (גודל, bold, כתב, הזזה) — **הקופסה והקו עוקבים** (`PlanCanvas.fit_notes!`, `USE_NOTE_FIT`).
 - כלי חדש שמוסיף כיתוב — עובר דרך אותם מסלולים. פס משלו = הפרת החוק.
 
+## הצעד הנוכחי (2026-10-08 18:20): Elevations — חדר בדף אחד + מידות נקיות + מבט מלמעלה; נפתח: החלון במבט מלמעלה; הוא ביקש צ'אט חדש
+הכל ב-`HANDOFF_2026-10-08D.md`. **שום דבר מהיום לא ב-commit** — פקודה שם. **364 PASS**.
+**ראשון בצ'אט הבא:** לקרוא, לדווח במשפט, לחכות ל"תתחיל", לתת את ה-commit, ואז **קובץ מדידה** על החלון במבט מלמעלה (לא לנחש מתמונה).
+**חוקים מהסבב:** מספרים עד חצי אינץ'; מידה-שתיים לכל דבר, ליד הקיר הקרוב; מספרי סט מקלחת = מה שהוא הקליד; לבדוק ב-trace ש-reload רץ.
+
 ## הצעד הנוכחי (2026-10-08 13:34): Elevations — מידות אוטומטיות + גודל המספרים (לחיצה אחת = כולם, שתיים = אחד) — אושר; הוא ביקש צ'אט חדש
 הכל ב-`HANDOFF_2026-10-08C.md`. **ה-commit האחרון לא רץ** — פקודה שם. **360 PASS**.
 **ראשון בצ'אט הבא:** לקרוא, לדווח במשפט, לחכות ל"תתחיל", לתת את ה-commit. **הבא שלו:** כמה חדרים בדף אחד — לשאול עם תמונה.
@@ -833,6 +838,10 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Elevations, 2026-10-08:
+- `InteriorPro::ElevationTool::USE_TOP_VIEW = false` - no view from above; the walls only (`tests/rt289.rb`). On: the room from under
+  its ceiling, walls (and windows) cut at PLAN_CUT 48" in their own groups, doors as the plan's symbols, first on the room's sheet.
+- `InteriorPro::ElevationTool::USE_TYPED_DIMS = false` - a set's parts at their boxes' middles again (`tests/rt288.rb`). On: at the
+  numbers he typed (cfg_json parts h / side, u_in). `DIM_STEP` = 2: numbers to the half inch (16 = sixteenths).
 - `InteriorPro::ElevationTool::USE_CLEAN_DIMS = false` - the long chain under the floor and every height on the right, as at 14:30
   (`tests/rt288.rb`; rt285/rt286 run with it off). On: one or two numbers a thing by the NEARER wall; only things standing on that wall.
 - `InteriorPro::ElevationTool::USE_ONE_SHEET = false` - one picture sheet a wall, as before (`tests/rt287.rb`, rt284). On: a room's

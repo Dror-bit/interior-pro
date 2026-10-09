@@ -32,6 +32,8 @@ require './elevation_tool'
 # this file pins the long chain and the heights on the right (before 15:57) - rt288 holds the clean ones
 InteriorPro::ElevationTool.send(:remove_const, :USE_CLEAN_DIMS)
 InteriorPro::ElevationTool.const_set(:USE_CLEAN_DIMS, false)
+InteriorPro::ElevationTool.send(:remove_const, :DIM_STEP)
+InteriorPro::ElevationTool.const_set(:DIM_STEP, 16)   # the sixteenths of the day (16:32: halves since)
 
 $fails = 0
 def ok(n, c, x = nil)

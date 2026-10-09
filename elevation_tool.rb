@@ -25,6 +25,7 @@
 #
 # Kill switch: USE_ELEVATIONS = false - the button says so and does nothing.
 require 'fileutils'
+require 'json'
 require 'tmpdir'
 module InteriorPro
   module ElevationTool
@@ -57,6 +58,15 @@ module InteriorPro
     # their scale; it is the FIRST picture of the room's sheet. Off = the walls only, as at 16:08.
     USE_TOP_VIEW = true unless const_defined?(:USE_TOP_VIEW, false)
     PLAN_CUT = 48.0 unless const_defined?(:PLAN_CUT, false)
+    # (16:14: "צריך להראות את הביוב, הטייל, הסכר, השירותים וכל שאר הדברים") - from above only what is
+    # OVER the room is put aside; the floor, the shower pan, its drain and curb are the picture
+    remove_const(:TOP_ASIDE) if const_defined?(:TOP_ASIDE, false)
+    TOP_ASIDE = %w[ceiling roof dormer skylight downspout plan2d sketch2d room].freeze
+    NICHE_UNDER = 6.0 unless const_defined?(:NICHE_UNDER, false)       # inches under a niche for its width
+    ON_WALL = 3.0 unless const_defined?(:ON_WALL, false)               # a fixture this close to a wall stands on it
+    WORDS_APART = 8.0 unless const_defined?(:WORDS_APART, false)       # two distances closer than this: the lower one's words go under its line
+    USE_TYPED_DIMS = true unless const_defined?(:USE_TYPED_DIMS, false) # 16:25: a set's numbers are the ones he typed
+    DIM_STEP = 2 unless const_defined?(:DIM_STEP, false)               # 16:33 ("סליחה, רק חצי"): numbers to the half inch, no finer (16 = the sixteenth, as before)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
     NEST_DEPTH = 4 unless const_defined?(:NEST_DEPTH, false)
@@ -251,16 +261,64 @@ module InteriorPro
         SET_ASIDE.include?(type.to_s)
       end
 
+      # A white face under each swinging leaf's quarter circle (18:12: "הטקסטורה של הרצפה לא עוברת
+      # דרכה") - the same hinge, latch and sweep plan_generator draws the arc with. SketchUp only.
+      def swing_faces(pg, ents, d, bodies)
+        bodies.each do |b|
+          kind = pg.send(:door_kind, b)
+          next unless %i[single double].include?(kind)
+          span = pg.send(:opening_span, d, b)
+          next unless span
+          x1, x2 = span
+          jw = pg::JAMB_W
+          ss = pg.send(:swing_sign, b)
+          edge = ss > 0 ? d[:off_pos] : d[:off_neg]
+          leaves = if kind == :double
+                     xm = (x1 + x2) / 2.0
+                     [[x1 + jw, xm], [x2 - jw, xm]]
+                   elsif b[:swing] == 'right'
+                     [[x2 - jw, x1 + jw]]
+                   else
+                     [[x1 + jw, x2 - jw]]
+                   end
+          leaves.each do |hx, lx|
+            len = (lx - hx).abs
+            next if len < 4.0
+            hinge = pg.send(:lpt, d, hx, edge)
+            latch = pg.send(:lpt, d, lx, edge)
+            v0 = latch - hinge
+            leaf_end = hinge.offset(d[:n], ss * len)
+            v1 = leaf_end - hinge
+            sweep = Math.atan2(v0.x * v1.y - v0.y * v1.x, v0.x * v1.x + v0.y * v1.y)
+            pts = [hinge] + (0..14).map do |i|
+              a = sweep * i / 14
+              Geom::Point3d.new(hinge.x + v0.x * Math.cos(a) - v0.y * Math.sin(a), hinge.y + v0.x * Math.sin(a) + v0.y * Math.cos(a), 0)
+            end
+            world = pts.map { |q| pg.send(:flat_world, q, d[:xform]) }
+            f = ents.add_face(world) rescue nil
+            next unless f
+            white = Sketchup.active_model.materials['InteriorPro_Plan_White'] || Sketchup.active_model.materials.add('InteriorPro_Plan_White')
+            white.color = Sketchup::Color.new(255, 255, 255)
+            f.material = white
+            f.back_material = white
+          end
+        end
+      rescue StandardError => e
+        puts "[Elevation] swing faces: #{e.message}"
+      end
+
       # Where the camera and the plane stand for the view from above (USE_TOP_VIEW). Pure.
       # North (the green axis) is up the picture, as on the plan.
-      def top_shot(poly, base_z)
+      # (16:27: "זה חייב להיות מגובה התקרה למטה ולא כמו הקירות") - the cut is just under the ceiling,
+      # so everything in the room is seen: wall_h is the room's height; nil = PLAN_CUT, the old way
+      def top_shot(poly, base_z, wall_h = nil)
         xs = poly.map(&:x)
         ys = poly.map(&:y)
         w = xs.max - xs.min
         d = ys.max - ys.min
         cx = (xs.max + xs.min) / 2.0
         cy = (ys.max + ys.min) / 2.0
-        z = base_z + PLAN_CUT
+        z = base_z + (wall_h.to_f > 1.0 ? wall_h.to_f - 0.5 : PLAN_CUT)
         w_px = ((w + 2 * MARGIN) * PX_PER_IN).round
         h_px = ((d + 2 * MARGIN) * PX_PER_IN).round
         if [w_px, h_px].max > MAX_PX
@@ -335,14 +393,23 @@ module InteriorPro
               # (16:05, measured: the shower set on the North wall got numbers on the East wall,
               # seen side-on 16" in) - clean numbers belong to the wall the thing stands on
               next if USE_CLEAN_DIMS && ins.min > ON_WALL
+              # 16:25, his words: "תעשה במידות מספרים שלמים כמו המידות שאני מכניס בגבהים בכלי" - a set's
+              # numbers are the ones he TYPED (its height a part, its line from the corner), read off the
+              # fixture itself and its wall; the box's middles only when they cannot be read
+              typed = USE_PART_MIDDLES && USE_TYPED_DIMS ? typed_parts(t, all, al, inn, side.len, base_z) : nil
+              if typed
+                out.concat(typed)
+                next
+              end
               parts = USE_PART_MIDDLES ? part_boxes(t) : nil
               if parts
-                parts.each do |pp|
+                names = part_names(t)
+                parts.each_with_index do |pp, pi|
                   am = pp.map { |p| al.call(p) }
                   am = (am.min + am.max) / 2.0
                   next if am <= 0 || am >= side.len
                   zm = (pp.map(&:z).min + pp.map(&:z).max) / 2.0 - base_z
-                  out << { kind: 'part', a0: am, a1: am, z0: zm, z1: zm }
+                  out << { kind: 'part', a0: am, a1: am, z0: zm, z1: zm, fix: t.ent.object_id, name: names[pi].to_s }
                 end
                 next
               end
@@ -378,6 +445,44 @@ module InteriorPro
         boxes.size >= 2 ? boxes : nil
       end
 
+      # A set's parts at the numbers he typed (USE_TYPED_DIMS): each part that is on, at its pipe
+      # point - `h` up from the floor, `u_in` + its `side` along the wall's face. nil when the
+      # fixture carries no such numbers or its wall is not in the room.
+      def typed_parts(t, all, al, inn, len, base_z)
+        return nil unless defined?(InteriorPro::FixtureLibrary) && defined?(InteriorPro::TileWall)
+        cfg = JSON.parse(t.ent.get_attribute(D, 'cfg_json').to_s) rescue nil
+        return nil unless cfg.is_a?(Hash) && cfg['parts'].is_a?(Hash)
+        wid = t.ent.get_attribute(D, 'host_wall_id').to_s
+        w = all.find { |x| x.type == 'wall' && x.ent.get_attribute(D, 'id').to_s == wid }
+        return nil unless w
+        fr = InteriorPro::TileWall.frame_for(w.ent, t.ent.get_attribute(D, 'side').to_s)
+        return nil unless fr
+        outer = w.xf * w.ent.transformation.inverse
+        u = t.ent.get_attribute(D, 'u_in').to_f
+        out = []
+        cfg['parts'].each do |k, pc|
+          next unless pc.is_a?(Hash) && pc['on']
+          p = Geom::Point3d.new(*InteriorPro::TileWall.world(fr, u + pc['side'].to_f, pc['h'].to_f)).transform(outer)
+          next unless inn.call(p).abs <= ON_WALL
+          a = al.call(p)
+          next if a <= 0 || a >= len
+          z = p.z - base_z
+          out << { kind: 'part', a0: a, a1: a, z0: z, z1: z, fix: t.ent.object_id, name: k.to_s }
+        end
+        out.empty? ? nil : out
+      end
+
+      # the names of the same parts, in the same order (a shower set: ..._head, ..._valve, ..._hand)
+      def part_names(t)
+        ents = defined?(Sketchup::ComponentInstance) && t.ent.is_a?(Sketchup::ComponentInstance) ? t.ent.definition.entities : t.ent.entities
+        ents.select do |k|
+          (k.is_a?(Sketchup::Group) || (defined?(Sketchup::ComponentInstance) && k.is_a?(Sketchup::ComponentInstance))) &&
+            !(k.respond_to?(:hidden?) && k.hidden?)
+        end.map { |k| n = k.name.to_s; n.empty? && k.respond_to?(:definition) ? k.definition.name.to_s : n }
+      rescue StandardError
+        []
+      end
+
       # the eight corners of a thing's box, in the world
       def world_box(t)
         ents = defined?(Sketchup::ComponentInstance) && t.ent.is_a?(Sketchup::ComponentInstance) ? t.ent.definition.entities : t.ent.entities
@@ -387,9 +492,10 @@ module InteriorPro
         (0..7).map { |i| bb.corner(i).transform(t.xf) }
       end
 
-      # 87.125 -> 87 1/8"   (to the sixteenth, the way he reads a tape)
+      # 87.125 -> 87"   (16:32: "אני רוצה שיהיה עגול, אולי חצי, אבל לא יותר מזה" - to the half inch;
+      # DIM_STEP 16 = to the sixteenth, the way it was)
       def fmt_in(v)
-        s16 = (v.to_f * 16).round
+        s16 = ((v.to_f * DIM_STEP).round * 16 / DIM_STEP)
         i = s16 / 16
         f = s16 % 16
         return "#{i}\"" if f.zero?
@@ -466,9 +572,6 @@ module InteriorPro
       #   'k' => 'v' with 'side' => 'L' | 'R': the column stands by that wall of the picture
       #   'k' => 'hi': a run INSIDE the picture at the height 'v' - 'u' => [u1, u2]; 'from' =>
       #               where its witness lines start (a niche's bottom), none = the line is the thing's
-      NICHE_UNDER = 6.0 unless const_defined?(:NICHE_UNDER, false)
-    ON_WALL = 3.0 unless const_defined?(:ON_WALL, false)        # a fixture this close to a wall stands on it
-    WORDS_APART = 8.0 unless const_defined?(:WORDS_APART, false) # two distances closer than this: the lower one's words go under its line   # inches under a niche for its width
 
       def dims_clean(side, wall_h, items)
         len = side.len.to_f
@@ -482,17 +585,31 @@ module InteriorPro
         # the picture's left wall is side.b (a = len), its right wall side.a (a = 0)
         near = ->(a) { len - a < a ? 'L' : 'R' }
         wall_a = ->(sd) { sd == 'L' ? len : 0.0 }
+        # a column of heights: numbered at the end, the lowest nearest the wall and the highest
+        # farthest from it (16:15: "המדידה הכי נמוכה צריכה להיות קרובה לבית והגבוהה רחוקה")
+        stacks = []
         col = lambda do |sd, zs, u0 = nil|
           cols[sd] += 1
+          ds = []
           zs.each_cons(2) do |p, q|
             next if q - p <= DIM_MIN
             d = { 'k' => 'v', 'side' => sd, 'col' => cols[sd], 'v' => [vz.call(p), vz.call(q)], 'u' => ux.call(wall_a.call(sd)), 't' => fmt_in(q - p) }
             d['u0'] = ux.call(u0) if u0 && USE_PART_REACH && q == zs.last
             out << d
+            ds << d
           end
+          stacks << [sd, zs.last.to_f, ds]
         end
         row1 = []
         said = []     # the parts' distances already written: [a, z]
+        # 16:13, his North wall ("זה הכי מבולגן בעולם"): a set made of parts gets ONE distance from the
+        # wall - to its valve (the plumber's point), else to its middle part - not one a part
+        anchor = {}
+        items.select { |it| it[:kind] == 'part' && it[:fix] }.group_by { |it| it[:fix] }.each do |f, ps|
+          v = ps.find { |it| it[:name].to_s =~ /valve/i }
+          v ||= ps.sort_by { |it| it[:z1].to_f }[ps.size / 2]
+          anchor[f] = v
+        end
         items.sort_by { |it| [it[:a0].to_f, it[:z1].to_f] }.each do |it|
           case it[:kind]
           when 'niche'
@@ -518,7 +635,8 @@ module InteriorPro
             w_a = wall_a.call(sd)
             # one distance for parts that stand on one line (the valve and the head over it), at the lower;
             # one close under another writes its words under its line (16:05: 21 3/16 on 30 7/8)
-            if (w_a - am).abs > DIM_MIN && said.none? { |a, _| (a - am).abs <= DIM_MIN }
+            one = it[:fix].nil? || anchor[it[:fix]].equal?(it)
+            if one && (w_a - am).abs > DIM_MIN && said.none? { |a, _| (a - am).abs <= DIM_MIN }
               d = { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(am)].sort, 'v' => vz.call(zm), 't' => fmt_in((w_a - am).abs) }
               out << d
               said << [am, zm, d]
@@ -542,8 +660,12 @@ module InteriorPro
           end
         end
         out << { 'k' => 'h', 'row' => (row1.any? ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)], 'v' => vz.call(0.0), 't' => fmt_in(len) }
-        cols['R'] += 1
-        out << { 'k' => 'v', 'side' => 'R', 'col' => cols['R'], 'v' => [vz.call(0.0), vz.call(wh)], 'u' => ux.call(0.0), 't' => fmt_in(wh) }
+        col.call('R', [0.0, wh])
+        %w[L R].each do |sd|
+          stacks.select { |x| x[0] == sd }.sort_by { |x| x[1] }.each_with_index do |(_, _, ds), i|
+            ds.each { |d| d['col'] = i + 1 }
+          end
+        end
         out
       end
 
@@ -652,9 +774,92 @@ module InteriorPro
             # the walls' floor and ceiling lines would lie along the walls seen from above
             gone = lines_drawn.select { |e| e.respond_to?(:valid?) && e.valid? }
             model.entities.erase_entities(gone) unless gone.empty?
-            s = top_shot(poly, base_z)
+            # and the floor, the tiles, the drain, the curb come back for it
+            hidden.each { |e| e.hidden = false if e.valid? && !TOP_ASIDE.include?(e.get_attribute(D, 'type').to_s) }
+            # the tile lines of the floor and the shower pan are SOFT + HIDDEN edges (measured 16:39,
+            # debug_top_shot.rb: 57 of 57) so the texture draws clean - a line drawing shows none of
+            # them. Shown for the shot; the aborted operation puts them back.
+            shown = 0
+            all.each do |t|
+              next unless %w[floor_pattern shower_pattern].include?(t.type)
+              c = world_centre(t)
+              next unless c && inside?(poly, c.x, c.y)
+              ents = t.ent.respond_to?(:entities) ? t.ent.entities : t.ent.definition.entities
+              ents.grep(Sketchup::Edge).each do |ed|
+                # not the diagonals (17:58): an edge between two faces of one flat piece with the same
+                # material is a fold of the drawing, not a grout line
+                fs = ed.respond_to?(:faces) ? ed.faces : []
+                if fs.size == 2
+                  same_mat = (fs[0].material && fs[0].material.name) == (fs[1].material && fs[1].material.name)
+                  flat = fs[0].normal.parallel?(fs[1].normal) rescue false
+                  next if same_mat && flat
+                end
+                ed.hidden = false if ed.hidden?
+                ed.soft = false if ed.soft?
+                ed.smooth = false if ed.smooth?
+                shown += 1
+              end
+            end
+            trace("#{name} from above: #{shown} tile lines shown for the shot")
+            s = top_shot(poly, base_z, wall_h)
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
             sp.activate
+            # the WALLS alone are cut at PLAN_CUT, as a plan cuts them, so the door and the window
+            # show as openings in them (18:01: "שיראו את הדלת והחלון אפילו שהחיתוך גבוה מהם") - a
+            # section plane inside each wall group cuts only that wall; everything else is seen
+            # whole from under the ceiling. They go with the aborted operation.
+            cutw = 0
+            # (18:12, his Revit page: the window stays inside the wall, the door is its symbol) - the
+            # door bodies are put away for the shot and the plan's symbol stands for them; a window is
+            # cut with its wall, so its frame shows inside the wall and nothing sticks out of it
+            # (18:18, his own cut of the window: the frame inside the wall is right as it is) - a window
+            # is CUT with its wall and gets no symbol; what stuck out at 18:16 was the plan's casement
+            # swing, not the cut. The doors are put away; the plan's symbol stands for them.
+            all.each do |t|
+              next unless t.type == 'door' && t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+              t.ent.hidden = true
+              hidden << t.ent
+            end
+            all.each do |t|
+              next unless %w[wall window].include?(t.type) && t.ent.respond_to?(:entities)
+              begin
+                inv = t.xf.inverse
+                lp = Geom::Point3d.new(s[:eye].x, s[:eye].y, base_z + PLAN_CUT).transform(inv)
+                ln = Geom::Vector3d.new(0, 0, -1).transform(inv)
+                wsp = t.ent.entities.add_section_plane([lp, ln])
+                wsp.activate
+                cutw += 1
+              rescue StandardError => e
+                puts "[Elevation] wall not cut for the view from above: #{e.message}"
+              end
+            end
+            trace("#{name} from above: #{cutw} walls cut at #{PLAN_CUT}\"")
+            # the door's leaf and swing, the jambs, the window - the plan's own symbols (plan_generator,
+            # the ones the 2D plan prints), drawn under the cut for the shot (18:04: "חיתוך של הדלת,
+            # פתיחה, פריים"). A group of their own that goes with the aborted operation.
+            begin
+              pg = InteriorPro::PlanGenerator
+              doors, windows = pg.send(:hosted_bodies, model)
+              ids = Array(room.ent.get_attribute(D, 'bounding_wall_ids')).map(&:to_s)
+              sym = model.entities.add_group
+              drawn = 0
+              all.each do |t|
+                next unless t.type == 'wall'
+                next unless ids.empty? || ids.include?(t.ent.get_attribute(D, 'id').to_s)
+                d = pg.send(:wall_attrs, t.ent)
+                next unless d
+                mine = doors.select { |b| b[:host] == d[:id] }
+                pg.send(:draw_door_symbols, sym.entities, d, mine)
+                swing_faces(pg, sym.entities, d, mine)
+                drawn += 1
+              end
+              # the symbols are drawn at PLAN_Z over the ground: lifted to just under the cut, in the world
+              sym.transformation = Geom::Transformation.new(Geom::Vector3d.new(0, 0, base_z + PLAN_CUT - 0.5 - pg::PLAN_Z)) * sym.transformation
+              trace("#{name} from above: door/window symbols on #{drawn} walls (#{doors.size} doors, #{windows.size} windows in the model)")
+            rescue StandardError => e
+              trace("#{name} from above: symbols NOT drawn - #{e.class}: #{e.message}")
+              puts "[Elevation] door/window symbols: #{e.message}"
+            end
             cam = Sketchup::Camera.new(s[:eye], s[:target], s[:up], false)
             cam.height = s[:height]
             view.camera = cam
@@ -662,7 +867,7 @@ module InteriorPro
             path = file_for(dir, name, 'Plan', style)
             ok = view.write_image(path, s[:w_px], s[:h_px], true)
             sp.erase!
-            trace("#{name} from above: cut #{PLAN_CUT}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
+            trace("#{name} from above: cut #{(s[:plane_pt].z - base_z).round(1)}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
             paths.unshift(path) if ok
           end
         ensure
