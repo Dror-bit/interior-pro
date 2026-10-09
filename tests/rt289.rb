@@ -55,9 +55,9 @@ ok('the walls alone are cut at 48" inside their own groups, so the door and the 
 ok('the plan\'s own door and window symbols (leaf, swing, jambs) are drawn under the cut for the shot (18:04)',
    src.include?('pg.send(:draw_door_symbols, sym.entities, d,') &&
    src.include?('base_z + PLAN_CUT - 0.5 - pg::PLAN_Z'))
-ok('the doors are put away; a window is cut with its wall and gets no symbol (18:18)',
+ok('the doors are put away; a window gets no symbol (18:18) - it is cut at its own middle (18:56, rt290)',
    src.include?("next unless t.type == 'door' && t.ent.respond_to?(:hidden=) && !t.ent.hidden?") &&
-   src.include?("next unless %w[wall window].include?(t.type) && t.ent.respond_to?(:entities)") &&
+   src.include?("next unless t.type == 'wall' && t.ent.respond_to?(:entities)") &&
    !src.include?('draw_window_symbols, sym.entities') && !src.include?('window_frames('))
 ok('a white face under each swing, from the same hinge and sweep as the arc', src.include?('swing_faces(pg, sym.entities, d, mine)') &&
    src.include?("f.material = white"))

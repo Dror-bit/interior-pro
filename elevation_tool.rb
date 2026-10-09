@@ -66,6 +66,9 @@ module InteriorPro
     ON_WALL = 3.0 unless const_defined?(:ON_WALL, false)               # a fixture this close to a wall stands on it
     WORDS_APART = 8.0 unless const_defined?(:WORDS_APART, false)       # two distances closer than this: the lower one's words go under its line
     USE_TYPED_DIMS = true unless const_defined?(:USE_TYPED_DIMS, false) # 16:25: a set's numbers are the ones he typed
+    USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
+    USE_LEAF_FACE = true unless const_defined?(:USE_LEAF_FACE, false) # 19:01: a white face under a door's leaf too, not only under its swing; off = the swing alone, as before
+    USE_SWING_FACE = false unless const_defined?(:USE_SWING_FACE, false) # 19:16: no white under the swing's quarter circle - the leaf only
     DIM_STEP = 2 unless const_defined?(:DIM_STEP, false)               # 16:33 ("סליחה, רק חצי"): numbers to the half inch, no finer (16 = the sixteenth, as before)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
@@ -257,6 +260,23 @@ module InteriorPro
           height: wall_h + 2 * MARGIN, w_px: w_px, h_px: h_px }
       end
 
+      # a window's own entities: a group's, or a component's definition's (a window is turned into
+      # a component when it is built - window_tool.rb, 'Window To Component'). nil = neither.
+      def window_entities(ent)
+        return ent.entities if ent.respond_to?(:entities)
+        return ent.definition.entities if ent.respond_to?(:definition) && ent.definition.respond_to?(:entities)
+        nil
+      end
+
+      # where a window is cut from above (USE_WINDOW_MIDCUT): the middle of its own height, from
+      # the bottom_z / top_z it carries (world inches); without them, PLAN_CUT over the floor
+      def window_mid_z(ent, base_z)
+        z0 = ent.get_attribute(D, 'bottom_z')
+        z1 = ent.get_attribute(D, 'top_z')
+        return (z0.to_f + z1.to_f) / 2.0 if z0 && z1 && z1.to_f > z0.to_f
+        base_z + PLAN_CUT
+      end
+
       def set_aside?(type)
         SET_ASIDE.include?(type.to_s)
       end
@@ -270,7 +290,9 @@ module InteriorPro
           span = pg.send(:opening_span, d, b)
           next unless span
           x1, x2 = span
-          jw = pg::JAMB_W
+          # (19:10, measured - debug_swing_faces.rb: JAMB_W is written inside PlanGenerator's `class << self`,
+          # so reading it off the module raised NameError and the rescue below swallowed it: no white face was ever made)
+          jw = pg.singleton_class.const_defined?(:JAMB_W) ? pg.singleton_class::JAMB_W : 1.5
           ss = pg.send(:swing_sign, b)
           edge = ss > 0 ? d[:off_pos] : d[:off_neg]
           leaves = if kind == :double
@@ -295,16 +317,30 @@ module InteriorPro
               Geom::Point3d.new(hinge.x + v0.x * Math.cos(a) - v0.y * Math.sin(a), hinge.y + v0.x * Math.sin(a) + v0.y * Math.cos(a), 0)
             end
             world = pts.map { |q| pg.send(:flat_world, q, d[:xform]) }
-            f = ents.add_face(world) rescue nil
-            next unless f
-            white = Sketchup.active_model.materials['InteriorPro_Plan_White'] || Sketchup.active_model.materials.add('InteriorPro_Plan_White')
-            white.color = Sketchup::Color.new(255, 255, 255)
-            f.material = white
-            f.back_material = white
+            # (19:16, his picture: "ביקשתי רק בדלת עצמה") - only the leaf is white; the floor shows inside the
+            # swing (USE_SWING_FACE off; on = white under the quarter circle too)
+            faces = USE_SWING_FACE ? [world] : []
+            # (19:01, his picture: a grout line ran through the leaf itself) - the leaf's own rectangle,
+            # the one draw_swing_leaf outlines (1.5" along the wall from the hinge, the leaf's length
+            # into the room), gets a white face too (USE_LEAF_FACE)
+            if USE_LEAF_FACE
+              dir = lx > hx ? 1.0 : -1.0
+              ua, ub = [hx, hx + dir * 1.5].minmax
+              faces << [[ua, edge], [ub, edge], [ub, edge + ss * len], [ua, edge + ss * len]].map { |a, o| pg.send(:flat_world, pg.send(:lpt, d, a, o), d[:xform]) }
+            end
+            faces.each do |corners|
+              f = ents.add_face(corners) rescue nil
+              next unless f
+              white = Sketchup.active_model.materials['InteriorPro_Plan_White'] || Sketchup.active_model.materials.add('InteriorPro_Plan_White')
+              white.color = Sketchup::Color.new(255, 255, 255)
+              f.material = white
+              f.back_material = white
+            end
           end
         end
       rescue StandardError => e
         puts "[Elevation] swing faces: #{e.message}"
+        trace("swing faces NOT made - #{e.class}: #{e.message}")
       end
 
       # Where the camera and the plane stand for the view from above (USE_TOP_VIEW). Pure.
@@ -821,7 +857,7 @@ module InteriorPro
               hidden << t.ent
             end
             all.each do |t|
-              next unless %w[wall window].include?(t.type) && t.ent.respond_to?(:entities)
+              next unless t.type == 'wall' && t.ent.respond_to?(:entities)
               begin
                 inv = t.xf.inverse
                 lp = Geom::Point3d.new(s[:eye].x, s[:eye].y, base_z + PLAN_CUT).transform(inv)
@@ -833,7 +869,30 @@ module InteriorPro
                 puts "[Elevation] wall not cut for the view from above: #{e.message}"
               end
             end
-            trace("#{name} from above: #{cutw} walls cut at #{PLAN_CUT}\"")
+            # (18:56, measured - debug_top_window.rb: a window is a COMPONENT, so the cut above never
+            # reached one, and Room 2's window stands at 68..80, over the 48" cut - from under the
+            # ceiling its top showed as a white block past the wall; "מעולה" on top_window_E_midcut.png)
+            # - every window is cut inside its own definition at ITS OWN middle height, whatever the
+            # walls are cut at, so a thin frame shows inside the wall (USE_WINDOW_MIDCUT).
+            cutwin = 0
+            if USE_WINDOW_MIDCUT
+              all.each do |t|
+                next unless t.type == 'window'
+                ents = window_entities(t.ent)
+                next unless ents
+                begin
+                  inv = t.xf.inverse
+                  lp = Geom::Point3d.new(s[:eye].x, s[:eye].y, window_mid_z(t.ent, base_z)).transform(inv)
+                  ln = Geom::Vector3d.new(0, 0, -1).transform(inv)
+                  wsp = ents.add_section_plane([lp, ln])
+                  wsp.activate
+                  cutwin += 1
+                rescue StandardError => e
+                  puts "[Elevation] window not cut for the view from above: #{e.message}"
+                end
+              end
+            end
+            trace("#{name} from above: #{cutw} walls cut at #{PLAN_CUT}\", #{cutwin} windows cut at their own middle")
             # the door's leaf and swing, the jambs, the window - the plan's own symbols (plan_generator,
             # the ones the 2D plan prints), drawn under the cut for the shot (18:04: "חיתוך של הדלת,
             # פתיחה, פריים"). A group of their own that goes with the aborted operation.
