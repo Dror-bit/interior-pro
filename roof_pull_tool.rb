@@ -49,8 +49,13 @@ module InteriorPro
       log.lines.grep(/pull|Roof\] (?:edge|eave|valley)/i).each { |l| self.class.trace('    ' + l.strip) }
       # NOT SILENTLY (the law of 2026-09-23): a number that was saved but
       # did not move the edge says why, in the builder's own words.
+      # held short of a roof in front of it (2026-10-09): built, and he is told how far
+      held = log.lines.grep(/\] edge #{Regexp.escape(wid.to_s[0, 8])} is held to/).first
+      UI.messagebox(held.strip.sub(/\A\[Roof\]\s*/, '')) if built && held
       if got > 0.01 && !built
-        why = log.lines.grep(/not pulled out|not built|left out|nothing (?:is|was)/).map { |l| l.strip.sub(/\A\[Roof\]\s*/, '') }.uniq
+        # the valley lines are about the roofs meeting, never about the pull
+        # (his box on 2026-10-09 carried "nothing is carried on" as a reason)
+        why = log.lines.grep(/not pulled out|not built|left out|nothing (?:is|was)/).grep_v(/\] valley:/).map { |l| l.strip.sub(/\A\[Roof\]\s*/, '') }.uniq
         why = ['The roof was not rebuilt - see the Ruby Console.'] if why.empty?
         UI.messagebox("The edge was not pulled out:\n\n" + why.first(3).join("\n\n"))
       end
