@@ -52,6 +52,10 @@ module InteriorPro
     # The automatic dimensions of an elevation (2026-10-08, st['image_dims'], see
     # place_elev_dims!). false = they are kept but not drawn: the picture alone.
     USE_ELEV_DIMS = true unless const_defined?(:USE_ELEV_DIMS, false)
+    # The dimensions he draws on an elevation's picture with the sheet's own dimension tool (2026-10-08
+    # 19:46, st['image_hand'][path] = [{ 'p' => [u1, v1, u2, v2], 'o' => 'h' | 'v', 'at' => share, 'n' => inches }],
+    # shares of the picture so they follow its box). false = kept but not drawn.
+    USE_PIC_DIMS = true unless const_defined?(:USE_PIC_DIMS, false)
     # The NUMBER of a dimension - and any other label - can be written over by
     # hand (2026-10-07, "אני רוצה שיהיה אפשרי לערוך את המידות - את המספרים
     # שלהם בתוך"; asked whether the words replace the number for good or sit
@@ -1218,7 +1222,10 @@ module InteriorPro
     def self.place_elev_dims!(doc, st)
       return doc unless USE_ELEV_DIMS
       all = st['image_dims'] || st[:image_dims]
-      return doc unless all.is_a?(Hash) && !all.empty?
+      all = {} unless all.is_a?(Hash)
+      hand = USE_PIC_DIMS ? (st['image_hand'] || st[:image_hand]) : nil
+      hand = {} unless hand.is_a?(Hash)
+      return doc if all.empty? && hand.empty?
       @elev_h, @elev_sty = elev_style(st)
       @elev_marks = st['text_marks'] || st[:text_marks]
       @elev_marks = {} unless @elev_marks.is_a?(Hash)
@@ -1232,10 +1239,14 @@ module InteriorPro
         lay = nil
         @elev_seen = Hash.new(0)
         shots.each do |main|
-          dims = all[main[:path].to_s.tr('\\', '/')]
-          next unless dims.is_a?(Array) && !dims.empty?
+          key = main[:path].to_s.tr('\\', '/')
+          dims = all[key]
+          dims = [] unless dims.is_a?(Array)
+          # and the ones he drew himself, after the automatic ones (USE_PIC_DIMS)
+          mine = hand[key].is_a?(Array) ? hand[key].map { |h| pic_dim(h) }.compact : []
+          next if dims.empty? && mine.empty?
           lay ||= pg.layer(ELEV_DIM_LAYER)
-          dims.each { |d| safely { draw_elev_dim(lay, main, d) } }
+          (dims + mine).each { |d| safely { draw_elev_dim(lay, main, d) } }
         end
       end
       doc
@@ -1256,6 +1267,17 @@ module InteriorPro
       x, y, w, h = elev_rect(main)
       l, b, r, t = (main[:crop].is_a?(Array) && main[:crop].length == 4 ? main[:crop] : [0, 0, 0, 0]).map(&:to_f)
       [x + (u.to_f - l) / (1.0 - l - r) * w, y + (v.to_f - b) / (1.0 - b - t) * h]
+    end
+
+    # One dimension he drew on a picture (USE_PIC_DIMS) as draw_elev_dim takes it: 'k' => 'f', the two
+    # points he locked onto, which way it measures, where its line stands, and its number. nil = not one.
+    def self.pic_dim(h)
+      return nil unless h.is_a?(Hash)
+      pp = Array(h['p']).map(&:to_f)
+      return nil unless pp.size == 4 && %w[h v].include?(h['o'].to_s)
+      n = h['n'].to_f
+      words = defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool.fmt_in(n) : format('%.1f"', n)
+      { 'k' => 'f', 'o' => h['o'].to_s, 'p' => pp, 'at' => h['at'].to_f, 't' => words }
     end
 
     def self.draw_elev_dim(lay, main, d)
@@ -1301,7 +1323,33 @@ module InteriorPro
       tw = text_width_in(words, fs, sty[:bold], sty[:font])
       opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty)
       opts[:t0] = t0 if t0
-      if d['k'].to_s == 'h'
+      if d['k'].to_s == 'f'
+        # one he drew (USE_PIC_DIMS): from his two points to its line, across or up
+        u1, v1, u2, v2 = d['p']
+        a = elev_pt(main, u1, v1)
+        b = elev_pt(main, u2, v2)
+        if d['o'] == 'h'
+          yl = elev_pt(main, u1, d['at'])[1]
+          ln.call(a[0], yl, b[0], yl)
+          [a, b].each do |q|
+            sg = yl >= q[1] ? 1.0 : -1.0
+            ln.call(q[0] - t, yl - t, q[0] + t, yl + t)
+            ln.call(q[0], q[1] + sg * ELEV_GAP, q[0], yl + sg * ELEV_OVER) if (yl - q[1]).abs > ELEV_GAP
+          end
+          p = tr.call((a[0] + b[0]) / 2.0 - tw / 2.0, yl + 0.035)
+          lay.text(words, p[0], p[1], opts.merge(rotation: rot))
+        else
+          xl = elev_pt(main, d['at'], v1)[0]
+          ln.call(xl, a[1], xl, b[1])
+          [a, b].each do |q|
+            sg = xl >= q[0] ? 1.0 : -1.0
+            ln.call(xl - t, q[1] - t, xl + t, q[1] + t)
+            ln.call(q[0] + sg * ELEV_GAP, q[1], xl + sg * ELEV_OVER, q[1]) if (xl - q[0]).abs > ELEV_GAP
+          end
+          p = tr.call(xl - 0.035, (a[1] + b[1]) / 2.0 - tw / 2.0)
+          lay.text(words, p[0], p[1], opts.merge(rotation: rot + 90.0))
+        end
+      elsif d['k'].to_s == 'h'
         u1, u2 = Array(d['u']).map(&:to_f)
         x1 = elev_pt(main, u1, d['v'])[0]
         x2 = elev_pt(main, u2, d['v'])[0]

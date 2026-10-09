@@ -688,6 +688,25 @@ module InteriorPro
           end
         end
 
+        # The lines of an elevation's picture, for the dimension tool to lock onto (2026-10-08 19:46):
+        # the window asks once a picture, Ruby reads <picture>.snaps.json (ElevationTool.snaps_file)
+        # and hands it back. Nothing there (an older picture, a render) = no lines, and it says so.
+        dlg.add_action_callback('pic_dim_trace') do |_, line|
+          erase_trace("pic dims: drawn #{line}")
+        end
+
+        dlg.add_action_callback('elev_snaps') do |_, path|
+          begin
+            p = path.to_s
+            f = defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool.snaps_file(p) : nil
+            data = f && File.file?(f) ? File.read(f) : 'null'
+            dlg.execute_script("picSnaps(#{JSON.generate(p)}, #{data})")
+            erase_trace("pic dims: lines for #{File.basename(p)} - #{f && File.file?(f) ? "#{File.size(f)} bytes" : 'none beside it'}")
+          rescue StandardError => e
+            puts "[Sheet] elev_snaps: #{e.class}: #{e.message}"
+          end
+        end
+
         dlg.add_action_callback('set_state') do |_, json|
           begin
             t0 = Time.now
@@ -938,6 +957,7 @@ module InteriorPro
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
+          pic_dims: InteriorPro::PlanCanvas::USE_PIC_DIMS,
           rotate: InteriorPro::PlanCanvas::USE_VIEW_ROTATION,
           pic_box: InteriorPro::PlanCanvas::USE_PIC_BOX,
           pics: pic_payload(st),
@@ -1388,7 +1408,8 @@ module InteriorPro
         # No default on purpose - nil is "the whole sheet, the scale from the list".
         # image_titles (2026-10-08): a name of its own for a picture, by path - the elevations.
         # image_dims (2026-10-08): the automatic dimensions of an elevation, by path.
-        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims]
+        # image_hand (2026-10-08 19:46): the dimensions he draws on an elevation, by path (USE_PIC_DIMS).
+        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims image_hand]
       end
 
       # -------------------------------------------------- the free geometry
@@ -4342,6 +4363,7 @@ module InteriorPro
             hookDrag();
             paintErase();
             paintSnap();
+            paintPicDim();
             paintDraw();
             paintRot();
             paintTextPick();
@@ -4993,6 +5015,154 @@ module InteriorPro
             if(MODE==='chain' && !closed){ PEND=pt; }
             else { PEND=null; CHAIN0=null; }
             paintDraw(); showMarks();
+          }
+
+          // ---- dimensions on an elevation's picture (2026-10-08 19:46, PlanCanvas::USE_PIC_DIMS) ----
+          //
+          // His words: "תאפשר לי גם להשתמש בכל הכלים ... גם על האליווישין ... חייב להינעל על פינות
+          // וסופי קווים". A picture has no lines of its own, so ElevationTool writes the lines it
+          // shows beside it (<picture>.snaps.json, shares of the picture) and Ruby hands them over
+          // (elev_snaps -> picSnaps). Three clicks, as on the plan: from, to (both lock onto an end,
+          // a middle or a line - the same colours), and where the dimension line stands. It measures
+          // ACROSS or UP, whichever way the two points are further apart. Kept in
+          // STATE.image_hand[path] in shares of the picture, so it follows the picture's box.
+          var PICDIMS=true;
+          var PSNAPS={};       // path -> { pts: [[u,v,kind]], segs, w_in, h_in } or 'asked' / null
+          var PD=null;         // the dimension being drawn: { s, path, a, b, at, o }
+          var PDHOV=null;      // where the mouse would land now: { u, v, kind } or a bare point
+          function picPath(s){ return String((s&&s.path)||'').split(String.fromCharCode(92)).join('/'); }
+          function picSnaps(path, data){
+            path=String(path).split(String.fromCharCode(92)).join('/');
+            if(!data || !data.segs){ PSNAPS[path]=null; return; }
+            var pts=[], seen={};
+            var add=function(u,v,k){
+              var key=k+(u*1e4|0)+'_'+(v*1e4|0);
+              if(seen[key]) return; seen[key]=1; pts.push([u,v,k]);
+            };
+            data.segs.forEach(function(g){
+              add(g[0],g[1],'end'); add(g[2],g[3],'end');
+              add((g[0]+g[2])/2,(g[1]+g[3])/2,'mid');
+            });
+            PSNAPS[path]={pts:pts, segs:data.segs, w_in:+data.w_in||0, h_in:+data.h_in||0};
+          }
+          // a share of picture s -> the paper (the sums PlanCanvas.elev_pt and draw_elev_dim use)
+          function picToPaper(s,u,v){
+            var r=picRect(s), c=r.crop||[0,0,0,0];
+            var x=r.x+(u-c[0])/(1-c[0]-c[2])*r.w, y=r.y+(v-c[1])/(1-c[1]-c[3])*r.h;
+            if(!r.rot) return [x,y];
+            var t=r.rot*Math.PI/180, cx=r.x+r.w/2, cy=r.y+r.h/2, dx=x-cx, dy=y-cy;
+            return [cx+dx*Math.cos(t)-dy*Math.sin(t), cy+dx*Math.sin(t)+dy*Math.cos(t)];
+          }
+          function paperToPic(s,px,py){
+            var r=picRect(s), c=r.crop||[0,0,0,0], x=px, y=py;
+            if(r.rot){
+              var t=-r.rot*Math.PI/180, cx=r.x+r.w/2, cy=r.y+r.h/2, dx=x-cx, dy=y-cy;
+              x=cx+dx*Math.cos(t)-dy*Math.sin(t); y=cy+dx*Math.sin(t)+dy*Math.cos(t);
+            }
+            return [c[0]+(x-r.x)/r.w*(1-c[0]-c[2]), c[1]+(y-r.y)/r.h*(1-c[1]-c[3])];
+          }
+          function pdScreen(s,u,v){ var p=picToPaper(s,u,v); return [p[0]*LIVEK, (PAGE.height-p[1])*LIVEK]; }
+          // the picture under the mouse that has lines (a box of writing is not one); asks for its lines once
+          function picDimTarget(e){
+            var s=hitPic(e); if(!s || s.txt) return null;
+            var path=picPath(s);
+            if(PSNAPS[path]===undefined){ PSNAPS[path]='asked'; sketchup.elev_snaps(path); }
+            return s;
+          }
+          // where a click would land: an end or a middle within SNAP_PX, else the nearest point ON a line,
+          // else the mouse itself
+          function picSnapAt(s,e){
+            var m=mouseAt(e); if(!m) return null;
+            var pp=[m[0]/LIVEK, PAGE.height-m[1]/LIVEK], raw=paperToPic(s,pp[0],pp[1]);
+            var sn=PSNAPS[picPath(s)];
+            if(!sn || sn==='asked') return {u:raw[0], v:raw[1], kind:null};
+            var best=null, bd=SNAP_PX;
+            sn.pts.forEach(function(q){
+              var p=pdScreen(s,q[0],q[1]), d=Math.hypot(p[0]-m[0],p[1]-m[1]);
+              if(d<bd || (best && d<=bd+0.5 && best.kind==='mid' && q[2]==='end')){ bd=Math.min(bd,d); best={u:q[0],v:q[1],kind:q[2]}; }
+            });
+            if(best) return best;
+            bd=SNAP_PX*0.6;
+            sn.segs.forEach(function(g){
+              var a=pdScreen(s,g[0],g[1]), b=pdScreen(s,g[2],g[3]);
+              var vx=b[0]-a[0], vy=b[1]-a[1], L=vx*vx+vy*vy; if(!L) return;
+              var t=Math.max(0,Math.min(1,((m[0]-a[0])*vx+(m[1]-a[1])*vy)/L));
+              var d=Math.hypot(a[0]+vx*t-m[0], a[1]+vy*t-m[1]);
+              if(d<bd){ bd=d; best={u:g[0]+(g[2]-g[0])*t, v:g[1]+(g[3]-g[1])*t, kind:'edge'}; }
+            });
+            return best || {u:raw[0], v:raw[1], kind:null};
+          }
+          // which way it measures and how long it is, in inches of the room
+          function picDimMeasure(path,a,b){
+            var sn=PSNAPS[path]; if(!sn||sn==='asked'||!sn.w_in) return null;
+            var du=Math.abs(b.u-a.u)*sn.w_in, dv=Math.abs(b.v-a.v)*sn.h_in;
+            return du>=dv ? {o:'h', n:du} : {o:'v', n:dv};
+          }
+          function picDimMove(e){
+            if(PD && PD.b){
+              var m=mouseAt(e); if(!m) return;
+              var q=paperToPic(PD.s, m[0]/LIVEK, PAGE.height-m[1]/LIVEK);
+              PD.at = PD.o==='h' ? q[1] : q[0];
+              paintPicDim(); return;
+            }
+            var s=PD ? PD.s : picDimTarget(e);
+            PDHOV = s ? picSnapAt(s,e) : null;
+            if(PDHOV) PDHOV.s=s;
+            paintPicDim();
+          }
+          function picDimClick(e){
+            if(PD && PD.b){
+              var hand=STATE.image_hand||(STATE.image_hand={});
+              (hand[PD.path]||(hand[PD.path]=[])).push({p:[PD.a.u,PD.a.v,PD.b.u,PD.b.v], o:PD.o, at:PD.at, n:PD.n});
+              var made=PD; PD=null; PDHOV=null;
+              sketchup.pic_dim_trace(made.path.split('/').pop()+' '+made.o+' '+made.n.toFixed(3)+'" from '+made.a.kind+' to '+made.b.kind);
+              push(); render(); showMarks();
+              return;
+            }
+            var s=PD ? PD.s : picDimTarget(e);
+            if(!s){ $('markinfo').textContent='אין תמונה מתחת לעכבר.'; return; }
+            var path=picPath(s), sn=PSNAPS[path];
+            if(sn===null){ $('markinfo').textContent='לתמונה הזאת אין קווים - צריך לצלם אותה שוב ב-Elevations.'; return; }
+            if(sn==='asked') return;      // its lines are on the way
+            var p=picSnapAt(s,e); if(!p) return;
+            if(!PD){ PD={s:s, path:path, a:p}; paintPicDim(); return; }
+            var me=picDimMeasure(path,PD.a,p); if(!me || me.n<0.05) return;
+            PD.b=p; PD.o=me.o; PD.n=me.n;
+            PD.at = me.o==='h' ? Math.min(PD.a.v,p.v)-0.04 : Math.max(PD.a.u,p.u)+0.04;
+            paintPicDim();
+          }
+          function picDimDrop(){ var had=!!(PD||PDHOV); PD=null; PDHOV=null; paintPicDim(); return had; }
+          // drawn over the sheet on every move, not with it: the ring where a click lands and the
+          // dimension being drawn (dashed, blue, as on the plan)
+          function paintPicDim(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#picdim'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(MODE!=='dim' || (!PD && !PDHOV)) return;
+            var o=[];
+            var dash=function(p1,p2,w){
+              o.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+
+                     '" stroke="#1f6feb" stroke-width="'+(w||1.5)+'" stroke-dasharray="4 3"/>');
+            };
+            if(PD && PD.b){
+              var s=PD.s, A, B;
+              if(PD.o==='h'){ A=pdScreen(s,PD.a.u,PD.at); B=pdScreen(s,PD.b.u,PD.at); }
+              else { A=pdScreen(s,PD.at,PD.a.v); B=pdScreen(s,PD.at,PD.b.v); }
+              dash(pdScreen(s,PD.a.u,PD.a.v),A,1); dash(pdScreen(s,PD.b.u,PD.b.v),B,1); dash(A,B,2);
+              var mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2;
+              o.push('<text x="'+mx.toFixed(1)+'" y="'+(my-6).toFixed(1)+'" font-size="13" fill="#1f6feb" text-anchor="middle">'+PD.n.toFixed(1)+'"</text>');
+            } else if(PD && PDHOV){
+              dash(pdScreen(PD.s,PD.a.u,PD.a.v), pdScreen(PD.s,PDHOV.u,PDHOV.v));
+            }
+            var ring = PDHOV && !(PD && PD.b) ? PDHOV : null;
+            if(ring && ring.kind){
+              var q=pdScreen(ring.s||PD.s, ring.u, ring.v);
+              var col = ring.kind==='end' ? '#2fbf5f' : (ring.kind==='mid' ? '#16c0d6' : '#d63ad6');
+              o.push('<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="6" fill="none" stroke="'+col+'" stroke-width="2"/>');
+            }
+            var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+            g.setAttribute('id','picdim');
+            g.innerHTML=o.join('');
+            svg.appendChild(g);
           }
 
           function paintSnap(){
@@ -5887,6 +6057,7 @@ module InteriorPro
           var NOTEPLACE = true;        // told by Ruby: a new note's words are typed on the sheet, not in a bar
           var NOTE_SNAP_DEG = 12;      // near level or upright, it locks there
           function escapeAll(){
+            PD=null; PDHOV=null;             // a dimension half drawn on a picture is dropped
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
               tbCancel();
@@ -5933,6 +6104,7 @@ module InteriorPro
             DRAWSNAP=null; CHAIN0=null; ROT=null; BOXD=null; BSEL=null;
             cancelCarry();
             BAND=null; SELS=[];
+            PD=null; PDHOV=null;
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
             SSEL=[];
             if(m!=='hand') SEL=null;
@@ -5992,6 +6164,7 @@ module InteriorPro
                 if(np){ HOVER=np; render(); }
                 return;
               }
+              if(MODE==='dim' && PICDIMS && !pageView()){ picDimMove(e); return; }
               if(MODE==='dim'){
                 if(PEND&&PEND2){
                   // the third stage: the mouse is choosing how far off the
@@ -6200,6 +6373,7 @@ module InteriorPro
               }
               // a box of writing goes on ANY sheet, with a drawing on it or not
               if(MODE==='text'){ textClick(e); return; }
+              if(MODE==='dim' && PICDIMS && !pageView()){ picDimClick(e); return; }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
               if(MODE==='line'||MODE==='chain'){ drawClick(p); return; }
@@ -6508,7 +6682,16 @@ module InteriorPro
           var LASTMARKS='[]';      // the marks as they were the last time they were saved
           var USITE_N=null;        // how many loose lines the sheet has, by our own count
 
+          var LASTHAND='{}';       // the dimensions drawn on pictures, as last saved (USE_PIC_DIMS)
           function noteMarksForUndo(){
+            var hnow=JSON.stringify(STATE.image_hand||{});
+            if(hnow!==LASTHAND){
+              if(UNDOON && !UNDOING){
+                UNDO.push({g:(UCUR!==null ? UCUR : ++UGROUP), hand:LASTHAND});
+                if(UNDO.length>300) UNDO.shift();
+              }
+              LASTHAND=hnow;
+            }
             var now=JSON.stringify(STATE.marks||[]);
             if(now===LASTMARKS) return;
             if(UNDOON && !UNDOING){
@@ -6535,10 +6718,12 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
+            var handBack=null;
             var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null, orderBack=null, rboxBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
+              if(u.hand!==undefined) handBack=u.hand;
               if(u.site) siteBack=siteBack.concat(u.site);
               if(u.added) addBack=addBack.concat(u.added);
               if(u.rot!==undefined) rotBack=u.rot;
@@ -6610,6 +6795,14 @@ module InteriorPro
                   items:siteBack.map(function(x){ return {i:x.i, p:x.s.points}; }), n:n}));
               }
             }
+            if(handBack!==null){
+              // a dimension drawn on a picture comes off again
+              UNDOING=true;
+              STATE.image_hand=JSON.parse(handBack);
+              LASTHAND=handBack;
+              sketchup.set_state(JSON.stringify(STATE));
+              UNDOING=false;
+            }
             if(marksBack!==null){
               UNDOING=true;
               STATE.marks=JSON.parse(marksBack);
@@ -6638,6 +6831,7 @@ module InteriorPro
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
+            PICDIMS = (p.pic_dims!==false);
             ROTON = (p.rotate!==false);
             BOXON = (p.view_box!==false);
             CROPON = (p.box_crop!==false);
@@ -6745,6 +6939,7 @@ module InteriorPro
             // window counted, the list was read again or cleared behind the
             // undo list's back: the numbers in those steps point at other
             // lines now, so those steps are forgotten rather than trusted.
+            LASTHAND=JSON.stringify(STATE.image_hand||{});
             LASTMARKS=JSON.stringify(STATE.marks);
             var usl=rawSiteLayer(), usn=(usl&&usl.shapes) ? usl.shapes.length : 0;
             if(USITE_N!==null && usn!==USITE_N) UNDO=UNDO.filter(function(u){ return !u.site && !u.added; });

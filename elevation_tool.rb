@@ -69,6 +69,12 @@ module InteriorPro
     USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
     USE_LEAF_FACE = true unless const_defined?(:USE_LEAF_FACE, false) # 19:01: a white face under a door's leaf too, not only under its swing; off = the swing alone, as before
     USE_SWING_FACE = false unless const_defined?(:USE_SWING_FACE, false) # 19:16: no white under the swing's quarter circle - the leaf only
+    # 19:19, his words: "תאפשר לי גם להשתמש בכל הכלים... גם על האליווישין... חייב להינעל על פינות וסופי קווים" - a
+    # picture has no lines, so each wall's picture gets its lines as numbers beside it (<picture>.snaps.json,
+    # shares of the picture like the automatic dimensions), only the ones the picture really shows
+    # (measured 19:21, debug_elev_snaps.rb: North 10,315 lines in front of the wall, some never drawn).
+    USE_ELEV_SNAPS = true unless const_defined?(:USE_ELEV_SNAPS, false)
+    SNAP_SEEN = 0.6 unless const_defined?(:SNAP_SEEN, false)   # a line is kept when this share of it lies on drawn pixels
     DIM_STEP = 2 unless const_defined?(:DIM_STEP, false)               # 16:33 ("סליחה, רק חצי"): numbers to the half inch, no finer (16 = the sixteenth, as before)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
     D = 'InteriorPro' unless const_defined?(:D, false)
@@ -275,6 +281,94 @@ module InteriorPro
         z1 = ent.get_attribute(D, 'top_z')
         return (z0.to_f + z1.to_f) / 2.0 if z0 && z1 && z1.to_f > z0.to_f
         base_z + PLAN_CUT
+      end
+
+      # ---- the lines of a picture, as numbers (USE_ELEV_SNAPS) ------------------
+
+      # the file beside a picture that holds its lines
+      def snaps_file(path)
+        path.to_s.sub(/\.png\z/i, '') + '.snaps.json'
+      end
+
+      # every edge that is drawn: not hidden, not soft, its tag on, its group not put aside
+      # (the things set aside for the shot are hidden by then). World points.
+      def model_edges(ents, xf = Geom::Transformation.new, out = [], depth = 0)
+        ents.each do |e|
+          if e.is_a?(Sketchup::Edge)
+            next if e.hidden? || e.soft? || !e.layer.visible?
+            out << [e.start.position.transform(xf), e.end.position.transform(xf)]
+          elsif e.is_a?(Sketchup::Group) || (defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance))
+            next if e.hidden? || !e.layer.visible? || depth > 8
+            kids = e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities
+            model_edges(kids, xf * e.transformation, out, depth + 1)
+          end
+        end
+        out
+      end
+
+      # the edges in front of one wall, within its cut, laid on its picture: [u1, v1, u2, v2] -
+      # u from the picture's left (side.b), v from its bottom, as dims_for lays them. Pure.
+      def side_segs(side, cut, wall_h, base_z, edges)
+        len = side.len.to_f
+        wh = wall_h.to_f
+        dir = Geom::Vector3d.new(side.b.x - side.a.x, side.b.y - side.a.y, 0)
+        dir.normalize!
+        n = side.inward
+        pw = len + 2 * MARGIN
+        ph = wh + 2 * MARGIN
+        out = []
+        edges.each do |p, q|
+          ip = (p.x - side.a.x) * n.x + (p.y - side.a.y) * n.y
+          iq = (q.x - side.a.x) * n.x + (q.y - side.a.y) * n.y
+          next if [ip, iq].max < -0.5 || [ip, iq].min > cut.to_f
+          ap = (p.x - side.a.x) * dir.x + (p.y - side.a.y) * dir.y
+          aq = (q.x - side.a.x) * dir.x + (q.y - side.a.y) * dir.y
+          next if [ap, aq].max < -0.5 || [ap, aq].min > len + 0.5
+          zp = p.z - base_z
+          zq = q.z - base_z
+          next if [zp, zq].max < -0.5 || [zp, zq].min > wh + 0.5
+          next if (ap - aq).abs < 0.05 && (zp - zq).abs < 0.05     # seen end-on: a point
+          out << [(MARGIN + len - ap) / pw, (MARGIN + zp) / ph, (MARGIN + len - aq) / pw, (MARGIN + zq) / ph].map { |x| x.round(5) }
+        end
+        out.uniq
+      end
+
+      # Only the lines the picture really shows: five points along each, each looked up in the
+      # picture (a dark pixel within 2 px). The rows may run either way - both are tried, the
+      # better kept, and the trace says which. Returns [kept, 'rows top-down 96%'].
+      def seen_segs(path, segs)
+        return [segs, 'no picture reader'] unless defined?(Sketchup::ImageRep)
+        rep = Sketchup::ImageRep.new
+        rep.load_file(path)
+        w = rep.width
+        h = rep.height
+        bpp = rep.bits_per_pixel / 8
+        return [segs, "#{bpp * 8} bit picture, not read"] unless bpp >= 3
+        row = w * bpp + rep.row_padding.to_i
+        data = rep.data
+        dark = lambda do |x, y|
+          return false if x < 0 || y < 0 || x >= w || y >= h
+          o = y * row + x * bpp
+          bs = data.byteslice(o, bpp).bytes.sort
+          (bs[0] + bs[1] + bs[2]) < 3 * 128
+        end
+        near = ->(x, y) { [-2, 0, 2].any? { |dx| [-2, 0, 2].any? { |dy| dark.call(x + dx, y + dy) } } }
+        score = lambda do |seg, down|
+          u1, v1, u2, v2 = seg
+          (0...5).count do |k|
+            t = (k + 0.5) / 5.0
+            u = u1 + (u2 - u1) * t
+            v = v1 + (v2 - v1) * t
+            y = down ? ((1.0 - v) * h).floor : (v * h).floor
+            near.call((u * w).floor, y)
+          end
+        end
+        need = (5 * SNAP_SEEN).ceil
+        sample = segs.each_slice([segs.size / 300, 1].max).map(&:first)
+        down = sample.count { |sg| score.call(sg, true) >= need } >= sample.count { |sg| score.call(sg, false) >= need }
+        kept = segs.select { |sg| score.call(sg, down) >= need }
+        pct = segs.empty? ? 0 : (100.0 * kept.size / segs.size).round
+        [kept, "rows #{down ? 'top-down' : 'bottom-up'} #{pct}%"]
       end
 
       def set_aside?(type)
@@ -774,6 +868,7 @@ module InteriorPro
           ro['DisplaySketchAxes'] = false
           ro['RenderMode'] = (style == 'shaded' ? 3 : 1)
           lines_drawn = []
+          snap_edges = nil
           sides(poly).each do |side|
             s = shot(side, wall_h, cut_for(cut, side.name), base_z)
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
@@ -799,6 +894,18 @@ module InteriorPro
               its = safely_items(side, s[:cut], all, base_z)
               last_dims[path.tr('\\', '/')] = dims_for(side, wall_h, its)
               trace("#{name} side #{side.name}: dims #{its.map { |i| "#{i[:kind]} #{i[:a0].round(2)}..#{i[:a1].round(2)} z #{i[:z0].round(2)}..#{i[:z1].round(2)}" }.join('; ')}")
+              if USE_ELEV_SNAPS
+                begin
+                  t0 = Time.now
+                  snap_edges ||= model_edges(model.entities)
+                  segs = side_segs(side, s[:cut], wall_h, base_z, snap_edges)
+                  kept, how = seen_segs(path, segs)
+                  File.write(snaps_file(path), JSON.generate('segs' => kept, 'w_in' => side.len.to_f + 2 * MARGIN, 'h_in' => wall_h.to_f + 2 * MARGIN))
+                  trace("#{name} side #{side.name}: snaps #{kept.size} of #{segs.size} lines kept (#{how}), #{(Time.now - t0).round(2)} s")
+                rescue StandardError => e
+                  trace("#{name} side #{side.name}: snaps NOT written - #{e.class}: #{e.message}")
+                end
+              end
             end
             sp.erase!
             trace("#{name} side #{side.name}: #{side.len.round(1)}\" long, cut #{s[:cut].round(1)}\", " \
