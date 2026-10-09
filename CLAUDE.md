@@ -66,7 +66,7 @@ Live folder (edit in place, no RBZ):
   (sed 's/\r$//' מתקן).
 
 בדיקות
-- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 364 שורות PASS (נמדד 2026-10-08 18:19, אחרי rt289).
+- cd tests ואז LANG=C.UTF-8 timeout 170 bash run_all.sh .. — 368 שורות PASS (נמדד 2026-10-08 19:55, אחרי rt292/t85).
   אדומות ישנות: rt43, rt60; rt229 נופלת רק ב-VM (הרשאה על /tmp/ip_fake). תמיד run_all.sh, לא קובץ בודד.
 - `tests/` מחזיק עותקים של קבצי התוסף, ו-`run_all.sh` הוא זה שמעתיק אותם. בדיקה בודדת בלי להעתיק קודם רצה על קוד ישן.
 - תכונה חדשה מקבלת בדיקה, ובדיקה על החישוב לבד לא מספיקה — צריך לבדוק
@@ -513,6 +513,12 @@ its ends run into, and is it cut to end exactly there?
 - מה שנעשה למילים של הערה (גודל, bold, כתב, הזזה) — **הקופסה והקו עוקבים** (`PlanCanvas.fit_notes!`, `USE_NOTE_FIT`).
 - כלי חדש שמוסיף כיתוב — עובר דרך אותם מסלולים. פס משלו = הפרת החוק.
 
+## הצעד הנוכחי (2026-10-08 19:58): כלי המידה על אלווישן נבנה — לא נבדק אצלו; הוא ביקש צ'אט חדש
+הכל ב-`HANDOFF_2026-10-08E.md`. **הסבב האחרון לא ב-commit** — פקודה שם. **368 PASS**. החלון והכנף במבט מלמעלה נסגרו ("מעולה").
+**ראשון בצ'אט הבא:** לקרוא, לדווח במשפט, לחכות ל"תתחיל", commit, ואז שיבדוק את המידה על האלווישן (לקרוא `sheet_erase_trace.txt` שורות `pic dims:`).
+**הבא שלו:** כל הכלים של "מידות והערות" גם על האלווישן, ננעלים על פינות/סופי קווים — הערה, מחק, קווים, ומבט מלמעלה. אחד בכל פעם.
+**חוקים מהסבב:** לפני פונקציה חדשה ב-JS של Sheet — grep על השם (התנגשות בשקט); rescue בלי trace אסור בקוד שמצייר; צעד שלא נראה לעין — להגיד בשורה הראשונה.
+
 ## הצעד הנוכחי (2026-10-08 18:20): Elevations — חדר בדף אחד + מידות נקיות + מבט מלמעלה; נפתח: החלון במבט מלמעלה; הוא ביקש צ'אט חדש
 הכל ב-`HANDOFF_2026-10-08D.md`. **שום דבר מהיום לא ב-commit** — פקודה שם. **364 PASS**.
 **ראשון בצ'אט הבא:** לקרוא, לדווח במשפט, לחכות ל"תתחיל", לתת את ה-commit, ואז **קובץ מדידה** על החלון במבט מלמעלה (לא לנחש מתמונה).
@@ -838,6 +844,13 @@ file - what V-Ray exposes to Ruby on HIS machine - not the docs.
 ## Kill switches (turn a feature off without deleting it)
 
 Elevations, 2026-10-08:
+- `InteriorPro::PlanCanvas::USE_PIC_DIMS = false` - dimensions he drew on an elevation's picture (`st['image_hand']`) are kept
+  but not drawn, and the window's dimension tool does nothing on a picture sheet (`tests/rt292.rb`, `tests/t85.js`).
+- `InteriorPro::ElevationTool::USE_ELEV_SNAPS = false` - no `<picture>.snaps.json` beside a wall's picture: nothing to lock onto
+  (`tests/rt291.rb`). `SNAP_SEEN` 0.6 = the share of a line that must lie on drawn pixels to be kept.
+- `InteriorPro::ElevationTool::USE_WINDOW_MIDCUT = false` - from above a window is not cut (seen whole, its top a white block) (`tests/rt290.rb`).
+- `InteriorPro::ElevationTool::USE_LEAF_FACE = false` - no white face under a door's leaf from above; `USE_SWING_FACE` (false, his
+  choice 19:16) = a white face under the swing's quarter circle too (`tests/rt290.rb`).
 - `InteriorPro::ElevationTool::USE_TOP_VIEW = false` - no view from above; the walls only (`tests/rt289.rb`). On: the room from under
   its ceiling, walls (and windows) cut at PLAN_CUT 48" in their own groups, doors as the plan's symbols, first on the room's sheet.
 - `InteriorPro::ElevationTool::USE_TYPED_DIMS = false` - a set's parts at their boxes' middles again (`tests/rt288.rb`). On: at the
