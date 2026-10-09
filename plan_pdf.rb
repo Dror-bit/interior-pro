@@ -900,7 +900,7 @@ module InteriorPro
       x, y = to_paper.call(s[:x], s[:y])
       w = s[:w].to_f * scale
       h = s[:h].to_f * scale
-      nm = imgs && imgs.name_for(s[:path])
+      nm = imgs && imgs.name_for(s[:show] || s[:path])   # (:show - an elevation without a layer he switched off)
       info = nm && imgs.info_for(nm)
 
       unless nm && info
@@ -932,7 +932,7 @@ module InteriorPro
       x, y = to_paper.call(s[:x], s[:y])
       w = s[:w].to_f * scale
       h = s[:h].to_f * scale
-      nm   = imgs && imgs.name_for(s[:path])
+      nm   = imgs && imgs.name_for(s[:show] || s[:path])
       info = nm && imgs.info_for(nm)
       cl, cb, cr, ct = Array(s[:crop]).map(&:to_f)
       cl ||= 0.0; cb ||= 0.0; cr ||= 0.0; ct ||= 0.0
@@ -1092,7 +1092,8 @@ module InteriorPro
         end
         canvas.layers.each do |lay|
           next unless lay.visible
-          draw_shapes(st, lay.shapes, to_paper, s, imgs,
+          # a group he switched off (PlanCanvas.apply_visibility!) is left out, shape by shape
+          draw_shapes(st, lay.shapes.reject { |q| q[:off] }, to_paper, s, imgs,
                       v.respond_to?(:rotation) ? v.rotation.to_f : 0.0)
         end
         st.restore
@@ -1112,7 +1113,7 @@ module InteriorPro
       same = ->(x, y) { [x, y] }
       page.layers.each do |lay|
         next unless lay.visible
-        draw_shapes(st, lay.shapes, same, 1.0, imgs)
+        draw_shapes(st, lay.shapes.reject { |q| q[:off] }, same, 1.0, imgs)
       end
 
       st.to_s

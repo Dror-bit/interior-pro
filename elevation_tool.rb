@@ -74,6 +74,17 @@ module InteriorPro
     # shares of the picture like the automatic dimensions), only the ones the picture really shows
     # (measured 19:21, debug_elev_snaps.rb: North 10,315 lines in front of the wall, some never drawn).
     USE_ELEV_SNAPS = true unless const_defined?(:USE_ELEV_SNAPS, false)
+    # 2026-10-09, his law: "TILE , PLUMING , ELECTRIC בתוכניות חייבים להיות כשכבות" - and he chose to start with the
+    # elevations. A picture is ONE picture, so each wall (and the view from above) is also taken once for every
+    # mix of those things switched off that stands in front of it - without the tiles, without the plumbing,
+    # without both... - each beside the picture (<picture>__no_plumbing+tile.png), named in <picture>.layers.json
+    # ({cats, files}). The sheet shows the one his groups ask for (PlanCanvas.pic_shown), so what is behind a
+    # toilet is really there when the toilet is off - not a hole. Off = one picture a wall, as before.
+    USE_ELEV_LAYERS = true unless const_defined?(:USE_ELEV_LAYERS, false)
+    remove_const(:CAT_TYPES) if const_defined?(:CAT_TYPES, false)
+    CAT_TYPES = { 'tile' => %w[tile_wall tile_niche floor_pattern shower_pattern],
+                  'plumbing' => %w[fixture],
+                  'electric' => %w[electric outlet switch light lighting] }.freeze
     SNAP_SEEN = 0.6 unless const_defined?(:SNAP_SEEN, false)   # a line is kept when this share of it lies on drawn pixels
     DIM_STEP = 2 unless const_defined?(:DIM_STEP, false)               # 16:33 ("סליחה, רק חצי"): numbers to the half inch, no finer (16 = the sixteenth, as before)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
@@ -373,6 +384,98 @@ module InteriorPro
 
       def set_aside?(type)
         SET_ASIDE.include?(type.to_s)
+      end
+
+      # ---- the layers of a picture (USE_ELEV_LAYERS) ----------------------------
+
+      def layers_file(path)
+        path.to_s.sub(/\.png\z/i, '') + '.layers.json'
+      end
+
+      # the name of the picture taken with those things off: <picture>__no_plumbing+tile.png
+      def variant_key(cats)
+        cats.map(&:to_s).sort.join('+')
+      end
+
+      def variant_file(path, cats)
+        path.to_s.sub(/\.png\z/i, '') + "__no_#{variant_key(cats)}.png"
+      end
+
+      # every mix of the categories, one at least: [[a], [b], [a, b]] (sorted, small first). Pure.
+      def cat_mixes(cats)
+        cs = cats.map(&:to_s).sort
+        (1..cs.size).flat_map { |n| cs.combination(n).to_a }
+      end
+
+      def cat_of(type)
+        CAT_TYPES.each { |c, ts| return c if ts.include?(type.to_s) }
+        nil
+      end
+
+      # the things of each category that stand in front of one wall (within its cut) - a box test. SketchUp.
+      def side_cats(side, cut, all)
+        dir = Geom::Vector3d.new(side.b.x - side.a.x, side.b.y - side.a.y, 0)
+        dir.normalize!
+        n = side.inward
+        out = Hash.new { |h, k| h[k] = [] }
+        all.each do |t|
+          c = cat_of(t.type)
+          next unless c
+          next if set_aside?(t.type)
+          pts = world_box(t) rescue nil
+          next unless pts
+          ins = pts.map { |p| (p.x - side.a.x) * n.x + (p.y - side.a.y) * n.y }
+          als = pts.map { |p| (p.x - side.a.x) * dir.x + (p.y - side.a.y) * dir.y }
+          next if ins.max < -1.0 || ins.min > cut.to_f
+          next if als.max <= 0 || als.min >= side.len
+          out[c] << t
+        end
+        out
+      end
+
+      # the things of each category inside the room's outline (the view from above)
+      def room_cats(poly, all)
+        out = Hash.new { |h, k| h[k] = [] }
+        all.each do |t|
+          c = cat_of(t.type)
+          next unless c
+          next if TOP_ASIDE.include?(t.type)
+          w = world_centre(t)
+          out[c] << t if w && inside?(poly, w.x, w.y)
+        end
+        out
+      end
+
+      # The same shot again with each mix of the categories hidden, and the file that names them.
+      # The view, the plane and everything else stay as they are. Returns how many were written.
+      def shoot_variants!(view, path, w_px, h_px, cats)
+        return 0 unless USE_ELEV_LAYERS
+        lf = layers_file(path)
+        present = cats.keys.select { |c| cats[c].any? }.sort
+        if present.empty?
+          File.delete(lf) if File.file?(lf)
+          return 0
+        end
+        files = {}
+        cat_mixes(present).each do |mix|
+          gone = mix.flat_map { |c| cats[c] }.map(&:ent).select { |e| e.respond_to?(:hidden=) && !e.hidden? }
+          gone.each { |e| e.hidden = true }
+          begin
+            view.refresh
+            vp = variant_file(path, mix)
+            ok = view.write_image(vp, w_px, h_px, true)
+            files[variant_key(mix)] = File.basename(vp) if ok
+          ensure
+            gone.each { |e| e.hidden = false if e.valid? }
+          end
+        end
+        view.refresh
+        File.write(lf, JSON.generate('cats' => present, 'files' => files))
+        trace("#{File.basename(path)}: layers #{present.join(', ')} - #{files.size} pictures without them")
+        files.size
+      rescue StandardError => e
+        trace("#{File.basename(path)}: layers NOT taken - #{e.class}: #{e.message}")
+        0
       end
 
       # A white face under each swinging leaf's quarter circle (18:12: "הטקסטורה של הרצפה לא עוברת
@@ -718,12 +821,15 @@ module InteriorPro
         # a column of heights: numbered at the end, the lowest nearest the wall and the highest
         # farthest from it (16:15: "המדידה הכי נמוכה צריכה להיות קרובה לבית והגבוהה רחוקה")
         stacks = []
-        col = lambda do |sd, zs, u0 = nil|
+        # g (2026-10-09): the layer a number belongs to - 'tile' (a niche) or 'plumbing' (a fixture, a part), so it
+        # goes off with them on the sheet (PlanCanvas.shape_group); none = the wall's own (its length, its height)
+        col = lambda do |sd, zs, u0 = nil, g = nil|
           cols[sd] += 1
           ds = []
           zs.each_cons(2) do |p, q|
             next if q - p <= DIM_MIN
             d = { 'k' => 'v', 'side' => sd, 'col' => cols[sd], 'v' => [vz.call(p), vz.call(q)], 'u' => ux.call(wall_a.call(sd)), 't' => fmt_in(q - p) }
+            d['g'] = g if g
             d['u0'] = ux.call(u0) if u0 && USE_PART_REACH && q == zs.last
             out << d
             ds << d
@@ -747,34 +853,34 @@ module InteriorPro
             sd = near.call((a0 + a1) / 2.0)
             z0 = it[:z0].to_f
             z1 = it[:z1].to_f
-            col.call(sd, z0 > DIM_MIN ? [0.0, z0, z1] : [0.0, z1])
+            col.call(sd, z0 > DIM_MIN ? [0.0, z0, z1] : [0.0, z1], nil, 'tile')
             # its width just under it, from the nearer wall
             w_a = wall_a.call(sd)
             e_a = sd == 'L' ? a1 : a0
             v = vz.call(z0 - NICHE_UNDER)
             if (w_a - e_a).abs > DIM_MIN
-              out << { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(e_a)].sort, 'v' => v, 'from' => vz.call(z0), 't' => fmt_in((w_a - e_a).abs) }
+              out << { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(e_a)].sort, 'v' => v, 'from' => vz.call(z0), 't' => fmt_in((w_a - e_a).abs), 'g' => 'tile' }
             end
-            out << { 'k' => 'hi', 'u' => [ux.call(a1), ux.call(a0)], 'v' => v, 'from' => vz.call(z0), 't' => fmt_in(a1 - a0) }
+            out << { 'k' => 'hi', 'u' => [ux.call(a1), ux.call(a0)], 'v' => v, 'from' => vz.call(z0), 't' => fmt_in(a1 - a0), 'g' => 'tile' }
           when 'part'
             am = it[:a0].to_f
             zm = it[:z1].to_f
             next if zm <= DIM_MIN
             sd = near.call(am)
-            col.call(sd, [0.0, zm], am)
+            col.call(sd, [0.0, zm], am, 'plumbing')
             w_a = wall_a.call(sd)
             # one distance for parts that stand on one line (the valve and the head over it), at the lower;
             # one close under another writes its words under its line (16:05: 21 3/16 on 30 7/8)
             one = it[:fix].nil? || anchor[it[:fix]].equal?(it)
             if one && (w_a - am).abs > DIM_MIN && said.none? { |a, _| (a - am).abs <= DIM_MIN }
-              d = { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(am)].sort, 'v' => vz.call(zm), 't' => fmt_in((w_a - am).abs) }
+              d = { 'k' => 'hi', 'u' => [ux.call(w_a), ux.call(am)].sort, 'v' => vz.call(zm), 't' => fmt_in((w_a - am).abs), 'g' => 'plumbing' }
               out << d
               said << [am, zm, d]
             end
           when 'fixture'
             a0, a1 = [[it[:a0].to_f, 0.0].max, len].min, [[it[:a1].to_f, 0.0].max, len].min
             sd = near.call((a0 + a1) / 2.0)
-            col.call(sd, [0.0, it[:z1].to_f])
+            col.call(sd, [0.0, it[:z1].to_f], nil, 'plumbing')
             row1 << [a0, a1]
           end
         end
@@ -786,7 +892,7 @@ module InteriorPro
           stops.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
           run[-1] = len
           run.reverse.each_cons(2) do |q, p|
-            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p) }
+            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p), 'g' => 'plumbing' }
           end
         end
         out << { 'k' => 'h', 'row' => (row1.any? ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)], 'v' => vz.call(0.0), 't' => fmt_in(len) }
@@ -889,6 +995,8 @@ module InteriorPro
             view.refresh
             path = file_for(dir, name, side.name, style)
             ok = view.write_image(path, s[:w_px], s[:h_px], true)
+            # and once for every mix of tiles / plumbing / electric off (USE_ELEV_LAYERS)
+            shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all)) if ok
             # the automatic dimensions of this wall (2026-10-08), for the sheet to draw over it
             if ok
               its = safely_items(side, s[:cut], all, base_z)
@@ -1032,6 +1140,7 @@ module InteriorPro
             view.refresh
             path = file_for(dir, name, 'Plan', style)
             ok = view.write_image(path, s[:w_px], s[:h_px], true)
+            shoot_variants!(view, path, s[:w_px], s[:h_px], room_cats(poly, all)) if ok
             sp.erase!
             trace("#{name} from above: cut #{(s[:plane_pt].z - base_z).round(1)}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
             paths.unshift(path) if ok

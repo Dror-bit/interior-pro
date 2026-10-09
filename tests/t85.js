@@ -87,6 +87,8 @@ let wired = null;
 try { (LISTEN.load || []).forEach(fn => fn({})); } catch (e) { wired = e; }
 ok('the window wires itself up', !wired, wired && String(wired));
 api.call('loadSheet', JSON.parse(JSON.stringify(SHEET)));
+// the tools of 2026-10-08 are the road with PlanCanvas::USE_PIC_MARKS off (t87 has the plan's own road)
+api.set('PICMARKS', false);
 api.call('render');
 ok('the picture sheet is the one open, with no plan view on it', api.get('PAGE').kind === 'image' && api.call('pageView') === null);
 const K = () => api.get('LIVEK');

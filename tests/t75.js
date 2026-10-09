@@ -500,7 +500,7 @@ open(); ST().hidden.push("TEXT"); api.call("render");
 tgrab("t:0", 0, 0);
 ok("THE TEXT LAYER SWITCHED OFF: the writing is not drawn and cannot be picked", html().indexOf("Pool deck") < 0 && api.get("BSEL") === null);
 el("ttext").onclick(); tclick(5, 20);
-ok("and the T tool says why it will not write", !barOpen() && /TEXT כבויה/.test(el("markinfo").textContent), el("markinfo").textContent);
+ok("and the T tool says why it will not write", !barOpen() && /כיתובים כבויים/.test(el("markinfo").textContent), el("markinfo").textContent);
 
 { const s = sheet(); s.text_box = false; api.call("loadSheet", s); api.call("setMode", "hand"); global.sent.length = 0; }
 ok("SWITCHED OFF BY RUBY: the button is put away and the tool cannot be taken", safe("TXTON") === false && el("ttext").style.display === "none" && (api.call("setMode", "text"), api.get("MODE") === "hand"));

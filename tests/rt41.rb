@@ -112,7 +112,9 @@ PSD.save_state('size' => 'ARCH C', 'scale' => '1/8"', 'orientation' => 'portrait
 st2 = PSD.load_state
 ok('the choice survives', st2['size'] == 'ARCH C' && st2['scale'] == '1/8"', st2)
 ok('so does the address', st2['address'] == 'Bathroom_2')
-ok('so does a hidden layer', st2['hidden'] == ['DIMENSIONS'], st2['hidden'])
+# (since 2026-10-09 a layer switched off is its GROUP switched off - PlanCanvas::USE_LAYER_GROUPS, rt297)
+ok('so does a hidden layer', st2['hidden'] == ['DIMENSIONS'] ||
+   (st2['hidden'] == [] && st2['hide'] == ['dims']), [st2['hidden'], st2['hide']])
 ok('so does where the plan was dragged to', st2['origin_x'] == 12.5)
 ok('junk is not kept', !st2.key?('junk'), st2.keys)
 

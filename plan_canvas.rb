@@ -56,6 +56,24 @@ module InteriorPro
     # 19:46, st['image_hand'][path] = [{ 'p' => [u1, v1, u2, v2], 'o' => 'h' | 'v', 'at' => share, 'n' => inches }],
     # shares of the picture so they follow its box). false = kept but not drawn.
     USE_PIC_DIMS = true unless const_defined?(:USE_PIC_DIMS, false)
+    # Every tool of the plan works on an elevation's sheet the way it works on the plan (2026-10-09, his
+    # words: "תסתכל על איך כל הכלים האלו עובדים עם סירטוט רגיל ... ותחל את אותם הכללים על האלווישין").
+    # The sheet's hand marks - dimensions and notes, the same {t:'dim'} / {t:'note'} the plan keeps in
+    # st['marks'] - are kept in st['page_marks'][the sheet's own picture path], in PAPER inches, and drawn
+    # by the plan's own draw_mark_dim / draw_mark_note on the sheet's PAGE_MARK_LAYER (place_page_marks!),
+    # at the elevation's letter size, the number in room inches by the picture it was drawn on
+    # (m['pic'], m['per'] at m['pw']). false = they are kept but not drawn, and the window goes back to
+    # the dimension and note tools of 2026-10-08 (st['image_hand']).
+    USE_PIC_MARKS = true unless const_defined?(:USE_PIC_MARKS, false)
+    PAGE_MARK_LAYER = 'PNOTES' unless const_defined?(:PAGE_MARK_LAYER, false)
+    # The "layers" he turns on and off are GROUPS he understands (2026-10-09, his list: "חלונות דלתות מדידות קירות
+    # תמונות הערות וכיתובים שונים כולל טבלאות שמות של דלתות", and by law TILE / PLUMBING / ELECTRIC each its own).
+    # st['hide'] = the groups switched off. A shape's group comes from its layer and, where one layer holds two
+    # kinds, from the shape: a door's name is writing, a hand dimension is a dimension though it sits with the
+    # notes (shape_group). The PDF leaves out every shape marked :off (apply_visibility!); the window works the
+    # same group out by the same rule (shapeGroup). false = st['hide'] is ignored, the layers list as before.
+    USE_LAYER_GROUPS = true unless const_defined?(:USE_LAYER_GROUPS, false)
+    LAYER_GROUPS = %w[walls doors windows dims notes text pics lines tile plumbing electric].freeze unless const_defined?(:LAYER_GROUPS, false)
     # The NUMBER of a dimension - and any other label - can be written over by
     # hand (2026-10-07, "אני רוצה שיהיה אפשרי לערוך את המידות - את המספרים
     # שלהם בתוך"; asked whether the words replace the number for good or sit
@@ -551,6 +569,8 @@ module InteriorPro
       # each number gets a name (name_texts!) and can be picked in the window like any label;
       # its size, weight and colour are ONE setting for all of them (ELEV_SHARED_KEY)
       place_elev_dims!(doc, st)
+      # and the marks he drew on an elevation's sheet with the plan's own tools (USE_PIC_MARKS)
+      place_page_marks!(doc, st)
 
       # LAST, after every page exists.
       #
@@ -572,7 +592,7 @@ module InteriorPro
       # the box is.
       place_texts!(doc, st)
 
-      apply_visibility!(doc, hidden)
+      apply_visibility!(doc, hidden, st['hide'])
       doc
     end
 
@@ -1244,9 +1264,12 @@ module InteriorPro
           dims = [] unless dims.is_a?(Array)
           # and the ones he drew himself, after the automatic ones (USE_PIC_DIMS)
           mine = hand[key].is_a?(Array) ? hand[key].map { |h| pic_dim(h) }.compact : []
-          next if dims.empty? && mine.empty?
+          # and the notes he wrote on it (2026-10-09) - in the same list, t = 'note'
+          notes = hand[key].is_a?(Array) ? hand[key].select { |h| h.is_a?(Hash) && h['t'].to_s == 'note' } : []
+          next if dims.empty? && mine.empty? && notes.empty?
           lay ||= pg.layer(ELEV_DIM_LAYER)
           (dims + mine).each { |d| safely { draw_elev_dim(lay, main, d) } }
+          notes.each { |n| pic_note_safely(key, n) { draw_pic_note(lay, main, n) } }
         end
       end
       doc
@@ -1280,6 +1303,71 @@ module InteriorPro
       { 'k' => 'f', 'o' => h['o'].to_s, 'p' => pp, 'at' => h['at'].to_f, 't' => words }
     end
 
+    # A note he wrote on a picture (2026-10-09, USE_PIC_DIMS): one entry of image_hand[path],
+    # { 't' => 'note', 'p' => [tip u, v, knee u, v, end u, v], 'text' => words, 'arrow' => true/false },
+    # in shares of the picture so it follows the picture's box. Drawn the way the plan's note is
+    # (note_frame): the words in a box just past the end of the shoulder, the shoulder back to the
+    # knee, the slant to what it points at, and the head. Paper inches here, not model inches, so
+    # note_frame's 0.5" "too short to draw" would swallow it - the same sums, a paper-sized floor.
+    # Letters the size and look of the elevation's numbers; the words stay level on the paper.
+    def self.draw_pic_note(lay, main, n)
+      txt = n['text'].to_s.gsub(/\s+/, ' ').strip
+      return if txt.empty?
+      pp = Array(n['p']).map(&:to_f)
+      return unless pp.size == 6
+      tip, knee, en = [0, 2, 4].map { |i| elev_paper(main, pp[i], pp[i + 1]) }
+      th = @elev_h || ELEV_TEXT_H
+      sty = (@elev_sty || {}).reject { |_, v| v == false }
+      fs = th / InteriorPro::PlanPDF::CAP_RATIO * 72.0
+      w = text_width_in(txt, fs, sty[:bold], sty[:font])
+      pad = th * MARK_PAD
+      bw = w / 2.0 + pad
+      bh = th / 2.0 + pad
+      dx = en[0] - knee[0]
+      dy = en[1] - knee[1]
+      len = Math.hypot(dx, dy)
+      ux, uy = len < 1.0e-9 ? [1.0, 0.0] : [dx / len, dy / len]
+      # the middle of the words: far enough out along the shoulder that the box starts at its end
+      along = [ux.abs > 1.0e-9 ? bw / ux.abs : Float::INFINITY, uy.abs > 1.0e-9 ? bh / uy.abs : Float::INFINITY].min
+      x = en[0] + ux * along
+      y = en[1] + uy * along
+      # from its left end and its foot, as all writing straight on the paper is: the window draws
+      # paper writing from its start whatever the align says (shapeSVG), so a centred one stood
+      # half out of its box there (2026-10-09, his picture) while the PDF had it right
+      lay.text(txt, x - w / 2.0, y - th / 2.0, { h: th, align: :left }.merge(sty))
+      lay.polygon([[x - bw, y - bh], [x + bw, y - bh], [x + bw, y + bh], [x - bw, y + bh]])
+      tiny = 0.01
+      lay.line(en[0], en[1], knee[0], knee[1]) if len >= tiny
+      return if Math.hypot(tip[0] - knee[0], tip[1] - knee[1]) < tiny
+      lay.line(knee[0], knee[1], tip[0], tip[1])
+      arrow_head(lay, knee[0], knee[1], tip[0], tip[1], th * MARK_ARROW) unless n['arrow'] == false
+    end
+
+    # A note that could not be drawn says so in the trace, not only in the console (rule of 2026-10-08).
+    def self.pic_note_safely(key, n)
+      yield
+    rescue StandardError => e
+      line = "pic note: NOT drawn on #{File.basename(key.to_s)} (#{n['text'].to_s[0, 30]}): #{e.class}: #{e.message}"
+      puts "[PlanCanvas] #{line}"
+      InteriorPro::PlanSheetDialog.erase_trace(line) if defined?(InteriorPro::PlanSheetDialog) &&
+                                                        InteriorPro::PlanSheetDialog.respond_to?(:erase_trace)
+      nil
+    end
+
+    # one share of the picture -> the paper, turned with the picture (the sums draw_elev_dim turns by)
+    def self.elev_paper(main, u, v)
+      p = elev_pt(main, u, v)
+      rot = main[:rot].to_f
+      return p if rot.zero?
+      rx, ry, rw, rh = elev_rect(main)
+      cx = rx + rw / 2.0
+      cy = ry + rh / 2.0
+      ra = rot * Math::PI / 180.0
+      dx = p[0] - cx
+      dy = p[1] - cy
+      [cx + dx * Math.cos(ra) - dy * Math.sin(ra), cy + dx * Math.sin(ra) + dy * Math.cos(ra)]
+    end
+
     def self.draw_elev_dim(lay, main, d)
       rot = main[:rot].to_f
       ra = rot * Math::PI / 180.0
@@ -1292,7 +1380,10 @@ module InteriorPro
         dy = py - cy
         [cx + dx * Math.cos(ra) - dy * Math.sin(ra), cy + dx * Math.sin(ra) + dy * Math.cos(ra)]
       end
-      ln = ->(x1, y1, x2, y2) { a = tr.call(x1, y1); b = tr.call(x2, y2); lay.line(a[0], a[1], b[0], b[1], elev_dim: true) }
+      # the layer it belongs to besides the dimensions: a niche's numbers go with the tiles, a fixture's with the
+      # plumbing (2026-10-09, ElevationTool dims 'g'; shape_group / apply_visibility!)
+      gx = %w[tile plumbing electric].include?(d['g'].to_s) ? { grp: d['g'].to_s } : {}
+      ln = ->(x1, y1, x2, y2) { a = tr.call(x1, y1); b = tr.call(x2, y2); lay.line(a[0], a[1], b[0], b[1], { elev_dim: true }.merge(gx)) }
       t = ELEV_TICK / 2.0
       words = d['t'].to_s
       th = @elev_h || ELEV_TEXT_H
@@ -1321,7 +1412,7 @@ module InteriorPro
       sty.delete_if { |_, v| v == false }
       fs = th / InteriorPro::PlanPDF::CAP_RATIO * 72.0
       tw = text_width_in(words, fs, sty[:bold], sty[:font])
-      opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty)
+      opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty).merge(gx)
       opts[:t0] = t0 if t0
       if d['k'].to_s == 'f'
         # one he drew (USE_PIC_DIMS): from his two points to its line, across or up
@@ -1772,12 +1863,35 @@ module InteriorPro
     def self.fit_notes!(doc, st)
       return doc unless USE_NOTE_FIT
       cv = doc.canvas('MODEL')
-      return doc unless cv.layer?(MARK_LAYER)
-      lay = cv.layer(MARK_LAYER)
-      notes = {}
-      Array(st['marks']).each_with_index do |m, i|
-        notes[i] = m if (m['t'] || m[:t]).to_s == 'note'
+      if cv.layer?(MARK_LAYER)
+        notes = {}
+        Array(st['marks']).each_with_index do |m, i|
+          notes[i] = m if (m['t'] || m[:t]).to_s == 'note'
+        end
+        fit_notes_on!(cv.layer(MARK_LAYER), notes)
       end
+      # and on an elevation's sheet (USE_PIC_MARKS, 2026-10-09), in its paper units
+      all = st['page_marks'] || st[:page_marks]
+      if USE_PIC_MARKS && all.is_a?(Hash) && !all.empty?
+        doc.pages.each do |pg|
+          next unless pg.kind.to_s == 'image' && pg.layer?(PAGE_MARK_LAYER)
+          key = page_mark_key(pg, st)
+          list = key && all[key]
+          next unless list.is_a?(Array)
+          notes = {}
+          list.each_with_index { |m, i| notes[i] = m if m.is_a?(Hash) && (m['t'] || m[:t]).to_s == 'note' }
+          begin
+            @mark_unit = page_mark_unit(st)
+            fit_notes_on!(pg.layer(PAGE_MARK_LAYER), notes)
+          ensure
+            @mark_unit = nil
+          end
+        end
+      end
+      doc
+    end
+
+    def self.fit_notes_on!(lay, notes)
       lay.shapes.select { |s| s[:type] == :text && !s[:note].nil? }.each do |s|
         i = s[:note]
         m = notes[i]
@@ -1798,7 +1912,108 @@ module InteriorPro
         end
         safely { note_frame(lay, m, x, y, h, w, i) }
       end
+      lay
+    end
+
+    # The units the hand marks are drawn in. On the plan (@mark_unit nil): model inches - the
+    # dimension text height, MARK_TICK, half an inch too short to draw, the number in feet. On an
+    # elevation's sheet (place_page_marks!, 2026-10-09): paper inches - the elevation's letters and
+    # tick, a hundredth too short, the number in ROOM inches by the picture's scale (:per).
+    def self.mu_h
+      (@mark_unit && @mark_unit[:h]) || mark_text_h
+    end
+
+    def self.mu_tick
+      (@mark_unit && @mark_unit[:tick]) || MARK_TICK
+    end
+
+    def self.mu_min
+      (@mark_unit && @mark_unit[:min]) || 0.5
+    end
+
+    def self.mu_words(len)
+      per = @mark_unit && @mark_unit[:per]
+      return InteriorPro::PlanGenerator.send(:fmt_feet, len) unless per
+      inches = len / per
+      defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool.fmt_in(inches) : format('%.1f"', inches)
+    end
+
+    # The sheet's own picture - the one its page_marks are kept under (st['images'][ref]).
+    def self.page_mark_key(pg, st)
+      path = Array(st['images'] || st[:images])[pg.ref.to_i]
+      path ? path.to_s.tr('\\', '/') : nil
+    end
+
+    # Paper inches to the room inch of the picture a dimension was drawn on: as it was then
+    # (m['per']), times how much wider that picture is on the paper now than it was then (m['pw']).
+    def self.page_mark_per(pg, m)
+      per = mark_num(m, :per)
+      return nil unless per > 0
+      want = (m['pic'] || m[:pic]).to_s.tr('\\', '/')
+      pw = mark_num(m, :pw)
+      return per if want.empty? || pw <= 0 || !pg.layer?(InteriorPro::PlanDoc::IMAGE_LAYER)
+      shot = pg.layer(InteriorPro::PlanDoc::IMAGE_LAYER).shapes.find { |q| q[:type] == :image && q[:path].to_s.tr('\\', '/') == want }
+      return per unless shot
+      _x, _y, w, _h = elev_rect(shot)
+      l, _b, r, _t = (shot[:crop].is_a?(Array) && shot[:crop].length == 4 ? shot[:crop] : [0, 0, 0, 0]).map(&:to_f)
+      full = w / [1.0 - l - r, 1.0e-6].max
+      per * full / pw
+    end
+
+    def self.page_mark_unit(st)
+      h, _sty = elev_style(st)
+      { h: h, tick: ELEV_TICK, min: 0.01 }
+    end
+
+    # The hand marks of every elevation's sheet, drawn the plan's way (USE_PIC_MARKS). BEFORE the sizing
+    # passes, so every number and every note's words get a name (name_texts!) and his own settings.
+    def self.place_page_marks!(doc, st)
+      return doc unless USE_PIC_MARKS
+      all = st['page_marks'] || st[:page_marks]
+      return doc unless all.is_a?(Hash) && !all.empty?
+      doc.pages.each do |pg|
+        next unless pg.kind.to_s == 'image'
+        key = page_mark_key(pg, st)
+        list = key && all[key]
+        next unless list.is_a?(Array) && !list.empty?
+        lay = pg.layer(PAGE_MARK_LAYER)
+        begin
+          @mark_unit = page_mark_unit(st)
+          list.each_with_index do |m, i|
+            next unless m.is_a?(Hash)
+            case (m['t'] || m[:t]).to_s
+            when 'dim'
+              @mark_unit[:per] = page_mark_per(pg, m)
+              page_mark_safely(key, m) { draw_mark_dim(lay, m) } if @mark_unit[:per]
+              page_mark_trace(key, m, 'no scale (drawn before its picture had lines?)') unless @mark_unit[:per]
+              @mark_unit.delete(:per)
+            when 'note'
+              page_mark_safely(key, m) { draw_mark_note(lay, m, i) }
+            when 'line'
+              # a line drawn on the sheet with the line tools
+              page_mark_safely(key, m) { lay.line(mark_num(m, :x1), mark_num(m, :y1), mark_num(m, :x2), mark_num(m, :y2)) }
+            end
+          end
+        ensure
+          @mark_unit = nil
+        end
+      end
       doc
+    end
+
+    def self.page_mark_safely(key, m)
+      yield
+    rescue StandardError => e
+      page_mark_trace(key, m, "#{e.class}: #{e.message}")
+      nil
+    end
+
+    # a mark that could not be drawn says so in the trace, not only in the console (rule of 2026-10-08)
+    def self.page_mark_trace(key, m, why)
+      line = "page marks: NOT drawn on #{File.basename(key.to_s)} (#{(m['t'] || m[:t])}): #{why}"
+      puts "[PlanCanvas] #{line}"
+      InteriorPro::PlanSheetDialog.erase_trace(line) if defined?(InteriorPro::PlanSheetDialog) &&
+                                                        InteriorPro::PlanSheetDialog.respond_to?(:erase_trace)
     end
 
     def self.mark_num(m, key)
@@ -1844,29 +2059,31 @@ module InteriorPro
       x1 = mark_num(m, :x1); y1 = mark_num(m, :y1)
       x2 = mark_num(m, :x2); y2 = mark_num(m, :y2)
       ax, ay, bx, by, ux, uy, len = dim_line(m)
-      return if len < 0.5                       # a stray double click, not a line
+      return if len < mu_min                    # a stray double click, not a line
       nx = -uy                                  # across the line
       ny = ux
 
-      lay.line(ax, ay, bx, by)
+      md = { mdim: true }                       # a dimension, though it sits with the notes (shape_group)
+      lay.line(ax, ay, bx, by, md)
       # a slash through each end, the way a plan dimension is ticked
-      t = MARK_TICK / 2.0
+      tick = mu_tick
+      t = tick / 2.0
       [[ax, ay], [bx, by]].each do |px, py|
         tx = (ux + nx) * t
         ty = (uy + ny) * t
-        lay.line(px - tx, py - ty, px + tx, py + ty)
+        lay.line(px - tx, py - ty, px + tx, py + ty, md)
       end
 
       # The witness lines - the thin pair running from the thing being measured
       # out to the dimension line. Only drawn when the dimension actually
       # stands off something; on top of the object they would be zero long.
       off = mark_has?(m, :off) ? mark_num(m, :off) : 0.0
-      if off.abs > MARK_TICK * WITNESS_GAP
+      if off.abs > tick * WITNESS_GAP
         sgn = off.negative? ? -1.0 : 1.0
-        g   = MARK_TICK * WITNESS_GAP * sgn
-        o   = MARK_TICK * WITNESS_OVER * sgn
+        g   = tick * WITNESS_GAP * sgn
+        o   = tick * WITNESS_OVER * sgn
         [[x1, y1, ax, ay], [x2, y2, bx, by]].each do |px, py, qx, qy|
-          lay.line(px + nx * g, py + ny * g, qx + nx * o, qy + ny * o)
+          lay.line(px + nx * g, py + ny * g, qx + nx * o, qy + ny * o, md)
         end
       end
 
@@ -1876,13 +2093,13 @@ module InteriorPro
       ang += 180.0 while ang < -90.0
 
       h   = mark_num(m, :h)
-      h   = mark_text_h if h <= 0
+      h   = mu_h if h <= 0
       lx, ly = dim_label_xy(m, h)
       # His own words instead of the measured number, if he wrote any
       # (2026-10-07). They stay whatever the dimension is stretched to.
       words = USE_TEXT_WORDS ? (m['label'] || m[:label]).to_s.strip : ''
-      lay.text(words.empty? ? InteriorPro::PlanGenerator.send(:fmt_feet, len) : words,
-               lx, ly, h: h, align: :center, rotation: ang, follow: true)
+      lay.text(words.empty? ? mu_words(len) : words,
+               lx, ly, h: h, align: :center, rotation: ang, follow: true, mdim: true)
     end
 
     # Where a dimension's NUMBER sits (2026-08-19).
@@ -1918,7 +2135,7 @@ module InteriorPro
     # dimension stands off the wall, the number goes with it (2026-08-19).
     def self.dim_label_xy(m, h = nil)
       h = mark_num(m, :h) if h.nil?
-      h = mark_text_h if h.nil? || h <= 0
+      h = mu_h if h.nil? || h <= 0
       ax, ay, bx, by, ux, uy, len = dim_line(m)
       mx = (ax + bx) / 2.0
       my = (ay + by) / 2.0
@@ -1953,7 +2170,7 @@ module InteriorPro
       txt = (m['text'] || m[:text]).to_s
       return if txt.strip.empty?
       h = mark_num(m, :h)
-      h = mark_text_h if h <= 0
+      h = mu_h if h <= 0
       x = mark_num(m, :x)
       y = mark_num(m, :y)
 
@@ -1992,8 +2209,8 @@ module InteriorPro
         kx = mark_num(m, :kx)
         ky = mark_num(m, :ky)
         sx, sy = box_exit(x, y, bw, bh, kx, ky)
-        lay.line(sx, sy, kx, ky, op) if Math.hypot(kx - sx, ky - sy) >= 0.5
-        return if Math.hypot(lx - kx, ly - ky) < 0.5
+        lay.line(sx, sy, kx, ky, op) if Math.hypot(kx - sx, ky - sy) >= mu_min
+        return if Math.hypot(lx - kx, ly - ky) < mu_min
         lay.line(kx, ky, lx, ly, op)
         arrow = m.key?('arrow') ? m['arrow'] : (m.key?(:arrow) ? m[:arrow] : true)
         arrow_head(lay, kx, ky, lx, ly, h * MARK_ARROW, op) unless arrow == false
@@ -2001,7 +2218,7 @@ module InteriorPro
       end
 
       sx, sy = box_exit(x, y, bw, bh, lx, ly)
-      return if Math.hypot(lx - sx, ly - sy) < 0.5
+      return if Math.hypot(lx - sx, ly - sy) < mu_min
       lay.line(sx, sy, lx, ly, op)
 
       # With or without a head on the end. SketchUp's own text leader is a bare
@@ -2053,10 +2270,82 @@ module InteriorPro
       format("%s%0#{m[2].length}d", m[1], m[2].to_i + 1)
     end
 
-    def self.apply_visibility!(doc, hidden)
+    def self.apply_visibility!(doc, hidden, hide = [])
       doc.canvases.each { |c| c.layers.each { |l| l.visible = !hidden.include?(l.name) } }
       doc.pages.each { |p| p.layers.each { |l| l.visible = !hidden.include?(l.name) } }
+      hide = USE_LAYER_GROUPS ? Array(hide).map(&:to_s) : []
+      (doc.canvases + doc.pages).each do |holder|
+        holder.layers.each do |l|
+          l.shapes.each do |s|
+            if !hide.empty? && (hide.include?(shape_group(l.name, s).to_s) || (s[:grp] && hide.include?(s[:grp].to_s)))
+              s[:off] = true
+            else
+              s.delete(:off)
+            end
+            # an elevation taken in layers: the picture without what he switched off (USE_ELEV_LAYERS)
+            if s[:type] == :image
+              lay = pic_layers(s[:path])
+              if lay
+                s[:layers] = lay
+                show = pic_shown(lay, hide)
+                show ? (s[:show] = show) : s.delete(:show)
+              else
+                s.delete(:layers)
+                s.delete(:show)
+              end
+            end
+          end
+        end
+      end
       doc
+    end
+
+    # The layers an elevation was taken in (ElevationTool.shoot_variants!): { 'cats' => [...], 'files' => { 'plumbing+tile' =>
+    # full path } } from <picture>.layers.json, read again only when the file changes. nil = a picture of one layer.
+    def self.pic_layers(path)
+      return nil if path.to_s.empty?
+      f = path.to_s.sub(/\.png\z/i, '') + '.layers.json'
+      return nil unless File.file?(f)
+      @pic_layers ||= {}
+      mt = File.mtime(f).to_f
+      hit = @pic_layers[f]
+      return hit[1] if hit && hit[0] == mt
+      raw = JSON.parse(File.read(f))
+      dir = File.dirname(path.to_s)
+      files = {}
+      (raw['files'] || {}).each { |k, v| files[k.to_s] = File.join(dir, v.to_s).tr('\\', '/') }
+      val = { 'cats' => Array(raw['cats']).map(&:to_s), 'files' => files }
+      @pic_layers[f] = [mt, val]
+      val
+    rescue StandardError => e
+      puts "[PlanCanvas] layers of #{File.basename(path.to_s)} not read: #{e.class}: #{e.message}"
+      nil
+    end
+
+    # the picture for the groups switched off: nil = the whole one. Pure.
+    def self.pic_shown(lay, hide)
+      off = Array(lay['cats']) & Array(hide).map(&:to_s)
+      return nil if off.empty?
+      lay['files'][off.sort.join('+')]
+    end
+
+    # Which of his groups a shape belongs to (USE_LAYER_GROUPS). nil = none: always shown (the title block).
+    # The window has the same rule (shapeGroup in plan_sheet_dialog.rb) - rt295 holds the two together.
+    def self.shape_group(layer, s)
+      text = s[:type] == :text
+      case layer.to_s
+      when LAYERS[:walls], LAYERS[:sketch] then 'walls'
+      when LAYERS[:doors] then text ? 'text' : 'doors'
+      when LAYERS[:windows] then text ? 'text' : 'windows'
+      when LAYERS[:dimensions], ELEV_DIM_LAYER then 'dims'
+      when MARK_LAYER, PAGE_MARK_LAYER then s[:mdim] ? 'dims' : 'notes'
+      when LAYERS[:rooms], TEXT_LAYER then 'text'
+      when InteriorPro::PlanDoc::IMAGE_LAYER then 'pics'
+      when 'SITE' then 'lines'
+      when 'TILE' then 'tile'
+      when 'PLUMBING' then 'plumbing'
+      when 'ELECTRIC' then 'electric'
+      end
     end
 
     # The tables live on the right, so the plan window stops short of them.

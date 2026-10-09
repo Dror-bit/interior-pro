@@ -158,7 +158,7 @@ ok('it keeps its name after the words changed (picked again by the same key)', o
 src2 = File.read('./plan_sheet_dialog.rb', encoding: 'utf-8')
 ok('the window: two clicks on a number set ONE, one click clears it, and every setting says so',
    src2.include?('ONE=elevKey(ht.key);') && src2.include?('TSEL=ht; ONE=false;') && src2.include?('if(ONE) out.one=true;'))
-ok('two clicks reach a number that lies on its picture', src2.include?("if(PICON && hitPic(e)){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }"))
+ok('two clicks reach a number that lies on its picture', src2.include?("if(PICON && hitPic(e) && !(onPaper() && markUnder(e))){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }"))   # (a mark on it wins, 2026-10-09)
 
 ok('writing can be hit on a sheet with no drawing (VIEW is null there - 13:19)', src.include?('var K = VIEW ? VIEW.k : LIVEK;') && src.include?('!PAGE||!(VIEW||LIVEK)'))
 

@@ -267,7 +267,7 @@ ok("it asks for SITE by name", hit.include?("l.name==='SITE'"))
   ok("it does not reach the #{other} layer", !hit.include?(other))
 end
 ok('a switched-off SITE layer cannot be rubbed out',
-   hit.include?("(STATE.hidden||[]).indexOf('SITE')>=0"))
+   hit.include?("(STATE.hidden||[]).indexOf('SITE')>=0") || hit.include?("if(layerOff('SITE')) return null;"))   # (its group, 2026-10-09)
 
 # ---------------------------------------------------------------------------
 # 8. the red line under the mouse does NOT redraw the sheet
