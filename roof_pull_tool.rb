@@ -19,7 +19,7 @@ module InteriorPro
 
     def activate
       @preview_wall = nil
-      Sketchup.set_status_text('Click a wall: type how far the roof edge over it is pulled out, in inches (0 = back where it was)', SB_PROMPT)
+      Sketchup.set_status_text('Click a wall: type how far the roof edge over it is pulled out, in inches (a minus number pulls it in, 0 = back where it was)', SB_PROMPT)
     end
 
     def onLButtonDown(_flags, x, y, view)
@@ -43,16 +43,16 @@ module InteriorPro
       pull = rm.parse_pull(res[0])
       log = self.class.capture { rm.set_edge_pull!(wall, pull) }
       got = rm.edge_pulls[wid].to_f
-      built = log =~ /\[Roof\] (?:edge|eave) #{Regexp.escape(wid.to_s[0, 8])} pulled out/
+      built = log =~ /\[Roof\] (?:edge|eave) #{Regexp.escape(wid.to_s[0, 8])} pulled (?:out|in)/
       self.class.trace(format('wall %s (%s end): typed %s -> %.2f" (was %.2f"), saved %.2f", %s', wid, kind, res[0].inspect, pull, was, got,
-                              built ? 'BUILT' : (got > 0.01 ? 'NOT BUILT' : 'back in place')))
+                              built ? 'BUILT' : (got.abs > 0.01 ? 'NOT BUILT' : 'back in place')))
       log.lines.grep(/pull|Roof\] (?:edge|eave|valley)/i).each { |l| self.class.trace('    ' + l.strip) }
       # NOT SILENTLY (the law of 2026-09-23): a number that was saved but
       # did not move the edge says why, in the builder's own words.
       # held short of a roof in front of it (2026-10-09): built, and he is told how far
       held = log.lines.grep(/\] edge #{Regexp.escape(wid.to_s[0, 8])} is held to/).first
       UI.messagebox(held.strip.sub(/\A\[Roof\]\s*/, '')) if built && held
-      if got > 0.01 && !built
+      if got.abs > 0.01 && !built
         # the valley lines are about the roofs meeting, never about the pull
         # (his box on 2026-10-09 carried "nothing is carried on" as a reason)
         why = log.lines.grep(/not pulled out|not built|left out|nothing (?:is|was)/).grep_v(/\] valley:/).map { |l| l.strip.sub(/\A\[Roof\]\s*/, '') }.uniq

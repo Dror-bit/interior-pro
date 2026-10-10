@@ -70,7 +70,7 @@ end
 if RF.respond_to?(:parse_pull)
   ok('typed: a bare number is inches', RF.parse_pull('36') == 36.0 && RF.parse_pull(' 12.5 ') == 12.5 && RF.parse_pull('24"') == 24.0)
   ok('typed: feet, and feet and inches', (RF.parse_pull("2'") - 24.0).abs < 0.001 && (RF.parse_pull("2'6\"") - 30.0).abs < 0.001, [RF.parse_pull("2'"), RF.parse_pull("2'6\"")])
-  ok('typed: nothing, rubbish and a minus are 0', RF.parse_pull('') == 0.0 && RF.parse_pull('abc') == 0.0 && RF.parse_pull('-5') == 0.0 && RF.parse_pull(nil) == 0.0)
+  ok('typed: nothing and rubbish are 0; a minus stays a minus (2026-10-09: pulled IN)', RF.parse_pull('') == 0.0 && RF.parse_pull('abc') == 0.0 && RF.parse_pull('-5') == -5.0 && RF.parse_pull(nil) == 0.0)
 end
 
 def quiet
@@ -160,7 +160,7 @@ ok('0 takes it off', RF.edge_pulls == { 'b' => 18.0 }, RF.edge_pulls)
 Sketchup.active_model.set_attribute('InteriorPro', 'roof_pull_wall_ids', %w[b gone])
 Sketchup.active_model.set_attribute('InteriorPro', 'roof_pull_in', [18.0, 40.0])
 quiet { RF.save_edge_pull!('a', -7) }
-ok('a wall that is gone loses its number at the next save; a minus is 0', RF.edge_pulls == { 'b' => 18.0 }, RF.edge_pulls)
+ok('a wall that is gone loses its number at the next save; a minus is kept (2026-10-09: pulled IN)', RF.edge_pulls == { 'b' => 18.0, 'a' => -7.0 }, RF.edge_pulls)
 quiet { RF.save_edge_pull!('b', 0) }
 
 # ---- 3. a plain gable house: one end pulled out ---------------------------------------------

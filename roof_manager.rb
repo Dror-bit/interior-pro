@@ -4149,6 +4149,25 @@ module InteriorPro
                  "#{eaves.map { |x| x.to_s[0, 8] }.join(' ')}"
           end
           want_pull = want_pull.select { |id2, _v| marked.include?(id2) }
+          # A MINUS NUMBER (2026-10-09): never past the wall; not on a gable in
+          # the middle of the roof; off with USE_PULL_IN = false
+          unless want_pull.empty?
+            neg = want_pull.select { |_id2, v| v.to_f < -0.01 }
+            unless neg.empty?
+              if !USE_PULL_IN
+                puts "[Roof] #{neg.length} minus number(s) read as 0 (USE_PULL_IN is off): #{neg.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
+                want_pull = want_pull.reject { |id2, _v| neg.key?(id2) }
+              else
+                inmid = neg.keys & cross_ids
+                unless inmid.empty?
+                  puts "[Roof] a gable in the middle of the roof cannot be pulled in (a minus number) yet - #{inmid.length} left at 0: #{inmid.map { |x| x.to_s[0, 8] }.join(' ')}"
+                  want_pull = want_pull.reject { |id2, _v| inmid.include?(id2) }
+                end
+                want_pull, held_in = pull_in_floor(want_pull, s[:overhang], half_thickness_of(neg.keys))
+                held_in.each { |id2, fl| puts format('[Roof] edge %s pulled in only %.1f" - the roof ends on the wall s outer face, never inside the house', id2.to_s[0, 8], fl.abs) }
+              end
+            end
+          end
           unless want_pull.empty?
             pull_undo = [poly, wall_ids]
             poly, wall_ids, pulled = pull_edges(poly, wall_ids, want_pull)
@@ -4216,7 +4235,7 @@ module InteriorPro
         if pull_undo
           if framed && pulled.keys.all? { |id2| (0...poly.length).any? { |i2| wall_ids[i2] == id2 && framed[:edges].include?(i2) } }
             pulled.each do |id2, v|
-              puts format('[Roof] edge %s pulled out %.0f"', id2.to_s[0, 8], v)
+              puts format('[Roof] edge %s pulled %s %.0f"', id2.to_s[0, 8], v < 0 ? 'in' : 'out', v.abs)
             end
             # A gable in the middle that is pulled out is a wing with a depth
             # now - but it still stands in the middle of the mother's slope,
@@ -4313,6 +4332,16 @@ module InteriorPro
           if defined?(abut_want) && abut_want && !abut_want.empty?
             take, why3 = abut_pull_plan(poly, wall_ids, gables, abut_ids, abut_want)
             why3.each { |id2, r2| puts "[Roof] edge #{id2.to_s[0, 8]} is not pulled out: #{r2}" }
+            neg = take.select { |_id2, v| v.to_f < -0.01 }
+            unless neg.empty?
+              if !USE_PULL_IN
+                puts "[Roof] #{neg.length} minus number(s) read as 0 (USE_PULL_IN is off): #{neg.keys.map { |x| x.to_s[0, 8] }.join(' ')}"
+                take = take.reject { |id2, _v| neg.key?(id2) }
+              else
+                take, held_in = pull_in_floor(take, s[:overhang], half_thickness_of(neg.keys))
+                held_in.each { |id2, fl| puts format('[Roof] edge %s pulled in only %.1f" - the roof ends on the wall s outer face, never inside the house', id2.to_s[0, 8], fl.abs) }
+              end
+            end
             unless take.empty?
               # the room each one has before it touches a roof that comes down to it
               begin
@@ -4331,6 +4360,7 @@ module InteriorPro
                 t0 = Time.now
                 puts format('[Roof] pull room: %d other roof(s), %d face(s) read, this roof s deck at its eave line %.2f', others.length, others.sum(&:length), est)
                 take.keys.each do |id2|
+                  next if take[id2].to_f < 0.0   # pulled in: nothing in front of it to touch
                   k = (0...poly.length).find { |q| wall_ids[q] == id2 }
                   a0 = poly[k]
                   puts format('[Roof] pull room: edge %s from (%.1f,%.1f), own top there %s', id2.to_s[0, 8], a0[0], a0[1], (z = own_z.call(a0[0], a0[1])) ? z.round(2) : 'nil')
@@ -4360,7 +4390,7 @@ module InteriorPro
                 wall_ids = w3
                 pulled = got
                 abut_side = abut_side_edges(poly, wall_ids, abut_ids)
-                pulled.each { |id2, v| puts format('[Roof] edge %s pulled out %.0f"', id2.to_s[0, 8], v) }
+                pulled.each { |id2, v| puts format('[Roof] edge %s pulled %s %.0f"', id2.to_s[0, 8], v < 0 ? 'in' : 'out', v.abs) }
                 abut_side.each do |sa, sb|
                   puts format('[Roof] a short edge along the wall behind, %.0f" long, dies into it like the line beside it',
                               Math.hypot(sb[0] - sa[0], sb[1] - sa[1]))
@@ -5821,7 +5851,7 @@ module InteriorPro
         grp.set_attribute('InteriorPro', 'cross_walls', cxe.map { |i| wall_ids[i] }) unless cxe.empty?
         # ...and how far each is pulled out of the side it stands on (2026-10-05)
         cxp = cxe.map { |i| (pulled || {})[wall_ids[i]].to_f }
-        grp.set_attribute('InteriorPro', 'cross_pulls', cxp) if cxp.any? { |v| v > 0.01 }
+        grp.set_attribute('InteriorPro', 'cross_pulls', cxp) if cxp.any? { |v| v.abs > 0.01 }
       end
       grp.set_attribute('InteriorPro', 'eave_z', z0)
       grp.set_attribute('InteriorPro', 'ridge_z', ridge)
@@ -7298,6 +7328,51 @@ module InteriorPro
     USE_EDGE_PULL = true unless const_defined?(:USE_EDGE_PULL, false)
     EDGE_PULL_MAX = 240.0 unless const_defined?(:EDGE_PULL_MAX, false)
 
+    # A GABLE END PULLED IN (2026-10-09). His rule, in his words: "אם זה מספר
+    # רגיל הוא יזוז קדימה ואם זה מינוס הוא יזוז אחורה, אבל לא יכול להיכנס לתוך
+    # הבית - זאת ההגבלה שלו". A minus number moves a gable end back towards
+    # its own body, and never past the wall it stands on: pull_in_floor holds
+    # it at the overhang, so the roof's edge lands on the wall's outer face
+    # and the wall never stands out past the roof. Gable ends only (an eave
+    # pulled in, a gable in the middle of a roof pulled in: refused, with a
+    # line). Everything a pulled-out gable does, a pulled-in one does the
+    # same way - the number is just the other way round.
+    #   InteriorPro::RoofManager::USE_PULL_IN = false  -> a minus number is
+    #   read as 0 again, and it says so.
+    USE_PULL_IN = true unless const_defined?(:USE_PULL_IN, false)
+
+    # PURE. { id => inches } with every minus number held at the wall's
+    # OUTER FACE: the roof's edge stands one overhang out from the wall's
+    # centre line, so the floor is -(overhang - half the wall's thickness).
+    # `half` = { id => half thickness } (nil = 0). Returns [pulls, held] -
+    # held = { id => the number it was held at }.
+    def self.pull_in_floor(pulls, overhang, half = nil)
+      held = {}
+      out = {}
+      Array(pulls).each do |id, v|
+        floor = -[overhang.to_f - (half && half[id] ? half[id].to_f : 0.0), 0.0].max
+        if v.to_f < floor - 0.01
+          held[id] = floor
+          out[id] = floor
+        else
+          out[id] = v.to_f
+        end
+      end
+      [out, held]
+    end
+
+    # { id => half the wall's thickness } for the walls named, as they stand.
+    def self.half_thickness_of(ids)
+      out = {}
+      Array(ids).each do |id|
+        w = wall_by_id(id)
+        out[id] = w ? w.get_attribute('InteriorPro', 'thickness').to_f / 2.0 : 0.0
+      end
+      out
+    rescue StandardError
+      {}
+    end
+
     # A GABLE END PULLED OUT ON A ROOF THAT DIES INTO A WALL (2026-10-09).
     # His garage on Aetna: its back runs into the house, so the roof is
     # built by the skeleton, not the over-framing - and every pull on it was
@@ -7476,7 +7551,7 @@ module InteriorPro
           why[id] = 'the edge beside it is not square to it, or it is the wall this roof dies into, or an eave runs straight on from it'
           next
         end
-        take[id] = [v.to_f, EDGE_PULL_MAX].min
+        take[id] = [[v.to_f, -EDGE_PULL_MAX].max, EDGE_PULL_MAX].min
       end
       [take, why]
     end
@@ -7489,7 +7564,7 @@ module InteriorPro
       out = {}
       ids.each_with_index do |id, k|
         v = ins[k].to_f
-        out[id] = v if v > 0.01
+        out[id] = v if v.abs > 0.01
       end
       out
     rescue StandardError
@@ -7559,6 +7634,10 @@ module InteriorPro
           why[id] = 'it is a gable end (or part of it is) - set its end to Gable in the menu and it is pulled as a gable'
           next
         end
+        if v.to_f < 0.0
+          why[id] = 'an eave cannot be pulled in (a minus number) yet - only a gable end can'
+          next
+        end
         d = dir.call(i)
         bad = nil
         fol = {}
@@ -7616,13 +7695,14 @@ module InteriorPro
       return 0.0 if id.nil?
       live = live_wall_ids
       h = edge_pulls.select { |k, _v| live.include?(k) }
-      v = [[inches.to_f, 0.0].max, EDGE_PULL_MAX].min
+      v = [[inches.to_f, -EDGE_PULL_MAX].max, EDGE_PULL_MAX].min
+      v = [v, 0.0].max unless USE_PULL_IN
       was = h[id].to_f
-      v > 0.01 ? h[id] = v : h.delete(id)
+      v.abs > 0.01 ? h[id] = v : h.delete(id)
       m = Sketchup.active_model
       m.set_attribute('InteriorPro', 'roof_pull_wall_ids', h.keys)
       m.set_attribute('InteriorPro', 'roof_pull_in', h.values)
-      puts format('[Roof] wall %s: pulled out %.1f" (was %.1f")', id, v, was) if (v - was).abs > 0.001
+      puts format('[Roof] wall %s: pulled %s %.1f" (was %.1f")', id, v < 0 ? 'in' : 'out', v.abs, was) if (v - was).abs > 0.001
       v
     rescue StandardError => e
       puts "[Roof] save_edge_pull!: #{e.message}"
@@ -7650,10 +7730,13 @@ module InteriorPro
     end
 
     # PURE. What he typed in the Pull box, in inches: a bare number is
-    # inches, 2' and 2'6" are read the SketchUp way. Never negative.
+    # inches, 2' and 2'6" are read the SketchUp way. A minus sign stays
+    # (2026-10-09: pulled IN).
     def self.parse_pull(txt)
       t = txt.to_s.strip
       return 0.0 if t.empty?
+      neg = t.start_with?('-')
+      t = t.sub(/\A-\s*/, '')
       v = if t =~ /['"]/ && t.respond_to?(:to_l)
             t.to_l.to_f
           elsif t =~ /\A([0-9.]+)\s*'\s*(?:([0-9.]+)\s*"?)?\z/
@@ -7661,7 +7744,8 @@ module InteriorPro
           else
             t.sub(/"\z/, '').to_f
           end
-      v.negative? ? 0.0 : v
+      v = v.abs
+      neg ? -v : v
     rescue StandardError
       0.0
     end
@@ -7692,7 +7776,7 @@ module InteriorPro
       amount = lambda do |k|
         id = wall_ids[k % n]
         v = by_index ? by_index[k % n].to_f : (id.nil? ? 0.0 : pulls[id].to_f)
-        v > 0.01 ? [v, EDGE_PULL_MAX].min : 0.0
+        v.abs > 0.01 ? [[v, -EDGE_PULL_MAX].max, EDGE_PULL_MAX].min : 0.0
       end
       n.times do |i|
         p_prev = amount.call(i - 1)
@@ -7700,7 +7784,7 @@ module InteriorPro
         d_prev = dir.call(i - 1)
         d_cur = dir.call(i)
         v = poly[i]
-        if d_prev.nil? || d_cur.nil? || (p_prev < 0.01 && p_cur < 0.01)
+        if d_prev.nil? || d_cur.nil? || (p_prev.abs < 0.01 && p_cur.abs < 0.01)
           pts << [v[0], v[1]]
           ids << wall_ids[i]
           next
@@ -7723,8 +7807,8 @@ module InteriorPro
           end
           ids << wall_ids[i]
         end
-        done[wall_ids[i - 1]] = p_prev if p_prev > 0.01
-        done[wall_ids[i]] = p_cur if p_cur > 0.01
+        done[wall_ids[i - 1]] = p_prev if p_prev.abs > 0.01
+        done[wall_ids[i]] = p_cur if p_cur.abs > 0.01
       end
       [pts, ids, done]
     end

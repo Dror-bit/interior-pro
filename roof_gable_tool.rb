@@ -86,7 +86,7 @@ module InteriorPro
         pull = rm.parse_pull(res[1])
         # a Gable end runs on along the ridge; a Hip end is an eave and
         # runs on down its slope (2026-10-05, step 2). Not the other two.
-        if pull > 0.01 && kind != :gable && kind != :hip
+        if pull.abs > 0.01 && kind != :gable && kind != :hip
           UI.messagebox('A Dutch gable or a shed eave cannot be pulled out yet. ' \
                         'The end was set; the pull was left at 0.')
           pull = 0.0
