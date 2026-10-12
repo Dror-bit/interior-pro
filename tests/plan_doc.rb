@@ -217,6 +217,8 @@ module InteriorPro
     class Canvas
       include HasLayers
       attr_reader :name
+      # the name of the editor drawing this canvas was read from (2026-10-07)
+      attr_accessor :drawn_name
 
       def initialize(name)
         @name = name.to_s
@@ -265,6 +267,27 @@ module InteriorPro
     class View
       attr_accessor :name, :x, :y, :w, :h, :canvas, :scale,
                     :origin_x, :origin_y, :frame
+      # How far the drawing is TURNED inside this window, in degrees,
+      # anticlockwise (2026-10-07). It turns about the middle of the window -
+      # the same point the origin lands on - so turning it never slides it
+      # off the sheet. 0 is every drawing made before this existed.
+      # (a window made before this code was loaded has no angle at all: 0)
+      def rotation
+        @rotation || 0.0
+      end
+
+      def rotation=(deg)
+        d = deg.to_f
+        d = 0.0 unless d.finite?
+        d -= 360.0 while d > 180.0
+        d += 360.0 while d <= -180.0
+        @rotation = d
+        r = d * Math::PI / 180.0
+        # Exactly 1 and 0 for a drawing that is not turned, so its numbers are
+        # the numbers they always were, to the last digit.
+        @rot_c = d.zero? ? 1.0 : Math.cos(r)
+        @rot_s = d.zero? ? 0.0 : Math.sin(r)
+      end
 
       def initialize(name, x, y, w, h, canvas, scale = DEFAULT_SCALE)
         @name     = name.to_s
@@ -277,9 +300,41 @@ module InteriorPro
         @origin_x = 0.0
         @origin_y = 0.0
         @frame    = false   # draw a thin box round the window
+        self.rotation = 0.0
+      end
+
+      # A size he set BY HAND, by pulling a corner of the drawing's box
+      # (2026-10-07): paper inches to the foot, any number at all, not one of
+      # the scales in the list. nil = the drawing is at the scale named in
+      # @scale, as every drawing was before this existed.
+      attr_reader :scale_free
+
+      # Does the window's own FRAME turn with the drawing (2026-10-07, "הקופסה
+      # כולה מסתובבת")? true = the clip, the frame and the handles are the
+      # rectangle turned about its middle - the drawing is a box on the sheet
+      # the way a picture is. false (and every window made before this) = the
+      # frame stays square to the paper and only the lines inside it turn.
+      attr_accessor :box_turn
+
+      # The four corners of the frame on the paper, anticlockwise from the
+      # bottom left - turned about the middle when the frame turns.
+      def frame_corners
+        pts = [[@x, @y], [@x + @w, @y], [@x + @w, @y + @h], [@x, @y + @h]]
+        return pts unless @box_turn && rotation != 0.0
+        cx, cy = centre
+        c = @rot_c || 1.0
+        n = @rot_s || 0.0
+        pts.map { |px, py| dx = px - cx; dy = py - cy; [cx + dx * c - dy * n, cy + dx * n + dy * c] }
+      end
+
+      def scale_free=(per_foot)
+        f = per_foot.nil? ? nil : per_foot.to_f
+        @scale_free = (f && f.finite? && f > 0) ? f : nil
       end
 
       def scale_factor
+        sf = @scale_free
+        return sf / 12.0 if sf
         PlanDoc.scale_factor(@scale)
       end
 
@@ -292,23 +347,46 @@ module InteriorPro
       def model_to_paper(mx, my)
         s = scale_factor
         cx, cy = centre
-        [cx + (mx.to_f - @origin_x) * s, cy + (my.to_f - @origin_y) * s]
+        c  = @rot_c || 1.0
+        n  = @rot_s || 0.0
+        dx = (mx.to_f - @origin_x) * s
+        dy = (my.to_f - @origin_y) * s
+        [cx + dx * c - dy * n, cy + dx * n + dy * c]
       end
 
       # Paper inches -> model inches.
       def paper_to_model(px, py)
         s = scale_factor
         cx, cy = centre
-        [@origin_x + (px.to_f - cx) / s, @origin_y + (py.to_f - cy) / s]
+        c  = @rot_c || 1.0
+        n  = @rot_s || 0.0
+        qx = (px.to_f - cx) / s
+        qy = (py.to_f - cy) / s
+        [@origin_x + qx * c + qy * n, @origin_y - qx * n + qy * c]
       end
 
-      # Which slice of the model this window can show, as model inches.
+      # Which slice of the model this window can show, as model inches. For a
+      # turned drawing: the box round the turned window.
       def model_window
-        s = scale_factor
-        half_w = (@w / 2.0) / s
-        half_h = (@h / 2.0) / s
-        [@origin_x - half_w, @origin_y - half_h,
-         @origin_x + half_w, @origin_y + half_h]
+        if rotation.zero?
+          s = scale_factor
+          half_w = (@w / 2.0) / s
+          half_h = (@h / 2.0) / s
+          return [@origin_x - half_w, @origin_y - half_h,
+                  @origin_x + half_w, @origin_y + half_h]
+        end
+        pts = [[@x, @y], [@x + @w, @y], [@x + @w, @y + @h], [@x, @y + @h]]
+              .map { |px, py| paper_to_model(px, py) }
+        [pts.map(&:first).min, pts.map(&:last).min,
+         pts.map(&:first).max, pts.map(&:last).max]
+      end
+
+      # How wide and how tall the drawing is once it is turned, in model inches.
+      def turned_size(bounds)
+        mw = bounds[2] - bounds[0]
+        mh = bounds[3] - bounds[1]
+        return [mw, mh] if rotation.zero?
+        [(mw * @rot_c).abs + (mh * @rot_s).abs, (mw * @rot_s).abs + (mh * @rot_c).abs]
       end
 
       # Put the middle of the drawing in the middle of the window.
@@ -323,16 +401,15 @@ module InteriorPro
       def fits?(bounds)
         return true unless bounds
         s = scale_factor
-        (bounds[2] - bounds[0]) * s <= @w + 1e-9 &&
-          (bounds[3] - bounds[1]) * s <= @h + 1e-9
+        mw, mh = turned_size(bounds)
+        mw * s <= @w + 1e-9 && mh * s <= @h + 1e-9
       end
 
       # REPORTING ONLY. The biggest scale in the list that would hold this
       # drawing. Never changes the view - the user chooses.
       def fit_scale(bounds)
         return @scale unless bounds
-        mw = bounds[2] - bounds[0]
-        mh = bounds[3] - bounds[1]
+        mw, mh = turned_size(bounds)
         return nil if mw <= 0 && mh <= 0
         row = SCALES.find do |(_label, per_foot)|
           s = per_foot / 12.0
@@ -344,7 +421,8 @@ module InteriorPro
       def to_h
         { name: @name, x: @x, y: @y, w: @w, h: @h, canvas: @canvas,
           scale: @scale, origin_x: @origin_x, origin_y: @origin_y,
-          frame: @frame }
+          frame: @frame, rotation: rotation, scale_free: @scale_free,
+          box_turn: @box_turn ? true : false }
       end
     end
 
@@ -354,6 +432,19 @@ module InteriorPro
       include HasLayers
       attr_reader :name, :width, :height
       attr_accessor :number, :size_name, :orientation, :margin, :views
+      # The part of the sheet the drawing's box may sit in: inside the margins,
+      # above the title block, clear of the tables. [x, y, w, h], paper inches.
+      # The box cannot leave it (2026-10-07). nil on a sheet with no drawing.
+      attr_accessor :view_area
+      # The part of the sheet a PICTURE in a box of its own may sit in: inside
+      # the margins, above the title block (2026-10-07). On every sheet.
+      attr_accessor :pic_area
+      # Every piece of WRITING that sits in a box of its own on this sheet
+      # (2026-10-07, PlanCanvas.place_texts!): where the box is, how far it is
+      # turned, how big the letters are and the lines the words were laid in.
+      # The window puts its handles on these; the words themselves are plain
+      # text shapes on the sheet's TEXT layer, so the PDF needs nothing new.
+      attr_accessor :text_boxes
       # What kind of sheet this is ('plan', 'schedules', 'image') and, for a
       # picture sheet, which picture in the user's list it came from. The sheet
       # window shows one list of every page and lets him delete one; without
@@ -395,8 +486,10 @@ module InteriorPro
         { name: @name, number: @number, size_name: @size_name,
           orientation: @orientation, width: @width, height: @height,
           margin: @margin, kind: @kind, ref: @ref,
-          sheet_number: @sheet_number, views: @views.map(&:to_h),
-          layers: layers.map(&:to_h) }
+          sheet_number: @sheet_number, view_area: @view_area,
+          pic_area: @pic_area,
+          text_boxes: @text_boxes,
+          views: @views.map(&:to_h), layers: layers.map(&:to_h) }
       end
 
       # The number printed in the title block, kept so the page list in the
@@ -483,7 +576,9 @@ module InteriorPro
 
       view = opts[:scale_from] ? page.view(opts[:scale_from]) : page.views.first
       # a sheet with no drawing on it (a table sheet) is not to any scale
-      scale_str = view ? PlanDoc.scale_text(view.scale) : 'N.T.S.'
+      # a drawing sized by hand is not at any scale that has a name
+      free = view && view.respond_to?(:scale_free) && view.scale_free
+      scale_str = (view && !free) ? PlanDoc.scale_text(view.scale) : 'N.T.S.'
 
       rows = [
         ['Job address :', doc.job_address.to_s],
@@ -534,6 +629,7 @@ module InteriorPro
                     fw - 2 * pad, fh - tb - 2 * pad,
                     opts[:canvas] || 'MODEL',
                     opts[:scale] || DEFAULT_SCALE)
+      page.views.last.scale_free = opts[:scale_free] if opts[:scale_free]
       build_title_block!(page, doc, opts)
       page
     end

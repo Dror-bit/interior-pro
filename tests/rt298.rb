@@ -113,6 +113,54 @@ ok('a niche\'s numbers are tiles\'', ds.select { |d| d['k'] == 'hi' && d['from']
 ok('a set\'s and a fixture\'s are plumbing\'s', ds.any? { |d| d['g'] == 'plumbing' && d['k'] == 'hi' } && ds.any? { |d| d['g'] == 'plumbing' && d['k'] == 'v' })
 ok('the wall\'s length and height belong to neither', whole && hgt && !whole.key?('g') && !hgt.key?('g'), [whole, hgt])
 
+# ---- on demand (USE_LAZY_LAYERS, 10:17 measured: 12 of the button's 23 s were these pictures)
+ok('on demand is on', ET::USE_LAZY_LAYERS == true)
+meta = { 'room' => 'Room 2', 'room_pid' => 77, 'side' => 'North', 'cut' => 48.0, 'style' => 'lines' }
+before = Dir[File.join(dir, '*__no_*.png')].size
+ET.write_layers_index!(path, cats, meta)
+lj2 = JSON.parse(File.read(ET.layers_file(path)))
+ok('the button only writes down the layers and how to take them again', lj2['cats'] == %w[plumbing tile] && lj2['files'] == {} &&
+   lj2['side'] == 'North' && lj2['cut'] == 48.0 && lj2['room_pid'] == 77, lj2)
+ok('and the pictures of the shot before go (they show the room as it was)', before == 3 && Dir[File.join(dir, '*__no_*.png')].empty?)
+seen.clear
+ET.shoot_variants!(view, path, 100, 80, cats, [['plumbing']], meta)
+lj3 = JSON.parse(File.read(ET.layers_file(path)))
+ok('on demand: only the one asked for, added to the file, the rest kept', seen.keys == ['Room_2_North_lines__no_plumbing.png'] &&
+   lj3['files'].keys == ['plumbing'] && lj3['side'] == 'North', [seen, lj3])
+ET.shoot_variants!(view, path, 100, 80, cats, [%w[tile plumbing]], meta)
+ok('and the next one is added beside it', JSON.parse(File.read(ET.layers_file(path)))['files'].keys.sort == ['plumbing', 'plumbing+tile'])
+
+# the sheet asks for what is missing: one room taken again, only those walls and mixes
+calls = []
+RoomT = Struct.new(:ent)
+rent = Object.new
+rent.define_singleton_method(:persistent_id) { 77 }
+ET.define_singleton_method(:rooms) { |*_| [RoomT.new(rent)] }
+ET.define_singleton_method(:room_name) { |_r| 'Room 2' }
+ET.define_singleton_method(:shoot!) { |room, **kw| calls << kw; [] }
+n2 = ET.ensure_variants!([[path, ['tile']], [path, %w[plumbing tile]]])
+ok('the room is found by its id and taken again with only: those mixes, its own cut', n2 == 2 && calls.size == 1 &&
+   calls[0][:only] == { 'North' => [['tile'], %w[plumbing tile]] } && calls[0][:cut] == { 'walls' => { 'North' => 48.0 } }, calls)
+calls.clear
+PC.instance_variable_set(:@pic_layers, {})
+st['hide'] = ['tile']
+pg3 = psd.document.pages.find { |p| p.kind == 'image' }
+asked = nil
+ET.define_singleton_method(:ensure_variants!) { |need, *_| asked = need; need.size }
+said = []
+psd.define_singleton_method(:erase_trace) { |t| said << t }
+k = psd.send(:ensure_layer_pictures!, [pg3], st)
+ok('tile off over a picture never taken without it: the sheet asks for it, once', k == 1 && asked == [[path, ['tile']]], [k, asked])
+ok('and says so in the trace', said.any? { |t| t.include?('layers: 1 pictures taken without tile') }, said)
+asked = nil
+st['hide'] = ['plumbing']
+k2 = psd.send(:ensure_layer_pictures!, [pg3], st)
+ok('a picture already taken is not taken again', k2.zero? && asked.nil?, asked)
+st['hide'] = []
+ok('nothing off: nothing asked', psd.send(:ensure_layer_pictures!, [pg3], st).zero?)
+src = File.read('./plan_sheet_dialog.rb', encoding: 'utf-8')
+ok('switching a layer off and printing both ask', src.include?('if act && ensure_layer_pictures!([act], st) > 0') && src.include?('if ensure_layer_pictures!(pages, st) > 0'))
+
 ET.send(:remove_const, :USE_ELEV_LAYERS)
 ET.const_set(:USE_ELEV_LAYERS, false)
 ok('switched off: one picture a wall, as before', ET.shoot_variants!(view, File.join(dir, 'Off_lines.png'), 1, 1, cats).zero?)

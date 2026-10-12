@@ -714,7 +714,15 @@ module InteriorPro
             was_order = (load_state['page_order'] rescue nil)
             save_state(st)
             apply_state!(document, st)
-            push_pages(dlg)
+            # a layer switched off over an elevation whose picture without it was never taken: taken now, and the
+            # window is sent everything again so it has the new picture's address (ElevationTool USE_LAZY_LAYERS)
+            act = document.pages[st['active'].to_i]
+            if act && ensure_layer_pictures!([act], st) > 0
+              apply_state!(document, st)
+              push_all(dlg)
+            else
+              push_pages(dlg)
+            end
             if st.key?('page_order') && st['page_order'] != was_order
               erase_trace('page order: ' + document.pages.map { |pg| "#{page_key(pg)}=#{pg.sheet_number}" }.join('  '))
             end
@@ -868,6 +876,11 @@ module InteriorPro
             if pages.empty?
               dlg.execute_script("exportFailed(#{JSON.generate('לא סימנת אף דף ל-PDF')})")
               next
+            end
+            # every printed elevation without the layers he switched off (USE_LAZY_LAYERS)
+            if ensure_layer_pictures!(pages, st) > 0
+              apply_state!(document, st)
+              pages = pages_for_pdf(document, st)
             end
             path = UI.savepanel('Save the sheet as PDF', default_dir,
                                 default_name(st))
@@ -1879,6 +1892,38 @@ module InteriorPro
         p = path.to_s.tr('\\', '/').sub(%r{\A/+}, '')
         safe = p.b.gsub(%r{[^A-Za-z0-9\-_.~/:]}n) { |c| format('%%%02X', c.ord) }
         "file:///#{safe}"
+      end
+
+      # The elevations on these pages, taken without the layers he switched off where that picture was never taken
+      # (ElevationTool USE_LAZY_LAYERS). Returns how many pictures were taken; 0 = all there already.
+      def ensure_layer_pictures!(pages, st)
+        et = defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool : nil
+        return 0 unless et && et.respond_to?(:ensure_variants!) && InteriorPro::PlanCanvas::USE_LAYER_GROUPS
+        hide = Array(st['hide']).map(&:to_s)
+        return 0 if hide.empty?
+        need = []
+        pages.each do |pg|
+          pg.layers.each do |l|
+            l.shapes.each do |s|
+              next unless s[:type] == :image
+              lay = InteriorPro::PlanCanvas.pic_layers(s[:path])
+              next unless lay
+              off = (lay['cats'] & hide).sort
+              next if off.empty?
+              f = lay['files'][off.join('+')]
+              need << [s[:path].to_s, off] unless f && File.file?(f)
+            end
+          end
+        end
+        return 0 if need.empty?
+        t0 = Time.now
+        n = et.ensure_variants!(need.uniq)
+        InteriorPro::PlanCanvas.instance_variable_set(:@pic_layers, {})    # read the files again
+        erase_trace("layers: #{n} pictures taken without #{hide.join(', ')} for #{need.size} wanted, #{((Time.now - t0) * 1000).round} ms")
+        n
+      rescue StandardError => e
+        erase_trace("layers: pictures NOT taken - #{e.class}: #{e.message}")
+        0
       end
 
       def image_payload(st)

@@ -81,6 +81,15 @@ module InteriorPro
     # ({cats, files}). The sheet shows the one his groups ask for (PlanCanvas.pic_shown), so what is behind a
     # toilet is really there when the toilet is off - not a hole. Off = one picture a wall, as before.
     USE_ELEV_LAYERS = true unless const_defined?(:USE_ELEV_LAYERS, false)
+    # the pictures without a layer are taken smoothed (antialias) like the whole one; false = not (faster? measured
+    # by debug_elev_time.rb before it is ever switched)
+    VARIANT_AA = true unless const_defined?(:VARIANT_AA, false)
+    # 10:17, measured (debug_elev_time.rb, Room 2): the button took 23 s - 12 of them the 15 pictures without a layer
+    # (0.8 s each), most of which he never looks at. So the button only WRITES DOWN which layers stand in front of
+    # each wall (layers.json, no files yet) and a picture without a layer is taken the first time he switches that
+    # layer off with the picture on his sheet, or prints it (PlanSheetDialog.ensure_layer_pictures! ->
+    # ensure_variants!, the same shot again: shoot! only:). Off = all of them taken by the button, as at 09:28.
+    USE_LAZY_LAYERS = true unless const_defined?(:USE_LAZY_LAYERS, false)
     remove_const(:CAT_TYPES) if const_defined?(:CAT_TYPES, false)
     CAT_TYPES = { 'tile' => %w[tile_wall tile_niche floor_pattern shower_pattern],
                   'plumbing' => %w[fixture],
@@ -448,7 +457,9 @@ module InteriorPro
 
       # The same shot again with each mix of the categories hidden, and the file that names them.
       # The view, the plane and everything else stay as they are. Returns how many were written.
-      def shoot_variants!(view, path, w_px, h_px, cats)
+      # mixes: only these (shoot! only:, USE_LAZY_LAYERS) - added to what the file already names; nil = every mix.
+      # meta: what it takes to take the same shot again later (room, side, cut, style).
+      def shoot_variants!(view, path, w_px, h_px, cats, mixes = nil, meta = {})
         return 0 unless USE_ELEV_LAYERS
         lf = layers_file(path)
         present = cats.keys.select { |c| cats[c].any? }.sort
@@ -456,26 +467,102 @@ module InteriorPro
           File.delete(lf) if File.file?(lf)
           return 0
         end
-        files = {}
-        cat_mixes(present).each do |mix|
+        old = read_layers(path) || {}
+        files = mixes ? (old['files'].is_a?(Hash) ? old['files'].dup : {}) : {}
+        ms = []
+        want = mixes ? mixes.map { |m| m.map(&:to_s).sort } & cat_mixes(present) : cat_mixes(present)
+        want.each do |mix|
           gone = mix.flat_map { |c| cats[c] }.map(&:ent).select { |e| e.respond_to?(:hidden=) && !e.hidden? }
+          t0 = Time.now
           gone.each { |e| e.hidden = true }
           begin
+            t1 = Time.now
             view.refresh
+            t2 = Time.now
             vp = variant_file(path, mix)
-            ok = view.write_image(vp, w_px, h_px, true)
+            ok = view.write_image(vp, w_px, h_px, VARIANT_AA)
+            t3 = Time.now
             files[variant_key(mix)] = File.basename(vp) if ok
+            ms << "#{variant_key(mix)} hide #{((t1 - t0) * 1000).round} refresh #{((t2 - t1) * 1000).round} write #{((t3 - t2) * 1000).round}"
           ensure
             gone.each { |e| e.hidden = false if e.valid? }
           end
         end
         view.refresh
-        File.write(lf, JSON.generate('cats' => present, 'files' => files))
-        trace("#{File.basename(path)}: layers #{present.join(', ')} - #{files.size} pictures without them")
-        files.size
+        keep = old.select { |k, _| %w[room room_pid side cut style].include?(k) }.merge(meta)
+        File.write(lf, JSON.generate(keep.merge('cats' => present, 'files' => files)))
+        trace("#{File.basename(path)}: layers #{present.join(', ')} - #{ms.size} pictures without them (ms: #{ms.join('; ')})")
+        ms.size
       rescue StandardError => e
         trace("#{File.basename(path)}: layers NOT taken - #{e.class}: #{e.message}")
         0
+      end
+
+      def read_layers(path)
+        lf = layers_file(path)
+        File.file?(lf) ? JSON.parse(File.read(lf)) : nil
+      rescue StandardError
+        nil
+      end
+
+      # USE_LAZY_LAYERS: the button only writes down which layers stand in front of the picture, and how to take it
+      # again - no pictures; the ones of the shot before go (they show the room as it WAS).
+      def write_layers_index!(path, cats, meta)
+        return 0 unless USE_ELEV_LAYERS
+        lf = layers_file(path)
+        old = read_layers(path)
+        dir = File.dirname(path.to_s)
+        Array(old && old['files'] && old['files'].values).each do |f|
+          fp = File.join(dir, f.to_s)
+          File.delete(fp) if File.file?(fp)
+        end
+        present = cats.keys.select { |c| cats[c].any? }.sort
+        if present.empty?
+          File.delete(lf) if File.file?(lf)
+          return 0
+        end
+        File.write(lf, JSON.generate(meta.merge('cats' => present, 'files' => {})))
+        trace("#{File.basename(path)}: layers #{present.join(', ')} written down - their pictures when they are switched off")
+        present.size
+      rescue StandardError => e
+        trace("#{File.basename(path)}: layers NOT written down - #{e.class}: #{e.message}")
+        0
+      end
+
+      # The pictures without a layer that are wanted and not there: need = [[picture path, [cats]]]. Each room is taken
+      # again with shoot! only: - its own walls, its own cut, only those mixes. Returns how many were taken.
+      def ensure_variants!(need, model = Sketchup.active_model)
+        made = 0
+        rs = nil
+        need.group_by { |p, _| (read_layers(p) || {})['room'].to_s }.each do |rn, items|
+          info = read_layers(items.first[0]) || {}
+          rs ||= rooms(model)
+          room = rs.find { |r| info['room_pid'] && r.ent.respond_to?(:persistent_id) && r.ent.persistent_id == info['room_pid'] } ||
+                 rs.find { |r| room_name(r) == rn }
+          unless room
+            trace("layers: room #{rn.inspect} not found - #{items.size} pictures not taken")
+            next
+          end
+          only = Hash.new { |h, k| h[k] = [] }
+          cuts = {}
+          style = 'lines'
+          items.each do |p, mix|
+            inf = read_layers(p) || {}
+            sd = inf['side'].to_s
+            next if sd.empty?
+            m = Array(mix).map(&:to_s).sort
+            only[sd] << m unless only[sd].include?(m)
+            cuts[sd] = inf['cut'] if inf['cut']
+            style = inf['style'].to_s unless inf['style'].to_s.empty?
+          end
+          next if only.empty?
+          t0 = Time.now
+          shoot!(room, cut: { 'walls' => cuts }, style: style, model: model, only: only)
+          n = only.values.map(&:size).sum
+          made += n
+          trace("layers: #{rn} - #{n} pictures taken on demand (#{only.map { |k, v| "#{k}: #{v.map { |x| x.join('+') }.join(', ')}" }.join('; ')}) in #{((Time.now - t0) * 1000).round} ms")
+        end
+        made
       end
 
       # A white face under each swinging leaf's quarter circle (18:12: "הטקסטורה של הרצפה לא עוברת
@@ -936,7 +1023,9 @@ module InteriorPro
 
       # Takes every side of the room. Returns the picture paths, in A, B, C
       # order. style: 'lines' (hidden line) or 'shaded' (as he sees it).
-      def shoot!(room, cut: nil, style: 'lines', model: Sketchup.active_model)
+      # only (USE_LAZY_LAYERS): { side name or 'Plan' => [[cats], ...] } - take ONLY those pictures without a layer,
+      # with everything else exactly as the button sets it up; nothing else is written. nil = the button.
+      def shoot!(room, cut: nil, style: 'lines', model: Sketchup.active_model, only: nil)
         raise 'Elevations are switched off (USE_ELEVATIONS)' unless USE_ELEVATIONS
         poly = room_poly(room)
         raise 'this room has no outline' unless poly
@@ -953,7 +1042,7 @@ module InteriorPro
         saved = {}
         RENDER_KEYS.each { |k| saved[k] = ro[k] }
         hidden = []
-        last_dims.clear
+        last_dims.clear unless only
         model.start_operation('Elevations', true)
         begin
           all = []
@@ -976,6 +1065,7 @@ module InteriorPro
           lines_drawn = []
           snap_edges = nil
           sides(poly).each do |side|
+            next if only && !only.key?(side.name)
             s = shot(side, wall_h, cut_for(cut, side.name), base_z)
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
             sp.activate
@@ -994,9 +1084,25 @@ module InteriorPro
             view.camera = cam
             view.refresh
             path = file_for(dir, name, side.name, style)
+            meta = { 'room' => name, 'room_pid' => (room.ent.respond_to?(:persistent_id) ? room.ent.persistent_id : nil),
+                     'side' => side.name, 'cut' => cut_for(cut, side.name), 'style' => style }
+            if only
+              # on demand: the pictures without a layer, only - the whole one is already there
+              shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all), only[side.name], meta) if File.file?(path)
+              sp.erase!
+              next
+            end
+            tw = Time.now
             ok = view.write_image(path, s[:w_px], s[:h_px], true)
-            # and once for every mix of tiles / plumbing / electric off (USE_ELEV_LAYERS)
-            shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all)) if ok
+            trace("#{name} side #{side.name}: the whole picture in #{((Time.now - tw) * 1000).round} ms")
+            # and once for every mix of tiles / plumbing / electric off (USE_ELEV_LAYERS) - or only written down (USE_LAZY_LAYERS)
+            if ok
+              if USE_LAZY_LAYERS
+                write_layers_index!(path, side_cats(side, s[:cut], all), meta)
+              else
+                shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all), nil, meta)
+              end
+            end
             # the automatic dimensions of this wall (2026-10-08), for the sheet to draw over it
             if ok
               its = safely_items(side, s[:cut], all, base_z)
@@ -1021,7 +1127,7 @@ module InteriorPro
             paths << path if ok
           end
           # the room from above, first on its sheet (USE_TOP_VIEW, 16:10)
-          if USE_TOP_VIEW && USE_ONE_SHEET
+          if USE_TOP_VIEW && USE_ONE_SHEET && (!only || only.key?('Plan'))
             # the walls' floor and ceiling lines would lie along the walls seen from above
             gone = lines_drawn.select { |e| e.respond_to?(:valid?) && e.valid? }
             model.entities.erase_entities(gone) unless gone.empty?
@@ -1139,10 +1245,23 @@ module InteriorPro
             view.camera = cam
             view.refresh
             path = file_for(dir, name, 'Plan', style)
-            ok = view.write_image(path, s[:w_px], s[:h_px], true)
-            shoot_variants!(view, path, s[:w_px], s[:h_px], room_cats(poly, all)) if ok
+            meta = { 'room' => name, 'room_pid' => (room.ent.respond_to?(:persistent_id) ? room.ent.persistent_id : nil),
+                     'side' => 'Plan', 'style' => style }
+            if only
+              ok = false
+              shoot_variants!(view, path, s[:w_px], s[:h_px], room_cats(poly, all), only['Plan'], meta) if File.file?(path)
+            else
+              ok = view.write_image(path, s[:w_px], s[:h_px], true)
+              if ok
+                if USE_LAZY_LAYERS
+                  write_layers_index!(path, room_cats(poly, all), meta)
+                else
+                  shoot_variants!(view, path, s[:w_px], s[:h_px], room_cats(poly, all), nil, meta)
+                end
+              end
+            end
             sp.erase!
-            trace("#{name} from above: cut #{(s[:plane_pt].z - base_z).round(1)}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
+            trace("#{name} from above: cut #{(s[:plane_pt].z - base_z).round(1)}\", #{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}") unless only
             paths.unshift(path) if ok
           end
         ensure

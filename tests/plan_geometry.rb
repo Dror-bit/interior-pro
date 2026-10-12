@@ -66,6 +66,18 @@ module InteriorPro
 
       # ------------------------------------------------------- reading the model
 
+      # Is the plan drawing our things wherever they sit (2026-10-07)? Then one
+      # of ours inside a plain group is drawn from its attributes too, and must
+      # not come in here as well - which is also what keeps a roof that sits in
+      # the same group as the walls off the floor plan.
+      def nested_own?
+        defined?(InteriorPro::PlanGenerator) &&
+          InteriorPro::PlanGenerator.const_defined?(:USE_NESTED_OWN, false) &&
+          InteriorPro::PlanGenerator::USE_NESTED_OWN == true
+      rescue StandardError
+        false
+      end
+
       def own?(entity)
         t = entity.get_attribute('InteriorPro', 'type')
         !t.nil? && OWN_TYPES.include?(t.to_s)
@@ -107,10 +119,10 @@ module InteriorPro
               end
               out << [[a.x.to_f, a.y.to_f, a.z.to_f], [b.x.to_f, b.y.to_f, b.z.to_f]]
             elsif e.is_a?(Sketchup::Group)
-              next if depth.zero? && own?(e)
+              next if own?(e) && (depth.zero? || nested_own?)
               harvest(e.entities, mul(xform, e.transformation), out, opts, depth + 1)
             elsif defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance)
-              next if depth.zero? && own?(e)
+              next if own?(e) && (depth.zero? || nested_own?)
               harvest(e.definition.entities, mul(xform, e.transformation), out, opts, depth + 1)
             end
           rescue StandardError => err

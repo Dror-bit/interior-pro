@@ -273,10 +273,12 @@ ok('and one field at a time can be sent',
    cb.include?("r.key?('bold')") && cb.include?("r.key?('pct')"))
 
 # Two clicks on a note still edit its words - that behaviour is older and was
-# not to be taken away.
+# not to be taken away. Since 2026-10-08 they open the way any label's do, over
+# themselves on the sheet (labelUnder finds a note's words) - not in the note
+# bar (t82 drives the real road).
 dbl = SRC[/svg\.ondblclick=function\(e\)\{.*?\n            \};/m].to_s
-ok('a note still opens its own words first',
-   dbl.include?("marks()[h.i].t!=='note'") && dbl.include?("$('notetext').value"), dbl[0, 200])
+ok('two clicks on a note still open its words - as a label, over themselves',
+   dbl.include?('labelUnder(e)') && !dbl.include?("$('notebar').className='on'"), dbl[0, 200])
 # (2026-10-07: what two clicks open is worked out in labelUnder, which the window's own count of
 # two quick presses uses too - one routine, so the two roads cannot come to open different things)
 under = SRC[/function labelUnder\(e\)\{.*?\n          \}\n/m].to_s

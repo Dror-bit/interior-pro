@@ -44,13 +44,462 @@ module InteriorPro
 
     BOLD_BUMP = 1.06 unless const_defined?(:BOLD_BUMP, false)
 
-    def self.text_width(str, size, bold = false)
+    # font: the lettering he picked (a family name, see shipped_fonts), or nil. A
+    # run with letters Helvetica has not got (Hebrew, for one) is measured in
+    # the font it will be printed in - the same table the window is given
+    # (text_rules['fonts']), so the two break lines at the same places.
+    def self.text_width(str, size, bold = false, font = nil)
+      tab = USE_TTF_FONTS ? width_table_for(str, font) : nil
       total = str.to_s.each_char.inject(0) do |sum, ch|
         c = ch.ord
-        sum + ((c >= 32 && c <= 126) ? W[c - 32] : 556)
+        sum + (tab ? (tab[:w][c] || tab[:dw]) : ((c >= 32 && c <= 126) ? W[c - 32] : 556))
       end
       w = total / 1000.0 * size
       bold ? w * BOLD_BUMP : w
+    end
+
+    # ------------------------------------------- TrueType fonts (2026-10-07)
+    #
+    # The three Helvetica fonts are built into every PDF reader, but they know
+    # no Hebrew, and he wants a choice of lettering ("בהגדרות טקסט צריך לתת
+    # סוגים שונים של פונטים, כמו בלייאאוט"). So a piece of writing in a
+    # lettering he picked, or with letters Helvetica has not got, is set in a
+    # TrueType font read from the computer's own fonts and written INTO the
+    # PDF: a Type0 / CIDFontType2 font, glyph ids (Identity-H), the whole
+    # font file deflated, a ToUnicode map so the words can still be searched
+    # and copied. Hebrew is laid right to left the way the browser lays it
+    # (visual). Nothing else changes: Latin writing in no particular
+    # lettering is Helvetica, as it always was, and the file stays small.
+    # false = the three Helveticas only, letters they lack print as spaces.
+    USE_TTF_FONTS = true unless const_defined?(:USE_TTF_FONTS, false)
+
+    # The letterings on offer ship WITH THE PLUGIN: assets/FONTS/*.ttf, free
+    # fonts with their licences beside them (2026-10-08). He said "אני לא באמת
+    # צריך יותר מ-3 או 4 פונטים" and picked Architects Daughter, Shadows Into
+    # Light, David Libre and Suez One, beside the plain lettering. A family is
+    # named by the font itself (its name table) and its faces by their
+    # subfamily (Regular / Bold / Italic / Bold Italic); a face that is
+    # missing falls back to the plain one. The same files are handed to the
+    # window as @font-face, so the sheet and the PDF draw the very same letters
+    # on both of his computers, whatever is installed on them.
+    def self.font_dir
+      @font_dir || File.join(plugin_root, 'assets', 'FONTS')
+    end
+
+    # (the tests point this at a folder of their own)
+    def self.font_dir=(d)
+      @font_dir = d
+      forget_fonts!
+    end
+
+    def self.plugin_root
+      defined?(InteriorPro::PLUGIN_DIR) ? InteriorPro::PLUGIN_DIR.to_s.tr('\\', '/') : File.dirname(File.expand_path(__FILE__))
+    end
+
+    # { family => { plain: path, bold: path, italic: path, bold_italic: path } },
+    # the families in alphabetical order.
+    def self.shipped_fonts
+      @shipped ||= begin
+        out = {}
+        Dir.glob(File.join(font_dir, '*.{ttf,TTF}')).sort.each do |path|
+          t = ttf(path)
+          next unless t
+          fam = t.family.to_s.strip
+          next if fam.empty?
+          out[fam] ||= {}
+          out[fam][t.face] ||= path
+        end
+        out.sort.to_h
+      end
+    end
+
+    def self.families_present
+      shipped_fonts.keys
+    end
+
+    # The file of one face of a family, or nil for a family that is not there.
+    def self.font_file(family, bold = false, italic = false)
+      faces = shipped_fonts[family.to_s]
+      return nil unless faces
+      order = []
+      order << :bold_italic if bold && italic
+      order << :bold if bold
+      order << :italic if italic
+      order << :plain
+      order.each { |k| return faces[k] if faces[k] }
+      faces.values.first
+    end
+
+    def self.forget_fonts!
+      @shipped = nil
+      @ttf_cache = nil
+      @width_tables = nil
+    end
+
+    # The family Hebrew is set in when he picked none: the first that has it.
+    def self.hebrew_family
+      families_present.find { |f| (t = ttf(font_file(f))) && t.has?(0x5D0) }
+    end
+
+    # The letters the window and this file measure by the same table. Any
+    # other letter is counted at the font's own default width.
+    TABLE_CODES = ((32..126).to_a + (0x00A0..0x00FF).to_a + (0x05D0..0x05F4).to_a +
+                   [0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026, 0x20AC]).freeze unless const_defined?(:TABLE_CODES, false)
+
+    HEB = /[֐-׿יִ-ﭏ]/ unless const_defined?(:HEB, false)
+
+    # Does this run need a TrueType font: letters Helvetica has not got?
+    def self.needs_ttf?(str)
+      str.to_s.each_char.any? { |ch| ch.ord > 126 }
+    end
+
+    # Which family this run is set in: the one he picked if it is on offer,
+    # else the Hebrew one when the run needs it, else nil = Helvetica.
+    def self.family_for(str, font)
+      return nil unless USE_TTF_FONTS
+      f = font.to_s
+      return f if !f.empty? && families_present.include?(f)
+      needs_ttf?(str) ? hebrew_family : nil
+    end
+
+    def self.ttf(path)
+      @ttf_cache ||= {}
+      key = path.to_s
+      mt = (File.mtime(key).to_f rescue 0)
+      c = @ttf_cache[key]
+      return c[1] if c && c[0] == mt
+      t = TrueType.new(key)
+      @ttf_cache[key] = [mt, t]
+      t
+    rescue StandardError => e
+      puts "[PlanPDF] cannot read font #{path}: #{e.message}"
+      nil
+    end
+
+    def self.ttf_for(str, font, bold = false, italic = false)
+      fam = family_for(str, font)
+      return nil unless fam
+      path = font_file(fam, bold, italic)
+      path && ttf(path)
+    end
+
+    # The width table of a family's plain face: { w: {code => 1/1000 em},
+    # dw: the default }. THE TABLE THE WINDOW IS GIVEN (text_rules['fonts']).
+    def self.width_table(family)
+      @width_tables ||= {}
+      return @width_tables[family] if @width_tables.key?(family)
+      path = font_file(family)
+      t = path && ttf(path)
+      @width_tables[family] = t && begin
+        w = {}
+        TABLE_CODES.each { |c| w[c] = t.width_of(c).round if t.has?(c) }
+        { w: w, dw: t.advance(0).round }
+      end
+    end
+
+    def self.width_table_for(str, font)
+      fam = family_for(str, font)
+      fam && width_table(fam)
+    end
+
+    # The tables for the window, one a family on offer, and which family
+    # Hebrew is set in: { 'Arial' => { 'w' => {...}, 'dw' => 750 }, ... }.
+    def self.font_tables
+      return {} unless USE_TTF_FONTS
+      out = {}
+      families_present.each do |f|
+        t = width_table(f)
+        next unless t
+        out[f] = { 'w' => t[:w], 'dw' => t[:dw], 'path' => font_file(f) }
+        b = font_file(f, true)
+        out[f]['pathb'] = b if b && b != out[f]['path']
+        out[f]['heb'] = true if (ft = ttf(out[f]['path'])) && ft.has?(0x5D0)
+      end
+      out
+    end
+
+    # The letters of one run in the order they are PRINTED, left to right -
+    # the way the browser lays the same run in a page that reads left to
+    # right (measured against Chromium, 21 runs: tests/browser/bidi.js). The
+    # Unicode bidi rules, the few that matter here:
+    #   a Hebrew stretch reads right to left; a number inside it keeps its
+    #   own order (and its own separators: 2026-10-07, 12/3, 3.5); a number
+    #   after Latin letters reads as Latin; spaces and marks between two
+    #   sides of one direction take it, otherwise the paragraph's; a pair of
+    #   brackets takes the direction of what is inside it; brackets turned
+    #   round are mirrored.
+    def self.visual(str)
+      s = str.to_s
+      return s unless s =~ HEB
+      ch = s.chars
+      t = ch.map { |c| c =~ HEB ? :R : (c =~ /[A-Za-zÀ-ɏ]/ ? :L : (c =~ /[0-9]/ ? :E : :N)) }
+      # a separator between two digits is part of the number (W4)
+      (1...(t.length - 1)).each { |i| t[i] = :E if t[i] == :N && ch[i] =~ %r{[-/:.,]} && t[i - 1] == :E && t[i + 1] == :E }
+      # a number after Latin letters reads as Latin (W7)
+      strong = :L
+      t.each_with_index do |k, i|
+        if k == :R || k == :L
+          strong = k
+        elsif k == :E && strong == :L
+          t[i] = :L
+        end
+      end
+      dir_of = ->(k) { (k == :L || k == :l) ? :L : :R }
+      # a pair of brackets: the paragraph's direction if Latin is inside; Hebrew
+      # inside and Hebrew before it -> right to left; else the paragraph's (N0)
+      pairs = { '(' => ')', '[' => ']', '{' => '}' }
+      stack = []
+      ch.each_with_index do |c, i|
+        if pairs.key?(c)
+          stack << [c, i]
+        elsif pairs.value?(c)
+          k = stack.rindex { |o| pairs[o[0]] == c }
+          next unless k
+          o = stack[k][1]
+          stack = stack[0...k]
+          has_l = ((o + 1)...i).any? { |m| t[m] == :L }
+          has_r = ((o + 1)...i).any? { |m| t[m] == :R || t[m] == :E }
+          before = :L
+          (o - 1).downto(0) do |m|
+            if t[m] == :L || t[m] == :R
+              before = t[m]
+              break
+            end
+          end
+          d = has_l ? :L : ((has_r && before == :R) ? :R : :L)
+          t[o] = t[i] = (d == :L ? :l : :r)
+        end
+      end
+      # the rest of the marks and spaces: between two sides of one direction
+      # they take it (a number counts as Hebrew here), otherwise the paragraph's (N1, N2)
+      i = 0
+      while i < t.length
+        if t[i] == :N
+          j = i
+          j += 1 while j < t.length && t[j] == :N
+          left  = i > 0 ? dir_of.call(t[i - 1]) : :L
+          right = j < t.length ? dir_of.call(t[j]) : :L
+          d = left == right ? left : :L
+          (i...j).each { |k| t[k] = (d == :L ? :l : :r) }
+          i = j
+        else
+          i += 1
+        end
+      end
+      lv  = t.map { |k| (k == :L || k == :l) ? 0 : (k == :E ? 2 : 1) }
+      out = ch.dup
+      # from the deepest level up, every stretch at that level or deeper is turned round (L2)
+      [2, 1].each do |level|
+        i = 0
+        while i < out.length
+          if lv[i] >= level
+            j = i
+            j += 1 while j < out.length && lv[j] >= level
+            out[i...j] = out[i...j].reverse
+            lv[i...j]  = lv[i...j].reverse
+            i = j
+          else
+            i += 1
+          end
+        end
+      end
+      mirror = { '(' => ')', ')' => '(', '[' => ']', ']' => '[', '{' => '}', '}' => '{', '<' => '>', '>' => '<' }
+      out.each_with_index.map { |c, i| (lv[i].odd? && mirror[c]) ? mirror[c] : c }.join
+    end
+
+    # One TrueType font file, read far enough to print with: the glyph of
+    # each letter (cmap, format 4), how wide each glyph is (hmtx), and what the
+    # font descriptor wants to know. Pure Ruby, no gems.
+    class TrueType
+      attr_reader :path, :data, :units, :ascent, :descent, :bbox, :cap_height, :italic_angle, :ps_name, :nglyphs, :family, :subfamily
+
+      def initialize(path)
+        @path = path
+        @data = File.binread(path)
+        raise 'not a TrueType font' if @data.bytesize < 12 || @data[0, 4] == 'ttcf'
+        @tables = {}
+        u16(4).times do |i|
+          tag = @data[12 + i * 16, 4]
+          @tables[tag] = [u32(12 + i * 16 + 8), u32(12 + i * 16 + 12)]
+        end
+        head = tbl('head')
+        hhea = tbl('hhea')
+        maxp = tbl('maxp')
+        raise 'not a TrueType font' unless head && hhea && maxp && tbl('cmap') && tbl('hmtx') && tbl('glyf')
+        @units = u16(head + 18)
+        @units = 1000 if @units.zero?
+        @bbox = [s16(head + 36), s16(head + 38), s16(head + 40), s16(head + 42)].map { |v| em(v) }
+        @ascent  = em(s16(hhea + 4))
+        @descent = em(s16(hhea + 6))
+        nhm = u16(hhea + 34)
+        @nglyphs = u16(maxp + 4)
+        hm = tbl('hmtx')
+        @adv = Array.new(nhm) { |g| u16(hm + g * 4) }
+        os2 = tbl('OS/2')
+        @cap_height = (os2 && u16(os2) >= 2) ? em(s16(os2 + 88)) : 0
+        @cap_height = (@ascent * 0.8).round if @cap_height <= 0
+        post = tbl('post')
+        @italic_angle = post ? (s16(post + 4) + u16(post + 6) / 65536.0) : 0.0
+        @ps_name = read_ps_name || File.basename(path, '.*').gsub(/[^A-Za-z0-9\-]/, '')
+        @family    = read_name(1) || File.basename(path, '.*')
+        @subfamily = read_name(2) || 'Regular'
+        @ps_name = 'Font' if @ps_name.empty?
+        @cmap = read_cmap
+      end
+
+      def em(v); (v * 1000.0 / @units).round; end
+      def tbl(tag); t = @tables[tag]; t && t[0]; end
+      def u16(o); @data[o, 2].unpack1('n'); end
+      def s16(o); v = u16(o); v >= 0x8000 ? v - 0x10000 : v; end
+      def u32(o); @data[o, 4].unpack1('N'); end
+
+      def gid(code); @cmap[code] || 0; end
+      def has?(code); @cmap.key?(code); end
+      # how wide a glyph is, per 1000 em
+      def advance(g)
+        a = @adv[g] || @adv.last || 0
+        a * 1000.0 / @units
+      end
+      def width_of(code); advance(gid(code)); end
+
+      # letter -> glyph, from the first format 4 subtable (the (3,1) one if there is one)
+      def read_cmap
+        base = tbl('cmap')
+        map = {}
+        best = nil
+        u16(base + 2).times do |i|
+          pid = u16(base + 4 + i * 8)
+          eid = u16(base + 6 + i * 8)
+          sub = base + u32(base + 8 + i * 8)
+          next unless u16(sub) == 4
+          best = sub if best.nil? || (pid == 3 && eid == 1)
+        end
+        return map unless best
+        segx2 = u16(best + 6)
+        ends = best + 14
+        starts = ends + segx2 + 2
+        deltas = starts + segx2
+        ranges = deltas + segx2
+        (segx2 / 2).times do |i|
+          e = u16(ends + i * 2)
+          st = u16(starts + i * 2)
+          d = u16(deltas + i * 2)
+          ro = u16(ranges + i * 2)
+          next if st == 0xFFFF
+          (st..e).each do |c|
+            if ro.zero?
+              g = (c + d) & 0xFFFF
+            else
+              gi = ranges + i * 2 + ro + (c - st) * 2
+              g = u16(gi)
+              g = (g + d) & 0xFFFF unless g.zero?
+            end
+            map[c] = g unless g.zero?
+          end
+        end
+        map
+      end
+
+      # which face this file is, from its subfamily name
+      def face
+        s = @subfamily.to_s
+        b = s =~ /bold/i
+        i = s =~ /italic|oblique/i
+        b && i ? :bold_italic : (b ? :bold : (i ? :italic : :plain))
+      end
+
+      def read_ps_name
+        read_name(6)
+      end
+
+      # a string of the name table (1 = family, 2 = subfamily, 6 = PostScript
+      # name): the Windows English one if there is one, else the first
+      def read_name(id)
+        nm = tbl('name')
+        return nil unless nm
+        count = u16(nm + 2)
+        str = nm + u16(nm + 4)
+        best = nil
+        count.times do |i|
+          r = nm + 6 + i * 12
+          next unless u16(r + 6) == id
+          pid = u16(r)
+          lang = u16(r + 4)
+          raw = @data[str + u16(r + 10), u16(r + 8)].to_s
+          txt = (pid == 3 || pid == 0) ? raw.dup.force_encoding('UTF-16BE').encode('UTF-8', invalid: :replace, undef: :replace) :
+                                         raw.dup.force_encoding('ASCII-8BIT').encode('UTF-8', invalid: :replace, undef: :replace)
+          txt = id == 6 ? txt.gsub(/[^A-Za-z0-9\-]/, '') : txt.strip
+          next if txt.empty?
+          return txt if pid == 3 && lang == 0x409
+          best ||= txt
+        end
+        best
+      rescue StandardError
+        nil
+      end
+    end
+
+    # The TrueType fonts one PDF uses: each gets a name (/F4 on) and remembers
+    # which glyphs it set, for the widths and the ToUnicode map.
+    class FontSet
+      attr_reader :entries
+
+      def initialize
+        @by = {}
+        @entries = []
+      end
+
+      def use(ttf)
+        e = @by[ttf.path]
+        unless e
+          e = { name: "F#{@entries.length + 4}", ttf: ttf, used: {} }
+          @entries << e
+          @by[ttf.path] = e
+        end
+        e
+      end
+    end
+
+    # The font set of the export under way, or nil when nothing is being exported.
+    def self.font_set
+      @font_set
+    end
+
+    def self.to_unicode_stream(used)
+      body = +"/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n" \
+             "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n" \
+             "/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n" \
+             "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n"
+      used.keys.sort.each_slice(100) do |gs|
+        body << "#{gs.length} beginbfchar\n"
+        gs.each do |g|
+          cp = used[g]
+          u = cp > 0xFFFF ? '003F' : format('%04X', cp)
+          body << "<#{format('%04X', g)}> <#{u}>\n"
+        end
+        body << "endbfchar\n"
+      end
+      body << "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n"
+      "<< /Length #{body.bytesize} >>\nstream\n#{body}\nendstream"
+    end
+
+    # The PDF objects of one embedded font; returns the id of the Type0 font.
+    def self.font_objects(e, add)
+      t = e[:ttf]
+      raw = t.data
+      comp = Zlib::Deflate.deflate(raw)
+      ff = add.call("<< /Length #{comp.bytesize} /Length1 #{raw.bytesize} /Filter /FlateDecode >>\nstream\n#{comp}\nendstream")
+      flags = 32 | (t.italic_angle.abs > 1e-6 ? 64 : 0)
+      fd = add.call("<< /Type /FontDescriptor /FontName /#{t.ps_name} /Flags #{flags} " \
+                    "/FontBBox [#{t.bbox.join(' ')}] /ItalicAngle #{n(t.italic_angle)} /Ascent #{t.ascent} " \
+                    "/Descent #{t.descent} /CapHeight #{t.cap_height} /StemV 80 /FontFile2 #{ff} 0 R >>")
+      w = e[:used].keys.sort.map { |g| "#{g} [#{n(t.advance(g))}]" }.join(' ')
+      cid = add.call("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /#{t.ps_name} " \
+                     "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> " \
+                     "/FontDescriptor #{fd} 0 R /DW 1000 /W [#{w}] /CIDToGIDMap /Identity >>")
+      tu = add.call(to_unicode_stream(e[:used]))
+      add.call("<< /Type /Font /Subtype /Type0 /BaseFont /#{t.ps_name} /Encoding /Identity-H " \
+               "/DescendantFonts [#{cid} 0 R] /ToUnicode #{tu} 0 R >>")
     end
 
     # --------------------------------------------------------------- helpers
@@ -91,6 +540,49 @@ module InteriorPro
 
     def self.forget_images!
       @image_cache = {}
+      @size_cache  = {}
+    end
+
+    # How many pixels across and down a picture is: [w, h], or nil if the file
+    # cannot be read as a JPEG or a PNG (2026-10-07).
+    #
+    # A picture in a box of its own is laid out from its PROPORTIONS, and the
+    # sheet is laid out again on every click in the window - so this must not
+    # read an 8 MB render each time, nor unpack a see-through PNG to learn two
+    # numbers. Only the head of the file is read (a JPEG's size can sit behind
+    # a long EXIF block, so the read grows until it is found), and the answer
+    # is remembered until the file changes.
+    def self.image_size(path)
+      p = path.to_s
+      return nil if p.empty? || !File.file?(p)
+      @size_cache ||= {}
+      stamp = [File.size(p), File.mtime(p).to_f]
+      hit = @size_cache[p]
+      return hit[1] if hit && hit[0] == stamp
+      size = nil
+      File.open(p, 'rb') do |f|
+        head = f.read(65_536).to_s.b
+        if head.byteslice(0, 8) == PNG_MAGIC
+          w, h = head.byteslice(16, 8).to_s.unpack('N2')
+          size = [w, h] if w.to_i > 0 && h.to_i > 0
+        elsif head.byteslice(0, 2) == "\xFF\xD8".b
+          loop do
+            info = jpeg_info(head)
+            if info
+              size = [info[:w], info[:h]]
+              break
+            end
+            more = f.read(head.bytesize * 3)
+            break if more.nil? || more.empty?
+            head << more.b
+          end
+        end
+      end
+      @size_cache[p] = [stamp, size]
+      size
+    rescue StandardError => e
+      puts "[PlanPDF] cannot size image #{p}: #{e.message}"
+      nil
     end
 
     # nil, or:
@@ -365,7 +857,9 @@ module InteriorPro
     end
 
     # Draws one page. `to_paper` maps a shape's own units to paper inches.
-    def self.draw_shapes(st, shapes, to_paper, scale = 1.0, imgs = nil)
+    # `turn` is how far the window these shapes are seen through is turned, in
+    # degrees: the lines are already turned by to_paper, the writing needs telling.
+    def self.draw_shapes(st, shapes, to_paper, scale = 1.0, imgs = nil, turn = 0.0)
       shapes.each do |s|
         case s[:type]
         when :line
@@ -390,7 +884,7 @@ module InteriorPro
             st << 'S'
           end
         when :text
-          draw_text(st, s, to_paper, scale)
+          draw_text(st, s, to_paper, scale, turn)
         when :image
           draw_image(st, s, to_paper, scale, imgs)
         when :table
@@ -402,6 +896,7 @@ module InteriorPro
     # The picture itself if the file could be read; the old empty frame if it
     # could not, so a missing render never loses the whole sheet.
     def self.draw_image(st, s, to_paper, scale, imgs)
+      return draw_placed_image(st, s, to_paper, scale, imgs) if s[:placed]
       x, y = to_paper.call(s[:x], s[:y])
       w = s[:w].to_f * scale
       h = s[:h].to_f * scale
@@ -426,7 +921,53 @@ module InteriorPro
       st << '0 G'
     end
 
-    def self.draw_text(st, s, to_paper, scale)
+    # A picture in a box of its own (2026-10-07, PlanCanvas.place_pictures!).
+    #
+    # Not the rule above. The box IS the picture: x, y, w, h is where the part
+    # of it that is seen lies on the paper, :crop says how much of the file is
+    # cut off each side - [left, bottom, right, top], each a share of the whole
+    # picture - and :rot turns the box about its own middle, anticlockwise.
+    # The window draws the same four numbers the same way (shapeSVG).
+    def self.draw_placed_image(st, s, to_paper, scale, imgs)
+      x, y = to_paper.call(s[:x], s[:y])
+      w = s[:w].to_f * scale
+      h = s[:h].to_f * scale
+      nm   = imgs && imgs.name_for(s[:path])
+      info = nm && imgs.info_for(nm)
+      cl, cb, cr, ct = Array(s[:crop]).map(&:to_f)
+      cl ||= 0.0; cb ||= 0.0; cr ||= 0.0; ct ||= 0.0
+      rot = s[:rot].to_f
+
+      st.save
+      unless rot.zero?
+        r  = rot * Math::PI / 180.0
+        c  = Math.cos(r)
+        sn = Math.sin(r)
+        cx = (x + w / 2.0) * PT
+        cy = (y + h / 2.0) * PT
+        # six places, not three: this is multiplied by a point that can be
+        # 2,500 points from the corner of the sheet
+        m = [c, sn, -sn, c].map { |v| format('%.6f', v) }.join(' ')
+        st << "#{m} #{n(cx - c * cx + sn * cy)} #{n(cy - sn * cx - c * cy)} cm"
+      end
+      if nm && info
+        fw = w / [1.0 - cl - cr, 0.01].max           # the WHOLE picture, on the paper
+        fh = h / [1.0 - cb - ct, 0.01].max
+        st.save
+        st << "#{n(x * PT)} #{n(y * PT)} #{n(w * PT)} #{n(h * PT)} re W n"
+        st << "#{n(fw * PT)} 0 0 #{n(fh * PT)} #{n((x - cl * fw) * PT)} #{n((y - cb * fh) * PT)} cm"
+        st << "/#{nm} Do"
+        st.restore
+      end
+      if s[:frame] || !(nm && info)
+        st << '0.75 w 0.6 G'
+        st << "#{n(x * PT)} #{n(y * PT)} #{n(w * PT)} #{n(h * PT)} re S"
+        st << '0 G'
+      end
+      st.restore
+    end
+
+    def self.draw_text(st, s, to_paper, scale, turn = 0.0)
       str = s[:text].to_s
       return if str.empty?
       x, y = to_paper.call(s[:x], s[:y])
@@ -435,7 +976,17 @@ module InteriorPro
       bold  = s[:bold]
       key   = bold ? :bold : (s[:italic] ? :italic : :plain)
       fnt   = { plain: '/F1', bold: '/F2', italic: '/F3' }[key]
-      w     = text_width(str, size, bold)
+      # a lettering he picked, or letters Helvetica has not got (Hebrew): a
+      # TrueType font written into the file, the glyphs by id (2026-10-07)
+      ttf = font_set ? ttf_for(str, s[:font], bold, s[:italic]) : nil
+      shown = nil
+      if ttf
+        e = font_set.use(ttf)
+        fnt = "/#{e[:name]}"
+        gids = visual(str).each_char.map { |ch| g = ttf.gid(ch.ord); e[:used][g] = ch.ord; g }
+        shown = '<' + gids.map { |g| format('%04X', g) }.join + '>'
+      end
+      w     = text_width(str, size, bold, s[:font])
       cap   = size * CAP_RATIO
 
       # A shape drawn by plan_generator is centred on its point; one placed on
@@ -444,9 +995,11 @@ module InteriorPro
       dx = align == :center ? -w / 2.0 : 0.0
       dy = align == :center ? -cap / 2.0 : 0.0
 
-      ang = (s[:rotation] || 0.0) * Math::PI / 180.0
+      ang = ((s[:rotation] || 0.0) + turn.to_f) * Math::PI / 180.0
+      # a colour of its own (2026-10-07): "#rrggbb" set on the label at the side
+      col = s[:color].to_s =~ /\A#([0-9a-fA-F]{6})\z/ ? [$1[0, 2], $1[2, 2], $1[4, 2]].map { |h| h.to_i(16) } : nil
       st << 'BT'
-      st << '0 g'
+      st << (col ? "#{grey(col)} rg" : '0 g')
       st << "#{fnt} #{n(size)} Tf"
       if ang.abs > 1e-6
         c = Math.cos(ang)
@@ -458,9 +1011,22 @@ module InteriorPro
         st << "1 0 0 1 #{n(x * PT + dx)} #{n(y * PT + dy)} Tm"
       end
       st << "#{n(s[:tracking] ? s[:tracking] * scale * PT : 0)} Tc" if s[:tracking]
-      st << "(#{esc(str)}) Tj"
+      st << (shown ? "#{shown} Tj" : "(#{esc(str)}) Tj")
       st << '0 Tc' if s[:tracking]
       st << 'ET'
+      st << '0 g' if col
+      # a line under the words (2026-10-07), drawn in the words' own frame so
+      # it turns with them: a little under the baseline, as wide as the words
+      if s[:underline]
+        c  = Math.cos(ang)
+        sn = Math.sin(ang)
+        st.save
+        st << "#{n(c)} #{n(sn)} #{n(-sn)} #{n(c)} #{n(x * PT)} #{n(y * PT)} cm"
+        st << "#{grey(col)} RG" if col
+        st << "#{n(size * 0.06)} w"
+        st << "#{n(dx)} #{n(dy - size * 0.12)} m #{n(dx + w)} #{n(dy - size * 0.12)} l S"
+        st.restore
+      end
     end
 
     def self.draw_table(st, s, to_paper, scale)
@@ -516,16 +1082,28 @@ module InteriorPro
         to_paper = ->(mx, my) { v.model_to_paper(mx, my) }
 
         st.save
-        st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re W n"
+        # a window whose frame turns with the drawing is clipped to the turned
+        # rectangle - four corners, not `re` (2026-10-07); any other, as before
+        turned = v.respond_to?(:box_turn) && v.box_turn && v.rotation.to_f != 0.0
+        if turned
+          st << v.frame_corners.each_with_index.map { |(px, py), i| "#{n(px * PT)} #{n(py * PT)} #{i.zero? ? 'm' : 'l'}" }.join(' ') + ' h W n'
+        else
+          st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re W n"
+        end
         canvas.layers.each do |lay|
           next unless lay.visible
-          draw_shapes(st, lay.shapes, to_paper, s, imgs)
+          draw_shapes(st, lay.shapes, to_paper, s, imgs,
+                      v.respond_to?(:rotation) ? v.rotation.to_f : 0.0)
         end
         st.restore
 
         if v.frame
           st << '0.5 G 0.4 w'
-          st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re S"
+          if turned
+            st << v.frame_corners.each_with_index.map { |(px, py), i| "#{n(px * PT)} #{n(py * PT)} #{i.zero? ? 'm' : 'l'}" }.join(' ') + ' h S'
+          else
+            st << "#{n(v.x * PT)} #{n(v.y * PT)} #{n(v.w * PT)} #{n(v.h * PT)} re S"
+          end
           st << '0 G'
         end
       end
@@ -574,18 +1152,30 @@ module InteriorPro
         objs.length
       end
 
+      # Every page is drawn FIRST, so the fonts it set its writing in are
+      # known before the font objects are written (2026-10-07).
+      @font_set = USE_TTF_FONTS ? FontSet.new : nil
+      begin
+        drawn = pages.map do |pg|
+          imgs = ImageSet.new
+          [pg, imgs, page_stream(pg, doc, imgs)]
+        end
+      ensure
+        fonts = @font_set
+        @font_set = nil
+      end
+
       font_ids = {}
       FONTS.each do |key, name|
         font_ids[key] = add.call("<< /Type /Font /Subtype /Type1 /BaseFont /#{name} /Encoding /WinAnsiEncoding >>")
       end
+      extra = fonts ? fonts.entries.map { |e| "/#{e[:name]} #{font_objects(e, add)} 0 R" } : []
       res = "<< /Font << /F1 #{font_ids[:plain]} 0 R /F2 #{font_ids[:bold]} 0 R " \
-            "/F3 #{font_ids[:italic]} 0 R >> >>"
+            "/F3 #{font_ids[:italic]} 0 R#{extra.empty? ? '' : ' ' + extra.join(' ')} >> >>"
 
       pages_id = add.call('PLACEHOLDER')
       page_ids = []
-      pages.each do |pg|
-        imgs    = ImageSet.new
-        content = page_stream(pg, doc, imgs)
+      drawn.each do |pg, imgs, content|
         cid = add.call("<< /Length #{content.bytesize} >>\nstream\n#{content}\nendstream")
 
         # Each picture becomes its own object, and its see-through mask another.

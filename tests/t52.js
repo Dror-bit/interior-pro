@@ -168,5 +168,37 @@ sandbox.moveMark(m, 'tip', 5, 5);
 ok('and the tip moves on its own', close(m.lx, 105) && close(m.ly, 105),
    [m.lx, m.ly]);
 
+// 2026-10-08: "הערה לא נמתחת לאן שאני רוצה בקו השני אלא רק לשני כיוונים".
+// The shoulder goes where the third click is, any way at all; only within
+// NOTE_SNAP_DEG of level or upright does it lock there.
+ok('the window knows where a shoulder really ends',
+   typeof sandbox.noteEnd === 'function');
+let d = sandbox.noteMark([100, 100], [400, 300], [700, 600], 'ab', true, SF);
+const dux = 300 / Math.hypot(300, 300), duy = 300 / Math.hypot(300, 300);
+ok('a shoulder at 45 degrees: the words are OUT ALONG IT, past the click',
+   d.x > 700 && d.y > 600, [d.x, d.y]);
+ok('...on its own line, not level with the knee',
+   close((d.y - 600) / (d.x - 700), 1), (d.y - 600) / (d.x - 700));
+ok('and the box clears the end of the line by the pad',
+   (function(){ var hw=String('ab').length*H*0.6/2, hh=H/2;
+                var along=Math.min(hw/dux, hh/duy);   // whichever edge of the box meets the line first
+                return close(d.x, 700 + dux*(along + (0.7/SF)*0.12)); })(), d.x);
+d = sandbox.noteMark([100, 100], [400, 300], [400, 650], 'ab', true, SF);
+ok('a shoulder straight UP puts the words above its end, half their height clear',
+   close(d.x, 400) && close(d.y, 650 + H/2 + (0.7/SF)*0.12), [d.x, d.y]);
+d = sandbox.noteMark([100, 100], [400, 300], [405, 650], 'ab', true, SF);
+ok('within 12 degrees of upright it LOCKS upright', close(d.x, 400), d.x);
+d = sandbox.noteMark([100, 100], [400, 300], [900, 260], 'ab', true, SF);
+ok('and within 12 degrees of level it locks level - the old sum to the number',
+   close(d.y, 300) && close(d.x, 900 + gapFor('ab')), [d.x, d.y]);
+let dd = sandbox.noteMark([100, 100], [400, 300], [700, 200], 'ab', true, SF);
+ok('a shoulder up and to the right at 18 degrees is NOT locked',
+   !close(dd.y, 300) && dd.y < 300, dd.y);
+sandbox.NOTEANY = false;
+d = sandbox.noteMark([100, 100], [400, 300], [700, 600], 'ab', true, SF);
+ok('with the switch off the shoulder is level with the knee, as before',
+   close(d.y, 300) && close(d.x, 700 + gapFor('ab')), [d.x, d.y]);
+sandbox.NOTEANY = true;
+
 console.log(fails === 0 ? 't52 ALL PASS' : 't52 ' + fails + ' FAILED');
 process.exit(fails === 0 ? 0 : 1);
