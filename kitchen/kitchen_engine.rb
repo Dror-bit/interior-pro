@@ -180,7 +180,7 @@ module KitchenLab
       when 'create_catalog_appliance'
         options=ApplianceCatalog.options(payload.fetch('product_id'))
         supplied=payload.fetch('overrides',{})
-        raise 'Only placement may override a catalog appliance' unless supplied.is_a?(Hash) && (supplied.keys-%w[x z]).empty?
+        raise 'Only placement may override a catalog appliance' unless supplied.is_a?(Hash) && (supplied.keys-%w[x z house_placement]).empty?
         c=create_data(doc,payload.merge('kind'=>options['kind'],'overrides'=>options.reject { |k,_| k=='kind' }.merge(supplied)))
         id=c['id'];raise 'Cabinet ID already exists' if data.any? { |o| o['id']==id };data<<c
       when 'detach_catalog_appliance'

@@ -3,6 +3,7 @@
 require_relative 'kitchen_document'
 require_relative 'kitchen_spatial'
 require 'digest'
+require 'base64'
 
 module InteriorPro
   module KitchenPlan
@@ -53,7 +54,7 @@ module InteriorPro
           scripts=%w[kitchen_plan.js kitchen_workspace.js].map { |name| File.read(File.join(__dir__,name)) }
           symbols=File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
           scripts << '(function(){'+symbols+'})();'
-          %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js].each do |name|
+          %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js kitchen_house_appliances.js].each do |name|
             scripts << File.read(File.join(__dir__,name))
           end
           dlg.execute_script(scripts.join("\n"))
@@ -146,14 +147,42 @@ module InteriorPro
     end
 
     def self.bind_catalog(dlg)
+      dlg.add_action_callback('kitchen_appliance_library') do |_,category|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          products=KitchenLab::ApplianceCatalog.products
+          products=products.reject { |p| products.any? { |q| q['id']=='thermador-custom-'+p['id'].sub(/^thermador-/,'') } }
+          products=products.select { |p| p['category']==category.to_s }.sort_by { |p| [p['reference_image_path'] ? 0 : 1,p['brand'],p['model']] }
+          cards=products.map do |p|
+            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path')
+            relative=p['image_path'].to_s
+            file=File.expand_path(relative,__dir__)
+            if file.start_with?(File.expand_path('assets/appliances',__dir__)+File::SEPARATOR) && File.file?(file)
+              mime={'.png'=>'image/png','.jpg'=>'image/jpeg','.jpeg'=>'image/jpeg','.webp'=>'image/webp'}[File.extname(file).downcase]
+              card['image']="data:#{mime};base64,#{Base64.strict_encode64(File.binread(file))}" if mime
+            end
+            card
+          end
+          dlg.execute_script("window.KitchenHouseAppliances.receive(#{JSON.generate(category.to_s)},#{JSON.generate(cards)});")
+        rescue StandardError=>error
+          dlg.execute_script("window.KitchenHouseAppliances.fail(#{JSON.generate(error.message)});")
+        end
+      end
       dlg.add_action_callback('kitchen_open_catalog') do |_,json|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
           KitchenLab.guard!
           request=JSON.parse(json.to_s)
           allowed=%w[doors drawers sink wall glass_wall tall oven_tower micro_tower fridge_surround filler fridge oven dishwasher hood microwave corner_base corner_lazy corner_upper]
-          raise 'Choose a cabinet from the library.' unless allowed.include?(request['kind'])
+          product_id=request['product_id']
+          raise 'Choose a cabinet from the library.' unless product_id || allowed.include?(request['kind'])
           payload={'kind'=>request['kind'],'wall'=>request.fetch('wall','A')}
+          if product_id
+            product=KitchenLab::ApplianceCatalog.find(product_id)
+            payload['kind']=KitchenLab::ApplianceCatalog::KINDS.fetch(product['category'])
+            payload['product_id']=product_id
+          end
+          command_type=product_id ? 'create_catalog_appliance' : 'create_cabinet'
           source=KitchenLab.document
           level=defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level.to_i : 1
           raise 'Kitchen belongs to another floor.' unless KitchenLab::Spatial.pose(source['settings'])['level'].to_i==level
@@ -163,14 +192,14 @@ module InteriorPro
             candidate=catalog_preview(source,payload)
             row=self.payload(JSON.generate(KitchenLab::Document.create(source['settings'],[candidate])),level)['cabinets'].first
             push(dlg)
-            dlg.execute_script("window.KitchenHouseInsert.begin(#{JSON.generate({'request_id'=>request['request_id'],'row'=>row,'kind'=>request['kind'],'wall'=>payload['wall'],'revision'=>source['revision'],'wall_token'=>token})});")
+            dlg.execute_script("window.KitchenHouseInsert.begin(#{JSON.generate({'request_id'=>request['request_id'],'row'=>row,'kind'=>payload['kind'],'product_id'=>product_id,'wall'=>payload['wall'],'revision'=>source['revision'],'wall_token'=>token})});")
             dlg.execute_script('window.KitchenSidebar?.result(null);')
           elsif request['action']=='place'
             raise 'Kitchen changed. Select the cabinet again.' unless request['revision']==source['revision'] && request['wall_token']==token
             payload['overrides']={'x'=>0,'house_placement'=>request.fetch('placement')}
             candidate=catalog_preview(source,payload)
             validate_house_placement!(candidate,source['settings'],current)
-            KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>'create_cabinet','payload'=>payload}]},false)
+            KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>command_type,'payload'=>payload}]},false)
             dlg.execute_script('window.KitchenHouseInsert.result(null);')
           else
             raise 'Select a cabinet, then click its position in the drawing.'
@@ -188,7 +217,7 @@ module InteriorPro
       defaults['house_placement']={'x'=>0,'y'=>0,'angle'=>0,'handedness'=>1} if %w[corner_base corner_lazy corner_upper].include?(payload['kind'])
       preview_payload=payload.merge('overrides'=>defaults.merge(payload.fetch('overrides',{})))
       empty=KitchenLab::Document.create(source['settings'],[])
-      KitchenLab.command_engine.plan(empty,[{'type'=>'create_cabinet','payload'=>preview_payload}])['document']['cabinets'].first
+      KitchenLab.command_engine.plan(empty,[{'type'=>payload['product_id'] ? 'create_catalog_appliance' : 'create_cabinet','payload'=>preview_payload}])['document']['cabinets'].first
     end
 
     def self.bind_drag(dlg)

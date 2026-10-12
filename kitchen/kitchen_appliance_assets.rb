@@ -29,7 +29,8 @@ module KitchenLab
     def self.offset(d)
       return [0,0,0] unless d.dig('appliance','category')=='cooktop'
       dim=d['appliance']['dimensions'];x,y,=ApplianceCatalog.cooktop_bounds(d)
-      [x,y+dim['depth'],d['height']+1.5-dim['height']]
+      deck=manifest(d['appliance'])&.fetch('mounting_deck_z',nil)
+      [x,y+dim['depth'],d['height']+1.5-(deck || dim['height'])]
     end
     def self.parts(d)
       data=manifest(d['appliance']);return nil unless data

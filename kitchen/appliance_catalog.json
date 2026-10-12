@@ -64,7 +64,7 @@
       "manufacturer": "Thermador",
       "category": "wall_oven",
       "model": "MED301WS",
-      "name": "Masterpiece\u00c2\u00ae Single Wall Oven 30'' Stainless Steel",
+      "name": "MasterpieceÂ® Single Wall Oven 30'' Stainless Steel",
       "dimensions": {
         "width": 29.75,
         "height": 29,
@@ -146,7 +146,7 @@
       "manufacturer": "Bosch",
       "category": "wall_oven",
       "model": "HBLP454UC",
-      "name": "Benchmark\u00e2\u201e\u00a2 Single Wall Oven 30'' Stainless Steel",
+      "name": "Benchmarkâ„¢ Single Wall Oven 30'' Stainless Steel",
       "dimensions": {
         "width": 29.75,
         "height": 29,
@@ -317,7 +317,7 @@
       "manufacturer": "Thermador",
       "category": "fridge",
       "model": "T36FT820NS",
-      "name": "Freedom\u00c2\u00ae Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
+      "name": "FreedomÂ® Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
       "appearance": {
         "finish": "stainless",
@@ -348,7 +348,7 @@
       "manufacturer": "Thermador",
       "category": "dishwasher",
       "model": "DWHD661EFP",
-      "name": " Star Sapphire\u00c2\u00ae Dishwasher 24'' Professional, Stainless Steel",
+      "name": " Star SapphireÂ® Dishwasher 24'' Professional, Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
       "appearance": {
         "finish": "stainless"
@@ -398,7 +398,7 @@
       "manufacturer": "Thermador",
       "category": "cooktop",
       "model": "SGS305TS",
-      "name": "Masterpiece\u00c2\u00ae Gas Cooktop 30'' Stainless Steel",
+      "name": "MasterpieceÂ® Gas Cooktop 30'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
       "appearance": {
         "finish": "stainless",
@@ -430,7 +430,7 @@
       "manufacturer": "Thermador",
       "category": "cooktop",
       "model": "SGS365TS",
-      "name": "Masterpiece\u00c2\u00ae Gas Cooktop 36'' Stainless Steel",
+      "name": "MasterpieceÂ® Gas Cooktop 36'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
       "appearance": {
         "finish": "stainless",
@@ -538,7 +538,7 @@
       "manufacturer": "Thermador",
       "category": "microwave",
       "model": "MD24BS",
-      "name": "Professional MicroDrawer\u00c2\u00ae Microwave 24'' Stainless Steel",
+      "name": "Professional MicroDrawerÂ® Microwave 24'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
       "appearance": {
         "finish": "stainless",
@@ -569,7 +569,7 @@
       "manufacturer": "Thermador",
       "category": "range",
       "model": "PRG304WH",
-      "name": "PRG304WH Gas Professional Range 30'' Pro Harmony\u00c2\u00ae Standard Depth Stainless Steel",
+      "name": "PRG304WH Gas Professional Range 30'' Pro HarmonyÂ® Standard Depth Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
       "appearance": {
         "finish": "stainless",
@@ -597,7 +597,7 @@
       "manufacturer": "Thermador",
       "category": "range",
       "model": "PRG366WH",
-      "name": "PRG366WH Gas Professional Range 36'' Pro Harmony\u00c2\u00ae Standard Depth Stainless Steel",
+      "name": "PRG366WH Gas Professional Range 36'' Pro HarmonyÂ® Standard Depth Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
       "appearance": {
         "finish": "stainless",
@@ -807,7 +807,7 @@
         "height": 24.5625,
         "depth": 19.6875
       },
-      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16\u00e2\u20ac\u201c38 7/8 inches ducted",
+      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16â€“38 7/8 inches ducted",
       "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03099593_HCP30E52UC.pdf",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/bosch-hcp30e52uc.webp"
@@ -832,7 +832,7 @@
         "height": 24.5625,
         "depth": 19.6875
       },
-      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16\u00e2\u20ac\u201c38 7/8 inches ducted",
+      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16â€“38 7/8 inches ducted",
       "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03099589_HCP36E52UC.pdf",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/bosch-hcp36e52uc.webp"
@@ -1248,7 +1248,7 @@
         "depth": 28.375
       },
       "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/gas-ranges/qr-sheets/gr30/wolf-qr-sheet-gr304.pdf",
-      "depth_basis": "Manufacturer overall dimensions; adjustable height 37\u00e2\u20ac\u201c38 inches",
+      "depth_basis": "Manufacturer overall dimensions; adjustable height 37â€“38 inches",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/wolf-gr304.jpg"
     },
@@ -1340,7 +1340,7 @@
       "manufacturer": "Fisher & Paykel",
       "category": "dishwasher",
       "model": "DD24DAX9 N",
-      "name": "Double DishDrawer\u00e2\u201e\u00a2 Dishwasher",
+      "name": "Double DishDrawerâ„¢ Dishwasher",
       "product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-double-dishdrawer-dishwasher-dd24dax9-n-82328.html",
       "appearance": {
         "finish": "stainless",
@@ -1366,7 +1366,7 @@
       "manufacturer": "Fisher & Paykel",
       "category": "dishwasher",
       "model": "DD24DCTX9 N",
-      "name": "Double DishDrawer\u00e2\u201e\u00a2 Dishwasher, Tall, Sanitize",
+      "name": "Double DishDrawerâ„¢ Dishwasher, Tall, Sanitize",
       "product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-tall-double-dishdrawer-dishwasher-dd24dctx9-n-82331.html",
       "appearance": {
         "finish": "stainless",
@@ -1572,7 +1572,7 @@
         "depth": 25.25
       },
       "spec_url": "https://www.fisherpaykel.com/on/demandware.static/-/Sites-fpa-master-catalog/default/dw3508bf1c/QRG/US/QRG-US-81722.pdf",
-      "depth_basis": "Manufacturer US dimensions; minimum adjustable height, 35 3/4\u00e2\u20ac\u201c37 5/8 inches",
+      "depth_basis": "Manufacturer US dimensions; minimum adjustable height, 35 3/4â€“37 5/8 inches",
       "verified_at": "2026-10-08",
       "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges-baseor30sdi6x1-baseOR30SDI6X1.html",
       "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/gx54t2gmb8gqbg5p5pkpght/fp-02-OR30SDI6X1-10-mug-dp.png?height=500",
@@ -1706,7 +1706,7 @@
         "height": 33.625,
         "depth": 24.625
       },
-      "depth_basis": "Depth includes handle; adjustable height 33 5/8\u00e2\u20ac\u201c36 inches",
+      "depth_basis": "Depth includes handle; adjustable height 33 5/8â€“36 inches",
       "spec_url": "https://media.us.lg.com/m/67e836f4eaada755/original/LDPH5554S_D_2024_Spec_Sheet.pdf",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/lg-ldph5554s.jpg"
@@ -1749,7 +1749,7 @@
       "manufacturer": "LG",
       "category": "cooktop",
       "model": "CBIH3617BE",
-      "name": "36 Inch Smart Induction Cooktop with UltraHeat\u00e2\u201e\u00a2 5.0kW Element",
+      "name": "36 Inch Smart Induction Cooktop with UltraHeatâ„¢ 5.0kW Element",
       "product_url": "https://www.lg.com/us/cooking-appliances/lg-cbih3617be-electric-cooktop",
       "appearance": {
         "finish": "stainless",
@@ -1795,7 +1795,7 @@
         "height": 27,
         "depth": 22.0625
       },
-      "depth_basis": "Minimum chimney height; adjustable overall height 27\u00e2\u20ac\u201c48 1/2 inches",
+      "depth_basis": "Minimum chimney height; adjustable overall height 27â€“48 1/2 inches",
       "spec_url": "https://media.us.lg.com/m/341bfefbc687d97d/original/HCED3015_-LG-Builder-Spec-Sheet.pdf",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/lg-hced3015s.jpg"
@@ -1820,7 +1820,7 @@
         "height": 27,
         "depth": 22.0625
       },
-      "depth_basis": "Minimum chimney height; adjustable overall height 27\u00e2\u20ac\u201c48 1/2 inches",
+      "depth_basis": "Minimum chimney height; adjustable overall height 27â€“48 1/2 inches",
       "spec_url": "https://media.us.lg.com/m/294576b93420c7c0/original/HCED3615_-LG-Builder-Spec-Sheet.pdf",
       "verified_at": "2026-10-08",
       "image_path": "assets/appliances/lg-hced3615s.jpg"
@@ -1911,7 +1911,7 @@
       "manufacturer": "LG",
       "category": "range",
       "model": "LSIL6336FE",
-      "name": "6.3 cu. ft. Smart Induction Slide-in Range with InstaView\u00c2\u00ae, ProBake Convection\u00c2\u00ae, Air Fry, and Air Sous Vide",
+      "name": "6.3 cu. ft. Smart Induction Slide-in Range with InstaViewÂ®, ProBake ConvectionÂ®, Air Fry, and Air Sous Vide",
       "product_url": "https://www.lg.com/us/cooking-appliances/lg-lsil6336fe-slide-in-electric-range",
       "appearance": {
         "finish": "stainless",
@@ -1938,8 +1938,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "42\" Columns \u2014 18\" Freezer + 24\" Refrigerator",
-      "name": "T18IF905SP + T24IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "model": "42\" Columns — 18\" Freezer + 24\" Refrigerator",
+      "name": "T18IF905SP + T24IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 41.75,
         "height": 84,
@@ -1961,8 +1961,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "48\" Columns \u2014 24\" Freezer + 24\" Refrigerator",
-      "name": "T24IF905SP + T24IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "model": "48\" Columns — 24\" Freezer + 24\" Refrigerator",
+      "name": "T24IF905SP + T24IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 47.75,
         "height": 84,
@@ -1984,8 +1984,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "48\" Columns \u2014 18\" Freezer + 30\" Refrigerator",
-      "name": "T18IF905SP + T30IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "model": "48\" Columns — 18\" Freezer + 30\" Refrigerator",
+      "name": "T18IF905SP + T30IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 47.75,
         "height": 84,
@@ -2007,8 +2007,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "range",
-      "model": "PRG366WH \u2014 36\" Range",
-      "name": "36\" Professional gas range with cooktop \u00b7 Custom model",
+      "model": "PRG366WH — 36\" Range",
+      "name": "36\" Professional gas range with cooktop · Custom model",
       "dimensions": {
         "width": 35.9375,
         "height": 35.875,
@@ -2029,8 +2029,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "range",
-      "model": "PRG486WDH \u2014 48\" Range",
-      "name": "48\" Professional gas range with cooktop \u00b7 Custom model",
+      "model": "PRG486WDH — 48\" Range",
+      "name": "48\" Professional gas range with cooktop · Custom model",
       "dimensions": {
         "width": 47.9375,
         "height": 35.875,
@@ -2051,8 +2051,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "dishwasher",
-      "model": "DWHD661EFP \u2014 24\" Professional",
-      "name": "Star Sapphire dishwasher \u00b7 Professional handle \u00b7 Exterior only",
+      "model": "DWHD661EFP — 24\" Professional",
+      "name": "Star Sapphire dishwasher · Professional handle · Exterior only",
       "dimensions": {
         "width": 23.5625,
         "depth": 26,
@@ -2073,8 +2073,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "dishwasher",
-      "model": "DWHD661EFM \u2014 24\" Masterpiece",
-      "name": "Star Sapphire dishwasher \u00b7 Masterpiece handle \u00b7 Exterior only",
+      "model": "DWHD661EFM — 24\" Masterpiece",
+      "name": "Star Sapphire dishwasher · Masterpiece handle · Exterior only",
       "dimensions": {
         "width": 23.5625,
         "depth": 25.75,
@@ -2089,6 +2089,148 @@
       "spec_url": "https://media3.bsh-group.com/Documents/24732545_DWHD661EFM-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-MASTERPIECE-COLLECTION-HANDLE-Specifications.pdf",
       "image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-front.png",
       "reference_image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-sgs305ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS305TS",
+      "name": "Gas cooktop",
+      "dimensions": {
+        "width": 31,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
+      "reference_image_path": "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
+      "cutout": {
+        "width": 28.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      }
+    },
+    {
+      "id": "thermador-custom-sgs365ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS365TS",
+      "name": "Gas cooktop",
+      "dimensions": {
+        "width": 37,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
+      "reference_image_path": "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
+      "cutout": {
+        "width": 34.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      }
+    },
+    {
+      "id": "thermador-custom-hpcn36ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN36WS",
+      "name": "Wall hood with 6-inch duct cover",
+      "dimensions": {
+        "width": 36.02486113086343,
+        "depth": 24.05000114440918,
+        "height": 24
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN36WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png"
+    },
+    {
+      "id": "thermador-custom-hpcn48ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN48WS",
+      "name": "Wall hood with 6-inch duct cover",
+      "dimensions": {
+        "width": 48.024864945560694,
+        "depth": 24.05000114440918,
+        "height": 24
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN48WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png"
+    },
+    {
+      "id": "thermador-custom-vcin36gws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "VCIN36GWS",
+      "name": "Built-in hood",
+      "dimensions": {
+        "width": 33.75,
+        "depth": 22.000001907348633,
+        "height": 12.843413352966309
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN36GWS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811699_VCIN36GWS-36-INCH-CUSTOM-INSERT-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png"
+    },
+    {
+      "id": "thermador-custom-vcin48gws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "VCIN48GWS",
+      "name": "Built-in hood",
+      "dimensions": {
+        "width": 45.75,
+        "depth": 22.000001907348633,
+        "height": 12.843413352966309
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN48GWS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811696_VCIN48GWS-48-INCH-CUSTOM-INSERT-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png"
     }
   ]
 }
