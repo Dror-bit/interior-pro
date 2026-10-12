@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-12",
+  "scope": "House drawing 2D editor only",
+  "host_file": "plan_editor.rb",
+  "kitchen_startup_test": "PASS",
+  "startup_lifecycle_test": "PASS",
+  "catalog_preview_test": "PASS (18 types)",
+  "placement_test": "PASS",
+  "symbols_test": "PASS",
+  "attachment_test": "PASS",
+  "full_suite": {
+    "command": "tests/run_all.sh",
+    "passed": 360,
+    "failed": 19,
+    "all_failures_reproduced_without_kitchen_hook": true,
+    "environment": "Windows; Git Bash; SketchUp Ruby 3.2 embedded in standalone test runner",
+    "failed_tests": [
+      "t62",
+      "t75",
+      "rt18",
+      "rt26",
+      "rt43",
+      "rt51",
+      "rt60",
+      "rt67",
+      "rt73",
+      "rt84",
+      "rt131",
+      "rt150",
+      "rt170",
+      "rt206",
+      "rt241",
+      "rt246",
+      "rt263",
+      "rt268",
+      "rt294"
+    ]
+  },
+  "live_deployed": false,
+  "commit_performed": false,
+  "push_performed": false
+}

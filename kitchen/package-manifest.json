@@ -1,5 +1,5 @@
 {
-  "stage": "source import only; not wired into Interior Pro startup",
+  "stage": "House drawing editor integration on kitchen branch; live deployment pending",
   "files": [
     {
       "path": "appearance.js",
@@ -1845,6 +1845,11 @@
       "path": "test_spatial.mjs",
       "bytes": 1516,
       "sha256": "2713ee96725baaaaf1c6ec8f4a304814e5b6b467337b95de0ff959f88ff1217e"
+    },
+    {
+      "path": "test_house_editor_startup.rb",
+      "bytes": 1116,
+      "sha256": "001f115f40ce123b39458a813618e6aa19f165efb1b45c494413a6ef1f9560d9"
     }
   ]
 }

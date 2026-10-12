@@ -10736,3 +10736,11 @@ module InteriorPro
     end
   end
 end
+
+# Optional kitchen module for the house drawing editor only.
+# Test fixtures may copy this file without the kitchen directory.
+kitchen_bootstrap = File.join(__dir__, 'kitchen', 'kitchen_bootstrap.rb')
+if File.file?(kitchen_bootstrap)
+  require kitchen_bootstrap
+  InteriorProKitchenStartup.start!
+end
