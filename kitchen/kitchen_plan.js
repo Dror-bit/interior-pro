@@ -34,17 +34,7 @@
       } finally { ctx.restore(); }
     }
   };
-  // Keep one host history and one keyboard route; only kitchen model entries
-  // use the direct native Undo callback (independent of window focus).
-  if(typeof histUndo==='function'){
-    const hostUndo=histUndo;
-    histUndo=function(){
-      if(editHist.length&&editHist[editHist.length-1].what==='kitchen'&&typeof sketchup.kitchen_undo==='function'){
-        editHist.pop();sketchup.kitchen_undo();return true;
-      }
-      return hostUndo.apply(this,arguments);
-    };
-  }
+  // Kitchen edits use histModel('kitchen') and the unchanged host histUndo.
   if(typeof cv!=='undefined')cv.addEventListener('dblclick',event=>{
     if(activePage!==0||mode!=='sel'||event.ctrlKey||event.shiftKey||event.metaKey)return;
     const p={x:mx(event.offsetX),y:my(event.offsetY)};

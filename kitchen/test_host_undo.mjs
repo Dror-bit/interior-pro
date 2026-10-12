@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const host=fs.readFileSync(new URL('../plan_editor.rb',import.meta.url),'utf8');
+const start=host.indexOf('function histModel(what)'),end=host.indexOf('// Undoing a finished polyline',start);
+assert(start>=0&&end>start,'Host history functions not found');
+const c={editHist:[],undoCalls:0,restores:[],draw(){},cv:{addEventListener(){}},sketchup:{},console};
+c.window=c;c.histPush=e=>c.editHist.push(e);c.localRestore=s=>c.restores.push(s);c.sketchup.undo_model=()=>c.undoCalls++;
+vm.createContext(c);vm.runInContext(host.slice(start,end),c);
+const original=c.histUndo;
+vm.runInContext(fs.readFileSync(new URL('./kitchen_plan.js',import.meta.url),'utf8'),c);
+assert.equal(c.histUndo,original,'Kitchen replaced host Undo');
+c.histModel('kitchen');c.editHist.push({kind:'local',snap:'drawing change'});
+assert.equal(c.histUndo(),true);assert.deepEqual(c.restores,['drawing change']);assert.equal(c.undoCalls,0);
+assert.equal(c.histUndo(),true);assert.equal(c.undoCalls,1);assert.equal(c.editHist.length,0);
+assert.equal(c.histUndo(),false);assert.equal(c.undoCalls,1);
+console.log('PASS: actual host history remains unchanged; local and kitchen actions use one ordered Undo route.');

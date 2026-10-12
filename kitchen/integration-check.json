@@ -38,5 +38,25 @@
   },
   "live_deployed": false,
   "commit_performed": false,
-  "push_performed": false
+  "push_performed": false,
+  "review_20261012": {
+    "fixes": [
+      "Missing or duplicate draw marker disables kitchen without blocking host",
+      "Binding failure leaves house editor available",
+      "Original save_draft callback retained",
+      "JavaScript bundle once per dialog; payload-only refresh",
+      "Current process PID; no production QA file callback",
+      "Original host histUndo and undo_model retained"
+    ],
+    "test_command": "bash kitchen/run_all.sh",
+    "kitchen_tests": "PASS (6 Ruby suites, 4 JS suites)",
+    "browser_bundle_test": "PASS",
+    "host_windows_result": "360 PASS, same 19 FAIL",
+    "claude_cloud_baseline": "Reported 376 PASS, 3 FAIL: rt43, rt60, rt67",
+    "native_undo_after_change": "PASS: user confirmed one Ctrl+Z removes the newly added cabinet from the 2D drawing after waiting; 3D was not separately verified in this check.",
+    "windows_note": "Run in temporary copy outside OneDrive: Ruby File.file? misclassified OneDrive bootstrap file as directory in local checkout",
+    "scope": "Only kitchen/ changed for this review",
+    "merged": false,
+    "pushed": false
+  }
 }

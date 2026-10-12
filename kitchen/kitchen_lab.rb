@@ -22,7 +22,7 @@ load File.join(File.dirname(__FILE__),'corner_cabinets.rb')
 module KitchenLab
   ROOT = File.dirname(__FILE__) unless const_defined?(:ROOT)
   DICT = 'KitchenLab' unless const_defined?(:DICT)
-  TARGET_PID = 6176 unless const_defined?(:TARGET_PID)
+  TARGET_PID = Process.pid unless const_defined?(:TARGET_PID)
   DEFAULTS = {'width'=>36.0,'height'=>34.5,'depth'=>24.0,'x'=>0.0,'z'=>0.0,
     'kind'=>'doors','style'=>'shaker','finish'=>'ivory','handle'=>'brass'} unless const_defined?(:DEFAULTS)
   FINISHES = {'ivory'=>'#E8E4DA','sage'=>'#87978B','charcoal'=>'#3D4549','oak'=>'#BA9365'} unless const_defined?(:FINISHES)
@@ -541,9 +541,6 @@ module KitchenLab
     @dialog.add_action_callback('ready') { publish(nil,opened_dialog) }
     @dialog.add_action_callback('command') do |_,json|
       begin;execute_commands(JSON.parse(json));rescue StandardError=>e;publish(e.message);end
-    end
-    @dialog.add_action_callback('qa_report') do |_,json|
-      File.write(File.join(ROOT,'.kitchen-connection','ui-check.json'),json)
     end
     @dialog.add_action_callback('apply') do |_,json|
       begin;apply(JSON.parse(json));rescue StandardError=>e;publish(e.message);end

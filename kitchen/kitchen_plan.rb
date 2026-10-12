@@ -45,21 +45,22 @@ module InteriorPro
     def self.push(dlg)
       rows=USE_KITCHEN_IN_EDITOR ? payload(Sketchup.active_model.get_attribute('KitchenLab','document'),
         defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1) : {'cabinets'=>[]}
-      dlg.execute_script(File.read(File.join(__dir__,'kitchen_plan.js')))
-      dlg.execute_script(File.read(File.join(__dir__,'kitchen_workspace.js'))) if USE_KITCHEN_IN_EDITOR
       if USE_KITCHEN_IN_EDITOR
         host_walls=walls_payload
         rows['walls']=host_walls
         rows['wall_token']=Digest::SHA256.hexdigest(JSON.generate(host_walls))
-        symbols=File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
-        dlg.execute_script('(function(){'+symbols+'})();')
-        dlg.execute_script(File.read(File.join(__dir__,'kitchen_sidebar.js')))
-        dlg.execute_script(File.read(File.join(__dir__,'kitchen_house_selection.js')))
-        dlg.execute_script(File.read(File.join(__dir__,'kitchen_house_placement.js')))
-        dlg.execute_script(File.read(File.join(__dir__,'kitchen_house_drag.js')))
-        dlg.execute_script(File.read(File.join(__dir__,'kitchen_house_insert.js')))
+        unless dlg.instance_variable_get(:@kitchen_scripts_loaded)
+          scripts=%w[kitchen_plan.js kitchen_workspace.js].map { |name| File.read(File.join(__dir__,name)) }
+          symbols=File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
+          scripts << '(function(){'+symbols+'})();'
+          %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js].each do |name|
+            scripts << File.read(File.join(__dir__,name))
+          end
+          dlg.execute_script(scripts.join("\n"))
+          dlg.instance_variable_set(:@kitchen_scripts_loaded,true)
+        end
       end
-      dlg.execute_script("window.KP.load(#{JSON.generate(rows)});")
+      dlg.execute_script("if(window.KP)window.KP.load(#{JSON.generate(rows)});")
     rescue StandardError => error
       # Stale cabinets must disappear if loading fails; wall refresh survives.
       dlg.execute_script('if(window.KP)window.KP.load({cabinets:[]});') rescue nil
@@ -69,23 +70,20 @@ module InteriorPro
     # Temporary opt-in preview hooks. Existing installed source files stay intact.
     module EditorPreview
       def show
-        InteriorPro::KitchenPlan.bind_active_model! if InteriorPro::KitchenPlan::USE_KITCHEN_IN_EDITOR
+        @kitchen_disabled=!InteriorPro::KitchenPlan::USE_KITCHEN_IN_EDITOR
+        unless @kitchen_disabled
+          begin
+            InteriorPro::KitchenPlan.bind_active_model!
+          rescue StandardError=>error
+            @kitchen_disabled=true
+            puts "[KitchenPlan] Kitchen disabled for this window: #{error.message}"
+          end
+        end
         result=super
-        return result unless InteriorPro::KitchenPlan::USE_KITCHEN_IN_EDITOR
+        return result if @kitchen_disabled
         dlg=instance_variable_get(:@dialog)
         InteriorPro::KitchenPlan.bind_catalog(dlg)
         InteriorPro::KitchenPlan.bind_drag(dlg)
-        # Draft history is already owned by the drawing's local history. Its
-        # autosave must not become an extra model Undo between cabinet edits.
-        dlg.add_action_callback('save_draft') do |_,json|
-          InteriorPro::KitchenPlan.save_drawing_draft(json.to_s)
-        end
-        dlg.add_action_callback('kitchen_undo') do |_|
-          KitchenLab.guard!
-          Sketchup.undo
-          KitchenLab.publish
-          push_walls(dlg)
-        end
         dlg.add_action_callback('kitchen_edit_cabinet') do |_,id|
           begin
             InteriorPro::KitchenPlan.edit_cabinet(id.to_s)
@@ -98,15 +96,19 @@ module InteriorPro
 
       def build_html
         html=super
-        return html unless InteriorPro::KitchenPlan::USE_KITCHEN_IN_EDITOR
+        return html if @kitchen_disabled || !InteriorPro::KitchenPlan::USE_KITCHEN_IN_EDITOR
         marker='drawRooms();'
-        raise 'Drawing editor changed: review kitchen hook before enabling' unless html.scan(marker).length==1
+        unless html.scan(marker).length==1
+          @kitchen_disabled=true
+          puts '[KitchenPlan] Kitchen disabled: expected one drawRooms() marker in the house editor.'
+          return html
+        end
         html.sub(marker,marker+' if(window.KP)window.KP.draw();')
       end
 
       def push_walls(dlg)
         result=super
-        InteriorPro::KitchenPlan.push(dlg)
+        InteriorPro::KitchenPlan.push(dlg) unless @kitchen_disabled
         result
       end
     end
@@ -115,22 +117,6 @@ module InteriorPro
       raise 'Interior Pro drawing editor is not loaded' unless defined?(InteriorPro::PlanEditor)
       target=InteriorPro::PlanEditor.singleton_class
       target.prepend(EditorPreview) unless target.ancestors.include?(EditorPreview)
-    end
-
-    def self.save_drawing_draft(json)
-      model=Sketchup.active_model
-      return false if model.get_attribute('InteriorPro','plan_draft').to_s==json
-      model.start_operation('2D drawing draft',true,false,true)
-      begin
-        if defined?(InteriorPro::StateBackup)
-          InteriorPro::StateBackup.write!('plan_draft',json,model)
-        else
-          model.set_attribute('InteriorPro','plan_draft',json)
-        end
-      ensure
-        model.commit_operation
-      end
-      true
     end
 
     def self.edit_cabinet(id)
