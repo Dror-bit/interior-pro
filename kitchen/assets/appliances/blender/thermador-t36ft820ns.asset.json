@@ -1,0 +1,173 @@
+{
+  "id": "thermador-t36ft820ns",
+  "model": "T36FT820NS",
+  "dimensions": {
+    "width": 35.625,
+    "height": 72,
+    "depth": 27.8125
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 4360,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "5def7057e6c539d5399cf91775231aa81bfe839580acd95fa4a04b4c053be648",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -26.3125009,
+      "z": 0.0,
+      "width": 35.6249992,
+      "depth": 26.3125009,
+      "height": 71.9999985,
+      "name": "Appliance enclosure",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -27.0324992,
+      "z": 1.9999998,
+      "width": 35.4249998,
+      "depth": 0.7200005999999988,
+      "height": 19.6000007,
+      "name": "Refrigerator panel 1",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -27.0324992,
+      "z": 21.7000002,
+      "width": 17.6125002,
+      "depth": 0.7200005999999988,
+      "height": 50.1999986,
+      "name": "Refrigerator panel 2",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 17.9124981,
+      "y": -27.0324992,
+      "z": 21.7000002,
+      "width": 17.6125014,
+      "depth": 0.7200005999999988,
+      "height": 50.1999986,
+      "name": "Refrigerator panel 3",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 16.6325001,
+      "y": -27.7724979,
+      "z": 26.5999995,
+      "width": 0.3600002999999994,
+      "depth": 0.35999789999999976,
+      "height": 14.000000000000004,
+      "name": "Vertical refrigerator pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 16.6825,
+      "y": -27.5925013,
+      "z": 26.8200016,
+      "width": 0.2600005999999979,
+      "depth": 0.5200011999999994,
+      "height": 0.25999829999999946,
+      "name": "Pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 16.6825,
+      "y": -27.5925013,
+      "z": 40.119999,
+      "width": 0.2600005999999979,
+      "depth": 0.5200011999999994,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.6325,
+      "y": -27.7724979,
+      "z": 26.5999995,
+      "width": 0.3600002999999994,
+      "depth": 0.35999789999999976,
+      "height": 14.000000000000004,
+      "name": "Vertical refrigerator pull.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.6824998,
+      "y": -27.5925013,
+      "z": 26.8200016,
+      "width": 0.26000060000000147,
+      "depth": 0.5200011999999994,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.002",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.6824998,
+      "y": -27.5925013,
+      "z": 40.119999,
+      "width": 0.26000060000000147,
+      "depth": 0.5200011999999994,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.003",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 7.8374992,
+      "y": -27.7724979,
+      "z": 19.4199993,
+      "width": 19.9500008,
+      "depth": 0.35999789999999976,
+      "height": 0.3600014999999992,
+      "name": "Freezer pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 8.0175,
+      "y": -27.5925013,
+      "z": 19.4799994,
+      "width": 0.24000020000000077,
+      "depth": 0.5200011999999994,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 27.3675008,
+      "y": -27.5925013,
+      "z": 19.4799994,
+      "width": 0.24000020000000077,
+      "depth": 0.5200011999999994,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 0.4999997,
+      "y": -27.0524996,
+      "z": 0.4,
+      "width": 34.624998700000006,
+      "depth": 0.19999930000000177,
+      "height": 1.2000000000000002,
+      "name": "Toe vent",
+      "color": "#1D2228"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -27.7724979,
+      0.0
+    ],
+    "max": [
+      35.6249992,
+      0.0,
+      71.9999985
+    ]
+  },
+  "closed_parts": 14
+}

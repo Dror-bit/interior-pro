@@ -1,0 +1,73 @@
+{
+  "id": "bosch-shp78cm5n",
+  "model": "SHP78CM5N",
+  "dimensions": {
+    "width": 23.5625,
+    "height": 33.875,
+    "depth": 23.75
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 752,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.bosch-home.com/us/en/product/SHP78CM5N",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "9e214de1906b7e7c8a56ec4068c8d680f5b4baa3a642ef4a74318da7d34bfcc6",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -22.2500009,
+      "z": 0.0,
+      "width": 23.5624999,
+      "depth": 22.2500009,
+      "height": 33.8749998,
+      "name": "Appliance enclosure",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -22.9699992,
+      "z": 2.000001,
+      "width": 23.3625005,
+      "depth": 0.7200006999999999,
+      "height": 31.7749991,
+      "name": "Dishwasher door",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 3.5343747,
+      "y": -23.0500008,
+      "z": 32.9750002,
+      "width": 16.4937504,
+      "depth": 0.08000159999999923,
+      "height": 0.33999990000000224,
+      "name": "Pocket pull",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.3000003,
+      "y": -22.2499985,
+      "z": 0.0,
+      "width": 22.9625005,
+      "depth": 0.49999850000000023,
+      "height": 2.0,
+      "name": "Recessed toe",
+      "color": "#1D2228"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -23.0500008,
+      0.0
+    ],
+    "max": [
+      23.5624999,
+      0.0,
+      33.8749998
+    ]
+  },
+  "closed_parts": 4
+}

@@ -1,0 +1,357 @@
+{
+  "version": 2,
+  "dimensions": {
+    "width": 47.75,
+    "height": 84,
+    "depth": 27.375
+  },
+  "origin": [
+    0.12499962002038956,
+    0,
+    0
+  ],
+  "parts": [
+    {
+      "name": "Freezer closed insulated chassis",
+      "x": -2.0020389554509244e-08,
+      "y": -23.6499996,
+      "z": 3.9999974,
+      "width": 17.75,
+      "depth": 23.65,
+      "height": 80.0,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer recessed lower base",
+      "x": 0.12000007997961043,
+      "y": -21.7999992,
+      "z": 0.0,
+      "width": 17.51,
+      "depth": 21.68,
+      "height": 4.0,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Freezer closed door and gasket",
+      "x": 0.045000379979610455,
+      "y": -24.0,
+      "z": 4.0249987,
+      "width": 17.66,
+      "depth": 0.3500000000000014,
+      "height": 79.825,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Freezer TFL stainless full-height panel",
+      "x": -2.0020389554509244e-08,
+      "y": -24.75,
+      "z": 3.9999974,
+      "width": 17.75,
+      "depth": 0.75,
+      "height": 79.875,
+      "color": "#95999e"
+    },
+    {
+      "name": "Freezer toe grille backing",
+      "x": 0.12000007997961043,
+      "y": -22.0,
+      "z": 0.12,
+      "width": 17.51,
+      "depth": 0.1999999999999993,
+      "height": 3.78,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Freezer toe ventilation slat",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 0.3,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.13,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.001",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 0.6799999,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.13,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.002",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 1.0599999,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.13000000000000012,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.003",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 1.4399999,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.004",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 1.8199999,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.005",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 2.2,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.006",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 2.5800002,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.007",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 2.96,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Freezer toe ventilation slat.008",
+      "x": 0.30000027997961043,
+      "y": -22.1199989,
+      "z": 3.3400002,
+      "width": 17.15,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Professional round grip",
+      "x": 15.18750037997961,
+      "y": -27.1875,
+      "z": 29.8749981,
+      "width": 1.125,
+      "depth": 1.125,
+      "height": 28.125,
+      "color": "#95999e"
+    },
+    {
+      "name": "Professional rounded mounting end",
+      "x": 15.00000037997961,
+      "y": -27.375,
+      "z": 27.625,
+      "width": 1.5,
+      "depth": 2.625,
+      "height": 2.25,
+      "color": "#95999e"
+    },
+    {
+      "name": "Professional rounded mounting end.001",
+      "x": 15.00000037997961,
+      "y": -27.375,
+      "z": 58.0,
+      "width": 1.5,
+      "depth": 2.625,
+      "height": 2.25,
+      "color": "#95999e"
+    },
+    {
+      "name": "Refrigerator closed insulated chassis",
+      "x": 18.00000037997961,
+      "y": -23.6499996,
+      "z": 3.9999974,
+      "width": 29.75,
+      "depth": 23.65,
+      "height": 80.0,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator recessed lower base",
+      "x": 18.11999927997961,
+      "y": -21.7999992,
+      "z": 0.0,
+      "width": 29.510000000000005,
+      "depth": 21.68,
+      "height": 4.0,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Refrigerator closed door and gasket",
+      "x": 18.04499857997961,
+      "y": -24.0,
+      "z": 4.0249987,
+      "width": 29.66,
+      "depth": 0.3500000000000014,
+      "height": 79.825,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Refrigerator TFL stainless full-height panel",
+      "x": 18.00000037997961,
+      "y": -24.75,
+      "z": 3.9999974,
+      "width": 29.75,
+      "depth": 0.75,
+      "height": 79.875,
+      "color": "#95999e"
+    },
+    {
+      "name": "Refrigerator toe grille backing",
+      "x": 18.11999927997961,
+      "y": -22.0,
+      "z": 0.12,
+      "width": 29.510000000000005,
+      "depth": 0.1999999999999993,
+      "height": 3.78,
+      "color": "#1d1f22"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 0.3,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.13,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.001",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 0.6799999,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.13,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.002",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 1.0599999,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.13000000000000012,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.003",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 1.4399999,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.004",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 1.8199999,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.005",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 2.2,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.006",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 2.5800002,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.007",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 2.96,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Refrigerator toe ventilation slat.008",
+      "x": 18.29999957997961,
+      "y": -22.1199989,
+      "z": 3.3400002,
+      "width": 29.149999999999995,
+      "depth": 0.120000000000001,
+      "height": 0.1299999999999999,
+      "color": "#a2a4a6"
+    },
+    {
+      "name": "Professional round grip.001",
+      "x": 19.43750037997961,
+      "y": -27.1875,
+      "z": 29.8749981,
+      "width": 1.125,
+      "depth": 1.125,
+      "height": 28.125,
+      "color": "#95999e"
+    },
+    {
+      "name": "Professional rounded mounting end.002",
+      "x": 19.25000037997961,
+      "y": -27.375,
+      "z": 27.625,
+      "width": 1.5,
+      "depth": 2.625,
+      "height": 2.25,
+      "color": "#95999e"
+    },
+    {
+      "name": "Professional rounded mounting end.003",
+      "x": 19.25000037997961,
+      "y": -27.375,
+      "z": 58.0,
+      "width": 1.5,
+      "depth": 2.625,
+      "height": 2.25,
+      "color": "#95999e"
+    }
+  ],
+  "skp_sha256": "ce3f28b38920f42631f0fc9c7e73f62d4eda706d645feb3134d8421afe37dab6",
+  "source": "Approved exterior-only Thermador column assembly; Professional handles"
+}

@@ -1,0 +1,233 @@
+{
+  "id": "sub-zero-cl3650u-s",
+  "model": "CL3650U/S",
+  "dimensions": {
+    "width": 36,
+    "height": 84,
+    "depth": 24
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 4912,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.subzero-wolf.com/products/assets/sub-zero/built-in-refrigeration/qr-sheets/bi-36u/built-in-refrigeration-qr-sheet-cl3650us-st.pdf",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "aca74ca2177dc2c7660742fa9663af6613d2aeee1254a066e54ade5bb214bafd",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -22.5000001,
+      "z": 0.0,
+      "width": 35.9999993,
+      "depth": 22.5000001,
+      "height": 83.9999999,
+      "name": "Appliance enclosure",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -23.2200008,
+      "z": 1.9999998,
+      "width": 35.7999999,
+      "depth": 0.7200006999999999,
+      "height": 23.199999199999997,
+      "name": "Refrigerator panel 1",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -23.2200008,
+      "z": 25.2999987,
+      "width": 35.7999999,
+      "depth": 0.7200006999999999,
+      "height": 49.8500021,
+      "name": "Refrigerator panel 2",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0,
+      "y": -23.2300022,
+      "z": 75.2500005,
+      "width": 35.9999993,
+      "depth": 0.7300021000000001,
+      "height": 8.749999400000007,
+      "name": "Top ventilation grille",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 75.8499987,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000320000000556,
+      "name": "Ventilation slot",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 76.6888894,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.001",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 77.5277755,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.002",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 78.3666663,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.003",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 79.2055524,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.004",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 80.0444385,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.005",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 80.883334,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.006",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 81.7222201,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.007",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.4,
+      "y": -23.2699983,
+      "z": 82.5611062,
+      "width": 35.2000005,
+      "depth": 0.05999890000000008,
+      "height": 0.16000329999999963,
+      "name": "Ventilation slot.008",
+      "color": "#1D2228"
+    },
+    {
+      "x": 2.7000001,
+      "y": -23.9599995,
+      "z": 30.2000004,
+      "width": 0.3599996999999999,
+      "depth": 0.3599979999999974,
+      "height": 13.9999976,
+      "name": "Vertical refrigerator pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 2.7499999,
+      "y": -23.7800005,
+      "z": 30.4200002,
+      "width": 0.2599999999999998,
+      "depth": 0.5200013000000006,
+      "height": 0.2599981999999983,
+      "name": "Pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 2.7499999,
+      "y": -23.7800005,
+      "z": 43.7200022,
+      "width": 0.2599999999999998,
+      "depth": 0.5200013000000006,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 7.92,
+      "y": -23.9599995,
+      "z": 23.019999,
+      "width": 20.1599992,
+      "depth": 0.3599979999999974,
+      "height": 0.36000270000000256,
+      "name": "Freezer pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 8.0999996,
+      "y": -23.7800005,
+      "z": 23.0800003,
+      "width": 0.240000199999999,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 27.66,
+      "y": -23.7800005,
+      "z": 23.0800003,
+      "width": 0.2400002999999984,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 0.4999997,
+      "y": -23.2399988,
+      "z": 0.4,
+      "width": 35.000001100000006,
+      "depth": 0.19999939999999938,
+      "height": 1.2000000000000002,
+      "name": "Toe vent",
+      "color": "#1D2228"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -23.9599995,
+      0.0
+    ],
+    "max": [
+      35.9999993,
+      0.0,
+      83.9999999
+    ]
+  },
+  "closed_parts": 20
+}

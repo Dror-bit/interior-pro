@@ -1,0 +1,6 @@
+.kitchen-connection/
+.appliance-research/
+InteriorPro_backups/
+*.skb
+*.blend1
+__pycache__/

@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "dimensions": {
+    "width": 23.5625,
+    "depth": 25.75,
+    "height": 33.875
+  },
+  "origin": [
+    0,
+    0,
+    0
+  ],
+  "parts": [
+    {
+      "name": "Closed insulated body",
+      "x": 0.1875000149011612,
+      "y": -22.950000762939453,
+      "z": 3.5,
+      "width": 23.1875,
+      "depth": 22.95,
+      "height": 30.325000000000003,
+      "color": "#818486",
+      "closed_source": true
+    },
+    {
+      "name": "Closed recessed base",
+      "x": 0.2500004172325134,
+      "y": -21.625001907348633,
+      "z": 0.0,
+      "width": 23.0625,
+      "depth": 21.375,
+      "height": 3.5,
+      "color": "#2c2e30",
+      "closed_source": true
+    },
+    {
+      "name": "Door gasket",
+      "x": 0.02499992400407791,
+      "y": -23.05000114440918,
+      "z": 3.5299994945526123,
+      "width": 23.5125,
+      "depth": 0.10000000000000142,
+      "height": 30.32,
+      "color": "#2c2e30",
+      "closed_source": true
+    },
+    {
+      "name": "Stainless full door",
+      "x": 0.0,
+      "y": -23.749998092651367,
+      "z": 3.5,
+      "width": 23.5625,
+      "depth": 0.6999999999999993,
+      "height": 30.375,
+      "color": "#9ea2a6",
+      "closed_source": true
+    },
+    {
+      "name": "Toe plate",
+      "x": 0.1999993920326233,
+      "y": -21.75,
+      "z": 0.0250000711530447,
+      "width": 23.1625,
+      "depth": 0.125,
+      "height": 3.425,
+      "color": "#818486",
+      "closed_source": true
+    },
+    {
+      "name": "Masterpiece chamfered grip",
+      "x": 1.1999999284744263,
+      "y": -25.750001907348633,
+      "z": 31.350000381469727,
+      "width": 21.1625,
+      "depth": 0.8999999999999986,
+      "height": 0.8999999999999986,
+      "color": "#9ea2a6",
+      "closed_source": true
+    },
+    {
+      "name": "Hidden Masterpiece mounting foot",
+      "x": 1.5,
+      "y": -25.299999237060547,
+      "z": 31.500001907348633,
+      "width": 0.5,
+      "depth": 1.5500000000000007,
+      "height": 0.6000000000000014,
+      "color": "#9ea2a6",
+      "closed_source": true
+    },
+    {
+      "name": "Hidden Masterpiece mounting foot.001",
+      "x": 21.562501907348633,
+      "y": -25.299999237060547,
+      "z": 31.500001907348633,
+      "width": 0.5,
+      "depth": 1.5500000000000007,
+      "height": 0.6000000000000014,
+      "color": "#9ea2a6",
+      "closed_source": true
+    }
+  ],
+  "skp_sha256": "259cadeb57893f558893ac7435caf3cc3bb30773de9d70371a116a06814c2176",
+  "source": "User-approved exterior-only Thermador dishwasher"
+}

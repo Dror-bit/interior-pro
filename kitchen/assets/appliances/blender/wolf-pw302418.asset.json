@@ -1,0 +1,285 @@
+{
+  "id": "wolf-pw302418",
+  "model": "PW302418",
+  "dimensions": {
+    "width": 30,
+    "height": 18,
+    "depth": 24
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 5196,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.subzero-wolf.com/qrExport/pw302418.pdf",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "b78b51a23136bf563ed71eaa72d3174045cdba060fcc9b8c1b2fc0ca175da674",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -24.0000003,
+      "z": 0.0,
+      "width": 30.000001,
+      "depth": 24.0000003,
+      "height": 12.0000001,
+      "name": "Range hood canopy",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 9.6000004,
+      "y": -13.2,
+      "z": 12.0000001,
+      "width": 10.799998999999998,
+      "depth": 13.2,
+      "height": 6.000000699999999,
+      "name": "Chimney",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 2.6999998,
+      "y": -23.000001,
+      "z": 0.01,
+      "width": 7.499999899999999,
+      "depth": 21.0000012,
+      "height": 0.1,
+      "name": "Underside baffle filter",
+      "color": "#1D2228"
+    },
+    {
+      "x": 2.8000001,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.049999799999999706,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 4.0,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999980000000015,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 5.2000001,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999990000000043,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.002",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 6.4,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.003",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 7.5999999,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.004",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 8.7999998,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.005",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 11.0999993,
+      "y": -23.000001,
+      "z": 0.01,
+      "width": 7.5000009,
+      "depth": 21.0000012,
+      "height": 0.1,
+      "name": "Underside baffle filter.001",
+      "color": "#1D2228"
+    },
+    {
+      "x": 11.2000002,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.006",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 12.4000001,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.007",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 13.6,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.008",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 14.7999999,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999990000000132,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.009",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 15.9999998,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999990000000132,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.010",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 17.1999997,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.04999989999999954,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.011",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 19.4999998,
+      "y": -23.000001,
+      "z": 0.01,
+      "width": 7.500000799999999,
+      "depth": 21.0000012,
+      "height": 0.1,
+      "name": "Underside baffle filter.002",
+      "color": "#1D2228"
+    },
+    {
+      "x": 19.5999995,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.049999800000001926,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.012",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 20.7999982,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.050002199999998,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.013",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 21.9999993,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.05000220000000155,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.014",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 23.199998,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.050002199999998,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.015",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 24.3999991,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.05000220000000155,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.016",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 25.5999978,
+      "y": -23.000001,
+      "z": 0.005,
+      "width": 0.050002199999998,
+      "depth": 21.0000012,
+      "height": 0.09,
+      "name": "Filter slat.017",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 4.0799998,
+      "y": -23.2199984,
+      "z": 0.0,
+      "width": 0.8400001999999995,
+      "depth": 0.8399984000000025,
+      "height": 0.1,
+      "name": "Hood downlight",
+      "color": "#A2C8D1",
+      "shape": "cylinder"
+    },
+    {
+      "x": 25.0800013,
+      "y": -23.2199984,
+      "z": 0.0,
+      "width": 0.8399984000000025,
+      "depth": 0.8399984000000025,
+      "height": 0.1,
+      "name": "Hood downlight.001",
+      "color": "#A2C8D1",
+      "shape": "cylinder"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -24.0000003,
+      0.0
+    ],
+    "max": [
+      30.000001,
+      0.0,
+      18.0000008
+    ]
+  },
+  "closed_parts": 25
+}

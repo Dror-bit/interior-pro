@@ -1,0 +1,108 @@
+{
+  "id": "wolf-ci36560t-s",
+  "model": "CI36560T/S",
+  "dimensions": {
+    "width": 36,
+    "height": 2,
+    "depth": 21
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 3256,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.subzero-wolf.com/products/assets/wolf/induction-cooktops/qr-sheets/quick-reference-guide-ci36560t.pdf",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "dbd2ba4b83d0c16e169e13fca0f3b2dc808704032e8238b4ffa3c0cb277f7c17",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.5599997,
+      "y": -20.1899987,
+      "z": 0.0,
+      "width": 34.8799999,
+      "depth": 19.3799986,
+      "height": 1.92,
+      "name": "Cooktop chassis",
+      "color": "#1D2228"
+    },
+    {
+      "x": 0.0199992,
+      "y": -21.0,
+      "z": 1.86,
+      "width": 35.960001999999996,
+      "depth": 21.0,
+      "height": 0.1399999999999999,
+      "name": "Cooktop surface",
+      "color": "#1D2228"
+    },
+    {
+      "x": 5.3179997,
+      "y": -17.6620002,
+      "z": 1.9959475,
+      "width": 5.923999500000001,
+      "depth": 5.924000000000001,
+      "height": 0.038105000000000055,
+      "name": "Induction zone",
+      "color": "#DDE2E5",
+      "shape": "cylinder"
+    },
+    {
+      "x": 24.7580001,
+      "y": -17.6620002,
+      "z": 1.9959475,
+      "width": 5.923997700000001,
+      "depth": 5.924000000000001,
+      "height": 0.038105000000000055,
+      "name": "Induction zone.001",
+      "color": "#DDE2E5",
+      "shape": "cylinder"
+    },
+    {
+      "x": 5.3179997,
+      "y": -8.842,
+      "z": 1.9959475,
+      "width": 5.923999500000001,
+      "depth": 5.924000100000001,
+      "height": 0.038105000000000055,
+      "name": "Induction zone.002",
+      "color": "#DDE2E5",
+      "shape": "cylinder"
+    },
+    {
+      "x": 24.7580001,
+      "y": -8.842,
+      "z": 1.9959475,
+      "width": 5.923997700000001,
+      "depth": 5.924000100000001,
+      "height": 0.038105000000000055,
+      "name": "Induction zone.003",
+      "color": "#DDE2E5",
+      "shape": "cylinder"
+    },
+    {
+      "x": 15.0379996,
+      "y": -13.462,
+      "z": 1.9959475,
+      "width": 5.924001199999999,
+      "depth": 5.9239999999999995,
+      "height": 0.038105000000000055,
+      "name": "Induction zone.004",
+      "color": "#DDE2E5",
+      "shape": "cylinder"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0199992,
+      -21.0,
+      0.0
+    ],
+    "max": [
+      35.9800012,
+      0.0,
+      2.0340525
+    ]
+  },
+  "closed_parts": 7
+}
