@@ -56,7 +56,7 @@
  .kp-clean #side.kp-resource #kp-properties>*:not(#kp-panel-title):not(#kp-project-resources){display:none!important}
  .kp-clean #kp-tool-rail{overflow-y:auto;gap:7px}.kp-clean #kp-tool-rail .modebtn{flex-shrink:0}
  #kp-draw-dock{display:none}.kp-clean #kp-draw-dock{position:absolute;bottom:12px;left:12px;right:12px;z-index:12;pointer-events:none;align-items:flex-end;justify-content:center;gap:8px;flex-wrap:wrap}
- .kp-clean #kp-draw-dock #secLine{display:none!important;pointer-events:auto;width:fit-content;max-width:100%;margin:0;padding:8px;background:white;border:1px solid #dce3da;border-radius:8px;box-shadow:0 3px 12px #20352822;align-items:center;gap:8px;flex-wrap:wrap}
+ .kp-clean #kp-draw-dock #secLine{display:flex!important;pointer-events:auto;width:fit-content;max-width:100%;margin:0;padding:8px;background:white;border:1px solid #dce3da;border-radius:8px;box-shadow:0 3px 12px #20352822;align-items:center;gap:8px;flex-wrap:wrap}
  .kp-clean #kp-draw-dock.kp-drawing #secLine{display:flex!important}
  .kp-clean #kp-draw-dock #guideBox{pointer-events:auto;background:white;margin:0;min-width:140px;max-width:270px;max-height:50vh;overflow:auto;box-shadow:0 3px 12px #20352822}
  .kp-clean #kp-draw-dock .sktb{margin:0;flex-wrap:wrap}.kp-clean #kp-draw-dock #secLine>div{margin:0!important}.kp-clean #kp-draw-dock button{width:auto!important;min-width:30px}.kp-clean #kp-draw-dock svg{min-width:18px;min-height:18px}

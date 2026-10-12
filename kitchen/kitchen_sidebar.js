@@ -4,7 +4,7 @@
  const section=document.createElement('section');section.id='kp-kitchen';
  section.innerHTML='<label>Assembly<select id="kp-cab-area"><option value="A">Kitchen</option><option value="I">Island</option></select></label><div id="kp-cab-library"></div><div id="kp-cab-error" role="alert"></div>';
  panel.append(section);
- const groups=[['Base cabinets',[['doors','Doors'],['drawers','Drawers'],['sink','Sink base'],['corner_base','L corner']]],['Wall cabinets',[['wall','Doors'],['glass_wall','Glass'],['hood','Hood'],['microwave','Microwave'],['corner_upper','L corner']]],['Tall cabinets',[['tall','Pantry'],['oven_tower','Wall oven'],['micro_tower','Oven + micro'],['fridge_surround','Fridge surround']]],['Appliances',[['fridge','Refrigerator'],['oven','Range'],['dishwasher','Dishwasher']]],['Finishing',[['filler','Filler']]]];
+ const groups=[['Base cabinets',[['doors','Doors'],['drawers','Drawers'],['sink','Sink base'],['corner_base','L corner']]],['Wall cabinets',[['wall','Doors'],['glass_wall','Glass'],['microwave','Microwave'],['corner_upper','L corner']]],['Tall cabinets',[['tall','Pantry'],['oven_tower','Wall oven'],['micro_tower','Oven + micro'],['fridge_surround','Fridge surround']]],['Appliances',[['fridge','Refrigerator'],['oven','Range'],['dishwasher','Dishwasher'],['hood','Hood']]],['Finishing',[['filler','Filler']]]];
  const swingLabel=document.createElement('label');swingLabel.style.cssText='display:flex;align-items:center;gap:7px;margin:12px 0';
  const swing=document.createElement('input');swing.type='checkbox';swing.style.width='auto';swing.id='kp-door-swings';
  try{window.KitchenShowDoorSwings=localStorage.getItem('kitchen-door-swings')==='true';}catch{window.KitchenShowDoorSwings=false;}

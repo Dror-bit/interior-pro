@@ -1739,7 +1739,7 @@
     {
       "path": "kitchen_sidebar.js",
       "bytes": 6770,
-      "sha256": "1c84be0f42de1f715011eaaf2323380eb9ea9f41c1cd877a4eb8e2852219f1ba"
+      "sha256": "989c55aff8a1a2516b1f9a44c9770df70484e5dfb30985f70ffc430705ad3160"
     },
     {
       "path": "kitchen_sink.rb",
@@ -1759,7 +1759,7 @@
     {
       "path": "kitchen_workspace.js",
       "bytes": 11963,
-      "sha256": "67a2739fc34bb0b4e0b27296954a5d9776385d7d39be9ff3d441adeb95fddb93"
+      "sha256": "51d0cb2a68fdd49eae1a8bcc128ef8d6fcbaa792adeb95f6654accc20785fc91"
     },
     {
       "path": "orientation_editor.js",
