@@ -1,7 +1,7 @@
 (function(){
  if(window.KitchenHouseAppliances)return;
  const categories={fridge:'Refrigerators',range:'Ranges',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
- const kinds={fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave'};
+ const kinds={fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave',wall_oven:'wall_oven'};
  const section=document.getElementById('kp-kitchen'),library=document.getElementById('kp-cab-library');
  const panel=document.createElement('div');panel.id='kp-appliance-library';panel.hidden=true;
  panel.innerHTML='<button type="button" id="kp-appliance-back">← Cabinets</button><label>Appliances<select id="kp-appliance-category"></select></label><label>Brand<select id="kp-appliance-brand"></select></label><div id="kp-appliance-cards"></div>';

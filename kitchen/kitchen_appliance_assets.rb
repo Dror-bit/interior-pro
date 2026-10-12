@@ -16,6 +16,12 @@ module KitchenLab
       asset=a['asset'];return nil unless asset
       raise 'Unsupported Blender asset version' unless [1,2].include?(asset['version']) && asset['id']==a['id']
       file=base(asset['id'])+'.asset.json'
+      # Retired models keep their saved dimensions and use procedural geometry.
+      # Missing assets for supported models still fail the integrity checks below.
+      unless File.file?(file)
+        retired=JSON.parse(File.read(File.join(__dir__,'appliance_catalog.json'))).fetch('retired_ids',[])
+        return nil if retired.include?(asset['id'])
+      end
       raise 'Saved Blender asset changed or missing' unless Digest::SHA256.file(file).hexdigest==asset['manifest_sha256']
       data=JSON.parse(File.read(file));prefix=base(asset['id'])
       raise 'Blender dimensions differ from selection' unless data['dimensions']==a['dimensions']

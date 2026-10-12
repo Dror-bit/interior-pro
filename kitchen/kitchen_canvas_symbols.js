@@ -8,9 +8,10 @@
   const rect=(x,y,w,d,fill)=>path([[x,y],[x+w,y],[x+w,y+d],[x,y+d],[x,y]],fill);
   const circle=(x,y,r,fill)=>path(Array.from({length:25},(_,i)=>[x+r*Math.cos(i*Math.PI/12),y+r*Math.sin(i*Math.PI/12)]),fill);
   const w=c.width,d=c.depth,corner=FrontLayouts.corner(c),upper=['wall','corner_upper'].includes(c.kind),appliance=['fridge','oven','wall_oven','dishwasher','hood','microwave'].includes(c.kind);
+  const category=c.appliance?.category||({oven:'range'}[c.kind]||c.kind),overhead=category==='hood';
   const shape=corner?[[0,0],[w,0],[w,d],[d,d],[d,w],[0,w]]:[[0,0],[w,0],[w,d],[0,d]];
-  ctx.globalAlpha=upper?.55:1;path(shape,appliance?'#d9e0e2':colors[c.finish]||colors.ivory,'#657367',upper?[5,3]:[]);ctx.globalAlpha=1;
-  if(!corner)path([[0,d-.75],[w,d-.75],[w,d],[0,d]],null,'#52665a');
+  ctx.globalAlpha=upper?.55:1;path(shape,overhead?null:appliance?'#e5ebed':colors[c.finish]||colors.ivory,'#657367',upper||overhead?[5,3]:[]);ctx.globalAlpha=1;
+  if(!corner&&!overhead)path([[0,d-.75],[w,d-.75],[w,d],[0,d]],null,'#52665a');
   const hardware=c.handle==='brass'?'#a38344':'#303a3d';
   function front(x,y,width,turn=false,single=false){
    let rows;try{rows=FrontLayouts.rows(c);}catch{rows=[];}
@@ -28,12 +29,44 @@
    if(drawer){line([[width/2,0],[width/2,10]]);line([[width/2-2,7],[width/2,10],[width/2+2,7]]);if(c.handle!=='none')path([local(width/2-2.5,1),local(width/2+2.5,1)],null,hardware,[],2.3);}
   }
   if(!appliance&&!['filler','corner'].includes(c.kind)){if(corner){front(d,d,w-d,false,true);front(d,d,w-d,true,true);}else front(0,d,w);}
-  for(const part of c.appliance_parts||[]){if(part.shape==='cylinder')circle(part.x+part.width/2,-part.y-part.depth/2,part.width/2,part.color);else rect(part.x,-part.y-part.depth,part.width,part.depth,part.color);}
-  if(appliance&&!c.appliance_parts?.length){
-   if(c.kind==='oven'){rect(1,1,w-2,d-4,'#bcc5c7');for(const x of [w*.25,w*.75])for(const y of [d*.28,d*.65]){circle(x,y,Math.min(w,d)*.12,'#59666b');circle(x,y,Math.min(w,d)*.075,'#aeb9bc');}}
-   else if(c.kind==='fridge'){path([[w/2,d],[w/2,d-4]],null,'#59666b');path([[w/2-2,d+1],[w/2-2,d-2]],null,hardware,[],2);path([[w/2+2,d+1],[w/2+2,d-2]],null,hardware,[],2);}
-   else {rect(2,2,w-4,d-5,c.kind==='hood'?'#c4ccce':'#afbdc2');path([[w*.3,d-1],[w*.7,d-1]],null,hardware,[],2);}
-  }
+  // Deliberate plan symbols, rather than hundreds of overlapping mesh bounds.
+  const ink='#465d68',light='#f3f6f7';
+  const line=pts=>path(pts,null,ink,[],1.15);
+  const handle=(left=.3,right=.7)=>path([[w*left,d-1.5],[w*right,d-1.5]],null,ink,[],2);
+  if(category==='range'||category==='cooktop'){
+   const dim=c.appliance?.dimensions,ww=category==='cooktop'&&dim?dim.width:w-2,dd=category==='cooktop'&&dim?dim.depth:d-3;
+   const x=(w-ww)/2,y=category==='cooktop'?(d-dd)/2:1;
+   rect(x,y,ww,dd,light);
+   let burners=(c.appliance_parts||[]).filter(part=>/burner.*cap|cooking zone/i.test(part.name||''));
+   burners=burners.map(part=>({x:part.x+part.width/2,y:-part.y-part.depth/2,r:Math.min(part.width,part.depth)/2}));
+   if(!burners.length){const n=c.appliance?.appearance?.burners||4;const slots=n===6?[[.2,.25],[.5,.25],[.8,.25],[.2,.65],[.5,.65],[.8,.65]]:[[.25,.25],[.75,.25],[.25,.65],[.75,.65]];if(n===5)slots.push([.5,.45]);burners=slots.map(([a,b])=>({x:x+ww*a,y:y+dd*b,r:Math.min(ww,dd)*.095}));}
+   for(const b of burners){const r=Math.max(.65,b.r);circle(b.x,b.y,r,'#d4dfe3');circle(b.x,b.y,r*.48,ink);for(const [a,b1,a1,b2] of [[-1.3,0,-.65,0],[.65,0,1.3,0],[0,-1.3,0,-.65],[0,.65,0,1.3]])line([[b.x+a*r,b.y+b1*r],[b.x+a1*r,b.y+b2*r]]);}
+   for(let i=0;i<Math.min(6,burners.length);i++)circle(x+ww*(i+1)/(Math.min(6,burners.length)+1),y+dd-1,.45,ink);
+   if(category==='range')handle(.18,.82);
+  }else if(category==='fridge'){
+   const split=c.appliance?.appearance?.configuration==='side_by_side'?w*.43:w/2,front=d*.89;
+   line([[0,front],[w,front]]);line([[split,front],[split,d]]);
+   path([[split-2.3,d],[split-2.3,d+.8],[split-.6,d+.8]],null,ink,[],2);
+   path([[split+2.3,d],[split+2.3,d+.8],[split+.6,d+.8]],null,ink,[],2);
+   const cx=w/2,cy=d*.45,r=Math.min(w,d)*.13;
+   for(let i=0;i<6;i++){const a=i*Math.PI/3,ux=Math.cos(a),uy=Math.sin(a),px=-uy,py=ux;
+    line([[cx,cy],[cx+r*ux,cy+r*uy]]);
+    line([[cx+r*(.72*ux+.23*px),cy+r*(.72*uy+.23*py)],[cx+r*.48*ux,cy+r*.48*uy],[cx+r*(.72*ux-.23*px),cy+r*(.72*uy-.23*py)]]);
+   }
+  }else if(category==='dishwasher'){
+   rect(2,2,w-4,d-5,light);for(let i=0;i<5;i++){const x=4+(w-8)*i/4;line([[x,4],[x,d-5]]);}
+   circle(w/2,d*.48,Math.min(w,d)*.19,'#e1e9ec');line([[w*.32,d*.4],[w*.68,d*.56]]);line([[w*.32,d*.56],[w*.68,d*.4]]);handle();
+   for(let i=0;i<3;i++)circle(w-4-i*1.6,d-1.5,.3,ink);
+  }else if(category==='hood'){
+   const cx=w/2,cy=d*.48,r=Math.min(w,d)*.14;
+   path([[1,1],[w-1,1],[w-1,d-1],[1,d-1],[1,1]],null,ink,[4,3]);
+   for(const [x,y] of [[1,1],[w-1,1],[w-1,d-1],[1,d-1]])path([[x,y],[cx+(x<cx?-r:r),cy+(y<cy?-r:r)]],null,'#81949c',[3,3]);
+   circle(cx,cy,r,null);for(let i=0;i<3;i++){const a=i*Math.PI*2/3;line([[cx,cy],[cx+r*.75*Math.cos(a),cy+r*.75*Math.sin(a)]]);}
+  }else if(category==='wall_oven'){
+   rect(2,2,w-4,d-5,light);for(const yy of [.3,.48,.66])line([[4,d*yy],[w-4,d*yy]]);rect(3,d-4,w-6,1.2,'#6b828d');handle(.2,.8);
+  }else if(category==='microwave'){
+   rect(2,2,w-7,d-5,light);circle((w-3)/2,d*.46,Math.min(w-8,d-6)*.29,null);line([[w-5,2],[w-5,d-3]]);for(let i=0;i<3;i++)circle(w-2.5,4+i*2,.45,ink);handle(.2,.7);
+  }else for(const part of c.appliance_parts||[]){if(part.shape==='cylinder')circle(part.x+part.width/2,-part.y-part.depth/2,part.width/2,part.color);else rect(part.x,-part.y-part.depth,part.width,part.depth,part.color);}
   if(c.kind==='sink'&&c.sink&&c.sink.type!=='none'){
    const s={width:Math.min(30,w-4),depth:Math.min(18,d-6),offset_x:0,front_setback:2,...c.sink};const x=(w-s.width)/2+s.offset_x,y=d-s.front_setback-s.depth;
    rect(x,y,s.width,s.depth,'#b6c3c9');rect(x+.6,y+.6,s.width-1.2,s.depth-1.2,'#82969e');

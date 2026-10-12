@@ -4,6 +4,7 @@ require_relative 'kitchen_document'
 require_relative 'kitchen_spatial'
 require 'digest'
 require 'base64'
+require_relative 'kitchen_appliance_surround'
 
 module InteriorPro
   module KitchenPlan
@@ -54,7 +55,7 @@ module InteriorPro
           scripts=%w[kitchen_plan.js kitchen_workspace.js].map { |name| File.read(File.join(__dir__,name)) }
           symbols=File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
           scripts << '(function(){'+symbols+'})();'
-          %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js kitchen_house_appliances.js].each do |name|
+          %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js kitchen_house_appliances.js kitchen_appliance_surround.js].each do |name|
             scripts << File.read(File.join(__dir__,name))
           end
           dlg.execute_script(scripts.join("\n"))
@@ -85,6 +86,7 @@ module InteriorPro
         dlg=instance_variable_get(:@dialog)
         InteriorPro::KitchenPlan.bind_catalog(dlg)
         InteriorPro::KitchenPlan.bind_drag(dlg)
+        InteriorPro::KitchenPlan.bind_surround(dlg)
         dlg.add_action_callback('kitchen_edit_cabinet') do |_,id|
           begin
             InteriorPro::KitchenPlan.edit_cabinet(id.to_s)
@@ -221,6 +223,23 @@ module InteriorPro
     end
 
     def self.bind_drag(dlg)
+      dlg.add_action_callback('kitchen_delete_cabinet') do |_,json|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          KitchenLab.guard!
+          request=JSON.parse(json.to_s)
+          source=KitchenLab.document
+          level=defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level.to_i : 1
+          raise 'Kitchen belongs to another floor.' unless KitchenLab::Spatial.pose(source['settings'])['level'].to_i==level
+          raise 'Kitchen changed. Select the cabinet again.' unless request['revision']==source['revision']
+          raise 'Cabinet no longer exists' unless source['cabinets'].any? { |c| c['id']==request['id'] }
+          KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>'remove_cabinet','payload'=>{'id'=>request['id']}}]},false)
+          dlg.execute_script('window.KitchenHouseDrag?.result(null);')
+        rescue StandardError=>error
+          push(dlg)
+          dlg.execute_script("window.KitchenHouseDrag?.result(#{JSON.generate(error.message)});")
+        end
+      end
       dlg.add_action_callback('kitchen_move_cabinet') do |_,json|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR

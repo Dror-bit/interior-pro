@@ -34,7 +34,8 @@
    const capture=held?.placement.wall_id===f.wall_id&&held?.placement.face===f.face?tolerance*1.8:tolerance; const signed=dot(sub(center,f.a),f.n);
    // Catch pushing into the wall as well as approaching it. Never switch to
    // the opposite face while the cabinet center is still on this side.
-   if(signed<-.01||signed>footDepth/2+capture)continue;
+   const currentReach=(Math.abs(dot(u,f.n))*c.width+Math.abs(dot(v,f.n))*footDepth)/2;
+   if(signed<-.01||signed>Math.max(footDepth/2,currentReach)+capture)continue;
    const projected=dot(sub(center,f.a),f.u),along=Math.max(c.width/2,Math.min(f.length-c.width/2,projected));
    if(Math.abs(projected-along)>capture)continue;
    const back=add(f.a,mul(f.u,along)),x=[-f.n[1],f.n[0]],o=sub(back,mul(x,c.width/2));

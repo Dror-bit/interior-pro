@@ -14,6 +14,6 @@
    }
   }return best;
  };
- const hostSelect=setSel;setSel=function(value){if(value&&activePage===0){window.KitchenSidebar?.close();window.KitchenWorkspace?.closeContext?.();}return hostSelect.apply(this,arguments);};
+ const hostSelect=setSel;setSel=function(value){window.KitchenHouseDrag?.clearSelection();if(value&&activePage===0){window.KitchenSidebar?.close();window.KitchenWorkspace?.closeContext?.();}return hostSelect.apply(this,arguments);};
  window.KitchenHouseSelection=true;
 })();

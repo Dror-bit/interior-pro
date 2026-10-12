@@ -13,7 +13,7 @@ cp -R "$KITCHEN/assets" "$SCRATCH/kitchen/assets" || exit 1
 fail=0
 bash "$SCRATCH/tests/run_all.sh" "$ROOT" || fail=1
 cd "$SCRATCH/kitchen" || exit 1
-for test in test_house_editor_startup.rb test_kitchen_host_contract.rb test_kitchen_startup.rb test_engine.rb test_house_catalog_preview.rb test_kitchen_house_attachment.rb test_house_appliance_catalog.rb; do
+for test in test_house_editor_startup.rb test_kitchen_host_contract.rb test_kitchen_startup.rb test_engine.rb test_house_catalog_preview.rb test_kitchen_house_attachment.rb test_house_appliance_catalog.rb test_house_delete.rb test_appliance_surround.rb; do
   ruby "$test" || fail=1
 done
 for test in test_kitchen_house_placement.mjs test_kitchen_canvas_symbols.mjs test_spatial.mjs test_host_undo.mjs; do

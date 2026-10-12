@@ -11,6 +11,13 @@ assert(!H.propose(row,[0,0],[wall],5,[row,{...other,base_z:54}]).error);
 assert(!H.propose(row,[0,0],[{...wall,sag:5}],5).snapped);
 for(const flip_x of [false,true])for(const flip_y of [false,true]){const r={...row,cabinet:{...c,flip_x,flip_y}};p=H.propose(r,[0,0],[wall],5);assert(!p.error);assert(Math.abs(p.row.basis[0][1])<1e-8);assert(Math.abs(p.row.basis[1][0]-p.row.basis[0][0]-1)<1e-8);}
 console.log('PASS: wall faces, perpendicular transfer, free move, doors, cabinet overlap, vertical clearance, curved-wall exclusion and flipped axes.');
+const wideFridge=H.rowAt({...row,cabinet:{...c,kind:'fridge',width:48,depth:27},height:84},{x:1,y:-70,angle:0,handedness:1});
+const westFridgeWall={id:'fridge-west',sx:0,sy:-200,ex:0,ey:0,corners:[-4,-200,0,-200,0,0,-4,0],ops:[]};
+const fridgeSnap=H.propose(wideFridge,[0,0],[westFridgeWall],3);
+assert(fridgeSnap.snapped&&!fridgeSnap.error,'Wide side approach must rotate to the wall');
+assert(Math.abs(fridgeSnap.placement.angle-90)<1e-7);assert(Math.abs(fridgeSnap.row.basis[0][0])<1e-7);
+assert(!H.propose(wideFridge,[15,0],[westFridgeWall],3).snapped,'Distant refrigerator must remain free');
+console.log('PASS: perpendicular wide refrigerator approach, automatic rotation and deliberate release.');
 // Regression cases: edge magnets and pushing the cabinet towards the wall.
 const neighbor=H.rowAt({...row,id:'neighbor',cabinet:{...c,id:'neighbor'}},{x:40,y:0,angle:0,handedness:1});
 for(const x of [74,79]){const moving=H.rowAt(row,{x,y:-2,angle:0,handedness:1});const r=H.propose(moving,[0,0],[wall],5,[moving,neighbor]);assert(!r.error&&r.neighbor==='neighbor');assert(Math.abs(r.row.basis[0][0]-76)<1e-8);assert(Math.abs(r.row.basis[0][1])<1e-8);}
