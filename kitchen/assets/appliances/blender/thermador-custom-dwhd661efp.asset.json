@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "dimensions": {
+    "width": 23.5625,
+    "depth": 26,
+    "height": 33.875
+  },
+  "origin": [
+    0,
+    0,
+    0
+  ],
+  "parts": [
+    {
+      "name": "Closed insulated body",
+      "x": 0.1875000149011612,
+      "y": -22.950000762939453,
+      "z": 3.5,
+      "width": 23.1875,
+      "depth": 22.95,
+      "height": 30.325000000000003,
+      "color": "#818486",
+      "closed_source": true
+    },
+    {
+      "name": "Closed recessed base",
+      "x": 0.2500004172325134,
+      "y": -21.625001907348633,
+      "z": 0.0,
+      "width": 23.0625,
+      "depth": 21.375,
+      "height": 3.5,
+      "color": "#2c2e30",
+      "closed_source": true
+    },
+    {
+      "name": "Door gasket",
+      "x": 0.02499992400407791,
+      "y": -23.05000114440918,
+      "z": 3.5299994945526123,
+      "width": 23.5125,
+      "depth": 0.10000000000000142,
+      "height": 30.32,
+      "color": "#2c2e30",
+      "closed_source": true
+    },
+    {
+      "name": "Stainless full door",
+      "x": 0.0,
+      "y": -23.749998092651367,
+      "z": 3.5,
+      "width": 23.5625,
+      "depth": 0.6999999999999993,
+      "height": 30.375,
+      "color": "#9ea2a6",
+      "closed_source": true
+    },
+    {
+      "name": "Toe plate",
+      "x": 0.1999993920326233,
+      "y": -21.75,
+      "z": 0.0250000711530447,
+      "width": 23.1625,
+      "depth": 0.125,
+      "height": 3.425,
+      "color": "#818486",
+      "closed_source": true
+    },
+    {
+      "name": "Brushed round grip",
+      "x": 3.4200000762939453,
+      "y": -25.850000381469727,
+      "z": 31.200000762939453,
+      "width": 16.7225,
+      "depth": 1.1999999999999993,
+      "height": 1.2000000000000028,
+      "color": "#9ea2a6",
+      "closed_source": true
+    },
+    {
+      "name": "Polished Professional sleeve",
+      "x": 1.0199999809265137,
+      "y": -26.0,
+      "z": 31.05000114440918,
+      "width": 2.4,
+      "depth": 2.25,
+      "height": 1.5,
+      "color": "#c4c5c8",
+      "closed_source": true
+    },
+    {
+      "name": "Polished Professional sleeve.001",
+      "x": 20.142499923706055,
+      "y": -26.0,
+      "z": 31.05000114440918,
+      "width": 2.3999999999999986,
+      "depth": 2.25,
+      "height": 1.5,
+      "color": "#c4c5c8",
+      "closed_source": true
+    }
+  ],
+  "skp_sha256": "e5956007005d591b77b38847d76c9847336a0acb56d58d2d44fb158bc534e82a",
+  "source": "User-approved exterior-only Thermador dishwasher"
+}

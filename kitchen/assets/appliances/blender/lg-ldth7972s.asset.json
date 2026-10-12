@@ -1,0 +1,93 @@
+{
+  "id": "lg-ldth7972s",
+  "model": "LDTH7972S",
+  "dimensions": {
+    "width": 23.75,
+    "height": 33.625,
+    "depth": 24.625
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 1704,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://media.us.lg.com/m/11d7de85bb4c869f/original/LDTH7972_-LG-Builder-Spec-Sheet.pdf",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "ad16da8f9a775dd26cfa61030f7ffcef4cc482169e095e9fa3017a539b87d77c",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -23.1249994,
+      "z": 0.0,
+      "width": 23.7500011,
+      "depth": 23.1249994,
+      "height": 33.6250006,
+      "name": "Appliance enclosure",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.1000009,
+      "y": -23.8450001,
+      "z": 1.9999998,
+      "width": 23.5500005,
+      "depth": 0.7200006999999999,
+      "height": 31.5249987,
+      "name": "Dishwasher door",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 4.2750006,
+      "y": -24.5849988,
+      "z": 31.3449985,
+      "width": 15.200000399999999,
+      "depth": 0.35999800000000093,
+      "height": 0.36000270000000256,
+      "name": "Dishwasher pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 4.4549999,
+      "y": -24.4049998,
+      "z": 31.4049998,
+      "width": 0.24000019999999989,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Dishwasher pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 19.0549995,
+      "y": -24.4049998,
+      "z": 31.4049998,
+      "width": 0.24000020000000077,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Dishwasher pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 0.3000003,
+      "y": -23.1249994,
+      "z": 0.0,
+      "width": 23.1500017,
+      "depth": 0.49999850000000023,
+      "height": 2.0,
+      "name": "Recessed toe",
+      "color": "#1D2228"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -24.5849988,
+      0.0
+    ],
+    "max": [
+      23.7500011,
+      0.0,
+      33.6250006
+    ]
+  },
+  "closed_parts": 6
+}

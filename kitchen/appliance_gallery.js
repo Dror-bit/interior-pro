@@ -1,0 +1,33 @@
+/* Manufacturer selection uses the same domain commands as cabinet editing. */
+let applianceProducts=[];
+const applianceCategories={wall_oven:'Wall ovens',range:'Ranges',fridge:'Refrigerators',dishwasher:'Dishwashers',cooktop:'Cooktops',hood:'Range hoods',microwave:'Microwaves'};
+const gallery=document.createElement('dialog');gallery.id='applianceGallery';
+gallery.innerHTML='<header><h2>US appliance catalog</h2><button type="button" id="closeApplianceGallery" class="subtle">Close ✕</button></header><div class="gallery-filters"><label>Category<select id="applianceCategory"></select></label><label>Brand<select id="applianceBrand"></select></label></div><p class="tiny">Dimensions in inches · Parametric exterior models for kitchen planning. Check manufacturer installation specifications.</p><div id="applianceCards"></div>';
+document.body.append(gallery);
+const galleryStyle=document.createElement('style');galleryStyle.textContent='#applianceGallery{width:min(960px,92vw);max-height:86vh;border:1px solid #ccd6ce;border-radius:14px;padding:20px}#applianceGallery::backdrop{background:#172e2666}#applianceGallery header{display:flex;align-items:center;justify-content:space-between}.gallery-filters{display:flex;gap:20px}.gallery-filters label{flex:1}#applianceCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:18px}.appliance-card{border:1px solid #dde3dc;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}.appliance-card img{width:100%;height:180px;object-fit:contain}.appliance-card h3{font-size:15px;margin:0}.appliance-card button{margin-top:auto}.appliance-card p{font-size:12px;margin:0;line-height:1.5}';document.head.append(galleryStyle);
+for(const [value,label] of Object.entries(applianceCategories)){const option=new Option(label,value);$('applianceCategory').add(option);}
+function galleryBrands(){const category=$('applianceCategory').value;const brands=[...new Set(applianceProducts.filter(p=>p.category===category).map(p=>p.brand))];$('applianceBrand').replaceChildren(...brands.map(b=>new Option(b,b)));galleryCards();}
+function galleryCards(){
+ const products=applianceProducts.filter(p=>p.category===$('applianceCategory').value&&p.brand===$('applianceBrand').value).filter(p=>!applianceProducts.some(q=>q.id==='thermador-custom-'+p.id.replace(/^thermador-/,''))).sort((a,b)=>Number(!!b.reference_image_path)-Number(!!a.reference_image_path));
+ $('applianceCards').replaceChildren();
+ for(const p of products){const card=document.createElement('article');card.className='appliance-card';card.dataset.productId=p.id;
+  if(p.image_path||p.image_url){const img=document.createElement('img');img.src=p.image_path||p.image_url;img.alt=p.manufacturer+' '+p.model;img.loading='lazy';img.addEventListener('error',()=>{img.remove();});card.append(img);}
+  const heading=document.createElement('h3');heading.textContent=p.model;card.append(heading);
+  if(p.reference_image_path){const badge=document.createElement('strong');badge.textContent='Custom exterior model · Ready for SketchUp';badge.style.color='#216348';card.append(badge);}
+  for(const value of [p.name,`${p.dimensions.width}″ W × ${p.dimensions.height}″ H × ${p.dimensions.depth}″ D`,p.depth_basis]){if(!value)continue;const text=document.createElement('p');text.textContent=value;card.append(text);}
+  const link=document.createElement('a');link.href=p.spec_url||p.product_url;link.target='_blank';link.rel='noopener';link.textContent='Manufacturer specifications';card.append(link);
+  const button=document.createElement('button');button.className='primary';button.textContent='Add to kitchen';button.addEventListener('click',()=>{if(busy)return;if(!window.sketchup?.command){$('status').textContent='Open this catalog from SketchUp to add a model';return;}pending(true);sendCommands([{type:'create_catalog_appliance',payload:{product_id:p.id,wall:activeWall}}]);gallery.close();});card.append(button);$('applianceCards').append(card);
+ }
+ if(!products.length){const text=document.createElement('p');text.textContent='Manufacturer models for this category are being verified.';$('applianceCards').append(text);}
+}
+function openApplianceGallery(category='wall_oven'){if(busy)return;$('applianceCategory').value=category;galleryBrands();gallery.showModal();}
+$('closeApplianceGallery').onclick=()=>gallery.close();$('applianceCategory').onchange=galleryBrands;$('applianceBrand').onchange=galleryCards;
+const catalogButton=document.createElement('button');catalogButton.type='button';catalogButton.className='tile';catalogButton.id='openApplianceGallery';catalogButton.textContent='Manufacturer appliances';document.querySelector('.cabinet-library').append(catalogButton);catalogButton.onclick=()=>openApplianceGallery();
+for(const [kind,category] of Object.entries({oven:'range',fridge:'fridge',dishwasher:'dishwasher',hood:'hood',microwave:'microwave'})){
+ document.querySelectorAll('[data-kind="'+kind+'"]').forEach(button=>button.addEventListener('click',event=>{event.stopImmediatePropagation();openApplianceGallery(category);},true));
+}
+for(const category of ['wall_oven','cooktop']){const button=document.createElement('button');button.type='button';button.className='tile';button.textContent=applianceCategories[category];button.dataset.applianceCategory=category;catalogButton.before(button);button.onclick=()=>openApplianceGallery(category);}
+const receiveBeforeCatalog=window.receiveKitchen;window.receiveKitchen=function(data){applianceProducts=data.appliance_catalog||[];receiveBeforeCatalog(data);};
+const fillBeforeCatalog=fill;fill=function(){fillBeforeCatalog();const a=selected?.appliance;for(const key of ['width','height','depth','preset','appliance_finish'])$(key).disabled=!!a&&a.category!=='cooktop';if(a){$('selection').textContent=a.manufacturer+' '+a.model;$('itemNote').textContent=a.name+' · '+a.depth_basis+' · Parametric exterior study.';}};
+function catalogElevation(c,x,base,s){return (c.appliance_parts||[]).map(p=>rect(x+p.x*s,base-(c.z+p.z+p.height)*s,p.width*s,p.height*s,p.color,'#65727a')).join('');}
+function catalogPlan(c,frame){let out='';for(const p of c.appliance_parts||[]){if(p.shape==='cylinder'){const center=planPoint(c,p.x+p.width/2,-p.y-p.depth/2,frame);out+=svg('circle',{cx:center[0],cy:center[1],r:p.width*frame.s/2,fill:p.color,stroke:'#65727a','pointer-events':'none'});continue;}const pts=[[p.x,p.y],[p.x+p.width,p.y],[p.x+p.width,p.y+p.depth],[p.x,p.y+p.depth]].map(([x,y])=>planPoint(c,x,-y,frame));out+=svg('polygon',{points:pts.map(q=>q.join(',')).join(' '),fill:p.color,stroke:'#65727a','stroke-width':.6,'pointer-events':'none'});}return out;}

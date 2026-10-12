@@ -1,0 +1,173 @@
+{
+  "id": "fisher-paykel-rf201adx5-n",
+  "model": "RF201ADX5 N",
+  "dimensions": {
+    "width": 35.4375,
+    "height": 70.75,
+    "depth": 27.375
+  },
+  "units": "inches",
+  "origin": "back-left-bottom",
+  "triangles": 4360,
+  "blender_version": "5.2.2 LTS",
+  "source_url": "https://www.fisherpaykel.com/us/cooling/freestanding/20.1-cu-ft-series-7-french-door-refrigerator-freezer--rf201adx5-n-26310.html",
+  "scope": "Manufacturer-referenced parametric exterior",
+  "version": 1,
+  "obj_sha256": "abd4c3db414649691ba204dec4c80197448aab6156ee996868cfd7e1603aba95",
+  "materials_sha256": "42f4c3a98d4fbefd25fd4d8b77a24b74c51dd85bdce58bbe897bc7030779613f",
+  "parts": [
+    {
+      "x": 0.0,
+      "y": -25.8750005,
+      "z": 0.0,
+      "width": 35.4375004,
+      "depth": 25.8750005,
+      "height": 70.75,
+      "name": "Appliance enclosure",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.0999997,
+      "y": -26.5950011,
+      "z": 1.9999998,
+      "width": 35.237501,
+      "depth": 0.7200006000000023,
+      "height": 19.2249983,
+      "name": "Refrigerator panel 1",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 0.1000003,
+      "y": -26.5950011,
+      "z": 21.3250002,
+      "width": 17.5187502,
+      "depth": 0.7200006000000023,
+      "height": 49.32499539999999,
+      "name": "Refrigerator panel 2",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 17.8187499,
+      "y": -26.5950011,
+      "z": 21.3250002,
+      "width": 17.5187484,
+      "depth": 0.7200006000000023,
+      "height": 49.32499539999999,
+      "name": "Refrigerator panel 3",
+      "color": "#B8C0C5"
+    },
+    {
+      "x": 16.5387495,
+      "y": -27.3349999,
+      "z": 26.2249994,
+      "width": 0.360000399999997,
+      "depth": 0.35999800000000093,
+      "height": 13.999997700000002,
+      "name": "Vertical refrigerator pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 16.5887494,
+      "y": -27.1550009,
+      "z": 26.4450016,
+      "width": 0.2600005999999979,
+      "depth": 0.5200013000000006,
+      "height": 0.25999829999999946,
+      "name": "Pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 16.5887494,
+      "y": -27.1550009,
+      "z": 39.7450013,
+      "width": 0.2600005999999979,
+      "depth": 0.5200013000000006,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.5387494,
+      "y": -27.3349999,
+      "z": 26.2249994,
+      "width": 0.3600002999999994,
+      "depth": 0.35999800000000093,
+      "height": 13.999997700000002,
+      "name": "Vertical refrigerator pull.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.5887492,
+      "y": -27.1550009,
+      "z": 26.4450016,
+      "width": 0.26000060000000147,
+      "depth": 0.5200013000000006,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.002",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 18.5887492,
+      "y": -27.1550009,
+      "z": 39.7450013,
+      "width": 0.26000060000000147,
+      "depth": 0.5200013000000006,
+      "height": 0.25999829999999946,
+      "name": "Pull mount.003",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 7.79625,
+      "y": -27.3349999,
+      "z": 19.0449993,
+      "width": 19.8450004,
+      "depth": 0.35999800000000093,
+      "height": 0.3600002999999994,
+      "name": "Freezer pull",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 7.9762502,
+      "y": -27.1550009,
+      "z": 19.1049994,
+      "width": 0.24000019999999989,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 27.2212488,
+      "y": -27.1550009,
+      "z": 19.1049994,
+      "width": 0.2400002999999984,
+      "depth": 0.5200013000000006,
+      "height": 0.24000020000000077,
+      "name": "Freezer pull mount.001",
+      "color": "#DDE2E5"
+    },
+    {
+      "x": 0.4999997,
+      "y": -26.6149992,
+      "z": 0.4,
+      "width": 34.437502200000004,
+      "depth": 0.19999939999999938,
+      "height": 1.2000000000000002,
+      "name": "Toe vent",
+      "color": "#1D2228"
+    }
+  ],
+  "bounds": {
+    "min": [
+      0.0,
+      -27.3349999,
+      0.0
+    ],
+    "max": [
+      35.4375004,
+      0.0,
+      70.75
+    ]
+  },
+  "closed_parts": 14
+}

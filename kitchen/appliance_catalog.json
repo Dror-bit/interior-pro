@@ -1,0 +1,2094 @@
+{
+  "schema_version": 1,
+  "market": "US",
+  "units": "inches",
+  "products": [
+    {
+      "id": "wolf-so3050pe",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "wall_oven",
+      "model": "SO3050PE/S/P",
+      "name": "30-inch E Series Professional Single Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 28.5,
+        "depth": 23
+      },
+      "depth_basis": "Manufacturer specified depth behind frame; handle projection additional",
+      "product_url": "https://www.subzero-wolf.com/wolf/ovens/e-series/30-inch-e-series-professional-built-in-single-oven",
+      "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/e-series-ovens/qr-sheets/so30/so3050pe-quick-reference-guide-st.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 27.5,
+        "depth": 23.25
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch",
+        "knob_color": "red"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://www.subzero-wolf.com/products/30-e-series-professional-built-in-single-oven-5610547/media_1fa84251f5cc914948ef444b7c9a7bfefa82621a6.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-so3050pe.jpg"
+    },
+    {
+      "id": "wolf-so3050pm",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "wall_oven",
+      "model": "SO3050PM/S/P",
+      "name": "30-inch M Series Professional Single Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 28.5,
+        "depth": 23
+      },
+      "depth_basis": "Manufacturer specified depth behind frame; handle projection additional",
+      "product_url": "https://www.subzero-wolf.com/products/30-m-series-professional-built-in-single-oven-5610679-866139f5e20957704a2a7c96ed09b8f5/5610679-866139f5e20957704a2a7c96ed09b8f5",
+      "spec_url": "https://ca.subzero-wolf.com/en/trade-resources/product-specifications/product-specifications-detail?name=30-inch-m-series-professional-built-in-single-oven",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "knob_color": "stainless"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://www.subzero-wolf.com/products/30-m-series-professional-built-in-single-oven-5610679-866139f5e20957704a2a7c96ed09b8f5/media_1e5e39ab0044432c97161df2ad86cf2753a7ce929.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-so3050pm.jpg"
+    },
+    {
+      "id": "thermador-med301ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "wall_oven",
+      "model": "MED301WS",
+      "name": "Masterpiece\u00c2\u00ae Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "Overall appliance depth; handle projection additional",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/MED301WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02802525_MED301WS-30-INCH-SINGLE-BUILT-IN-OVEN-Specifications.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 27,
+        "depth": 23.5
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02417791_i2740_1802062_MED301WS_closed_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-med301ws.webp"
+    },
+    {
+      "id": "thermador-pod301w",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "wall_oven",
+      "model": "POD301W",
+      "name": "Professional Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "Overall appliance depth; handle projection additional",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/15904594_POD301W_master_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-pod301w.webp"
+    },
+    {
+      "id": "bosch-hbl8454uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "wall_oven",
+      "model": "HBL8454UC",
+      "name": "800 Series Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "Overall depth from US specification sheet; handle projection additional",
+      "product_url": "https://www.bosch-home.com/us/en/product/HBL8454UC",
+      "spec_url": "https://media3.bosch-home.com/Documents/19654930_HBL8454UC%20Spec%20Sheet.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 27,
+        "depth": 23.5
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/19642685_HBL8454UC_Front_Facing_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hbl8454uc.webp"
+    },
+    {
+      "id": "bosch-hblp454uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "wall_oven",
+      "model": "HBLP454UC",
+      "name": "Benchmark\u00e2\u201e\u00a2 Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "US specification sheet 24.5 inches; product page lists conflicting 23.5-inch depth",
+      "product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/wall-ovens/single-ovens/HBLP454UC",
+      "spec_url": "https://media3.bosch-home.com/Documents/19654928_HBLP454UC%20Spec%20Sheet.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 27,
+        "depth": 23.5
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/19656276_HBLP454UC_Front_Facing_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hblp454uc.webp"
+    },
+    {
+      "id": "fisher-ob30smpug3",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "wall_oven",
+      "model": "OB30SMPUG3",
+      "name": "30\" Series 9 Minimal Self-Cleaning Oven - OB30SMPUG3",
+      "dimensions": {
+        "width": 29.875,
+        "height": 28.6875,
+        "depth": 23.4375
+      },
+      "depth_basis": "Manufacturer product dimensions; handle projection additional",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ovens/minimal-ovens/30in-series-9-minimal-self-cleaning-oven-ob30smpug3-84284.html",
+      "spec_url": "https://www.fisherpaykel.com/us/cooking/ovens/minimal-ovens/30in-series-9-minimal-self-cleaning-oven-ob30smpug3-84284.html",
+      "appearance": {
+        "finish": "black",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/nrmvx84bjk85gnmtp2gn5cr/fp-04-OB30SMPUG3-10-mug-us-ca-dp-00.png?height=500",
+      "image_path": "assets/appliances/fisher-ob30smpug3.png"
+    },
+    {
+      "id": "fisher-ob30scpudx3",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "wall_oven",
+      "model": "OB30SCPUDX3",
+      "name": "30\" Series 9 Contemporary Self-Cleaning Oven - OB30SCPUDX3",
+      "dimensions": {
+        "width": 29.875,
+        "height": 28.6875,
+        "depth": 23.4375
+      },
+      "depth_basis": "Manufacturer product dimensions; handle projection additional",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ovens/contemporary-ovens/30in-series-9-contemporary-self-cleaning-oven-ob30scpudx3-84895.html",
+      "spec_url": "https://www.fisherpaykel.com/on/demandware.static/-/Sites-fpa-master-catalog/default/dw4ef5fc29/DesignPlanning-FisherPaykelUS/FP-PlanningGuide-en-30InchContemporaryOvensCompanions-0-90004606C-US-CA.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 28.03125,
+        "depth": 23.5
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs"
+      },
+      "verified_at": "2026-10-08",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/345qtnh52t7nsk3qcms3c8k/fp-04-OB30SCPUDX3-10-mug-us-ca-dp-00.png?height=500",
+      "image_path": "assets/appliances/fisher-ob30scpudx3.png"
+    },
+    {
+      "id": "lg-wsep4723f",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "wall_oven",
+      "model": "WSEP4723F",
+      "name": "30-inch Smart Single Wall Oven with Air Fry",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29.4375,
+        "depth": 23.375
+      },
+      "depth_basis": "US product dimensions; handle projection additional",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-wsep4723f-smart-wall-oven",
+      "spec_url": "https://www.lg.com/us/business/download/resources/CT00021979/WSEP4723_LG_Pro_Builder_Spec_Sheet%5B20250110_025704%5D.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 29.125,
+        "depth": 24
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/51ef91e0-bbf6-4043-9bd1-ea3a1f14f606/Wall-Oven_WSEP4723F_gallery_01_5000x5000?io=transform:fill,width:640",
+      "image_path": "assets/appliances/lg-wsep4723f.jpg"
+    },
+    {
+      "id": "lg-wsep4727f",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "wall_oven",
+      "model": "WSEP4727F",
+      "name": "30-inch InstaView Smart Single Wall Oven",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29.4375,
+        "depth": 23.375
+      },
+      "depth_basis": "US product dimensions; handle projection additional",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-wsep4727f-smart-wall-oven",
+      "spec_url": "https://media.us.lg.com/m/52a0daca685a49ee/original/WSEP4727F-LG-Builder-Spec-Sheets.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 29.125,
+        "depth": 24
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://www.lg.com/us/images/cooking-appliances/md08003910/gallery/Medium-01.jpg",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-wsep4727f.jpg"
+    },
+    {
+      "id": "thermador-t36bt925ns",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "T36BT925NS",
+      "name": "T36BT925NS Built-in French Door Bottom Freezer 36'' Professional Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/13175768_T36BT925NS_STP_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "dimensions": {
+        "width": 35.75,
+        "height": 83.75,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 36,
+        "height": 84,
+        "depth": 25
+      },
+      "image_path": "assets/appliances/thermador-t36bt925ns.webp"
+    },
+    {
+      "id": "thermador-t36ft820ns",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "T36FT820NS",
+      "name": "Freedom\u00c2\u00ae Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/16936134_T36FT820NS_3_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "dimensions": {
+        "width": 35.625,
+        "height": 72,
+        "depth": 27.8125
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 36,
+        "height": 72,
+        "depth": 25
+      },
+      "image_path": "assets/appliances/thermador-t36ft820ns.webp"
+    },
+    {
+      "id": "thermador-dwhd661efp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFP",
+      "name": " Star Sapphire\u00c2\u00ae Dishwasher 24'' Professional, Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/24399162_DWHD661EFP-Thermador-StarSapphire-Dishwasher-Front_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-dwhd661efp.webp"
+    },
+    {
+      "id": "thermador-dwhd771wfp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD771WFP",
+      "name": "DWHD771WFP Dishwasher 24'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02774130_i9635_2112919_DWHD870WFP_CMYK_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-dwhd771wfp.webp"
+    },
+    {
+      "id": "thermador-sgs305ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS305TS",
+      "name": "Masterpiece\u00c2\u00ae Gas Cooktop 30'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02487335_i5086_1858982_SGS305TS_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "dimensions": {
+        "width": 31,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 28.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/thermador-sgs305ts.webp"
+    },
+    {
+      "id": "thermador-sgs365ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS365TS",
+      "name": "Masterpiece\u00c2\u00ae Gas Cooktop 36'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02487349_i5085_1858998_SGS365TS_def.webp",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "dimensions": {
+        "width": 37,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 34.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/thermador-sgs365ts.webp"
+    },
+    {
+      "id": "thermador-hpcn48ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN48WS",
+      "name": "Professional Pyramid Chimney Wall Hood 48'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20380428_HPCN48WS_v05_Front_Facing_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
+      "dimensions": {
+        "width": 47.9375,
+        "height": 18,
+        "depth": 24
+      },
+      "depth_basis": "Canopy only; optional chimney covers sold separately",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-hpcn48ws.webp"
+    },
+    {
+      "id": "thermador-hpcn36ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN36WS",
+      "name": "Professional Pyramid Chimney Wall Hood 36'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20380871_HPCN36WS_Front_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 18,
+        "depth": 24
+      },
+      "depth_basis": "Canopy only; optional chimney covers sold separately",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-hpcn36ws.webp"
+    },
+    {
+      "id": "thermador-mu30wsu",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MU30WSU",
+      "name": "MU30WSU Over-The-Range Microwave 30'' Left Side Opening Door, Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "over_range"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02756460_i9355_2099833_MU30WSU_PGA2_02_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.125,
+        "depth": 15.875
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-mu30wsu.webp"
+    },
+    {
+      "id": "thermador-md24bs",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MD24BS",
+      "name": "Professional MicroDrawer\u00c2\u00ae Microwave 24'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/23407183_MD24BS_STP_def.webp",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "dimensions": {
+        "width": 23.875,
+        "height": 16.3125,
+        "depth": 23.375
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 22.125,
+        "height": 15.5625,
+        "depth": 23.5
+      },
+      "image_path": "assets/appliances/thermador-md24bs.webp"
+    },
+    {
+      "id": "thermador-prg304wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG304WH",
+      "name": "PRG304WH Gas Professional Range 30'' Pro Harmony\u00c2\u00ae Standard Depth Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02703436_i8280_2048668_PRG304WH_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "dimensions": {
+        "width": 29.9375,
+        "height": 35.875,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-prg304wh.webp"
+    },
+    {
+      "id": "thermador-prg366wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG366WH",
+      "name": "PRG366WH Gas Professional Range 36'' Pro Harmony\u00c2\u00ae Standard Depth Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 6
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02703569_i8285_2048751_PRG366WH_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 35.875,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-prg366wh.webp"
+    },
+    {
+      "id": "bosch-b36ct80sns",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "fridge",
+      "model": "B36CT80SNS",
+      "name": "800 Series French Door Bottom Mount Refrigerator 36_IN Brushed steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/B36CT80SNS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02714469_i8483_2058246_B36CT80SNS_PAA_straight_front_closed_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/B36CT80SNS",
+      "dimensions": {
+        "width": 35.625,
+        "height": 72,
+        "depth": 27.8125
+      },
+      "depth_basis": "Manufacturer US depth without handles",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03224079_B36CT80SNS.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-b36ct80sns.webp"
+    },
+    {
+      "id": "bosch-b36cl80ens",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "fridge",
+      "model": "B36CL80ENS",
+      "name": "800 Series French Door Bottom Mount Refrigerator 36_IN Brushed steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/B36CL80ENS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_4door",
+        "handles": "pocket"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA03221077_1_B36CL80ENS_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/B36CL80ENS",
+      "dimensions": {
+        "width": 35.625,
+        "height": 72,
+        "depth": 27.8125
+      },
+      "depth_basis": "Manufacturer US depth without handles",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03224081_B36CL80ENS.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-b36cl80ens.webp"
+    },
+    {
+      "id": "bosch-shp78cm5n",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "dishwasher",
+      "model": "SHP78CM5N",
+      "name": "800 Series Dishwasher 24'' Stainless Steel Anti-fingerprint",
+      "product_url": "https://www.bosch-home.com/us/en/product/SHP78CM5N",
+      "appearance": {
+        "finish": "stainless",
+        "handles": "pocket"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/22719667_SHP78CM5N_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/SHP78CM5N",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/SHP78CM5N",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-shp78cm5n.webp"
+    },
+    {
+      "id": "bosch-shx78cm5n",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "dishwasher",
+      "model": "SHX78CM5N",
+      "name": "800 Series Dishwasher 24'' Stainless Steel Anti-fingerprint",
+      "product_url": "https://www.bosch-home.com/us/en/product/SHX78CM5N",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/22883991_SHX78CM5N-Bosch-Dish-Front-Facing-SS_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/SHX78CM5N",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/SHX78CM5N",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-shx78cm5n.webp"
+    },
+    {
+      "id": "bosch-ngm8059uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "cooktop",
+      "model": "NGM8059UC",
+      "name": "800 Series Gas Cooktop 30'' Stainless steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/NGM8059UC",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/19251147_NGM8058UC_Top_Shot_Full_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/NGM8059UC",
+      "dimensions": {
+        "width": 31,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/NGM8059UC",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 28.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/bosch-ngm8059uc.webp"
+    },
+    {
+      "id": "bosch-nit8061uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "cooktop",
+      "model": "NIT8061UC",
+      "name": "800 Series Induction Cooktop 30'' Without Frame",
+      "product_url": "https://www.bosch-home.com/us/en/product/NIT8061UC",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/25694548_NIT8061UC-Controls-ON_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/NIT8061UC",
+      "dimensions": {
+        "width": 31,
+        "height": 4.125,
+        "depth": 21.25
+      },
+      "depth_basis": "US PDF height 4 1/8 inches; product overview lists 4 inches. PDF used",
+      "spec_url": "https://media3.bsh-group.com/Documents/25980171_NIT8061UC_Spec_Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 28.875,
+        "height": 3.75,
+        "depth": 20
+      },
+      "image_path": "assets/appliances/bosch-nit8061uc.webp"
+    },
+    {
+      "id": "bosch-hcp30e52uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "hood",
+      "model": "HCP30E52UC",
+      "name": "300 Series Wall Hood Stainless Steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/ventilation/wall-hoods/HCP30E52UC",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/19725138_HCP30E52UC_v15_Front_Facing_3000x3000_0001_def.webp",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/ventilation/wall-hoods/HCP30E52UC",
+      "dimensions": {
+        "width": 30,
+        "height": 24.5625,
+        "depth": 19.6875
+      },
+      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16\u00e2\u20ac\u201c38 7/8 inches ducted",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03099593_HCP30E52UC.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hcp30e52uc.webp"
+    },
+    {
+      "id": "bosch-hcp36e52uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "hood",
+      "model": "HCP36E52UC",
+      "name": "300 Series Wall Hood 36'' Stainless Steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/ventilation/wall-hoods/HCP36E52UC",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/19724054_HCP36E52UC_Front_Facing_3000x3000_def.webp",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/ventilation/wall-hoods/HCP36E52UC",
+      "dimensions": {
+        "width": 36,
+        "height": 24.5625,
+        "depth": 19.6875
+      },
+      "depth_basis": "Minimum ducted height; telescoping chimney, 24 9/16\u00e2\u20ac\u201c38 7/8 inches ducted",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC03099589_HCP36E52UC.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hcp36e52uc.webp"
+    },
+    {
+      "id": "bosch-hmv8054u",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "microwave",
+      "model": "HMV8054U",
+      "name": "800 Series Over-The-Range Microwave 30'' Left SideOpening Door, Stainless Steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/over-the-range-microwaves/HMV8054U",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "over_range"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/23562049_HMV8054U-Bosch-microwave-stainless_steel-front_def.webp",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/over-the-range-microwaves/HMV8054U",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.5,
+        "depth": 15.875
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/over-the-range-microwaves/HMV8054U",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hmv8054u.webp"
+    },
+    {
+      "id": "bosch-hmd8454uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "microwave",
+      "model": "HMD8454UC",
+      "name": "800 Series Drawer Microwave 24'' Stainless Steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/drawer-microwaves/HMD8454UC",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/23407185_HMD8454UC_STP_def.webp",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/drawer-microwaves/HMD8454UC",
+      "dimensions": {
+        "width": 23.875,
+        "height": 16.3125,
+        "depth": 23.375
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/cooking-baking/microwaves/drawer-microwaves/HMD8454UC",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 22.125,
+        "height": 15.5625,
+        "depth": 23.5
+      },
+      "image_path": "assets/appliances/bosch-hmd8454uc.webp"
+    },
+    {
+      "id": "bosch-hgi8056uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "range",
+      "model": "HGI8056UC",
+      "name": "800 Series Gas Slide-in Range 30'' Stainless Steel",
+      "product_url": "https://www.bosch-home.com/us/en/product/HGI8056UC",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20111029_Bosch-range-HGI8056UC-SS-front_master_scaled_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/HGI8056UC",
+      "dimensions": {
+        "width": 31.5,
+        "height": 36.5,
+        "depth": 29.1875
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/HGI8056UC",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hgi8056uc.webp"
+    },
+    {
+      "id": "bosch-hii8057u",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "range",
+      "model": "HII8057U",
+      "name": "800 Series Induction Slide-in Range 30''",
+      "product_url": "https://www.bosch-home.com/us/en/product/HII8057U",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "induction",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20642935_Bosch-range-HII8057U-SS-front_upscale_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.bosch-home.com/us/en/product/HII8057U",
+      "dimensions": {
+        "width": 31.5,
+        "height": 36.5,
+        "depth": 28.875
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.bosch-home.com/us/en/product/HII8057U",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/bosch-hii8057u.webp"
+    },
+    {
+      "id": "sub-zero-cl3650u-s",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL3650U/S",
+      "name": "CL3650U/S",
+      "product_url": "https://www.subzero-wolf.com/products/36-classic-over-and-under-refrigerator-freezer-5310974-998057e92e3baf3f675b93ff61dfffd8/5310974-998057e92e3baf3f675b93ff61dfffd8",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "bottom_freezer_single",
+        "grille": 8.75
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/36-classic-over-and-under-refrigerator-freezer-5310974-998057e92e3baf3f675b93ff61dfffd8/media_1e74683328eb8a4f7e8d7e7df244ecb364d684275.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/36-classic-over-and-under-refrigerator-freezer-5310974-998057e92e3baf3f675b93ff61dfffd8/5310974-998057e92e3baf3f675b93ff61dfffd8",
+      "dimensions": {
+        "width": 36,
+        "height": 84,
+        "depth": 24
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/sub-zero/built-in-refrigeration/qr-sheets/bi-36u/built-in-refrigeration-qr-sheet-cl3650us-st.pdf",
+      "depth_basis": "Specified cabinet depth; doors project to 26 3/16 inches before handle",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/sub-zero-cl3650u-s.jpg"
+    },
+    {
+      "id": "sub-zero-cl4250sid-s",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL4250SID/S",
+      "name": "CL4250SID/S",
+      "product_url": "https://www.subzero-wolf.com/products/42-classic-side-by-side-refrigerator-freezer-with-internal-dispenser-5311021-998057e92e3baf3f675b93ff61dfffd8/5311021-998057e92e3baf3f675b93ff61dfffd8",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side",
+        "grille": 8.75
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/42-classic-side-by-side-refrigerator-freezer-with-internal-dispenser-5311021-998057e92e3baf3f675b93ff61dfffd8/media_1484cda5ddaec11fb2e1cd8d69d1ce02042d8a3f5.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/42-classic-side-by-side-refrigerator-freezer-with-internal-dispenser-5311021-998057e92e3baf3f675b93ff61dfffd8/5311021-998057e92e3baf3f675b93ff61dfffd8",
+      "dimensions": {
+        "width": 42,
+        "height": 84,
+        "depth": 24
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/sub-zero/built-in-refrigeration/qr-sheets/bi-42sid/built-in-refrigeration-qr-sheet-cl4250sids-st.pdf",
+      "depth_basis": "Specified cabinet depth; doors project to 26 3/16 inches before handle",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/sub-zero-cl4250sid-s.jpg"
+    },
+    {
+      "id": "cove-dw2451",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Cove",
+      "category": "dishwasher",
+      "model": "DW2451",
+      "name": "DW2451",
+      "product_url": "https://www.subzero-wolf.com/products/24-dishwasher-panel-ready-5910009-0168921117ad8854b892cdddb1f8c2f2/5910009-0168921117ad8854b892cdddb1f8c2f2",
+      "appearance": {
+        "finish": "stainless",
+        "handles": "none",
+        "panel_ready": true
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/24-dishwasher-panel-ready-5910009-0168921117ad8854b892cdddb1f8c2f2/media_178aefe3d82c70e507699ce0a7002449fad2df424.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/24-dishwasher-panel-ready-5910009-0168921117ad8854b892cdddb1f8c2f2/5910009-0168921117ad8854b892cdddb1f8c2f2",
+      "dimensions": {
+        "width": 23.625,
+        "height": 34.5,
+        "depth": 23.25
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/cove/dishwashers/qr-sheets/dw2451/dw2451-24-st.pdf",
+      "depth_basis": "Panel-ready chassis; custom panel and handle additional",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/cove-dw2451.jpg"
+    },
+    {
+      "id": "cove-dw2451ws",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Cove",
+      "category": "dishwasher",
+      "model": "DW2451WS",
+      "name": "DW2451WS",
+      "product_url": "https://www.subzero-wolf.com/products/24-dishwasher-with-water-softener-panel-ready-5910010-0168921117ad8854b892cdddb1f8c2f2/5910010-0168921117ad8854b892cdddb1f8c2f2",
+      "appearance": {
+        "finish": "stainless",
+        "handles": "none",
+        "panel_ready": true
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/24-dishwasher-with-water-softener-panel-ready-5910010-0168921117ad8854b892cdddb1f8c2f2/media_178aefe3d82c70e507699ce0a7002449fad2df424.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/24-dishwasher-with-water-softener-panel-ready-5910010-0168921117ad8854b892cdddb1f8c2f2/5910010-0168921117ad8854b892cdddb1f8c2f2",
+      "dimensions": {
+        "width": 23.625,
+        "height": 34.5,
+        "depth": 23.25
+      },
+      "spec_url": "https://ca.subzero-wolf.com/en/trade-resources/product-specifications/product-specifications-detail/24-inch-dishwasher-water-softener-panel-ready",
+      "depth_basis": "Panel-ready chassis; custom panel and handle additional",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/cove-dw2451ws.jpg"
+    },
+    {
+      "id": "wolf-cg304p-s",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "cooktop",
+      "model": "CG304P/S",
+      "name": "CG304P/S",
+      "product_url": "https://www.subzero-wolf.com/products/30-professional-gas-cooktop-4-burners-5610253-21c4b2b070ab82dfef680de315fded70/5610253-21c4b2b070ab82dfef680de315fded70",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/30-professional-gas-cooktop-4-burners-5610253-21c4b2b070ab82dfef680de315fded70/media_14064045eeb6da94c97a355e39eb280b6c3c2466c.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/30-professional-gas-cooktop-4-burners-5610253-21c4b2b070ab82dfef680de315fded70/5610253-21c4b2b070ab82dfef680de315fded70",
+      "dimensions": {
+        "width": 30,
+        "height": 4,
+        "depth": 21
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/gas-cooktops/qr-sheets/cg30/quick-reference-guide-cg304p.pdf",
+      "depth_basis": "Manufacturer overall dimensions",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 29,
+        "depth": 19.5
+      },
+      "image_path": "assets/appliances/wolf-cg304p-s.jpg"
+    },
+    {
+      "id": "wolf-ci36560t-s",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "cooktop",
+      "model": "CI36560T/S",
+      "name": "CI36560T/S",
+      "product_url": "https://www.subzero-wolf.com/products/36-transitional-induction-cooktop-5610769/5610769",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/36-transitional-induction-cooktop-5610769/media_120b2ed85b5b13de02d31c991e79ac5b6c1d75db1.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/36-transitional-induction-cooktop-5610769/5610769",
+      "dimensions": {
+        "width": 36,
+        "height": 2,
+        "depth": 21
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/induction-cooktops/qr-sheets/quick-reference-guide-ci36560t.pdf",
+      "depth_basis": "Manufacturer overall dimensions",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 35,
+        "depth": 19.5
+      },
+      "image_path": "assets/appliances/wolf-ci36560t-s.jpg"
+    },
+    {
+      "id": "wolf-pw302418",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "hood",
+      "model": "PW302418",
+      "name": "PW302418",
+      "product_url": "https://www.subzero-wolf.com/products/30-pro-wall-hood-24-depth-5610823/5610823",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/30-pro-wall-hood-24-depth-5610823/media_1da9f935120561cd6b9df20dc370622e699f2bac9.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/30-pro-wall-hood-24-depth-5610823/5610823",
+      "dimensions": {
+        "width": 30,
+        "height": 18,
+        "depth": 24
+      },
+      "spec_url": "https://www.subzero-wolf.com/qrExport/pw302418.pdf",
+      "depth_basis": "Hood body; optional duct covers additional",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-pw302418.jpg"
+    },
+    {
+      "id": "wolf-pw362418",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "hood",
+      "model": "PW362418",
+      "name": "PW362418",
+      "product_url": "https://www.subzero-wolf.com/products/36-pro-wall-hood-24-depth-5610824/5610824",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/36-pro-wall-hood-24-depth-5610824/media_16ec52a665aaf0c2a644c18a4e8c8488e5929e294.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/36-pro-wall-hood-24-depth-5610824/5610824",
+      "dimensions": {
+        "width": 36,
+        "height": 18,
+        "depth": 24
+      },
+      "spec_url": "https://www.subzero-wolf.com/qrExport/pw362418.pdf",
+      "depth_basis": "Hood body; optional duct covers additional",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-pw362418.jpg"
+    },
+    {
+      "id": "wolf-md24te-s",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "microwave",
+      "model": "MD24TE/S",
+      "name": "MD24TE/S",
+      "product_url": "https://www.subzero-wolf.com/products/24-transitional-drawer-microwave-5610635/5610635",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/24-transitional-drawer-microwave-5610635/media_13d3f3ce01e5b03d749ea584d366f8328c7d6bd4f.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/24-transitional-drawer-microwave-5610635/5610635",
+      "dimensions": {
+        "width": 23.875,
+        "height": 15.125,
+        "depth": 21.875
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/microwaves/qr-sheets/drawer/md24te-fi.pdf",
+      "depth_basis": "Depth behind frame",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-md24te-s.jpg"
+    },
+    {
+      "id": "wolf-ms24",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "microwave",
+      "model": "MS24",
+      "name": "MS24",
+      "product_url": "https://www.subzero-wolf.com/products/24-standard-microwave-oven-5610279/5610279",
+      "appearance": {
+        "finish": "black",
+        "installation": "countertop",
+        "door": "side_swing"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/24-standard-microwave-oven-5610279/media_18d77ee78f97d0b6afcf83f799cbe9a8733671c24.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/24-standard-microwave-oven-5610279/5610279",
+      "dimensions": {
+        "width": 24,
+        "height": 13.375,
+        "depth": 19
+      },
+      "spec_url": "https://www.subzero-wolf.com/qrExport/ms24-st.pdf",
+      "depth_basis": "Specified depth 19 inches; side drawing lists 19 1/8 inches; accessory trim additional",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-ms24.jpg"
+    },
+    {
+      "id": "wolf-gr304",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "range",
+      "model": "GR304",
+      "name": "GR304",
+      "product_url": "https://www.subzero-wolf.com/products/30-gas-range-5610210-c98209502525055c31e966622497f0f3/5610210-c98209502525055c31e966622497f0f3",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "knob_color": "red",
+        "cooktop": "gas",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/30-gas-range-5610210-c98209502525055c31e966622497f0f3/media_178fd4ab7eb2ff4a053583848e8dc71f184de1b6b.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/30-gas-range-5610210-c98209502525055c31e966622497f0f3/5610210-c98209502525055c31e966622497f0f3",
+      "dimensions": {
+        "width": 29.875,
+        "height": 37,
+        "depth": 28.375
+      },
+      "spec_url": "https://www.subzero-wolf.com/products/assets/wolf/gas-ranges/qr-sheets/gr30/wolf-qr-sheet-gr304.pdf",
+      "depth_basis": "Manufacturer overall dimensions; adjustable height 37\u00e2\u20ac\u201c38 inches",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-gr304.jpg"
+    },
+    {
+      "id": "wolf-df36650-s-p",
+      "brand": "Wolf / Sub-Zero",
+      "manufacturer": "Wolf",
+      "category": "range",
+      "model": "DF36650/S/P",
+      "name": "DF36650/S/P",
+      "product_url": "https://www.subzero-wolf.com/products/36-dual-fuel-range-6-burners-5610650-0d4a15e3f36c8ad0ab4d11f05f4ed9ef/5610650-0d4a15e3f36c8ad0ab4d11f05f4ed9ef",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "knob_color": "stainless",
+        "cooktop": "gas",
+        "burners": 6
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.subzero-wolf.com/products/36-dual-fuel-range-6-burners-5610650-0d4a15e3f36c8ad0ab4d11f05f4ed9ef/media_18654a2ec2ba2930c2c27dac1bb82ba6855be6f6d.avif?width=1200&format=pjpg&optimize=medium",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.subzero-wolf.com/products/36-dual-fuel-range-6-burners-5610650-0d4a15e3f36c8ad0ab4d11f05f4ed9ef/5610650-0d4a15e3f36c8ad0ab4d11f05f4ed9ef",
+      "dimensions": {
+        "width": 35.875,
+        "height": 36.5,
+        "depth": 29.5
+      },
+      "spec_url": "https://www.subzero-wolf.com/qrExport/wolf-qr-sheet-df36650.pdf",
+      "depth_basis": "Manufacturer overall dimensions",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/wolf-df36650-s-p.jpg"
+    },
+    {
+      "id": "fisher-paykel-rf201adx5-n",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "fridge",
+      "model": "RF201ADX5 N",
+      "name": "20.1 cu ft Series 7 French Door Refrigerator Freezer - RF201ADX5 N",
+      "product_url": "https://www.fisherpaykel.com/us/cooling/freestanding/20.1-cu-ft-series-7-french-door-refrigerator-freezer--rf201adx5-n-26310.html",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooling/freestanding/20.1-cu-ft-series-7-french-door-refrigerator-freezer--rf201adx5-n-26310.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/gmn7np2cfw45kk94jsn37j6/fp-02-RF201ADX5-10-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 35.4375,
+        "height": 70.75,
+        "depth": 27.375
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/cooling/freestanding/20.1-cu-ft-series-7-french-door-refrigerator-freezer--rf201adx5-n-26310.html",
+      "depth_basis": "Manufacturer US product dimensions",
+      "image_path": "assets/appliances/fisher-paykel-rf201adx5-n.png"
+    },
+    {
+      "id": "fisher-paykel-rf203qduvx1",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "fridge",
+      "model": "RF203QDUVX1",
+      "name": "Freestanding Quad Door Refrigerator Freezer, 36\", 18.9 cu ft, Ice & Water",
+      "product_url": "https://www.fisherpaykel.com/us/cooling/freestanding/18.9-cu-ft-series-7-quad-door-refrigerator-freezer-ice-and-water-rf203qduvx1-26554.html",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_4door",
+        "dispenser": true
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooling/freestanding/18.9-cu-ft-series-7-quad-door-refrigerator-freezer-ice-and-water-rf203qduvx1-26554.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/5n5fhn2qk8s88cf2s3k85s4/fp-02-RF203QDUVX1-10-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 35.625,
+        "height": 70.5,
+        "depth": 27.0625
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/cooling/freestanding/18.9-cu-ft-series-7-quad-door-refrigerator-freezer-ice-and-water-rf203qduvx1-26554.html",
+      "depth_basis": "Manufacturer US product dimensions",
+      "image_path": "assets/appliances/fisher-paykel-rf203qduvx1.png"
+    },
+    {
+      "id": "fisher-paykel-dd24dax9-n",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "dishwasher",
+      "model": "DD24DAX9 N",
+      "name": "Double DishDrawer\u00e2\u201e\u00a2 Dishwasher",
+      "product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-double-dishdrawer-dishwasher-dd24dax9-n-82328.html",
+      "appearance": {
+        "finish": "stainless",
+        "drawers": 2
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-double-dishdrawer-dishwasher-dd24dax9-n-82328.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/jkxv6933hb5mftf9m8wz59k5/fp-02-DD24DAX9-10-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 32.3125,
+        "depth": 22.5625
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-double-dishdrawer-dishwasher-dd24dax9-n-82328.html",
+      "depth_basis": "Manufacturer US product dimensions; minimum height selected, adjustable height 32 5 / 16 - 34 5 / 8 inches",
+      "image_path": "assets/appliances/fisher-paykel-dd24dax9-n.png"
+    },
+    {
+      "id": "fisher-paykel-dd24dctx9-n",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "dishwasher",
+      "model": "DD24DCTX9 N",
+      "name": "Double DishDrawer\u00e2\u201e\u00a2 Dishwasher, Tall, Sanitize",
+      "product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-tall-double-dishdrawer-dishwasher-dd24dctx9-n-82331.html",
+      "appearance": {
+        "finish": "stainless",
+        "drawers": 2
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-tall-double-dishdrawer-dishwasher-dd24dctx9-n-82331.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/r36k4538mvs745cg68q92wxp/fp-02-DD24DCTX9-10-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 34,
+        "depth": 22.5625
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/dishwashing/built-in/series-7-contemporary-tall-double-dishdrawer-dishwasher-dd24dctx9-n-82331.html",
+      "depth_basis": "Manufacturer US product dimensions; minimum height selected, adjustable height 34 - 36 3 / 8 inches",
+      "image_path": "assets/appliances/fisher-paykel-dd24dctx9-n.png"
+    },
+    {
+      "id": "fisher-cg305dngx1-n",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "cooktop",
+      "model": "CG305DNGX1 N",
+      "name": "Gas on Steel Cooktop, 30\"",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/cooktops/contemporary-cooktops/30in-series-7-5-burner-gas-cooktop-natural-gas-cg305dngx1-n-81459.html",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/cooktops/contemporary-cooktops/30in-series-7-5-burner-gas-cooktop-natural-gas-cg305dngx1-n-81459.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/9fctkfcfr55h3h5f84csshtr/fp-02-CG305DNGX1-CG305DLPX1-20-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 29.5,
+        "height": 2.5,
+        "depth": 20.875
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/4zct9n85gnw7bswh5rhwk4/FP-InstallGuide-CG305DLPX1-N-GasCooktop-CA-US-590486G.pdf",
+      "depth_basis": "US installation guide dimensions; 2 1/2-inch height excludes burners and supports. Product page dimensions differ slightly; installation guide used.",
+      "cutout": {
+        "width": 27.75,
+        "depth": 19.5,
+        "front_offset": 0.4375
+      },
+      "image_path": "assets/appliances/fisher-cg305dngx1-n.png"
+    },
+    {
+      "id": "fisher-cg365dngx1-n",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "cooktop",
+      "model": "CG365DNGX1 N",
+      "name": "Gas on Steel Cooktop, 36\"",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/cooktops/contemporary-cooktops/36in-series-7-5-burner-gas-cooktop-natural-gas-cg365dngx1-n-81457.html",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/cooktops/contemporary-cooktops/36in-series-7-5-burner-gas-cooktop-natural-gas-cg365dngx1-n-81457.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/nqwvrw2nnjpr9vfxkqpbqc83/fp-02-CG365DNGX1-CG365DLPX1-20-mug-dp.png?height=500",
+      "dimensions": {
+        "width": 35.5,
+        "height": 2.5,
+        "depth": 20.875
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/4zct9n85gnw7bswh5rhwk4/FP-InstallGuide-CG305DLPX1-N-GasCooktop-CA-US-590486G.pdf",
+      "depth_basis": "US installation guide dimensions; 2 1/2-inch height excludes burners and supports. Product page dimensions differ slightly; installation guide used.",
+      "cutout": {
+        "width": 34.0625,
+        "depth": 19.3125,
+        "front_offset": 0.375
+      },
+      "image_path": "assets/appliances/fisher-cg365dngx1-n.png"
+    },
+    {
+      "id": "fisher-hc30dcxb4",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "hood",
+      "model": "HC30DCXB4",
+      "name": "30\" Series 7 Box Chimney Wall Range Hood - HC30DCXB4",
+      "product_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/30in-series-7-box-chimney-wall-range-hood-hc30dcxb4-50209.html",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/30in-series-7-box-chimney-wall-range-hood-hc30dcxb4-50209.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/vxn4xcnpvrhbjvtpxmhm3x/fp_04_HC30DCXB4_10_mug_us-ca_dp_00.png?height=500",
+      "dimensions": {
+        "width": 29.75,
+        "height": 25,
+        "depth": 19.6875
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/30in-series-7-box-chimney-wall-range-hood-hc30dcxb4-50209.html",
+      "depth_basis": "Manufacturer US product dimensions; minimum height selected, adjustable height 25 - 40 3 / 4 inches",
+      "image_path": "assets/appliances/fisher-hc30dcxb4.png"
+    },
+    {
+      "id": "fisher-hc36dcxb4",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "hood",
+      "model": "HC36DCXB4",
+      "name": "36\" Series 7 Box Chimney Wall Range Hood - HC36DCXB4",
+      "product_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/36in-series-7-box-chimney-wall-range-hood-hc36dcxb4-50210.html",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/36in-series-7-box-chimney-wall-range-hood-hc36dcxb4-50210.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/qgrhmk769r6q336gtpq77fs/fp-04-HC36DCXB4-10-mug-us-ca-dp-00.png?height=500",
+      "dimensions": {
+        "width": 35.375,
+        "height": 25,
+        "depth": 19.6875
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/ventilation/all-ventilation/36in-series-7-box-chimney-wall-range-hood-hc36dcxb4-50210.html",
+      "depth_basis": "Manufacturer US product dimensions; minimum height selected, adjustable height 25 - 40 3 / 4 inches",
+      "image_path": "assets/appliances/fisher-hc36dcxb4.png"
+    },
+    {
+      "id": "fisher-om30nctdx3",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "microwave",
+      "model": "OM30NCTDX3",
+      "name": "30\" Series 7 Contemporary Compact Convection-Speed Oven - OM30NCTDX3",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ovens/contemporary-ovens/30in-series-7-contemporary-compact-convection-speed-oven-om30nctdx3-85735.html",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/ovens/contemporary-ovens/30in-series-7-contemporary-compact-convection-speed-oven-om30nctdx3-85735.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/sxrth87vgsk9qsg2b37jhjv/fp-04-OM30NCTDX3-10-mug-us-ca-dp-00.png?height=500",
+      "dimensions": {
+        "width": 29.875,
+        "height": 18,
+        "depth": 22.25
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/cooking/ovens/contemporary-ovens/30in-series-7-contemporary-compact-convection-speed-oven-om30nctdx3-85735.html",
+      "depth_basis": "Manufacturer US product dimensions",
+      "image_path": "assets/appliances/fisher-om30nctdx3.png"
+    },
+    {
+      "id": "fisher-om30nmunb3",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "microwave",
+      "model": "OM30NMUNB3",
+      "name": "30\" Series 9 Minimal Handleless Compact Convection-Speed Oven - OM30NMUNB3",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ovens/all-ovens/30in-series-9-minimal-handleless-compact-convection-speed-oven-om30nmunb3-84981.html",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/ovens/all-ovens/30in-series-9-minimal-handleless-compact-convection-speed-oven-om30nmunb3-84981.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/57rqnk2sm9kr5bb2pxkj4ck/fp-04-OM30NMUNB3-10-mug-us-ca-dp-00.png?height=500",
+      "dimensions": {
+        "width": 29.875,
+        "height": 18,
+        "depth": 22.25
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/cooking/ovens/all-ovens/30in-series-9-minimal-handleless-compact-convection-speed-oven-om30nmunb3-84981.html",
+      "depth_basis": "Manufacturer US product dimensions",
+      "image_path": "assets/appliances/fisher-om30nmunb3.png"
+    },
+    {
+      "id": "fisher-or30sdi6x1",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "range",
+      "model": "OR30SDI6X1",
+      "name": "Fisher &amp; Paykel USA",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges-baseor30sdi6x1-baseOR30SDI6X1.html",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction",
+        "burners": 4,
+        "controls": "knobs"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "dimensions": {
+        "width": 29.875,
+        "height": 35.75,
+        "depth": 25.25
+      },
+      "spec_url": "https://www.fisherpaykel.com/on/demandware.static/-/Sites-fpa-master-catalog/default/dw3508bf1c/QRG/US/QRG-US-81722.pdf",
+      "depth_basis": "Manufacturer US dimensions; minimum adjustable height, 35 3/4\u00e2\u20ac\u201c37 5/8 inches",
+      "verified_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges-baseor30sdi6x1-baseOR30SDI6X1.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/gx54t2gmb8gqbg5p5pkpght/fp-02-OR30SDI6X1-10-mug-dp.png?height=500",
+      "image_path": "assets/appliances/fisher-or30sdi6x1.png"
+    },
+    {
+      "id": "fisher-or30sdg6x1",
+      "brand": "Fisher & Paykel",
+      "manufacturer": "Fisher & Paykel",
+      "category": "range",
+      "model": "OR30SDG6X1",
+      "name": "30\" Series 9 Contemporary 4 Burner Dual Fuel Self-Cleaning Range - OR30SDG6X1",
+      "product_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges/30in-series-9-contemporary-4-burner-dual-fuel-self-cleaning-range-or30sdg6x1-82764.html",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges/30in-series-9-contemporary-4-burner-dual-fuel-self-cleaning-range-or30sdg6x1-82764.html",
+      "image_url": "https://dam.fisherpaykel.com/KZ3PKN00/at/9xjcwmgtf5zbv6gtrqcg656/fp-04-OR30SDG6X1-10-mug-us-ca-dp.png?height=500",
+      "dimensions": {
+        "width": 29.875,
+        "height": 35.75,
+        "depth": 25.25
+      },
+      "verified_at": "2026-10-08",
+      "spec_url": "https://www.fisherpaykel.com/us/cooking/ranges/contemporary-ranges/30in-series-9-contemporary-4-burner-dual-fuel-self-cleaning-range-or30sdg6x1-82764.html",
+      "depth_basis": "Manufacturer US product dimensions; minimum height selected, adjustable height 35 3 / 4 - 37 5 / 8 inches",
+      "image_path": "assets/appliances/fisher-or30sdg6x1.png"
+    },
+    {
+      "id": "lg-lrflc2706s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "fridge",
+      "model": "LRFLC2706S",
+      "name": "LRFLC2706S",
+      "product_url": "https://www.lg.com/us/refrigerators/lg-lrflc2706s-french-3-door-refrigerator",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://www.lg.com/us/images/refrigerators/md08002812/450.jpg",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/refrigerators/lg-lrflc2706s-french-3-door-refrigerator",
+      "dimensions": {
+        "width": 35.75,
+        "height": 70.25,
+        "depth": 31.625
+      },
+      "depth_basis": "Depth includes handles; height to top hinge",
+      "spec_url": "https://media.us.lg.com/asset/bfb2aaed-1deb-4750-ac4a-68ed27dae589/LRFLC2706S_LG_Pro_Builder_Spec_Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-lrflc2706s.jpg"
+    },
+    {
+      "id": "lg-lrykc2606s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "fridge",
+      "model": "LRYKC2606S",
+      "name": "LRYKC2606S",
+      "product_url": "https://www.lg.com/us/refrigerators/lg-lrykc2606s-french-3-door-refrigerator",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door",
+        "dispenser": true,
+        "instaview": true,
+        "handles": "pocket"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/977cb683-395e-459f-984b-da5b463189f1/Refrigerator_LRYKC2606S_lg-largest-badge_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/refrigerators/lg-lrykc2606s-french-3-door-refrigerator",
+      "dimensions": {
+        "width": 35.75,
+        "height": 70.25,
+        "depth": 29.125
+      },
+      "depth_basis": "Manufacturer US depth with pocket handles; height to top hinge",
+      "spec_url": "https://media.us.lg.com/m/6631e78deef0e872/original/LRYKC2606_-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-lrykc2606s.jpg"
+    },
+    {
+      "id": "lg-ldth7972s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "dishwasher",
+      "model": "LDTH7972S",
+      "name": "LDTH7972S",
+      "product_url": "https://www.lg.com/us/dishwashers/lg-ldth7972s-top-control-dishwasher",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/5d894836-2abc-462a-a75f-8a299a0b59b4/Dishwasher_LDTH7972S_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/dishwashers/lg-ldth7972s-top-control-dishwasher",
+      "dimensions": {
+        "width": 23.75,
+        "height": 33.625,
+        "depth": 24.625
+      },
+      "depth_basis": "Depth includes handle; minimum adjustable height",
+      "spec_url": "https://media.us.lg.com/m/11d7de85bb4c869f/original/LDTH7972_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-ldth7972s.jpg"
+    },
+    {
+      "id": "lg-ldph5554s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "dishwasher",
+      "model": "LDPH5554S",
+      "name": "LDPH5554S",
+      "product_url": "https://www.lg.com/us/dishwashers/lg-ldph5554s-top-control-dishwasher",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGalleryThumbnail-350x350/73fffb44-27c1-46ad-b423-9e2aa5019459/LDPH5554S_gallery_1_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/dishwashers/lg-ldph5554s-top-control-dishwasher",
+      "dimensions": {
+        "width": 23.75,
+        "height": 33.625,
+        "depth": 24.625
+      },
+      "depth_basis": "Depth includes handle; adjustable height 33 5/8\u00e2\u20ac\u201c36 inches",
+      "spec_url": "https://media.us.lg.com/m/67e836f4eaada755/original/LDPH5554S_D_2024_Spec_Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-ldph5554s.jpg"
+    },
+    {
+      "id": "lg-cbgj3027s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "cooktop",
+      "model": "CBGJ3027S",
+      "name": "CBGJ3027S",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-cbgj3027s-gas-cooktop",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/c4266bd6-83ee-45aa-80e1-eca8ef1e85db/Cooking-Appliances_CBGJ3027S_reliable_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-cbgj3027s-gas-cooktop",
+      "dimensions": {
+        "width": 30,
+        "height": 3.75,
+        "depth": 21
+      },
+      "depth_basis": "Manufacturer US overall dimensions",
+      "spec_url": "https://media.us.lg.com/m/58002ef2df218a8e/original/CBGJ3027S-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 28.5,
+        "height": 3.75,
+        "depth": 19.625
+      },
+      "image_path": "assets/appliances/lg-cbgj3027s.jpg"
+    },
+    {
+      "id": "lg-cbih3617be",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "cooktop",
+      "model": "CBIH3617BE",
+      "name": "36 Inch Smart Induction Cooktop with UltraHeat\u00e2\u201e\u00a2 5.0kW Element",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-cbih3617be-electric-cooktop",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/40d11972-01a7-4bae-b266-4d11649a1683/CBIH3617BE_gallery_1_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-cbih3617be-electric-cooktop",
+      "dimensions": {
+        "width": 36.625,
+        "height": 3.6875,
+        "depth": 21.0625
+      },
+      "spec_url": "https://www.lg.com/us/business/download/resources/CT00021979/CBIH3617BE_LG_Pro_Builder_Spec_Sheet%5B20250426_002534%5D.pdf",
+      "depth_basis": "Manufacturer overall dimensions",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 33.875,
+        "height": 5.75,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/lg-cbih3617be.jpg"
+    },
+    {
+      "id": "lg-hced3015s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "hood",
+      "model": "HCED3015S",
+      "name": "HCED3015S",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-hced3015s-wall-mount-range-hood",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/24c11c67-f770-4f25-a6a1-5b1c2cec3a4b/Cooking-Appliances_HCED3015S_reliable_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-hced3015s-wall-mount-range-hood",
+      "dimensions": {
+        "width": 29.9375,
+        "height": 27,
+        "depth": 22.0625
+      },
+      "depth_basis": "Minimum chimney height; adjustable overall height 27\u00e2\u20ac\u201c48 1/2 inches",
+      "spec_url": "https://media.us.lg.com/m/341bfefbc687d97d/original/HCED3015_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-hced3015s.jpg"
+    },
+    {
+      "id": "lg-hced3615s",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "hood",
+      "model": "HCED3615S",
+      "name": "HCED3615S",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-hced3615s-wall-mount-range-hood",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/0acfb103-1147-4ffb-8edd-d6f9318cdd94/Cooking-Appliances_HCED3615S_reliable_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-hced3615s-wall-mount-range-hood",
+      "dimensions": {
+        "width": 35.4375,
+        "height": 27,
+        "depth": 22.0625
+      },
+      "depth_basis": "Minimum chimney height; adjustable overall height 27\u00e2\u20ac\u201c48 1/2 inches",
+      "spec_url": "https://media.us.lg.com/m/294576b93420c7c0/original/HCED3615_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-hced3615s.jpg"
+    },
+    {
+      "id": "lg-mvel2137f",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "microwave",
+      "model": "MVEL2137F",
+      "name": "MVEL2137F",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-mvel2137f-over-the-range-microwave",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "over_range"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/1f82996d-07b5-459f-8f0e-b6dd0f96432f/Microwave_MVEL2137F_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-mvel2137f-over-the-range-microwave",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.9375,
+        "depth": 15.875
+      },
+      "depth_basis": "Manufacturer US product dimensions",
+      "spec_url": "https://media.us.lg.com/m/115027a88d41101f/original/MVEL2137_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-mvel2137f.jpg"
+    },
+    {
+      "id": "lg-mvem1825f",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "microwave",
+      "model": "MVEM1825F",
+      "name": "MVEM1825F",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-mvem1825f-over-the-range-microwave",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "over_range"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/8765ceb5-dd03-4538-8029-5ff11ef484c2/Microwave_MVEM1825F_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-mvem1825f-over-the-range-microwave",
+      "dimensions": {
+        "width": 29.875,
+        "height": 16.4375,
+        "depth": 15.875
+      },
+      "depth_basis": "Manufacturer US product dimensions",
+      "spec_url": "https://media.us.lg.com/m/3b4e96e6946ab368/original/MVEM1825_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-mvem1825f.jpg"
+    },
+    {
+      "id": "lg-lsgl6335f",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "range",
+      "model": "LSGL6335F",
+      "name": "LSGL6335F",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-lsgl6335f-slide-in-gas-range-with-air-fryer",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/17ff37da-e086-4348-95e5-f42986c5beff/Cooking-Appliances_LSGL6335F_reliable_gallery_01_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-lsgl6335f-slide-in-gas-range-with-air-fryer",
+      "dimensions": {
+        "width": 29.875,
+        "height": 37.125,
+        "depth": 29.28125
+      },
+      "depth_basis": "Depth includes door handle",
+      "spec_url": "https://media.us.lg.com/m/6d6a0931d3c13261/original/LSGL6335_-LG-Builder-Spec-Sheet.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-lsgl6335f.jpg"
+    },
+    {
+      "id": "lg-lsil6336fe",
+      "brand": "LG",
+      "manufacturer": "LG",
+      "category": "range",
+      "model": "LSIL6336FE",
+      "name": "6.3 cu. ft. Smart Induction Slide-in Range with InstaView\u00c2\u00ae, ProBake Convection\u00c2\u00ae, Air Fry, and Air Sous Vide",
+      "product_url": "https://www.lg.com/us/cooking-appliances/lg-lsil6336fe-slide-in-electric-range",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "induction",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/a7656288-6945-4195-9d45-68529e32de2a/Ranges-LSIL6336FE-Front-gallery_5000x5000?io=transform:fill,width:640",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.lg.com/us/cooking-appliances/lg-lsil6336fe-slide-in-electric-range",
+      "dimensions": {
+        "width": 29.875,
+        "height": 36.5,
+        "depth": 29.3125
+      },
+      "spec_url": "https://www.lg.com/us/business/download/resources/CT00021979/LSIL6336FE_LG_Pro_Builder_Spec_Sheet%5B20240808_213446%5D.pdf",
+      "depth_basis": "Depth includes handle; cooking surface at 36 inches",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/lg-lsil6336fe.jpg"
+    },
+    {
+      "id": "thermador-columns-42-24r-18f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "42\" Columns \u2014 18\" Freezer + 24\" Refrigerator",
+      "name": "T18IF905SP + T24IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "dimensions": {
+        "width": 41.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "42\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-42-18F-24R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-42-18F-24R-comparison.jpg"
+    },
+    {
+      "id": "thermador-columns-48-24r-24f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "48\" Columns \u2014 24\" Freezer + 24\" Refrigerator",
+      "name": "T24IF905SP + T24IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "dimensions": {
+        "width": 47.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-48-24F-24R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-48-24F-24R-comparison.jpg"
+    },
+    {
+      "id": "thermador-columns-48-30r-18f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "48\" Columns \u2014 18\" Freezer + 30\" Refrigerator",
+      "name": "T18IF905SP + T30IR905SP \u00b7 Stainless panels \u00b7 Professional handles \u00b7 Exterior only",
+      "dimensions": {
+        "width": 47.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-48-18F-30R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-48-18F-30R-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-prg366wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG366WH \u2014 36\" Range",
+      "name": "36\" Professional gas range with cooktop \u00b7 Custom model",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 35.875,
+        "depth": 27.375
+      },
+      "depth_basis": "Overall modeled dimensions including handles. Approved repaired model.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-08",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "image_path": "assets/appliances/thermador-review/PRG366WH-repaired-front.png",
+      "reference_image_path": "assets/appliances/thermador-review/PRG366WH-repaired-front.png"
+    },
+    {
+      "id": "thermador-custom-prg486wdh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG486WDH \u2014 48\" Range",
+      "name": "48\" Professional gas range with cooktop \u00b7 Custom model",
+      "dimensions": {
+        "width": 47.9375,
+        "height": 35.875,
+        "depth": 27.375
+      },
+      "depth_basis": "Overall modeled dimensions including handles. Approved repaired model.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-08",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
+      "image_path": "assets/appliances/thermador-review/PRG486WDH-repaired-front.png",
+      "reference_image_path": "assets/appliances/thermador-review/PRG486WDH-repaired-front.png"
+    },
+    {
+      "id": "thermador-custom-dwhd661efp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFP \u2014 24\" Professional",
+      "name": "Star Sapphire dishwasher \u00b7 Professional handle \u00b7 Exterior only",
+      "dimensions": {
+        "width": 23.5625,
+        "depth": 26,
+        "height": 33.875
+      },
+      "depth_basis": "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFP",
+      "spec_url": "https://media3.bsh-group.com/Documents/24732547_DWHD661EFP-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-PROFESSIONAL-COLLECTION-HANDLE-Specifications.pdf",
+      "image_path": "assets/appliances/thermador-dishwashers/DWHD661EFP-front.png",
+      "reference_image_path": "assets/appliances/thermador-dishwashers/DWHD661EFP-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-dwhd661efm",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFM \u2014 24\" Masterpiece",
+      "name": "Star Sapphire dishwasher \u00b7 Masterpiece handle \u00b7 Exterior only",
+      "dimensions": {
+        "width": 23.5625,
+        "depth": 25.75,
+        "height": 33.875
+      },
+      "depth_basis": "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFM",
+      "spec_url": "https://media3.bsh-group.com/Documents/24732545_DWHD661EFM-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-MASTERPIECE-COLLECTION-HANDLE-Specifications.pdf",
+      "image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-front.png",
+      "reference_image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-comparison.jpg"
+    }
+  ]
+}
