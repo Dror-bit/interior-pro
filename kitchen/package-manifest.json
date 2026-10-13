@@ -13,8 +13,8 @@
     },
     {
       "path": "appliance_catalog.json",
-      "bytes": 33531,
-      "sha256": "f15e7492702c98f27b9d0e4ce15a3725abb12c8e26aed92b2b04331520a17021"
+      "bytes": 65003,
+      "sha256": "09915fd2e5144470b4e07742ae5c9780c9a865b5b7da94953a95a8a8749e1a4a"
     },
     {
       "path": "appliance_gallery.js",
@@ -498,8 +498,8 @@
     },
     {
       "path": "kitchen.html",
-      "bytes": 17131,
-      "sha256": "639b4011bdb20e4236b124199803cd603f148f5c0b119c8fa8e73507f6305621"
+      "bytes": 17176,
+      "sha256": "3eda1db2aaea2fdfdd960646be54085ae9327164d495076e272eec38357a50b7"
     },
     {
       "path": "kitchen.js",
@@ -508,18 +508,18 @@
     },
     {
       "path": "kitchen_appearance.rb",
-      "bytes": 1575,
-      "sha256": "c808a204463292556c0f38afbbc9d17debcef9721323f9e8adf9bd12029c569c"
+      "bytes": 1696,
+      "sha256": "74478db88cadfc8230e9a8e3afc5257d974ce422ba3b184f69f0767a3df7654a"
     },
     {
       "path": "kitchen_appliance_assets.rb",
-      "bytes": 5334,
-      "sha256": "6e9a8a7ae4ff090354210d5a29cc31c0ef4b9263dcfeb7404f842e84d4d07e7b"
+      "bytes": 5504,
+      "sha256": "500c3d68570fcf2c1432bc649a837533f87edcaac5fdd98307d6c1fb563987f4"
     },
     {
       "path": "kitchen_appliance_catalog.rb",
-      "bytes": 9318,
-      "sha256": "fa3dd9b0cff3f12c9b02202493342815fbad897db38cbd531925589375984301"
+      "bytes": 9332,
+      "sha256": "a72e77f2afa24d06a4d8d41508c3fd070b602323246a46f7a998b3175e6e5ef5"
     },
     {
       "path": "kitchen_bootstrap.rb",
@@ -528,8 +528,8 @@
     },
     {
       "path": "kitchen_canvas_symbols.js",
-      "bytes": 8032,
-      "sha256": "358026c66e7d63fb410b374ec17b262908b415f130fc6fe076ac6277a2699e70"
+      "bytes": 8227,
+      "sha256": "8f278ec33ca1447aba8201b0d270a25a7c899a9d4d1f854c59c1a05d42d72499"
     },
     {
       "path": "kitchen_clean_notes.js",
@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 34783,
-      "sha256": "af01add656224c215e50a7f77844b89ad450df8584c34d39cf58b292018c33dc"
+      "bytes": 34835,
+      "sha256": "8c54896cfa21f2f682c5c78114dab03f9ca25fcddde61ea515d4615ba38ff24c"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1590,6 +1590,41 @@
       "path": "test_pot_placement.rb",
       "bytes": 1471,
       "sha256": "6eff3d9dc242ed674b1dda5c76e819c5d930be1612ffedd1de95d7f188575909"
+    },
+    {
+      "path": "kitchen_panel_ready.rb",
+      "bytes": 9282,
+      "sha256": "8aa31a56fb33fd991221295c1d16e16e058e679c2db7ae9bb4af8434d544c5be"
+    },
+    {
+      "path": "panel_ready_editor.js",
+      "bytes": 6624,
+      "sha256": "9a0b4ad0a9cf8f7fd0a0d70bc9c557104f3d03c0a53a41b60723de3f8b37ea97"
+    },
+    {
+      "path": "test_panel_ready.rb",
+      "bytes": 3303,
+      "sha256": "5cf9869b68deae2ade07d5c106d0bc6595bee2a70ea17ff943255a466ad670bb"
+    },
+    {
+      "path": "assets/appliances/panel-ready/det3650ci-r-panelready.png",
+      "bytes": 677914,
+      "sha256": "e94c72c9d066c09e6f308b939baf54849dffd11607dbcf74b5769b6422a9596b"
+    },
+    {
+      "path": "assets/appliances/panel-ready/det3650ci-r-panelready.skp",
+      "bytes": 37633,
+      "sha256": "8ea2a9e9a9d3e2d06d7c58fb9ff022955882cb9d59607485ae8105f382ee17c6"
+    },
+    {
+      "path": "assets/appliances/panel-ready/dw2451-panelready.png",
+      "bytes": 594205,
+      "sha256": "8d6f47ddfa3f195cd571ba69898772b015018c5e58de3c50fa5ef2b2ecf520e5"
+    },
+    {
+      "path": "assets/appliances/panel-ready/dw2451-panelready.skp",
+      "bytes": 27829,
+      "sha256": "a61dac6991d958a578bfffd4dca34c0e44be72b0e63442c28aa626d2531daee7"
     }
   ]
 }

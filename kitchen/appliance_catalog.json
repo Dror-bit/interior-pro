@@ -749,6 +749,946 @@
       "depth_basis": "Prepared exterior including handle; planning envelope",
       "image_path": "assets/appliances/blender/thermador-custom-mb30wp.png",
       "reference_image_path": "assets/appliances/blender/thermador-custom-mb30wp.png"
+    },
+    {
+      "id": "det3650ci-r-panelready",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "DET3650CI/R",
+      "name": "Sub-Zero DET3650CI/R · Panel Ready",
+      "dimensions": {
+        "width": 36,
+        "height": 84,
+        "depth": 24.75
+      },
+      "appearance": {
+        "finish": "white",
+        "configuration": "bottom_freezer_single",
+        "panel_ready": true
+      },
+      "depth_basis": "With custom panels, excluding handles",
+      "product_url": "https://ca.subzero-wolf.com/en/sub-zero/full-size-refrigeration/integrated-fridges/36-inch-integrated-over-under-refrigerator-freezer-ice-maker-panel-ready",
+      "spec_url": "https://www.subzero-wolf.com/qrExport/integrated-refrigeration-qr-sheet-det3650ci.pdf",
+      "verified_at": "2026-10-13",
+      "image_path": "assets/appliances/panel-ready/det3650ci-r-panelready.png",
+      "panel_ready": {
+        "asset_id": "DET3650CI-R-PanelReady",
+        "manufacturer": "Sub-Zero",
+        "sku": "DET3650CI/R",
+        "category": "refrigerator",
+        "market": "US",
+        "panel_ready": true,
+        "geometry_revision": 1,
+        "runtime_installed": false,
+        "body_component_name": "BODY",
+        "body_dimensions_in": {
+          "width": 36,
+          "height": 84,
+          "depth_without_custom_panels_or_handles": 24
+        },
+        "body_origin_asset_in": [
+          0,
+          0,
+          0
+        ],
+        "body_bounds_asset_in": [
+          [
+            0,
+            -24,
+            0
+          ],
+          [
+            36,
+            0,
+            84
+          ]
+        ],
+        "installation_opening_in": {
+          "width": 36,
+          "height": 84,
+          "min_depth": 25
+        },
+        "installed_depth_without_handles_in": 24.75,
+        "panel_configuration": {
+          "type": "single appliance, custom slab panels",
+          "toe_kick_height_in": 4,
+          "reveal_in": 0.125,
+          "panel_thickness_in": 0.75,
+          "height_adjustment_applied_in": 0,
+          "panels_are_replaceable": true
+        },
+        "panels": [
+          {
+            "panel_id": "refrigerator_door",
+            "component_name": "PANEL__refrigerator_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 35.75,
+              "height": 49.375,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0.125,
+              -24.75,
+              34.5
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                35.75,
+                0.75,
+                49.375
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0.125,
+                -24.75,
+                34.5
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "hinged_right",
+              "direction": "toward room / negative Y",
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "hinge_side": "right",
+              "preview_pivot_asset_in": [
+                35.875,
+                -24,
+                34.5
+              ],
+              "preview_positive_rotation_degrees": 105,
+              "limit_source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  53
+                ]
+              },
+              "precision": "Opening direction is semantic. Preview pivot is schematic, not a manufacturer hinge mechanism or collision/clearance simulation."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                2.5,
+                0,
+                24.6875
+              ],
+              "center_asset_in": [
+                2.625,
+                -24.75,
+                59.1875
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0,
+                      18.6875
+                    ],
+                    [
+                      2.5,
+                      0,
+                      30.6875
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0,
+                      15.6875
+                    ],
+                    [
+                      2.5,
+                      0,
+                      33.6875
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  0,
+                  0,
+                  1
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  -1,
+                  0,
+                  0
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                49,
+                50
+              ]
+            },
+            "max_panel_weight_including_hardware_lb": 60,
+            "min_panel_thickness_in": 0.625
+          },
+          {
+            "panel_id": "freezer_upper_drawer",
+            "component_name": "PANEL__freezer_upper_drawer",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 35.75,
+              "height": 13.5625,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0.125,
+              -24.75,
+              20.8125
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                35.75,
+                0.75,
+                13.5625
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0.125,
+                -24.75,
+                20.8125
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "slide_out",
+              "direction": "toward room / negative Y",
+              "axis": [
+                0,
+                -1,
+                0
+              ],
+              "hinge_side": null,
+              "max_extension_in": null,
+              "precision": "Opening direction is semantic. Preview pivot is schematic, not a manufacturer hinge mechanism or collision/clearance simulation."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                17.875,
+                0,
+                11.0625
+              ],
+              "center_asset_in": [
+                18,
+                -24.75,
+                31.875
+              ],
+              "length_axis_panel_local": [
+                1,
+                0,
+                0
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      11.875,
+                      0,
+                      11.0625
+                    ],
+                    [
+                      23.875,
+                      0,
+                      11.0625
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      8.875,
+                      0,
+                      11.0625
+                    ],
+                    [
+                      26.875,
+                      0,
+                      11.0625
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  1,
+                  0,
+                  0
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                49,
+                50
+              ]
+            },
+            "max_panel_weight_including_hardware_lb": 15,
+            "min_panel_thickness_in": 0.625
+          },
+          {
+            "panel_id": "freezer_lower_drawer",
+            "component_name": "PANEL__freezer_lower_drawer",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 35.75,
+              "height": 16.6875,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0.125,
+              -24.75,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                35.75,
+                0.75,
+                16.6875
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0.125,
+                -24.75,
+                4
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "slide_out",
+              "direction": "toward room / negative Y",
+              "axis": [
+                0,
+                -1,
+                0
+              ],
+              "hinge_side": null,
+              "max_extension_in": null,
+              "precision": "Opening direction is semantic. Preview pivot is schematic, not a manufacturer hinge mechanism or collision/clearance simulation."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                17.875,
+                0,
+                14.1875
+              ],
+              "center_asset_in": [
+                18,
+                -24.75,
+                18.1875
+              ],
+              "length_axis_panel_local": [
+                1,
+                0,
+                0
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      11.875,
+                      0,
+                      14.1875
+                    ],
+                    [
+                      23.875,
+                      0,
+                      14.1875
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      8.875,
+                      0,
+                      14.1875
+                    ],
+                    [
+                      26.875,
+                      0,
+                      14.1875
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  1,
+                  0,
+                  0
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                49,
+                50
+              ]
+            },
+            "max_panel_weight_including_hardware_lb": 15,
+            "min_panel_thickness_in": 0.625
+          }
+        ],
+        "sources": {
+          "product_spec": {
+            "url": "https://www.subzero-wolf.com/qrExport/integrated-refrigeration-qr-sheet-det3650ci.pdf",
+            "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DET3650CI-spec.pdf",
+            "pdf_pages_1_based": []
+          },
+          "design_guide": {
+            "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+            "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+            "pdf_pages_1_based": [
+              44,
+              46,
+              49,
+              50,
+              53
+            ]
+          },
+          "manufacturer_page": {
+            "url": "https://ca.subzero-wolf.com/en/sub-zero/full-size-refrigeration/integrated-fridges/36-inch-integrated-over-under-refrigerator-freezer-ice-maker-panel-ready",
+            "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DET3650CI-page.html",
+            "sha256": "ab6d5350db30dd533d8ac0e6af40edef048325aa1c207a5bcc745b264c4ae045"
+          },
+          "manufacturer_photo": {
+            "url": "https://ca.subzero-wolf.com/-/media/images/united-states/dynamic-images/det3650ci/det3650ci_d.png",
+            "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DET3650CI-original.png",
+            "sha256": "925424f597fdc85a20a9de8a353d0297fc4ae80309de49de8205b8e1335325e5"
+          }
+        },
+        "gallery_image_kind": "Rendered configurable custom panel example; not a manufacturer photo",
+        "body_geometry_accuracy": "Manufacturer envelope dimensions; simplified closed exterior, no internal equipment; small casing/grille details schematic.",
+        "validation": {
+          "asset_id": "DET3650CI-R-PanelReady",
+          "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\Appliances - SketchUp\\DET3650CI-R-PanelReady.skp",
+          "bytes": 37633,
+          "sha256": "8ea2a9e9a9d3e2d06d7c58fb9ff022955882cb9d59607485ae8105f382ee17c6",
+          "closed_parts": 21,
+          "faces_with_instances": 828,
+          "edges_with_instances": 1242,
+          "open_or_nonmanifold_edges": 0,
+          "bounds_in": [
+            [
+              0,
+              -24.75,
+              0
+            ],
+            [
+              36,
+              -0.0000015258789076710855,
+              83.99999570846558
+            ]
+          ],
+          "panel_components": [
+            "PANEL__freezer_lower_drawer",
+            "PANEL__freezer_upper_drawer",
+            "PANEL__refrigerator_door"
+          ],
+          "panel_attributes_and_unpainted_faces_verified": true,
+          "visual_review": "Blender render inspected. Native SKP structure read back with C API; SketchUp UI not opened."
+        },
+        "skp_path": "assets/appliances/panel-ready/det3650ci-r-panelready.skp",
+        "skp_sha256": "8ea2a9e9a9d3e2d06d7c58fb9ff022955882cb9d59607485ae8105f382ee17c6"
+      }
+    },
+    {
+      "id": "dw2451-panelready",
+      "brand": "Cove",
+      "manufacturer": "Cove",
+      "category": "dishwasher",
+      "model": "DW2451",
+      "name": "Cove DW2451 · Panel Ready",
+      "dimensions": {
+        "width": 24,
+        "height": 34.5,
+        "depth": 24
+      },
+      "appearance": {
+        "finish": "white",
+        "configuration": "bottom_freezer_single",
+        "panel_ready": true
+      },
+      "depth_basis": "With custom panels, excluding handles",
+      "product_url": "https://ca.subzero-wolf.com/en/cove/dishwashers/24-inch-dishwasher-panel-ready",
+      "spec_url": "https://www.subzero-wolf.com/qrExport/dw2451-24-st.pdf",
+      "verified_at": "2026-10-13",
+      "image_path": "assets/appliances/panel-ready/dw2451-panelready.png",
+      "panel_ready": {
+        "asset_id": "DW2451-PanelReady",
+        "manufacturer": "Cove",
+        "sku": "DW2451",
+        "category": "dishwasher",
+        "market": "US",
+        "panel_ready": true,
+        "geometry_revision": 1,
+        "runtime_installed": false,
+        "body_component_name": "BODY",
+        "body_dimensions_in": {
+          "width": 23.625,
+          "height": 34.5,
+          "depth_without_custom_panels_or_handles": 23.25
+        },
+        "body_origin_asset_in": [
+          0.1875,
+          0,
+          0
+        ],
+        "body_bounds_asset_in": [
+          [
+            0.1875,
+            -23.25,
+            0
+          ],
+          [
+            23.8125,
+            0,
+            34.5
+          ]
+        ],
+        "installation_opening_in": {
+          "width": 24,
+          "height": 34.5,
+          "min_depth": 24
+        },
+        "installed_depth_without_handles_in": 24,
+        "panel_configuration": {
+          "type": "single appliance, custom slab panels",
+          "toe_kick_height_in": 4,
+          "reveal_in": 0.125,
+          "panel_thickness_in": 0.75,
+          "height_adjustment_applied_in": 0,
+          "panels_are_replaceable": true
+        },
+        "panels": [
+          {
+            "panel_id": "dishwasher_door",
+            "component_name": "PANEL__dishwasher_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 23.75,
+              "height": 30.375,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0.125,
+              -24,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                23.75,
+                0.75,
+                30.375
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0.125,
+                -24,
+                4
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "drop_down",
+              "direction": "toward room / negative Y",
+              "axis": [
+                1,
+                0,
+                0
+              ],
+              "hinge_side": "bottom",
+              "preview_pivot_asset_in": [
+                12,
+                -23.25,
+                4
+              ],
+              "preview_positive_rotation_degrees": 90,
+              "precision": "Opening direction is semantic. Preview pivot is schematic, not a manufacturer hinge mechanism or collision/clearance simulation."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                11.875,
+                0,
+                27.875
+              ],
+              "center_asset_in": [
+                12,
+                -24,
+                31.875
+              ],
+              "length_axis_panel_local": [
+                1,
+                0,
+                0
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      5.875,
+                      0,
+                      27.875
+                    ],
+                    [
+                      17.875,
+                      0,
+                      27.875
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.875,
+                      0,
+                      27.875
+                    ],
+                    [
+                      20.875,
+                      0,
+                      27.875
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  1,
+                  0,
+                  0
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/cv_dg_nws.ashx",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\cove-design-guide.pdf",
+              "pdf_pages_1_based": [
+                8
+              ]
+            },
+            "max_panel_weight_including_hardware_lb": 20,
+            "preferred_panel_weight_below_lb": 18,
+            "min_panel_thickness_in": 0.5
+          }
+        ],
+        "sources": {
+          "product_spec": {
+            "url": "https://www.subzero-wolf.com/qrExport/dw2451-24-st.pdf",
+            "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DW2451-spec.pdf",
+            "pdf_pages_1_based": []
+          },
+          "design_guide": {
+            "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/cv_dg_nws.ashx",
+            "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\cove-design-guide.pdf",
+            "pdf_pages_1_based": [
+              5,
+              6,
+              8,
+              9
+            ]
+          },
+          "manufacturer_page": {
+            "url": "https://ca.subzero-wolf.com/en/cove/dishwashers/24-inch-dishwasher-panel-ready",
+            "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DW2451-page.html",
+            "sha256": "c5ab84880e8e638b69f846aab8abfb0eb4d9f805b1909a5e095a0fd45cd59b6c"
+          },
+          "manufacturer_photo": {
+            "url": "https://ca.subzero-wolf.com/-/media/images/united-states/dynamic-images/dw2451/dw2451_d.png",
+            "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\DW2451-original.png",
+            "sha256": "c92f74d9b38aa46f5d201014839b3b9e2ad221a66cba974203703a911411436f"
+          }
+        },
+        "gallery_image_kind": "Rendered configurable custom panel example; not a manufacturer photo",
+        "body_geometry_accuracy": "Manufacturer envelope dimensions; simplified closed exterior, no internal equipment; small casing/grille details schematic.",
+        "validation": {
+          "asset_id": "DW2451-PanelReady",
+          "path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\Appliances - SketchUp\\DW2451-PanelReady.skp",
+          "bytes": 27829,
+          "sha256": "a61dac6991d958a578bfffd4dca34c0e44be72b0e63442c28aa626d2531daee7",
+          "closed_parts": 18,
+          "faces_with_instances": 536,
+          "edges_with_instances": 804,
+          "open_or_nonmanifold_edges": 0,
+          "bounds_in": [
+            [
+              0.125,
+              -24,
+              0
+            ],
+            [
+              23.875,
+              -0.0000015258789076710855,
+              34.50000137329101
+            ]
+          ],
+          "panel_components": [
+            "PANEL__dishwasher_door"
+          ],
+          "panel_attributes_and_unpainted_faces_verified": true,
+          "visual_review": "Blender render inspected. Native SKP structure read back with C API; SketchUp UI not opened."
+        },
+        "skp_path": "assets/appliances/panel-ready/dw2451-panelready.skp",
+        "skp_sha256": "a61dac6991d958a578bfffd4dca34c0e44be72b0e63442c28aa626d2531daee7"
+      }
     }
   ],
   "retired_ids": [

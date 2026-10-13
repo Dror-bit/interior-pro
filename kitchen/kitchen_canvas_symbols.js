@@ -33,6 +33,10 @@
   const ink='#465d68',light='#f3f6f7';
   const line=pts=>path(pts,null,ink,[],1.15);
   const handle=(left=.3,right=.7)=>path([[w*left,d-1.5],[w*right,d-1.5]],null,ink,[],2);
+  if(c.appliance?.panel_ready){
+   for(const part of c.appliance_parts||[]){if(part.panel_id)rect(part.x,-part.y-part.depth,part.width,part.depth,part.color);}
+   ctx.setLineDash([]);return;
+  }
   if(category==='range'||category==='cooktop'){
    const dim=c.appliance?.dimensions,ww=category==='cooktop'&&dim?dim.width:w-2,dd=category==='cooktop'&&dim?dim.depth:d-3;
    const x=(w-ww)/2,y=category==='cooktop'?(d-dd)/2:1;

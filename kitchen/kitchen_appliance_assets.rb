@@ -1,4 +1,5 @@
 require 'digest'
+require_relative 'kitchen_panel_ready'
 module KitchenLab
   module ApplianceAssets
     ROOT=File.join(__dir__,'assets','appliances','blender') unless const_defined?(:ROOT,false)
@@ -42,11 +43,13 @@ module KitchenLab
       [x,y+dim['depth'],d['height']+1.5-(deck || dim['height'])]
     end
     def self.parts(d)
+      return PanelReady.parts(d) if PanelReady.appliance?(d)
       data=manifest(d['appliance']);return nil unless data
       ox,oy,oz=offset(d)
       data['parts'].map { |p| p.merge('x'=>p['x']+ox,'y'=>p['y']+oy,'z'=>p['z']+oz) }
     end
     def self.build(entities,d)
+      return PanelReady.build(entities,d) if PanelReady.appliance?(d)
       data=manifest(d['appliance']);return false unless data
       if data['version']==2
         model=entities.model

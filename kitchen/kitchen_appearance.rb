@@ -7,6 +7,7 @@ module KitchenLab
       d.fetch('appearance_overrides') { d.slice('finish','handle') }
     end
     def self.resolve(d,s)
+      return PanelReady.resolve(d,s) if defined?(PanelReady) && PanelReady.appliance?(d)
       return d if appliance?(d)
       o=overrides(d)
       raise 'Invalid appearance overrides' unless o.is_a?(Hash) && (o.keys-%w[finish handle]).empty?

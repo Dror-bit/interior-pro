@@ -10,7 +10,7 @@ module KitchenLab
       products.find { |p| p['id']==id } || raise('Appliance model is not in the verified US catalog')
     end
     def self.snapshot(id)
-      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at').merge('schema_version'=>1)
+      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at','panel_ready').merge('schema_version'=>1)
       asset=ApplianceAssets.selection(id);a['asset']=asset if asset;a
     end
     def self.microwave_base?(d)
