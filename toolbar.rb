@@ -826,6 +826,15 @@ module InteriorPro
       elec_cmd.small_icon = icon_path('electrical')
       elec_cmd.large_icon = icon_path('electrical')
       tb.add_item(elec_cmd) unless on_bar.include?('Electrical')
+      # LIGHTING (2026-10-12): the same bar, its own window and gallery
+      light_cmd = UI::Command.new('Lighting') {
+        Sketchup.active_model.select_tool(InteriorPro::LightingTool.new)
+      }
+      light_cmd.tooltip = 'Lighting - wall lights from your files, placed on a wall at a set height'
+      light_cmd.status_bar_text = 'Choose a light and the height, then move along a wall and click, or type the distance from the corner'
+      light_cmd.small_icon = icon_path('lighting')
+      light_cmd.large_icon = icon_path('lighting')
+      tb.add_item(light_cmd) unless on_bar.include?('Lighting')
       tb.restore
     rescue StandardError => e
       puts "[InteriorPro] electrical toolbar: #{e.message}"

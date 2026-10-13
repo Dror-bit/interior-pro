@@ -1,0 +1,1816 @@
+{
+  "schema_version": 1,
+  "prepared": "2026-10-12",
+  "status": "Standalone asset handoff; UI/runtime integration is not implemented here",
+  "units": "inches",
+  "finish_palette": {
+    "BL": {
+      "label": "Matte Black",
+      "rgb": [
+        32,
+        34,
+        36
+      ],
+      "metallic": 0.22,
+      "roughness": 0.32
+    },
+    "PC": {
+      "label": "Polished Chrome",
+      "rgb": [
+        210,
+        212,
+        215
+      ],
+      "metallic": 0.97,
+      "roughness": 0.13
+    },
+    "SS": {
+      "label": "Brilliance Stainless",
+      "rgb": [
+        185,
+        184,
+        181
+      ],
+      "metallic": 0.88,
+      "roughness": 0.27
+    },
+    "PN": {
+      "label": "Brilliance Polished Nickel",
+      "rgb": [
+        213,
+        207,
+        191
+      ],
+      "metallic": 0.9,
+      "roughness": 0.18
+    },
+    "GL-L": {
+      "label": "Lumicoat Luxe Gold",
+      "rgb": [
+        218,
+        186,
+        132
+      ],
+      "metallic": 0.83,
+      "roughness": 0.24
+    },
+    "PC-L": {
+      "label": "Lumicoat Polished Chrome",
+      "rgb": [
+        210,
+        212,
+        215
+      ],
+      "metallic": 0.97,
+      "roughness": 0.13
+    },
+    "BLGL": {
+      "label": "Matte Black / Brilliance Luxe Gold",
+      "rgb": [
+        32,
+        34,
+        36
+      ],
+      "accent_rgb": [
+        218,
+        186,
+        132
+      ],
+      "metallic": 0.22,
+      "roughness": 0.32,
+      "accent_metallic": 0.83,
+      "accent_roughness": 0.24
+    },
+    "NA": {
+      "label": "Stainless Steel",
+      "rgb": [
+        184,
+        186,
+        188
+      ],
+      "metallic": 0.92,
+      "roughness": 0.28
+    }
+  },
+  "products": [
+    {
+      "id": "brizo-63065lf",
+      "asset_sku": "63065LF",
+      "brand": "Brizo",
+      "family": "Odin",
+      "role": "main",
+      "label": "Odin Main Kitchen Faucet",
+      "usage_description": "Main sink washing; hot and cold water.",
+      "default_finish": "BL",
+      "finish_variants": [
+        {
+          "finish_id": "BL",
+          "product_sku": "63065LF-BLLHP",
+          "handle_sku": "HLK175-BL",
+          "source_url": "https://www.brizo.com/kitchen/product/63065LF-BLLHP--HLK175-BL",
+          "body_material": "BL",
+          "accent_material": "BL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "63065LF-PCLHP",
+          "handle_sku": "HLK175-PC",
+          "source_url": "https://www.brizo.com/kitchen/product/63065LF-PCLHP--HLK175-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63065LF.skp",
+      "blend_file": "assets\\appliances\\brizo-modern-review\\63065LF.blend",
+      "reference_image": "assets\\appliances\\brizo-modern-review\\63065LF-original.png",
+      "render_image": "assets\\appliances\\brizo-modern-review\\63065LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63065LF-BLLHP--HLK175-BL",
+      "review_status": "Previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 14.625,
+      "manufacturer_outlet_reach_in": 8.9375,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63065LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-modern-review\\63065LF-report.json",
+      "compatible_accessories": {
+        "prep": "brizo-63965lf",
+        "beverage": "brizo-61365lf-c",
+        "pot": "brizo-62820lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -9.481748580932617,
+          0
+        ],
+        [
+          2.93500018119812,
+          1.21875,
+          14.624999046325684
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-modern-review\\63065LF-sketchup-mesh.json",
+      "skp_bytes": 289647,
+      "skp_sha256": "f82aea9585e0db8e074a920b64ca2f7da461901eaa8a4c6575cfbdbb05b93e40",
+      "skp_path": "assets/accessories/63065LF.skp",
+      "image_path": "assets/accessories/63065LF.png"
+    },
+    {
+      "id": "brizo-63965lf",
+      "asset_sku": "63965LF",
+      "brand": "Brizo",
+      "family": "Odin",
+      "role": "prep",
+      "label": "Odin Prep / Island Faucet",
+      "usage_description": "Washing vegetables and rinsing at a small sink; hot and cold water.",
+      "default_finish": "BL",
+      "finish_variants": [
+        {
+          "finish_id": "BL",
+          "product_sku": "63965LF-BLLHP",
+          "handle_sku": "HLK175-BL",
+          "source_url": "https://www.brizo.com/kitchen/product/63965LF-BLLHP--HLK175-BL",
+          "body_material": "BL",
+          "accent_material": "BL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "63965LF-PCLHP",
+          "handle_sku": "HLK175-PC",
+          "source_url": "https://www.brizo.com/kitchen/product/63965LF-PCLHP--HLK175-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63965LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\63965LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\63965LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\63965LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63965LF-BLLHP--HLK175-BL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 12.125,
+      "manufacturer_outlet_reach_in": 7.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63965LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\63965LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63065lf",
+        "beverage": "brizo-61365lf-c",
+        "pot": "brizo-62820lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -7.555264472961426,
+          0
+        ],
+        [
+          2.93500018119812,
+          1.21875,
+          12.124999046325684
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\63965LF-sketchup-mesh.json",
+      "skp_bytes": 283255,
+      "skp_sha256": "3c8b1eb8df01db148aaae16ce81f588cfef4bb554084ef1590da37ff754bd99d",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/63965LF.skp",
+      "image_path": "assets/accessories/63965LF.png"
+    },
+    {
+      "id": "brizo-61365lf-c",
+      "asset_sku": "61365LF-C",
+      "brand": "Brizo",
+      "family": "Odin",
+      "role": "beverage",
+      "label": "Odin Drinking Water Faucet",
+      "usage_description": "Dedicated drinking-water tap; connect to a compatible filter/RO system or a cold-water supply. The faucet alone does not filter water.",
+      "default_finish": "BL",
+      "finish_variants": [
+        {
+          "finish_id": "BL",
+          "product_sku": "61365LF-C-BL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61365LF-C-BL",
+          "body_material": "BL",
+          "accent_material": "BL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "61365LF-C-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61365LF-C-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "61365LF-C.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\61365LF-C.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\61365LF-C-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\61365LF-C-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/61365LF-C-BL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 9.4375,
+      "manufacturer_outlet_reach_in": 5,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "61365LF-C ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\61365LF-C-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63065lf",
+        "prep": "brizo-63965lf",
+        "pot": "brizo-62820lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "connection_options": [
+        {
+          "id": "filtered_drinking_water",
+          "label": "Connect to water filter / RO"
+        },
+        {
+          "id": "cold_water_only",
+          "label": "Cold water only — no filter"
+        }
+      ],
+      "default_connection": "filtered_drinking_water",
+      "filter_included": false,
+      "measured_mesh_bounds_in": [
+        [
+          -0.9800000190734863,
+          -5.320000171661377,
+          0
+        ],
+        [
+          2.634999990463257,
+          0.9800000190734863,
+          9.4375
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\61365LF-C-sketchup-mesh.json",
+      "skp_bytes": 250452,
+      "skp_sha256": "c292339845d181cfe193f973fce6ca8003309648ef504308825b9e9e80dd84af",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/61365LF-C.skp",
+      "image_path": "assets/accessories/61365LF-C.png"
+    },
+    {
+      "id": "brizo-62820lf",
+      "asset_sku": "62820LF",
+      "brand": "Brizo",
+      "family": "Odin",
+      "role": "pot",
+      "label": "Odin Pot Filler",
+      "usage_description": "Wall-mounted tap above the cooktop for filling pots; cold water only.",
+      "default_finish": "BL",
+      "finish_variants": [
+        {
+          "finish_id": "BL",
+          "product_sku": "62820LF-BL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62820LF-BL",
+          "body_material": "BL",
+          "accent_material": "BL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "62820LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62820LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "62820LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\62820LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\62820LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\62820LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/62820LF-BL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "wall",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "cooktop_wall"
+      ],
+      "manufacturer_height_in": null,
+      "manufacturer_outlet_reach_in": null,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "62820LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "wall supply centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\62820LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63065lf",
+        "prep": "brizo-63965lf",
+        "beverage": "brizo-61365lf-c"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "dimension_caveat": "Official product-page and shared pot-filler specification fields conflict. Measured parked model bounds are authoritative for this asset only; do not label them maximum operating reach.",
+      "articulation": "Static parked model. Do not offer animation or full reach collision clearance from this geometry.",
+      "source_spec": "https://media.brizo.com/SpecSheet/BSP-K-62810LF%20Rev%20N.pdf",
+      "measured_mesh_bounds_in": [
+        [
+          -10.092000007629395,
+          -7.538334369659424,
+          -2.741530656814575
+        ],
+        [
+          1.380000114440918,
+          1.7881393432617188e-7,
+          4.920000076293945
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\62820LF-sketchup-mesh.json",
+      "skp_bytes": 229024,
+      "skp_sha256": "c2c978829a5cff5541278dc25f888d0bfa2cd0adca857245ef75e850c222f2bf",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/62820LF.skp",
+      "image_path": "assets/accessories/62820LF.png"
+    },
+    {
+      "id": "brizo-63006lf",
+      "asset_sku": "63006LF",
+      "brand": "Brizo",
+      "family": "Kintsu",
+      "role": "main",
+      "label": "Kintsu Main Kitchen Faucet",
+      "usage_description": "Main sink washing; hot and cold water.",
+      "default_finish": "GL-L",
+      "finish_variants": [
+        {
+          "finish_id": "GL-L",
+          "product_sku": "63006LF-GLLHP-L",
+          "handle_sku": "HLK006-GL-L",
+          "source_url": "https://www.brizo.com/kitchen/product/63006LF-GLLHP-L--HLK006-GL-L",
+          "body_material": "GL-L",
+          "accent_material": "GL-L",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC-L",
+          "product_sku": "63006LF-PCLHP-L",
+          "handle_sku": "HLK006-PC-L",
+          "source_url": "https://www.brizo.com/kitchen/product/63006LF-PCLHP-L--HLK006-PC-L",
+          "body_material": "PC-L",
+          "accent_material": "PC-L",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63006LF.skp",
+      "blend_file": "assets\\appliances\\brizo-modern-review\\63006LF.blend",
+      "reference_image": "assets\\appliances\\brizo-modern-review\\63006LF-original.png",
+      "render_image": "assets\\appliances\\brizo-modern-review\\63006LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63006LF-GLLHP-L--HLK006-GL-L",
+      "review_status": "Previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 16.1875,
+      "manufacturer_outlet_reach_in": 9.3125,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63006LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-modern-review\\63006LF-report.json",
+      "compatible_accessories": {
+        "prep": "brizo-63906lf",
+        "beverage": "brizo-61306lf-c",
+        "pot": "brizo-62806lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -9.889267921447754,
+          0
+        ],
+        [
+          3.0200002193450928,
+          1.21875,
+          16.187341690063477
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-modern-review\\63006LF-sketchup-mesh.json",
+      "skp_bytes": 394498,
+      "skp_sha256": "e92d483a160d7b7e53ce335d8d823a31fea1c1fb99f70856b57adc9140b8b1a0",
+      "skp_path": "assets/accessories/63006LF.skp",
+      "image_path": "assets/accessories/63006LF.png"
+    },
+    {
+      "id": "brizo-63906lf",
+      "asset_sku": "63906LF",
+      "brand": "Brizo",
+      "family": "Kintsu",
+      "role": "prep",
+      "label": "Kintsu Prep / Island Faucet",
+      "usage_description": "Washing vegetables and rinsing at a small sink; hot and cold water.",
+      "default_finish": "GL-L",
+      "finish_variants": [
+        {
+          "finish_id": "GL-L",
+          "product_sku": "63906LF-GLLHP-L",
+          "handle_sku": "HLK006-GL-L",
+          "source_url": "https://www.brizo.com/kitchen/product/63906LF-GLLHP-L--HLK006-GL-L",
+          "body_material": "GL-L",
+          "accent_material": "GL-L",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC-L",
+          "product_sku": "63906LF-PCLHP-L",
+          "handle_sku": "HLK006-PC-L",
+          "source_url": "https://www.brizo.com/kitchen/product/63906LF-PCLHP-L",
+          "body_material": "PC-L",
+          "accent_material": "PC-L",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63906LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\63906LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\63906LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\63906LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63906LF-GLLHP-L--HLK006-GL-L",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 14,
+      "manufacturer_outlet_reach_in": 7.6875,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63906LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\63906LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63006lf",
+        "beverage": "brizo-61306lf-c",
+        "pot": "brizo-62806lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -8.226808547973633,
+          0
+        ],
+        [
+          3.0200002193450928,
+          1.21875,
+          13.99991226196289
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\63906LF-sketchup-mesh.json",
+      "skp_bytes": 431866,
+      "skp_sha256": "40889ac41c2c55b3b583323b2240d9a7a02f0d55874f3304e2d106464d91f3d4",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/63906LF.skp",
+      "image_path": "assets/accessories/63906LF.png"
+    },
+    {
+      "id": "brizo-61306lf-c",
+      "asset_sku": "61306LF-C",
+      "brand": "Brizo",
+      "family": "Kintsu",
+      "role": "beverage",
+      "label": "Kintsu Drinking Water Faucet",
+      "usage_description": "Dedicated drinking-water tap; connect to a compatible filter/RO system or a cold-water supply. The faucet alone does not filter water.",
+      "default_finish": "GL-L",
+      "finish_variants": [
+        {
+          "finish_id": "GL-L",
+          "product_sku": "61306LF-C-GL-L",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61306LF-C-GL-L",
+          "body_material": "GL-L",
+          "accent_material": "GL-L",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC-L",
+          "product_sku": "61306LF-C-PC-L",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61306LF-C-PC-L",
+          "body_material": "PC-L",
+          "accent_material": "PC-L",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "61306LF-C.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\61306LF-C.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\61306LF-C-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\61306LF-C-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/61306LF-C-GL-L",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 9.5625,
+      "manufacturer_outlet_reach_in": 5.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "61306LF-C ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\61306LF-C-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63006lf",
+        "prep": "brizo-63906lf",
+        "pot": "brizo-62806lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "connection_options": [
+        {
+          "id": "filtered_drinking_water",
+          "label": "Connect to water filter / RO"
+        },
+        {
+          "id": "cold_water_only",
+          "label": "Cold water only — no filter"
+        }
+      ],
+      "default_connection": "filtered_drinking_water",
+      "filter_included": false,
+      "measured_mesh_bounds_in": [
+        [
+          -0.9800000190734863,
+          -5.386695384979248,
+          0
+        ],
+        [
+          2.6700000762939453,
+          0.9800000190734863,
+          9.56248664855957
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\61306LF-C-sketchup-mesh.json",
+      "skp_bytes": 324202,
+      "skp_sha256": "bad2da9c63e891c3846971ff39039b9a3cf6dd53e692c89d7caf8f431c85195a",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/61306LF-C.skp",
+      "image_path": "assets/accessories/61306LF-C.png"
+    },
+    {
+      "id": "brizo-62806lf",
+      "asset_sku": "62806LF",
+      "brand": "Brizo",
+      "family": "Kintsu",
+      "role": "pot",
+      "label": "Kintsu Pot Filler",
+      "usage_description": "Wall-mounted tap above the cooktop for filling pots; cold water only.",
+      "default_finish": "GL-L",
+      "finish_variants": [
+        {
+          "finish_id": "GL-L",
+          "product_sku": "62806LF-GL-L",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62806LF-GL-L",
+          "body_material": "GL-L",
+          "accent_material": "GL-L",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC-L",
+          "product_sku": "62806LF-PC-L",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62806LF-PC-L",
+          "body_material": "PC-L",
+          "accent_material": "PC-L",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "62806LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\62806LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\62806LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\62806LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/62806LF-GL-L",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "wall",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "cooktop_wall"
+      ],
+      "manufacturer_height_in": null,
+      "manufacturer_outlet_reach_in": null,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "62806LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "wall supply centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\62806LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63006lf",
+        "prep": "brizo-63906lf",
+        "beverage": "brizo-61306lf-c"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "dimension_caveat": "Official product-page and shared pot-filler specification fields conflict. Measured parked model bounds are authoritative for this asset only; do not label them maximum operating reach.",
+      "articulation": "Static parked model. Do not offer animation or full reach collision clearance from this geometry.",
+      "source_spec": "https://media.brizo.com/SpecSheet/BSP-K-62810LF%20Rev%20N.pdf",
+      "measured_mesh_bounds_in": [
+        [
+          -10.092000007629395,
+          -7.170000076293945,
+          -2.8299999237060547
+        ],
+        [
+          1.380000114440918,
+          1.7881393432617188e-7,
+          4.920000076293945
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\62806LF-sketchup-mesh.json",
+      "skp_bytes": 234483,
+      "skp_sha256": "11fd4c3f7eb5f93302c6ccd1f53149c285584ae88450251eb6995c908ed9c356",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/62806LF.skp",
+      "image_path": "assets/accessories/62806LF.png"
+    },
+    {
+      "id": "brizo-63053lf",
+      "asset_sku": "63053LF",
+      "brand": "Brizo",
+      "family": "Litze",
+      "role": "main",
+      "label": "Litze Main Kitchen Faucet",
+      "usage_description": "Main sink washing; hot and cold water.",
+      "default_finish": "BLGL",
+      "finish_variants": [
+        {
+          "finish_id": "BLGL",
+          "product_sku": "63053LF-BLGL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63053LF-BLGL",
+          "body_material": "BLGL",
+          "accent_material": "BLGL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "63053LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63053LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "SS",
+          "product_sku": "63053LF-SS",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63053LF-SS",
+          "body_material": "SS",
+          "accent_material": "SS",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63053LF.skp",
+      "blend_file": "assets\\appliances\\brizo-modern-review\\63053LF.blend",
+      "reference_image": "assets\\appliances\\brizo-modern-review\\63053LF-original.png",
+      "render_image": "assets\\appliances\\brizo-modern-review\\63053LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63053LF-BLGL",
+      "review_status": "Previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 14,
+      "manufacturer_outlet_reach_in": 9,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63053LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-modern-review\\63053LF-report.json",
+      "compatible_accessories": {
+        "prep": "brizo-63953lf",
+        "beverage": "brizo-61343lf-c",
+        "pot": "brizo-62843lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Matte black"
+        ],
+        "accent": [
+          "Finish | Accent",
+          "Luxe gold"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -9.544995307922363,
+          0
+        ],
+        [
+          3.740000009536743,
+          1.21875,
+          14
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-modern-review\\63053LF-sketchup-mesh.json",
+      "skp_bytes": 1060659,
+      "skp_sha256": "770845327b33286ea42057ea149bb5cb6b31f6c1808c21cf552cf08012e35b16",
+      "skp_path": "assets/accessories/63053LF.skp",
+      "image_path": "assets/accessories/63053LF.png"
+    },
+    {
+      "id": "brizo-63953lf",
+      "asset_sku": "63953LF",
+      "brand": "Brizo",
+      "family": "Litze",
+      "role": "prep",
+      "label": "Litze Prep / Island Faucet",
+      "usage_description": "Washing vegetables and rinsing at a small sink; hot and cold water.",
+      "default_finish": "BLGL",
+      "finish_variants": [
+        {
+          "finish_id": "BLGL",
+          "product_sku": "63953LF-BLGL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63953LF-BLGL",
+          "body_material": "BLGL",
+          "accent_material": "BLGL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "63953LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63953LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "SS",
+          "product_sku": "63953LF-SS",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63953LF-SS",
+          "body_material": "SS",
+          "accent_material": "SS",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63953LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\63953LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\63953LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\63953LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63953LF-BLGL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 13.5,
+      "manufacturer_outlet_reach_in": 7.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63953LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\63953LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63053lf",
+        "beverage": "brizo-61343lf-c",
+        "pot": "brizo-62843lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Matte black"
+        ],
+        "accent": [
+          "Finish | Accent",
+          "Luxe gold"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.21875,
+          -7.559678077697754,
+          0
+        ],
+        [
+          3.740000009536743,
+          1.21875,
+          13.499999046325684
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\63953LF-sketchup-mesh.json",
+      "skp_bytes": 1038444,
+      "skp_sha256": "fe059fb6adc21d029075ace63b8ae8a1c04bdd952ec435af5e25096ed78131d8",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/63953LF.skp",
+      "image_path": "assets/accessories/63953LF.png"
+    },
+    {
+      "id": "brizo-61343lf-c",
+      "asset_sku": "61343LF-C",
+      "brand": "Brizo",
+      "family": "Litze",
+      "role": "beverage",
+      "label": "Litze Drinking Water Faucet",
+      "usage_description": "Dedicated drinking-water tap; connect to a compatible filter/RO system or a cold-water supply. The faucet alone does not filter water.",
+      "default_finish": "BLGL",
+      "finish_variants": [
+        {
+          "finish_id": "BLGL",
+          "product_sku": "61343LF-C-BLGL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61343LF-C-BLGL",
+          "body_material": "BLGL",
+          "accent_material": "BLGL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "61343LF-C-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61343LF-C-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "SS",
+          "product_sku": "61343LF-C-SS",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61343LF-C-SS",
+          "body_material": "SS",
+          "accent_material": "SS",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "61343LF-C.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\61343LF-C.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\61343LF-C-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\61343LF-C-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/61343LF-C-BLGL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 9.5,
+      "manufacturer_outlet_reach_in": 5.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "61343LF-C ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\61343LF-C-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63053lf",
+        "prep": "brizo-63953lf",
+        "pot": "brizo-62843lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Matte black"
+        ],
+        "accent": [
+          "Finish | Accent",
+          "Luxe gold"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "connection_options": [
+        {
+          "id": "filtered_drinking_water",
+          "label": "Connect to water filter / RO"
+        },
+        {
+          "id": "cold_water_only",
+          "label": "Cold water only — no filter"
+        }
+      ],
+      "default_connection": "filtered_drinking_water",
+      "filter_included": false,
+      "source_spec": "https://media.brizo.com/SpecSheet/BSP-K-61343LF-C%20Rev%20B.pdf",
+      "dimension_caveat": "Use PDF height 9 1/2 inches; webpage 9-1/12 is inconsistent.",
+      "measured_mesh_bounds_in": [
+        [
+          -0.9800000190734863,
+          -5.366125106811523,
+          0
+        ],
+        [
+          2.634999990463257,
+          0.9800000190734863,
+          9.499988555908203
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\61343LF-C-sketchup-mesh.json",
+      "skp_bytes": 449680,
+      "skp_sha256": "57ed86428aa44202a1cdc01e07b9b01861d39bf9b02e2afe0876deec2cc93f4e",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/61343LF-C.skp",
+      "image_path": "assets/accessories/61343LF-C.png"
+    },
+    {
+      "id": "brizo-62843lf",
+      "asset_sku": "62843LF",
+      "brand": "Brizo",
+      "family": "Litze",
+      "role": "pot",
+      "label": "Litze Pot Filler",
+      "usage_description": "Wall-mounted tap above the cooktop for filling pots; cold water only.",
+      "default_finish": "BLGL",
+      "finish_variants": [
+        {
+          "finish_id": "BLGL",
+          "product_sku": "62843LF-BLGL",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62843LF-BLGL",
+          "body_material": "BLGL",
+          "accent_material": "BLGL",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "62843LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62843LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "SS",
+          "product_sku": "62843LF-SS",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62843LF-SS",
+          "body_material": "SS",
+          "accent_material": "SS",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "62843LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\62843LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\62843LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\62843LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/62843LF-BLGL",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "wall",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "cooktop_wall"
+      ],
+      "manufacturer_height_in": null,
+      "manufacturer_outlet_reach_in": null,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "62843LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "wall supply centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\62843LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-63053lf",
+        "prep": "brizo-63953lf",
+        "beverage": "brizo-61343lf-c"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Matte black"
+        ],
+        "accent": [
+          "Finish | Accent",
+          "Luxe gold"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "dimension_caveat": "Official product-page and shared pot-filler specification fields conflict. Measured parked model bounds are authoritative for this asset only; do not label them maximum operating reach.",
+      "articulation": "Static parked model. Do not offer animation or full reach collision clearance from this geometry.",
+      "source_spec": "https://media.brizo.com/SpecSheet/BSP-K-62810LF%20Rev%20N.pdf",
+      "measured_mesh_bounds_in": [
+        [
+          -10.092000007629395,
+          -7.602732181549072,
+          -2.7504096031188965
+        ],
+        [
+          1.380000114440918,
+          1.7881393432617188e-7,
+          4.920000076293945
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\62843LF-sketchup-mesh.json",
+      "skp_bytes": 594677,
+      "skp_sha256": "3a898981786def24d4974783425ae94c1fbb939113869f84d2226d6cb6434315",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/62843LF.skp",
+      "image_path": "assets/accessories/62843LF.png"
+    },
+    {
+      "id": "brizo-62558lf",
+      "asset_sku": "62558LF",
+      "brand": "Brizo",
+      "family": "Tulham",
+      "role": "main",
+      "label": "Tulham Main Kitchen Faucet",
+      "usage_description": "Main sink washing; hot and cold water.",
+      "default_finish": "PN",
+      "finish_variants": [
+        {
+          "finish_id": "PN",
+          "product_sku": "62558LF-PN",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62558LF-PN",
+          "body_material": "PN",
+          "accent_material": "PN",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "62558LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62558LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "62558LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\62558LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\62558LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\62558LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/62558LF-PN",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 15.8125,
+      "manufacturer_outlet_reach_in": 8.25,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "62558LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\62558LF-report.json",
+      "compatible_accessories": {
+        "prep": "brizo-63958lf",
+        "beverage": "brizo-61358lf-c",
+        "pot": "brizo-62858lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "mount_centres_in": [
+        [
+          -4,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          10,
+          0
+        ]
+      ],
+      "side_spray_parts_prefix": "Side spray",
+      "side_spray_note": "Included spray is for washing, not filtered drinking water. Preview offset6in from right valve is illustrative and can be independently placed.",
+      "measured_mesh_bounds_in": [
+        [
+          -6.820000648498535,
+          -8.806306838989258,
+          0
+        ],
+        [
+          10.937500953674316,
+          1.125,
+          15.812402725219727
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\62558LF-sketchup-mesh.json",
+      "skp_bytes": 680229,
+      "skp_sha256": "18ece81808b87ba6d1fdd7a8abe245dc73e6c28811755a3a7679063ae8b2a3e8",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/62558LF.skp",
+      "image_path": "assets/accessories/62558LF.png"
+    },
+    {
+      "id": "brizo-63958lf",
+      "asset_sku": "63958LF",
+      "brand": "Brizo",
+      "family": "Tulham",
+      "role": "prep",
+      "label": "Tulham Prep / Island Faucet",
+      "usage_description": "Washing vegetables and rinsing at a small sink; hot and cold water.",
+      "default_finish": "PN",
+      "finish_variants": [
+        {
+          "finish_id": "PN",
+          "product_sku": "63958LF-PN",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63958LF-PN",
+          "body_material": "PN",
+          "accent_material": "PN",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "63958LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/63958LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "63958LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\63958LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\63958LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\63958LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/63958LF-PN",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "hot_and_cold",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 16,
+      "manufacturer_outlet_reach_in": 8.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "63958LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\63958LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-62558lf",
+        "beverage": "brizo-61358lf-c",
+        "pot": "brizo-62858lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "measured_mesh_bounds_in": [
+        [
+          -1.059999942779541,
+          -8.840882301330566,
+          0
+        ],
+        [
+          2.7799999713897705,
+          1.059999942779541,
+          15.999970436096191
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\63958LF-sketchup-mesh.json",
+      "skp_bytes": 471479,
+      "skp_sha256": "9e9e5f777be73370e073f737ad64419c558a60b987576b88ea17c4e50a55f24e",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/63958LF.skp",
+      "image_path": "assets/accessories/63958LF.png"
+    },
+    {
+      "id": "brizo-61358lf-c",
+      "asset_sku": "61358LF-C",
+      "brand": "Brizo",
+      "family": "Tulham",
+      "role": "beverage",
+      "label": "Tulham Drinking Water Faucet",
+      "usage_description": "Dedicated drinking-water tap; connect to a compatible filter/RO system or a cold-water supply. The faucet alone does not filter water.",
+      "default_finish": "PN",
+      "finish_variants": [
+        {
+          "finish_id": "PN",
+          "product_sku": "61358LF-C-PN",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61358LF-C-PN",
+          "body_material": "PN",
+          "accent_material": "PN",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "61358LF-C-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/61358LF-C-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "61358LF-C.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\61358LF-C.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\61358LF-C-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\61358LF-C-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/61358LF-C-PN",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "deck",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "main_sink",
+        "island_sink",
+        "secondary_sink"
+      ],
+      "manufacturer_height_in": 9.5625,
+      "manufacturer_outlet_reach_in": 5.0625,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "61358LF-C ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "faucet deck centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\61358LF-C-report.json",
+      "compatible_accessories": {
+        "main": "brizo-62558lf",
+        "prep": "brizo-63958lf",
+        "pot": "brizo-62858lf"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "connection_options": [
+        {
+          "id": "filtered_drinking_water",
+          "label": "Connect to water filter / RO"
+        },
+        {
+          "id": "cold_water_only",
+          "label": "Cold water only — no filter"
+        }
+      ],
+      "default_connection": "filtered_drinking_water",
+      "filter_included": false,
+      "measured_mesh_bounds_in": [
+        [
+          -0.9800000190734863,
+          -5.551146507263184,
+          0
+        ],
+        [
+          2.7799999713897705,
+          0.9800000190734863,
+          9.562499046325684
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\61358LF-C-sketchup-mesh.json",
+      "skp_bytes": 470003,
+      "skp_sha256": "1de7de36f95c96d49d8c6e83371b4ff3139f5cd7cb79a55fc727ba4bf9388660",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/61358LF-C.skp",
+      "image_path": "assets/accessories/61358LF-C.png"
+    },
+    {
+      "id": "brizo-62858lf",
+      "asset_sku": "62858LF",
+      "brand": "Brizo",
+      "family": "Tulham",
+      "role": "pot",
+      "label": "Tulham Pot Filler",
+      "usage_description": "Wall-mounted tap above the cooktop for filling pots; cold water only.",
+      "default_finish": "PN",
+      "finish_variants": [
+        {
+          "finish_id": "PN",
+          "product_sku": "62858LF-PN",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62858LF-PN",
+          "body_material": "PN",
+          "accent_material": "PN",
+          "verified_date": "2026-10-12"
+        },
+        {
+          "finish_id": "PC",
+          "product_sku": "62858LF-PC",
+          "handle_sku": null,
+          "source_url": "https://www.brizo.com/kitchen/product/62858LF-PC",
+          "body_material": "PC",
+          "accent_material": "PC",
+          "verified_date": "2026-10-12"
+        }
+      ],
+      "finish_coverage": "Curated verified launch finishes; not an exhaustive manufacturer finish list.",
+      "skp_file": "62858LF.skp",
+      "blend_file": "assets\\appliances\\brizo-accessories-review\\62858LF.blend",
+      "reference_image": "assets\\appliances\\brizo-accessories-review\\62858LF-original.png",
+      "render_image": "assets\\appliances\\brizo-accessories-review\\62858LF-render.png",
+      "source_url": "https://www.brizo.com/kitchen/product/62858LF-PN",
+      "review_status": "New geometry prepared for visual review; existing modern main faucets previously approved",
+      "mount": "wall",
+      "water_supply": "cold_only",
+      "allowed_locations": [
+        "cooktop_wall"
+      ],
+      "manufacturer_height_in": null,
+      "manufacturer_outlet_reach_in": null,
+      "geometry_revision": 1,
+      "sketchup_material_prefix": "62858LF ",
+      "coordinate_system": {
+        "units": "inches",
+        "up": "+Z",
+        "front": "-Y",
+        "origin": "wall supply centre"
+      },
+      "geometry_report": "assets\\appliances\\brizo-accessories-review\\62858LF-report.json",
+      "compatible_accessories": {
+        "main": "brizo-62558lf",
+        "prep": "brizo-63958lf",
+        "beverage": "brizo-61358lf-c"
+      },
+      "finish_material_roles": {
+        "body": [
+          "Finish | Body",
+          "Finish | Main",
+          "Matte black",
+          "Luxe gold"
+        ],
+        "accent": [
+          "Finish | Accent"
+        ],
+        "fixed": [
+          "Fixed | Seals",
+          "Fixed | Aerator",
+          "Dark seams",
+          "Aerator rubber"
+        ],
+        "fixed_black_instances": [
+          "Spray selector"
+        ]
+      },
+      "dimension_caveat": "Official product-page and shared pot-filler specification fields conflict. Measured parked model bounds are authoritative for this asset only; do not label them maximum operating reach.",
+      "articulation": "Static parked model. Do not offer animation or full reach collision clearance from this geometry.",
+      "source_spec": "https://media.brizo.com/SpecSheet/BSP-K-62810LF%20Rev%20N.pdf",
+      "measured_mesh_bounds_in": [
+        [
+          -10.092000007629395,
+          -7.279999732971191,
+          -2.8499999046325684
+        ],
+        [
+          1.380000114440918,
+          1.7881393432617188e-7,
+          5.389999866485596
+        ]
+      ],
+      "geometry_mesh_file": "assets\\appliances\\brizo-accessories-review\\62858LF-sketchup-mesh.json",
+      "skp_bytes": 290578,
+      "skp_sha256": "0000f6ee093693ab0444684b64d624980eb43972ce3a40097d643979c9ac53ec",
+      "lossless_optimization": "Hidden coplanar edges removed; unchanged bounds and surface area; native reload closed-part check passed. Native screenshots differ only in sparse subpixel rasterization noise, not visible geometry.",
+      "skp_path": "assets/accessories/62858LF.skp",
+      "image_path": "assets/accessories/62858LF.png"
+    }
+  ],
+  "matched_sets": [
+    {
+      "id": "odin",
+      "main": "brizo-63065lf",
+      "prep": "brizo-63965lf",
+      "drinking_water": "brizo-61365lf-c",
+      "pot_filler": "brizo-62820lf"
+    },
+    {
+      "id": "kintsu",
+      "main": "brizo-63006lf",
+      "prep": "brizo-63906lf",
+      "drinking_water": "brizo-61306lf-c",
+      "pot_filler": "brizo-62806lf"
+    },
+    {
+      "id": "litze",
+      "main": "brizo-63053lf",
+      "prep": "brizo-63953lf",
+      "drinking_water": "brizo-61343lf-c",
+      "pot_filler": "brizo-62843lf"
+    },
+    {
+      "id": "tulham",
+      "main": "brizo-62558lf",
+      "prep": "brizo-63958lf",
+      "drinking_water": "brizo-61358lf-c",
+      "pot_filler": "brizo-62858lf"
+    }
+  ],
+  "sink_pairs": [
+    {
+      "main": "K-5285.skp",
+      "prep": "K-5287.skp",
+      "relationship": "Same Kohler Strive collection; separate sink components"
+    },
+    {
+      "main": "K-5285.skp",
+      "prep": "K-33152.skp",
+      "relationship": "Same Kohler Strive collection; separate sink components"
+    }
+  ],
+  "rules": [
+    "Finish selection must use this product finish_variants only; keep body and accent materials separate.",
+    "A beverage faucet can be mounted on an island, but location does not turn it into a hot/cold prep faucet.",
+    "Add matching accessory chooses the actual accessory SKU. Never resize the main faucet to create a small faucet.",
+    "Keep placements independent. Do not automatically drill holes, place water connections or replace existing sink/faucet.",
+    "Clone component definitions/materials per finish when needed; changing one instance must not recolor all existing models.",
+    "Persist immutable selection snapshot: product/handle SKU, geometry revision/hash, finish/material map, function, connection, anchor and transform. Data, 2D and 3D must read the same snapshot.",
+    "Render/SketchUp colors approximate the finish under different lighting; no claim of physical color calibration.",
+    "Do not present proof of manifold topology as proof of exact manufacturer geometry or plumbing fit."
+  ]
+}

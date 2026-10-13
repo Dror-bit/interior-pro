@@ -149,14 +149,27 @@ module InteriorPro
     end
 
     def self.bind_catalog(dlg)
+      dlg.add_action_callback('kitchen_project_handles') do |_,_|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          KitchenLab.guard!
+          KitchenLab.instance_variable_set(:@hosted_cabinet_id,nil)
+          KitchenLab.instance_variable_set(:@hosted_catalog_ids,nil)
+          KitchenLab.instance_variable_set(:@hosted_project_handles,true)
+          KitchenLab.show
+          KitchenLab.publish
+        rescue StandardError=>error
+          dlg.execute_script("window.alert(#{JSON.generate(error.message)});")
+        end
+      end
       dlg.add_action_callback('kitchen_appliance_library') do |_,category|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
-          products=KitchenLab::ApplianceCatalog.products
+          products=KitchenLab::ApplianceCatalog.products+KitchenLab::SinkCatalog.products
           products=products.reject { |p| products.any? { |q| q['id']=='thermador-custom-'+p['id'].sub(/^thermador-/,'') } }
           products=products.select { |p| p['category']==category.to_s }.sort_by { |p| [p['reference_image_path'] ? 0 : 1,p['brand'],p['model']] }
           cards=products.map do |p|
-            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path')
+            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path','sku','automatic_cutout_available')
             relative=p['image_path'].to_s
             file=File.expand_path(relative,__dir__)
             if file.start_with?(File.expand_path('assets/appliances',__dir__)+File::SEPARATOR) && File.file?(file)
@@ -180,28 +193,53 @@ module InteriorPro
           raise 'Choose a cabinet from the library.' unless product_id || allowed.include?(request['kind'])
           payload={'kind'=>request['kind'],'wall'=>request.fetch('wall','A')}
           if product_id
-            product=KitchenLab::ApplianceCatalog.find(product_id)
-            payload['kind']=KitchenLab::ApplianceCatalog::KINDS.fetch(product['category'])
+            product=KitchenLab::SinkCatalog.include?(product_id) ? KitchenLab::SinkCatalog.find(product_id) : KitchenLab::ApplianceCatalog.find(product_id)
+            payload['kind']=product['category']=='sink' ? 'sink' : KitchenLab::ApplianceCatalog::KINDS.fetch(product['category'])
             payload['product_id']=product_id
           end
           command_type=product_id ? 'create_catalog_appliance' : 'create_cabinet'
+          without_cabinet=request.fetch('without_cabinet',false)
+          hood_style=request.fetch('hood_style','shaker')
+          raise 'Invalid cabinet option.' unless [true,false].include?(without_cabinet)
+          with_surround=!without_cabinet && surround_supported?({'kind'=>payload['kind'],'appliance'=>product_id ? product : nil})
           source=KitchenLab.document
           level=defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level.to_i : 1
           raise 'Kitchen belongs to another floor.' unless KitchenLab::Spatial.pose(source['settings'])['level'].to_i==level
           current=walls_payload
           token=Digest::SHA256.hexdigest(JSON.generate(current))
           if request['action']=='prepare'
-            candidate=catalog_preview(source,payload)
-            row=self.payload(JSON.generate(KitchenLab::Document.create(source['settings'],[candidate])),level)['cabinets'].first
+            if with_surround
+              bundle=catalog_bundle_preview(source,payload,without_cabinet,level,hood_style)
+              row=bundle['row']
+            else
+              candidate=catalog_preview(source,payload)
+              row=self.payload(JSON.generate(KitchenLab::Document.create(source['settings'],[candidate])),level)['cabinets'].first
+              bundle={'parts'=>nil}
+            end
             push(dlg)
-            dlg.execute_script("window.KitchenHouseInsert.begin(#{JSON.generate({'request_id'=>request['request_id'],'row'=>row,'kind'=>payload['kind'],'product_id'=>product_id,'wall'=>payload['wall'],'revision'=>source['revision'],'wall_token'=>token})});")
+            dlg.execute_script("window.KitchenHouseInsert.begin(#{JSON.generate({'request_id'=>request['request_id'],'row'=>row,'parts'=>bundle['parts'],'without_cabinet'=>without_cabinet,'hood_style'=>hood_style,'kind'=>payload['kind'],'product_id'=>product_id,'wall'=>payload['wall'],'revision'=>source['revision'],'wall_token'=>token})});")
             dlg.execute_script('window.KitchenSidebar?.result(null);')
           elsif request['action']=='place'
             raise 'Kitchen changed. Select the cabinet again.' unless request['revision']==source['revision'] && request['wall_token']==token
             payload['overrides']={'x'=>0,'house_placement'=>request.fetch('placement')}
-            candidate=catalog_preview(source,payload)
-            validate_house_placement!(candidate,source['settings'],current)
-            KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>command_type,'payload'=>payload}]},false)
+            if with_surround
+              # The cursor places the enclosure's left edge; the appliance sits
+              # one inch inside it (3/4 panel + 1/4 clearance on each side).
+              placement=request.fetch('placement').dup
+              angle=Float(placement.fetch('angle'))*Math::PI/180
+              placement['x']=Float(placement.fetch('x'))+Math.cos(angle)
+              placement['y']=Float(placement.fetch('y'))+Math.sin(angle)
+              payload['overrides']['house_placement']=placement
+              commands=catalog_commands(source,payload,without_cabinet,hood_style)
+              plan=KitchenLab.command_engine.plan(source,commands,expected_revision:request['revision'])
+              ids=commands.map { |c| c['payload']['id'] }
+              plan['document']['cabinets'].select { |c| ids.include?(c['id']) }.each { |c| validate_house_placement!(c,source['settings'],current) }
+            else
+              candidate=catalog_preview(source,payload)
+              validate_house_placement!(candidate,source['settings'],current)
+              commands=[{'type'=>command_type,'payload'=>payload}]
+            end
+            KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>commands},false)
             dlg.execute_script('window.KitchenHouseInsert.result(null);')
           else
             raise 'Select a cabinet, then click its position in the drawing.'
@@ -234,6 +272,7 @@ module InteriorPro
           raise 'Kitchen changed. Select the cabinet again.' unless request['revision']==source['revision']
           raise 'Cabinet no longer exists' unless source['cabinets'].any? { |c| c['id']==request['id'] }
           KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>'remove_cabinet','payload'=>{'id'=>request['id']}}]},false)
+          push(dlg)
           dlg.execute_script('window.KitchenHouseDrag?.result(null);')
         rescue StandardError=>error
           push(dlg)
@@ -325,12 +364,17 @@ module InteriorPro
           instance_variable_set(:@dialog,nil) if instance_variable_get(:@dialog).equal?(dlg)
           instance_variable_set(:@hosted_cabinet_id,nil)
           instance_variable_set(:@hosted_catalog_ids,nil)
+          instance_variable_set(:@hosted_project_handles,nil)
         end
         result
       end
 
       def publish(*args)
         result=super
+        if instance_variable_get(:@hosted_project_handles)
+          instance_variable_get(:@dialog)&.execute_script('window.KitchenHandleGallery?.openProject();')
+          return result
+        end
         catalog_ids=instance_variable_get(:@hosted_catalog_ids)
         if catalog_ids
           created=document['cabinets'].find { |c| !catalog_ids.include?(c['id']) }

@@ -45,18 +45,7 @@ module KitchenLab
   end
 
   def self.remove(id)
-    guard!
-    data=state['cabinets']
-    raise 'Cabinet no longer exists' unless data.any? { |c| c['id']==id }
-    @model.start_operation('Kitchen: remove cabinet',true)
-    begin
-      write_document!(data.reject { |c| c['id']==id })
-      cabinets.select { |g| g.get_attribute(DICT,'id')==id }.each(&:erase!)
-      worktops!;@model.commit_operation
-    rescue StandardError
-      @model.abort_operation;raise
-    end
-    publish
+    execute_commands({'commands'=>[{'type'=>'remove_cabinet','payload'=>{'id'=>id}}]})
   end
 
   # Geometry-only entry point: caller owns the operation; source data survives

@@ -22,9 +22,9 @@ const FrontLayouts={
   if(!Number.isFinite(upper)||upper<8)throw Error('Leave at least 8 inches for the upper doors. Increase cabinet height or lower the appliances.');
   return [{kind:'doors',height:upper,doors:2},...rows];
  },
- infer(c){return c.front_layout||(c.kind==='drawers'?'drawers':c.kind==='sink'?(c.width<24?'combo_single':'combo_double'):(c.width<24?'single':'double'));},
+ infer(c){if(c.sink?.product_id==='kohler-k-6489')return 'double';return c.front_layout||(c.kind==='drawers'?'drawers':c.kind==='sink'?(c.width<24?'combo_single':'combo_double'):(c.width<24?'single':'double'));},
  toe(c){return ['wall','fridge_surround','corner_upper'].includes(c.kind)?0:(c.toe_height??4);},
- available(c){return c.height-this.toe(c)-.25;},
+ available(c){return c.height-this.toe(c)-.25-(c.sink?.product_id==='kohler-k-6489'?8.9375:0);},
  heights(c){return c.drawer_heights|| (this.infer(c)==='drawers'?[.24,.36,.40].map(r=>(this.available(c)-.25)*r):[5.875]);},
  rows(c){
   if(this.corner(c))return [{kind:'doors',height:this.available(c),doors:1}];
@@ -48,3 +48,4 @@ const FrontLayouts={
   return rows;
  }
 };
+

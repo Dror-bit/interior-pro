@@ -32,7 +32,7 @@ module InteriorPro
       reset
       @fits = false
       if @pcfg.nil?
-        InteriorPro::ElectricalDialog.show do |cfg|
+        InteriorPro::ElectricalDialog.show(group: group) do |cfg|
           @pcfg = cfg
           setup_size!
           status
@@ -43,6 +43,11 @@ module InteriorPro
       status
     end
 
+    # Which window this button opens (Electrical / Lighting).
+    def group
+      'electrical'
+    end
+
     def setup_size!
       @parts = LIB.layout(Sketchup.active_model, @pcfg)
       @cfg = { parts: @parts.length, height: nil, run: false, wrap: false }
@@ -50,7 +55,7 @@ module InteriorPro
 
     def label
       k = LIB.kind_ok(@pcfg && @pcfg['kind'])
-      return 'Outlet' if k == 'outlet'
+      return LIB.kinds[k][:label] unless k == 'switch'
       g = LIB.gangs_ok(k, @pcfg['gangs'])
       g == 1 ? 'Switch' : "#{g} switches"
     end
@@ -112,7 +117,7 @@ module InteriorPro
       end
       grp = LIB.place!(wall: @wall, side: @side, fr: @frame, u: u_mid, cfg: @pcfg, parts: @parts, outs: @chk[:outs])
       LIB.trace("#{label} #{grp ? 'PLACED' : 'FAILED'}: wall #{wid} side #{@side} u #{u_mid.round(2)} " \
-                "height #{@pcfg['height'].to_f.round(2)} turn #{LIB.turn_of(@pcfg)} off the wall #{@chk[:outs].first.to_f.round(3)}")
+                "height #{@pcfg['height'].to_f.round(2)} turn #{LIB.turn_of(@pcfg)}#{LIB.countertop_of(@pcfg) ? ' COUNTERTOP' : ''} off the wall #{@chk[:outs].first.to_f.round(3)}")
       UI.messagebox('Nothing was placed - see the Ruby Console for the reason.') if grp.nil?
       status
       view.invalidate
@@ -139,6 +144,128 @@ module InteriorPro
           4.times { |k| view.draw(GL_LINES, [front[k], back[k]]) }
         end
         draw_ring(view, @hover)
+      end
+      begin
+        @ip.draw(view) if @ip && @ip.valid? && @ip.display?
+      rescue StandardError
+        nil
+      end
+    end
+  end
+
+  # THE LIGHTING BUTTON (2026-10-12, his words: "הם אומנם באותו הסרגל אבל לא
+  # בגלריה"): the same tool, its own window with the lighting kinds only.
+  class LightingTool < ElectricalTool
+    def group
+      'lighting'
+    end
+
+    # ---- ON THE CEILING (2026-10-12, his pick "1": "קליק על התקרה בתוך
+    # החדר, והמנורה נתלית שם" - the distances he sets later in 2D). A
+    # ceiling light or fan: the mouse ray meets the first Interior Pro
+    # ceiling (from above through it, or from below), or a point the mouse
+    # locked onto (corner / middle) with a ceiling over it. The ghost is
+    # the box of his file hanging from that spot. A click hangs it.
+    def ceiling_mode?
+      @pcfg && LIB::USE_CEILING_MOUNT && LIB.ceiling?(@pcfg['kind'])
+    end
+
+    def setup_size!
+      return super unless ceiling_mode?
+      d = LIB.definition_for(Sketchup.active_model, @pcfg['kind'], 1, @pcfg['product'])
+      @parts = d ? [{ defn: d }] : []
+      @cbox = d ? InteriorPro::FixtureLibrary.visible_bounds(d) : nil
+      @ceils = LIB.ceilings
+      @cfg = { parts: @parts.length, height: nil, run: false, wrap: false }
+      LIB.trace("#{label} #{@pcfg['product']}: #{@ceils.length} ceilings in the model#{d ? '' : ', FILE NOT LOADED'}")
+    end
+
+    def status
+      return super unless @cfg && ceiling_mode?
+      Sketchup.vcb_label = ''
+      Sketchup.set_status_text("#{label}: click on the ceiling of a room - it hangs there. Green = on a ceiling. Esc = done.", SB_PROMPT)
+    end
+
+    # { c: ceiling, x:, y:, kind: :corner / :middle / nil } or nil
+    def ceiling_point(view, x, y)
+      @ceils ||= LIB.ceilings
+      @ip ||= Sketchup::InputPoint.new
+      @ip.pick(view, x, y)
+      if @ip.valid? && (@ip.vertex || @ip.degrees_of_freedom.zero?)
+        pos = @ip.position
+        c = LIB.ceiling_over(@ceils, pos.x.to_f, pos.y.to_f)
+        return { c: c, x: pos.x.to_f, y: pos.y.to_f, kind: @ip.vertex ? :corner : :middle } if c
+      end
+      eye, dir = view.pickray(x, y)
+      hit = LIB.ceiling_hit(@ceils, [eye.x, eye.y, eye.z].map(&:to_f), [dir.x, dir.y, dir.z].map(&:to_f))
+      hit && { c: hit[0], x: hit[1], y: hit[2], kind: nil }
+    end
+
+    def onMouseMove(flags, x, y, view)
+      return super unless @cfg && ceiling_mode?
+      return if @parts.to_a.empty?
+      @chover = ceiling_point(view, x, y)
+      view.tooltip = @chover ? '' : 'Not on a ceiling'
+      view.invalidate
+    end
+
+    def onLButtonDown(flags, x, y, view)
+      return super unless @cfg && ceiling_mode?
+      h = ceiling_point(view, x, y)
+      if h.nil?
+        LIB.trace("#{label} click #{x},#{y}: no ceiling under the mouse")
+        Sketchup.set_status_text('Lighting: click on the CEILING of a room (no ceiling there - build the ceilings first).', SB_PROMPT)
+        return
+      end
+      cid = h[:c][:grp].get_attribute('InteriorPro', 'id')
+      grp = LIB.place_on_ceiling!(ceiling: h[:c], x: h[:x], y: h[:y], cfg: @pcfg)
+      # a ceiling built again with a hole is a new group: read them again
+      @ceils = LIB.ceilings
+      LIB.trace("#{label} #{grp ? 'HUNG' : 'FAILED'}: #{@pcfg['product']} on ceiling #{cid} " \
+                "x #{h[:x].round(2)} y #{h[:y].round(2)} z #{h[:c][:z].round(2)}#{h[:kind] ? " locked #{h[:kind]}" : ''}")
+      UI.messagebox('Nothing was placed - see the Ruby Console for the reason.') if grp.nil?
+      status
+      view.invalidate
+    end
+
+    def onUserText(text, view)
+      return super unless @cfg && ceiling_mode?
+      Sketchup.set_status_text('On the ceiling: click where it goes - the distances are set in 2D.', SB_PROMPT)
+    end
+
+    def draw(view)
+      return super unless @cfg && ceiling_mode?
+      if @chover && @cbox
+        b = @cbox
+        x0, x1 = @chover[:x] + b.min.x, @chover[:x] + b.max.x
+        y0, y1 = @chover[:y] + b.min.y, @chover[:y] + b.max.y
+        z0, z1 = @chover[:c][:z] + b.min.z, @chover[:c][:z] + b.max.z
+        p = ->(xx, yy, zz) { Geom::Point3d.new(xx, yy, zz) }
+        top = [p.(x0, y0, z1), p.(x1, y0, z1), p.(x1, y1, z1), p.(x0, y1, z1)]
+        bot = [p.(x0, y0, z0), p.(x1, y0, z0), p.(x1, y1, z0), p.(x0, y1, z0)]
+        view.drawing_color = Sketchup::Color.new(40, 150, 60, 70)
+        view.draw(GL_QUADS, top)
+        view.drawing_color = Sketchup::Color.new(40, 150, 60)
+        view.line_stipple = ''
+        view.line_width = 3
+        view.draw(GL_LINE_LOOP, top)
+        view.line_width = 1
+        view.line_stipple = '-'
+        view.draw(GL_LINE_LOOP, bot)
+        4.times { |k| view.draw(GL_LINES, [top[k], bot[k]]) }
+        # the spot itself, in the lock colour (green corner, cyan middle)
+        col = { corner: [0, 170, 0], middle: [0, 170, 200] }[@chover[:kind]] || [40, 150, 60]
+        c = p.(@chover[:x], @chover[:y], @chover[:c][:z])
+        r = begin
+          view.pixels_to_model(6, c)
+        rescue StandardError
+          1.0
+        end
+        ring = (0..16).map { |i| a = i * 2.0 * Math::PI / 16.0; p.(c.x + Math.cos(a) * r, c.y + Math.sin(a) * r, c.z) }
+        view.drawing_color = Sketchup::Color.new(*col)
+        view.line_stipple = ''
+        view.line_width = 3
+        view.draw(GL_LINE_STRIP, ring)
       end
       begin
         @ip.draw(view) if @ip && @ip.valid? && @ip.display?

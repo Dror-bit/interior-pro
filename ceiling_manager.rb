@@ -19,6 +19,68 @@ module InteriorPro
     DEFAULT_THICKNESS = 0.5  unless const_defined?(:DEFAULT_THICKNESS, false) # inches (drywall, framed only)
     DEFAULT_HEIGHT    = 96.0 unless const_defined?(:DEFAULT_HEIGHT, false)    # inches, fallback only
 
+    # HOLES FOR RECESSED LIGHTS (2026-10-12, his words: "זה צריך לעשות חור
+    # בתקרה איפה שהמנורה נופלת"). The rule of the floor (CLAUDE.md "חור ברצפה
+    # חי על הרצפה"): the ceiling is BUILT with its holes, never cut after.
+    # The holes come from the lights themselves - every placed light of
+    # this room that carries 'hole_d' - so a rebuilt ceiling keeps them and a
+    # light taken away gives its hole back on the next build.
+    # Kill switch: false = every ceiling is built whole again.
+    USE_CEILING_HOLES = true unless const_defined?(:USE_CEILING_HOLES, false)
+    HOLE_SEGS = 24 unless const_defined?(:HOLE_SEGS, false)
+
+    # [[x, y, d], ...] - the round holes the lights of this room need.
+    def self.holes_for(room_id, model = Sketchup.active_model)
+      return [] unless USE_CEILING_HOLES
+      model.entities.grep(Sketchup::Group).map do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'electrical'
+        next unless g.get_attribute('InteriorPro', 'mount') == 'ceiling' && g.get_attribute('InteriorPro', 'room_id') == room_id
+        d = g.get_attribute('InteriorPro', 'hole_d').to_f
+        next if d <= 0.0
+        [g.get_attribute('InteriorPro', 'x_in').to_f, g.get_attribute('InteriorPro', 'y_in').to_f, d]
+      end.compact
+    end
+
+    # Does a round hole sit wholly inside the outline (not touching an
+    # edge)? PURE.
+    def self.hole_fits?(poly, x, y, d)
+      r = d / 2.0
+      inside = false
+      j = poly.length - 1
+      poly.each_with_index do |(xi, yi), i|
+        xj, yj = poly[j]
+        inside = !inside if (yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi).to_f + xi
+        # distance from the middle to this side
+        dx = xj - xi
+        dy = yj - yi
+        l2 = dx * dx + dy * dy
+        t = l2 > 0 ? [[((x - xi) * dx + (y - yi) * dy) / l2, 0.0].max, 1.0].min : 0.0
+        px = xi + t * dx
+        py = yi + t * dy
+        return false if Math.sqrt((x - px)**2 + (y - py)**2) < r + 0.05
+        j = i
+      end
+      inside
+    end
+
+    # Cut the holes into the flat ceiling face being built: a circle drawn
+    # on the face splits off a disc, and the disc is taken away.
+    def self.punch_holes!(grp, holes, z, poly)
+      holes.each do |x, y, d|
+        unless hole_fits?(poly, x, y, d)
+          puts "[Ceilings] hole #{d.round(2)}\" at #{x.round(1)},#{y.round(1)} skipped - not wholly inside the ceiling"
+          next
+        end
+        edges = grp.entities.add_circle(Geom::Point3d.new(x, y, z), Geom::Vector3d.new(0, 0, 1), d / 2.0, HOLE_SEGS)
+        disc = edges.flat_map(&:faces).uniq.find { |f| f.edges.all? { |e| edges.include?(e) } }
+        if disc
+          disc.erase!
+        else
+          puts "[Ceilings] hole at #{x.round(1)},#{y.round(1)} - no disc found, nothing cut"
+        end
+      end
+    end
+
     def self.ceilings_in_model
       Sketchup.active_model.entities.grep(Sketchup::Group).select do |g|
         g.valid? && g.get_attribute('InteriorPro', 'type') == 'ceiling'
@@ -117,6 +179,11 @@ module InteriorPro
         # Flat: one zero-thickness face, white on both sides.
         face.material = mat
         face.back_material = mat
+        holes = holes_for(room_id, model)
+        punch_holes!(grp, holes, z_bottom, pts.map { |p| [p.x.to_f, p.y.to_f] }) unless holes.empty?
+      end
+      if style == 'framed' && !holes_for(room_id, model).empty?
+        puts "[Ceilings] room #{room_id}: framed ceiling - light holes not cut yet (flat only)"
       end
 
       grp.set_attribute('InteriorPro', 'type', 'ceiling')

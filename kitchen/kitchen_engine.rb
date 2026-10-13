@@ -178,9 +178,12 @@ module KitchenLab
         c=create_data(doc,payload.merge('wall'=>'I','overrides'=>supplied.merge('x'=>0)))
         id=c['id'];raise 'Cabinet ID already exists' if data.any? { |o| o['id']==id };data<<c
       when 'create_catalog_appliance'
-        options=ApplianceCatalog.options(payload.fetch('product_id'))
+        options=SinkCatalog.include?(payload.fetch('product_id')) ? SinkCatalog.options(payload['product_id']) : ApplianceCatalog.options(payload['product_id'])
         supplied=payload.fetch('overrides',{})
-        raise 'Only placement may override a catalog appliance' unless supplied.is_a?(Hash) && (supplied.keys-%w[x z house_placement]).empty?
+        raise 'Invalid appliance overrides' unless supplied.is_a?(Hash)
+        permitted=%w[x z house_placement]
+        permitted+=%w[installation_depth depth] if ApplianceCatalog.microwave_base?(options) && supplied.key?('installation_depth')
+        raise 'Only placement may override a catalog appliance' unless (supplied.keys-permitted).empty?
         c=create_data(doc,payload.merge('kind'=>options['kind'],'overrides'=>options.reject { |k,_| k=='kind' }.merge(supplied)))
         id=c['id'];raise 'Cabinet ID already exists' if data.any? { |o| o['id']==id };data<<c
       when 'detach_catalog_appliance'
@@ -205,6 +208,19 @@ module KitchenLab
         end
         raise 'Cabinet identity and type cannot be changed' unless (changes.keys & %w[id kind]).empty?
         data[index]=@validator.call(Appearance.edit(data[index],changes,s),s)
+      when 'set_project_handles'
+        raise 'Settings validation is unavailable' unless @settings_validator
+        all=payload.fetch('apply_to_all',false)
+        raise 'Invalid handle scope' unless [true,false].include?(all)
+        updates=payload.slice('global_door_handle_model','global_drawer_handle_model')
+        raise 'Choose both door and drawer handles' unless updates.length==2
+        doc['settings']=@settings_validator.call(updates.merge('global_handle_type'=>'bar','global_handle_color'=>s.fetch('global_handle_color','').empty? ? 'brass' : s['global_handle_color']),s)
+        doc['cabinets']=data.map do |c|
+          if all && !Appearance.appliance?(c)
+            c=c.merge('door_handle_model'=>nil,'drawer_handle_model'=>nil,'appearance_overrides'=>c.fetch('appearance_overrides',{}).reject { |k,_| k=='handle' })
+          end
+          Appearance.resolve(c,doc['settings'])
+        end
       when 'update_settings'
         raise 'Settings validation is unavailable' unless @settings_validator
         doc['settings']=@settings_validator.call(payload,s)
@@ -241,12 +257,14 @@ module KitchenLab
       when 'remove_cabinet_and_close_gap'
         removed=data.find { |c| c['id']==id };raise 'Cabinet no longer exists' unless removed
         raise 'For corner or rotated cabinets use Delete and keep space.' if removed['kind'].start_with?('corner') || removed.fetch('rotation',0)%360!=0
+        raise 'For appliance cabinets use Delete and keep space.' if removed['surround_for'] || data.any? { |c| c['surround_for']==id }
         lane=gap_lane(data,removed)
         shift_gap_tail!(lane.reject { |c| c['id']==id },removed['x']+removed['width'],removed['width'])
         data.reject! { |c| c['id']==id }
       when 'remove_cabinet'
-        raise 'Cabinet no longer exists' unless data.any? { |o| o['id']==id }
-        data.reject! { |o| o['id']==id }
+        removed=data.find { |o| o['id']==id };raise 'Cabinet no longer exists' unless removed
+        owner=removed['surround_for'] || id
+        data.reject! { |o| o['id']==owner || o['surround_for']==owner }
       else
         raise "Unknown kitchen command: #{name}"
       end

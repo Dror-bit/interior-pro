@@ -1,0 +1,6 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const code=fs.readFileSync(new URL('./kitchen_plan.js',import.meta.url),'utf8');let zoom=1;const c={window:{},draw(){},sx:x=>x*zoom+100,sy:y=>-y*zoom+50};vm.createContext(c);vm.runInContext(code,c);const kp=c.window.KP;const panel={id:'orphan',cabinet:{surround_for:'missing'},polygon:[[0,0],[.75,0],[.75,24],[0,24]]};
+for(const z of [.15,1,5,20]){zoom=z;kp.load({cabinets:[panel]});assert.equal(kp.hit(.75+6/z,12)?.id,'orphan');assert.equal(kp.hit(.75+8/z,12),null);assert.equal(kp.hit(0,12)?.id,'orphan');assert.equal(kp.hit(.375,12)?.id,'orphan');}
+zoom=1;const other={id:'other',polygon:[[5,0],[20,0],[20,24],[5,24]]};kp.load({cabinets:[panel,other]});assert.equal(kp.hit(6,12).id,'other');assert.equal(kp.hit(1,12).id,'orphan');
+const rotated={id:'rotated',polygon:panel.polygon.map(([x,y])=>[(x-y)/Math.sqrt(2),(x+y)/Math.sqrt(2)])};kp.load({cabinets:[rotated]});assert.equal(kp.hit(-8,8)?.id,'rotated');kp.load({cabinets:[]});assert.equal(kp.hit(0,0),null);
+console.log('PASS: thin and orphan panels, screen-pixel tolerance at four zooms, exact boundaries, rotation, nearest edge, interior priority, deletion refresh');

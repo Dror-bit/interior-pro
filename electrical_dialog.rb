@@ -14,15 +14,22 @@ require 'json'
 
 module InteriorPro
   module ElectricalDialog
-    def self.defaults
-      k = InteriorPro::ElectricalLibrary.kinds.keys.first
+    def self.defaults(group = 'electrical')
+      k = InteriorPro::ElectricalLibrary.kinds_in(group).first || InteriorPro::ElectricalLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::ElectricalLibrary.products(k).first, 'gangs' => 1,
-        'height' => InteriorPro::ElectricalLibrary.default_height(k), 'turn' => 0 }
+        'height' => InteriorPro::ElectricalLibrary.default_height(k), 'turn' => 0, 'countertop' => false }
     end
 
     # What he chose last time, so the second one is one click away.
-    def self.last
-      @last ||= defaults
+    # One a window: the Electrical window and the Lighting window each
+    # remember their own.
+    def self.last(group = 'electrical')
+      @last = {} unless @last.is_a?(Hash) && !@last.key?('kind')
+      @last[group] ||= defaults(group)
+    end
+
+    def self.title_of(group)
+      group == 'lighting' ? 'Lighting' : 'Electrical'
     end
 
     def self.url_of(path)
@@ -30,43 +37,55 @@ module InteriorPro
     end
 
     # Every kind with its products and their pictures ('' = draw it).
-    def self.catalog
+    def self.catalog(group = 'electrical')
       model = Sketchup.active_model
       out = {}
       InteriorPro::ElectricalLibrary.kinds.each do |k, info|
+        next unless InteriorPro::ElectricalLibrary.group_of(k) == group
+        # a kind made only of his files shows only when the folder has one
+        next if info[:files_only] && InteriorPro::ElectricalLibrary.products(k).empty?
+        next if info[:mount] == 'ceiling' && !InteriorPro::ElectricalLibrary::USE_CEILING_MOUNT
         prods = InteriorPro::ElectricalLibrary.products(k).map do |n|
           tp = InteriorPro::ElectricalLibrary.ensure_thumb(model, k, n)
           { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '' }
         end
         out[k] = { 'label' => info[:label], 'height' => info[:height], 'gangs' => info[:gangs] ? true : false,
+                   'ceiling' => info[:mount] == 'ceiling',
                    'products' => prods }
       end
       out
     end
 
-    def self.show(prefill = nil, button: 'Place', &on_ok)
-      data = defaults.merge(last).merge(prefill || {})
+    def self.show(prefill = nil, button: 'Place', group: 'electrical', &on_ok)
+      @group = group
+      if catalog(group).empty?
+        UI.messagebox("No #{title_of(group)} files yet - put a .skp in assets\\ELECTRICAL\\WALL_LIGHTS")
+        return nil
+      end
+      data = defaults(group).merge(last(group)).merge(prefill || {})
       if @dialog
         begin; @dialog.close; rescue StandardError; end
         @dialog = nil
       end
       @on_ok = on_ok
       @button = button
-      dlg = UI::HtmlDialog.new(dialog_title: 'Interior Pro - Electrical', preferences_key: 'InteriorPro_Electrical',
+      dlg = UI::HtmlDialog.new(dialog_title: "Interior Pro - #{title_of(group)}", preferences_key: "InteriorPro_#{title_of(group)}",
                                width: 470, height: 300, resizable: true)
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
-        cfg = defaults.merge(cfg.select { |k, _| defaults.key?(k) })
+        cfg = defaults(group).merge(cfg.select { |k, _| defaults(group).key?(k) })
         cfg['kind'] = InteriorPro::ElectricalLibrary.kind_ok(cfg['kind'])
         cfg['product'] = cfg['product'].to_s
         cfg['gangs'] = InteriorPro::ElectricalLibrary.gangs_ok(cfg['kind'], cfg['gangs'])
         cfg['height'] = cfg['height'].to_f
         cfg['turn'] = cfg['turn'].to_i == 90 ? 90 : 0
-        if cfg['height'] <= 0.0
+        cfg['countertop'] = InteriorPro::ElectricalLibrary.countertop_of(cfg.merge('countertop' => cfg['countertop'] == true))
+        if cfg['height'] <= 0.0 && !InteriorPro::ElectricalLibrary.ceiling?(cfg['kind'])
           UI.messagebox('Type the height from the floor to its middle, e.g.  18')
           next
         end
-        @last = cfg
+        last(group)
+        @last[group] = cfg
         begin; dlg.close; rescue StandardError; end
         @dialog = nil
         @on_ok.call(cfg) if @on_ok
@@ -80,7 +99,7 @@ module InteriorPro
         name = src ? InteriorPro::ElectricalLibrary.add_file!(kind, src) : nil
         UI.messagebox('That file could not be added - see the Ruby Console.') if src && name.nil?
         cur['product'] = name if name
-        show(cur, button: @button, &@on_ok)
+        show(cur, button: @button, group: group, &@on_ok)
       end
       # "Save selected": the ONE group or component selected in the model
       # is saved into the kind's folder. Select it BEFORE clicking Electrical.
@@ -101,7 +120,7 @@ module InteriorPro
         name = InteriorPro::ElectricalLibrary.save_selected!(kind, ent, res[0])
         UI.messagebox('It could not be saved - see the Ruby Console.') if name.nil?
         cur['product'] = name if name
-        show(cur, button: @button, &@on_ok)
+        show(cur, button: @button, group: group, &@on_ok)
       end
       dlg.add_action_callback('cancel') do |_|
         begin; dlg.close; rescue StandardError; end
@@ -117,12 +136,12 @@ module InteriorPro
           puts "[Electrical] fit_height: #{e.message}"
         end
       end
-      dlg.set_html(build_html(data, catalog, button))
+      dlg.set_html(build_html(data, catalog(group), button, title_of(group)))
       dlg.show
       @dialog = dlg
     end
 
-    def self.build_html(d, cat, button = 'Place')
+    def self.build_html(d, cat, button = 'Place', title = 'Electrical')
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -144,10 +163,11 @@ module InteriorPro
                    background: #5d4037; color: #fff; font-size: 14px; cursor: pointer; }
           button.secondary { background: #9e9e9e; }
         </style></head><body>
-          <div class="section-title">Electrical</div>
+          <div class="section-title">#{title}</div>
           <div class="row first">Kind<div class="grid" id="kindGrid"></div></div>
           <div class="row">Product<div class="grid" id="prodGrid"></div></div>
           <div class="row" id="turnRow" style="display:none;">Position<div class="grid" id="turnGrid"></div></div>
+          <div class="row" id="counterRow" style="display:none;"><label><input type="checkbox" id="counter" onchange="pickCounter(this.checked)"> Countertop outlet</label></div>
           <div class="row" id="gangRow" style="display:none;">Switches<div class="grid" id="gangGrid"></div></div>
           <div class="row" id="heightRow">
             Height from the floor to the middle of it <input type="number" id="height" step="0.5" min="0"> in
@@ -163,11 +183,16 @@ module InteriorPro
             var gangs = Math.max(1, Math.min(5, parseInt(D.gangs, 10) || 1));
             var product = D.product;
             var turn = parseInt(D.turn, 10) === 90 ? 90 : 0;
+            var counter = D.countertop === true;
+            var COUNTER_H = #{InteriorPro::ElectricalLibrary::COUNTERTOP_H};
+            var USE_COUNTER = #{InteriorPro::ElectricalLibrary::USE_COUNTERTOP ? 'true' : 'false'};
             function curProduct() {
               var list = CAT[kind].products;
               for (var i = 0; i < list.length; i++) if (list[i].name === product) return list[i];
               return list[0];
             }
+            // a kind of his files only: its first file's picture is the kind's picture
+            function picOfKind(k) { var p = CAT[k].products[0]; return p && p.img ? '<img src="' + p.img + '">' : ''; }
             function picOf(p) { return p.img ? '<img src="' + p.img + '">' : plateSvg(kind, 1); }
             // The plate as he will see it: 2.75 x 4.5, +1.8125 a switch.
             function plateSvg(k, n) {
@@ -194,11 +219,15 @@ module InteriorPro
             }
             function card(sel, pic, name, click) {
               return '<div class="design-card' + (sel ? ' selected' : '') + '" onclick="' + click + '">' + pic +
-                     '<div class="dn">' + name + '</div></div>';
+                     '<div class="dn">' + inches(name) + '</div></div>';
             }
+            // "Recessed 6in Round White" is shown as  Recessed 6" Round White
+            // (his words: "שתרשום שאחת היא 6 ואחת היא 4"); the file keeps its name
+            function inches(name) { return String(name).replace(/([0-9]+)in( |$)/g, '$1&quot;$2'); }
             function render() {
               document.getElementById('kindGrid').innerHTML = Object.keys(CAT).map(function(k) {
-                return card(k === kind, plateSvg(k, 1), CAT[k].label, "pickKind('" + k + "')");
+                var icon = (k === 'outlet' || k === 'switch') ? plateSvg(k, 1) : picOfKind(k);
+                return card(k === kind, icon, CAT[k].label, "pickKind('" + k + "')");
               }).join('');
               var list = CAT[kind].products;
               if (!list.some(function(p) { return p.name === product; })) product = list[0].name;
@@ -213,14 +242,27 @@ module InteriorPro
               document.getElementById('gangGrid').innerHTML = g;
               // POSITION (his words: "אופציה בהתחלה של מאונך ומאוזן"): an outlet only
               document.getElementById('turnRow').style.display = kind === 'outlet' ? '' : 'none';
+              // on the ceiling: no height, and the words say where it goes
+              document.getElementById('heightRow').style.display = CAT[kind].ceiling ? 'none' : '';
+              document.getElementById('counterRow').style.display = (kind === 'outlet' && USE_COUNTER) ? '' : 'none';
+              document.getElementById('counter').checked = counter;
+              document.getElementById('helpRow').innerHTML = CAT[kind].ceiling ?
+                'After you click Place: click on the ceiling of a room - it hangs there.' :
+                'After you click Place: move along a wall - it stays at this height. Type a number + Enter = that far from the nearer corner to its middle.';
               var pic = picOf(curProduct());
               var lying = pic.replace('<img ', '<img class="lying" ').replace('<svg ', '<svg class="lying" ');
               document.getElementById('turnGrid').innerHTML =
                 card(turn === 0, pic, 'Vertical', 'pickTurn(0)') + card(turn === 90, lying, 'Horizontal', 'pickTurn(90)');
             }
             function pickTurn(t) { turn = t; render(); }
+            // ticked = 42" to the middle; unticked = back to the outlet's 18"
+            function pickCounter(on) {
+              counter = on;
+              document.getElementById('height').value = on ? COUNTER_H : CAT[kind].height;
+              render();
+            }
             function pickKind(k) {
-              if (k !== kind) document.getElementById('height').value = CAT[k].height;
+              if (k !== kind) { document.getElementById('height').value = CAT[k].height; counter = false; }
               kind = k;
               render();
             }
@@ -229,7 +271,7 @@ module InteriorPro
             function cur() {
               return { kind: kind, product: product, gangs: CAT[kind].gangs ? gangs : 1,
                        height: parseFloat(document.getElementById('height').value) || 0,
-                       turn: kind === 'outlet' ? turn : 0 };
+                       turn: kind === 'outlet' ? turn : 0, countertop: kind === 'outlet' && counter };
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
             function saveSel() { sketchup.save_selected(JSON.stringify(cur())); }

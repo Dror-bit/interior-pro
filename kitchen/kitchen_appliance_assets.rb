@@ -33,6 +33,9 @@ module KitchenLab
       data
     end
     def self.offset(d)
+      if d['installation_depth'] && ApplianceCatalog.microwave_base?(d)
+        return [0,-(d['installation_depth']-d.dig('appliance','appearance','cabinet_depth').to_f),0]
+      end
       return [0,0,0] unless d.dig('appliance','category')=='cooktop'
       dim=d['appliance']['dimensions'];x,y,=ApplianceCatalog.cooktop_bounds(d)
       deck=manifest(d['appliance'])&.fetch('mounting_deck_z',nil)

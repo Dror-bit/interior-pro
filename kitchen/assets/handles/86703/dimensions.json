@@ -1,0 +1,108 @@
+{
+  "family": "Hunter",
+  "sku": "86703",
+  "ctc": null,
+  "L": 1.625,
+  "P": 1.25,
+  "W": 1.625,
+  "source": "https://www.emtek.com/media/salsify/documents/cb/cba50pzifx-2024-05-23T194413Z-EMTEK_Modern_Rectangular_Cabinet_Hardware_Technical_Specifications.pdf",
+  "status": "APPROVED_GEOMETRY_NATIVE_SKP",
+  "units": "inch",
+  "manufacturer_dimensions_in": {
+    "overall_length_or_diameter": 1.625,
+    "projection": 1.25,
+    "width_or_cup_height": 1.625,
+    "center_to_center": null
+  },
+  "mount_points_in": [
+    [
+      0,
+      0,
+      0
+    ]
+  ],
+  "mount_axes": [
+    0,
+    0,
+    1
+  ],
+  "origin": "midpoint of screw axes on mounting plane",
+  "orientation": "X along pull; Z outward; +90deg rotation around Z for vertical",
+  "vertical_allowed": true,
+  "material": "EMTEK_US15_Satin_Nickel",
+  "manufacturer_cad": false,
+  "inferred_details": "Unspecified edge radii, grip profiles, dome, knurl pitch, shell thickness and screw pockets are photo-interpreted. No threads or drilling holes modeled.",
+  "native_skp_ready": true,
+  "audit": {
+    "connected_components": 1,
+    "non_manifold_edges": 0,
+    "triangles": 188
+  },
+  "set_ids": [
+    "A"
+  ],
+  "geometry_approved_by_user": true,
+  "schema_version": 1,
+  "asset_id": "emtek-hunter-86703-us15",
+  "skp_path": "86703/handle.skp",
+  "preview_path": "86703/preview.png",
+  "dimensions_path": "86703/dimensions.json",
+  "mount_points_mm": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "mounting_plane": "local Z=0",
+  "screw_direction_into_front": [
+    0,
+    0,
+    -1
+  ],
+  "horizontal_rotation_deg": 0,
+  "vertical_rotation_deg": 90,
+  "dimensions_verified_source": "https://www.emtek.com/media/salsify/documents/cb/cba50pzifx-2024-05-23T194413Z-EMTEK_Modern_Rectangular_Cabinet_Hardware_Technical_Specifications.pdf",
+  "actual_bounds_in": [
+    [
+      -0.8125,
+      0.8125
+    ],
+    [
+      -0.8125,
+      0.8125
+    ],
+    [
+      0.0,
+      1.25
+    ]
+  ],
+  "source_geometry": "photo-interpreted; primary dimensions and C-C from EMTEK technical specifications",
+  "use_scope": "Interior Pro visualization and placement; not a manufacturer fabrication or drilling template",
+  "native_validation": {
+    "faces": 188,
+    "edges": 282,
+    "nonmanifold_edges": 0,
+    "materials": 1,
+    "bounds_in": [
+      [
+        -0.8125,
+        0.8125
+      ],
+      [
+        -0.8125,
+        0.8125
+      ],
+      [
+        0.0,
+        1.25
+      ]
+    ],
+    "solid_component_load_pass": true,
+    "volume_in3": 1.3609486330066376,
+    "sku": "86703",
+    "file_bytes": 15853,
+    "writer": "SketchUp 2024 C API",
+    "reopened_from_disk": true
+  }
+}

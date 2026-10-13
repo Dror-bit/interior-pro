@@ -63,6 +63,14 @@
  .kp-clean #side[data-tool="sel"] #secLine{display:none!important}.kp-clean .foldBox{background:white;border-color:#dce3da}.kp-clean .foldHead{font-weight:500}
  .kp-clean #kp-more{position:relative}.kp-clean #kp-more summary{list-style:none;cursor:pointer;padding:6px 9px;font-size:18px}.kp-clean #kp-more summary::-webkit-details-marker{display:none}
  .kp-clean #kp-more>div{position:absolute;right:0;top:36px;z-index:1000;min-width:170px;background:white;padding:8px;border:1px solid #dce3da;border-radius:8px;box-shadow:0 8px 25px #20352822;display:grid;gap:6px}.kp-clean #kp-more:not([open])>div{display:none}
+
+ .kp-clean #editBar{background:transparent;padding:0;border:0;box-shadow:none;width:fit-content;max-width:100%;gap:5px;flex-wrap:wrap}
+ .kp-clean #editBar .sktb-g{display:contents;border:0;padding:0}
+ .kp-clean #editBar button{width:30px;height:30px;min-height:0;padding:0;border:1px solid #dce3da;background:white;color:#4b6256;border-radius:6px}
+ .kp-clean #editBar button:hover{background:#edf1eb;color:#253c34}
+ .kp-clean #editBar button.on{background:#315f4f;color:white}
+ .kp-clean #editBar #ebDel:hover{background:#fff0ee;border-color:#dba9a2;color:#a12e25}
+ .kp-clean #editBar button:focus-visible{outline:2px solid #315f4f;outline-offset:2px}
  @media(max-width:620px){.kp-clean #main{flex-direction:row}.kp-clean #side{max-height:none}.kp-clean #side.kp-expanded{flex-basis:270px;width:270px}.kp-clean #canvasWrap{margin:5px}.kp-clean #top .title{display:none}}
  `;document.head.append(style);
  let settingsOpen=false,resourceOpen=null,previousMode=mode;

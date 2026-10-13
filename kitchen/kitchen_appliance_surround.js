@@ -12,9 +12,10 @@
   const row=rows.find(r=>r.id===id&&['fridge','microwave','wall_oven'].includes(r.cabinet?.kind));
   box.hidden=activePage!==0||!row;
   if(!row){current=null;return;}
-  if(current!==id){current=id;field('depth').value=row.cabinet.kind==='fridge'?24:row.cabinet.depth;field('height').value=96;field('side').value=.25;field('top').value=1;field('error').textContent='';}
+  const base=row.cabinet.kind==='microwave'&&(row.cabinet.appliance?.appearance?.door==='drawer'||row.cabinet.appliance?.appearance?.installation==='under_counter');
+  if(current!==id){current=id;field('depth').value=(base||row.cabinet.kind==='fridge')?24:(row.cabinet.appliance?.appearance?.cabinet_depth??row.cabinet.depth);field('height').value=base?34.5:96;field('side').value=.25;field('top').value=base?.25:1;field('error').textContent='';}
   field('title').textContent=row.cabinet.kind==='fridge'?'Refrigerator cabinet':row.cabinet.kind==='wall_oven'?'Wall oven cabinet':'Microwave cabinet';
-  field('height-row').style.display=row.cabinet.kind!=='microwave'?'grid':'none';
+  field('height-row').style.display=(row.cabinet.kind!=='microwave'||base)?'grid':'none';
   const exists=rows.some(r=>r.cabinet?.surround_for===id),button=box.querySelector('button');
   button.disabled=pending||exists;button.textContent=exists?'Cabinet already added':'Add cabinet around appliance';
  }
@@ -23,3 +24,4 @@
  field('form').onsubmit=e=>{e.preventDefault();if(pending||!current||box.querySelector('button').disabled||KitchenHouseDrag.state.pending||KitchenHouseDrag.state.dragging)return;pending=true;field('error').textContent='';update();sketchup.kitchen_add_surround(JSON.stringify({id:current,revision,options:{total_height:Number(field('height').value),depth:Number(field('depth').value),side_gap:Number(field('side').value),top_gap:Number(field('top').value)}}));};
  window.KitchenSurround={select(){update();if(!box.hidden){KitchenSidebar.open();}},result(error){pending=false;field('error').textContent=error||'';update();if(!error&&typeof armHiddenUndo==='function')armHiddenUndo();},get pending(){return pending;}};
 })();
+

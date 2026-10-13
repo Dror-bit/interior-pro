@@ -87,7 +87,7 @@ for(const id of ['handle_position','handle_offset','handle_side'])$(id).addEvent
 function checkHandles(c){
  if(isAppliance(c)||c.handle==='none')return;
  for(const [rowIndex,row] of FrontLayouts.rows(c).entries()){
-  if(row.kind==='appliance')continue;
+  if(row.kind==='appliance'||(c.kind==='sink'&&row.kind==='drawer'))continue;
   const n=row.kind==='drawer'?1:row.doors,w=FrontLayouts.corner(c)?c.width-c.depth-.25:(c.width-.125*(n+1))/n;
   const [x,z,hw,hh]=handleLayout(c,w,row.height,row.kind==='drawer',true,rowIndex);
   if(![x,z,hw,hh].every(Number.isFinite)||x<0||z<0||x+hw>w||z+hh>row.height)throw Error('Handle falls outside the front. Reduce the edge distances.');
@@ -423,16 +423,16 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
    inner+=rect(x,y,w,c.height*s,fill);
    if(toe)inner+=rect(x,base-(c.z+toe)*s,w,toe*s,fill);
    const fronts=[];
-   let yy=y+.125*s;
+   let yy=y+(.125+(c.sink?.product_id==='kohler-k-6489'?8.9375:0))*s;
    FrontLayouts.rows(c).forEach((row,rowIndex)=>{
     const fh=row.height*s;
     if(row.kind==='appliance')inner+=builtinDrawing(row,c,x,yy,w,s);
-    else if(row.kind==='drawer')fronts.push([x+.125*s,yy,w-.25*s,fh,true,'left',rowIndex]);
+    else if(row.kind==='drawer')fronts.push([x+(.125-(c.front_overlay||0))*s,yy,w+((c.front_overlay||0)*2-.25)*s,fh,true,'left',rowIndex]);
     else if(row.doors===1)fronts.push([x+.125*s,yy,w-.25*s,fh,false,'left',rowIndex]);
     else {const dw=(w-.375*s)/2;fronts.push([x+.125*s,yy,dw,fh,false,'left',rowIndex],[x+dw+.25*s,yy,dw,fh,false,'right',rowIndex]);}
     yy+=fh+.125*s;
    });
-   fronts.forEach(([fx,fy,fw,fh,horiz,side,rowIndex],i)=>{inner+=rect(fx,fy,fw,fh,fill);if(['shaker','glass'].includes(c.style)){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),fill,'#8a9184')+rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),'#23382b','none',{'fill-opacity':kitchenSettings.shaker_inset*.18});}if(c.style==='glass'&&!horiz){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,fw-2*r,fh-2*r,'#afdae2','#7fa5af',{'fill-opacity':.55})+line(fx+r+3,fy+fh-r-3,fx+fw-r-3,fy+r+3,'#edf9fc');}if(c.handle!=='none'){const ink=c.handle==='brass'?'#a38344':'#232b26';const hp=handleLayout(c,fw/s,fh/s,horiz,side==='left',rowIndex);inner+=rect(fx+hp[0]*s,fy+(fh/s-hp[1]-hp[3])*s,hp[2]*s,hp[3]*s,ink,ink);}});
+   fronts.forEach(([fx,fy,fw,fh,horiz,side,rowIndex],i)=>{inner+=rect(fx,fy,fw,fh,fill);if(['shaker','glass'].includes(c.style)){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),fill,'#8a9184')+rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),'#23382b','none',{'fill-opacity':kitchenSettings.shaker_inset*.18});}if(c.style==='glass'&&!horiz){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,fw-2*r,fh-2*r,'#afdae2','#7fa5af',{'fill-opacity':.55})+line(fx+r+3,fy+fh-r-3,fx+fw-r-3,fy+r+3,'#edf9fc');}if(c.handle!=='none'&&!(c.kind==='sink'&&horiz)){const ink=c.handle==='brass'?'#a38344':'#232b26';const hp=handleLayout(c,fw/s,fh/s,horiz,side==='left',rowIndex);inner+=rect(fx+hp[0]*s,fy+(fh/s-hp[1]-hp[3])*s,hp[2]*s,hp[3]*s,ink,ink);}});
    if(!['wall','tall','oven_tower','micro_tower','fridge_surround'].includes(c.kind))inner+=rect(x,y-1.5*s,w,1.5*s,'#f0eee6');
    inner+=rect(x,y,w,c.height*s,'none',active?'#315f4f':'transparent',{class:'outline','stroke-width':active?2.5:1});
   }
@@ -479,3 +479,4 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
  (single?[]:drawing.querySelectorAll('[data-dim]')).forEach(el=>el.addEventListener('click',()=>{if(!el.dataset.dim)return;choose(el.dataset.dim);$('width').focus();$('width').select();}));
 }
 window.addEventListener('load',()=>{send('ready');send('fit_height',Math.max(680,Math.min(820,document.body.scrollHeight)));});
+

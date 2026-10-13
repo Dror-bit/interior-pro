@@ -13,10 +13,15 @@ module KitchenLab
       a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at').merge('schema_version'=>1)
       asset=ApplianceAssets.selection(id);a['asset']=asset if asset;a
     end
+    def self.microwave_base?(d)
+      a=d['appliance']||{}
+      d['kind']=='microwave' && (a.dig('appearance','door')=='drawer' || a.dig('appearance','installation')=='under_counter')
+    end
     def self.options(id)
       a=snapshot(id);dim=a['dimensions'];category=a['category']
       d={'kind'=>KINDS.fetch(category),'appliance'=>a,'appliance_finish'=>a.fetch('appearance',{}).fetch('finish','stainless')}.merge(dim)
       d['z']=case category;when 'wall_oven';28;when 'hood';66;when 'microwave';a.dig('appearance','installation')=='over_range' ? 54 : 36;else;0;end
+      d['z']=34.5-d['height']-1 if microwave_base?(d)
       if category=='cooktop'
         d.merge!('width'=>((dim['width']+2)/3.0).ceil*3.0,'height'=>34.5,'depth'=>[24,dim['depth']+3].max,'z'=>0)
       end
@@ -30,13 +35,18 @@ module KitchenLab
       ApplianceAssets.manifest(a) if a['asset']
       %w[width height depth].each { |k| raise "Invalid appliance #{k}" unless dim[k].is_a?(Numeric) && dim[k].finite? && dim[k]>0 && dim[k]<=120 }
       raise 'Appliance category does not match cabinet type' unless d['kind']==KINDS[a['category']]
+      if d.key?('installation_depth')
+        installation=Float(d['installation_depth'])
+        raise 'Invalid microwave cabinet depth' unless microwave_base?(d) && installation.finite? && installation.between?(24,36)
+        d['installation_depth']=installation
+      end
       if a['category']=='cooktop'
         raise 'Cooktop must fit the base with 1 inch at either side' unless dim['width']<=d['width']-2
         raise 'Cooktop must fit the countertop depth' unless dim['depth']<=d['depth']-2
         raise 'Cooktop requires a recorded countertop cutout' unless a['cutout'].is_a?(Hash)
         %w[width depth].each { |k| raise 'Invalid cooktop cutout' unless a['cutout'][k].is_a?(Numeric) && a['cutout'][k]>0 && a['cutout'][k]<dim[k] }
       else
-        raise 'Catalog appliance dimensions are fixed. Choose another model or detach from catalog.' unless %w[width height depth].all? { |k| (d[k]-dim[k]).abs<0.0001 }
+        raise 'Catalog appliance dimensions are fixed. Choose another model or detach from catalog.' unless %w[width height depth].all? { |k| expected=dim[k];expected+=d['installation_depth']-a.dig('appearance','cabinet_depth').to_f if k=='depth' && d['installation_depth'];(d[k]-expected).abs<0.0001 }
       end
     end
     def self.cooktop?(d);d.dig('appliance','category')=='cooktop';end

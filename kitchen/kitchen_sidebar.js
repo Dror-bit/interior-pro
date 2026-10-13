@@ -4,6 +4,7 @@
  const section=document.createElement('section');section.id='kp-kitchen';
  section.innerHTML='<label>Assembly<select id="kp-cab-area"><option value="A">Kitchen</option><option value="I">Island</option></select></label><div id="kp-cab-library"></div><div id="kp-cab-error" role="alert"></div>';
  panel.append(section);
+ const handlesButton=document.createElement('button');handlesButton.type='button';handlesButton.id='kp-project-handles';handlesButton.textContent='Project handles';handlesButton.style.cssText='width:100%;margin:10px 0;padding:10px';handlesButton.onclick=()=>sketchup.kitchen_project_handles('');section.querySelector('#kp-cab-library').before(handlesButton);
  const groups=[['Base cabinets',[['doors','Doors'],['drawers','Drawers'],['sink','Sink base'],['corner_base','L corner']]],['Wall cabinets',[['wall','Doors'],['glass_wall','Glass'],['corner_upper','L corner']]],['Tall cabinets',[['tall','Pantry']]],['Appliances',[['fridge','Refrigerator'],['oven','Range'],['dishwasher','Dishwasher'],['hood','Hood'],['microwave','Microwave'],['wall_oven','Wall oven']]],['Finishing',[['filler','Filler']]]];
  const swingLabel=document.createElement('label');swingLabel.style.cssText='display:flex;align-items:center;gap:7px;margin:12px 0';
  const swing=document.createElement('input');swing.type='checkbox';swing.style.width='auto';swing.id='kp-door-swings';

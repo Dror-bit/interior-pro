@@ -1,0 +1,201 @@
+[
+  {
+    "id": "kohler-k-5285",
+    "brand": "Kohler",
+    "category": "sink",
+    "model": "K-5285",
+    "name": "Undermount single bowl",
+    "mount": "undermount",
+    "cabinet_width": 36,
+    "cabinet_depth": 24,
+    "dimensions": {
+      "width": 32,
+      "depth": 18.3125,
+      "height": 9.3125
+    },
+    "image_path": "assets/appliances/kohler-sinks/K-5285.png",
+    "mesh_path": "assets/appliances/kohler-sinks/K-5285-mesh.json",
+    "cutout": [
+      1,
+      -17.3125,
+      31,
+      -1
+    ],
+    "spec": {
+      "type": "single",
+      "width": 32,
+      "depth": 18.3125,
+      "bowl_depth": 9.3125,
+      "offset_x": 0,
+      "front_setback": 2,
+      "finish": "stainless",
+      "faucet": "none",
+      "faucet_finish": "chrome",
+      "faucet_height": 12,
+      "drain_centres": [
+        [
+          16,
+          -6.25
+        ]
+      ]
+    }
+  },
+  {
+    "id": "kohler-k-3838-1",
+    "brand": "Kohler",
+    "category": "sink",
+    "model": "K-3838-1",
+    "name": "Undermount double bowl",
+    "mount": "undermount",
+    "cabinet_width": 36,
+    "cabinet_depth": 24,
+    "dimensions": {
+      "width": 33,
+      "depth": 22,
+      "height": 9.3125
+    },
+    "image_path": "assets/appliances/kohler-sinks/K-3838-1.png",
+    "mesh_path": "assets/appliances/kohler-sinks/K-3838-1-mesh.json",
+    "cutout": [
+      1.3125,
+      -20.625,
+      31.6875,
+      -4.0625
+    ],
+    "spec": {
+      "type": "double",
+      "width": 33,
+      "depth": 22,
+      "bowl_depth": 9.3125,
+      "offset_x": 0,
+      "front_setback": 1.5,
+      "finish": "stainless",
+      "faucet": "none",
+      "faucet_finish": "chrome",
+      "faucet_height": 12,
+      "drain_centres": [
+        [
+          8.65625,
+          -9.5
+        ],
+        [
+          24.34375,
+          -9.5
+        ]
+      ]
+    }
+  },
+  {
+    "id": "kohler-k-6489",
+    "brand": "Kohler",
+    "category": "sink",
+    "model": "K-6489",
+    "name": "White farmhouse apron front",
+    "mount": "undermount",
+    "cabinet_width": 36,
+    "cabinet_depth": 24,
+    "dimensions": {
+      "width": 35.6875,
+      "depth": 21.5625,
+      "height": 9.625
+    },
+    "image_path": "assets/appliances/kohler-sinks/K-6489.png",
+    "mesh_path": "assets/appliances/kohler-sinks/K-6489-mesh.json",
+    "cutout": [
+      2.46875,
+      -22.5625,
+      33.21875,
+      -1.25
+    ],
+    "spec": {
+      "type": "single",
+      "width": 35.6875,
+      "depth": 21.5625,
+      "bowl_depth": 9.625,
+      "offset_x": 0,
+      "front_setback": -1,
+      "finish": "white",
+      "faucet": "none",
+      "faucet_finish": "chrome",
+      "faucet_height": 12,
+      "drain_centres": [
+        [
+          28.09375,
+          -6.75
+        ]
+      ]
+    }
+  },
+  {
+    "id": "kohler-k-5287",
+    "brand": "Kohler",
+    "category": "sink",
+    "model": "K-5287",
+    "sku": "K-5287-NA",
+    "name": "Strive 15-inch Prep Sink",
+    "mount": "undermount",
+    "cabinet_width": 18,
+    "cabinet_depth": 24,
+    "minimum_cabinet_width": 18,
+    "dimensions": {
+      "width": 15,
+      "depth": 15,
+      "height": 9.3125
+    },
+    "image_path": "assets/appliances/prep-sinks/K-5287.png",
+    "skp_path": "assets/appliances/prep-sinks/K-5287.skp",
+    "geometry_sha256": "652c2941a2e17ac960817208ecf6f27e0879587ad289fbfee3f6a970188f461c",
+    "geometry_revision": 1,
+    "automatic_cutout_available": false,
+    "cutout": null,
+    "cutout_status": "awaiting_verified_manufacturer_template",
+    "spec": {
+      "type": "single",
+      "width": 15,
+      "depth": 15,
+      "bowl_depth": 9.3125,
+      "offset_x": 0,
+      "front_setback": 2,
+      "finish": "stainless",
+      "faucet": "none",
+      "faucet_finish": "chrome",
+      "faucet_height": 12
+    }
+  },
+  {
+    "id": "kohler-k-33152",
+    "brand": "Kohler",
+    "category": "sink",
+    "model": "K-33152",
+    "sku": "K-33152-NA",
+    "name": "Strive 18.3125-inch Prep Sink",
+    "mount": "undermount",
+    "cabinet_width": 21,
+    "cabinet_depth": 24,
+    "minimum_cabinet_width": 21,
+    "dimensions": {
+      "width": 18.3125,
+      "depth": 18.3125,
+      "height": 8.4375
+    },
+    "image_path": "assets/appliances/prep-sinks/K-33152.png",
+    "skp_path": "assets/appliances/prep-sinks/K-33152.skp",
+    "geometry_sha256": "ef11ec841763f6daaa341fe0b26f4148dbc72402591dc684187d87958e09bd02",
+    "geometry_revision": 1,
+    "automatic_cutout_available": false,
+    "cutout": null,
+    "cutout_status": "awaiting_verified_manufacturer_template",
+    "spec": {
+      "type": "single",
+      "width": 18.3125,
+      "depth": 18.3125,
+      "bowl_depth": 8.4375,
+      "offset_x": 0,
+      "front_setback": 2,
+      "finish": "stainless",
+      "faucet": "none",
+      "faucet_finish": "chrome",
+      "faucet_height": 12
+    }
+  }
+]

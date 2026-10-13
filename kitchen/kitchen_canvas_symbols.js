@@ -26,7 +26,7 @@
     if(leaves===2)path([local(width/2,0),local(width/2,-.75)],null,'#52665a');
     if(c.handle!=='none'){const edge=c.handle_side??1.125;const q=local(left?width/leaves-edge:width/leaves+edge,1);circle(q[0],q[1],.45,hardware);}
    }
-   if(drawer){line([[width/2,0],[width/2,10]]);line([[width/2-2,7],[width/2,10],[width/2+2,7]]);if(c.handle!=='none')path([local(width/2-2.5,1),local(width/2+2.5,1)],null,hardware,[],2.3);}
+   if(drawer&&c.kind!=='sink'){line([[width/2,0],[width/2,10]]);line([[width/2-2,7],[width/2,10],[width/2+2,7]]);if(c.handle!=='none')path([local(width/2-2.5,1),local(width/2+2.5,1)],null,hardware,[],2.3);}
   }
   if(!appliance&&!['filler','corner'].includes(c.kind)){if(corner){front(d,d,w-d,false,true);front(d,d,w-d,true,true);}else front(0,d,w);}
   // Deliberate plan symbols, rather than hundreds of overlapping mesh bounds.
@@ -69,10 +69,16 @@
   }else for(const part of c.appliance_parts||[]){if(part.shape==='cylinder')circle(part.x+part.width/2,-part.y-part.depth/2,part.width/2,part.color);else rect(part.x,-part.y-part.depth,part.width,part.depth,part.color);}
   if(c.kind==='sink'&&c.sink&&c.sink.type!=='none'){
    const s={width:Math.min(30,w-4),depth:Math.min(18,d-6),offset_x:0,front_setback:2,...c.sink};const x=(w-s.width)/2+s.offset_x,y=d-s.front_setback-s.depth;
-   rect(x,y,s.width,s.depth,'#b6c3c9');rect(x+.6,y+.6,s.width-1.2,s.depth-1.2,'#82969e');
+   rect(x,y,s.width,s.depth,s.finish==='white'?'#f4f3ed':'#b6c3c9');rect(x+.6,y+.6,s.width-1.2,s.depth-1.2,s.finish==='white'?'#d8dedc':'#82969e');
    if(s.type==='double')path([[x+s.width/2,y],[x+s.width/2,y+s.depth]],null,'#e0e8e9',[],2);
-   for(const t of s.type==='double'?[.25,.75]:[.5])circle(x+s.width*t,y+s.depth/2,.6,'#3b494f');
+   if(s.drain_centres)for(const [dx,dy] of s.drain_centres)circle(x+dx,y-dy,.6,'#3b494f');
+   else for(const t of s.type==='double'?[.25,.75]:[.5])circle(x+s.width*t,y+s.depth/2,.6,'#3b494f');
    if(s.faucet!=='none')path([[w/2,y-1.5],[w/2,y+3.5]],null,'#52656e',[],2);
+  }
+  for(const accessory of c.accessories||[]){
+   const [x,y]=accessory.anchor,a=(accessory.angle||0)*Math.PI/180,p=accessory.snapshot,reach=p.manufacturer_outlet_reach_in||4;
+   const rgb=accessory.finish_palette?.[accessory.material_mapping?.body_material||accessory.finish_id]?.rgb||[100,110,115],color='rgb('+rgb.join(',')+')';
+   circle(x,-y,.65,color);path([[x,-y],[x+Math.sin(a)*reach,-y+Math.cos(a)*reach]],null,color,[],2.4);
   }
  }
  let rows=window.KitchenSymbols?.rows||[];

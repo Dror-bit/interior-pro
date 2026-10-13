@@ -1,0 +1,118 @@
+{
+  "family": "SELECT Rectangular Knurled",
+  "sku": "84053-REC-KN",
+  "ctc": 4,
+  "L": 4.75,
+  "P": 1.375,
+  "W": 0.5,
+  "source": "https://www.emtek.com/media/salsify/documents/mr/mrxnqezgyo-2024-09-05T203416Z-EMTEK_SELECT_Cabinet_Pulls_Cabinet_Hardware_Specifications.pdf",
+  "status": "APPROVED_GEOMETRY_NATIVE_SKP",
+  "units": "inch",
+  "manufacturer_dimensions_in": {
+    "overall_length_or_diameter": 4.75,
+    "projection": 1.375,
+    "width_or_cup_height": 0.5,
+    "center_to_center": 4
+  },
+  "mount_points_in": [
+    [
+      -2.0,
+      0,
+      0
+    ],
+    [
+      2.0,
+      0,
+      0
+    ]
+  ],
+  "mount_axes": [
+    0,
+    0,
+    1
+  ],
+  "origin": "midpoint of screw axes on mounting plane",
+  "orientation": "X along pull; Z outward; +90deg rotation around Z for vertical",
+  "vertical_allowed": true,
+  "material": "EMTEK_US15_Satin_Nickel",
+  "manufacturer_cad": false,
+  "inferred_details": "Unspecified edge radii, grip profiles, dome, knurl pitch, shell thickness and screw pockets are photo-interpreted. No threads or drilling holes modeled.",
+  "native_skp_ready": true,
+  "audit": {
+    "connected_components": 1,
+    "non_manifold_edges": 0,
+    "triangles": 5222
+  },
+  "set_ids": [
+    "D"
+  ],
+  "geometry_approved_by_user": true,
+  "schema_version": 1,
+  "asset_id": "emtek-select-rectangular-knurled-84053-rec-kn-us15",
+  "skp_path": "84053-REC-KN/handle.skp",
+  "preview_path": "84053-REC-KN/preview.png",
+  "dimensions_path": "84053-REC-KN/dimensions.json",
+  "mount_points_mm": [
+    [
+      -50.8,
+      0.0,
+      0.0
+    ],
+    [
+      50.8,
+      0.0,
+      0.0
+    ]
+  ],
+  "mounting_plane": "local Z=0",
+  "screw_direction_into_front": [
+    0,
+    0,
+    -1
+  ],
+  "horizontal_rotation_deg": 0,
+  "vertical_rotation_deg": 90,
+  "dimensions_verified_source": "https://www.emtek.com/media/salsify/documents/mr/mrxnqezgyo-2024-09-05T203416Z-EMTEK_SELECT_Cabinet_Pulls_Cabinet_Hardware_Specifications.pdf",
+  "actual_bounds_in": [
+    [
+      -2.375,
+      2.375
+    ],
+    [
+      -0.25,
+      0.25
+    ],
+    [
+      0.0,
+      1.375000238
+    ]
+  ],
+  "source_geometry": "photo-interpreted; primary dimensions and C-C from EMTEK technical specifications",
+  "use_scope": "Interior Pro visualization and placement; not a manufacturer fabrication or drilling template",
+  "native_validation": {
+    "faces": 5222,
+    "edges": 7833,
+    "nonmanifold_edges": 0,
+    "materials": 1,
+    "bounds_in": [
+      [
+        -2.375,
+        2.375
+      ],
+      [
+        -0.25,
+        0.25
+      ],
+      [
+        0.0,
+        1.375000238
+      ]
+    ],
+    "solid_component_load_pass": true,
+    "volume_in3": 1.1702003919718436,
+    "sku": "84053-REC-KN",
+    "file_bytes": 341598,
+    "writer": "SketchUp 2024 C API",
+    "reopened_from_disk": true
+  }
+}

@@ -1,756 +1,812 @@
 {
-    "schema_version":  1,
-    "market":  "US",
-    "units":  "inches",
-    "products":  [
-                     {
-                         "id":  "thermador-med301ws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "wall_oven",
-                         "model":  "MED301WS",
-                         "name":  "MasterpieceÃ‚Â® Single Wall Oven 30\u0027\u0027 Stainless Steel",
-                         "dimensions":  {
-                                            "width":  29.75,
-                                            "height":  29,
-                                            "depth":  24.5
-                                        },
-                         "depth_basis":  "Overall appliance depth; handle projection additional",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/MED301WS",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02802525_MED301WS-30-INCH-SINGLE-BUILT-IN-OVEN-Specifications.pdf",
-                         "cutout":  {
-                                        "width":  28.5,
-                                        "height":  27,
-                                        "depth":  23.5
-                                    },
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "controls":  "touch"
-                                        },
-                         "verified_at":  "2026-10-08",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02417791_i2740_1802062_MED301WS_closed_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-med301ws.webp"
-                     },
-                     {
-                         "id":  "thermador-pod301w",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "wall_oven",
-                         "model":  "POD301W",
-                         "name":  "Professional Single Wall Oven 30\u0027\u0027 Stainless Steel",
-                         "dimensions":  {
-                                            "width":  29.75,
-                                            "height":  29,
-                                            "depth":  24.5
-                                        },
-                         "depth_basis":  "Overall appliance depth; handle projection additional",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "controls":  "knobs"
-                                        },
-                         "verified_at":  "2026-10-08",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/15904594_POD301W_master_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-pod301w.webp"
-                     },
-                     {
-                         "id":  "thermador-t36bt925ns",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "fridge",
-                         "model":  "T36BT925NS",
-                         "name":  "T36BT925NS Built-in French Door Bottom Freezer 36\u0027\u0027 Professional Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "configuration":  "french_3door"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/13175768_T36BT925NS_STP_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
-                         "dimensions":  {
-                                            "width":  35.75,
-                                            "height":  83.75,
-                                            "depth":  24.75
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
-                         "verified_at":  "2026-10-08",
-                         "cutout":  {
-                                        "width":  36,
-                                        "height":  84,
-                                        "depth":  25
-                                    },
-                         "image_path":  "assets/appliances/thermador-t36bt925ns.webp"
-                     },
-                     {
-                         "id":  "thermador-t36ft820ns",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "fridge",
-                         "model":  "T36FT820NS",
-                         "name":  "FreedomÃ‚Â® Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "configuration":  "french_3door"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/16936134_T36FT820NS_3_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
-                         "dimensions":  {
-                                            "width":  35.625,
-                                            "height":  72,
-                                            "depth":  27.8125
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
-                         "verified_at":  "2026-10-08",
-                         "cutout":  {
-                                        "width":  36,
-                                        "height":  72,
-                                        "depth":  25
-                                    },
-                         "image_path":  "assets/appliances/thermador-t36ft820ns.webp"
-                     },
-                     {
-                         "id":  "thermador-dwhd661efp",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "dishwasher",
-                         "model":  "DWHD661EFP",
-                         "name":  " Star SapphireÃ‚Â® Dishwasher 24\u0027\u0027 Professional, Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/24399162_DWHD661EFP-Thermador-StarSapphire-Dishwasher-Front_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
-                         "dimensions":  {
-                                            "width":  23.5625,
-                                            "height":  33.875,
-                                            "depth":  23.75
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-dwhd661efp.webp"
-                     },
-                     {
-                         "id":  "thermador-dwhd771wfp",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "dishwasher",
-                         "model":  "DWHD771WFP",
-                         "name":  "DWHD771WFP Dishwasher 24\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02774130_i9635_2112919_DWHD870WFP_CMYK_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
-                         "dimensions":  {
-                                            "width":  23.5625,
-                                            "height":  33.875,
-                                            "depth":  23.75
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-dwhd771wfp.webp"
-                     },
-                     {
-                         "id":  "thermador-sgs305ts",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "cooktop",
-                         "model":  "SGS305TS",
-                         "name":  "MasterpieceÃ‚Â® Gas Cooktop 30\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/SGS305TS",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "cooktop":  "gas",
-                                            "burners":  5
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02487335_i5086_1858982_SGS305TS_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/SGS305TS",
-                         "dimensions":  {
-                                            "width":  31,
-                                            "height":  3.8125,
-                                            "depth":  21.25
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/SGS305TS",
-                         "verified_at":  "2026-10-08",
-                         "cutout":  {
-                                        "width":  28.9375,
-                                        "height":  3.8125,
-                                        "depth":  19.125
-                                    },
-                         "image_path":  "assets/appliances/thermador-sgs305ts.webp"
-                     },
-                     {
-                         "id":  "thermador-sgs365ts",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "cooktop",
-                         "model":  "SGS365TS",
-                         "name":  "MasterpieceÃ‚Â® Gas Cooktop 36\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "cooktop":  "gas",
-                                            "burners":  5
-                                        },
-                         "verification_status":  "candidate",
-                         "page_checked_at":  "2026-10-08",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02487349_i5085_1858998_SGS365TS_def.webp",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
-                         "dimensions":  {
-                                            "width":  37,
-                                            "height":  3.8125,
-                                            "depth":  21.25
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
-                         "verified_at":  "2026-10-08",
-                         "cutout":  {
-                                        "width":  34.9375,
-                                        "height":  3.8125,
-                                        "depth":  19.125
-                                    },
-                         "image_path":  "assets/appliances/thermador-sgs365ts.webp"
-                     },
-                     {
-                         "id":  "thermador-hpcn48ws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "HPCN48WS",
-                         "name":  "Professional Pyramid Chimney Wall Hood 48\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/20380428_HPCN48WS_v05_Front_Facing_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
-                         "dimensions":  {
-                                            "width":  47.9375,
-                                            "height":  18,
-                                            "depth":  24
-                                        },
-                         "depth_basis":  "Canopy only; optional chimney covers sold separately",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-hpcn48ws.webp"
-                     },
-                     {
-                         "id":  "thermador-hpcn36ws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "HPCN36WS",
-                         "name":  "Professional Pyramid Chimney Wall Hood 36\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/20380871_HPCN36WS_Front_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
-                         "dimensions":  {
-                                            "width":  35.9375,
-                                            "height":  18,
-                                            "depth":  24
-                                        },
-                         "depth_basis":  "Canopy only; optional chimney covers sold separately",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-hpcn36ws.webp"
-                     },
-                     {
-                         "id":  "thermador-mu30wsu",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "microwave",
-                         "model":  "MU30WSU",
-                         "name":  "MU30WSU Over-The-Range Microwave 30\u0027\u0027 Left Side Opening Door, Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/MU30WSU",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "installation":  "over_range"
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02756460_i9355_2099833_MU30WSU_PGA2_02_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/MU30WSU",
-                         "dimensions":  {
-                                            "width":  29.875,
-                                            "height":  17.125,
-                                            "depth":  15.875
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/MU30WSU",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-mu30wsu.webp"
-                     },
-                     {
-                         "id":  "thermador-md24bs",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "microwave",
-                         "model":  "MD24BS",
-                         "name":  "Professional MicroDrawerÃ‚Â® Microwave 24\u0027\u0027 Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "door":  "drawer"
-                                        },
-                         "verification_status":  "candidate",
-                         "page_checked_at":  "2026-10-08",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/23407183_MD24BS_STP_def.webp",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
-                         "dimensions":  {
-                                            "width":  23.875,
-                                            "height":  16.3125,
-                                            "depth":  23.375
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
-                         "verified_at":  "2026-10-08",
-                         "cutout":  {
-                                        "width":  22.125,
-                                        "height":  15.5625,
-                                        "depth":  23.5
-                                    },
-                         "image_path":  "assets/appliances/thermador-md24bs.webp"
-                     },
-                     {
-                         "id":  "thermador-prg304wh",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "range",
-                         "model":  "PRG304WH",
-                         "name":  "PRG304WH Gas Professional Range 30\u0027\u0027 Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/PRG304WH",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "controls":  "knobs",
-                                            "cooktop":  "gas",
-                                            "burners":  4
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02703436_i8280_2048668_PRG304WH_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/PRG304WH",
-                         "dimensions":  {
-                                            "width":  29.9375,
-                                            "height":  35.875,
-                                            "depth":  24.75
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/PRG304WH",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-prg304wh.webp"
-                     },
-                     {
-                         "id":  "thermador-prg366wh",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "range",
-                         "model":  "PRG366WH",
-                         "name":  "PRG366WH Gas Professional Range 36\u0027\u0027 Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/PRG366WH",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "controls":  "knobs",
-                                            "cooktop":  "gas",
-                                            "burners":  6
-                                        },
-                         "verification_status":  "candidate",
-                         "image_url":  "https://media3.bsh-group.com/Product_Shots/MCSA02703569_i8285_2048751_PRG366WH_def.webp",
-                         "page_checked_at":  "2026-10-08",
-                         "resolved_product_url":  "https://www.thermador.com/us/en/mkt-product/PRG366WH",
-                         "dimensions":  {
-                                            "width":  35.9375,
-                                            "height":  35.875,
-                                            "depth":  24.75
-                                        },
-                         "depth_basis":  "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/PRG366WH",
-                         "verified_at":  "2026-10-08",
-                         "image_path":  "assets/appliances/thermador-prg366wh.webp"
-                     },
-                     {
-                         "id":  "thermador-columns-42-24r-18f",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "fridge",
-                         "model":  "42\" Columns â€” 18\" Freezer + 24\" Refrigerator",
-                         "name":  "T18IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
-                         "dimensions":  {
-                                            "width":  41.75,
-                                            "height":  84,
-                                            "depth":  27.375
-                                        },
-                         "depth_basis":  "42\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "configuration":  "side_by_side"
-                                        },
-                         "verified_at":  "2026-10-09",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
-                         "image_path":  "assets/appliances/thermador-columns/Thermador-42-18F-24R-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-columns/Thermador-42-18F-24R-comparison.jpg"
-                     },
-                     {
-                         "id":  "thermador-columns-48-24r-24f",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "fridge",
-                         "model":  "48\" Columns â€” 24\" Freezer + 24\" Refrigerator",
-                         "name":  "T24IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
-                         "dimensions":  {
-                                            "width":  47.75,
-                                            "height":  84,
-                                            "depth":  27.375
-                                        },
-                         "depth_basis":  "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "configuration":  "side_by_side"
-                                        },
-                         "verified_at":  "2026-10-09",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
-                         "image_path":  "assets/appliances/thermador-columns/Thermador-48-24F-24R-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-columns/Thermador-48-24F-24R-comparison.jpg"
-                     },
-                     {
-                         "id":  "thermador-columns-48-30r-18f",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "fridge",
-                         "model":  "48\" Columns â€” 18\" Freezer + 30\" Refrigerator",
-                         "name":  "T18IF905SP + T30IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
-                         "dimensions":  {
-                                            "width":  47.75,
-                                            "height":  84,
-                                            "depth":  27.375
-                                        },
-                         "depth_basis":  "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
-                         "appearance":  {
-                                            "finish":  "stainless",
-                                            "configuration":  "side_by_side"
-                                        },
-                         "verified_at":  "2026-10-09",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
-                         "image_path":  "assets/appliances/thermador-columns/Thermador-48-18F-30R-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-columns/Thermador-48-18F-30R-comparison.jpg"
-                     },
-                     {
-                         "id":  "thermador-custom-prg366wh",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "range",
-                         "model":  "PRG366WH â€” 36\" Range",
-                         "name":  "36\" Professional gas range with cooktop Â· Custom model",
-                         "dimensions":  {
-                                            "width":  35.9375,
-                                            "height":  35.875,
-                                            "depth":  27.375
-                                        },
-                         "depth_basis":  "Overall modeled dimensions including handles. Approved repaired model.",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-08",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/PRG366WH",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/PRG366WH",
-                         "image_path":  "assets/appliances/thermador-review/PRG366WH-repaired-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-review/PRG366WH-repaired-front.png"
-                     },
-                     {
-                         "id":  "thermador-custom-prg486wdh",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "range",
-                         "model":  "PRG486WDH â€” 48\" Range",
-                         "name":  "48\" Professional gas range with cooktop Â· Custom model",
-                         "dimensions":  {
-                                            "width":  47.9375,
-                                            "height":  35.875,
-                                            "depth":  27.375
-                                        },
-                         "depth_basis":  "Overall modeled dimensions including handles. Approved repaired model.",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-08",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
-                         "image_path":  "assets/appliances/thermador-review/PRG486WDH-repaired-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-review/PRG486WDH-repaired-front.png"
-                     },
-                     {
-                         "id":  "thermador-custom-dwhd661efp",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "dishwasher",
-                         "model":  "DWHD661EFP â€” 24\" Professional",
-                         "name":  "Star Sapphire dishwasher Â· Professional handle Â· Exterior only",
-                         "dimensions":  {
-                                            "width":  23.5625,
-                                            "depth":  26,
-                                            "height":  33.875
-                                        },
-                         "depth_basis":  "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-09",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFP",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/24732547_DWHD661EFP-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-PROFESSIONAL-COLLECTION-HANDLE-Specifications.pdf",
-                         "image_path":  "assets/appliances/thermador-dishwashers/DWHD661EFP-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-dishwashers/DWHD661EFP-comparison.jpg"
-                     },
-                     {
-                         "id":  "thermador-custom-dwhd661efm",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "dishwasher",
-                         "model":  "DWHD661EFM â€” 24\" Masterpiece",
-                         "name":  "Star Sapphire dishwasher Â· Masterpiece handle Â· Exterior only",
-                         "dimensions":  {
-                                            "width":  23.5625,
-                                            "depth":  25.75,
-                                            "height":  33.875
-                                        },
-                         "depth_basis":  "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-09",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFM",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/24732545_DWHD661EFM-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-MASTERPIECE-COLLECTION-HANDLE-Specifications.pdf",
-                         "image_path":  "assets/appliances/thermador-dishwashers/DWHD661EFM-front.png",
-                         "reference_image_path":  "assets/appliances/thermador-dishwashers/DWHD661EFM-comparison.jpg"
-                     },
-                     {
-                         "id":  "thermador-custom-sgs305ts",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "cooktop",
-                         "model":  "SGS305TS",
-                         "name":  "Gas cooktop",
-                         "dimensions":  {
-                                            "width":  31,
-                                            "height":  3.8125,
-                                            "depth":  21.25
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
-                         "reference_image_path":  "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
-                         "cutout":  {
-                                        "width":  28.9375,
-                                        "height":  3.8125,
-                                        "depth":  19.125
-                                    }
-                     },
-                     {
-                         "id":  "thermador-custom-sgs365ts",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "cooktop",
-                         "model":  "SGS365TS",
-                         "name":  "Gas cooktop",
-                         "dimensions":  {
-                                            "width":  37,
-                                            "height":  3.8125,
-                                            "depth":  21.25
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
-                         "spec_url":  "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
-                         "reference_image_path":  "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
-                         "cutout":  {
-                                        "width":  34.9375,
-                                        "height":  3.8125,
-                                        "depth":  19.125
-                                    }
-                     },
-                     {
-                         "id":  "thermador-custom-hpcn36ws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "HPCN36WS",
-                         "name":  "Wall hood with 6-inch duct cover",
-                         "dimensions":  {
-                                            "width":  36.02486113086343,
-                                            "depth":  24.05000114440918,
-                                            "height":  24
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN36WS",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png",
-                         "reference_image_path":  "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png"
-                     },
-                     {
-                         "id":  "thermador-custom-hpcn48ws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "HPCN48WS",
-                         "name":  "Wall hood with 6-inch duct cover",
-                         "dimensions":  {
-                                            "width":  48.024864945560694,
-                                            "depth":  24.05000114440918,
-                                            "height":  24
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN48WS",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png",
-                         "reference_image_path":  "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png"
-                     },
-                     {
-                         "id":  "thermador-custom-vcin36gws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "VCIN36GWS",
-                         "name":  "Built-in hood",
-                         "dimensions":  {
-                                            "width":  33.75,
-                                            "depth":  22.000001907348633,
-                                            "height":  12.843413352966309
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN36GWS",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811699_VCIN36GWS-36-INCH-CUSTOM-INSERT-Specifications.pdf",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png",
-                         "reference_image_path":  "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png"
-                     },
-                     {
-                         "id":  "thermador-custom-vcin48gws",
-                         "brand":  "Thermador",
-                         "manufacturer":  "Thermador",
-                         "category":  "hood",
-                         "model":  "VCIN48GWS",
-                         "name":  "Built-in hood",
-                         "dimensions":  {
-                                            "width":  45.75,
-                                            "depth":  22.000001907348633,
-                                            "height":  12.843413352966309
-                                        },
-                         "appearance":  {
-                                            "finish":  "stainless"
-                                        },
-                         "verified_at":  "2026-10-12",
-                         "product_url":  "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN48GWS",
-                         "spec_url":  "https://media3.bsh-group.com/Documents/MCDOC02811696_VCIN48GWS-48-INCH-CUSTOM-INSERT-Specifications.pdf",
-                         "depth_basis":  "Exterior planning model; small details interpreted from manufacturer photos.",
-                         "image_path":  "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png",
-                         "reference_image_path":  "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png"
-                     }
-                 ],
-    "retired_ids":  [
-                        "wolf-so3050pe",
-                        "wolf-so3050pm",
-                        "bosch-hbl8454uc",
-                        "bosch-hblp454uc",
-                        "fisher-ob30smpug3",
-                        "fisher-ob30scpudx3",
-                        "lg-wsep4723f",
-                        "lg-wsep4727f",
-                        "bosch-b36ct80sns",
-                        "bosch-b36cl80ens",
-                        "bosch-shp78cm5n",
-                        "bosch-shx78cm5n",
-                        "bosch-ngm8059uc",
-                        "bosch-nit8061uc",
-                        "bosch-hcp30e52uc",
-                        "bosch-hcp36e52uc",
-                        "bosch-hmv8054u",
-                        "bosch-hmd8454uc",
-                        "bosch-hgi8056uc",
-                        "bosch-hii8057u",
-                        "sub-zero-cl3650u-s",
-                        "sub-zero-cl4250sid-s",
-                        "cove-dw2451",
-                        "cove-dw2451ws",
-                        "wolf-cg304p-s",
-                        "wolf-ci36560t-s",
-                        "wolf-pw302418",
-                        "wolf-pw362418",
-                        "wolf-md24te-s",
-                        "wolf-ms24",
-                        "wolf-gr304",
-                        "wolf-df36650-s-p",
-                        "fisher-paykel-rf201adx5-n",
-                        "fisher-paykel-rf203qduvx1",
-                        "fisher-paykel-dd24dax9-n",
-                        "fisher-paykel-dd24dctx9-n",
-                        "fisher-cg305dngx1-n",
-                        "fisher-cg365dngx1-n",
-                        "fisher-hc30dcxb4",
-                        "fisher-hc36dcxb4",
-                        "fisher-om30nctdx3",
-                        "fisher-om30nmunb3",
-                        "fisher-or30sdi6x1",
-                        "fisher-or30sdg6x1",
-                        "lg-lrflc2706s",
-                        "lg-lrykc2606s",
-                        "lg-ldth7972s",
-                        "lg-ldph5554s",
-                        "lg-cbgj3027s",
-                        "lg-cbih3617be",
-                        "lg-hced3015s",
-                        "lg-hced3615s",
-                        "lg-mvel2137f",
-                        "lg-mvem1825f",
-                        "lg-lsgl6335f",
-                        "lg-lsil6336fe"
-                    ]
+  "schema_version": 1,
+  "market": "US",
+  "units": "inches",
+  "products": [
+    {
+      "id": "thermador-med301ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "wall_oven",
+      "model": "MED301WS",
+      "name": "MasterpieceÃ‚Â® Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "Overall appliance depth; handle projection additional",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/MED301WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02802525_MED301WS-30-INCH-SINGLE-BUILT-IN-OVEN-Specifications.pdf",
+      "cutout": {
+        "width": 28.5,
+        "height": 27,
+        "depth": 23.5
+      },
+      "appearance": {
+        "finish": "stainless",
+        "controls": "touch"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02417791_i2740_1802062_MED301WS_closed_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-med301ws.webp"
+    },
+    {
+      "id": "thermador-pod301w",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "wall_oven",
+      "model": "POD301W",
+      "name": "Professional Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 24.5
+      },
+      "depth_basis": "Overall appliance depth; handle projection additional",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/ovens/wall-ovens/POD301W",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs"
+      },
+      "verified_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/15904594_POD301W_master_def.webp",
+      "page_checked_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-pod301w.webp"
+    },
+    {
+      "id": "thermador-t36bt925ns",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "T36BT925NS",
+      "name": "T36BT925NS Built-in French Door Bottom Freezer 36'' Professional Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/13175768_T36BT925NS_STP_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "dimensions": {
+        "width": 35.75,
+        "height": 83.75,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/T36BT925NS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 36,
+        "height": 84,
+        "depth": 25
+      },
+      "image_path": "assets/appliances/thermador-t36bt925ns.webp"
+    },
+    {
+      "id": "thermador-t36ft820ns",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "T36FT820NS",
+      "name": "FreedomÃ‚Â® Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "french_3door"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/16936134_T36FT820NS_3_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "dimensions": {
+        "width": 35.625,
+        "height": 72,
+        "depth": 27.8125
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 36,
+        "height": 72,
+        "depth": 25
+      },
+      "image_path": "assets/appliances/thermador-t36ft820ns.webp"
+    },
+    {
+      "id": "thermador-dwhd661efp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFP",
+      "name": " Star SapphireÃ‚Â® Dishwasher 24'' Professional, Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/24399162_DWHD661EFP-Thermador-StarSapphire-Dishwasher-Front_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-dwhd661efp.webp"
+    },
+    {
+      "id": "thermador-dwhd771wfp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD771WFP",
+      "name": "DWHD771WFP Dishwasher 24'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02774130_i9635_2112919_DWHD870WFP_CMYK_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/DWHD771WFP",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-dwhd771wfp.webp"
+    },
+    {
+      "id": "thermador-sgs305ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS305TS",
+      "name": "MasterpieceÃ‚Â® Gas Cooktop 30'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02487335_i5086_1858982_SGS305TS_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "dimensions": {
+        "width": 31,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 28.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/thermador-sgs305ts.webp"
+    },
+    {
+      "id": "thermador-sgs365ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS365TS",
+      "name": "MasterpieceÃ‚Â® Gas Cooktop 36'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas",
+        "burners": 5
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02487349_i5085_1858998_SGS365TS_def.webp",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "dimensions": {
+        "width": 37,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 34.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      },
+      "image_path": "assets/appliances/thermador-sgs365ts.webp"
+    },
+    {
+      "id": "thermador-hpcn48ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN48WS",
+      "name": "Professional Pyramid Chimney Wall Hood 48'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "chimney"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20380428_HPCN48WS_v05_Front_Facing_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/wall-hoods/HPCN48WS",
+      "dimensions": {
+        "width": 47.9375,
+        "height": 18,
+        "depth": 24
+      },
+      "depth_basis": "Canopy only; optional chimney covers sold separately",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-hpcn48ws.webp"
+    },
+    {
+      "id": "thermador-hpcn36ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN36WS",
+      "name": "Professional Pyramid Chimney Wall Hood 36'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "chimney"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/20380871_HPCN36WS_Front_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/HPCN36WS",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 18,
+        "depth": 24
+      },
+      "depth_basis": "Canopy only; optional chimney covers sold separately",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-hpcn36ws.webp"
+    },
+    {
+      "id": "thermador-mu30wsu",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MU30WSU",
+      "name": "MU30WSU Over-The-Range Microwave 30'' Left Side Opening Door, Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "over_range"
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02756460_i9355_2099833_MU30WSU_PGA2_02_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.125,
+        "depth": 15.875
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/MU30WSU",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-mu30wsu.webp"
+    },
+    {
+      "id": "thermador-md24bs",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MD24BS",
+      "name": "Professional MicroDrawerÃ‚Â® Microwave 24'' Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer"
+      },
+      "verification_status": "candidate",
+      "page_checked_at": "2026-10-08",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/23407183_MD24BS_STP_def.webp",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "dimensions": {
+        "width": 23.875,
+        "height": 16.3125,
+        "depth": 23.375
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "verified_at": "2026-10-08",
+      "cutout": {
+        "width": 22.125,
+        "height": 15.5625,
+        "depth": 23.5
+      },
+      "image_path": "assets/appliances/thermador-md24bs.webp"
+    },
+    {
+      "id": "thermador-prg304wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG304WH",
+      "name": "PRG304WH Gas Professional Range 30'' Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 4
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02703436_i8280_2048668_PRG304WH_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "dimensions": {
+        "width": 29.9375,
+        "height": 35.875,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-prg304wh.webp"
+    },
+    {
+      "id": "thermador-prg366wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG366WH",
+      "name": "PRG366WH Gas Professional Range 36'' Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "appearance": {
+        "finish": "stainless",
+        "controls": "knobs",
+        "cooktop": "gas",
+        "burners": 6
+      },
+      "verification_status": "candidate",
+      "image_url": "https://media3.bsh-group.com/Product_Shots/MCSA02703569_i8285_2048751_PRG366WH_def.webp",
+      "page_checked_at": "2026-10-08",
+      "resolved_product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 35.875,
+        "depth": 24.75
+      },
+      "depth_basis": "Manufacturer US overall dimensions; check specifications for handle and installation allowances",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "verified_at": "2026-10-08",
+      "image_path": "assets/appliances/thermador-prg366wh.webp"
+    },
+    {
+      "id": "thermador-columns-42-24r-18f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "42\" Columns â€” 18\" Freezer + 24\" Refrigerator",
+      "name": "T18IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "dimensions": {
+        "width": 41.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "42\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-42-18F-24R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-42-18F-24R-comparison.jpg"
+    },
+    {
+      "id": "thermador-columns-48-24r-24f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "48\" Columns â€” 24\" Freezer + 24\" Refrigerator",
+      "name": "T24IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "dimensions": {
+        "width": 47.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-48-24F-24R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-48-24F-24R-comparison.jpg"
+    },
+    {
+      "id": "thermador-columns-48-30r-18f",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "48\" Columns â€” 18\" Freezer + 30\" Refrigerator",
+      "name": "T18IF905SP + T30IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "dimensions": {
+        "width": 47.75,
+        "height": 84,
+        "depth": 27.375
+      },
+      "depth_basis": "48\" nominal opening. Overall depth includes handles. Two full-height columns, no exterior drawers.",
+      "appearance": {
+        "finish": "stainless",
+        "configuration": "side_by_side"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T30IR905SP",
+      "image_path": "assets/appliances/thermador-columns/Thermador-48-18F-30R-front.png",
+      "reference_image_path": "assets/appliances/thermador-columns/Thermador-48-18F-30R-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-prg366wh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG366WH â€” 36\" Range",
+      "name": "36\" Professional gas range with cooktop Â· Custom model",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 35.875,
+        "depth": 27.375
+      },
+      "depth_basis": "Overall modeled dimensions including handles. Approved repaired model.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-08",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
+      "image_path": "assets/appliances/thermador-review/PRG366WH-repaired-front.png",
+      "reference_image_path": "assets/appliances/thermador-review/PRG366WH-repaired-front.png"
+    },
+    {
+      "id": "thermador-custom-prg486wdh",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "range",
+      "model": "PRG486WDH â€” 48\" Range",
+      "name": "48\" Professional gas range with cooktop Â· Custom model",
+      "dimensions": {
+        "width": 47.9375,
+        "height": 35.875,
+        "depth": 27.375
+      },
+      "depth_basis": "Overall modeled dimensions including handles. Approved repaired model.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-08",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/PRG486WDH",
+      "image_path": "assets/appliances/thermador-review/PRG486WDH-repaired-front.png",
+      "reference_image_path": "assets/appliances/thermador-review/PRG486WDH-repaired-front.png"
+    },
+    {
+      "id": "thermador-custom-dwhd661efp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFP â€” 24\" Professional",
+      "name": "Star Sapphire dishwasher Â· Professional handle Â· Exterior only",
+      "dimensions": {
+        "width": 23.5625,
+        "depth": 26,
+        "height": 33.875
+      },
+      "depth_basis": "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFP",
+      "spec_url": "https://media3.bsh-group.com/Documents/24732547_DWHD661EFP-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-PROFESSIONAL-COLLECTION-HANDLE-Specifications.pdf",
+      "image_path": "assets/appliances/thermador-dishwashers/DWHD661EFP-front.png",
+      "reference_image_path": "assets/appliances/thermador-dishwashers/DWHD661EFP-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-dwhd661efm",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "dishwasher",
+      "model": "DWHD661EFM â€” 24\" Masterpiece",
+      "name": "Star Sapphire dishwasher Â· Masterpiece handle Â· Exterior only",
+      "dimensions": {
+        "width": 23.5625,
+        "depth": 25.75,
+        "height": 33.875
+      },
+      "depth_basis": "Modeled depth includes handle projection estimated from manufacturer photos; body depth 23.75 inches. Check installation specifications.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-09",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/dishwashers/stainless-steel/DWHD661EFM",
+      "spec_url": "https://media3.bsh-group.com/Documents/24732545_DWHD661EFM-STAR-SAPPHIRE-7-PROGRAM-DISHWASHER-MASTERPIECE-COLLECTION-HANDLE-Specifications.pdf",
+      "image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-front.png",
+      "reference_image_path": "assets/appliances/thermador-dishwashers/DWHD661EFM-comparison.jpg"
+    },
+    {
+      "id": "thermador-custom-sgs305ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS305TS",
+      "name": "Gas cooktop",
+      "dimensions": {
+        "width": 31,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS305TS",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
+      "reference_image_path": "assets/appliances/thermador-cooktops-review/SGS305TS-top.png",
+      "cutout": {
+        "width": 28.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      }
+    },
+    {
+      "id": "thermador-custom-sgs365ts",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "cooktop",
+      "model": "SGS365TS",
+      "name": "Gas cooktop",
+      "dimensions": {
+        "width": 37,
+        "height": 3.8125,
+        "depth": 21.25
+      },
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/cooktops-rangetops/gas-cooktops/SGS365TS",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
+      "reference_image_path": "assets/appliances/thermador-cooktops-review/SGS365TS-top.png",
+      "cutout": {
+        "width": 34.9375,
+        "height": 3.8125,
+        "depth": 19.125
+      }
+    },
+    {
+      "id": "thermador-custom-hpcn36ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN36WS",
+      "name": "Wall hood with 6-inch duct cover",
+      "dimensions": {
+        "width": 36.02486113086343,
+        "depth": 24.05000114440918,
+        "height": 24
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "chimney"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN36WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811669_HPCN36WS-36-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/HPCN36WS-angle.png"
+    },
+    {
+      "id": "thermador-custom-hpcn48ws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "HPCN48WS",
+      "name": "Wall hood with 6-inch duct cover",
+      "dimensions": {
+        "width": 48.024864945560694,
+        "depth": 24.05000114440918,
+        "height": 24
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "chimney"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/ventilationchimneywallhoods/HPCN48WS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811670_HPCN48WS-48-INCH-CHIMNEY-WALL-HOOD-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/HPCN48WS-angle.png"
+    },
+    {
+      "id": "thermador-custom-vcin36gws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "VCIN36GWS",
+      "name": "Built-in hood",
+      "dimensions": {
+        "width": 33.75,
+        "depth": 22.000001907348633,
+        "height": 12.843413352966309
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "built_in"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN36GWS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811699_VCIN36GWS-36-INCH-CUSTOM-INSERT-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/VCIN36GWS-angle.png"
+    },
+    {
+      "id": "thermador-custom-vcin48gws",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "hood",
+      "model": "VCIN48GWS",
+      "name": "Built-in hood",
+      "dimensions": {
+        "width": 45.75,
+        "depth": 22.000001907348633,
+        "height": 12.843413352966309
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "built_in"
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ventilation/custom-insert-hoods/VCIN48GWS",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02811696_VCIN48GWS-48-INCH-CUSTOM-INSERT-Specifications.pdf",
+      "depth_basis": "Exterior planning model; small details interpreted from manufacturer photos.",
+      "image_path": "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png",
+      "reference_image_path": "assets/appliances/thermador-hoods-review/VCIN48GWS-angle.png"
+    },
+    {
+      "id": "thermador-custom-md24bs",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MD24BS",
+      "name": "24-inch microwave drawer",
+      "dimensions": {
+        "width": 23.875,
+        "depth": 23.421998977661133,
+        "height": 16.287500381469727
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "under_counter",
+        "door": "drawer",
+        "cabinet_depth": 23.375
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
+      "spec_url": "https://media3.bsh-group.com/Documents/25077284_MD24BS-24-INCH-BUILT-IN-MICROWAVE-DRAWER-Specifications.pdf",
+      "depth_basis": "Prepared exterior including handle; planning envelope",
+      "image_path": "assets/appliances/blender/thermador-custom-md24bs.png",
+      "reference_image_path": "assets/appliances/blender/thermador-custom-md24bs.png"
+    },
+    {
+      "id": "thermador-custom-mb30wp",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "microwave",
+      "model": "MB30WP",
+      "name": "30-inch built-in microwave",
+      "dimensions": {
+        "width": 29.75,
+        "depth": 22.250001907348633,
+        "height": 19.625
+      },
+      "appearance": {
+        "finish": "stainless",
+        "installation": "under_counter",
+        "door": "drop_down",
+        "cabinet_depth": 19.625
+      },
+      "verified_at": "2026-10-12",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MB30WP",
+      "spec_url": "https://media3.bsh-group.com/Documents/MCDOC02760738_MB30WP-30-INCH-BUILT-IN-MICROWAVE-PROFESSIONAL-SERIES-Specifications.pdf",
+      "depth_basis": "Prepared exterior including handle; planning envelope",
+      "image_path": "assets/appliances/blender/thermador-custom-mb30wp.png",
+      "reference_image_path": "assets/appliances/blender/thermador-custom-mb30wp.png"
+    }
+  ],
+  "retired_ids": [
+    "wolf-so3050pe",
+    "wolf-so3050pm",
+    "bosch-hbl8454uc",
+    "bosch-hblp454uc",
+    "fisher-ob30smpug3",
+    "fisher-ob30scpudx3",
+    "lg-wsep4723f",
+    "lg-wsep4727f",
+    "bosch-b36ct80sns",
+    "bosch-b36cl80ens",
+    "bosch-shp78cm5n",
+    "bosch-shx78cm5n",
+    "bosch-ngm8059uc",
+    "bosch-nit8061uc",
+    "bosch-hcp30e52uc",
+    "bosch-hcp36e52uc",
+    "bosch-hmv8054u",
+    "bosch-hmd8454uc",
+    "bosch-hgi8056uc",
+    "bosch-hii8057u",
+    "sub-zero-cl3650u-s",
+    "sub-zero-cl4250sid-s",
+    "cove-dw2451",
+    "cove-dw2451ws",
+    "wolf-cg304p-s",
+    "wolf-ci36560t-s",
+    "wolf-pw302418",
+    "wolf-pw362418",
+    "wolf-md24te-s",
+    "wolf-ms24",
+    "wolf-gr304",
+    "wolf-df36650-s-p",
+    "fisher-paykel-rf201adx5-n",
+    "fisher-paykel-rf203qduvx1",
+    "fisher-paykel-dd24dax9-n",
+    "fisher-paykel-dd24dctx9-n",
+    "fisher-cg305dngx1-n",
+    "fisher-cg365dngx1-n",
+    "fisher-hc30dcxb4",
+    "fisher-hc36dcxb4",
+    "fisher-om30nctdx3",
+    "fisher-om30nmunb3",
+    "fisher-or30sdi6x1",
+    "fisher-or30sdg6x1",
+    "lg-lrflc2706s",
+    "lg-lrykc2606s",
+    "lg-ldth7972s",
+    "lg-ldph5554s",
+    "lg-cbgj3027s",
+    "lg-cbih3617be",
+    "lg-hced3015s",
+    "lg-hced3615s",
+    "lg-mvel2137f",
+    "lg-mvem1825f",
+    "lg-lsgl6335f",
+    "lg-lsil6336fe"
+  ]
 }

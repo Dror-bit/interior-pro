@@ -1,12 +1,19 @@
 (function(){
  if(window.KitchenHouseAppliances)return;
- const categories={fridge:'Refrigerators',range:'Ranges',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
- const kinds={fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave',wall_oven:'wall_oven'};
+ const categories={sink:'Sinks',fridge:'Refrigerators',range:'Ranges',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
+ const kinds={sink:'sink',fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave',wall_oven:'wall_oven'};
  const section=document.getElementById('kp-kitchen'),library=document.getElementById('kp-cab-library');
  const panel=document.createElement('div');panel.id='kp-appliance-library';panel.hidden=true;
  panel.innerHTML='<button type="button" id="kp-appliance-back">← Cabinets</button><label>Appliances<select id="kp-appliance-category"></select></label><label>Brand<select id="kp-appliance-brand"></select></label><div id="kp-appliance-cards"></div>';
  section.append(panel);
  const category=panel.querySelector('#kp-appliance-category'),brand=panel.querySelector('#kp-appliance-brand'),cards=panel.querySelector('#kp-appliance-cards');
+ const withoutLabel=document.createElement('label');withoutLabel.id='kp-without-cabinet-label';withoutLabel.style.cssText='display:flex;align-items:center;gap:7px';
+ const without=document.createElement('input');without.type='checkbox';without.id='kp-without-cabinet';without.style.width='auto';
+ withoutLabel.append(without,document.createTextNode('ללא ארון'));cards.before(withoutLabel);
+ const coverLabel=document.createElement('label');coverLabel.textContent='Hood cover';coverLabel.id='kp-hood-cover-label';
+ const cover=document.createElement('select');cover.id='kp-hood-cover-style';cover.add(new Option('Shaker','shaker'));cover.add(new Option('Plain','slab'));coverLabel.append(cover);cards.before(coverLabel);
+ cover.onchange=()=>window.KitchenHouseInsert.cancel();
+ without.onchange=()=>{if(!window.KitchenHouseInsert.cancel())without.checked=!without.checked;};
  for(const [key,label] of Object.entries(categories))category.add(new Option(label,key));
  const cache=new Map();let current=[];
  const error=message=>{document.getElementById('kp-cab-error').textContent=message||'';};
@@ -17,10 +24,12 @@
    if(product.image){const img=document.createElement('img');img.src=product.image;img.alt=product.model;button.append(img);}
    const title=document.createElement('strong');title.textContent=product.model;button.append(title);
    const name=document.createElement('span');name.textContent=product.name;button.append(name);
+   if(product.dimensions){const size=document.createElement('span');size.textContent=`${product.sku||product.model} · ${product.dimensions.width}″ W × ${product.dimensions.depth}″ D × ${product.dimensions.height}″ H`;button.append(size);}
+   if(product.automatic_cutout_available===false){const status=document.createElement('span');status.textContent='Automatic countertop cutout unavailable — awaiting verified manufacturer template.';button.append(status);}
    button.onclick=()=>{
     if(window.KitchenHouseInsert.state.pending||window.KitchenHouseInsert.state.waiting)return;
     error('');const request_id=window.KitchenHouseInsert.request();
-    sketchup.kitchen_open_catalog(JSON.stringify({action:'prepare',request_id,product_id:product.id,wall:document.getElementById('kp-cab-area').value}));
+    sketchup.kitchen_open_catalog(JSON.stringify({action:'prepare',request_id,product_id:product.id,without_cabinet:without.checked,hood_style:cover.value,wall:document.getElementById('kp-cab-area').value}));
    };cards.append(button);
   }
  }
@@ -31,6 +40,8 @@
  }
  function choose(){
   if(!window.KitchenHouseInsert.cancel())return;
+  without.checked=false;withoutLabel.style.display=['fridge','microwave','wall_oven','hood'].includes(category.value)?'flex':'none';
+  coverLabel.style.display=category.value==='hood'?'grid':'none';cover.value='shaker';
   error('');cards.replaceChildren();brand.replaceChildren();
   if(cache.has(category.value))receive(category.value,cache.get(category.value));else sketchup.kitchen_appliance_library(category.value);
  }

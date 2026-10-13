@@ -13,8 +13,8 @@
     },
     {
       "path": "appliance_catalog.json",
-      "bytes": 49502,
-      "sha256": "620d993f7e88a70ba8d9718cf7f2e9d65056c4fd8677812e93ec561ec431104f"
+      "bytes": 33531,
+      "sha256": "f15e7492702c98f27b9d0e4ce15a3725abb12c8e26aed92b2b04331520a17021"
     },
     {
       "path": "appliance_gallery.js",
@@ -448,8 +448,8 @@
     },
     {
       "path": "cabinet_fronts.js",
-      "bytes": 3478,
-      "sha256": "f35db6bda4797181f17dcaae4527a58e2f95ef9bc002e21f3fb91b0e462a7e6c"
+      "bytes": 3634,
+      "sha256": "c16b5d7e6b7f2f92c87bdf1a068cc61bf931d17829ebf4fae7a49d4c49c378e6"
     },
     {
       "path": "cabinet_selection.js",
@@ -498,13 +498,13 @@
     },
     {
       "path": "kitchen.html",
-      "bytes": 16962,
-      "sha256": "55429584e8f79eaf6b98feeb294cafec653203e446ca42f9675aaff76369ffd2"
+      "bytes": 17131,
+      "sha256": "639b4011bdb20e4236b124199803cd603f148f5c0b119c8fa8e73507f6305621"
     },
     {
       "path": "kitchen.js",
-      "bytes": 44848,
-      "sha256": "3123d1732cc5330b7dc3b107628e785e91f2dd3b30614ecf4f3f1fad400e3016"
+      "bytes": 45014,
+      "sha256": "f7297c7bbb0450017cad8251ce8a6c4ca8c8d695f5c6b1ec9150b86d4ac51492"
     },
     {
       "path": "kitchen_appearance.rb",
@@ -513,13 +513,13 @@
     },
     {
       "path": "kitchen_appliance_assets.rb",
-      "bytes": 5151,
-      "sha256": "4fd0bbe8817169e227193af7a84534019efbfb2f8110fcc17a7b53b8bab75c4b"
+      "bytes": 5334,
+      "sha256": "6e9a8a7ae4ff090354210d5a29cc31c0ef4b9263dcfeb7404f842e84d4d07e7b"
     },
     {
       "path": "kitchen_appliance_catalog.rb",
-      "bytes": 8662,
-      "sha256": "67df5edfb5a16030d7f4bf12dcadca6c33a2acdb75461c58b64922ccce261b0b"
+      "bytes": 9318,
+      "sha256": "fa3dd9b0cff3f12c9b02202493342815fbad897db38cbd531925589375984301"
     },
     {
       "path": "kitchen_bootstrap.rb",
@@ -528,8 +528,8 @@
     },
     {
       "path": "kitchen_canvas_symbols.js",
-      "bytes": 7506,
-      "sha256": "20c70f636f508df9fb0752fafe659346e3eb3b30aed03d210c1a59a2018a1b37"
+      "bytes": 8032,
+      "sha256": "358026c66e7d63fb410b374ec17b262908b415f130fc6fe076ac6277a2699e70"
     },
     {
       "path": "kitchen_clean_notes.js",
@@ -558,8 +558,8 @@
     },
     {
       "path": "kitchen_engine.rb",
-      "bytes": 17344,
-      "sha256": "ef504689800a051b04432ae578e071db351bba837d35c5588eff52e3823cd0fc"
+      "bytes": 18783,
+      "sha256": "8f5392c92a5ee201b1991533affaf994246965ff969879d107c03e1f70bb9657"
     },
     {
       "path": "kitchen_hosted_editor.js",
@@ -578,8 +578,8 @@
     },
     {
       "path": "kitchen_house_insert.js",
-      "bytes": 3954,
-      "sha256": "be2d208876c00bd2a8c982353c67a8bdc6dfc8a78c7bd9e5091ce28584fc5381"
+      "bytes": 4295,
+      "sha256": "9dbfed5b242575c1a2d232fb9eacac82fba5ebc2ac37aa2a6d9ac3ef4058096c"
     },
     {
       "path": "kitchen_house_placement.js",
@@ -598,8 +598,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 31805,
-      "sha256": "ddfa826ada25c1e6fa767abba856d405e06c812a59f153a5aa9d7299d968db86"
+      "bytes": 34783,
+      "sha256": "af01add656224c215e50a7f77844b89ad450df8584c34d39cf58b292018c33dc"
     },
     {
       "path": "kitchen_layout.rb",
@@ -608,23 +608,23 @@
     },
     {
       "path": "kitchen_plan.js",
-      "bytes": 1821,
-      "sha256": "d4ea205ddc1347646318d3fc919879b0f2f0b82278dca7fe2aa480447e66a782"
+      "bytes": 2572,
+      "sha256": "8fe2d933f18c9a512209156bddee2b4e14f8fa5eb56b23091d49972cb76960a6"
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 20688,
-      "sha256": "e9f052a795605f1b2c249302c31c84e5f93459a016da7f2e8d1fa9b03f77a065"
+      "bytes": 23391,
+      "sha256": "014780f9f24eeafe780ae8b04d7f0fdff808f7370be0ed0468b8586fea6298d6"
     },
     {
       "path": "kitchen_sidebar.js",
-      "bytes": 7044,
-      "sha256": "2d60ad9bf782bbc0042c6d20f950ce6274e8e4a749f1ffb37540c571925d3413"
+      "bytes": 7403,
+      "sha256": "6abec5269f7b84b406c7fb83def830a2871763a06a1acd01a23f7868fcf93bee"
     },
     {
       "path": "kitchen_sink.rb",
-      "bytes": 4905,
-      "sha256": "f83e565c3878f90bcdeec54dd36d83795bae997a1757464f801bd209f4ed7f28"
+      "bytes": 7016,
+      "sha256": "0dd5c5804232193a1ffb97d23b0f68533da737f81fddbec9ac707c9393bec18a"
     },
     {
       "path": "kitchen_spatial.rb",
@@ -633,13 +633,13 @@
     },
     {
       "path": "kitchen_store.rb",
-      "bytes": 4031,
-      "sha256": "813dcb0262c717582a4c99e41be4d61a5e2b7d21ffe28c634a36d80e44499042"
+      "bytes": 3780,
+      "sha256": "970e90be30f87232ca6e4bec0311c94706baa3f40c8d386fdd7646737f02d1da"
     },
     {
       "path": "kitchen_workspace.js",
-      "bytes": 11963,
-      "sha256": "51d0cb2a68fdd49eae1a8bcc128ef8d6fcbaa792adeb95f6654accc20785fc91"
+      "bytes": 12719,
+      "sha256": "67efb0e786eca1900b625b8a452673b9b6819e710801dd2825574c31235d2d6c"
     },
     {
       "path": "orientation_editor.js",
@@ -688,8 +688,8 @@
     },
     {
       "path": "sink_editor.js",
-      "bytes": 4965,
-      "sha256": "20b87eea7ddbf147c73f6705198fa9322108bed47b0bbac049134d6657149e0a"
+      "bytes": 5524,
+      "sha256": "53465fe81b18faaed7855f1f6b8274eb69aefe5e7f65201d6302e2921dd784e8"
     },
     {
       "path": "test_engine.rb",
@@ -743,13 +743,13 @@
     },
     {
       "path": "run_all.sh",
-      "bytes": 1118,
-      "sha256": "ad71cc22b88441750f6183055862f87372aff710ae5ab42558eb2a8ee71ba5bc"
+      "bytes": 1219,
+      "sha256": "24b911c7703677efbffc864867fd8eb88978dc803aa823ec5e33c937e3161567"
     },
     {
       "path": "kitchen_house_appliances.js",
-      "bytes": 4348,
-      "sha256": "fcd1c589262453756dfb82815045cbcdcd3690e82177a767e5347e12447bb81e"
+      "bytes": 6001,
+      "sha256": "45b4f7abf9c639e0c0b476b8eeb35764d519e919ad5585b4620970587f6673af"
     },
     {
       "path": "test_house_appliance_catalog.rb",
@@ -848,23 +848,723 @@
     },
     {
       "path": "test_house_delete.rb",
-      "bytes": 1652,
-      "sha256": "b3bac2ad83864255a12f0c954577c52f68af5d8177e44f4791b3e001b1c0a99c"
+      "bytes": 1815,
+      "sha256": "915c7f00eb07e324a6c39c4389412ccaed76b43be7b18d10d99db48538a96dc7"
     },
     {
       "path": "kitchen_appliance_surround.rb",
-      "bytes": 4800,
-      "sha256": "a436e0d3b37c2cef9196efe76c475f97a162e03d0907bfb35364244bda53ee2e"
+      "bytes": 10149,
+      "sha256": "51545959c95782fd13edd7eb4c693739c687554bb445d4b951e1da58fd6a1cb0"
     },
     {
       "path": "kitchen_appliance_surround.js",
-      "bytes": 3443,
-      "sha256": "49f92f5e314e7ef865ad7a79fbcf1a9d3cf25b378efc65df915d4bd845a99997"
+      "bytes": 3697,
+      "sha256": "de8013aa3002b066f497cfa0f9cfd1ae4da5ede7c23c89e41b2968eb1ede2d32"
     },
     {
       "path": "test_appliance_surround.rb",
       "bytes": 4018,
       "sha256": "760c938e99a50aad99f3edaaf929e11235503f3db4ebcf17ff19a249548fdaa9"
+    },
+    {
+      "path": "test_default_appliance_cabinets.rb",
+      "bytes": 3643,
+      "sha256": "7dc5a707f3504e5a103d38d78f8e1b95f8ae711a89b48794fbf2deaff8971b3c"
+    },
+    {
+      "path": "test_hood_cover.rb",
+      "bytes": 1533,
+      "sha256": "32854b4828e7a0dbd1b7a5f4b7c68fc86485c0e6b0afccd8687bb0b99523ebbb"
+    },
+    {
+      "path": "kitchen_sink_catalog.rb",
+      "bytes": 3560,
+      "sha256": "6a3fa94ca6f381fb9d063c80ba7b46589b379a6f2441d204344737463cb2b4cb"
+    },
+    {
+      "path": "sink_catalog.json",
+      "bytes": 4750,
+      "sha256": "0fcc8e4ed43c24903dd1fbfd522854e4d176b84ce90f28896d9f5933888b029f"
+    },
+    {
+      "path": "test_sink_catalog.rb",
+      "bytes": 3769,
+      "sha256": "8f275c85967beb3ccbdbebf41d4f5966afd3d3e29c87a655466f9410bfa8c4bf"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-3838-1-mesh.json",
+      "bytes": 171516,
+      "sha256": "4f0ccb4294010b33d8a5757ec8471510bd40193d623ccd1a3b20b76fbc24a548"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-3838-1.png",
+      "bytes": 930567,
+      "sha256": "be02c08631d1b43a8a6559afb4493e10c2d088fe334a6bfa8b222ba1aea95716"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-5285-mesh.json",
+      "bytes": 93317,
+      "sha256": "ec7edcea5334e5a02f961ebf5e8760e673df730a31982eceb41ae8b7287cb410"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-5285.png",
+      "bytes": 877565,
+      "sha256": "f0a289ce3e4ffd0a91858375b44094687b3c94ee8726dc9b1a12a5df0acb9065"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-6489-mesh.json",
+      "bytes": 104751,
+      "sha256": "d0a818424f852296d25c578310df8deb43a4b53add1c801e833c575b330e46e3"
+    },
+    {
+      "path": "assets/appliances/kohler-sinks/K-6489.png",
+      "bytes": 863268,
+      "sha256": "f8cffb425274c0bb2ccbbcff295357725798f14a153a249048e33c6b7ab5dca5"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-md24bs.skp",
+      "bytes": 231640,
+      "sha256": "a39eb81f799d134c3b9e1d9312abe6e479f1b5a5f33b2c743d14c0a7005564de"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-md24bs.asset.json",
+      "bytes": 10791,
+      "sha256": "251460ffb807392b96593fb013b98df71e0ea49fae0a332abc046a48041c06b0"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-md24bs.png",
+      "bytes": 1339050,
+      "sha256": "39fced0f0c1e28d27e1ee130c9758a96a36a62434ae38be8fcaea6b9dd710d43"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-mb30wp.skp",
+      "bytes": 396217,
+      "sha256": "2d0f9bf6770a6e6561eafb8952b5fbfc058097b5e53ceeb32737eb079d9a3c6e"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-mb30wp.asset.json",
+      "bytes": 15079,
+      "sha256": "77b53a8db056ed077eef0928b20f319adf58b24b292713fc82f4bd5683270998"
+    },
+    {
+      "path": "assets/appliances/blender/thermador-custom-mb30wp.png",
+      "bytes": 1174230,
+      "sha256": "81edeb7797a4d2aa787af50e9ddebfe7109d1ba3ea4b4e3b8d912b57559c4953"
+    },
+    {
+      "path": "test_microwave_bases.rb",
+      "bytes": 2295,
+      "sha256": "f37f7f17978d9809e6d16278fd80a9455def022baffa50d2c64323e466b235c8"
+    },
+    {
+      "path": "assets/handles/86702/handle.skp",
+      "bytes": 16005,
+      "sha256": "397bdaad8a4b139f80d04214a66379e8abd1b7c9318313d156023cadc66620cf"
+    },
+    {
+      "path": "assets/handles/86702/preview.png",
+      "bytes": 302350,
+      "sha256": "736d469ebe9ca4a811beaa9d6e4d5e236d919d37cf14af4c36cdb992e034d4df"
+    },
+    {
+      "path": "assets/handles/86702/dimensions.json",
+      "bytes": 2733,
+      "sha256": "eeae523c9cb48e60905525705d83052fc67c340cf0698e2c12684c0ca3ed2747"
+    },
+    {
+      "path": "assets/handles/86703/handle.skp",
+      "bytes": 15853,
+      "sha256": "e5629d5c28d5e9d3e74767a074ea3ad429bb360fd3885e0c6e58859b835ea206"
+    },
+    {
+      "path": "assets/handles/86703/preview.png",
+      "bytes": 304855,
+      "sha256": "38c3c4537980d4f56e087e414974d53243456c5d8544d94fa26813e72d63685f"
+    },
+    {
+      "path": "assets/handles/86703/dimensions.json",
+      "bytes": 2745,
+      "sha256": "3e4de0031c8a0ddd15d33b58988ad624fb3b9cccf44c17102fe1df22a1f26831"
+    },
+    {
+      "path": "assets/handles/86152-no-disc/handle.skp",
+      "bytes": 107962,
+      "sha256": "5113a2115eb4f5ce4e4b8c58c7410cac1e906778b958506a32c3fbc2c8570551"
+    },
+    {
+      "path": "assets/handles/86152-no-disc/preview.png",
+      "bytes": 293962,
+      "sha256": "b45fa2944f613f5b468cfbd6e57a3d82e1b2a6a1be3bc0d08e6c5fb5742cea28"
+    },
+    {
+      "path": "assets/handles/86152-no-disc/dimensions.json",
+      "bytes": 2864,
+      "sha256": "f121cfee0cfc9adadcdbd601b8bbef3429ddc434577edd16e90b5748068d4d7f"
+    },
+    {
+      "path": "assets/handles/86152-disc/handle.skp",
+      "bytes": 124304,
+      "sha256": "79d3aa6f86c8ffa7d5bddf055eee062e4a72d35194cdf999d56e9261570bf62b"
+    },
+    {
+      "path": "assets/handles/86152-disc/preview.png",
+      "bytes": 301968,
+      "sha256": "5a91b671fd242316dab9da776be15eeacb2d303a8f4f90f83222c62718304a33"
+    },
+    {
+      "path": "assets/handles/86152-disc/dimensions.json",
+      "bytes": 2875,
+      "sha256": "0401cb18e2d758d1f8f4b48f2425d5881d8a32550b20c4243e29b570210c014c"
+    },
+    {
+      "path": "assets/handles/86695/handle.skp",
+      "bytes": 89378,
+      "sha256": "53d0e136cacfafe62507584e133d514a7d9d2ad1b69ba54a4d4b60b140e11c65"
+    },
+    {
+      "path": "assets/handles/86695/preview.png",
+      "bytes": 300386,
+      "sha256": "cf3d7b568888cea4ba98eb4eff2abee223c3850f1f6cc36e1bad40814170edc4"
+    },
+    {
+      "path": "assets/handles/86695/dimensions.json",
+      "bytes": 2734,
+      "sha256": "cc9f89ca2820b0a2abfcc291866ea96b6e676e4c96b3a670becd25542505c3ec"
+    },
+    {
+      "path": "assets/handles/86696/handle.skp",
+      "bytes": 88866,
+      "sha256": "4452ab0e0877320602d82e667823611c0e3431b3aa4ad13f1837179bf68cd8a3"
+    },
+    {
+      "path": "assets/handles/86696/preview.png",
+      "bytes": 306498,
+      "sha256": "e392322f1ba5861925204bbd6553c1bf780857272772dc00bdc14d4993c20a39"
+    },
+    {
+      "path": "assets/handles/86696/dimensions.json",
+      "bytes": 2730,
+      "sha256": "f92612232884e974a656ae13e63c5f0befc3321b340979b08caac8cc55049acc"
+    },
+    {
+      "path": "assets/handles/86655-CCK-KNK/handle.skp",
+      "bytes": 152958,
+      "sha256": "c8decbe053e92577db368499982da16b1b29d997613e041925e942e051169536"
+    },
+    {
+      "path": "assets/handles/86655-CCK-KNK/preview.png",
+      "bytes": 297196,
+      "sha256": "59011c15bf50503c77c1528634228c9e040e7279e53ed6ee9938570e04cce9b3"
+    },
+    {
+      "path": "assets/handles/86655-CCK-KNK/dimensions.json",
+      "bytes": 2793,
+      "sha256": "eb8e8b1b9a8a1ba4c7857f5fd62821d137f331aad8ccab26be0a07c05040658f"
+    },
+    {
+      "path": "assets/handles/86715/handle.skp",
+      "bytes": 18716,
+      "sha256": "e569b8fbd1357738bab5067c442f7954849b6038f3ff1379f5f08b67b59b15c4"
+    },
+    {
+      "path": "assets/handles/86715/preview.png",
+      "bytes": 308597,
+      "sha256": "af8d7d84069fa284924f71cbbfcc1e32ffabb04bcd7716c87097ae00b9be0682"
+    },
+    {
+      "path": "assets/handles/86715/dimensions.json",
+      "bytes": 2824,
+      "sha256": "15f2aba3c6ba732ee77347e5f51e6bbe11a96a45c2faa975e1e5b33d662c5c2f"
+    },
+    {
+      "path": "assets/handles/86717/handle.skp",
+      "bytes": 18343,
+      "sha256": "d378f28d0fe47a74b8cf0e5a40c3a88f20ff8d695c48e84bfe48989c59c46678"
+    },
+    {
+      "path": "assets/handles/86717/preview.png",
+      "bytes": 303420,
+      "sha256": "0ddb09adffa63a5e6d1a99d2af0c55b9617405e09e9cff57a8b22b75761d396a"
+    },
+    {
+      "path": "assets/handles/86717/dimensions.json",
+      "bytes": 2850,
+      "sha256": "befe7ba6777cb29dc0239592c55a67adde556aad09a5e69228abb03089354db6"
+    },
+    {
+      "path": "assets/handles/86718/handle.skp",
+      "bytes": 18829,
+      "sha256": "04d6012819691cea37a2f1477511c1db0a982d2b27724f2af7c9e219028acbe2"
+    },
+    {
+      "path": "assets/handles/86718/preview.png",
+      "bytes": 298881,
+      "sha256": "d6644405316238b372286b0e303c62a4b722aa024f4b36eb33593dcb5e1c48d9"
+    },
+    {
+      "path": "assets/handles/86718/dimensions.json",
+      "bytes": 2827,
+      "sha256": "67de0329f1c850bbc8d042a03c44e98ad42742d8d95c58c45aabd9dc3352e007"
+    },
+    {
+      "path": "assets/handles/86705/handle.skp",
+      "bytes": 18676,
+      "sha256": "2ee9c00565fe4e3142e746741e7f964abdcaf79349c2aacd65adfbc30dd4b0f4"
+    },
+    {
+      "path": "assets/handles/86705/preview.png",
+      "bytes": 305450,
+      "sha256": "f68a77cbb0c96cdf3b077a44938c10e1ac2699fb35bcfc64c04cc9bbd2f703fe"
+    },
+    {
+      "path": "assets/handles/86705/dimensions.json",
+      "bytes": 2823,
+      "sha256": "69cff3e86916c6da7550e01bb53f0d97e9a7e39facb9e318960da2df0a644f90"
+    },
+    {
+      "path": "assets/handles/86707/handle.skp",
+      "bytes": 18131,
+      "sha256": "ac3690ee3b385a592eb26e03dd0c98f647d63bb7377d75f9d8ca6c1dc1f1b1cc"
+    },
+    {
+      "path": "assets/handles/86707/preview.png",
+      "bytes": 300652,
+      "sha256": "94fc49b984c9205a44c53bf7b4b2462acc9f575942d19c1ac7b8fd38a4481831"
+    },
+    {
+      "path": "assets/handles/86707/dimensions.json",
+      "bytes": 2849,
+      "sha256": "04bd395e83e85bc89206a5420c19dddfefbee61abb3a4f2db0ead01161491b3a"
+    },
+    {
+      "path": "assets/handles/86708/handle.skp",
+      "bytes": 18733,
+      "sha256": "40cb1b2e4c8cf42666d3cecfaa85eb05ce08c236feb7cd2e33c7fdbd44782311"
+    },
+    {
+      "path": "assets/handles/86708/preview.png",
+      "bytes": 296346,
+      "sha256": "9ae991e7da0384f5c622c2abf32be5680cd2ff9385bbc34dfce350aa1c194f6c"
+    },
+    {
+      "path": "assets/handles/86708/dimensions.json",
+      "bytes": 2825,
+      "sha256": "1fe8a92ea340a9496e8aa3c7011a5efcc46df03ad2933ee6cd5462814faa860a"
+    },
+    {
+      "path": "assets/handles/86687/handle.skp",
+      "bytes": 130418,
+      "sha256": "4abdee84bfc4d4c4ef093c62a52d0916e849d06093130d2e1ad68365e55da8c5"
+    },
+    {
+      "path": "assets/handles/86687/preview.png",
+      "bytes": 308499,
+      "sha256": "85c06ab2dfecfb91d84753b4e7e7addf1f1c21c8821e4e119ce4edb40681be30"
+    },
+    {
+      "path": "assets/handles/86687/dimensions.json",
+      "bytes": 2835,
+      "sha256": "534414d9e14c4d9f7e4b913df35e5fa8c694bb2fed5d48406c489ecb426d5fdc"
+    },
+    {
+      "path": "assets/handles/86689/handle.skp",
+      "bytes": 127948,
+      "sha256": "04c6c6b75e5828160fde7d0ea36b1a9f00a39d1e8c8f387607643a1f85fb9152"
+    },
+    {
+      "path": "assets/handles/86689/preview.png",
+      "bytes": 301465,
+      "sha256": "6c37f45f7e82993c6bb944ffffcf7558123f29be2503c5f20cb005d0134e2479"
+    },
+    {
+      "path": "assets/handles/86689/dimensions.json",
+      "bytes": 2861,
+      "sha256": "7e8ca76a8584252bd381215f2312f9b30fb3f5fb5ad5876539be1bb18e5cdd3c"
+    },
+    {
+      "path": "assets/handles/86690/handle.skp",
+      "bytes": 129471,
+      "sha256": "0572141eecfabf070973d083b1209dc21b297807cfe3a4c987a9d6b32d30f586"
+    },
+    {
+      "path": "assets/handles/86690/preview.png",
+      "bytes": 295006,
+      "sha256": "116328c154d48797024ac5d94107c9aeb9868fe13eae2d6a4584d644e2d9c418"
+    },
+    {
+      "path": "assets/handles/86690/dimensions.json",
+      "bytes": 2836,
+      "sha256": "2ce0d3d09f56a3f27dafd01f43cfb0ca31d63df4d3323dc9ad0d18d0da83e35c"
+    },
+    {
+      "path": "assets/handles/84053-REC-KN/handle.skp",
+      "bytes": 341598,
+      "sha256": "bdd91fc81e905a8505c1100e31a28b5f2608e2ecebc9f80bdc3dad6edbcb6cc1"
+    },
+    {
+      "path": "assets/handles/84053-REC-KN/preview.png",
+      "bytes": 308560,
+      "sha256": "678b86439193ee833df5e51ce5d61166b0b5849078f7bf95274d4845343ef07a"
+    },
+    {
+      "path": "assets/handles/84053-REC-KN/dimensions.json",
+      "bytes": 2909,
+      "sha256": "25524e4d4fc58741105ee0094b5d6d56357dc725672aa094449ede50310d05c2"
+    },
+    {
+      "path": "assets/handles/84055-REC-KN/handle.skp",
+      "bytes": 344427,
+      "sha256": "5dad06b1fbb2b252415eef95583cd471c67a50785ca2eafd4b8eb83d14e1e47c"
+    },
+    {
+      "path": "assets/handles/84055-REC-KN/preview.png",
+      "bytes": 299930,
+      "sha256": "ecfbae72dfc6825aac276a90443b1ea326c05e58264e0415a8b1dd308ccbc408"
+    },
+    {
+      "path": "assets/handles/84055-REC-KN/dimensions.json",
+      "bytes": 2942,
+      "sha256": "40f437f0bf3cc22d9c2cf3de042d7a43884f08ff33250f451e0bfdcd5e7d1d18"
+    },
+    {
+      "path": "assets/handles/84056-REC-KN/handle.skp",
+      "bytes": 438779,
+      "sha256": "1b3c9004f31a3b4f57cae6b26fdf3a7d0ec4dbe68813e27e446de4d7376e736c"
+    },
+    {
+      "path": "assets/handles/84056-REC-KN/preview.png",
+      "bytes": 296070,
+      "sha256": "5878833a8dbd9d636fbd59be8d31b644b646df86cf77c3dbf788f4de1a376e53"
+    },
+    {
+      "path": "assets/handles/84056-REC-KN/dimensions.json",
+      "bytes": 2930,
+      "sha256": "d433038e41584b33e7b655a7ab46194b6a18eebc5bd9bd8dfa6f89549b5ac371"
+    },
+    {
+      "path": "assets/handles/86425/handle.skp",
+      "bytes": 48326,
+      "sha256": "df4c959d53a261ff9118734f3ae82b844249a7b704dbec19029681592c20d45a"
+    },
+    {
+      "path": "assets/handles/86425/preview.png",
+      "bytes": 299936,
+      "sha256": "66f22ed4ec2b33fe65ac418f00f5d0280499c273cf39a46a7be196bca9221147"
+    },
+    {
+      "path": "assets/handles/86425/dimensions.json",
+      "bytes": 2803,
+      "sha256": "38e94f86b37b9efce5c56a26a4bd478663c05970881e6ce820a71e18c8d980cf"
+    },
+    {
+      "path": "assets/handles/86426/handle.skp",
+      "bytes": 48340,
+      "sha256": "6af83b83c26320e1f07628989dc76b7b77a2a008948e75db61a5bbf5c705c71f"
+    },
+    {
+      "path": "assets/handles/86426/preview.png",
+      "bytes": 296648,
+      "sha256": "3861916a74cb1d542ca5c1167440916ba646caff24cc4bcd8d9b6e8330690bda"
+    },
+    {
+      "path": "assets/handles/86426/dimensions.json",
+      "bytes": 2829,
+      "sha256": "114b551967a5be9e4a5c320edfc8fbaa622538919e57129543cf17cf19da11d9"
+    },
+    {
+      "path": "assets/handles/86427/handle.skp",
+      "bytes": 48733,
+      "sha256": "5f9d8a96d89a7e8c095f3d6a26f582f550ebdeec62c1bcbf3fb86a47b3e178e4"
+    },
+    {
+      "path": "assets/handles/86427/preview.png",
+      "bytes": 294417,
+      "sha256": "a943a80e8e87eb337445b7e32226ece3d2f1354f4303ccb50fa8406c7616b434"
+    },
+    {
+      "path": "assets/handles/86427/dimensions.json",
+      "bytes": 2805,
+      "sha256": "066c807c8b6923bdf13a40cae9d72c0e575f0b0eb4b71f1aed0fc76852de189c"
+    },
+    {
+      "path": "assets/handles/86123/handle.skp",
+      "bytes": 156263,
+      "sha256": "e027c2e887df750a6611a8915bd5418c24865cee94ead4ceff86a5607e79e3ce"
+    },
+    {
+      "path": "assets/handles/86123/preview.png",
+      "bytes": 304662,
+      "sha256": "b5e41712478c9e59338d40a99fb0bfd9fd45ad98b82babb7a24ef6d13834d933"
+    },
+    {
+      "path": "assets/handles/86123/dimensions.json",
+      "bytes": 3100,
+      "sha256": "34a23a4f42d3b93a92251be85b37681595cdb68a7aa7c153d87bb484c8b93730"
+    },
+    {
+      "path": "assets/handles/86173/handle.skp",
+      "bytes": 155135,
+      "sha256": "da1ffda2425662eb5f6dbd38f9c4b86872d29dd01f92b3c86bb38c8b59f860d9"
+    },
+    {
+      "path": "assets/handles/86173/preview.png",
+      "bytes": 305642,
+      "sha256": "92067b1f3b779ad4956d43ed1d134e3052ee681d87fce1d679b919d49a1e447f"
+    },
+    {
+      "path": "assets/handles/86173/dimensions.json",
+      "bytes": 3058,
+      "sha256": "08a2cf593c169fab3b760336af74045835013df028e9a199a288ab784351a559"
+    },
+    {
+      "path": "kitchen_handle_catalog.rb",
+      "bytes": 3376,
+      "sha256": "feec84c836c4a9c3712e52dfcdf93db88c54e656e7f20eb6618cd5b269a9eb49"
+    },
+    {
+      "path": "handle_catalog.json",
+      "bytes": 74453,
+      "sha256": "2c84095a2eb80073738bc151e9d747a15a44902b5ba4942ae33a27847eaea5e7"
+    },
+    {
+      "path": "handle_catalog.js",
+      "bytes": 54225,
+      "sha256": "8cf582b601f1d285c1a8eb2696e1ad478a3f16f5393e0f8fd4399b0f25764158"
+    },
+    {
+      "path": "handle_gallery.js",
+      "bytes": 9547,
+      "sha256": "c6a2eed324eb19bb7d05b0ec14c0dad2258b9891f117bf316e7f196d8ef085c4"
+    },
+    {
+      "path": "test_handle_catalog.rb",
+      "bytes": 1661,
+      "sha256": "3d4bb14de817c474c36dba83d13cc6c6641f697cd6529c7bcabb2c8bc2fda91d"
+    },
+    {
+      "path": "assets/appliances/prep-sinks/K-5287.skp",
+      "bytes": 194693,
+      "sha256": "652c2941a2e17ac960817208ecf6f27e0879587ad289fbfee3f6a970188f461c"
+    },
+    {
+      "path": "assets/appliances/prep-sinks/K-5287.png",
+      "bytes": 921019,
+      "sha256": "a4d758cfe495025150e032e6b6500260cacb8e30a6aa5622db1a6faed544f4a8"
+    },
+    {
+      "path": "assets/appliances/prep-sinks/K-33152.skp",
+      "bytes": 186417,
+      "sha256": "ef11ec841763f6daaa341fe0b26f4148dbc72402591dc684187d87958e09bd02"
+    },
+    {
+      "path": "assets/appliances/prep-sinks/K-33152.png",
+      "bytes": 415892,
+      "sha256": "aa6bc09c54e20f5702064979d1100cb911ba1d07b7250d88932971ceeac98a3b"
+    },
+    {
+      "path": "assets/accessories/63065LF.skp",
+      "bytes": 289647,
+      "sha256": "f82aea9585e0db8e074a920b64ca2f7da461901eaa8a4c6575cfbdbb05b93e40"
+    },
+    {
+      "path": "assets/accessories/63065LF.png",
+      "bytes": 70698,
+      "sha256": "6a222011b9b692665984f3cf09ea30c1c4888fe40699f9d1e054231d6d0b50ca"
+    },
+    {
+      "path": "assets/accessories/63965LF.skp",
+      "bytes": 283255,
+      "sha256": "3c8b1eb8df01db148aaae16ce81f588cfef4bb554084ef1590da37ff754bd99d"
+    },
+    {
+      "path": "assets/accessories/63965LF.png",
+      "bytes": 85710,
+      "sha256": "11a415524c311dc71ea86f1f8f48c1a305334e1ef49957d18d8f551214bec7ce"
+    },
+    {
+      "path": "assets/accessories/61365LF-C.skp",
+      "bytes": 250452,
+      "sha256": "c292339845d181cfe193f973fce6ca8003309648ef504308825b9e9e80dd84af"
+    },
+    {
+      "path": "assets/accessories/61365LF-C.png",
+      "bytes": 78096,
+      "sha256": "369b36dd95b0ede58b7c925684d9158faf1de14c546d80aeeb16c2c85626f991"
+    },
+    {
+      "path": "assets/accessories/62820LF.skp",
+      "bytes": 229024,
+      "sha256": "c2c978829a5cff5541278dc25f888d0bfa2cd0adca857245ef75e850c222f2bf"
+    },
+    {
+      "path": "assets/accessories/62820LF.png",
+      "bytes": 146307,
+      "sha256": "85c8c774e76f9eec0b80db05f4daaa904e4d22fcffd9213498765ad2101b316d"
+    },
+    {
+      "path": "assets/accessories/63006LF.skp",
+      "bytes": 394498,
+      "sha256": "e92d483a160d7b7e53ce335d8d823a31fea1c1fb99f70856b57adc9140b8b1a0"
+    },
+    {
+      "path": "assets/accessories/63006LF.png",
+      "bytes": 107847,
+      "sha256": "ddebd2a43c6f500915b2bb04c1bc2d70c6542db6c9ed869195f2a0c86e6315ab"
+    },
+    {
+      "path": "assets/accessories/63906LF.skp",
+      "bytes": 431866,
+      "sha256": "40889ac41c2c55b3b583323b2240d9a7a02f0d55874f3304e2d106464d91f3d4"
+    },
+    {
+      "path": "assets/accessories/63906LF.png",
+      "bytes": 120164,
+      "sha256": "3f6acc7e7824831cbdabfc2035c62ed7a104bdbf675f2f1ffa958147d88c8078"
+    },
+    {
+      "path": "assets/accessories/61306LF-C.skp",
+      "bytes": 324202,
+      "sha256": "bad2da9c63e891c3846971ff39039b9a3cf6dd53e692c89d7caf8f431c85195a"
+    },
+    {
+      "path": "assets/accessories/61306LF-C.png",
+      "bytes": 120041,
+      "sha256": "39fe659f07b3e026bb6316453e0ca89ef4800baec7f73c36ff5291bcea0f1eeb"
+    },
+    {
+      "path": "assets/accessories/62806LF.skp",
+      "bytes": 234483,
+      "sha256": "11fd4c3f7eb5f93302c6ccd1f53149c285584ae88450251eb6995c908ed9c356"
+    },
+    {
+      "path": "assets/accessories/62806LF.png",
+      "bytes": 149397,
+      "sha256": "7eb7cbcebc1cb6a32f6b6b56ad2b7180877b0bdf2d5548fc2fac6a4308323d06"
+    },
+    {
+      "path": "assets/accessories/63053LF.skp",
+      "bytes": 1060659,
+      "sha256": "770845327b33286ea42057ea149bb5cb6b31f6c1808c21cf552cf08012e35b16"
+    },
+    {
+      "path": "assets/accessories/63053LF.png",
+      "bytes": 76522,
+      "sha256": "bbf79e3bb360bbde9824120d2ae4e7acc2db5710eb9d9e7924ea5282fee655af"
+    },
+    {
+      "path": "assets/accessories/63953LF.skp",
+      "bytes": 1038444,
+      "sha256": "fe059fb6adc21d029075ace63b8ae8a1c04bdd952ec435af5e25096ed78131d8"
+    },
+    {
+      "path": "assets/accessories/63953LF.png",
+      "bytes": 111319,
+      "sha256": "efc43225c4c2c246b96d51b7cb37013563f7ee3834ae5eab2203f82ae7eff53c"
+    },
+    {
+      "path": "assets/accessories/61343LF-C.skp",
+      "bytes": 449680,
+      "sha256": "57ed86428aa44202a1cdc01e07b9b01861d39bf9b02e2afe0876deec2cc93f4e"
+    },
+    {
+      "path": "assets/accessories/61343LF-C.png",
+      "bytes": 67567,
+      "sha256": "6a651d904f8ed83220161587a55adc91d711aacd69af9391d4dcb66f6c63c527"
+    },
+    {
+      "path": "assets/accessories/62843LF.skp",
+      "bytes": 594677,
+      "sha256": "3a898981786def24d4974783425ae94c1fbb939113869f84d2226d6cb6434315"
+    },
+    {
+      "path": "assets/accessories/62843LF.png",
+      "bytes": 171960,
+      "sha256": "9ea3526e7e1ae8c001674c7cac9185d01e213406b0358c1cc5245b0426776622"
+    },
+    {
+      "path": "assets/accessories/62558LF.skp",
+      "bytes": 680229,
+      "sha256": "18ece81808b87ba6d1fdd7a8abe245dc73e6c28811755a3a7679063ae8b2a3e8"
+    },
+    {
+      "path": "assets/accessories/62558LF.png",
+      "bytes": 130327,
+      "sha256": "01c999e550ae451288bffaf3a17826b8dbfcb4ea7a2ea6f1e2961e963ca68d2f"
+    },
+    {
+      "path": "assets/accessories/63958LF.skp",
+      "bytes": 471479,
+      "sha256": "9e9e5f777be73370e073f737ad64419c558a60b987576b88ea17c4e50a55f24e"
+    },
+    {
+      "path": "assets/accessories/63958LF.png",
+      "bytes": 119660,
+      "sha256": "ba6b42d6b7402296e44fdcc4561338009fb1b375721991d2833c21e1be01dcc7"
+    },
+    {
+      "path": "assets/accessories/61358LF-C.skp",
+      "bytes": 470003,
+      "sha256": "1de7de36f95c96d49d8c6e83371b4ff3139f5cd7cb79a55fc727ba4bf9388660"
+    },
+    {
+      "path": "assets/accessories/61358LF-C.png",
+      "bytes": 117142,
+      "sha256": "4517f08738e845efef11540236eadb7dc39f535a03d580341f5ae5931539fceb"
+    },
+    {
+      "path": "assets/accessories/62858LF.skp",
+      "bytes": 290578,
+      "sha256": "0000f6ee093693ab0444684b64d624980eb43972ce3a40097d643979c9ac53ec"
+    },
+    {
+      "path": "assets/accessories/62858LF.png",
+      "bytes": 151468,
+      "sha256": "16765768ffb5ca11785d554dd53027dd034e6982e5a8fa4db0df38d83a594e53"
+    },
+    {
+      "path": "kitchen_accessories.rb",
+      "bytes": 6191,
+      "sha256": "fe2cd4ae9b94d575f34a167da6c3aa651a83df0018022bf824eae6edaf524141"
+    },
+    {
+      "path": "accessory_editor.js",
+      "bytes": 6962,
+      "sha256": "934b15f33d17a2f5d4cb9081647cced3d416238a1553753e0f1739f183f57f7d"
+    },
+    {
+      "path": "accessory_catalog.json",
+      "bytes": 64048,
+      "sha256": "27af61164cfd0dc571fdc7478387f4ab47d8a7e8cd58565c36f9b5df28465567"
+    },
+    {
+      "path": "accessory_catalog.js",
+      "bytes": 47447,
+      "sha256": "bcf1b48213470876c75c33f5c38c12795e87529be16b4741017469067c2dd2ad"
+    },
+    {
+      "path": "test_accessories.rb",
+      "bytes": 1304,
+      "sha256": "f43e1227c1ceebe2a0a7a7585e971ea9fc9156c82987385d500bf73fd3f0454b"
+    },
+    {
+      "path": "test_bundle_delete.rb",
+      "bytes": 3216,
+      "sha256": "58f0f96485ba6f0cff903b39db1251284e8f6af0658aaacaf41bf8a0251b089b"
+    },
+    {
+      "path": "test_project_handles.rb",
+      "bytes": 1855,
+      "sha256": "5671cbe68d30030840014523da62a8bb06fb620703a1a3d08afc85af9b413d6f"
+    },
+    {
+      "path": "test_thin_selection.mjs",
+      "bytes": 1219,
+      "sha256": "f9a116048c83055094abe014edaf3e5b015a831e81d48eeb4f2105868240a825"
+    },
+    {
+      "path": "test_legacy_delete.rb",
+      "bytes": 533,
+      "sha256": "85e1edfa5e1ecf152a70f855d45b0bc6788b8a9d14b40e8060c74e867d6079bc"
     }
   ]
 }

@@ -37,8 +37,140 @@ module InteriorPro
     def self.kinds
       {
         'outlet' => { label: 'Outlet', height: 18.0 },
-        'switch' => { label: 'Switch', height: 48.0, gangs: true }
+        'switch' => { label: 'Switch', height: 48.0, gangs: true },
+        # WALL LIGHTS (2026-10-12, his files in WALL_LIGHTS): only his files,
+        # no built-in stand-in. 66" to the middle - the bathroom rule of
+        # thumb (60-66" each side of the mirror), hallway 60-72".
+        'wall_light' => { label: 'Wall Light', height: 66.0, files_only: true, dir: 'WALL_LIGHTS', group: 'lighting' },
+        # ON THE CEILING (2026-10-12, his pick "1": a click on the ceiling of
+        # the room and it hangs there; the distances he sets later in 2D).
+        # His file: the top (z 0) on the ceiling, its 0,0 under the click.
+        'ceiling_light' => { label: 'Ceiling Light', height: 0.0, files_only: true, dir: 'CEILING_LIGHTS', group: 'lighting', mount: 'ceiling' },
+        # RECESSED (2026-10-12, Codex's 4 files, 4"/6" round/square): hung
+        # like a ceiling light - the trim on the ceiling, the can above it.
+        # Its picture is seen FROM BELOW, or round and square look the same.
+        'recessed' => { label: 'Recessed', height: 0.0, files_only: true, dir: 'RECESSED', group: 'lighting', mount: 'ceiling', thumb: :below, hole: true },
+        'ceiling_fan' => { label: 'Ceiling Fan', height: 0.0, files_only: true, dir: 'CEILING_FANS', group: 'lighting', mount: 'ceiling' }
       }
+    end
+
+    # TWO WINDOWS, ONE BAR (2026-10-12, his words: "צריך להיות הבדל בין חשמל
+    # לתאורה בגלריית הפתיחה הם אומנם באותו הסרגל אבל לא בגלריה"). The
+    # Electrical button shows the 'electrical' kinds, the Lighting button the
+    # 'lighting' ones. A kind with no :group is electrical.
+    def self.group_of(kind)
+      kinds[kind_ok(kind)][:group] || 'electrical'
+    end
+
+    def self.kinds_in(group)
+      kinds.keys.select { |k| group_of(k) == group.to_s }
+    end
+
+    def self.ceiling?(kind)
+      kinds[kind_ok(kind)][:mount] == 'ceiling'
+    end
+
+    # ---- ON THE CEILING ----------------------------------------------------
+    # Kill switch: false = the ceiling kinds are not offered and nothing is
+    # hung on a ceiling.
+    USE_CEILING_MOUNT = true unless const_defined?(:USE_CEILING_MOUNT, false)
+
+    # Is x,y inside the outline [[x, y], ...]? (even-odd) PURE.
+    def self.inside_poly?(poly, x, y)
+      inside = false
+      j = poly.length - 1
+      poly.each_with_index do |(xi, yi), i|
+        xj, yj = poly[j]
+        if (yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi).to_f + xi
+          inside = !inside
+        end
+        j = i
+      end
+      inside
+    end
+
+    # Every Interior Pro ceiling: { grp:, z: (its underside), poly: [[x, y]...], area: }
+    def self.ceilings(model = Sketchup.active_model)
+      model.entities.grep(Sketchup::Group).map do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'ceiling'
+        fc = g.entities.grep(Sketchup::Face).min_by { |f| f.bounds.min.z }
+        next if fc.nil?
+        tr = g.transformation
+        poly = fc.outer_loop.vertices.map { |v| p = v.position.transform(tr); [p.x.to_f, p.y.to_f] }
+        { grp: g, z: g.bounds.min.z.to_f, poly: poly, area: fc.area.to_f }
+      end.compact
+    end
+
+    # The ceiling the mouse ray meets first, and where: [ceiling, x, y] or
+    # nil. Works from above (through the ceiling) and from below. PURE on
+    # the list it is given.
+    def self.ceiling_hit(list, eye, dir)
+      best = nil
+      list.each do |c|
+        next if dir[2].abs < 1.0e-9
+        t = (c[:z] - eye[2]) / dir[2].to_f
+        next if t <= 0
+        x = eye[0] + dir[0] * t
+        y = eye[1] + dir[1] * t
+        next unless inside_poly?(c[:poly], x, y)
+        if best.nil? || t < best[3] - 1.0e-6 || ((t - best[3]).abs <= 1.0e-6 && c[:area] < best[0][:area])
+          best = [c, x, y, t]
+        end
+      end
+      best && best[0, 3]
+    end
+
+    # The ceiling right above x,y (the smallest one, if two overlap), for a
+    # point the mouse locked onto. PURE on the list.
+    def self.ceiling_over(list, x, y)
+      list.select { |c| inside_poly?(c[:poly], x, y) }.min_by { |c| c[:area] }
+    end
+
+    # THE HOLE A RECESSED LIGHT NEEDS (his words: "זה צריך לעשות חור
+    # בתקרה"): as wide as the part of his file that goes UP into the
+    # ceiling (the can, z above 0). 0 = no hole. PURE on the lines.
+    def self.hole_d_of(segs)
+      xs = segs.select { |a, b| a[1] > 0.05 && b[1] > 0.05 }.flat_map { |a, b| [a[0], b[0]] }
+      xs.empty? ? 0.0 : (xs.max - xs.min)
+    end
+
+    # Hang it: ONE group with his file inside, its 0,0,0 at x,y on the
+    # underside of the ceiling. ONE undo step.
+    def self.place_on_ceiling!(ceiling:, x:, y:, cfg:, op: true)
+      model = Sketchup.active_model
+      kind = kind_ok(cfg['kind'])
+      d = definition_for(model, kind, 1, cfg['product'])
+      if d.nil?
+        puts "[Electrical] nothing to hang - #{kind}/#{cfg['product']} could not be loaded"
+        return nil
+      end
+      model.start_operation('Place Light', true) if op
+      grp = model.entities.add_group
+      grp.name = "InteriorPro_#{kind.split('_').map(&:capitalize).join}_#{cfg['product']}"
+      grp.entities.add_instance(d, Geom::Transformation.translation(Geom::Vector3d.new(x.to_f, y.to_f, ceiling[:z].to_f)))
+      cg = ceiling[:grp]
+      hole = kinds[kind][:hole] ? hole_d_of(front_segments(d)).round(3) : 0.0
+      {
+        'type' => 'electrical', 'kind' => kind, 'product' => cfg['product'].to_s, 'mount' => 'ceiling',
+        'x_in' => x.to_f, 'y_in' => y.to_f, 'z_in' => ceiling[:z].to_f,
+        'host_ceiling_id' => cg.get_attribute('InteriorPro', 'id').to_s, 'room_id' => cg.get_attribute('InteriorPro', 'room_id').to_s,
+        'level' => (cg.get_attribute('InteriorPro', 'level') || 1).to_i, 'hole_d' => hole,
+        'id' => "elec-#{Time.now.to_i.to_s(36)}-#{rand(10_000)}", 'created_at' => Time.now.to_s
+      }.each { |k, v| grp.set_attribute('InteriorPro', k, v) }
+      InteriorPro.assign_tag(grp, 'IP/Electrical') if InteriorPro.respond_to?(:assign_tag)
+      # the ceiling is built again WITH the hole, in the same undo step
+      if hole > 0.0 && defined?(InteriorPro::CeilingManager) && InteriorPro::CeilingManager::USE_CEILING_HOLES
+        rid = cg.get_attribute('InteriorPro', 'room_id')
+        room = InteriorPro::RoomManager.rooms_in_model.find { |r| r.get_attribute('InteriorPro', 'id') == rid }
+        nc = room ? InteriorPro::CeilingManager.build_ceiling_for_room!(room) : nil
+        trace("hole #{hole}\" for #{cfg['product']}: ceiling of #{rid} #{nc ? "built again (#{nc.get_attribute('InteriorPro', 'id')})" : 'NOT rebuilt - room not found'}")
+      end
+      model.commit_operation if op
+      grp
+    rescue StandardError => e
+      model&.abort_operation if op
+      puts "[Electrical] hang failed: #{e.message}"
+      nil
     end
 
     # HIS OWN FILES (2026-10-12, his words: "תפתח תיקיה שאליה אני יעלה את
@@ -53,7 +185,8 @@ module InteriorPro
     SIMPLE = 'Simple' unless const_defined?(:SIMPLE, false)
 
     def self.dir_for(kind)
-      sub = kind_ok(kind) == 'switch' ? 'SWITCHES' : 'OUTLETS'
+      k = kind_ok(kind)
+      sub = kinds[k][:dir] || (k == 'switch' ? 'SWITCHES' : 'OUTLETS')
       File.join(InteriorPro::PLUGIN_DIR, 'assets', 'ELECTRICAL', sub)
     end
 
@@ -69,6 +202,7 @@ module InteriorPro
 
     def self.products(kind)
       n = names(kind)
+      return n if kinds[kind_ok(kind)][:files_only]
       n.empty? ? [SIMPLE] : n
     end
 
@@ -102,6 +236,8 @@ module InteriorPro
       FileUtils.mkdir_p(File.dirname(tp))
       if USE_FRONT_THUMB
         segs = front_segments(d)
+        # seen from below: x right, y up the picture (z dropped)
+        segs = below_segments(d) if kinds[kind_ok(kind)][:thumb] == :below
         File.write(tp, front_svg(segs))
         trace("picture #{kind}/#{name}: front view, #{segs.length} lines -> #{File.basename(tp)}")
         return tp
@@ -126,6 +262,24 @@ module InteriorPro
           out << [[a.x.to_f, a.z.to_f], [b.x.to_f, b.z.to_f]]
         elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
           front_segments(e.definition, tr * e.transformation, out)
+        end
+      end
+      out
+    end
+
+    # The same, seen from BELOW the ceiling: [[x, y], [x, y]]. PURE apart
+    # from the walk.
+    def self.below_segments(defn, tr = Geom::Transformation.new, out = [])
+      defn.entities.each do |e|
+        next if e.respond_to?(:hidden?) && e.hidden?
+        next if e.respond_to?(:layer) && e.layer && !e.layer.visible?
+        if e.is_a?(Sketchup::Edge)
+          next if e.soft? || e.smooth?
+          a = e.start.position.transform(tr)
+          b = e.end.position.transform(tr)
+          out << [[a.x.to_f, a.y.to_f], [b.x.to_f, b.y.to_f]]
+        elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+          below_segments(e.definition, tr * e.transformation, out)
         end
       end
       out
@@ -482,6 +636,18 @@ module InteriorPro
     # Kill switch: false = never turned.
     USE_TURN = true unless const_defined?(:USE_TURN, false)
 
+    # COUNTERTOP OUTLET (2026-10-12, his list "Countertop outlet" and his
+    # pick "2" = a tick box under the outlet). Ticked: 42" to its middle
+    # (36" counter + 4" backsplash + 2"; the code allows up to 20" over the
+    # counter), and the mark 'countertop' = true on what is placed - for the
+    # elevation and the 2D later. Kill switch: false = no tick box.
+    USE_COUNTERTOP = true unless const_defined?(:USE_COUNTERTOP, false)
+    COUNTERTOP_H = 42.0 unless const_defined?(:COUNTERTOP_H, false)
+
+    def self.countertop_of(cfg)
+      USE_COUNTERTOP && kind_ok(cfg['kind']) == 'outlet' && cfg['countertop'] == true
+    end
+
     def self.turn_of(cfg)
       return 0 unless USE_TURN && kind_ok(cfg['kind']) == 'outlet'
       cfg['turn'].to_i == 90 ? 90 : 0
@@ -537,7 +703,7 @@ module InteriorPro
       end
       {
         'type' => 'electrical', 'kind' => kind, 'gangs' => g, 'product' => cfg['product'].to_s, 'height_in' => cfg['height'].to_f,
-        'turn' => turn_of(cfg), 'u_in' => u.to_f, 'side' => side.to_s, 'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s,
+        'turn' => turn_of(cfg), 'countertop' => countertop_of(cfg), 'u_in' => u.to_f, 'side' => side.to_s, 'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s,
         'level' => (wall.get_attribute('InteriorPro', 'level') || 1).to_i,
         'id' => "elec-#{Time.now.to_i.to_s(36)}-#{rand(10_000)}", 'created_at' => Time.now.to_s
       }.each { |k, v| grp.set_attribute('InteriorPro', k, v) }
