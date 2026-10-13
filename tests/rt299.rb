@@ -65,7 +65,7 @@ ok('a folder a kind: assets/ELECTRICAL/OUTLETS and SWITCHES', L.dir_for('outlet'
 ok('an empty folder shows the stand-in, so the window is never empty', L.products('outlet') == [L::SIMPLE])
 ok('a file gets its own definition name, the stand-in keeps the look name', L.def_name('outlet', 1, 'Leviton') == 'InteriorPro_Elec_outlet_Leviton' && L.def_name('outlet', 1, L::SIMPLE) == L.def_name('outlet', 1))
 ok('Add new and Save selected go through the plumbing helpers (clean name, hidden things left out)', File.read('./electrical_library.rb').include?('FixtureLibrary.clean_name') && File.read('./electrical_library.rb').include?('FixtureLibrary.strip_hidden!'))
-ok('his file: back on the wall, middle of width on the line, middle of height at the height', File.read('./electrical_library.rb').include?('ax: (minx + maxx) / 2.0, az: (minz + maxz) / 2.0'))
+ok('his file: back on the wall, middle of width on the line, middle of height at the height', File.read('./electrical_library.rb').include?('ax = (minx + maxx) / 2.0') && File.read('./electrical_library.rb').include?('az = (minz + maxz) / 2.0'))
 
 # the part the plumbing tool moves: its line = its middle, height to its middle
 m = Sketchup.active_model
@@ -136,6 +136,36 @@ MAIN = File.read('./main.rb')
 ok('main loads the three files after the plumbing tool',
    MAIN.index('electrical_tool.rb').to_i > MAIN.index('fixture_tool.rb').to_i &&
    MAIN.index('electrical_library.rb').to_i > MAIN.index('fixture_tool.rb').to_i && MAIN.include?('electrical_dialog.rb'))
+
+# THE PICTURE STRAIGHT FROM THE FRONT (his words: "למה התמונות שלהם מופיעות באלכסון?")
+ok('front picture: kill switch on, the picture is an .svg', L::USE_FRONT_THUMB == true && L.thumb_path('switch', 'Rocker 1').end_with?('thumbs/Rocker 1.svg'))
+sq = [[[-1.0, -2.0], [1.0, -2.0]], [[1.0, -2.0], [1.0, 2.0]], [[1.0, 2.0], [-1.0, 2.0]], [[-1.0, 2.0], [-1.0, -2.0]]]
+sv = L.front_svg(sq + [[[1.0, -2.0], [-1.0, -2.0]], [[0.5, 0.5], [0.5, 0.5]]])
+ok('front picture: the same line twice is drawn once, a line seen end-on is dropped', sv.scan('M').length == 4, sv.scan('M').length)
+ok('front picture: up is up (blue +2 is at the top: svg y -2)', sv.include?('L1.0 -2.0') || sv.include?('M1.0 -2.0'), sv)
+ok('front picture: the frame holds the whole plate', sv.include?('viewBox="-1.2 -2.2 2.4 4.4"'), sv[/viewBox="[^"]*"/])
+SRC2 = File.read('./electrical_library.rb')
+ok('front picture: soft / smooth / hidden edges are left out', SRC2.include?('next if e.soft? || e.smooth?') && SRC2[/def self\.front_segments.*?\n    end\n/m].to_s.include?('hidden?'))
+ok('front picture: drawn again when his .skp is newer', SRC2.include?('File.mtime(tp) >= File.mtime(src)'))
+
+# LYING DOWN (his list "לרוחב", his pick "2": an arrow key turns the ghost)
+ok('turn: kill switch on', L::USE_TURN == true)
+ok('turn: only an outlet turns', L.turn_of({ 'kind' => 'outlet', 'turn' => 90 }) == 90 && L.turn_of({ 'kind' => 'switch', 'turn' => 90 }) == 0)
+ok('turn: anything but 90 is standing', L.turn_of({ 'kind' => 'outlet', 'turn' => 45 }) == 0 && L.turn_of({ 'kind' => 'outlet' }) == 0)
+pt90 = L.layout(m, { 'kind' => 'outlet', 'height' => 18.0, 'product' => L::SIMPLE, 'turn' => 90 })
+rt = InteriorPro::FixtureLibrary.part_rect(pt90[0], 30.0)
+ok('turn: lying, the plate is 4.5" along the wall and 2.75" up', ((rt[1] - rt[0]) - 4.5).abs < 1e-9 && ((rt[3] - rt[2]) - 2.75).abs < 1e-9, rt)
+ok('turn: still centred on the line and on the height', ((rt[0] + rt[1]) / 2.0 - 30.0).abs < 1e-9 && ((rt[2] + rt[3]) / 2.0 - 18.0).abs < 1e-9, rt)
+ok('turn: placed with a quarter turn about the line out of the wall', File.read('./electrical_library.rb').include?('rotation(ORIGIN, Y_AXIS, 90.degrees) * shift if p[:turn].to_i == 90'))
+ok('turn: saved on what is placed (0 when standing)', at.call('turn') == 0)
+DS = File.read('./electrical_dialog.rb')
+ok('turn: chosen in the window, Vertical / Horizontal, outlet only', DS.include?("'Vertical', 'pickTurn(0)'") && DS.include?("'Horizontal', 'pickTurn(90)'") && DS.include?("kind === 'outlet' ? '' : 'none'"))
+ok('turn: the window starts Vertical and sends 0 or 90 only', InteriorPro::ElectricalDialog.defaults['turn'] == 0 && DS.include?("cfg['turn'] = cfg['turn'].to_i == 90 ? 90 : 0"))
+ok('turn: one way only - no arrow keys in the tool', !File.read('./electrical_tool.rb').include?('def onKeyDown'))
+tl = InteriorPro::ElectricalTool.new({ 'kind' => 'outlet', 'height' => 18.0, 'product' => L::SIMPLE, 'turn' => 90 })
+tl.setup_size!
+pp1 = tl.instance_variable_get(:@parts)[0]
+ok('turn: Horizontal from the window = the ghost lies (4.5" along the wall)', ((pp1[:maxx] - pp1[:minx]) - 4.5).abs < 1e-9, pp1[:maxx] - pp1[:minx])
 
 puts($fails.zero? ? 'rt299 OK' : "rt299 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

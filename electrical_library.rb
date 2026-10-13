@@ -76,21 +76,84 @@ module InteriorPro
       name.to_s.empty? || name.to_s == SIMPLE
     end
 
+    # THE PICTURE STRAIGHT FROM THE FRONT (2026-10-12, his words: "למה
+    # התמונות שלהם מופיעות באלכסון?"). save_thumbnail shoots from the camera
+    # the file was saved with - at an angle. Now the picture is drawn here:
+    # every hard edge of his file seen from the front (red = right, blue =
+    # up), as lines in an .svg beside the file, drawn again whenever the
+    # .skp is newer than the picture. Kill switch: false = the old .png.
+    USE_FRONT_THUMB = true unless const_defined?(:USE_FRONT_THUMB, false)
+
     def self.thumb_path(kind, name)
-      File.join(dir_for(kind), 'thumbs', "#{name}.png")
+      File.join(dir_for(kind), 'thumbs', "#{name}.#{USE_FRONT_THUMB ? 'svg' : 'png'}")
     end
 
     def self.ensure_thumb(model, kind, name)
       return nil if simple?(name)
       tp = thumb_path(kind, name)
-      return tp if File.exist?(tp)
+      if USE_FRONT_THUMB
+        src = file_for(kind, name)
+        return tp if File.exist?(tp) && (!File.exist?(src) || File.mtime(tp) >= File.mtime(src))
+      elsif File.exist?(tp)
+        return tp
+      end
       d = definition_for(model, kind, 1, name)
       return nil unless d
       FileUtils.mkdir_p(File.dirname(tp))
+      if USE_FRONT_THUMB
+        segs = front_segments(d)
+        File.write(tp, front_svg(segs))
+        trace("picture #{kind}/#{name}: front view, #{segs.length} lines -> #{File.basename(tp)}")
+        return tp
+      end
       d.save_thumbnail(tp) ? tp : nil
     rescue StandardError => e
       puts "[Electrical] no picture for #{kind}/#{name}: #{e.message}"
       nil
+    end
+
+    # Every hard edge in the file (nested groups too), seen from the front:
+    # [[x, z], [x, z]] in the file's own inches. Soft, smooth and hidden
+    # edges are left out - they are the curves and the insides.
+    def self.front_segments(defn, tr = Geom::Transformation.new, out = [])
+      defn.entities.each do |e|
+        next if e.respond_to?(:hidden?) && e.hidden?
+        next if e.respond_to?(:layer) && e.layer && !e.layer.visible?
+        if e.is_a?(Sketchup::Edge)
+          next if e.soft? || e.smooth?
+          a = e.start.position.transform(tr)
+          b = e.end.position.transform(tr)
+          out << [[a.x.to_f, a.z.to_f], [b.x.to_f, b.z.to_f]]
+        elsif e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+          front_segments(e.definition, tr * e.transformation, out)
+        end
+      end
+      out
+    end
+
+    # The lines as a picture: right = right, up = up, the same line twice
+    # drawn once, a line seen end-on (it runs into the wall) dropped. PURE.
+    def self.front_svg(segs)
+      r = ->(v) { v.round(3) }
+      seen = {}
+      keep = []
+      segs.each do |a, b|
+        next if (a[0] - b[0]).abs < 1.0e-4 && (a[1] - b[1]).abs < 1.0e-4
+        k = [[r.(a[0]), r.(a[1])], [r.(b[0]), r.(b[1])]].sort
+        next if seen[k]
+        seen[k] = true
+        keep << k
+      end
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>' if keep.empty?
+      xs = keep.flat_map { |a, b| [a[0], b[0]] }
+      zs = keep.flat_map { |a, b| [a[1], b[1]] }
+      w = [xs.max - xs.min, 1.0e-3].max
+      h = [zs.max - zs.min, 1.0e-3].max
+      pad = 0.05 * [w, h].max
+      vb = [xs.min - pad, -zs.max - pad, w + 2 * pad, h + 2 * pad].map { |v| r.(v) }.join(' ')
+      d = keep.map { |a, b| "M#{a[0]} #{r.(-a[1])}L#{b[0]} #{r.(-b[1])}" }.join
+      %(<svg xmlns="http://www.w3.org/2000/svg" viewBox="#{vb}"><path d="#{d}" fill="none" stroke="#222" ) +
+        %(stroke-width="#{r.([w, h].max / 140.0)}" stroke-linecap="round"/></svg>)
     end
 
     def self.add_file!(kind, src)
@@ -400,8 +463,28 @@ module InteriorPro
         minx, maxx, miny, maxy, minz, maxz = b.min.x.to_f, b.max.x.to_f, b.min.y.to_f, b.max.y.to_f, b.min.z.to_f, b.max.z.to_f
       end
       # the line = the middle of its width, the height = the middle of its height
-      [{ part: nil, defn: d, du: 0.0, h: cfg['height'].to_f, ax: (minx + maxx) / 2.0, az: (minz + maxz) / 2.0, gap: 0.0,
+      ax = (minx + maxx) / 2.0
+      az = (minz + maxz) / 2.0
+      turn = turn_of(cfg)
+      if turn == 90
+        # TURNED (lying down): its width runs up the wall, its height along it
+        hx = (maxx - minx) / 2.0
+        hz = (maxz - minz) / 2.0
+        minx, maxx, minz, maxz = ax - hz, ax + hz, az - hx, az + hx
+      end
+      [{ part: nil, defn: d, du: 0.0, h: cfg['height'].to_f, ax: ax, az: az, gap: 0.0, turn: turn,
          minx: minx, maxx: maxx, miny: miny, maxy: maxy, minz: minz, maxz: maxz }]
+    end
+
+    # LYING DOWN (2026-10-12, his list: "סימון לרוחב" - an outlet turned 90
+    # degrees; his words: "אופציה בהתחלה של מאונך ומאוזן" = Vertical / Horizontal in the window).
+    # Only an outlet turns. 'turn' = 0 or 90, saved on what is placed.
+    # Kill switch: false = never turned.
+    USE_TURN = true unless const_defined?(:USE_TURN, false)
+
+    def self.turn_of(cfg)
+      return 0 unless USE_TURN && kind_ok(cfg['kind']) == 'outlet'
+      cfg['turn'].to_i == 90 ? 90 : 0
     end
 
     # Does the plate cover a hole (door, window, niche)? Only ON it - a wire
@@ -443,6 +526,8 @@ module InteriorPro
       grp.name = simple?(cfg['product']) ? (kind == 'switch' ? "InteriorPro_Switch_#{g}" : 'InteriorPro_Outlet') : "InteriorPro_#{kind.capitalize}_#{cfg['product']}"
       parts.each_with_index do |p, i|
         shift = Geom::Transformation.translation(Geom::Vector3d.new(-p[:ax], -p[:miny], -p[:az]))
+        # turned: a quarter turn about the line out of the wall, through its middle
+        shift = Geom::Transformation.rotation(ORIGIN, Y_AXIS, 90.degrees) * shift if p[:turn].to_i == 90
         x, y, zz = InteriorPro::TileWall.world(fr, u + p[:du], p[:h], outs[i].to_f)
         face = Geom::Transformation.axes(Geom::Point3d.new(x, y, zz),
                                          Geom::Vector3d.new(fr[:ux], fr[:uy], 0),
@@ -452,7 +537,7 @@ module InteriorPro
       end
       {
         'type' => 'electrical', 'kind' => kind, 'gangs' => g, 'product' => cfg['product'].to_s, 'height_in' => cfg['height'].to_f,
-        'u_in' => u.to_f, 'side' => side.to_s, 'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s,
+        'turn' => turn_of(cfg), 'u_in' => u.to_f, 'side' => side.to_s, 'host_wall_id' => wall.get_attribute('InteriorPro', 'id').to_s,
         'level' => (wall.get_attribute('InteriorPro', 'level') || 1).to_i,
         'id' => "elec-#{Time.now.to_i.to_s(36)}-#{rand(10_000)}", 'created_at' => Time.now.to_s
       }.each { |k, v| grp.set_attribute('InteriorPro', k, v) }

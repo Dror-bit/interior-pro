@@ -17,7 +17,7 @@ module InteriorPro
     def self.defaults
       k = InteriorPro::ElectricalLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::ElectricalLibrary.products(k).first, 'gangs' => 1,
-        'height' => InteriorPro::ElectricalLibrary.default_height(k) }
+        'height' => InteriorPro::ElectricalLibrary.default_height(k), 'turn' => 0 }
     end
 
     # What he chose last time, so the second one is one click away.
@@ -61,6 +61,7 @@ module InteriorPro
         cfg['product'] = cfg['product'].to_s
         cfg['gangs'] = InteriorPro::ElectricalLibrary.gangs_ok(cfg['kind'], cfg['gangs'])
         cfg['height'] = cfg['height'].to_f
+        cfg['turn'] = cfg['turn'].to_i == 90 ? 90 : 0
         if cfg['height'] <= 0.0
           UI.messagebox('Type the height from the floor to its middle, e.g.  18')
           next
@@ -135,6 +136,7 @@ module InteriorPro
           .design-card:hover { border-color: #a1887f; }
           .design-card.selected { border-color: #5d4037; background: #f0e8e4; }
           .design-card svg, .design-card img { width: 100%; height: 64px; object-fit: contain; display: block; }
+          .design-card img.lying, .design-card svg.lying { transform: rotate(90deg); }
           .design-card.add { border-style: dashed; color: #5d4037; }
           .design-card.add .plus { font-size: 34px; line-height: 64px; height: 64px; }
           .design-card .dn { font-size: 9px; color: #555; margin-top: 2px; line-height: 1.1; min-height: 20px; }
@@ -145,6 +147,7 @@ module InteriorPro
           <div class="section-title">Electrical</div>
           <div class="row first">Kind<div class="grid" id="kindGrid"></div></div>
           <div class="row">Product<div class="grid" id="prodGrid"></div></div>
+          <div class="row" id="turnRow" style="display:none;">Position<div class="grid" id="turnGrid"></div></div>
           <div class="row" id="gangRow" style="display:none;">Switches<div class="grid" id="gangGrid"></div></div>
           <div class="row" id="heightRow">
             Height from the floor to the middle of it <input type="number" id="height" step="0.5" min="0"> in
@@ -159,6 +162,7 @@ module InteriorPro
             var kind = CAT[D.kind] ? D.kind : Object.keys(CAT)[0];
             var gangs = Math.max(1, Math.min(5, parseInt(D.gangs, 10) || 1));
             var product = D.product;
+            var turn = parseInt(D.turn, 10) === 90 ? 90 : 0;
             function curProduct() {
               var list = CAT[kind].products;
               for (var i = 0; i < list.length; i++) if (list[i].name === product) return list[i];
@@ -207,7 +211,14 @@ module InteriorPro
               var g = '';
               for (var n = 1; n <= 5; n++) g += card(n === gangs, plateSvg('switch', n), String(n), 'pickGangs(' + n + ')');
               document.getElementById('gangGrid').innerHTML = g;
+              // POSITION (his words: "אופציה בהתחלה של מאונך ומאוזן"): an outlet only
+              document.getElementById('turnRow').style.display = kind === 'outlet' ? '' : 'none';
+              var pic = picOf(curProduct());
+              var lying = pic.replace('<img ', '<img class="lying" ').replace('<svg ', '<svg class="lying" ');
+              document.getElementById('turnGrid').innerHTML =
+                card(turn === 0, pic, 'Vertical', 'pickTurn(0)') + card(turn === 90, lying, 'Horizontal', 'pickTurn(90)');
             }
+            function pickTurn(t) { turn = t; render(); }
             function pickKind(k) {
               if (k !== kind) document.getElementById('height').value = CAT[k].height;
               kind = k;
@@ -217,7 +228,8 @@ module InteriorPro
             function pickProduct(i) { product = CAT[kind].products[i].name; render(); }
             function cur() {
               return { kind: kind, product: product, gangs: CAT[kind].gangs ? gangs : 1,
-                       height: parseFloat(document.getElementById('height').value) || 0 };
+                       height: parseFloat(document.getElementById('height').value) || 0,
+                       turn: kind === 'outlet' ? turn : 0 };
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
             function saveSel() { sketchup.save_selected(JSON.stringify(cur())); }

@@ -112,7 +112,7 @@ module InteriorPro
       end
       grp = LIB.place!(wall: @wall, side: @side, fr: @frame, u: u_mid, cfg: @pcfg, parts: @parts, outs: @chk[:outs])
       LIB.trace("#{label} #{grp ? 'PLACED' : 'FAILED'}: wall #{wid} side #{@side} u #{u_mid.round(2)} " \
-                "height #{@pcfg['height'].to_f.round(2)} off the wall #{@chk[:outs].first.to_f.round(3)}")
+                "height #{@pcfg['height'].to_f.round(2)} turn #{LIB.turn_of(@pcfg)} off the wall #{@chk[:outs].first.to_f.round(3)}")
       UI.messagebox('Nothing was placed - see the Ruby Console for the reason.') if grp.nil?
       status
       view.invalidate
