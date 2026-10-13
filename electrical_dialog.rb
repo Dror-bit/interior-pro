@@ -16,7 +16,8 @@ module InteriorPro
   module ElectricalDialog
     def self.defaults
       k = InteriorPro::ElectricalLibrary.kinds.keys.first
-      { 'kind' => k, 'gangs' => 1, 'height' => InteriorPro::ElectricalLibrary.default_height(k) }
+      { 'kind' => k, 'product' => InteriorPro::ElectricalLibrary.products(k).first, 'gangs' => 1,
+        'height' => InteriorPro::ElectricalLibrary.default_height(k) }
     end
 
     # What he chose last time, so the second one is one click away.
@@ -24,10 +25,21 @@ module InteriorPro
       @last ||= defaults
     end
 
+    def self.url_of(path)
+      'file:///' + path.tr('\\', '/').gsub(' ', '%20')
+    end
+
+    # Every kind with its products and their pictures ('' = draw it).
     def self.catalog
+      model = Sketchup.active_model
       out = {}
       InteriorPro::ElectricalLibrary.kinds.each do |k, info|
-        out[k] = { 'label' => info[:label], 'height' => info[:height], 'gangs' => info[:gangs] ? true : false }
+        prods = InteriorPro::ElectricalLibrary.products(k).map do |n|
+          tp = InteriorPro::ElectricalLibrary.ensure_thumb(model, k, n)
+          { 'name' => n, 'img' => tp && File.exist?(tp) ? url_of(tp) + "?#{File.mtime(tp).to_i}" : '' }
+        end
+        out[k] = { 'label' => info[:label], 'height' => info[:height], 'gangs' => info[:gangs] ? true : false,
+                   'products' => prods }
       end
       out
     end
@@ -39,12 +51,14 @@ module InteriorPro
         @dialog = nil
       end
       @on_ok = on_ok
+      @button = button
       dlg = UI::HtmlDialog.new(dialog_title: 'Interior Pro - Electrical', preferences_key: 'InteriorPro_Electrical',
                                width: 470, height: 300, resizable: true)
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
         cfg = defaults.merge(cfg.select { |k, _| defaults.key?(k) })
         cfg['kind'] = InteriorPro::ElectricalLibrary.kind_ok(cfg['kind'])
+        cfg['product'] = cfg['product'].to_s
         cfg['gangs'] = InteriorPro::ElectricalLibrary.gangs_ok(cfg['kind'], cfg['gangs'])
         cfg['height'] = cfg['height'].to_f
         if cfg['height'] <= 0.0
@@ -55,6 +69,38 @@ module InteriorPro
         begin; dlg.close; rescue StandardError; end
         @dialog = nil
         @on_ok.call(cfg) if @on_ok
+      end
+      # "+ Add new": pick any .skp, copy it into the kind's folder, and
+      # open the window again with it chosen.
+      dlg.add_action_callback('add_new') do |_, json|
+        cur = JSON.parse(json) rescue {}
+        kind = InteriorPro::ElectricalLibrary.kind_ok(cur['kind'])
+        src = UI.openpanel('Choose a SketchUp file', '', 'SketchUp Files|*.skp||')
+        name = src ? InteriorPro::ElectricalLibrary.add_file!(kind, src) : nil
+        UI.messagebox('That file could not be added - see the Ruby Console.') if src && name.nil?
+        cur['product'] = name if name
+        show(cur, button: @button, &@on_ok)
+      end
+      # "Save selected": the ONE group or component selected in the model
+      # is saved into the kind's folder. Select it BEFORE clicking Electrical.
+      dlg.add_action_callback('save_selected') do |_, json|
+        cur = JSON.parse(json) rescue {}
+        kind = InteriorPro::ElectricalLibrary.kind_ok(cur['kind'])
+        sel = Sketchup.active_model.selection.to_a
+        ent = sel.length == 1 ? sel.first : nil
+        unless ent && InteriorPro::FixtureLibrary.saveable?(ent)
+          UI.messagebox("Select ONE group or component in the model first (now: #{sel.length} selected).\n" \
+                        'Then click Electrical and Save selected.')
+          next
+        end
+        guess = ent.name.to_s.strip
+        guess = ent.definition.name.to_s if guess.empty? && ent.respond_to?(:definition)
+        res = UI.inputbox(['Name'], [guess], "Save #{InteriorPro::ElectricalLibrary.kinds[kind][:label]}")
+        next unless res
+        name = InteriorPro::ElectricalLibrary.save_selected!(kind, ent, res[0])
+        UI.messagebox('It could not be saved - see the Ruby Console.') if name.nil?
+        cur['product'] = name if name
+        show(cur, button: @button, &@on_ok)
       end
       dlg.add_action_callback('cancel') do |_|
         begin; dlg.close; rescue StandardError; end
@@ -88,7 +134,9 @@ module InteriorPro
           .design-card { border: 2px solid #ddd; border-radius: 4px; padding: 3px 2px 2px; cursor: pointer; text-align: center; background: #fafafa; }
           .design-card:hover { border-color: #a1887f; }
           .design-card.selected { border-color: #5d4037; background: #f0e8e4; }
-          .design-card svg { width: 100%; height: 64px; display: block; }
+          .design-card svg, .design-card img { width: 100%; height: 64px; object-fit: contain; display: block; }
+          .design-card.add { border-style: dashed; color: #5d4037; }
+          .design-card.add .plus { font-size: 34px; line-height: 64px; height: 64px; }
           .design-card .dn { font-size: 9px; color: #555; margin-top: 2px; line-height: 1.1; min-height: 20px; }
           button { width: 100%; padding: 10px; margin-top: 10px; border: none; border-radius: 6px;
                    background: #5d4037; color: #fff; font-size: 14px; cursor: pointer; }
@@ -96,6 +144,7 @@ module InteriorPro
         </style></head><body>
           <div class="section-title">Electrical</div>
           <div class="row first">Kind<div class="grid" id="kindGrid"></div></div>
+          <div class="row">Product<div class="grid" id="prodGrid"></div></div>
           <div class="row" id="gangRow" style="display:none;">Switches<div class="grid" id="gangGrid"></div></div>
           <div class="row" id="heightRow">
             Height from the floor to the middle of it <input type="number" id="height" step="0.5" min="0"> in
@@ -109,13 +158,20 @@ module InteriorPro
             var CAT = #{cat.to_json};
             var kind = CAT[D.kind] ? D.kind : Object.keys(CAT)[0];
             var gangs = Math.max(1, Math.min(5, parseInt(D.gangs, 10) || 1));
+            var product = D.product;
+            function curProduct() {
+              var list = CAT[kind].products;
+              for (var i = 0; i < list.length; i++) if (list[i].name === product) return list[i];
+              return list[0];
+            }
+            function picOf(p) { return p.img ? '<img src="' + p.img + '">' : plateSvg(kind, 1); }
             // The plate as he will see it: 2.75 x 4.5, +1.8125 a switch.
             function plateSvg(k, n) {
               var W = 2.75 + (n - 1) * 1.8125, H = 4.5, s = 76 / Math.max(W, H);
               var w = W * s, h = H * s, x0 = 48 - w / 2, y0 = 48 - h / 2;
               var o = '<rect x="' + x0 + '" y="' + y0 + '" width="' + w + '" height="' + h + '" rx="2" fill="#fff" stroke="#555" stroke-width="1.5"/>';
               if (k === 'outlet') {
-                [-0.75, 0.75].forEach(function(dz) {
+                [-0.95, 0.95].forEach(function(dz) {
                   var cy = 48 + dz * s;
                   o += '<rect x="' + (48 - 0.65 * s) + '" y="' + (cy - 0.6 * s) + '" width="' + (1.3 * s) + '" height="' + (1.2 * s) + '" rx="' + (0.45 * s) + '" fill="#f2f2f2" stroke="#777"/>';
                   o += '<rect x="' + (48 - 0.34 * s) + '" y="' + (cy - 0.42 * s) + '" width="' + (0.08 * s) + '" height="' + (0.37 * s) + '" fill="#333"/>';
@@ -123,10 +179,11 @@ module InteriorPro
                   o += '<ellipse cx="48" cy="' + (cy + 0.31 * s) + '" rx="' + (0.1 * s) + '" ry="' + (0.12 * s) + '" fill="#333"/>';
                 });
               } else {
+                // flat rocker switches (his pick: "more modern")
                 for (var i = 0; i < n; i++) {
                   var cx = x0 + (2.75 / 2 + i * 1.8125) * s;
-                  o += '<rect x="' + (cx - 0.17 * s) + '" y="' + (48 - 0.45 * s) + '" width="' + (0.34 * s) + '" height="' + (0.9 * s) + '" fill="#f2f2f2" stroke="#777"/>';
-                  o += '<rect x="' + (cx - 0.1 * s) + '" y="' + (48 - 0.4 * s) + '" width="' + (0.2 * s) + '" height="' + (0.4 * s) + '" fill="#bbb"/>';
+                  o += '<rect x="' + (cx - 0.66 * s) + '" y="' + (48 - 1.31 * s) + '" width="' + (1.32 * s) + '" height="' + (2.62 * s) + '" rx="1" fill="#e9e7e1" stroke="#999"/>';
+                  o += '<rect x="' + (cx - 0.6 * s) + '" y="' + (48 - 1.25 * s) + '" width="' + (1.2 * s) + '" height="' + (2.5 * s) + '" rx="1" fill="#fdfcf9" stroke="#bbb"/>';
                 }
               }
               return '<svg viewBox="0 0 96 96">' + o + '</svg>';
@@ -139,7 +196,14 @@ module InteriorPro
               document.getElementById('kindGrid').innerHTML = Object.keys(CAT).map(function(k) {
                 return card(k === kind, plateSvg(k, 1), CAT[k].label, "pickKind('" + k + "')");
               }).join('');
-              document.getElementById('gangRow').style.display = CAT[kind].gangs ? '' : 'none';
+              var list = CAT[kind].products;
+              if (!list.some(function(p) { return p.name === product; })) product = list[0].name;
+              var html = list.map(function(p, i) { return card(p.name === product, picOf(p), p.name, 'pickProduct(' + i + ')'); }).join('');
+              html += '<div class="design-card add" onclick="addNew()"><div class="plus">+</div><div class="dn">Add new...</div></div>';
+              html += '<div class="design-card add" onclick="saveSel()"><div class="plus">&#8595;</div><div class="dn">Save selected</div></div>';
+              document.getElementById('prodGrid').innerHTML = html;
+              // the switches count is only for the built-in stand-in; his file is what it is
+              document.getElementById('gangRow').style.display = (CAT[kind].gangs && product === 'Simple') ? '' : 'none';
               var g = '';
               for (var n = 1; n <= 5; n++) g += card(n === gangs, plateSvg('switch', n), String(n), 'pickGangs(' + n + ')');
               document.getElementById('gangGrid').innerHTML = g;
@@ -150,9 +214,15 @@ module InteriorPro
               render();
             }
             function pickGangs(n) { gangs = n; render(); }
+            function pickProduct(i) { product = CAT[kind].products[i].name; render(); }
+            function cur() {
+              return { kind: kind, product: product, gangs: CAT[kind].gangs ? gangs : 1,
+                       height: parseFloat(document.getElementById('height').value) || 0 };
+            }
+            function addNew() { sketchup.add_new(JSON.stringify(cur())); }
+            function saveSel() { sketchup.save_selected(JSON.stringify(cur())); }
             function okAll() {
-              sketchup.ok(JSON.stringify({ kind: kind, gangs: CAT[kind].gangs ? gangs : 1,
-                                           height: parseFloat(document.getElementById('height').value) || 0 }));
+              sketchup.ok(JSON.stringify(cur()));
             }
             // Escape closes the window (iron law 1)
             document.addEventListener('keydown', function(e) { if (e.keyCode === 27) sketchup.cancel(); });
