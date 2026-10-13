@@ -207,7 +207,31 @@ module KitchenLab
           raise 'Choose a catalog model to change the appliance selection'
         end
         raise 'Cabinet identity and type cannot be changed' unless (changes.keys & %w[id kind]).empty?
-        data[index]=@validator.call(Appearance.edit(data[index],changes,s),s)
+        original=data[index]
+        updated=@validator.call(Appearance.edit(original,changes,s),s)
+        if (changes.keys & %w[house_placement x z rotation offset_y wall]).any?
+          owner=original['surround_for'] || original['id']
+          members=data.select { |c| c['id']==owner || c['surround_for']==owner }
+          if members.length>1
+            plain=lambda { |c|c.merge('flip_x'=>false,'flip_y'=>false) }
+            basis=lambda { |c|[[0,0],[1,0],[0,1]].map { |x,y|Spatial.cabinet_point(plain.call(c),x,y,s) } }
+            a=basis.call(original);b=basis.call(updated)
+            ax,ay=a[1].zip(a[0]).map{|v,o|v-o};bx,by=a[2].zip(a[0]).map{|v,o|v-o};det=ax*by-ay*bx
+            transform=lambda do |point|
+              dx=point[0]-a[0][0];dy=point[1]-a[0][1];u=(dx*by-dy*bx)/det;v=(ax*dy-ay*dx)/det
+              [0,1].map { |i|b[0][i]+u*(b[1][i]-b[0][i])+v*(b[2][i]-b[0][i]) }
+            end
+            members.each do |member|
+              next if member['id']==original['id']
+              points=basis.call(member).map { |point|transform.call(point) };o,x,y=points
+              ux=x[0]-o[0];uy=x[1]-o[1];vx=y[0]-o[0];vy=y[1]-o[1]
+              position={'x'=>o[0],'y'=>o[1],'angle'=>Math.atan2(uy,ux)*180/Math::PI,'handedness'=>(ux*vy-uy*vx).round}
+              n=data.index { |c|c['id']==member['id'] }
+              data[n]=@validator.call(member.merge('house_placement'=>position,'z'=>member['z']+updated['z']-original['z']),s)
+            end
+          end
+        end
+        data[index]=updated
       when 'set_project_handles'
         raise 'Settings validation is unavailable' unless @settings_validator
         all=payload.fetch('apply_to_all',false)

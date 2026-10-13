@@ -6,7 +6,17 @@ module KitchenLab
       @products ||= JSON.parse(File.read(File.join(__dir__,'handle_catalog.json')))
     end
     def self.find(id)
-      products.find { |p|p['asset_id']==id } || raise('Handle is not in the approved catalog')
+      original=products.find { |p|p['asset_id']==id };return original if original
+      base,size=id.to_s.split('@ctc=',2)
+      product=products.find { |p|p['asset_id']==base }
+      raise 'Handle is not in the approved catalog' unless product && size && product['ctc'] && product['family']!='Cup Pull'
+      ctc=Float(size)
+      raise 'Cabinet pull size must be 3–8 inches' unless ctc.finite? && ctc.between?(3,8)
+      p=JSON.parse(JSON.generate(product));delta=ctc-p['ctc'];p['source_asset_id']=base;p['asset_id']=id;p['custom_size']=true
+      p['source_ctc']=p['ctc'];p['ctc']=ctc;p['L']+=delta
+      p['actual_bounds_in'][0][0]-=delta/2;p['actual_bounds_in'][0][1]+=delta/2
+      p['mount_points_in'].each { |point|point[0]=point[0]<0 ? -ctc/2 : ctc/2 }
+      p
     end
     def self.validate_id(id)
       raise 'Invalid handle selection' unless id.nil? || id.is_a?(String)
@@ -41,7 +51,23 @@ module KitchenLab
       model=entities.model
       definition=model.definitions.find { |v|v.get_attribute('KitchenHandle','asset_id')==p['asset_id'] && v.get_attribute('KitchenHandle','sha256')==p['skp_sha256'] }
       unless definition
-        definition=model.definitions.load(file)
+        source=model.definitions.load(file)
+        if p['custom_size']
+          definition=model.definitions.add("Kitchen custom handle #{p['asset_id']}")
+          instance=definition.entities.add_instance(source,Geom::Transformation.new)
+          instance.explode
+          vertices=definition.entities.grep(Sketchup::Edge).flat_map(&:vertices).uniq
+          # The end regions translate rigidly; only the middle grip changes length.
+          limit=p['source_ctc']/2.0-0.6;delta=p['ctc']-p['source_ctc']
+          vectors=vertices.map do |vertex|
+            x=vertex.position.x.to_f
+            weight=[[x/limit,-1.0].max,1.0].min
+            Geom::Vector3d.new(delta*weight/2.0,0,0)
+          end
+          definition.entities.transform_by_vectors(vertices,vectors)
+        else
+          definition=source
+        end
         finish=model.materials['EMTEK_US15_Satin_Nickel']
         if finish
           definition.entities.grep(Sketchup::Face).each { |face|face.material=finish;face.back_material=finish }

@@ -294,6 +294,11 @@ module InteriorPro
           raise 'Cabinet no longer exists' unless old
           next_cabinet=KitchenLab.validate(old.merge('house_placement'=>request.fetch('placement')),source['settings'])
           validate_house_placement!(next_cabinet,source['settings'],current)
+          move_request={'expected_revision'=>request['revision'],'commands'=>[{'type'=>'update_cabinet','payload'=>{'id'=>old['id'],'changes'=>{'house_placement'=>next_cabinet['house_placement']}}}]}
+          planned=KitchenLab.command_engine.plan(source,move_request['commands'],expected_revision:request['revision'])
+          planned['document']['cabinets'].each do |member|
+            validate_house_placement!(member,source['settings'],current) if planned['changed_ids'].include?(member['id'])
+          end
           KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>'update_cabinet','payload'=>{'id'=>old['id'],'changes'=>{'house_placement'=>next_cabinet['house_placement']}}}]},false)
           dlg.execute_script('window.KitchenHouseDrag?.result(null);')
         rescue StandardError=>error

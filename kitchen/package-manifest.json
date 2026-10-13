@@ -557,11 +557,6 @@
       "sha256": "77dc20de1bf44b4e1e2502e7d4cba7e23e5ed1d31368a8ce7c9af53ab1169413"
     },
     {
-      "path": "kitchen_engine.rb",
-      "bytes": 18783,
-      "sha256": "8f5392c92a5ee201b1991533affaf994246965ff969879d107c03e1f70bb9657"
-    },
-    {
       "path": "kitchen_hosted_editor.js",
       "bytes": 2575,
       "sha256": "fd3611569ca606f67be6871f4a1cdffa150210f6bd5fc9ba48f44cf8b196b95b"
@@ -572,19 +567,9 @@
       "sha256": "284b73014fe30a4b1f0230cbaed84b9430594952ee4ef1743b3ef9d95b7578bd"
     },
     {
-      "path": "kitchen_house_drag.js",
-      "bytes": 4941,
-      "sha256": "c96e3d1035fa1443de39dbad5ec9889215dcc9efef6e968608a27773707e5108"
-    },
-    {
       "path": "kitchen_house_insert.js",
       "bytes": 4295,
       "sha256": "9dbfed5b242575c1a2d232fb9eacac82fba5ebc2ac37aa2a6d9ac3ef4058096c"
-    },
-    {
-      "path": "kitchen_house_placement.js",
-      "bytes": 7638,
-      "sha256": "01a2eed65f669582e00139c2b671cbcc6f9e4a74d0aa0a56de2a30cdeb31d7ec"
     },
     {
       "path": "kitchen_house_selection.js",
@@ -612,11 +597,6 @@
       "sha256": "8fe2d933f18c9a512209156bddee2b4e14f8fa5eb56b23091d49972cb76960a6"
     },
     {
-      "path": "kitchen_plan.rb",
-      "bytes": 23391,
-      "sha256": "014780f9f24eeafe780ae8b04d7f0fdff808f7370be0ed0468b8586fea6298d6"
-    },
-    {
       "path": "kitchen_sidebar.js",
       "bytes": 7403,
       "sha256": "6abec5269f7b84b406c7fb83def830a2871763a06a1acd01a23f7868fcf93bee"
@@ -630,11 +610,6 @@
       "path": "kitchen_spatial.rb",
       "bytes": 2260,
       "sha256": "fe896c2b4dd577c8989c4409a64e76ab66367cb434f23d070eb497fc52fce4c8"
-    },
-    {
-      "path": "kitchen_store.rb",
-      "bytes": 3780,
-      "sha256": "970e90be30f87232ca6e4bec0311c94706baa3f40c8d386fdd7646737f02d1da"
     },
     {
       "path": "kitchen_workspace.js",
@@ -1317,11 +1292,6 @@
       "sha256": "08a2cf593c169fab3b760336af74045835013df028e9a199a288ab784351a559"
     },
     {
-      "path": "kitchen_handle_catalog.rb",
-      "bytes": 3376,
-      "sha256": "feec84c836c4a9c3712e52dfcdf93db88c54e656e7f20eb6618cd5b269a9eb49"
-    },
-    {
       "path": "handle_catalog.json",
       "bytes": 74453,
       "sha256": "2c84095a2eb80073738bc151e9d747a15a44902b5ba4942ae33a27847eaea5e7"
@@ -1330,11 +1300,6 @@
       "path": "handle_catalog.js",
       "bytes": 54225,
       "sha256": "8cf582b601f1d285c1a8eb2696e1ad478a3f16f5393e0f8fd4399b0f25764158"
-    },
-    {
-      "path": "handle_gallery.js",
-      "bytes": 9547,
-      "sha256": "c6a2eed324eb19bb7d05b0ec14c0dad2258b9891f117bf316e7f196d8ef085c4"
     },
     {
       "path": "test_handle_catalog.rb",
@@ -1565,6 +1530,61 @@
       "path": "test_legacy_delete.rb",
       "bytes": 533,
       "sha256": "85e1edfa5e1ecf152a70f855d45b0bc6788b8a9d14b40e8060c74e867d6079bc"
+    },
+    {
+      "path": "kitchen_store.rb",
+      "bytes": 4128,
+      "sha256": "3da47c4ddbb6029cf59e18cd5ebaa6eaa64cc8ce1426cacb1ba9f3bc8ae5a853"
+    },
+    {
+      "path": "test_handle_defaults.rb",
+      "bytes": 1169,
+      "sha256": "3171fef4f6fb37074eacd7e56c9cf093a6a6a05b53b5aeb50ceeca803fdb14a8"
+    },
+    {
+      "path": "kitchen_house_drag.js",
+      "bytes": 5330,
+      "sha256": "6504ed5b33678da76afbef56d241cbd63309fdf96948a623d0f8ca2390a7259e"
+    },
+    {
+      "path": "kitchen_plan.rb",
+      "bytes": 23906,
+      "sha256": "c10b4326ee8c26b91ded3e8c2e46de1cc8df2f3d317b79c255cda19898866e01"
+    },
+    {
+      "path": "kitchen_engine.rb",
+      "bytes": 20236,
+      "sha256": "13a44295c8f3f0af1752f99987961e323c71eb93a031138547b7a2d0b9aa6516"
+    },
+    {
+      "path": "kitchen_house_placement.js",
+      "bytes": 10104,
+      "sha256": "946bb4d06383088f7327a48656f632e35b8acfa91778d321ba541278c1d3104a"
+    },
+    {
+      "path": "handle_gallery.js",
+      "bytes": 14657,
+      "sha256": "3bdbad4d1078ddd5084adad9ae119ab2aee624d42d4305b8317e324dbc6037ed"
+    },
+    {
+      "path": "kitchen_handle_catalog.rb",
+      "bytes": 4832,
+      "sha256": "141cb26bb623413aea2f1a331bcf0f374552171ddaffad4acc8f55876cb383ce"
+    },
+    {
+      "path": "test_handle_sizes.rb",
+      "bytes": 1644,
+      "sha256": "044baf16f5a4b5a2057cd970ff376fd44d878bcb99a2114b704fc7499d174402"
+    },
+    {
+      "path": "test_bundle_move.rb",
+      "bytes": 2873,
+      "sha256": "89901b9b2ee2033e49cbee229f86b95722f4eaaadb43481ae97f2adaddc06071"
+    },
+    {
+      "path": "test_bundle_move.mjs",
+      "bytes": 1376,
+      "sha256": "55513e627c2ddafded97852062ee1bf6a891ca1e799285774a52dcd82c437467"
     }
   ]
 }

@@ -68,5 +68,34 @@
   const matches=c=>held&&!held.error&&(c.h.wall_id||null)===(held.placement.wall_id||null)&&c.h.face===held.placement.face&&(c.neighbor||null)===(held.neighbor||null); candidates.sort((a,b)=>a.rank-b.rank||Number(matches(b))-Number(matches(a))||a.distance-b.distance);
   const cornerCandidates=candidates.filter(c=>c.corner);const results=(cornerCandidates.length?cornerCandidates:candidates).map(assess);return results.find(r=>!r.error)||results[0];
  }
- root.KitchenHousePlacement={faces,placement,point,rowAt,overlap,propose};
+ function bundle(row,rows){
+  const owner=row.cabinet.surround_for||row.id;
+  const members=rows.filter(r=>r.id===owner||r.cabinet.surround_for===owner);
+  if(members.length<2)return {row,members:[row]};
+  const o=row.basis[0],u=sub(row.basis[1],o),v=mul(sub(row.basis[2],o),-1);
+  const coordinates=members.flatMap(r=>r.polygon.map(p=>[dot(sub(p,o),u),dot(sub(p,o),v)]));
+  const xs=coordinates.map(p=>p[0]),ys=coordinates.map(p=>p[1]),xmin=Math.min(...xs),ymax=Math.max(...ys);
+  const origin=add(o,add(mul(u,xmin),mul(v,ymax))),width=Math.max(...xs)-xmin,depth=ymax-Math.min(...ys);
+  const bottom=Math.min(...members.map(r=>r.base_z)),top=Math.max(...members.map(r=>r.base_z+r.height));
+  const aggregate={...row,base_z:bottom,height:top-bottom,cabinet:{...row.cabinet,kind:'doors',width,depth,flip_x:false,flip_y:false}};
+  return {row:rowAt(aggregate,placement(aggregate.cabinet,origin,u,v)),members};
+ }
+ function moveBundle(group,next){
+  const a=group.row.basis,b=next.basis,u=sub(a[1],a[0]),v=mul(sub(a[2],a[0]),-1),nu=sub(b[1],b[0]),nv=mul(sub(b[2],b[0]),-1);
+  const transform=p=>{const d=sub(p,a[0]);return add(b[0],add(mul(nu,dot(d,u)),mul(nv,dot(d,v))));};
+  return group.members.map(r=>{const basis=r.basis.map(transform);return rowAt(r,placement(r.cabinet,basis[0],sub(basis[1],basis[0]),mul(sub(basis[2],basis[0]),-1)));});
+ }
+ function bundleError(moved,rows,walls){
+  const ids=new Set(moved.map(r=>r.id));
+  for(const r of moved){
+   for(const other of rows)if(!ids.has(other.id)&&Math.min(r.base_z+r.height,other.base_z+other.height)-Math.max(r.base_z,other.base_z)>.001&&overlap(r.polygon,other.polygon))return 'Cabinets overlap';
+   for(const w of walls){
+    if(w.corners?.length!==8)continue;
+    if(overlap(r.polygon,Array.from({length:4},(_,i)=>w.corners.slice(i*2,i*2+2))))return 'Cabinet intersects a wall';
+    if(touchesWall(r.polygon,w)){const axis=[w.ex-w.sx,w.ey-w.sy],len=Math.hypot(...axis);if(len<.001)continue;const t=mul(axis,1/len),ps=r.polygon.map(p=>dot(sub(p,[w.sx,w.sy]),t));const blocked=(w.kitchen_openings??w.ops??[]).find(([at,width,bottom,top])=>Math.min(Math.max(...ps),at+width/2)-Math.max(Math.min(...ps),at-width/2)>.01&&(bottom==null||top==null||Math.min(r.base_z+r.height,top)-Math.max(r.base_z,bottom)>.001));if(blocked)return blocked[4]==='window'?'Window is too low for this cabinet.':'Door opening must remain clear.';}
+   }
+  }
+  return null;
+ }
+ root.KitchenHousePlacement={faces,placement,point,rowAt,overlap,propose,bundle,moveBundle,bundleError};
 })(typeof globalThis!=='undefined'?globalThis:this);

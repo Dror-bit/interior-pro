@@ -5,8 +5,14 @@ module KitchenLab
     guard!
     raw=@model.get_attribute(DICT,'document')
     return Document.read(raw) unless raw.nil?
-    Document.create(JSON.parse(@model.get_attribute(DICT,'settings','{"shaker_width":2.25,"shaker_inset":0.25}')),
-      cabinets.map { |g| JSON.parse(g.get_attribute(DICT,'data')) })
+    existing=cabinets.map { |g| JSON.parse(g.get_attribute(DICT,'data')) }
+    saved_settings=@model.get_attribute(DICT,'settings')
+    initial={'shaker_width'=>2.25,'shaker_inset'=>0.25}
+    if saved_settings.nil? && existing.empty?
+      default_handle=HandleCatalog.products.find { |p|p['number']==18 }.fetch('asset_id')
+      initial.merge!('global_door_handle_model'=>default_handle,'global_drawer_handle_model'=>default_handle)
+    end
+    Document.create(saved_settings ? JSON.parse(saved_settings) : initial,existing)
   end
 
   # Caller owns the Undo operation. Never reconstruct saved data from geometry
