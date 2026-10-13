@@ -16,6 +16,17 @@ module InteriorPro
     # Kill switch (2026-09-21): false = a PDF can no longer be chosen as a
     # background and every path behaves exactly as it did before.
     USE_PDF_UNDERLAY = true
+    # OUTLETS IN HIS DRAWING (2026-10-13, his pick: "השקעים כמו שאתה מציע (הסימנים)"): every outlet on
+    # the level is sent to the canvas (loadElec) and drawn as the plan sign - a short stem off the wall,
+    # a circle, two lines along the wall. Only his drawing - the plans (Sheet / PDF) are not touched.
+    # Kill switch: false = nothing is sent, the drawing is as before.
+    USE_ELEC_2D = true unless const_defined?(:USE_ELEC_2D, false)
+    # PLACE IT FROM THE DRAWING (2026-10-13, his "מעולה" on editor_mock2.png): an Electrical button at the
+    # end of the tool rail, after a line. It opens HIS Electrical window (ElectricalDialog, the same as in
+    # SketchUp); then a green sign follows the mouse on a wall face with its distance from the nearer
+    # corner; a click - or a number + Enter - places it through the SketchUp tool's own check and place!.
+    # Kill switch: false = no button.
+    USE_ELEC_PLACE_2D = true unless const_defined?(:USE_ELEC_PLACE_2D, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -30,6 +41,21 @@ module InteriorPro
       end
 
       def onTransactionRedo(_model)
+        @blk.call
+      end
+    end
+
+    # The drawing follows what he puts in SketchUp (2026-10-13, his "כן" to "שיתרענן לבד"): after
+    # every finished step in the model the outlets are read again, and only when they changed are
+    # they sent (loadElec + draw) - so a step of the editor's own never sends them twice, and nothing
+    # here writes to the model (no loop). Kill switch: false = only Sync / the editor's own steps.
+    USE_ELEC_AUTO = true unless const_defined?(:USE_ELEC_AUTO, false)
+    class ElecRefreshObserver < Sketchup::ModelObserver
+      def initialize(&blk)
+        @blk = blk
+      end
+
+      def onTransactionCommit(_model)
         @blk.call
       end
     end
@@ -117,6 +143,7 @@ module InteriorPro
         )
 
         dlg.add_action_callback('editor_ready') do |_|
+          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'})")
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
@@ -531,6 +558,26 @@ module InteriorPro
           push_walls(dlg)
         end
 
+        # Electrical from the drawing (USE_ELEC_PLACE_2D): his window first, then the clicks.
+        dlg.add_action_callback('elec_pick') do |_, _|
+          if USE_ELEC_PLACE_2D && defined?(InteriorPro::ElectricalDialog)
+            InteriorPro::ElectricalDialog.show(group: 'electrical') do |cfg|
+              @elec_cfg = cfg
+              InteriorPro::ElectricalLibrary.trace("2D: chose #{cfg['kind']} #{cfg['product']} at #{cfg['height']}")
+              dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
+            end
+          end
+        end
+        dlg.add_action_callback('elec_trace') do |_, msg|
+          InteriorPro::ElectricalLibrary.trace("2D: #{msg}") if defined?(InteriorPro::ElectricalLibrary)
+        end
+        dlg.add_action_callback('delete_elec') do |_, json|
+          delete_elec(JSON.parse(json))
+        end
+        dlg.add_action_callback('place_elec') do |_, json|
+          res = place_elec(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
+        end
         dlg.add_action_callback('place_door') do |_, json|
           place_door(JSON.parse(json))
           push_walls(dlg)
@@ -980,17 +1027,43 @@ module InteriorPro
           end
         end
         Sketchup.active_model.add_observer(@undo_obs)
+        @elec_sig = nil
+        if USE_ELEC_AUTO && USE_ELEC_2D
+          @elec_obs = ElecRefreshObserver.new do
+            UI.start_timer(0.1, false) { push_elec_if_changed(dlg) }
+          end
+          Sketchup.active_model.add_observer(@elec_obs)
+        end
       rescue StandardError => e
         puts "[PlanEditor] undo observer: #{e.message}"
       end
 
       def detach_undo_observer
+        if @elec_obs
+          begin
+            Sketchup.active_model.remove_observer(@elec_obs)
+          rescue StandardError
+          end
+          @elec_obs = nil
+        end
         return unless @undo_obs
         begin
           Sketchup.active_model.remove_observer(@undo_obs)
         rescue StandardError
         end
         @undo_obs = nil
+      end
+
+      # Send the outlets again only if they are not what the drawing already has. Returns true when sent.
+      def push_elec_if_changed(dlg)
+        js = JSON.generate(elec_payload)
+        return false if js == @elec_sig
+        @elec_sig = js
+        dlg.execute_script("loadElec(#{js}); draw();")
+        true
+      rescue StandardError => e
+        puts "[PlanEditor] push_elec_if_changed: #{e.class}: #{e.message}"
+        false
       end
 
       # ---- model -> editor -------------------------------------------------
@@ -1039,6 +1112,60 @@ module InteriorPro
           }
         end
         out
+      end
+
+      # One outlet for the canvas, from the 8 corners of its box (world, [x, y]) and the line out of
+      # the wall (n, into the room). The point on the wall = the middle of the box pushed back
+      # along n to the side of the box that touches the wall. PURE.
+      def elec_item(attrs, corners, n)
+        nx, ny = n[0].to_f, n[1].to_f
+        ln = Math.hypot(nx, ny)
+        return nil if ln < 1.0e-9 || corners.nil? || corners.empty?
+        nx /= ln; ny /= ln
+        cx = corners.map { |c| c[0].to_f }.sum / corners.length
+        cy = corners.map { |c| c[1].to_f }.sum / corners.length
+        back = corners.map { |c| (c[0].to_f - cx) * nx + (c[1].to_f - cy) * ny }.min
+        {
+          'id' => attrs['id'].to_s, 'kind' => attrs['kind'].to_s,
+          'x' => (cx + nx * back).round(3), 'y' => (cy + ny * back).round(3),
+          'nx' => nx.round(5), 'ny' => ny.round(5),
+          'turn' => attrs['turn'].to_i, 'ct' => attrs['countertop'] == true,
+          'gangs' => [attrs['gangs'].to_i, 1].max
+        }
+      end
+
+      # Every outlet on the active level (top of the model, as the tool places it).
+      def elec_payload(model = Sketchup.active_model)
+        return [] unless USE_ELEC_2D
+        lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
+        out = []
+        model.entities.to_a.each do |g|
+          next unless (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) && g.valid?
+          next unless g.get_attribute('InteriorPro', 'type') == 'electrical'
+          next if g.get_attribute('InteriorPro', 'mount').to_s == 'ceiling'
+          kind = g.get_attribute('InteriorPro', 'kind').to_s
+          next unless %w[outlet switch].include?(kind)
+          lv = (g.get_attribute('InteriorPro', 'level') || 1).to_i
+          next unless lv == lvl
+          inst = g.definition.entities.to_a.find { |e| e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group) }
+          unless inst
+            puts "[PlanEditor] outlet #{g.get_attribute('InteriorPro', 'id')} skipped: nothing inside"
+            next
+          end
+          ya = (g.transformation * inst.transformation).yaxis
+          bb = g.bounds
+          corners = (0..7).map { |i| p = bb.corner(i); [p.x.to_f, p.y.to_f] }
+          attrs = {}
+          %w[id kind turn countertop gangs].each { |k| attrs[k] = g.get_attribute('InteriorPro', k) }
+          it = elec_item(attrs, corners, [ya.x, ya.y])
+          if it then out << it
+          else puts "[PlanEditor] outlet #{attrs['id']} skipped: no direction off the wall"
+          end
+        end
+        out
+      rescue StandardError => e
+        puts "[PlanEditor] elec_payload: #{e.class}: #{e.message}"
+        []
       end
 
       def walls_payload
@@ -1278,6 +1405,12 @@ module InteriorPro
           dlg.execute_script("loadGhosts(#{JSON.generate(ghost_walls_payload)})")
         rescue StandardError => e
           puts "[PlanEditor] push ghosts: #{e.message}"
+        end
+        begin
+          @elec_sig = JSON.generate(elec_payload)
+          dlg.execute_script("loadElec(#{@elec_sig})")
+        rescue StandardError => e
+          puts "[PlanEditor] push elec: #{e.message}"
         end
         dlg.execute_script("loadWalls(#{JSON.generate(walls_payload)})")
       rescue StandardError => e
@@ -2538,6 +2671,89 @@ module InteriorPro
 
       # ---- editor -> model: doors / windows -------------------------------
 
+      # Which face of the wall a plan point is on, and how far along it. PURE.
+      # fa / fb = TileWall frames of the two faces; the point is in the wall's own axes.
+      def elec_side_u(fa, fb, x, y)
+        da = (x - fa[:ox]) * fa[:nx] + (y - fa[:oy]) * fa[:ny]
+        db = (x - fb[:ox]) * fb[:nx] + (y - fb[:oy]) * fb[:ny]
+        side = da >= db ? 'a' : 'b'
+        fr = side == 'a' ? fa : fb
+        [side, (x - fr[:ox]) * fr[:ux] + (y - fr[:oy]) * fr[:uy]]
+      end
+
+      # Delete one outlet / switch picked in the drawing (2026-10-13, his "אני לא יכול למחוק את הנקודת חשמל
+      # מהתוכנת סירטוט"). ONE undo step. Returns true when it went.
+      def delete_elec(r)
+        model = Sketchup.active_model
+        id = r['id'].to_s
+        g = model.entities.to_a.find do |e|
+          (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'electrical' && e.get_attribute('InteriorPro', 'id').to_s == id
+        end
+        unless g
+          puts "[PlanEditor] delete_elec: #{id} not found - nothing deleted"
+          return false
+        end
+        kind = g.get_attribute('InteriorPro', 'kind')
+        model.start_operation('Delete Electrical', true)
+        model.entities.erase_entities([g])
+        model.commit_operation
+        InteriorPro::ElectricalLibrary.trace("2D: #{kind} #{id} DELETED") if defined?(InteriorPro::ElectricalLibrary)
+        true
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] delete_elec: #{e.class}: #{e.message}"
+        false
+      end
+
+      # A typed distance: from the NEARER corner to its middle, as in the SketchUp tool. PURE.
+      def elec_typed_u(u_mouse, lo, hi, dist)
+        (u_mouse - lo) <= (hi - u_mouse) ? lo + dist.to_f : hi - dist.to_f
+      end
+
+      # One outlet / switch from the drawing: the SketchUp tool's own check and place!. {ok:, why:}
+      def place_elec(r)
+        cfg = @elec_cfg
+        return { ok: false, why: 'choose in the window first' } unless cfg
+        lib = InteriorPro::ElectricalLibrary
+        tw = InteriorPro::TileWall
+        wall = find_wall(r['wall_id'].to_s)
+        unless wall
+          lib.trace("2D: wall #{r['wall_id']} not found - nothing placed")
+          return { ok: false, why: 'wall not found' }
+        end
+        pt = Geom::Point3d.new(r['px'].to_f, r['py'].to_f, 0).transform(wall.transformation.inverse)
+        fa = tw.frame_for(wall, 'a')
+        fb = tw.frame_for(wall, 'b')
+        unless fa && fb
+          lib.trace("2D: wall #{r['wall_id'].to_s[0, 8]} has no faces (curved?) - nothing placed")
+          return { ok: false, why: 'not on a curved wall' }
+        end
+        side, u = elec_side_u(fa, fb, pt.x.to_f, pt.y.to_f)
+        fr = side == 'a' ? fa : fb
+        model = Sketchup.active_model
+        parts = lib.layout(model, cfg)
+        if r['dist'] && r['dist'].to_f > 0.0
+          lo, hi = tw.face_limits(wall, fr, u)
+          u = elec_typed_u(u, lo, hi, r['dist'])
+        end
+        chk = lib.check(wall, side, fr, u, parts, tw.wall_height(wall))
+        wid = r['wall_id'].to_s[0, 8]
+        unless chk[:ok]
+          why = chk[:outside] ? 'outside of the house' : (chk[:rects].empty? ? 'nothing to place' : 'on a door/window or past the wall end')
+          lib.trace("2D: #{cfg['kind']} NOT placed: wall #{wid} side #{side} u #{u.round(2)} on #{chk[:lo].to_f.round(2)}..#{chk[:hi].to_f.round(2)}, #{why}")
+          return { ok: false, why: why }
+        end
+        grp = lib.place!(wall: wall, side: side, fr: fr, u: u, cfg: cfg, parts: parts, outs: chk[:outs])
+        lib.trace("2D: #{cfg['kind']} #{grp ? 'PLACED' : 'FAILED'}: wall #{wid} side #{side} u #{u.round(2)} height #{cfg['height'].to_f.round(2)}" \
+                  "#{r['dist'] ? " typed #{r['dist']}" : ''}")
+        grp ? { ok: true, why: '' } : { ok: false, why: 'see the Ruby Console' }
+      rescue StandardError => e
+        puts "[PlanEditor] place_elec: #{e.class}: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        InteriorPro::ElectricalLibrary.trace("2D: place_elec ERROR #{e.class}: #{e.message} @ #{e.backtrace.first}") rescue nil
+        { ok: false, why: e.message }
+      end
+
       def place_door(r)
         wall = find_wall(r['wall_id'].to_s)
         unless wall
@@ -3221,6 +3437,10 @@ module InteriorPro
               document.getElementById('modeDoor').className = (m === 'door' ? 'on ' : '') + 'modebtn';
               document.getElementById('modeWin').className = (m === 'win' ? 'on ' : '') + 'modebtn';
               document.getElementById('modeLine').className = (m === 'line' ? 'on ' : '') + 'modebtn';
+              var meb = document.getElementById('modeElec');
+              if (meb) meb.className = (m === 'elec' ? 'on ' : '') + 'modebtn';
+              if (m !== 'elec') { elecHover = null; elecMsg = null; }
+              elecSel = null;
               document.getElementById('secSel').style.display = m === 'sel' ? '' : 'none';
               document.getElementById('secWall').style.display = m === 'wall' ? '' : 'none';
               document.getElementById('secDoor').style.display = m === 'door' ? '' : 'none';
@@ -3658,6 +3878,104 @@ module InteriorPro
             function loadRooms(list) {
               if (activePage > 0 && homeStash) { homeStash.rooms = list || []; return; }
               rooms = list || []; draw();
+            }
+            // Outlets of the model (2026-10-13, PlanEditor.elec_payload): {id, kind, x, y, nx, ny} -
+            // the point on the wall and the line into the room. Only on the house tab.
+            var elecItems = [];
+            var elecShown = [];      // what the last draw put on the screen (for the tests)
+            function loadElec(list) { elecItems = list || []; }
+
+            // ---- Electrical from the drawing (USE_ELEC_PLACE_2D, 2026-10-13) ----
+            var USE_ELEC_PLACE = false;   // Ruby turns it on (editor_ready -> elecEnable) when USE_ELEC_PLACE_2D
+            function elecEnable(on) { USE_ELEC_PLACE = !!on; placeElecBtn(); }
+            var elecCfg = null;      // what he chose in his window
+            var elecHover = null;    // {w, b, t, foff, ns, ta, tb, ok, dist}
+            var elecMsg = null;      // why the last click placed nothing
+            var elecSel = null;      // the id of the sign picked in Select (Delete takes it away)
+            // The sign under the mouse in Select: within its circle (or 10 px, whichever is bigger).
+            function elecPick(p) {
+              var best = null, r = Math.max(4.5, 10 / scale);
+              elecShown.forEach(function(o) {
+                var d = Math.hypot(p.x - o.x, p.y - o.y);
+                if (d <= r && (!best || d < best.d)) best = { id: o.id, d: d };
+              });
+              return best;
+            }
+            function elecDelete() {
+              if (!elecSel) return false;
+              histModel('delete_elec');
+              sketchup.delete_elec(JSON.stringify({ id: elecSel }));
+              elecItems = elecItems.filter(function(o) { return o.id !== elecSel; });
+              elecSel = null; draw();
+              return true;
+            }
+            function elecStart() { if (USE_ELEC_PLACE) sketchup.elec_pick(''); }
+            function elecArmed(cfg) { elecCfg = cfg || {}; elecMsg = null; setMode('elec'); }
+            function elecResult(ok, why) { elecMsg = ok ? null : (why || 'not placed'); draw(); }
+            // The button: at the END of the tool rail, after a line (his pick, editor_mock2.png).
+            function placeElecBtn() {
+              if (!USE_ELEC_PLACE) return;
+              var host = document.getElementById('kp-tool-rail') || document.querySelector('#side .modebar');
+              if (!host) return;
+              var b = document.getElementById('modeElec'), sep = document.getElementById('elecSep');
+              if (!b) {
+                sep = document.createElement('div'); sep.id = 'elecSep';
+                sep.style.cssText = 'border-top:1px solid #dce3da;margin:4px 6px;flex-shrink:0;height:0';
+                b = document.createElement('button'); b.type = 'button'; b.id = 'modeElec'; b.className = 'modebtn';
+                b.title = 'Electrical';
+                b.innerHTML = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">' +
+                  '<path d="M2 12 L7 12"/><circle cx="12" cy="12" r="5"/><path d="M10.5 6 L10.5 18 M13.5 6 L13.5 18"/></g></svg><span>Electrical</span>';
+                b.onclick = elecStart;
+              }
+              if (host.lastElementChild !== b) { host.appendChild(sep); host.appendChild(b); }
+            }
+            window.addEventListener('load', function() { placeElecBtn(); setTimeout(placeElecBtn, 400); setTimeout(placeElecBtn, 1500); });
+            setTimeout(placeElecBtn, 0);
+            // The wall face under the mouse: which side, where its two corners are, the distance to the nearer.
+            function elecHit(p) {
+              var h = hitWall(p); if (!h || !h.b || !h.w.id) return null;
+              var w = h.w, b = h.b, mid = (b.p + b.q) / 2;
+              var onP = h.off >= mid, foff = onP ? b.p : b.q, ns = onP ? 1 : -1;
+              var ta = 0, tb = b.len;
+              if (w.corners && w.corners.length === 8) {
+                var ts = [];
+                for (var i = 0; i < 8; i += 2) {
+                  var dx = w.corners[i] - w.sx, dy = w.corners[i + 1] - w.sy;
+                  if (Math.abs(dx * b.nx + dy * b.ny - foff) < 0.6) ts.push(dx * b.ux + dy * b.uy);
+                }
+                if (ts.length === 2) { ta = Math.min(ts[0], ts[1]); tb = Math.max(ts[0], ts[1]); }
+              }
+              var t = Math.max(ta, Math.min(tb, h.t)), half = 1.4, ok = t - half >= ta && t + half <= tb;
+              var why = ok ? '' : 'past the wall end';
+              // Red only ON a door or a window - its height too, as the SketchUp tool checks (2026-10-13, his
+              // "למה הוא לא נותן לי להציב אותו מתחת לחלון"): a wire runs under a window, a plate does not sit on the glass.
+              var zc = Number(elecCfg && elecCfg.height) || 18, zh = 2.25;
+              (w.syms || []).forEach(function(s) {
+                if (Math.abs(t - s.t) >= s.w / 2 + half) return;
+                var z0 = s.body === 'window' ? (s.header || 80) - (s.h || 0) : 0;
+                var z1 = s.body === 'window' ? (s.header || 80) : (s.h || 80);
+                if (zc + zh > z0 && zc - zh < z1) { ok = false; why = 'on a ' + (s.body || s.kind) + ' ' + z0 + '..' + z1 + ' at t ' + s.t + ' w ' + s.w; }
+              });
+              return { w: w, b: b, t: t, foff: foff, ns: ns, ta: ta, tb: tb, ok: ok, why: why, dist: Math.min(t - ta, tb - t) };
+            }
+            function elecFacePt(h, out) {
+              var o = h.foff + h.ns * (out || 0);
+              return { x: h.w.sx + h.b.ux * h.t + h.b.nx * o, y: h.w.sy + h.b.uy * h.t + h.b.ny * o };
+            }
+            function elecSend(h, dist) {
+              var P = elecFacePt(h, 1);
+              histModel('place_elec');
+              sketchup.place_elec(JSON.stringify({ wall_id: h.w.id, px: P.x, py: P.y, dist: dist || null }));
+            }
+            function drawElecGhost() {
+              var h = elecHover; if (!h) return;
+              var F = elecFacePt(h, 0), nx = h.b.nx * h.ns, ny = h.b.ny * h.ns;
+              var col = h.ok ? '#1a9d55' : '#e0392b';
+              elecSign({ x: F.x, y: F.y, nx: nx, ny: ny, kind: (elecCfg && elecCfg.kind) || 'outlet', gangs: (elecCfg && elecCfg.gangs) || 1 }, col, 1.8);
+              var L = { x: F.x + nx * 14, y: F.y + ny * 14 };
+              ctx.fillStyle = col; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+              ctx.fillText(typed ? typed : fmtLen(h.dist), sx(L.x) + 4, sy(L.y) + 4);
+              if (elecMsg) { ctx.fillStyle = '#e0392b'; ctx.fillText(elecMsg, sx(L.x) + 4, sy(L.y) + 20); }
             }
 
             // Rooms measured live off the BLUE walls, before Apply. Same
@@ -7807,6 +8125,45 @@ module InteriorPro
                 pos += 8;
               }
             }
+            // The outlet sign (his pick 2026-10-13): stem 3" off the wall, a circle of 3" at 6",
+            // two lines along the wall through it. Drawn in model inches, so it zooms with the plan.
+            function drawElec() {
+              elecShown = [];
+              if (activePage !== 0) return;
+              ctx.save();
+              ctx.strokeStyle = '#d0312d'; ctx.lineWidth = 1.3; ctx.setLineDash([]);
+              elecItems.forEach(function(o) {
+                if (o.kind !== 'outlet' && o.kind !== 'switch') return;
+                var picked = elecSel && o.id === elecSel;
+                var c = elecSign(o, picked ? '#2f6bd8' : '#d0312d', picked ? 2.4 : 1.3);
+                elecShown.push({ id: o.id, kind: o.kind, x: c.x, y: c.y });
+              });
+              ctx.restore();
+              if (mode === 'elec' && elecHover) drawElecGhost();
+            }
+            // One sign. Outlet: stem 3", circle 3" at 6", two lines along the wall. Switch: stem and
+            // S (S2, S3 ... for more on one plate) at 6". Returns the middle of the sign.
+            function elecSign(o, col, lw) {
+              var nx = o.nx, ny = o.ny, ux = -ny, uy = nx;
+              var at = function(a, b2) { return { x: o.x + nx * a + ux * b2, y: o.y + ny * a + uy * b2 }; };
+              ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash([]);
+              var c = at(6, 0);
+              if (o.kind === 'switch') {
+                polyline([at(0, 0), at(3, 0)]);
+                ctx.fillStyle = col; ctx.textAlign = 'center';
+                ctx.font = 'bold ' + Math.max(9, Math.round(5 * scale)) + 'px Arial';
+                ctx.fillText('S' + ((o.gangs || 1) > 1 ? o.gangs : ''), sx(c.x), sy(c.y) + Math.max(3, 1.8 * scale));
+                ctx.textAlign = 'left';
+                return c;
+              }
+              polyline([at(0, 0), at(3, 0)]);
+              ctx.beginPath();
+              ctx.arc(sx(c.x), sy(c.y), 3 * scale, 0, Math.PI * 2);
+              ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+              polyline([at(4.9, -4.5), at(4.9, 4.5)]);
+              polyline([at(7.1, -4.5), at(7.1, 4.5)]);
+              return c;
+            }
             function drawSyms(w) {
               var b = bandQuad(w); if (!b || !w.syms) return;
               ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
@@ -8358,6 +8715,9 @@ module InteriorPro
               // Labels last, so they sit on top and stay clickable.
               drawShapeDims();
               drawRooms();
+              // The outlets come AFTER the kitchen (its draw is hooked onto the line above), so a sign behind
+              // or over a cabinet stays on top and is seen (2026-10-13, his "הוא מתחתיו וזה נעלם").
+              drawElec();
               drawShapeAreas();
               drawAnchors();
               drawOriginPick();
@@ -9521,6 +9881,10 @@ module InteriorPro
                   updateSelPanel(); draw();
                   return;
                 }
+                // an outlet / switch sign: picked on its own, Delete takes it away (2026-10-13)
+                var hel = elecPick(p);
+                if (hel) { setSel(null); elecSel = hel.id; updateSelPanel(); draw(); return; }
+                if (elecSel) { elecSel = null; draw(); }
                 // an END of an already-selected line: grab it and stretch
                 var hv = hitSketchVertex(p);
                 if (hv) {
@@ -9629,6 +9993,17 @@ module InteriorPro
                 if (lineToolClick(lp)) { draw(); return; }
                 addLinePoint(lp);
                 typed = ''; updateVcb();
+                return;
+              }
+              if (mode === 'elec') {
+                elecHover = elecHit(p); elecMsg = null; draw();
+                try {
+                  var eh = elecHover, ek = (elecCfg && elecCfg.kind) || '?';
+                  sketchup.elec_trace(eh ? (ek + ' click ' + (eh.ok ? 'GREEN' : 'RED (' + eh.why + ')') + ' wall ' + String(eh.w.id).slice(0, 8) +
+                    ' t ' + eh.t.toFixed(2) + ' on ' + eh.ta.toFixed(2) + '..' + eh.tb.toFixed(2) + ' height ' + (elecCfg && elecCfg.height)) :
+                    (ek + ' click on no wall'));
+                } catch (e) {}
+                if (elecHover && elecHover.ok) elecSend(elecHover, null);
                 return;
               }
               if (mode === 'door' || mode === 'win') {
@@ -9830,6 +10205,7 @@ module InteriorPro
                 return;
               }
               if (mode === 'door' || mode === 'win') { hoverHit = hitWall(cursor); draw(); return; }
+              if (mode === 'elec') { elecHover = elecHit(cursor); elecMsg = null; draw(); return; }
               // Wall mode BEFORE the first click: work out the inference now, so
               // the green corner marker shows while you are still aiming - it
               // used to appear only once a wall was already started.
@@ -9978,6 +10354,15 @@ module InteriorPro
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
                 if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
               }
+              if (mode === 'elec' && ev.key !== 'Escape') {   // a distance from the nearer corner + Enter
+                if (ev.key === 'Enter') {
+                  var ed = parseLen(typed);
+                  if (ed && ed > 0 && elecHover) elecSend(elecHover, ed);
+                  typed = ''; updateVcb(); draw(); ev.preventDefault(); return;
+                }
+                if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); draw(); ev.preventDefault(); return; }
+                if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); draw(); ev.preventDefault(); return; }
+              }
               if (rotOp) {                       // typing an exact angle
                 if (ev.key === 'Enter') {
                   var av2 = parseFloat(typed);
@@ -10021,7 +10406,7 @@ module InteriorPro
                           arcPts.length || circC || measA;
                 if (mid) { endChain(); return; }
                 if (mode !== 'sel') { setMode('sel'); return; }
-                setSel(null); rubber = null; dragSym = null; updateSelPanel(); draw();
+                setSel(null); elecSel = null; rubber = null; dragSym = null; updateSelPanel(); draw();
                 return;
               }
               // Mode shortcuts (2026-08-07): S select · D door · W window ·
@@ -10088,6 +10473,9 @@ module InteriorPro
                 if (ev.key === 'Enter') { applyTypedDrag(); ev.preventDefault(); return; }
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
                 if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
+              }
+              if (mode === 'sel' && elecSel && (ev.key === 'Delete' || ev.key === 'Backspace')) {
+                elecDelete(); ev.preventDefault(); return;
               }
               if (mode === 'sel' && (ev.key === 'Delete' || ev.key === 'Backspace')) {
                 deleteSelected(); ev.preventDefault(); return;
