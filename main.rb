@@ -73,6 +73,9 @@ module InteriorPro
       fixture_dialog.rb
       fixture_tool.rb
       fixture_edit_tool.rb
+      electrical_library.rb
+      electrical_dialog.rb
+      electrical_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb

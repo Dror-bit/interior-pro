@@ -72,6 +72,7 @@ module InteriorPro
       setup_roofs_toolbar
       setup_2d_toolbar
       setup_landscape_toolbar
+      setup_electrical_toolbar
       hide_old_bars!
       # AND ONCE MORE, A MOMENT LATER (2026-09-22, his picture: an empty
       # bar with only an X, again). SketchUp puts back the bars that were
@@ -533,6 +534,7 @@ module InteriorPro
       fixture_edit_cmd.large_icon = icon_path('plumbing_edit')
       tb.add_separator unless on_bar.include?('Plumbing')
       [fixture_cmd, fixture_edit_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
+
       tb.restore
     end
 
@@ -802,6 +804,31 @@ module InteriorPro
       tb.add_item(elev_cmd)
 
       tb.restore
+    end
+
+    # ELECTRICAL AND LIGHTING (2026-10-12) - a bar of its own, his words:
+    # "אני מקווה שזה סרגל כלים חדש לחשמל ותאורה". Outlets and switches now;
+    # the ceiling lights, wall lights, fan and the rest join it later. Every
+    # button is added BY NAME (the surfaces bar rule), so a new one is never
+    # skipped by a length guard and a reload never doubles one.
+    def self.setup_electrical_toolbar
+      tb = UI::Toolbar.new('Interior Pro Electrical')
+      on_bar = begin
+        tb.map { |c| c.respond_to?(:menu_text) ? c.menu_text.to_s : nil }.compact
+      rescue StandardError
+        []
+      end
+      elec_cmd = UI::Command.new('Electrical') {
+        Sketchup.active_model.select_tool(InteriorPro::ElectricalTool.new)
+      }
+      elec_cmd.tooltip = 'Electrical - outlet or switches, placed on a wall at a set height'
+      elec_cmd.status_bar_text = 'Choose outlet or switches and the height, then move along a wall and click, or type the distance from the corner'
+      elec_cmd.small_icon = icon_path('electrical')
+      elec_cmd.large_icon = icon_path('electrical')
+      tb.add_item(elec_cmd) unless on_bar.include?('Electrical')
+      tb.restore
+    rescue StandardError => e
+      puts "[InteriorPro] electrical toolbar: #{e.message}"
     end
 
     # ------------------------------------------------------- Landscape Pro
