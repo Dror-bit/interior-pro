@@ -59,6 +59,7 @@ module KitchenLab
   def self.generate_geometry!
     guard!
     raise 'Preserve the kitchen document before generating geometry' if @model.get_attribute(DICT,'document').nil?
+    unpack_units!
     data=state['cabinets']
     data.each { |d| validate(d);check_shaker(d) }
     raise 'Cabinets overlap' if data.combination(2).any? { |a,b| overlap?(a,b) }
@@ -88,7 +89,11 @@ module KitchenLab
     def refresh(model)
       UI.start_timer(0.1,false) do
         begin
-          KitchenLab.publish if model.equal?(KitchenLab.instance_variable_get(:@model))
+          if model.equal?(KitchenLab.instance_variable_get(:@model))
+            KitchenLab.publish
+            host=defined?(InteriorPro::PlanEditor) && InteriorPro::PlanEditor.instance_variable_get(:@dialog)
+            InteriorPro::KitchenPlan.push(host) if host && host.visible?
+          end
         rescue StandardError => e
           puts "[Kitchen] refresh: #{e.message}"
         end

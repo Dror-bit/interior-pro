@@ -27,7 +27,7 @@ module KitchenLab
     if toe>0
       setback=d['toe_setback']
       box(e,'Corner toe A',arm-setback,-arm+setback,0,w-arm+setback,0.6,toe,mat)
-      box(e,'Corner toe B',arm-setback,-w,0,0.6,w-arm+setback,toe,mat)
+      box(e,'Corner toe B',arm-setback-0.6,-w,0,0.6,w-arm+setback,toe,mat)
     end
   end
 end

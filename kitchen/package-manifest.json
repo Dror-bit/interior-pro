@@ -473,8 +473,8 @@
     },
     {
       "path": "corner_cabinets.rb",
-      "bytes": 2000,
-      "sha256": "96ccac3266a1506cd8d2e34a04563a38cab4fd8fa619ee0314bd668eba6c9020"
+      "bytes": 2037,
+      "sha256": "2d2464a29e4fae5cef629f2a93f073173a31269476f26cba4de410befc44cd10"
     },
     {
       "path": "gap_actions.js",
@@ -538,13 +538,13 @@
     },
     {
       "path": "kitchen_commands.rb",
-      "bytes": 2141,
-      "sha256": "e4a3e6ba975c7cef2d757dd0e226c0e6ecef17e646cab538ab6325aab5c5875a"
+      "bytes": 2183,
+      "sha256": "cddeb3421b126115c9f735df6ac108a6e904546afccc37580d4d76619b293bb9"
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 3726,
-      "sha256": "dfa32b49931b253de634a24cad50ae204d417168c32fb73b3e613a05f1e0adf4"
+      "bytes": 3735,
+      "sha256": "592d6baf7895b48965f66a21c7e0546b4a8a7cf6c0a418f200aed81f1c546426"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 34835,
-      "sha256": "8c54896cfa21f2f682c5c78114dab03f9ca25fcddde61ea515d4615ba38ff24c"
+      "bytes": 34828,
+      "sha256": "918ee9e1651aef66d73b6888d6ef9fa6d38bd40917786f218ea60080ea32516e"
     },
     {
       "path": "kitchen_layout.rb",
@@ -723,8 +723,8 @@
     },
     {
       "path": "kitchen_house_appliances.js",
-      "bytes": 6610,
-      "sha256": "55ad11c94b7f15e41b887f6169cdf8ff5955379f7d9184e1a8e21910174fbd93"
+      "bytes": 7557,
+      "sha256": "cfe62370d116cb8346965b07ce50f5275440031877b1ae66dcf5295ca28ecbfe"
     },
     {
       "path": "test_house_appliance_catalog.rb",
@@ -1533,8 +1533,8 @@
     },
     {
       "path": "kitchen_store.rb",
-      "bytes": 4128,
-      "sha256": "3da47c4ddbb6029cf59e18cd5ebaa6eaa64cc8ce1426cacb1ba9f3bc8ae5a853"
+      "bytes": 4355,
+      "sha256": "e79ef84bd15805a71eddf28513e57a425eae250f8dce140c5b5d3a83ea4d7846"
     },
     {
       "path": "test_handle_defaults.rb",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 24939,
-      "sha256": "b32010c618018e9307ee46b0a21b0bb1ed0696da9546d120f1a53a40a47f25be"
+      "bytes": 26205,
+      "sha256": "dcb08a1e5fe161a7774572a37ff19678e0cfe58f5d84c08450947ad8aa7d37bb"
     },
     {
       "path": "kitchen_engine.rb",
@@ -1625,6 +1625,16 @@
       "path": "assets/appliances/panel-ready/dw2451-panelready.skp",
       "bytes": 27829,
       "sha256": "a61dac6991d958a578bfffd4dca34c0e44be72b0e63442c28aa626d2531daee7"
+    },
+    {
+      "path": "kitchen_units.rb",
+      "bytes": 5577,
+      "sha256": "dc2a4ceb3c6d1e161da201e037b5256fcf0c3aa074340dc8e63f7b05b963653d"
+    },
+    {
+      "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
+      "bytes": 1516,
+      "path": "test_unit_pose.rb"
     }
   ]
 }

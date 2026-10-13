@@ -154,7 +154,15 @@ module InteriorPro
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
           KitchenLab.guard!
           selected=KitchenLab.document['cabinets'].find { |c|c['id']==id.to_s }
-          raise 'Select a sink for a faucet, or a range / cooktop for a pot filler.' unless selected && (selected['kind']=='sink' || selected['kind']=='oven' || selected.dig('appliance','category')=='cooktop')
+          eligible=KitchenLab.document['cabinets'].select { |c|c['kind']=='sink' || c['kind']=='oven' || c.dig('appliance','category')=='cooktop' }
+          unless eligible.any? { |c|c['id']==id.to_s }
+            rows=eligible.each_with_index.map do |c,i|
+              name=c.dig('appliance','model') || c.dig('sink','model') || (c['kind']=='sink' ? 'Sink' : 'Range / cooktop')
+              {'id'=>c['id'],'label'=>"#{i+1}. #{name} · #{c['width']}\" · #{c['kind']=='sink' ? 'Faucet' : 'Pot filler'}"}
+            end
+            dlg.execute_script("window.KitchenHouseAppliances.accessoryTargets(#{JSON.generate(rows)});")
+            next
+          end
           KitchenLab.instance_variable_set(:@open_accessory_gallery,true)
           edit_cabinet(id.to_s)
         rescue StandardError=>error
@@ -372,17 +380,28 @@ module InteriorPro
 
     module CabinetEditorBridge
       def show
+        unless instance_variable_get(:@hosted_cabinet_id) || instance_variable_get(:@hosted_catalog_ids) || instance_variable_get(:@hosted_project_handles)
+          chosen=Sketchup.active_model.selection.to_a.find { |e|e.get_attribute('KitchenLab','kind')=='kitchen_unit' || e.get_attribute('KitchenLab','kind')=='cabinet' }
+          if chosen
+            instance_variable_set(:@hosted_cabinet_id,chosen.get_attribute('KitchenLab','id'))
+          else
+            return InteriorPro::PlanEditor.show
+          end
+        end
         result=super
         dlg=instance_variable_get(:@dialog)
+        dlg.add_action_callback('kitchen_accessory_opened') { |_,_| instance_variable_set(:@open_accessory_gallery,nil) }
         dlg.add_action_callback('hosted_close') do |_|
           instance_variable_set(:@hosted_cabinet_id,nil)
           dlg.close
         end
         dlg.set_on_closed do
-          instance_variable_set(:@dialog,nil) if instance_variable_get(:@dialog).equal?(dlg)
+          next unless instance_variable_get(:@dialog).equal?(dlg)
+          instance_variable_set(:@dialog,nil)
           instance_variable_set(:@hosted_cabinet_id,nil)
           instance_variable_set(:@hosted_catalog_ids,nil)
           instance_variable_set(:@hosted_project_handles,nil)
+          instance_variable_set(:@open_accessory_gallery,nil)
         end
         result
       end
@@ -407,8 +426,7 @@ module InteriorPro
           dlg.execute_script(File.read(File.join(__dir__,'kitchen_hosted_editor.js'))+File.read(File.join(__dir__,'kitchen_clean_notes.js')))
           dlg.execute_script(id ? "window.openHostedCabinet(#{JSON.generate(id)});" : 'window.openHostedCatalog();')
           if id && instance_variable_get(:@open_accessory_gallery)
-            instance_variable_set(:@open_accessory_gallery,nil)
-            dlg.execute_script('window.KitchenAccessoryEditor?.open();')
+            dlg.execute_script('if(window.KitchenAccessoryEditor){window.KitchenAccessoryEditor.open();if(document.getElementById("accessoryGallery")?.open)sketchup.kitchen_accessory_opened();}')
           end
         end
         result
@@ -452,7 +470,7 @@ module InteriorPro
         begin
           bind_active_model!
           selected=Sketchup.active_model.selection.to_a
-          raise 'Select one kitchen cabinet in the model.' unless selected.length==1 && selected.first.get_attribute('KitchenLab','kind')=='cabinet'
+          raise 'Select one kitchen cabinet in the model.' unless selected.length==1 && %w[cabinet kitchen_unit].include?(selected.first.get_attribute('KitchenLab','kind'))
           edit_cabinet(selected.first.get_attribute('KitchenLab','id'))
         rescue StandardError=>error
           UI.messagebox(error.message)

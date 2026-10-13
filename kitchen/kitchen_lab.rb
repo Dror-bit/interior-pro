@@ -403,10 +403,11 @@ module KitchenLab
   end
 
   def self.worktops!
+    unpack_units!
     @model.entities.grep(Sketchup::Group).select { |g| g.get_attribute(DICT,'kind')=='worktop' }.each(&:erase!)
     bases=state['cabinets'].reject { |d| d['surround_for']||open_corner?(d)||%w[wall tall fridge oven wall_oven oven_tower micro_tower fridge_surround hood microwave].include?(d['kind']) }.sort_by { |d| [wall_of(d),d['x']] }
     runs=[]
-    separate,bases=bases.partition { |d| d['house_placement'] || d.fetch('rotation',0)!=0 || d.fetch('offset_y',0)!=0 || d['flip_x'] || d['flip_y'] }
+    separate,bases=bases,[]
     separate.each do |d|
       holes=[]
       if Sink.active?(d)
@@ -415,7 +416,7 @@ module KitchenLab
       holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.cooktop?(d)
       mat=material('Worktop','#F2F0E9')
       g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],1.5,holes,mat)
-      g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop')
+      g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id'])
     end
     bases.each do |d|
       r=runs.last
@@ -441,8 +442,8 @@ module KitchenLab
       g.set_attribute(DICT,'kind','worktop')
     end
     state['cabinets'].select { |d| %w[corner_base corner_lazy].include?(d['kind']) }.each do |d|
-      top=d['house_placement'] ? d['height'] : d['z']+d['height']
-      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,material('Worktop','#F2F0E9'));g.transformation=d['house_placement'] ? cabinet_transform(d) : wall_transform('A');g.set_attribute(DICT,'kind','worktop')
+      top=d['height']
+      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,material('Worktop','#F2F0E9'));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id'])
     end
     # A base microwave bundle carries a worktop across its two side panels.
     state['cabinets'].select { |d| ApplianceCatalog.microwave_base?(d) }.each do |d|
@@ -452,9 +453,10 @@ module KitchenLab
       lp=Spatial.cabinet_point(left,0,0,settings);rp=Spatial.cabinet_point(right,right['width'],0,settings)
       width=Math.sqrt((rp[0]-lp[0])**2+(rp[1]-lp[1])**2)
       slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,material('Worktop','#F2F0E9'))
-      slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop')
+      slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id'])
     end
     crowns!
+    pack_units!
   end
 
   def self.apply(raw,notify=true)
@@ -643,3 +645,5 @@ end
 
 
 load File.join(__dir__,'kitchen_accessories.rb')
+
+load File.join(__dir__,'kitchen_units.rb')

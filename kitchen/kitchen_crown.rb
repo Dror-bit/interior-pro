@@ -45,11 +45,11 @@ module KitchenLab
     h=s['crown_height'];p=s['crown_depth']
     shape=s['crown_profile']=='flat' ? [[0,0],[p,0],[p,h],[0,h]] : [[0,0],[p*0.18,h*0.1],[p*0.55,h*0.82],[p*0.85,h*0.9],[p,h],[0,h]]
     data=state['cabinets']
-    custom,regular=data.partition { |d| d['house_placement'] || d.fetch('rotation',0)!=0 || d.fetch('offset_y',0)!=0 || d['flip_x'] || d['flip_y'] }
+    custom,regular=data,[]
     runs=crown_runs(regular)
-    custom.each { |d| crown_runs([d.merge('x'=>0,'z'=>0)]).each { |r| runs<<r.merge(transform:cabinet_transform(d)) } }
+    custom.each { |d| crown_runs([d.merge('x'=>0,'z'=>0)]).each { |r| runs<<r.merge(transform:cabinet_transform(d),owner_id:d['id']) } }
     runs.each do |r|
-      g=@model.entities.add_group;g.name='Kitchen / Crown';g.set_attribute(DICT,'kind','crown')
+      g=@model.entities.add_group;g.name='Kitchen / Crown';g.set_attribute(DICT,'kind','crown');g.set_attribute(DICT,'owner_id',r[:owner_id])
       g.transformation=r[:transform]||wall_transform(r[:wall])
       mat=s['crown_color']=='white' ? material('Crown white','#F5F3ED') : material(r[:finish],FINISHES.fetch(r[:finish]))
       l=r[:left];rr=r[:right];y=-r[:depth];top=r[:top]
