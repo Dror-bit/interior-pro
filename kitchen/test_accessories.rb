@@ -5,9 +5,9 @@ s={'shaker_width'=>2.25,'shaker_inset'=>0.25};source=KitchenLab::Document.create
 KitchenLab::Accessories.catalog['products'].each do |p|
  p['finish_variants'].each do |f|
   item={'id'=>'a-test','product_id'=>p['id'],'finish_id'=>f['finish_id'],'location'=>'island_sink'}
-  cmd={'type'=>'create_cabinet','payload'=>{'kind'=>'sink','overrides'=>{'accessories'=>[item]}}}
+  cmd={'type'=>'create_cabinet','payload'=>{'kind'=>(p['role']=='pot' ? 'oven' : 'sink'),'overrides'=>{'accessories'=>[item]}}}
   doc=KitchenLab.command_engine.plan(source,[cmd])['document'];a=doc['cabinets'][0]['accessories'][0]
-  check(a['usage']==p['role']&&a['location']=='island_sink','Location changed usage')
+  check(a['usage']==p['role']&&a['location']==(p['role']=='pot' ? 'cooktop' : 'island_sink'),'Location changed usage')
   check(a['sku']==f['product_sku']&&a['geometry_sha256']==p['skp_sha256'],'Snapshot missing')
   check(KitchenLab::Document.read(JSON.generate(doc))==doc,'Save/load changed accessories')
   if p['role']=='beverage'

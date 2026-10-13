@@ -723,8 +723,8 @@
     },
     {
       "path": "kitchen_house_appliances.js",
-      "bytes": 6001,
-      "sha256": "45b4f7abf9c639e0c0b476b8eeb35764d519e919ad5585b4620970587f6673af"
+      "bytes": 6610,
+      "sha256": "55ad11c94b7f15e41b887f6169cdf8ff5955379f7d9184e1a8e21910174fbd93"
     },
     {
       "path": "test_house_appliance_catalog.rb",
@@ -1488,13 +1488,13 @@
     },
     {
       "path": "kitchen_accessories.rb",
-      "bytes": 6191,
-      "sha256": "fe2cd4ae9b94d575f34a167da6c3aa651a83df0018022bf824eae6edaf524141"
+      "bytes": 7002,
+      "sha256": "2c46a8e563a33e6243a7164b6c584f78805c793a05438ddf85d384a2edd942d4"
     },
     {
       "path": "accessory_editor.js",
-      "bytes": 6962,
-      "sha256": "934b15f33d17a2f5d4cb9081647cced3d416238a1553753e0f1739f183f57f7d"
+      "bytes": 7694,
+      "sha256": "cca005e07a546549d6017a9c10b6894c4d21e1ba62dc8b1287cd7aec048e9ebe"
     },
     {
       "path": "accessory_catalog.json",
@@ -1508,8 +1508,8 @@
     },
     {
       "path": "test_accessories.rb",
-      "bytes": 1304,
-      "sha256": "f43e1227c1ceebe2a0a7a7585e971ea9fc9156c82987385d500bf73fd3f0454b"
+      "bytes": 1367,
+      "sha256": "691c520f2b20784636ce2eb1a1a4e6422a87fcd47f5e305c48463e8b12e31fe0"
     },
     {
       "path": "test_bundle_delete.rb",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 23906,
-      "sha256": "c10b4326ee8c26b91ded3e8c2e46de1cc8df2f3d317b79c255cda19898866e01"
+      "bytes": 24939,
+      "sha256": "b32010c618018e9307ee46b0a21b0bb1ed0696da9546d120f1a53a40a47f25be"
     },
     {
       "path": "kitchen_engine.rb",
@@ -1585,6 +1585,11 @@
       "path": "test_bundle_move.mjs",
       "bytes": 1376,
       "sha256": "55513e627c2ddafded97852062ee1bf6a891ca1e799285774a52dcd82c437467"
+    },
+    {
+      "path": "test_pot_placement.rb",
+      "bytes": 1471,
+      "sha256": "6eff3d9dc242ed674b1dda5c76e819c5d930be1612ffedd1de95d7f188575909"
     }
   ]
 }

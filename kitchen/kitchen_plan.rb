@@ -149,6 +149,19 @@ module InteriorPro
     end
 
     def self.bind_catalog(dlg)
+      dlg.add_action_callback('kitchen_faucet_gallery') do |_,id|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          KitchenLab.guard!
+          selected=KitchenLab.document['cabinets'].find { |c|c['id']==id.to_s }
+          raise 'Select a sink for a faucet, or a range / cooktop for a pot filler.' unless selected && (selected['kind']=='sink' || selected['kind']=='oven' || selected.dig('appliance','category')=='cooktop')
+          KitchenLab.instance_variable_set(:@open_accessory_gallery,true)
+          edit_cabinet(id.to_s)
+        rescue StandardError=>error
+          KitchenLab.instance_variable_set(:@open_accessory_gallery,nil)
+          dlg.execute_script("window.KitchenHouseAppliances.fail(#{JSON.generate(error.message)});")
+        end
+      end
       dlg.add_action_callback('kitchen_project_handles') do |_,_|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
@@ -393,6 +406,10 @@ module InteriorPro
         if (id || catalog_ids) && dlg
           dlg.execute_script(File.read(File.join(__dir__,'kitchen_hosted_editor.js'))+File.read(File.join(__dir__,'kitchen_clean_notes.js')))
           dlg.execute_script(id ? "window.openHostedCabinet(#{JSON.generate(id)});" : 'window.openHostedCatalog();')
+          if id && instance_variable_get(:@open_accessory_gallery)
+            instance_variable_set(:@open_accessory_gallery,nil)
+            dlg.execute_script('window.KitchenAccessoryEditor?.open();')
+          end
         end
         result
       end

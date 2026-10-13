@@ -16,11 +16,22 @@ module KitchenLab
         p=JSON.parse(JSON.generate(p));palette=a['finish_palette'] || catalog['finish_palette']
         finish=a['finish_id']||p['default_finish'];variant=p['finish_variants'].find{|v|v['finish_id']==finish}
         raise 'Finish is unavailable for this faucet' unless variant
-        location=a.fetch('location','main_sink');raise 'Invalid sink placement' unless %w[main_sink island_sink secondary_sink].include?(location)
-        anchor=a.fetch('anchor',[d['width']/2.0,p['mount']=='wall' ? 0 : -1.5,p['mount']=='wall' ? 54 : d['height']+1.5])
+        cooking=d['kind']=='oven' || d.dig('appliance','category')=='cooktop'
+        if p['role']=='pot'
+          raise 'Select a range or cooktop for the pot filler.' unless cooking
+          raise 'Pot filler requires a wall behind the cooking area.' if d['wall']=='I' || (d['house_placement'] && !d['house_placement']['wall_id'])
+        end
+        location=p['role']=='pot' ? 'cooktop' : a.fetch('location','main_sink')
+        raise 'Invalid sink placement' unless %w[main_sink island_sink secondary_sink cooktop].include?(location) && (p['role']=='pot' || location!='cooktop')
+        surface=d['height']+(d.dig('appliance','category')=='cooktop' ? 1.5 : 0)
+        anchor=a.fetch('anchor',[d['width']/2.0,p['mount']=='wall' ? 0 : -1.5,p['mount']=='wall' ? surface+18 : d['height']+1.5])
         raise 'Invalid faucet anchor' unless anchor.is_a?(Array)&&anchor.size==3&&anchor.all?{|v|v.is_a?(Numeric)&&v.finite?}
         raise 'Faucet anchor outside cabinet' unless anchor[0].between?(0,d['width'])&&anchor[1].between?(-d['depth'],0)&&anchor[2].between?(0,120)
         angle=a.fetch('angle',0);raise 'Invalid faucet angle' unless angle.is_a?(Numeric)&&angle.finite?&&angle.between?(-360,360)
+        if p['role']=='pot'
+          raise 'Pot filler wall connection must stay at the back wall.' unless anchor[1].abs<0.001 && angle.abs<0.001
+          raise 'Pot filler must be above the cooking surface.' unless anchor[2]+p['measured_mesh_bounds_in'][0][2]>surface
+        end
         ro=a.fetch('filter_ro',true);raise 'Invalid filter selection' unless [true,false].include?(ro)
         connection=p['role']=='beverage' ? (ro ? 'filter_ro' : 'cold_unfiltered') : p['role']=='pot' ? 'cold_only' : 'hot_and_cold'
         {'id'=>id,'product_id'=>p['id'],'sku'=>variant['product_sku'],'handle_sku'=>variant['handle_sku'],'snapshot'=>p,'finish_palette'=>palette,
