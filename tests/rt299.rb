@@ -284,5 +284,9 @@ ok('light stays: its own group at the top level with its own tag, not inside the
 
 ok('fan: its picture from above, under its own name', L.kinds['ceiling_fan'][:thumb] == :below && L.thumb_path('ceiling_fan', 'X').end_with?('X.top.svg') && L.thumb_path('wall_light', 'X').end_with?('X.svg'))
 
+FD = File.read('./fixture_dialog.rb')
+ok('no instructions in the Plumbing window either (his law 2026-10-13)', !FD.include?('helpRow') && !FD.include?('After you click') &&
+   !FD.include?('All parts stand on one line') && !FD.include?('Left / right as you face'))
+
 puts($fails.zero? ? 'rt299 OK' : "rt299 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

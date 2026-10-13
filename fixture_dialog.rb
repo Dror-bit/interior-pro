@@ -197,7 +197,6 @@ module InteriorPro
             Deck past the tub: <span id="deckFrontBox">front <input type="number" id="deck_front" step="0.5" min="0"></span>
             left <input type="number" id="deck_left" step="0.5" min="0">
             right <input type="number" id="deck_right" step="0.5" min="0"> in
-            <div style="margin-top:3px;">Left / right as you face the wall. The back is From the wall.</div>
           </div>
           <div class="row" id="gapRow" style="display:none;">
             From the wall <input type="number" id="gap" step="0.5" min="0"> in
@@ -207,13 +206,10 @@ module InteriorPro
               <tr><td></td><td><b>Part</b></td><td><b>Height</b> (to the pipe)</td><td><b>Sideways</b></td></tr>
               <tbody id="partsBody"></tbody>
             </table>
-            <div style="margin-top:4px;">All parts stand on one line. Sideways = inches right (+) or left (-) of it.</div>
           </div>
           <div class="row" id="cornerRow" style="display:none;">
             From the nearer corner to its line <input type="number" id="corner" step="0.5" min="0"> in
           </div>
-          <div class="row" id="helpRow">After you click Place: move along a wall - it stays at this height.
-            Type a number + Enter = that far from the nearer corner to its line.</div>
           <button onclick="okAll()">#{button}</button>
           <button class="secondary" onclick="sketchup.cancel()">Cancel</button>
           <script>
@@ -421,11 +417,10 @@ module InteriorPro
             document.getElementById('gap').value = (D.gap !== null && D.gap !== undefined && D.kind === kind) ? D.gap :
               (CAT[kind].gap !== null && CAT[kind].gap !== undefined ? CAT[kind].gap : 0);
             // THE EDIT WINDOW (2026-09-25): same window, plus how far from
-            // the corner, and no placing help.
+            // the corner. (No instructions in any window - his law 2026-10-13.)
             if (D.corner !== undefined && D.corner !== null) {
               document.getElementById('corner').value = D.corner;
               document.getElementById('cornerRow').style.display = '';
-              document.getElementById('helpRow').style.display = 'none';
             }
             // the size he typed last time / on this tub, if it is the same product
             if (CAT[kind].resize && D.product === product && (D.len || D.wid)) {
