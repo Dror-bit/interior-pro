@@ -23,8 +23,9 @@ module InteriorPro
     # בתקרה איפה שהמנורה נופלת"). The rule of the floor (CLAUDE.md "חור ברצפה
     # חי על הרצפה"): the ceiling is BUILT with its holes, never cut after.
     # The holes come from the lights themselves - every placed light of
-    # this room that carries 'hole_d' - so a rebuilt ceiling keeps them and a
-    # light taken away gives its hole back on the next build.
+    # this room that carries 'hole_d'. A light deleted = its hole closes
+    # (2026-10-13, his words: "אם אני מוחק את המנורה החור נמחק איתה" -
+    # electrical_library.rb HoleWatch builds the ceiling again).
     # Kill switch: false = every ceiling is built whole again.
     USE_CEILING_HOLES = true unless const_defined?(:USE_CEILING_HOLES, false)
     HOLE_SEGS = 24 unless const_defined?(:HOLE_SEGS, false)
@@ -39,6 +40,17 @@ module InteriorPro
         next if d <= 0.0
         [g.get_attribute('InteriorPro', 'x_in').to_f, g.get_attribute('InteriorPro', 'y_in').to_f, d]
       end.compact
+    end
+
+    # The same hole twice (two lights within 0.1") is cut once. PURE.
+    def self.merge_holes(kept, from_lights)
+      out = []
+      (kept + from_lights).each do |x, y, d|
+        next if d.to_f <= 0.0
+        next if out.any? { |a, b, _| (a - x).abs < 0.1 && (b - y).abs < 0.1 }
+        out << [x.to_f, y.to_f, d.to_f]
+      end
+      out
     end
 
     # Does a round hole sit wholly inside the outline (not touching an
@@ -179,7 +191,7 @@ module InteriorPro
         # Flat: one zero-thickness face, white on both sides.
         face.material = mat
         face.back_material = mat
-        holes = holes_for(room_id, model)
+        holes = merge_holes([], holes_for(room_id, model))
         punch_holes!(grp, holes, z_bottom, pts.map { |p| [p.x.to_f, p.y.to_f] }) unless holes.empty?
       end
       if style == 'framed' && !holes_for(room_id, model).empty?

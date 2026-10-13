@@ -256,7 +256,33 @@ ok('hole: every skip says why', CMS.include?('skipped - not wholly inside the ce
 ok('hole: hanging a recessed builds its ceiling again in the same undo step', File.read('./electrical_library.rb').include?('InteriorPro::CeilingManager.build_ceiling_for_room!(room)'))
 ok('hole: the tool reads the ceilings again after', File.read('./electrical_tool.rb').include?('@ceils = LIB.ceilings'))
 
-ok('inches: the gallery writes 6in as 6" (the file keeps its name)', File.read('./electrical_dialog.rb').include?("replace(/([0-9]+)in( |$)/g, '$1&quot;$2')") && File.read('./electrical_dialog.rb').include?("inches(name)"))
+ok('inches: a light with a size = its kind + the size only (Recessed 4")', File.read('./electrical_dialog.rb').include?("return CAT[kind].label + ' ' + m[1] + '&quot;'") && File.read('./electrical_dialog.rb').include?("inches(name)"))
+ok('no instructions in the window (his law 2026-10-13)', !File.read('./electrical_dialog.rb').include?('After you click') && !File.read('./electrical_dialog.rb').include?('helpRow'))
+
+# THE HOLE GOES WITH THE LIGHT (his words 2026-10-13: "אם אני מוחק את המנורה החור נמחק איתה")
+ok('hole goes: two lights on one spot cut one hole', CM.merge_holes([], [[40.0, 30.0, 4.0], [40.05, 30.0, 4.0], [10.0, 10.0, 4.0]]) == [[40.0, 30.0, 4.0], [10.0, 10.0, 4.0]])
+CMS2 = File.read('./ceiling_manager.rb')
+ok('hole goes: the ceiling keeps no holes of its own - only its lights make them', !CMS2.include?('light_holes') && !CMS2.include?('kept_holes'))
+LSW = File.read('./electrical_library.rb')
+ok('hole goes: kill switch on', L::USE_HOLE_FOLLOWS == true)
+ok('hole goes: the top level is watched, a removed light with a hole builds its ceiling again',
+   LSW.include?('class HoleWatch < Sketchup::EntitiesObserver') && LSW.include?('def onElementRemoved(_entities, eid)') &&
+   LSW.include?('InteriorPro::CeilingManager.build_ceiling_for_room!(room)'))
+ok('hole goes: in the same undo step as the Delete (transparent)', LSW.include?("start_operation('Close Ceiling Hole', true, false, true)"))
+ok('hole goes: an opened model is watched too', LSW.include?('class HoleAppWatch < Sketchup::AppObserver') && LSW.include?('def onOpenModel(model)'))
+ok('hole goes: nothing done when the ceiling already fits its lights (an undo)', LSW.include?('if have <= want'))
+L.hole_lights.clear
+L.hole_lights[4242] = 'room-1'
+fired = []
+UI.define_singleton_method(:start_timer) { |*_a, &blk| fired << blk; 1 } rescue nil
+L.light_removed(4242)
+L.light_removed(999)
+ok('hole goes: only a light that had a hole wakes the ceiling, once', fired.length == 1 && L.hole_lights.empty?, fired.length)
+
+LS2 = File.read('./electrical_library.rb')[/def self\.place_on_ceiling!.*?\n    end\n/m].to_s
+ok('light stays: its own group at the top level with its own tag, not inside the ceiling', LS2.include?('grp = model.entities.add_group') && LS2.include?("assign_tag(grp, 'IP/Electrical')"))
+
+ok('fan: its picture from above, under its own name', L.kinds['ceiling_fan'][:thumb] == :below && L.thumb_path('ceiling_fan', 'X').end_with?('X.top.svg') && L.thumb_path('wall_light', 'X').end_with?('X.svg'))
 
 puts($fails.zero? ? 'rt299 OK' : "rt299 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

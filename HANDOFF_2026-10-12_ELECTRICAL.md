@@ -33,3 +33,23 @@
 
 ## commit
 עדיין לא ב-commit (פקודה ניתנה לו 18:25).
+
+
+## סבב 2026-10-12 ערב → 2026-10-13 (צ'אט שני) — הכל נבדק אצלו ("מעולה")
+- **קבצים שלו נמדדו** (`debug_elec_files.rb`): OUTLETS (2), SWITCHES (Rocker 1-5), WALL_LIGHTS (2), CEILING_LIGHTS (2), CEILING_FANS (2), RECESSED (4"/6" עגול; המרובעים ב-`RECESSED/_old`).
+  תיקיות חדשות ריקות: BATH_FANS, OUTLETS_240, SMOKE_DETECTORS. הכללים לקודקס איך לשמור קובץ — בהודעה בצ'אט (קיר: גב על y=0, אמצע 0/0; תקרה: z=0 = התקרה, למטה -Z, הקופסה +Z).
+- **סרגל משלו:** Electrical + Lighting (אייקון נורה). הכפתור הישן ב-Surface Tools נעלם אחרי restart (`debug_toolbars.rb`).
+- **תמונות בגלריה ישר מקדימה** (`USE_FRONT_THUMB`, svg מהקווים); רססד ומאוורר — מלמעלה (`thumb: :below`, `.top.svg`).
+- **Position Vertical/Horizontal** לשקע בחלון (`USE_TURN`). חיצים במקלדת — הוא פסל ("תפסיק... אופציה בהתחלה").
+- **Countertop outlet** — תיבת סימון, 42" לאמצע, `countertop: true` על השקע (`USE_COUNTERTOP`).
+- **Lighting:** Wall Light (66"), Ceiling Light, Recessed, Ceiling Fan. תקרה = קליק על התקרה (`ceiling_hit`, מלמעלה או מלמטה), המרחקים — ב-2D בהמשך (`USE_CEILING_MOUNT`).
+- **חור בתקרה לרססד** (`CeilingManager::USE_CEILING_HOLES`): התקרה נבנית עם החורים של המנורות שבחדר (`hole_d` על המנורה). מחיקת מנורה = החור נסגר
+  (`HoleWatch` EntitiesObserver → בנייה מחדש, transparent → Ctrl+Z אחד). נמדד: "built again, 2 -> 1 hole(s)".
+- **חוק חדש ב-CLAUDE.md: אין הוראות באף חלון.** בחלון החשמל/תאורה הוסרו. נשארו הוראות ב-7 חלונות: Plumbing, Roof, Skylight, Dormer, Doors, Sheet, Fence — אחד-אחד.
+- **שמות מנורות:** סוג + גודל בלבד ("Recessed 4\"").
+- rt299: 379 PASS (אדומות ישנות rt43, rt60).
+
+## הבא
+1. להוריד הוראות מ-7 החלונות (להתחיל ב-Plumbing).
+2. שקע 240 / מאוורר אמבטיה / גלאי עשן — צריך קבצים מקודקס.
+3. עריכה/הזזה של חשמל ותאורה; מרחקים ב-2D; אליוויישן (שכבת ELECTRICAL).

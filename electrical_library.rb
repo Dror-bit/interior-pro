@@ -50,7 +50,8 @@ module InteriorPro
         # like a ceiling light - the trim on the ceiling, the can above it.
         # Its picture is seen FROM BELOW, or round and square look the same.
         'recessed' => { label: 'Recessed', height: 0.0, files_only: true, dir: 'RECESSED', group: 'lighting', mount: 'ceiling', thumb: :below, hole: true },
-        'ceiling_fan' => { label: 'Ceiling Fan', height: 0.0, files_only: true, dir: 'CEILING_FANS', group: 'lighting', mount: 'ceiling' }
+        # the fan's picture seen from above (his words: "את הצורה של המאוורר תעשה מלמעלה")
+        'ceiling_fan' => { label: 'Ceiling Fan', height: 0.0, files_only: true, dir: 'CEILING_FANS', group: 'lighting', mount: 'ceiling', thumb: :below }
       }
     end
 
@@ -164,6 +165,8 @@ module InteriorPro
         room = InteriorPro::RoomManager.rooms_in_model.find { |r| r.get_attribute('InteriorPro', 'id') == rid }
         nc = room ? InteriorPro::CeilingManager.build_ceiling_for_room!(room) : nil
         trace("hole #{hole}\" for #{cfg['product']}: ceiling of #{rid} #{nc ? "built again (#{nc.get_attribute('InteriorPro', 'id')})" : 'NOT rebuilt - room not found'}")
+        watch_holes!(model)
+        hole_lights[grp.entityID] = rid
       end
       model.commit_operation if op
       grp
@@ -219,7 +222,9 @@ module InteriorPro
     USE_FRONT_THUMB = true unless const_defined?(:USE_FRONT_THUMB, false)
 
     def self.thumb_path(kind, name)
-      File.join(dir_for(kind), 'thumbs', "#{name}.#{USE_FRONT_THUMB ? 'svg' : 'png'}")
+      # a picture from above has its own name, so an old front picture is never shown for it
+      top = USE_FRONT_THUMB && kinds[kind_ok(kind)][:thumb] == :below ? '.top' : ''
+      File.join(dir_for(kind), 'thumbs', "#{name}#{top}.#{USE_FRONT_THUMB ? 'svg' : 'png'}")
     end
 
     def self.ensure_thumb(model, kind, name)
@@ -732,4 +737,117 @@ module InteriorPro
       puts "[Electrical] trace failed: #{e.message}"
     end
   end
+end
+
+# THE HOLE GOES WITH THE LIGHT (2026-10-13, his words: "אם אני מוחק את המנורה
+# החור נמחק איתה"). SketchUp's own Delete does not call the plugin, so the
+# top level of the model is watched: when a light that has a hole is taken
+# away, its room's ceiling is built again (without that hole) a moment
+# later, as part of the same undo step as the Delete. The watcher only hands
+# over; the work is in the module, so a reload changes it.
+module InteriorPro
+  module ElectricalLibrary
+    USE_HOLE_FOLLOWS = true unless const_defined?(:USE_HOLE_FOLLOWS, false)
+
+    # entityID of every hung light with a hole => its room id
+    def self.hole_lights
+      @hole_lights ||= {}
+    end
+
+    def self.scan_hole_lights!(model)
+      model.entities.grep(Sketchup::Group).each do |g|
+        next unless g.valid? && g.get_attribute('InteriorPro', 'type') == 'electrical'
+        next unless g.get_attribute('InteriorPro', 'mount') == 'ceiling' && g.get_attribute('InteriorPro', 'hole_d').to_f > 0.0
+        hole_lights[g.entityID] = g.get_attribute('InteriorPro', 'room_id').to_s
+      end
+    end
+
+    def self.watch_holes!(model = Sketchup.active_model)
+      return false unless USE_HOLE_FOLLOWS && model && defined?(HoleWatch)
+      scan_hole_lights!(model)
+      @hole_watched ||= {}
+      return false if @hole_watched[model.object_id]
+      model.entities.add_observer(HoleWatch.new)
+      @hole_watched[model.object_id] = true
+    rescue StandardError => e
+      puts "[Electrical] watch_holes!: #{e.message}"
+      false
+    end
+
+    def self.light_removed(eid)
+      rid = hole_lights.delete(eid)
+      return if rid.nil?
+      UI.start_timer(0.05, false) { follow_hole!(rid) }
+    end
+
+    # How many holes the room's ceiling has now (inner loops of its faces).
+    def self.ceiling_hole_count(rid)
+      c = InteriorPro::CeilingManager.ceilings_in_model.find { |g| g.get_attribute('InteriorPro', 'room_id') == rid }
+      c ? c.entities.grep(Sketchup::Face).sum { |f| f.loops.length - 1 } : 0
+    end
+
+    def self.follow_hole!(rid)
+      model = Sketchup.active_model
+      have = ceiling_hole_count(rid)
+      want = InteriorPro::CeilingManager.holes_for(rid, model).length
+      if have <= want
+        trace("light removed: ceiling of #{rid} already has #{have} hole(s) for #{want} light(s) - nothing to do")
+        return
+      end
+      room = InteriorPro::RoomManager.rooms_in_model.find { |r| r.get_attribute('InteriorPro', 'id') == rid }
+      unless room
+        trace("light removed: room #{rid} not found - the ceiling keeps its hole")
+        return
+      end
+      # transparent: it joins the Delete, so one Ctrl+Z brings both back
+      model.start_operation('Close Ceiling Hole', true, false, true)
+      nc = InteriorPro::CeilingManager.build_ceiling_for_room!(room)
+      model.commit_operation
+      trace("light removed: ceiling of #{rid} built again, #{have} -> #{ceiling_hole_count(rid)} hole(s)#{nc ? '' : ' - BUILD FAILED'}")
+    rescue StandardError => e
+      model&.abort_operation
+      trace("light removed: #{e.class} #{e.message}")
+    end
+  end
+end
+
+if defined?(Sketchup::EntitiesObserver) && !defined?(InteriorPro::ElectricalLibrary::HoleWatch)
+  module InteriorPro
+    module ElectricalLibrary
+      class HoleWatch < Sketchup::EntitiesObserver
+        def onElementRemoved(_entities, eid)
+          InteriorPro::ElectricalLibrary.light_removed(eid)
+        rescue StandardError
+          nil
+        end
+      end
+
+      class HoleAppWatch < Sketchup::AppObserver
+        def onOpenModel(model)
+          InteriorPro::ElectricalLibrary.watch_holes!(model)
+        rescue StandardError
+          nil
+        end
+
+        def onNewModel(model)
+          InteriorPro::ElectricalLibrary.watch_holes!(model)
+        rescue StandardError
+          nil
+        end
+      end
+    end
+  end
+  begin
+    unless InteriorPro::ElectricalLibrary.instance_variable_get(:@hole_app_watched)
+      Sketchup.add_observer(InteriorPro::ElectricalLibrary::HoleAppWatch.new)
+      InteriorPro::ElectricalLibrary.instance_variable_set(:@hole_app_watched, true)
+    end
+  rescue StandardError => e
+    puts "[Electrical] app observer: #{e.message}"
+  end
+end
+begin
+  InteriorPro::ElectricalLibrary.watch_holes!(Sketchup.active_model) if Sketchup.respond_to?(:active_model) && Sketchup.active_model
+rescue StandardError => e
+  puts "[Electrical] watch at load: #{e.message}"
 end

@@ -172,8 +172,6 @@ module InteriorPro
           <div class="row" id="heightRow">
             Height from the floor to the middle of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
-          <div class="row" id="helpRow">After you click Place: move along a wall - it stays at this height.
-            Type a number + Enter = that far from the nearer corner to its middle.</div>
           <button onclick="okAll()">#{button}</button>
           <button class="secondary" onclick="sketchup.cancel()">Cancel</button>
           <script>
@@ -223,7 +221,12 @@ module InteriorPro
             }
             // "Recessed 6in Round White" is shown as  Recessed 6" Round White
             // (his words: "שתרשום שאחת היא 6 ואחת היא 4"); the file keeps its name
-            function inches(name) { return String(name).replace(/([0-9]+)in( |$)/g, '$1&quot;$2'); }
+            function inches(name) {
+              // his words: "תרשום רק את סוג המנורה ואת הגודל שלה" - Recessed 4"
+              var m = String(name).match(/([0-9]+)in( |$)/);
+              if (m && CAT[kind] && !CAT[kind].gangs && kind !== 'outlet') return CAT[kind].label + ' ' + m[1] + '&quot;';
+              return String(name).replace(/([0-9]+)in( |$)/g, '$1&quot;$2');
+            }
             function render() {
               document.getElementById('kindGrid').innerHTML = Object.keys(CAT).map(function(k) {
                 var icon = (k === 'outlet' || k === 'switch') ? plateSvg(k, 1) : picOfKind(k);
@@ -246,9 +249,6 @@ module InteriorPro
               document.getElementById('heightRow').style.display = CAT[kind].ceiling ? 'none' : '';
               document.getElementById('counterRow').style.display = (kind === 'outlet' && USE_COUNTER) ? '' : 'none';
               document.getElementById('counter').checked = counter;
-              document.getElementById('helpRow').innerHTML = CAT[kind].ceiling ?
-                'After you click Place: click on the ceiling of a room - it hangs there.' :
-                'After you click Place: move along a wall - it stays at this height. Type a number + Enter = that far from the nearer corner to its middle.';
               var pic = picOf(curProduct());
               var lying = pic.replace('<img ', '<img class="lying" ').replace('<svg ', '<svg class="lying" ');
               document.getElementById('turnGrid').innerHTML =
