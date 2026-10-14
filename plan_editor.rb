@@ -49,6 +49,12 @@ module InteriorPro
     # follows (move_light: the group moved, x_in/y_in, a recessed light's ceiling built again), one undo step.
     # Kill switch: false = a ceiling sign is only picked and deleted, never moved.
     USE_LIGHT_MOVE = true unless const_defined?(:USE_LIGHT_MOVE, false)
+    # MOVE AND EDIT AN OUTLET / SWITCH / WALL LIGHT IN THE DRAWING (2026-10-13 20:26, his "תאפשר להזיז אותו ממקום למקום וגם
+    # לערוך אותו כי שמתי 1 ואני רוצה שיהיו שתיים... וגם על המתגים"): in Select he drags the sign along its wall or onto
+    # another wall - the same green / red as placing - and lets go; two quick presses on it open HIS window with what it is,
+    # Apply makes it that. Both: the old one is taken away and the same thing placed again through the tool's own check and
+    # place!, keeping its id, ONE undo step. Kill switch: false = picked and deleted only.
+    USE_ELEC_MOVE = true unless const_defined?(:USE_ELEC_MOVE, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -165,7 +171,7 @@ module InteriorPro
         )
 
         dlg.add_action_callback('editor_ready') do |_|
-          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'}, #{USE_LIGHT_MOVE ? 'true' : 'false'})")
+          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'}, #{USE_LIGHT_MOVE ? 'true' : 'false'}, #{USE_ELEC_MOVE ? 'true' : 'false'})")
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
@@ -586,7 +592,7 @@ module InteriorPro
             InteriorPro::ElectricalDialog.show(group: 'electrical') do |cfg|
               @elec_cfg = cfg
               InteriorPro::ElectricalLibrary.trace("2D: chose #{cfg['kind']} #{cfg['product']} at #{cfg['height']}")
-              dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
+              dlg.execute_script("elecArmed(#{JSON.generate(cfg.merge(elec_size_of(cfg)))})")
             end
           end
         end
@@ -595,7 +601,23 @@ module InteriorPro
             InteriorPro::ElectricalDialog.show(group: 'lighting') do |cfg|
               @elec_cfg = cfg
               InteriorPro::ElectricalLibrary.trace("2D: chose #{cfg['kind']} #{cfg['product']}")
-              dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
+              dlg.execute_script("elecArmed(#{JSON.generate(cfg.merge(elec_size_of(cfg)))})")
+            end
+          end
+        end
+        dlg.add_action_callback('move_elec') do |_, json|
+          res = move_elec(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
+        end
+        dlg.add_action_callback('elec_edit') do |_, json|
+          r = JSON.parse(json)
+          g = find_elec(r['id'].to_s)
+          if g && USE_ELEC_MOVE && defined?(InteriorPro::ElectricalDialog)
+            cfg0 = elec_cfg_of(g)
+            grp = InteriorPro::ElectricalLibrary.group_of(cfg0['kind'])
+            InteriorPro::ElectricalDialog.show(cfg0, button: 'Apply', group: grp) do |cfg|
+              res = edit_elec(r['id'].to_s, cfg)
+              dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
             end
           end
         end
@@ -1052,10 +1074,19 @@ module InteriorPro
         end
 
         dlg.set_html(build_html)
-        dlg.set_on_closed { detach_undo_observer }
+        # Only the CURRENT window takes the watchers down when it closes. The window the toolbar button replaces is
+        # closed above, and CEF fires its on_closed LATER - after the new window hung its own watchers - which left the
+        # drawing deaf to the model (2026-10-13 20:23: "watcher: NilClass" with the window open; outlets placed from the
+        # drawing showed only after a close and open).
+        dlg.set_on_closed { detach_undo_observer if @dialog.equal?(dlg) }
         attach_undo_observer(dlg)
         dlg.show
         @dialog = dlg
+      end
+
+      # Are the watchers on the open window? (for the measuring files)
+      def watchers_on?
+        !@dialog.nil? && !@undo_obs.nil? && (!USE_ELEC_AUTO || !USE_ELEC_2D || !@elec_obs.nil?)
       end
 
       def attach_undo_observer(dlg)
@@ -1174,7 +1205,8 @@ module InteriorPro
           'id' => attrs['id'].to_s, 'kind' => attrs['kind'].to_s,
           'x' => (cx + nx * back).round(3), 'y' => (cy + ny * back).round(3),
           'nx' => nx.round(5), 'ny' => ny.round(5),
-          'turn' => attrs['turn'].to_i, 'ct' => attrs['countertop'] == true,
+          'turn' => attrs['turn'].to_i, 'ct' => attrs['countertop'] == true, 'h' => attrs['height_in'].to_f,
+          'hh' => attrs['hh'].to_f,
           'gangs' => [attrs['gangs'].to_i, 1].max
         }
       end
@@ -1224,7 +1256,8 @@ module InteriorPro
           bb = g.bounds
           corners = (0..7).map { |i| p = bb.corner(i); [p.x.to_f, p.y.to_f] }
           attrs = {}
-          %w[id kind turn countertop gangs].each { |k| attrs[k] = g.get_attribute('InteriorPro', k) }
+          %w[id kind turn countertop gangs height_in].each { |k| attrs[k] = g.get_attribute('InteriorPro', k) }
+          attrs['hh'] = (bb.max.z.to_f - bb.min.z.to_f) / 2.0
           it = elec_item(attrs, corners, [ya.x, ya.y])
           if it then out << it
           else puts "[PlanEditor] outlet #{attrs['id']} skipped: no direction off the wall"
@@ -2834,6 +2867,104 @@ module InteriorPro
         hit
       end
 
+      # Half the width along the wall and half the height of what the window chose, from the tool's own layout - so the
+      # drawing's green / red is the tool's (a wall light is tall: it is red over a window the plate was not, 2026-10-14 09:33,
+      # his "מנורת קיר לא יכולה להיות מול חלון"). {} for a ceiling kind or when the file is not there.
+      def elec_size_of(cfg)
+        lib = InteriorPro::ElectricalLibrary
+        return {} if lib.ceiling?(cfg['kind'])
+        parts = lib.layout(Sketchup.active_model, cfg)
+        return {} if parts.empty?
+        p = parts.first
+        { 'hw' => ((p[:maxx] - p[:minx]) / 2.0).round(3), 'hh' => ((p[:maxz] - p[:minz]) / 2.0).round(3) }
+      rescue StandardError => e
+        puts "[PlanEditor] elec_size_of: #{e.message}"
+        {}
+      end
+
+      # The electrical group with this id, or nil.
+      def find_elec(id)
+        Sketchup.active_model.entities.to_a.find do |e|
+          (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'electrical' && e.get_attribute('InteriorPro', 'id').to_s == id
+        end
+      end
+
+      # What his window would need to make this one again. PURE on the attributes.
+      def elec_cfg_of(g)
+        a = ->(k) { g.get_attribute('InteriorPro', k) }
+        { 'kind' => a.call('kind').to_s, 'product' => a.call('product').to_s, 'gangs' => [a.call('gangs').to_i, 1].max,
+          'height' => a.call('height_in').to_f, 'turn' => a.call('turn').to_i == 90 ? 90 : 0, 'countertop' => a.call('countertop') == true }
+      end
+
+      # Take one wall thing away and put the same (or an edited) one on wall / side / u, keeping its id. Inside an
+      # operation the caller opened. Returns {ok:, why:}.
+      def replace_elec!(g, wall, side, u, cfg, what)
+        lib = InteriorPro::ElectricalLibrary
+        tw = InteriorPro::TileWall
+        id = g.get_attribute('InteriorPro', 'id').to_s
+        fr = tw.frame_for(wall, side)
+        return { ok: false, why: 'not on a curved wall' } unless fr
+        parts = lib.layout(Sketchup.active_model, cfg)
+        chk = lib.check(wall, side, fr, u, parts, tw.wall_height(wall))
+        unless chk[:ok]
+          why = chk[:outside] ? 'outside of the house' : (chk[:rects].empty? ? 'nothing to place' : 'on a door/window or past the wall end')
+          lib.trace("2D: #{what} #{id} NOT done: wall #{wall.get_attribute('InteriorPro', 'id').to_s[0, 8]} side #{side} u #{u.round(2)}, #{why}")
+          return { ok: false, why: why }
+        end
+        Sketchup.active_model.entities.erase_entities([g])
+        ng = lib.place!(wall: wall, side: side, fr: fr, u: u, cfg: cfg, parts: parts, outs: chk[:outs], op: false)
+        return { ok: false, why: 'see the Ruby Console' } unless ng
+        ng.set_attribute('InteriorPro', 'id', id)
+        lib.trace("2D: #{cfg['kind']} #{id} #{what}: wall #{wall.get_attribute('InteriorPro', 'id').to_s[0, 8]} side #{side} u #{u.round(2)} " \
+                  "height #{cfg['height'].to_f.round(2)} #{cfg['product']}#{cfg['kind'] == 'switch' ? " x#{cfg['gangs']}" : ''}")
+        { ok: true, why: '' }
+      end
+
+      # An outlet / switch / wall light dragged in the drawing to a point on a wall face (USE_ELEC_MOVE). ONE undo step.
+      def move_elec(r)
+        return { ok: false, why: 'switched off' } unless USE_ELEC_MOVE
+        g = find_elec(r['id'].to_s)
+        return { ok: false, why: 'not found' } unless g
+        wall = find_wall(r['wall_id'].to_s)
+        return { ok: false, why: 'wall not found' } unless wall
+        tw = InteriorPro::TileWall
+        pt = Geom::Point3d.new(r['px'].to_f, r['py'].to_f, 0).transform(wall.transformation.inverse)
+        fa = tw.frame_for(wall, 'a')
+        fb = tw.frame_for(wall, 'b')
+        return { ok: false, why: 'not on a curved wall' } unless fa && fb
+        side, u = elec_side_u(fa, fb, pt.x.to_f, pt.y.to_f)
+        model = Sketchup.active_model
+        model.start_operation('Move Electrical', true)
+        res = replace_elec!(g, wall, side, u, elec_cfg_of(g), 'MOVED')
+        res[:ok] ? model.commit_operation : model.abort_operation
+        res
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] move_elec: #{e.class}: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        { ok: false, why: e.message }
+      end
+
+      # The same thing made again as his window now says (two switches instead of one, lying down, 42"...). ONE undo step.
+      def edit_elec(id, cfg)
+        return { ok: false, why: 'switched off' } unless USE_ELEC_MOVE
+        g = find_elec(id)
+        return { ok: false, why: 'not found' } unless g
+        wall = find_wall(g.get_attribute('InteriorPro', 'host_wall_id').to_s)
+        return { ok: false, why: 'its wall is gone' } unless wall
+        side = g.get_attribute('InteriorPro', 'side').to_s
+        u = g.get_attribute('InteriorPro', 'u_in').to_f
+        model = Sketchup.active_model
+        model.start_operation('Edit Electrical', true)
+        res = replace_elec!(g, wall, side, u, cfg, 'EDITED')
+        res[:ok] ? model.commit_operation : model.abort_operation
+        res
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] edit_elec: #{e.class}: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        { ok: false, why: e.message }
+      end
+
       # A ceiling light moved in the drawing (USE_LIGHT_MOVE): the group slides to x, y on its ceiling, x_in/y_in follow,
       # and a recessed light's ceiling is built again so the hole moves with it. ONE undo step. Returns true when it went.
       def move_light(r)
@@ -4079,7 +4210,50 @@ module InteriorPro
             var USE_ELEC_PLACE = false;   // Ruby turns it on (editor_ready -> elecEnable) when USE_ELEC_PLACE_2D
             var USE_LIGHT_PLACE = false;  // Ruby turns it on with elecEnable when USE_LIGHT_2D
             var USE_LIGHT_DRAG = false;   // Ruby turns it on with elecEnable when USE_LIGHT_MOVE
-            function elecEnable(on, light, mv) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; USE_LIGHT_DRAG = !!mv; placeElecBtn(); }
+            var USE_ELEC_DRAG = false;    // Ruby turns it on with elecEnable when USE_ELEC_MOVE
+            function elecEnable(on, light, mv, em) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; USE_LIGHT_DRAG = !!mv; USE_ELEC_DRAG = !!em; placeElecBtn(); }
+            // ---- moving an outlet / switch / wall light in Select (USE_ELEC_MOVE, 2026-10-13 20:26) ----
+            var dragElec = null;     // {id, o, sx0, sy0, moved, h: the wall face under the mouse (elecHit)}
+            function elecDragMove(px, py) {
+              if (!dragElec.moved && Math.hypot(px - dragElec.sx0, py - dragElec.sy0) < 4) return;
+              dragElec.moved = true;
+              // He holds the sign by its circle, 6" off the wall - so the wall is looked for under the mouse, then under the
+              // mouse pulled back onto its own wall, then 6" to either side (measured on his machine 2026-10-14 10:48: picked,
+              // no ghost, because the mouse was never ON the wall band).
+              var pm = { x: mx(px), y: my(py) }, o = dragElec.o, cfgD = { kind: o.kind, gangs: o.gangs, height: o.h, hw: o.w ? o.w / 2 : 0, hh: o.hh };
+              var tries = [pm, { x: pm.x - (o.nx || 0) * 6, y: pm.y - (o.ny || 0) * 6 }, { x: pm.x - 6, y: pm.y }, { x: pm.x + 6, y: pm.y }, { x: pm.x, y: pm.y - 6 }, { x: pm.x, y: pm.y + 6 }];
+              dragElec.h = null;
+              for (var ti = 0; ti < tries.length && !dragElec.h; ti++) dragElec.h = elecHit(tries[ti], cfgD);
+              if (dragElec.h && ti > 1) {            // found by a side step: the mouse pulled straight onto THAT face, so t is the mouse's
+                var hf = dragElec.h, F0 = elecFacePt(hf, 0), nX = hf.b.nx * hf.ns, nY = hf.b.ny * hf.ns, dd = (pm.x - F0.x) * nX + (pm.y - F0.y) * nY;
+                dragElec.h = elecHit({ x: pm.x - nX * dd, y: pm.y - nY * dd }, cfgD) || hf;
+              }
+              draw();
+            }
+            function elecDragEnd() {
+              var d = dragElec; dragElec = null;
+              try {   // every drag writes a line (2026-10-14 10:06, his "המתג הרגיל לא זז בכלל")
+                sketchup.elec_trace('drag ' + d.o.kind + ' ' + d.id + (d.moved ? '' : ' (not moved)') + ': ' + (d.h ? (d.h.ok ? 'GREEN' : 'RED (' + d.h.why + ')') +
+                  ' wall ' + String(d.h.w.id).slice(0, 8) + ' t ' + d.h.t.toFixed(2) + ' on ' + d.h.ta.toFixed(2) + '..' + d.h.tb.toFixed(2) : 'no wall under the mouse') +
+                  ' | sign h ' + d.o.h + ' w ' + d.o.w + ' hh ' + d.o.hh + ' gangs ' + d.o.gangs);
+              } catch (e) {}
+              if (d.moved && d.h && d.h.ok) {
+                var P = elecFacePt(d.h, 1);
+                histModel('move_elec');
+                sketchup.move_elec(JSON.stringify({ id: d.id, wall_id: d.h.w.id, px: P.x, py: P.y }));
+              }
+              draw();
+            }
+            function elecEditOpen(id) { if (USE_ELEC_DRAG) sketchup.elec_edit(JSON.stringify({ id: id })); }
+            // A press on a sign in Select: pick it, and start its drag. true = it was a sign.
+            function elecGrab(p, ev) {
+              var hel = elecPick(p); if (!hel) return false;
+              setSel(null); elecSel = hel.id; updateSelPanel();
+              var ho = elecItem(hel.id);
+              if (USE_LIGHT_DRAG && ho && CEIL_KINDS[ho.kind]) dragLight = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, px0: p.x, py0: p.y, x0: ho.x, y0: ho.y, moved: false, lock: [] };
+              else if (USE_ELEC_DRAG && ho) dragElec = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, moved: false, h: null };
+              draw(); return true;
+            }
             // ---- moving a ceiling light in Select (USE_LIGHT_MOVE, 2026-10-13 20:00) ----
             var dragLight = null;    // {id, o, sx0, sy0, x0, y0, moved, lock}
             var SNAP_LIGHT_PX = 8;
@@ -4207,7 +4381,8 @@ module InteriorPro
             window.addEventListener('load', function() { placeElecBtn(); setTimeout(placeElecBtn, 400); setTimeout(placeElecBtn, 1500); });
             setTimeout(placeElecBtn, 0);
             // The wall face under the mouse: which side, where its two corners are, the distance to the nearer.
-            function elecHit(p) {
+            function elecHit(p, cfgIn) {
+              var cfgE = cfgIn || elecCfg;
               var h = hitWall(p); if (!h || !h.b || !h.w.id) return null;
               var w = h.w, b = h.b, mid = (b.p + b.q) / 2;
               var onP = h.off >= mid, foff = onP ? b.p : b.q, ns = onP ? 1 : -1;
@@ -4220,11 +4395,12 @@ module InteriorPro
                 }
                 if (ts.length === 2) { ta = Math.min(ts[0], ts[1]); tb = Math.max(ts[0], ts[1]); }
               }
-              var t = Math.max(ta, Math.min(tb, h.t)), half = 1.4, ok = t - half >= ta && t + half <= tb;
+              var half = Number(cfgE && cfgE.hw) || 1.4;
+              var t = Math.max(ta, Math.min(tb, h.t)), ok = t - half >= ta && t + half <= tb;
               var why = ok ? '' : 'past the wall end';
               // Red only ON a door or a window - its height too, as the SketchUp tool checks (2026-10-13, his
               // "למה הוא לא נותן לי להציב אותו מתחת לחלון"): a wire runs under a window, a plate does not sit on the glass.
-              var zc = Number(elecCfg && elecCfg.height) || 18, zh = 2.25;
+              var zc = Number(cfgE && cfgE.height) || 18, zh = Number(cfgE && cfgE.hh) || 2.25;
               (w.syms || []).forEach(function(s) {
                 if (Math.abs(t - s.t) >= s.w / 2 + half) return;
                 var z0 = s.body === 'window' ? (s.header || 80) - (s.h || 0) : 0;
@@ -8470,6 +8646,12 @@ module InteriorPro
               });
               ctx.restore();
               if (mode === 'elec' && elecHover) drawElecGhost();
+              if (dragElec && dragElec.moved && dragElec.h) {
+                var dh = dragElec.h, F2 = elecFacePt(dh, 0), dcol = dh.ok ? '#1a9d55' : '#e0392b';
+                elecSign({ x: F2.x, y: F2.y, nx: dh.b.nx * dh.ns, ny: dh.b.ny * dh.ns, kind: dragElec.o.kind, gangs: dragElec.o.gangs, w: dragElec.o.w }, dcol, 1.8);
+                ctx.fillStyle = dcol; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+                ctx.fillText(fmtLen(dh.dist), sx(F2.x + dh.b.nx * dh.ns * 14) + 4, sy(F2.y + dh.b.ny * dh.ns * 14) + 4);
+              }
               if (dragLight && dragLight.lock && dragLight.lock.length) {   // where it locked: magenta, as everywhere
                 ctx.save(); ctx.strokeStyle = '#c026d3'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
                 dragLight.lock.forEach(function(l) {
@@ -10251,13 +10433,7 @@ module InteriorPro
                   return;
                 }
                 // an outlet / switch sign: picked on its own, Delete takes it away (2026-10-13)
-                var hel = elecPick(p);
-                if (hel) {
-                  setSel(null); elecSel = hel.id; updateSelPanel();
-                  var ho = elecItem(hel.id);
-                  if (USE_LIGHT_DRAG && ho && CEIL_KINDS[ho.kind]) dragLight = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, px0: p.x, py0: p.y, x0: ho.x, y0: ho.y, moved: false, lock: [] };
-                  draw(); return;
-                }
+                if (elecGrab(p, ev)) return;
                 if (elecSel) { elecSel = null; draw(); }
                 // an END of an already-selected line: grab it and stretch
                 var hv = hitSketchVertex(p);
@@ -10433,6 +10609,7 @@ module InteriorPro
             function handleMove(px, py) {
               evCount.mm++; updateDbg();
               if (dragLight) { lightDragMove(px, py); return; }
+              if (dragElec) { elecDragMove(px, py); return; }
               if (dimPlace) {                       // new dim follows the cursor
                 cursor = { x:mx(px), y:my(py) };
                 dimOffTo(dimPlace, cursor);
@@ -10609,7 +10786,7 @@ module InteriorPro
             });
             cv.addEventListener('pointermove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight && !dragElec) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -10619,7 +10796,7 @@ module InteriorPro
             });
             window.addEventListener('mousemove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight && !dragElec) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -10629,6 +10806,7 @@ module InteriorPro
               evCount.mu++; updateDbg();
               panning = false;
               if (dragLight) { lightDragEnd(); return; }
+              if (dragElec) { elecDragEnd(); return; }
               if (dragEnd) { finishEndDrag(); return; }
               if (dragDim) { finishDimDrag(); return; }
               if (dragVert) { finishVertexDrag(); return; }
@@ -10670,6 +10848,10 @@ module InteriorPro
             cv.addEventListener('dblclick', function(ev) {
               if (mode !== 'sel' && !(mode === 'line' && lineTool === 'dim')) return;
               var p = { x: mx(ev.offsetX), y: my(ev.offsetY) };
+              if (mode === 'sel' && USE_ELEC_DRAG) {       // two presses on an outlet / switch / wall light: his window, to edit it
+                var he = elecPick(p), heo = he && elecItem(he.id);
+                if (heo && !CEIL_KINDS[heo.kind]) { dragElec = null; elecSel = heo.id; ev.preventDefault(); elecEditOpen(heo.id); return; }
+              }
               var hd = hitDim(p);
               if (!hd) return;
               dragDim = null;
@@ -10677,6 +10859,18 @@ module InteriorPro
               editDimText(hd.d);
             });
             cv.addEventListener('contextmenu', function(ev) { ev.preventDefault(); });
+            // A sign over a cabinet (2026-10-14 09:32, his "הגרירה לא עובדת ב-2D"): the kitchen's own mousedown (capture, hooked
+            // later) takes a press on a cabinet for itself and stops it - and an outlet's sign lies over the cabinet under it.
+            // So the sign is looked at FIRST, in capture, before the kitchen: a press on a sign is ours and goes no further.
+            // Hooked after the main mousedown so the tests' listener order stays; in the browser capture runs first anyway.
+            cv.addEventListener('mousedown', function(ev) {
+              if (activePage !== 0 || mode !== 'sel' || ev.button !== 0 || ev.shiftKey || ev.ctrlKey || ev.metaKey) return;
+              var p = { x: mx(ev.offsetX), y: my(ev.offsetY) };
+              if (!elecPick(p)) return;
+              evCount.md++; updateDbg();
+              if (typeof armHiddenUndo === 'function') setTimeout(armHiddenUndo, 0);
+              if (elecGrab(p, ev)) { ev.preventDefault(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
+            }, true);
             // anywhere else, or a key, puts the little menu away again
             window.addEventListener('mousedown', function(ev) {
               var el = document.getElementById('canvasMenu');
@@ -10778,6 +10972,7 @@ module InteriorPro
               }
               if (ev.key === 'Escape') {
                 if (dragLight) { dragLight.o.x = dragLight.x0; dragLight.o.y = dragLight.y0; dragLight = null; draw(); return; }   // iron law 1
+                if (dragElec) { dragElec = null; draw(); return; }
                 if (originMode) { toggleOriginMode(); return; }
                 if (guideMode) { toggleGuideMode(); return; }
                 if (rotOp) { rotCancel(); return; }

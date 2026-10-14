@@ -17,7 +17,7 @@ ok('one undo step', m.include?("model.start_operation('Move Light', true)") && m
 ok('the group slides by the difference and x_in / y_in follow', m.include?('Geom::Vector3d.new(x - x0, y - y0, 0)') && m.include?("set_attribute('InteriorPro', 'x_in', x)") && m.include?("set_attribute('InteriorPro', 'y_in', y)"))
 ok('a recessed light: its room\'s ceiling is built again (the hole moves)', m.include?("hole_d').to_f > 0.0") && m.include?('build_ceiling_for_room!(room)'))
 ok('only a ceiling light; anything else is refused with a line', m.include?("mount').to_s == 'ceiling'") && m.include?('not found on a ceiling - nothing moved'))
-ok('the window is told the switch (elecEnable third flag)', src.include?("#{'#'}{USE_LIGHT_MOVE ? 'true' : 'false'})"))
+ok('the window is told the switch (elecEnable third flag)', src.include?("#{'#'}{USE_LIGHT_MOVE ? 'true' : 'false'}, "))
 ok('Escape mid-drag puts it back (iron law 1)', src.include?('if (dragLight) { dragLight.o.x = dragLight.x0; dragLight.o.y = dragLight.y0; dragLight = null; draw(); return; }'))
 %w[plan_canvas.rb plan_sheet_dialog.rb].each do |f|
   next unless File.exist?(f)
