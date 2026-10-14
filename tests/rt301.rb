@@ -42,7 +42,7 @@ ok('his own window opens (group electrical)', src.include?("InteriorPro::Electri
 ok('the button is turned on by Ruby, behind the kill switch', src.include?("elecEnable(\#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, "))
 # DELETE FROM THE DRAWING (his 13:55)
 d = src[/def delete_elec\(r\).*?\n      end\n/m].to_s
-ok('delete: only an electrical group with that id, one undo step', d.include?("== 'electrical'") && d.include?("start_operation('Delete Electrical', true)") && d.include?('erase_entities([g])') && d.include?('commit_operation'))
+ok('delete: an electrical group with that id (a plumbing one too since 2026-10-14), one undo step', d.include?("== 'electrical'") && d.include?("'Delete Electrical'") && d.include?('erase_entities([g])') && d.include?('commit_operation'))
 ok('delete: a missing id says so', d.include?('not found - nothing deleted'))
 ok('delete: written in the trace', d.include?('DELETED'))
 puts($fails.zero? ? "\nALL PASS" : "\n#{$fails} FAILED")

@@ -55,6 +55,23 @@ module InteriorPro
     # Apply makes it that. Both: the old one is taken away and the same thing placed again through the tool's own check and
     # place!, keeping its id, ONE undo step. Kill switch: false = picked and deleted only.
     USE_ELEC_MOVE = true unless const_defined?(:USE_ELEC_MOVE, false)
+    # PLUMBING IN HIS DRAWING (2026-10-14 11:18, his "מעולה" on plumb_signs.png; "משהו יותר פשוט ומקצועי, זה רק לסימון
+    # בסירטוט, זה לא ה-PDF"): every plumbing product on the level is sent with the outlets and drawn as a simple black
+    # plan sign at ITS REAL SIZE from above (the box of his file): a shower set = only the head (a 1" pipe off the wall
+    # and a double circle), a toilet = tank + oval bowl, a vanity = counter + oval basin + faucet, a tub = rounded
+    # rectangle + basin + drain, a free standing tub (file name has "free") = an ellipse + floor faucet. Only shown
+    # (not picked, not moved) - step 1. Kill switch: false = no plumbing in the drawing.
+    USE_PLUMB_2D = true unless const_defined?(:USE_PLUMB_2D, false)
+    # PLACE PLUMBING FROM THE DRAWING (2026-10-14 12:13, his pick "1"): a Plumbing button under Lighting opens HIS
+    # Plumbing window (FixtureDialog, the same as in SketchUp); then the product's sign follows the mouse on a wall face
+    # in green / red with its distance from the nearer corner; a click - or a number + Enter - places it through the
+    # SketchUp tool's own check and place! (a shower head only on tile, a tub with its gap). Kill switch: false = no button.
+    USE_PLUMB_PLACE_2D = true unless const_defined?(:USE_PLUMB_PLACE_2D, false)
+    # PICK, DELETE AND MOVE A PLUMBING PRODUCT IN THE DRAWING (2026-10-14 12:22, his "תמשיך ל-2"): in Select a press on its
+    # sign picks it (blue), Delete takes it away (delete_elec finds a fixture too), a drag along its wall or onto another
+    # wall shows it green / red as when placing and lets go through the fixture tool's own check and place! (the same id,
+    # ONE undo step - move_plumb). Kill switch: false = shown only, as in step 1.
+    USE_PLUMB_MOVE = true unless const_defined?(:USE_PLUMB_MOVE, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -171,7 +188,7 @@ module InteriorPro
         )
 
         dlg.add_action_callback('editor_ready') do |_|
-          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'}, #{USE_LIGHT_MOVE ? 'true' : 'false'}, #{USE_ELEC_MOVE ? 'true' : 'false'})")
+          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'}, #{USE_LIGHT_MOVE ? 'true' : 'false'}, #{USE_ELEC_MOVE ? 'true' : 'false'}, #{USE_PLUMB_2D && USE_PLUMB_PLACE_2D ? 'true' : 'false'}, #{USE_PLUMB_2D && USE_PLUMB_MOVE ? 'true' : 'false'})")
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
@@ -604,6 +621,24 @@ module InteriorPro
               dlg.execute_script("elecArmed(#{JSON.generate(cfg.merge(elec_size_of(cfg)))})")
             end
           end
+        end
+        # Plumbing from the drawing (USE_PLUMB_PLACE_2D): his Plumbing window first, then the clicks.
+        dlg.add_action_callback('plumb_pick') do |_, _|
+          if USE_PLUMB_2D && USE_PLUMB_PLACE_2D && defined?(InteriorPro::FixtureDialog)
+            InteriorPro::FixtureDialog.show do |cfg|
+              @plumb_cfg = cfg
+              InteriorPro::ElectricalLibrary.trace("2D plumbing: chose #{cfg['kind']} #{cfg['product']}") if defined?(InteriorPro::ElectricalLibrary)
+              dlg.execute_script("elecArmed(#{JSON.generate(plumb_armed(cfg))})")
+            end
+          end
+        end
+        dlg.add_action_callback('place_plumb') do |_, json|
+          res = place_plumb(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
+        end
+        dlg.add_action_callback('move_plumb') do |_, json|
+          res = move_plumb(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
         end
         dlg.add_action_callback('move_elec') do |_, json|
           res = move_elec(JSON.parse(json))
@@ -1263,9 +1298,81 @@ module InteriorPro
           else puts "[PlanEditor] outlet #{attrs['id']} skipped: no direction off the wall"
           end
         end
-        out
+        out + plumb_payload(model)
       rescue StandardError => e
         puts "[PlanEditor] elec_payload: #{e.class}: #{e.message}"
+        []
+      end
+
+      # Which sign a product gets (plumb_signs.png): a shower set = its head only; a tub whose file name says
+      # "free" (Free standing ...) = the ellipse. nil = no sign for this kind. PURE.
+      def plumb_sign_of(kind, product)
+        case kind.to_s
+        when 'shower_set' then 'head'
+        when 'toilet' then 'toilet'
+        when 'vanity' then 'vanity'
+        when 'tub' then product.to_s.downcase.include?('free') ? 'fs_tub' : 'tub'
+        end
+      end
+
+      # One plumbing product for the canvas (USE_PLUMB_2D): the corners of its box (world, [x, y]) laid on its
+      # wall's frame - u along the wall (ux, uy), n out of it (nx, ny) - give how wide it is along the wall (w),
+      # where it starts and ends out of the wall (a0, a1), and the point on the wall face under its middle. PURE.
+      def plumb_item(attrs, corners, fr, zs = nil)
+        return nil if corners.nil? || corners.empty? || fr.nil?
+        nx, ny, ux, uy, ox, oy = fr[:nx].to_f, fr[:ny].to_f, fr[:ux].to_f, fr[:uy].to_f, fr[:ox].to_f, fr[:oy].to_f
+        outs = corners.map { |c| (c[0].to_f - ox) * nx + (c[1].to_f - oy) * ny }
+        alongs = corners.map { |c| (c[0].to_f - ox) * ux + (c[1].to_f - oy) * uy }
+        um = (alongs.min + alongs.max) / 2.0
+        w = alongs.max - alongs.min
+        return nil if w <= 0.0 || outs.max - outs.min <= 0.0
+        prod = attrs['product'].to_s
+        sign = plumb_sign_of(attrs['kind'], prod)
+        return nil unless sign
+        { 'id' => attrs['id'].to_s, 'kind' => 'plumb', 'sign' => sign, 'product' => prod,
+          'x' => (ox + ux * um).round(3), 'y' => (oy + uy * um).round(3),
+          'nx' => nx.round(5), 'ny' => ny.round(5),
+          'w' => w.round(3), 'a0' => outs.min.round(3), 'a1' => outs.max.round(3),
+          # its height band from the floor (for the drag's door / window check, like an outlet's h / hh)
+          'h' => zs ? ((zs[0].to_f + zs[1].to_f) / 2.0).round(3) : 0.0, 'hh' => zs ? ((zs[1].to_f - zs[0].to_f) / 2.0).round(3) : 0.0 }
+      end
+
+      # Every plumbing product on the active level, as the fixture tool placed it: a shower set gives only its
+      # head part; the others their body (the component, not a deck built around it).
+      def plumb_payload(model = Sketchup.active_model)
+        return [] unless USE_PLUMB_2D && defined?(InteriorPro::FixtureLibrary) && defined?(InteriorPro::TileWall)
+        lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
+        out = []
+        model.entities.to_a.each do |g|
+          next unless (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) && g.valid?
+          next unless g.get_attribute('InteriorPro', 'type') == 'fixture'
+          wall = InteriorPro::FixtureLibrary.host_wall(g, model)
+          unless wall
+            puts "[PlanEditor] fixture #{g.get_attribute('InteriorPro', 'id')} skipped: its wall is gone"
+            next
+          end
+          next unless (wall.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+          fr = InteriorPro::TileWall.frame_for(wall, g.get_attribute('InteriorPro', 'side'))
+          next unless fr
+          kind = g.get_attribute('InteriorPro', 'kind').to_s
+          insts = g.definition.entities.grep(Sketchup::ComponentInstance)
+          inst = kind == 'shower_set' ? insts.find { |e| e.get_attribute('InteriorPro', 'part').to_s == 'head' } : insts.first
+          unless inst
+            puts "[PlanEditor] fixture #{g.get_attribute('InteriorPro', 'id')} skipped: no #{kind == 'shower_set' ? 'head' : 'body'} inside"
+            next
+          end
+          bb = inst.bounds
+          corners = (0..7).map { |i| p = bb.corner(i).transform(g.transformation); [p.x.to_f, p.y.to_f] }
+          zs = [bb.min.z.to_f - fr[:floor_z].to_f, bb.max.z.to_f - fr[:floor_z].to_f]
+          it = plumb_item({ 'id' => g.get_attribute('InteriorPro', 'id'), 'kind' => kind,
+                            'product' => g.get_attribute('InteriorPro', 'product') }, corners, fr, zs)
+          if it then out << it
+          else puts "[PlanEditor] fixture #{g.get_attribute('InteriorPro', 'id')} skipped: empty box"
+          end
+        end
+        out
+      rescue StandardError => e
+        puts "[PlanEditor] plumb_payload: #{e.class}: #{e.message}"
         []
       end
 
@@ -2791,15 +2898,17 @@ module InteriorPro
           (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid? &&
             e.get_attribute('InteriorPro', 'type') == 'electrical' && e.get_attribute('InteriorPro', 'id').to_s == id
         end
+        g ||= find_plumb(id) if USE_PLUMB_MOVE   # a plumbing product picked in the drawing (2026-10-14)
         unless g
           puts "[PlanEditor] delete_elec: #{id} not found - nothing deleted"
           return false
         end
         kind = g.get_attribute('InteriorPro', 'kind')
-        model.start_operation('Delete Electrical', true)
+        plumb = g.get_attribute('InteriorPro', 'type') == 'fixture'
+        model.start_operation(plumb ? 'Delete Plumbing' : 'Delete Electrical', true)
         model.entities.erase_entities([g])
         model.commit_operation
-        InteriorPro::ElectricalLibrary.trace("2D: #{kind} #{id} DELETED") if defined?(InteriorPro::ElectricalLibrary)
+        InteriorPro::ElectricalLibrary.trace("2D#{plumb ? ' plumbing' : ''}: #{kind} #{id} DELETED") if defined?(InteriorPro::ElectricalLibrary)
         true
       rescue StandardError => e
         model&.abort_operation
@@ -3033,6 +3142,130 @@ module InteriorPro
       end
 
       # One outlet / switch from the drawing: the SketchUp tool's own check and place!. {ok:, why:}
+      # What the drawing needs to show the ghost of what he chose in the Plumbing window: kind 'plumb' for the canvas,
+      # the sign, half its width along the wall (hw) and where its middle sits off its line (bo), a0..a1 out of the
+      # wall, its height band (height, hh) for the door / window check. A shower set = its head part. {} = nothing.
+      def plumb_armed(cfg)
+        lib = InteriorPro::FixtureLibrary
+        parts = lib.layout(Sketchup.active_model, cfg)
+        p = cfg['kind'].to_s == 'shower_set' ? parts.find { |q| q[:part].to_s == 'head' } : parts.first
+        base = { 'kind' => 'plumb', 'plumb' => true, 'fkind' => cfg['kind'].to_s, 'product' => cfg['product'].to_s,
+                 'sign' => plumb_sign_of(cfg['kind'], cfg['product']) }
+        return base.merge('hw' => 0, 'a0' => 0, 'a1' => 0) unless p
+        gap = p[:gap].to_f
+        base.merge('hw' => ((p[:maxx] - p[:minx]) / 2.0).round(3),
+                   'bo' => ((p[:minx] + p[:maxx]) / 2.0 - p[:ax].to_f + p[:du].to_f).round(3),
+                   'a0' => gap.round(3), 'a1' => (gap + p[:maxy] - p[:miny]).round(3),
+                   'height' => (p[:h].to_f + (p[:minz] + p[:maxz]) / 2.0 - p[:az].to_f).round(3),
+                   'hh' => ((p[:maxz] - p[:minz]) / 2.0).round(3))
+      rescue StandardError => e
+        puts "[PlanEditor] plumb_armed: #{e.message}"
+        { 'kind' => 'plumb', 'plumb' => true, 'hw' => 0, 'a0' => 0, 'a1' => 0 }
+      end
+
+      # A plumbing product from the drawing: the wall face under his click, the SketchUp tool's own check (tile under
+      # a shower head, no hole under a part, inside the clear run) and place! - exactly as the Plumbing tool does it.
+      def place_plumb(r)
+        cfg = @plumb_cfg
+        return { ok: false, why: 'choose in the window first' } unless cfg
+        lib = InteriorPro::FixtureLibrary
+        tw = InteriorPro::TileWall
+        tr = ->(m) { InteriorPro::ElectricalLibrary.trace("2D plumbing: #{m}") if defined?(InteriorPro::ElectricalLibrary) }
+        wall = find_wall(r['wall_id'].to_s)
+        unless wall
+          tr.call("wall #{r['wall_id']} not found - nothing placed")
+          return { ok: false, why: 'wall not found' }
+        end
+        pt = Geom::Point3d.new(r['px'].to_f, r['py'].to_f, 0).transform(wall.transformation.inverse)
+        fa = tw.frame_for(wall, 'a')
+        fb = tw.frame_for(wall, 'b')
+        unless fa && fb
+          tr.call("wall #{r['wall_id'].to_s[0, 8]} has no faces (curved?) - nothing placed")
+          return { ok: false, why: 'not on a curved wall' }
+        end
+        side, u = elec_side_u(fa, fb, pt.x.to_f, pt.y.to_f)
+        fr = side == 'a' ? fa : fb
+        model = Sketchup.active_model
+        parts = lib.layout(model, cfg)
+        return { ok: false, why: 'nothing to place' } if parts.empty?
+        if r['dist'] && r['dist'].to_f > 0.0
+          lo, hi = tw.face_limits(wall, fr, u)
+          u = lib.u_from_corner(r['dist'].to_f, lo, hi, u)
+        end
+        chk = lib.check(wall, side, fr, u, parts, cfg['kind'], tw.wall_height(wall))
+        wid = r['wall_id'].to_s[0, 8]
+        unless chk[:ok]
+          why = chk[:no_tile] ? 'only on a tiled wall' : chk[:outside] ? 'outside of the house' :
+                chk[:on_hole] ? 'on a door/window/niche' : 'past the wall end or over the top'
+          tr.call("#{cfg['kind']} NOT placed: wall #{wid} side #{side} u #{u.round(2)} on #{chk[:lo].to_f.round(2)}..#{chk[:hi].to_f.round(2)}, #{why}")
+          return { ok: false, why: why }
+        end
+        grp = lib.place!(wall: wall, side: side, fr: fr, u: u, cfg: cfg, parts: parts, outs: chk[:outs])
+        tr.call("#{cfg['kind']} #{cfg['product']} #{grp ? 'PLACED' : 'FAILED'}: wall #{wid} side #{side} u #{u.round(2)}#{r['dist'] ? " typed #{r['dist']}" : ''}")
+        grp ? { ok: true, why: '' } : { ok: false, why: 'see the Ruby Console' }
+      rescue StandardError => e
+        puts "[PlanEditor] place_plumb: #{e.class}: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        InteriorPro::ElectricalLibrary.trace("2D plumbing: place_plumb ERROR #{e.class}: #{e.message} @ #{e.backtrace.first}") rescue nil
+        { ok: false, why: e.message }
+      end
+
+      # The plumbing product (fixture group) with this id, or nil.
+      def find_plumb(id)
+        Sketchup.active_model.entities.to_a.find do |e|
+          (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'fixture' && e.get_attribute('InteriorPro', 'id').to_s == id
+        end
+      end
+
+      # A plumbing product dragged in the drawing: the same product (its own settings) placed again on the wall face
+      # he let go on - the fixture tool's own check and place! - the old one taken away, the id kept. ONE undo step.
+      def move_plumb(r)
+        return { ok: false, why: 'switched off' } unless USE_PLUMB_MOVE
+        g = find_plumb(r['id'].to_s)
+        return { ok: false, why: 'not found' } unless g
+        wall = find_wall(r['wall_id'].to_s)
+        return { ok: false, why: 'wall not found' } unless wall
+        lib = InteriorPro::FixtureLibrary
+        tw = InteriorPro::TileWall
+        tr = ->(m) { InteriorPro::ElectricalLibrary.trace("2D plumbing: #{m}") if defined?(InteriorPro::ElectricalLibrary) }
+        pt = Geom::Point3d.new(r['px'].to_f, r['py'].to_f, 0).transform(wall.transformation.inverse)
+        fa = tw.frame_for(wall, 'a')
+        fb = tw.frame_for(wall, 'b')
+        return { ok: false, why: 'not on a curved wall' } unless fa && fb
+        side, u = elec_side_u(fa, fb, pt.x.to_f, pt.y.to_f)
+        fr = side == 'a' ? fa : fb
+        cfg = lib.settings_of(g).reject { |k, _| k == 'corner' }
+        model = Sketchup.active_model
+        parts = lib.layout(model, cfg)
+        return { ok: false, why: 'nothing to place' } if parts.empty?
+        chk = lib.check(wall, side, fr, u, parts, cfg['kind'], tw.wall_height(wall))
+        id = r['id'].to_s
+        wid = r['wall_id'].to_s[0, 8]
+        unless chk[:ok]
+          why = chk[:no_tile] ? 'only on a tiled wall' : chk[:outside] ? 'outside of the house' :
+                chk[:on_hole] ? 'on a door/window/niche' : 'past the wall end or over the top'
+          tr.call("#{cfg['kind']} #{id} NOT moved: wall #{wid} side #{side} u #{u.round(2)}, #{why}")
+          return { ok: false, why: why }
+        end
+        model.start_operation('Move Plumbing', true)
+        made = lib.place!(wall: wall, side: side, fr: fr, u: u, cfg: cfg, parts: parts, outs: chk[:outs], op: false)
+        unless made
+          model.abort_operation
+          tr.call("#{cfg['kind']} #{id} NOT moved: place! failed (see the Ruby Console)")
+          return { ok: false, why: 'see the Ruby Console' }
+        end
+        made.set_attribute('InteriorPro', 'id', id)
+        model.entities.erase_entities([g])
+        model.commit_operation
+        tr.call("#{cfg['kind']} #{id} MOVED: wall #{wid} side #{side} u #{u.round(2)}")
+        { ok: true, why: '' }
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] move_plumb: #{e.class}: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+        InteriorPro::ElectricalLibrary.trace("2D plumbing: move_plumb ERROR #{e.class}: #{e.message} @ #{e.backtrace.first}") rescue nil
+        { ok: false, why: e.message }
+      end
+
       def place_elec(r)
         cfg = @elec_cfg
         return { ok: false, why: 'choose in the window first' } unless cfg
@@ -3759,7 +3992,9 @@ module InteriorPro
               document.getElementById('modeWin').className = (m === 'win' ? 'on ' : '') + 'modebtn';
               document.getElementById('modeLine').className = (m === 'line' ? 'on ' : '') + 'modebtn';
               var meb = document.getElementById('modeElec');
-              if (meb) meb.className = (m === 'elec' ? 'on ' : '') + 'modebtn';
+              if (meb) meb.className = (m === 'elec' && !elecPlumb() ? 'on ' : '') + 'modebtn';
+              var mpb = document.getElementById('modePlumb');
+              if (mpb) mpb.className = (m === 'elec' && elecPlumb() ? 'on ' : '') + 'modebtn';
               if (m !== 'elec') { elecHover = null; elecMsg = null; }
               elecSel = null;
               document.getElementById('secSel').style.display = m === 'sel' ? '' : 'none';
@@ -4211,7 +4446,9 @@ module InteriorPro
             var USE_LIGHT_PLACE = false;  // Ruby turns it on with elecEnable when USE_LIGHT_2D
             var USE_LIGHT_DRAG = false;   // Ruby turns it on with elecEnable when USE_LIGHT_MOVE
             var USE_ELEC_DRAG = false;    // Ruby turns it on with elecEnable when USE_ELEC_MOVE
-            function elecEnable(on, light, mv, em) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; USE_LIGHT_DRAG = !!mv; USE_ELEC_DRAG = !!em; placeElecBtn(); }
+            var USE_PLUMB_PLACE = false;  // Ruby turns it on with elecEnable when USE_PLUMB_PLACE_2D
+            var USE_PLUMB_DRAG = false;   // Ruby turns it on with elecEnable when USE_PLUMB_MOVE
+            function elecEnable(on, light, mv, em, pl, pm) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; USE_LIGHT_DRAG = !!mv; USE_ELEC_DRAG = !!em; USE_PLUMB_PLACE = !!pl; USE_PLUMB_DRAG = !!pm; placeElecBtn(); }
             // ---- moving an outlet / switch / wall light in Select (USE_ELEC_MOVE, 2026-10-13 20:26) ----
             var dragElec = null;     // {id, o, sx0, sy0, moved, h: the wall face under the mouse (elecHit)}
             function elecDragMove(px, py) {
@@ -4222,10 +4459,23 @@ module InteriorPro
               // no ghost, because the mouse was never ON the wall band).
               var pm = { x: mx(px), y: my(py) }, o = dragElec.o, cfgD = { kind: o.kind, gangs: o.gangs, height: o.h, hw: o.w ? o.w / 2 : 0, hh: o.hh };
               var tries = [pm, { x: pm.x - (o.nx || 0) * 6, y: pm.y - (o.ny || 0) * 6 }, { x: pm.x - 6, y: pm.y }, { x: pm.x + 6, y: pm.y }, { x: pm.x, y: pm.y - 6 }, { x: pm.x, y: pm.y + 6 }];
+              if (o.kind === 'plumb') {             // a tub is held by its middle, 15" off the wall (12:28, "היא לא זזה"): pull back by its own depth,
+                var dds = [];                       // every 2" up to it (a shower head's 9" missed the band between 7 and 14 - 12:32)
+                for (var dd0 = 2; dd0 <= o.a1 + 8; dd0 += 2) dds.push(dd0);
+                dds.forEach(function(dd) {
+                  tries.splice(1, 0, { x: pm.x - (o.nx || 0) * dd, y: pm.y - (o.ny || 0) * dd });
+                  tries.push({ x: pm.x - 6 - (o.nx || 0) * dd, y: pm.y - (o.ny || 0) * dd }, { x: pm.x + 6 - (o.nx || 0) * dd, y: pm.y - (o.ny || 0) * dd },
+                             { x: pm.x - (o.nx || 0) * dd, y: pm.y - 6 - (o.ny || 0) * dd }, { x: pm.x - (o.nx || 0) * dd, y: pm.y + 6 - (o.ny || 0) * dd });
+                });
+              }
               dragElec.h = null;
               for (var ti = 0; ti < tries.length && !dragElec.h; ti++) dragElec.h = elecHit(tries[ti], cfgD);
               if (dragElec.h && ti > 1) {            // found by a side step: the mouse pulled straight onto THAT face, so t is the mouse's
                 var hf = dragElec.h, F0 = elecFacePt(hf, 0), nX = hf.b.nx * hf.ns, nY = hf.b.ny * hf.ns, dd = (pm.x - F0.x) * nX + (pm.y - F0.y) * nY;
+                if (dd < 0) {                       // the mouse is BEHIND that face: it is the far one (a shower head pulled 14" back landed
+                  var fo = hf.foff === hf.b.p ? hf.b.q : hf.b.p;   // on side b, 12:36) - take the face that looks at the mouse
+                  dragElec.h = elecHit({ x: hf.w.sx + hf.b.ux * hf.t + hf.b.nx * fo, y: hf.w.sy + hf.b.uy * hf.t + hf.b.ny * fo }, cfgD) || hf;
+                } else
                 dragElec.h = elecHit({ x: pm.x - nX * dd, y: pm.y - nY * dd }, cfgD) || hf;
               }
               draw();
@@ -4239,8 +4489,13 @@ module InteriorPro
               } catch (e) {}
               if (d.moved && d.h && d.h.ok) {
                 var P = elecFacePt(d.h, 1);
-                histModel('move_elec');
-                sketchup.move_elec(JSON.stringify({ id: d.id, wall_id: d.h.w.id, px: P.x, py: P.y }));
+                if (d.o.kind === 'plumb') {       // the fixture tool's own check and place! (move_plumb)
+                  histModel('move_plumb');
+                  sketchup.move_plumb(JSON.stringify({ id: d.id, wall_id: d.h.w.id, px: P.x, py: P.y }));
+                } else {
+                  histModel('move_elec');
+                  sketchup.move_elec(JSON.stringify({ id: d.id, wall_id: d.h.w.id, px: P.x, py: P.y }));
+                }
               }
               draw();
             }
@@ -4251,6 +4506,7 @@ module InteriorPro
               setSel(null); elecSel = hel.id; updateSelPanel();
               var ho = elecItem(hel.id);
               if (USE_LIGHT_DRAG && ho && CEIL_KINDS[ho.kind]) dragLight = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, px0: p.x, py0: p.y, x0: ho.x, y0: ho.y, moved: false, lock: [] };
+              else if (ho && ho.kind === 'plumb') { if (USE_PLUMB_DRAG) dragElec = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, moved: false, h: null }; }
               else if (USE_ELEC_DRAG && ho) dragElec = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, moved: false, h: null };
               draw(); return true;
             }
@@ -4328,6 +4584,8 @@ module InteriorPro
             var CEIL_KINDS = { ceiling_light: 1, recessed: 1, ceiling_fan: 1 };
             function elecCeiling() { return !!(elecCfg && CEIL_KINDS[elecCfg.kind]); }
             function lightStart() { if (USE_LIGHT_PLACE) sketchup.light_pick(''); }
+            function plumbStart() { if (USE_PLUMB_PLACE) sketchup.plumb_pick(''); }
+            function elecPlumb() { return !!(elecCfg && elecCfg.plumb); }
             var elecCfg = null;      // what he chose in his window
             var elecHover = null;    // {w, b, t, foff, ns, ta, tb, ok, dist}
             var elecMsg = null;      // why the last click placed nothing
@@ -4375,8 +4633,16 @@ module InteriorPro
                   '<path d="M9 18h6M10 21h4M8.5 14.5a5.5 5.5 0 1 1 7 0c-.9.8-1.5 1.5-1.5 3h-4c0-1.5-.6-2.2-1.5-3z"/></g></svg><span>Lighting</span>';
                 lb.onclick = lightStart;
               }
-              var last = lb || b;
-              if (host.lastElementChild !== last) { host.appendChild(sep); host.appendChild(b); if (lb) host.appendChild(lb); }
+              var pb = USE_PLUMB_PLACE ? document.getElementById('modePlumb') : null;
+              if (USE_PLUMB_PLACE && !pb) {       // Plumbing (2026-10-14): a tap, under Lighting
+                pb = document.createElement('button'); pb.type = 'button'; pb.id = 'modePlumb'; pb.className = 'modebtn';
+                pb.title = 'Plumbing';
+                pb.innerHTML = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">' +
+                  '<path d="M12 4v4M9 4h6M8 8h8v3H8zM10 11v4h4v-4M10 15h-3v5h10v-5h-3"/></g></svg><span>Plumbing</span>';
+                pb.onclick = plumbStart;
+              }
+              var last = pb || lb || b;
+              if (host.lastElementChild !== last) { host.appendChild(sep); host.appendChild(b); if (lb) host.appendChild(lb); if (pb) host.appendChild(pb); }
             }
             window.addEventListener('load', function() { placeElecBtn(); setTimeout(placeElecBtn, 400); setTimeout(placeElecBtn, 1500); });
             setTimeout(placeElecBtn, 0);
@@ -4453,6 +4719,11 @@ module InteriorPro
             }
             function elecSend(h, dist) {
               var P = elecFacePt(h, 1);
+              if (elecPlumb()) {                  // a plumbing product: the fixture tool's own check and place!
+                histModel('place_plumb');
+                sketchup.place_plumb(JSON.stringify({ wall_id: h.w.id, px: P.x, py: P.y, dist: dist || null }));
+                return;
+              }
               histModel('place_elec');
               sketchup.place_elec(JSON.stringify({ wall_id: h.w.id, px: P.x, py: P.y, dist: dist || null }));
             }
@@ -4472,6 +4743,11 @@ module InteriorPro
               }
               var F = elecFacePt(h, 0), nx = h.b.nx * h.ns, ny = h.b.ny * h.ns;
               var col = h.ok ? '#1a9d55' : '#e0392b';
+              if (elecPlumb()) {                  // the product's own sign, at its real size, where it would go
+                var bo = Number(elecCfg.bo) || 0;
+                plumbSign({ x: F.x - ny * bo, y: F.y + nx * bo, nx: nx, ny: ny, sign: elecCfg.sign, w: Number(elecCfg.hw) * 2 || 6,
+                            a0: Number(elecCfg.a0) || 0, a1: Number(elecCfg.a1) || 6 }, col, true);
+              } else
               elecSign({ x: F.x, y: F.y, nx: nx, ny: ny, kind: (elecCfg && elecCfg.kind) || 'outlet', gangs: (elecCfg && elecCfg.gangs) || 1 }, col, 1.8);
               var L = { x: F.x + nx * 14, y: F.y + ny * 14 };
               ctx.fillStyle = col; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
@@ -8634,6 +8910,12 @@ module InteriorPro
               ctx.save();
               ctx.strokeStyle = '#d0312d'; ctx.lineWidth = 1.3; ctx.setLineDash([]);
               elecItems.forEach(function(o) {
+                if (o.kind === 'plumb') {             // a plumbing product: picked (blue) and dragged when Ruby allows it
+                  var pk = USE_PLUMB_DRAG && elecSel && o.id === elecSel;
+                  plumbSign(o, pk ? '#2f6bd8' : null);
+                  if (USE_PLUMB_DRAG) elecShown.push({ id: o.id, kind: 'plumb', x: o.x + o.nx * (o.a0 + o.a1) / 2, y: o.y + o.ny * (o.a0 + o.a1) / 2, r: Math.max(o.w, o.a1 - o.a0) / 2 });
+                  return;
+                }
                 var picked = elecSel && o.id === elecSel;
                 if (CEIL_KINDS[o.kind]) {             // on the ceiling: at its real size from above (light_signs.png)
                   lightSign(o, picked ? '#2f6bd8' : '#d0312d', picked ? 2.4 : 1.3);
@@ -8648,6 +8930,8 @@ module InteriorPro
               if (mode === 'elec' && elecHover) drawElecGhost();
               if (dragElec && dragElec.moved && dragElec.h) {
                 var dh = dragElec.h, F2 = elecFacePt(dh, 0), dcol = dh.ok ? '#1a9d55' : '#e0392b';
+                if (dragElec.o.kind === 'plumb') plumbSign({ x: F2.x, y: F2.y, nx: dh.b.nx * dh.ns, ny: dh.b.ny * dh.ns, sign: dragElec.o.sign, w: dragElec.o.w, a0: dragElec.o.a0, a1: dragElec.o.a1 }, dcol, true);
+                else
                 elecSign({ x: F2.x, y: F2.y, nx: dh.b.nx * dh.ns, ny: dh.b.ny * dh.ns, kind: dragElec.o.kind, gangs: dragElec.o.gangs, w: dragElec.o.w }, dcol, 1.8);
                 ctx.fillStyle = dcol; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
                 ctx.fillText(fmtLen(dh.dist), sx(F2.x + dh.b.nx * dh.ns * 14) + 4, sy(F2.y + dh.b.ny * dh.ns * 14) + 4);
@@ -8684,6 +8968,66 @@ module InteriorPro
               } else {
                 ctx.beginPath(); ctx.arc(X, Y, (o.hd / 2) * scale, 0, Math.PI * 2); ctx.stroke();
               }
+            }
+            // A plumbing product (USE_PLUMB_2D, 2026-10-14, plumb_signs.png): thin black lines at its real size from
+            // above, in the frame of its wall - a = out of the wall (o.a0..o.a1), b = along it (-o.w/2..o.w/2).
+            // Closed shapes are white inside, so the floor pattern under them is covered.
+            function plumbSign(o, col, ghost) {
+              var nx = o.nx, ny = o.ny, ux = -ny, uy = nx;
+              var at = function(a, b) { return { x: o.x + nx * a + ux * b, y: o.y + ny * a + uy * b }; };
+              var shape = function(pts, lw) {
+                ctx.beginPath();
+                pts.forEach(function(q, i) { i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y)); });
+                ctx.closePath(); ctx.fillStyle = '#ffffff'; ctx.fill();
+                ctx.lineWidth = lw; ctx.stroke();
+              };
+              var ell = function(ca, cb, ra, rb, lw) {
+                var pts = [];
+                for (var i = 0; i < 48; i++) { var t = i / 48 * Math.PI * 2; pts.push(at(ca + ra * Math.cos(t), cb + rb * Math.sin(t))); }
+                shape(pts, lw);
+              };
+              var rrect = function(a0, a1, b0, b1, r, lw) {
+                r = Math.min(r, (a1 - a0) / 2, (b1 - b0) / 2);
+                var pts = [], cs = [[a1 - r, b1 - r, 0], [a0 + r, b1 - r, Math.PI / 2], [a0 + r, b0 + r, Math.PI], [a1 - r, b0 + r, Math.PI * 1.5]];
+                cs.forEach(function(c) { for (var i = 0; i <= 6; i++) { var t = c[2] + i / 6 * Math.PI / 2; pts.push(at(c[0] + r * Math.cos(t), c[1] + r * Math.sin(t))); } });
+                shape(pts, lw);
+              };
+              var w = o.w, a0 = o.a0, a1 = o.a1, dp = a1 - a0, hw = w / 2, am = (a0 + a1) / 2;
+              ctx.save();
+              ctx.strokeStyle = col || '#000000'; ctx.setLineDash([]); ctx.lineJoin = 'round';
+              var LW = ghost ? 1.8 : 1.1, LT = ghost ? 1.1 : 0.7;
+              if (o.sign === 'head') {                 // a 1" pipe off the wall, then the head: a double circle
+                var r = Math.min(hw, dp / 2), ca = a1 - r;
+                // the pipe starts AT the wall face (his file sits on the tile, 0.6" off it - "למה זה לא מחובר") and is
+                // open there: two lines, no cap on the wall
+                ctx.beginPath();
+                [at(0, -0.6), at(ca, -0.6), at(ca, 0.6), at(0, 0.6)].forEach(function(q, i) { i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y)); });
+                ctx.closePath(); ctx.fillStyle = '#ffffff'; ctx.fill();
+                ctx.lineWidth = LW; polyline([at(0, -0.6), at(ca, -0.6)]); polyline([at(0, 0.6), at(ca, 0.6)]);
+                ell(ca, 0, r, r, LW); ell(ca, 0, r * 0.84, r * 0.84, LT);
+              } else if (o.sign === 'toilet') {        // the tank on the wall, the oval bowl in front
+                var ta = a0 + dp * 0.3, bl = (a1 - ta) / 2;
+                ell(ta + bl, 0, bl, Math.min(hw * 0.72, bl), LW);
+                ell(ta + bl + bl * 0.05, 0, bl * 0.72, Math.min(hw * 0.5, bl * 0.72), LT);
+                rrect(a0, ta, -hw, hw, 1.6, LW);
+              } else if (o.sign === 'vanity') {        // the counter, the oval basin, the drain, the faucet on the back
+                rrect(a0, a1, -hw, hw, 0, LW);
+                var ba = a0 + dp * 0.57, ra = Math.min(dp * 0.31, hw * 0.5), rb = Math.min(hw * 0.26, ra * 1.5);
+                ell(ba, 0, ra, rb, LW); ell(ba + ra * 0.03, 0, ra * 0.8, rb * 0.84, LT);
+                ell(ba + ra * 0.1, 0, 0.8, 0.8, LT);
+                rrect(a0 + 1.2, a0 + 4.2, -1, 1, 0.5, LT); ell(a0 + 2.4, 0, 1.4, 1.4, LT);
+                ell(a0 + 2.4, -4.5, 0.9, 0.9, LT); ell(a0 + 2.4, 4.5, 0.9, 0.9, LT);
+              } else if (o.sign === 'fs_tub') {        // free standing: an ellipse, the drain, a floor faucet at one end
+                ell(am, 0, dp / 2, hw, LW); ell(am, 0, dp / 2 * 0.78, hw * 0.9, LT);
+                ell(am, 0, 1.2, 1.2, LW); ell(am, 0, 0.5, 0.5, LT);
+                polyline([at(am, hw + 1.5), at(am, hw + 4.4)]); ell(am, hw + 6, 1.6, 1.6, LW);
+              } else {                                 // a tub: rounded rectangle, the basin, the drain at one end
+                rrect(a0, a1, -hw, hw, 1, LW);
+                rrect(a0 + 3, a1 - 4, -hw + 4, hw - 4, 7, LW);
+                rrect(a0 + 4, a1 - 5, -hw + 5, hw - 5, 7.4, LT);
+                ell(am, -hw + 10, 1.2, 1.2, LW); ell(am, -hw + 10, 0.5, 0.5, LT);
+              }
+              ctx.restore();
             }
             function elecSign(o, col, lw) {
               var nx = o.nx, ny = o.ny, ux = -ny, uy = nx;
@@ -10850,7 +11194,7 @@ module InteriorPro
               var p = { x: mx(ev.offsetX), y: my(ev.offsetY) };
               if (mode === 'sel' && USE_ELEC_DRAG) {       // two presses on an outlet / switch / wall light: his window, to edit it
                 var he = elecPick(p), heo = he && elecItem(he.id);
-                if (heo && !CEIL_KINDS[heo.kind]) { dragElec = null; elecSel = heo.id; ev.preventDefault(); elecEditOpen(heo.id); return; }
+                if (heo && !CEIL_KINDS[heo.kind] && heo.kind !== 'plumb') { dragElec = null; elecSel = heo.id; ev.preventDefault(); elecEditOpen(heo.id); return; }
               }
               var hd = hitDim(p);
               if (!hd) return;
