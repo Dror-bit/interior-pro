@@ -115,3 +115,29 @@
 2026-10-14 02:21:15  turn: 30.0 deg, box [8.000, 5.000, 12.000, 8.000]
 2026-10-14 02:21:17  drawing sheet: draft:1 added, 2 pages
 2026-10-14 02:21:17  drawing sheet: draft:0 added, 3 pages
+2026-10-14 03:04:14  1 gone, 4 left, full, 18 ms
+2026-10-14 03:04:14  1 gone, 3 left, full, 6 ms
+2026-10-14 03:04:14  1 gone, 4 left, full, 7 ms
+2026-10-14 03:04:14  1 gone, 4 left, full, 8 ms
+2026-10-14 03:04:51  turn: 35.0 deg, box [8.108, 6.414, 19.784, 12.272] (the box turns as a whole)
+2026-10-14 03:04:51  turn: 40.0 deg, box [8.429, 6.613, 19.142, 11.874] (the box turns as a whole)
+2026-10-14 03:04:53  page order: image:2=A-101  plan=A-102  image:0=A-103  image:1=A-104
+2026-10-14 03:04:53  turn: 30.0 deg, box [8.000, 5.000, 12.000, 8.000] (the box turns as a whole)
+2026-10-14 03:04:53  turn: 0.0 deg, box [0.750, 1.850, 34.500, 21.400] (the box turns as a whole)
+2026-10-14 03:04:53  turn: 15.0 deg, box [5.529, 4.814, 24.943, 15.472] (the box turns as a whole)
+2026-10-14 03:04:54  turn: 30.0 deg, box [8.000, 5.000, 12.000, 8.000]
+2026-10-14 03:04:54  drawing sheet: draft:1 added, 2 pages
+2026-10-14 03:04:54  drawing sheet: draft:0 added, 3 pages
+2026-10-14 03:05:53  1 gone, 4 left, full, 540 ms
+2026-10-14 03:05:53  1 gone, 3 left, full, 91 ms
+2026-10-14 03:05:53  1 gone, 4 left, full, 9 ms
+2026-10-14 03:05:53  1 gone, 4 left, full, 10 ms
+2026-10-14 03:06:43  turn: 35.0 deg, box [8.108, 6.414, 19.784, 12.272] (the box turns as a whole)
+2026-10-14 03:06:43  turn: 40.0 deg, box [8.429, 6.613, 19.142, 11.874] (the box turns as a whole)
+2026-10-14 03:06:50  page order: image:2=A-101  plan=A-102  image:0=A-103  image:1=A-104
+2026-10-14 03:06:51  turn: 30.0 deg, box [8.000, 5.000, 12.000, 8.000] (the box turns as a whole)
+2026-10-14 03:06:51  turn: 0.0 deg, box [0.750, 1.850, 34.500, 21.400] (the box turns as a whole)
+2026-10-14 03:06:51  turn: 15.0 deg, box [5.529, 4.814, 24.943, 15.472] (the box turns as a whole)
+2026-10-14 03:06:51  turn: 30.0 deg, box [8.000, 5.000, 12.000, 8.000]
+2026-10-14 03:06:52  drawing sheet: draft:1 added, 2 pages
+2026-10-14 03:06:52  drawing sheet: draft:0 added, 3 pages

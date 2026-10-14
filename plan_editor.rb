@@ -43,6 +43,12 @@ module InteriorPro
     # all in ONE undo step: the same distance between them and half of it to the walls (how it is done on site). A point
     # outside an L-shaped room is skipped. Kill switch: false = no grid, a number + Enter does nothing on a ceiling kind.
     USE_LIGHT_SPREAD = true unless const_defined?(:USE_LIGHT_SPREAD, false)
+    # MOVE A CEILING LIGHT IN THE DRAWING (2026-10-13 20:00, his "אם אני רוצה להזיז מנורה איך אני מזיז אותה" and "שתי מנורות
+    # שונות... יהיו באותו הקו"): in Select he drags the sign; it LOCKS onto another light's line (same x or same y, magenta)
+    # and onto a guide line; a number + Enter on a picked light = its distance from the nearest wall of its room. The model
+    # follows (move_light: the group moved, x_in/y_in, a recessed light's ceiling built again), one undo step.
+    # Kill switch: false = a ceiling sign is only picked and deleted, never moved.
+    USE_LIGHT_MOVE = true unless const_defined?(:USE_LIGHT_MOVE, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -159,7 +165,7 @@ module InteriorPro
         )
 
         dlg.add_action_callback('editor_ready') do |_|
-          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'})")
+          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'}, #{USE_LIGHT_MOVE ? 'true' : 'false'})")
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
@@ -592,6 +598,9 @@ module InteriorPro
               dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
             end
           end
+        end
+        dlg.add_action_callback('move_light') do |_, json|
+          move_light(JSON.parse(json))
         end
         dlg.add_action_callback('place_lights') do |_, json|
           res = place_lights(JSON.parse(json))
@@ -2825,6 +2834,42 @@ module InteriorPro
         hit
       end
 
+      # A ceiling light moved in the drawing (USE_LIGHT_MOVE): the group slides to x, y on its ceiling, x_in/y_in follow,
+      # and a recessed light's ceiling is built again so the hole moves with it. ONE undo step. Returns true when it went.
+      def move_light(r)
+        return false unless USE_LIGHT_MOVE
+        model = Sketchup.active_model
+        id = r['id'].to_s
+        g = model.entities.to_a.find do |e|
+          (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && e.valid? &&
+            e.get_attribute('InteriorPro', 'type') == 'electrical' && e.get_attribute('InteriorPro', 'id').to_s == id
+        end
+        unless g && g.get_attribute('InteriorPro', 'mount').to_s == 'ceiling'
+          puts "[PlanEditor] move_light: #{id} not found on a ceiling - nothing moved"
+          return false
+        end
+        x, y = r['x'].to_f, r['y'].to_f
+        x0, y0 = g.get_attribute('InteriorPro', 'x_in').to_f, g.get_attribute('InteriorPro', 'y_in').to_f
+        model.start_operation('Move Light', true)
+        g.transform!(Geom::Transformation.translation(Geom::Vector3d.new(x - x0, y - y0, 0)))
+        g.set_attribute('InteriorPro', 'x_in', x)
+        g.set_attribute('InteriorPro', 'y_in', y)
+        rebuilt = nil
+        if g.get_attribute('InteriorPro', 'hole_d').to_f > 0.0 && defined?(InteriorPro::CeilingManager) && InteriorPro::CeilingManager::USE_CEILING_HOLES
+          rid = g.get_attribute('InteriorPro', 'room_id')
+          room = InteriorPro::RoomManager.rooms_in_model.find { |rm| rm.get_attribute('InteriorPro', 'id') == rid }
+          rebuilt = room ? InteriorPro::CeilingManager.build_ceiling_for_room!(room) : nil
+        end
+        model.commit_operation
+        InteriorPro::ElectricalLibrary.trace("2D: #{g.get_attribute('InteriorPro', 'kind')} #{id} MOVED to #{x.round(2)}, #{y.round(2)}" \
+          "#{rebuilt ? ' - ceiling built again with the hole' : ''}") if defined?(InteriorPro::ElectricalLibrary)
+        true
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] move_light: #{e.class}: #{e.message}"
+        false
+      end
+
       # A whole grid of ceiling lights from the drawing, ONE undo step (USE_LIGHT_SPREAD). {ok:, why:}
       def place_lights(r)
         cfg = @elec_cfg
@@ -4033,7 +4078,79 @@ module InteriorPro
             // ---- Electrical from the drawing (USE_ELEC_PLACE_2D, 2026-10-13) ----
             var USE_ELEC_PLACE = false;   // Ruby turns it on (editor_ready -> elecEnable) when USE_ELEC_PLACE_2D
             var USE_LIGHT_PLACE = false;  // Ruby turns it on with elecEnable when USE_LIGHT_2D
-            function elecEnable(on, light) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; placeElecBtn(); }
+            var USE_LIGHT_DRAG = false;   // Ruby turns it on with elecEnable when USE_LIGHT_MOVE
+            function elecEnable(on, light, mv) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; USE_LIGHT_DRAG = !!mv; placeElecBtn(); }
+            // ---- moving a ceiling light in Select (USE_LIGHT_MOVE, 2026-10-13 20:00) ----
+            var dragLight = null;    // {id, o, sx0, sy0, x0, y0, moved, lock}
+            var SNAP_LIGHT_PX = 8;
+            function elecItem(id) { for (var i = 0; i < elecItems.length; i++) if (elecItems[i].id === id) return elecItems[i]; return null; }
+            // Where a dragged light locks: the x or y of another ceiling light (same line - his "באותו הקו"), or a guide line.
+            // Returns {x, y, lock: [{kind, x1, y1, x2, y2}]}.
+            function lightSnap(p, selfId) {
+              var tol = SNAP_LIGHT_PX / scale, out = { x: p.x, y: p.y, lock: [] }, bx = null, by = null;
+              elecItems.forEach(function(o) {
+                if (o.id === selfId || !CEIL_KINDS[o.kind]) return;
+                var dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y);
+                if (dx <= tol && (!bx || dx < bx.d)) bx = { d: dx, v: o.x, o: o };
+                if (dy <= tol && (!by || dy < by.d)) by = { d: dy, v: o.y, o: o };
+              });
+              if (bx) { out.x = bx.v; out.lock.push({ kind: 'light', x1: bx.v, y1: bx.o.y, x2: bx.v, y2: p.y }); }
+              if (by) { out.y = by.v; out.lock.push({ kind: 'light', x1: by.o.x, y1: by.v, x2: p.x, y2: by.v }); }
+              if (!bx || !by) {
+                var bg = null;
+                guides.forEach(function(gd) {
+                  var ux = gd.x2 - gd.x1, uy = gd.y2 - gd.y1, L = Math.hypot(ux, uy); if (L < 1e-9) return;
+                  ux /= L; uy /= L;
+                  var t = (out.x - gd.x1) * ux + (out.y - gd.y1) * uy;
+                  var qx = gd.x1 + ux * t, qy = gd.y1 + uy * t, d = Math.hypot(out.x - qx, out.y - qy);
+                  if (d <= tol && (!bg || d < bg.d)) bg = { d: d, x: qx, y: qy, g: gd };
+                });
+                if (bg) { out.x = bg.x; out.y = bg.y; out.lock.push({ kind: 'guide', x1: bg.g.x1, y1: bg.g.y1, x2: bg.g.x2, y2: bg.g.y2 }); }
+              }
+              return out;
+            }
+            function lightDragMove(px, py) {
+              var p = { x: mx(px), y: my(py) };
+              if (!dragLight.moved && Math.hypot(px - dragLight.sx0, py - dragLight.sy0) < 4) return;
+              dragLight.moved = true;
+              var snp = lightSnap({ x: dragLight.x0 + (p.x - dragLight.px0), y: dragLight.y0 + (p.y - dragLight.py0) }, dragLight.id);
+              dragLight.o.x = snp.x; dragLight.o.y = snp.y; dragLight.lock = snp.lock;
+              draw();
+            }
+            function lightDragEnd() {
+              var d = dragLight; dragLight = null;
+              if (d.moved && (Math.abs(d.o.x - d.x0) > 1e-6 || Math.abs(d.o.y - d.y0) > 1e-6)) lightSendMove(d.o);
+              draw();
+            }
+            function lightSendMove(o) {
+              histModel('move_light');
+              sketchup.move_light(JSON.stringify({ id: o.id, x: Math.round(o.x * 1000) / 1000, y: Math.round(o.y * 1000) / 1000 }));
+            }
+            // The nearest wall of the room the light is in: the edge of the room's polygon, and the way in from it.
+            function lightNearestEdge(o) {
+              var best = null;
+              rooms.forEach(function(r) {
+                if (!r.pts || r.pts.length < 6 || !ptInPoly(r.pts, o)) return;
+                var n = r.pts.length / 2;
+                for (var i = 0; i < n; i++) {
+                  var j = (i + 1) % n, ax = r.pts[i * 2], ay = r.pts[i * 2 + 1], bx2 = r.pts[j * 2], by2 = r.pts[j * 2 + 1];
+                  var ux = bx2 - ax, uy = by2 - ay, L = Math.hypot(ux, uy); if (L < 1e-9) continue;
+                  ux /= L; uy /= L;
+                  var t = Math.max(0, Math.min(L, (o.x - ax) * ux + (o.y - ay) * uy));
+                  var qx = ax + ux * t, qy = ay + uy * t, d = Math.hypot(o.x - qx, o.y - qy);
+                  if (!best || d < best.d) best = { d: d, qx: qx, qy: qy, nx: (o.x - qx) / (d || 1), ny: (o.y - qy) / (d || 1) };
+                }
+              });
+              return best;
+            }
+            // A number + Enter on a picked ceiling light: that far from its nearest wall, straight in from it.
+            function lightTypedDist(dist) {
+              var o = elecSel && elecItem(elecSel); if (!o || !CEIL_KINDS[o.kind]) return false;
+              var e = lightNearestEdge(o); if (!e || e.d < 1e-6) return false;
+              o.x = Math.round((e.qx + e.nx * dist) * 1000) / 1000; o.y = Math.round((e.qy + e.ny * dist) * 1000) / 1000;
+              lightSendMove(o); draw();
+              return true;
+            }
             var CEIL_KINDS = { ceiling_light: 1, recessed: 1, ceiling_fan: 1 };
             function elecCeiling() { return !!(elecCfg && CEIL_KINDS[elecCfg.kind]); }
             function lightStart() { if (USE_LIGHT_PLACE) sketchup.light_pick(''); }
@@ -8353,6 +8470,14 @@ module InteriorPro
               });
               ctx.restore();
               if (mode === 'elec' && elecHover) drawElecGhost();
+              if (dragLight && dragLight.lock && dragLight.lock.length) {   // where it locked: magenta, as everywhere
+                ctx.save(); ctx.strokeStyle = '#c026d3'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+                dragLight.lock.forEach(function(l) {
+                  var ex = l.x2 - l.x1, ey = l.y2 - l.y1, L = Math.hypot(ex, ey) || 1, k = l.kind === 'guide' ? 0 : 1;
+                  ctx.beginPath(); ctx.moveTo(sx(l.x1 - ex / L * 24 * k), sy(l.y1 - ey / L * 24 * k)); ctx.lineTo(sx(l.x2 + ex / L * 24 * k), sy(l.y2 + ey / L * 24 * k)); ctx.stroke();
+                });
+                ctx.restore();
+              }
             }
             // One sign. Outlet: stem 3", circle 3" at 6", two lines along the wall. Switch: stem and
             // S (S2, S3 ... for more on one plate) at 6". Returns the middle of the sign.
@@ -10127,7 +10252,12 @@ module InteriorPro
                 }
                 // an outlet / switch sign: picked on its own, Delete takes it away (2026-10-13)
                 var hel = elecPick(p);
-                if (hel) { setSel(null); elecSel = hel.id; updateSelPanel(); draw(); return; }
+                if (hel) {
+                  setSel(null); elecSel = hel.id; updateSelPanel();
+                  var ho = elecItem(hel.id);
+                  if (USE_LIGHT_DRAG && ho && CEIL_KINDS[ho.kind]) dragLight = { id: ho.id, o: ho, sx0: ev.offsetX, sy0: ev.offsetY, px0: p.x, py0: p.y, x0: ho.x, y0: ho.y, moved: false, lock: [] };
+                  draw(); return;
+                }
                 if (elecSel) { elecSel = null; draw(); }
                 // an END of an already-selected line: grab it and stretch
                 var hv = hitSketchVertex(p);
@@ -10302,6 +10432,7 @@ module InteriorPro
 
             function handleMove(px, py) {
               evCount.mm++; updateDbg();
+              if (dragLight) { lightDragMove(px, py); return; }
               if (dimPlace) {                       // new dim follows the cursor
                 cursor = { x:mx(px), y:my(py) };
                 dimOffTo(dimPlace, cursor);
@@ -10478,7 +10609,7 @@ module InteriorPro
             });
             cv.addEventListener('pointermove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace && !dragEnd) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -10488,7 +10619,7 @@ module InteriorPro
             });
             window.addEventListener('mousemove', function(ev) {
               if (!dragWall && !dragSym && !panning && !rubber && !dragUnder &&
-                  !dragVert && !dragDim && !dimPlace && !dragEnd) return;
+                  !dragVert && !dragDim && !dimPlace && !dragEnd && !dragLight) return;
               var r = cv.getBoundingClientRect();
               handleMove(ev.clientX - r.left, ev.clientY - r.top);
             });
@@ -10497,6 +10628,7 @@ module InteriorPro
             function finishDrag() {
               evCount.mu++; updateDbg();
               panning = false;
+              if (dragLight) { lightDragEnd(); return; }
               if (dragEnd) { finishEndDrag(); return; }
               if (dragDim) { finishDimDrag(); return; }
               if (dragVert) { finishVertexDrag(); return; }
@@ -10645,6 +10777,7 @@ module InteriorPro
                 if (/^[0-9]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
               }
               if (ev.key === 'Escape') {
+                if (dragLight) { dragLight.o.x = dragLight.x0; dragLight.o.y = dragLight.y0; dragLight = null; draw(); return; }   // iron law 1
                 if (originMode) { toggleOriginMode(); return; }
                 if (guideMode) { toggleGuideMode(); return; }
                 if (rotOp) { rotCancel(); return; }
@@ -10725,6 +10858,14 @@ module InteriorPro
                 if (ev.key === 'Enter') { applyTypedDrag(); ev.preventDefault(); return; }
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
                 if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
+              }
+              if (mode === 'sel' && elecSel && USE_LIGHT_DRAG && ev.key !== 'Escape' && ev.key !== 'Delete' && !dragLight) {
+                var lo = elecItem(elecSel);
+                if (lo && CEIL_KINDS[lo.kind]) {
+                  if (ev.key === 'Enter') { var ld = parseLen(typed); if (ld && ld > 0) lightTypedDist(ld); typed = ''; updateVcb(); ev.preventDefault(); return; }
+                  if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
+                  if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
+                }
               }
               if (mode === 'sel' && elecSel && (ev.key === 'Delete' || ev.key === 'Backspace')) {
                 elecDelete(); ev.preventDefault(); return;

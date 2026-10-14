@@ -157,7 +157,7 @@ ok('a length typed mid-pull is read in feet',
    /parseLen\(typed\.replace\('-', ''\), dragEnd \? 'ft' : 'in'\)/.test(JS),
    'typing during the stretch is not asking for feet');
 ok('the drag handlers know a stretch counts as a drag',
-   (JS.match(/&& !dragEnd\) return;/g) || []).length === 2,
+   (JS.match(/&& !dragEnd && !dragLight\) return;/g) || []).length === 2,
    'pointermove or mousemove will stop firing mid-pull');
 ok('and switching tools drops a half-pulled wall',
    /function cancelOps\(\)[\s\S]{0,600}dragEnd = null;/.test(JS));

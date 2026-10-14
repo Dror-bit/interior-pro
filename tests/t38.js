@@ -40,7 +40,7 @@ function press(state) {
   const s = Object.assign({
     guideMode: false, originMode: false, rotOp: null, moveOp: null, offOp: null,
     ghostCopy: null, ghostOpen: null, dimPlace: null,
-    typed: '', drawing: false, curLine: null, dragEnd: null,
+    typed: '', drawing: false, curLine: null, dragEnd: null, dragLight: null,
     arcPts: [], circC: null, measA: null,
     mode: 'sel', rubber: { x0: 1 }, dragSym: { id: 1 }, sel: { id: 1 }
   }, state);

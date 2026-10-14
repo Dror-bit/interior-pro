@@ -26,7 +26,7 @@ ok('the ceiling id is read BEFORE place_on_ceiling! (a recessed light builds the
    pl.index("cid = c[:grp].get_attribute('InteriorPro', 'id')").to_i > 0 && pl.index('cid = ') < pl.index('place_on_ceiling!(ceiling: c') && !pl.include?("on ceiling \#{c[:grp]"))
 ok('no ceiling = refused with a trace line, nothing built', pl.include?("NOT hung: no ceiling over") && pl.index('NOT hung') < pl.index('place_on_ceiling!'))
 ok('a wall light is refused by place_light (it goes the wall road)', pl.include?("return { ok: false, why: 'not a ceiling light' } unless lib.ceiling?(cfg['kind'])"))
-ok('both buttons are turned on by Ruby behind the switches', src.include?("elecEnable(\#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, \#{USE_LIGHT_2D ? 'true' : 'false'})"))
+ok('both buttons are turned on by Ruby behind the switches', src.include?("elecEnable(\#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, \#{USE_LIGHT_2D ? 'true' : 'false'}, "))
 %w[plan_canvas.rb plan_sheet_dialog.rb].each do |f|
   next unless File.exist?(f)
   ok("#{f} does not know about it (the plans are not touched)", !File.read(f).include?('place_light') && !File.read(f).include?('lightSign'))
