@@ -1374,7 +1374,7 @@
             ],
             [
               36,
-              -0.0000015258789076710855,
+              -1.5258789076710855e-06,
               83.99999570846558
             ]
           ],
@@ -1676,7 +1676,7 @@
             ],
             [
               23.875,
-              -0.0000015258789076710855,
+              -1.5258789076710855e-06,
               34.50000137329101
             ]
           ],
@@ -1688,6 +1688,238 @@
         },
         "skp_path": "assets/appliances/panel-ready/dw2451-panelready.skp",
         "skp_sha256": "a61dac6991d958a578bfffd4dca34c0e44be72b0e63442c28aa626d2531daee7"
+      }
+    },
+    {
+      "id": "thermador-columns-48-panelready",
+      "brand": "Thermador",
+      "manufacturer": "Thermador",
+      "category": "fridge",
+      "model": "48\" Columns - 24\" Freezer + 24\" Refrigerator - Panel Ready",
+      "name": "T24IF905SP + T24IR905SP | Two full-height custom panels",
+      "dimensions": {
+        "width": 47.75,
+        "height": 84,
+        "depth": 24.75
+      },
+      "depth_basis": "Approved two-column body; custom 3/4-inch panels included, handles excluded. Nominal opening 48 inches.",
+      "appearance": {
+        "finish": "white",
+        "configuration": "side_by_side",
+        "panel_ready": true
+      },
+      "verified_at": "2026-10-13",
+      "product_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "spec_url": "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+      "image_path": "assets/appliances/panel-ready/thermador-columns-48-panelready.png",
+      "cutout": {
+        "width": 48,
+        "height": 84,
+        "depth": 25
+      },
+      "panel_ready": {
+        "asset_id": "thermador-columns-48-panelready",
+        "sku": "T24IF905SP + T24IR905SP",
+        "manufacturer": "Thermador",
+        "category": "refrigerator",
+        "panel_ready": true,
+        "geometry_revision": 1,
+        "body_component_name": "BODY",
+        "body_dimensions_in": {
+          "width": 47.75,
+          "height": 84,
+          "depth_without_custom_panels_or_handles": 24
+        },
+        "body_bounds_asset_in": [
+          [
+            0,
+            -24,
+            0
+          ],
+          [
+            47.75,
+            0,
+            84
+          ]
+        ],
+        "installation_opening_in": {
+          "width": 48,
+          "height": 84,
+          "min_depth": 25
+        },
+        "installed_depth_without_handles_in": 24.75,
+        "panel_configuration": {
+          "type": "two full-height column doors",
+          "toe_kick_height_in": 4,
+          "panel_thickness_in": 0.75,
+          "center_gap_in": 0.25
+        },
+        "sources": [
+          "https://www.thermador.com/us/en/mkt-product/refrigeration/refrigerationrefrigerationcolumns/T24IR905SP",
+          "https://www.thermador.com/us/en/mkt-product/refrigeration/freezer-columns/T24IF905SP",
+          "https://media3.bsh-group.com/Documents/16173437_T24IF905SP-24-INCH-FLUSH-FREEZER-COLUMN-WITH-INTERNAL-ICE-MAKER-Specifications.pdf"
+        ],
+        "source_asset_id": "thermador-columns-48-24r-24f",
+        "body_geometry_accuracy": "Existing approved exterior column mesh, installed 84-inch envelope; no internal equipment.",
+        "gallery_image_kind": "SketchUp preview of configurable panels; not manufacturer photography",
+        "panels": [
+          {
+            "panel_id": "freezer_left_door",
+            "component_name": "PANEL__freezer_left_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 23.75,
+              "height": 79.875,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -24.75,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                23.75,
+                0.75,
+                79.875
+              ]
+            ],
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "opening": {
+              "kind": "hinged_left",
+              "hinge_side": "left",
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "precision": "Schematic; not a clearance simulation"
+            },
+            "handle_attachment": {
+              "center_asset_in": [
+                21.25,
+                -24.75,
+                43.9375
+              ],
+              "center_panel_local_in": [
+                21.25,
+                0,
+                39.9375
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "placement_basis": "Project default: 2.5 inches from free edge; selected asset supplies actual screw spacing"
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            }
+          },
+          {
+            "panel_id": "refrigerator_right_door",
+            "component_name": "PANEL__refrigerator_right_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 23.75,
+              "height": 79.875,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              24,
+              -24.75,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                23.75,
+                0.75,
+                79.875
+              ]
+            ],
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "opening": {
+              "kind": "hinged_right",
+              "hinge_side": "right",
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "precision": "Schematic; not a clearance simulation"
+            },
+            "handle_attachment": {
+              "center_asset_in": [
+                26.5,
+                -24.75,
+                43.9375
+              ],
+              "center_panel_local_in": [
+                2.5,
+                0,
+                39.9375
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "placement_basis": "Project default: 2.5 inches from free edge; selected asset supplies actual screw spacing"
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            }
+          }
+        ],
+        "skp_path": "assets/appliances/panel-ready/thermador-columns-48-panelready.skp",
+        "skp_sha256": "c60732a998519f5684bba951bc7be072995991450871a103423da7e5891b7ba1",
+        "validation": {
+          "closed_parts": 28,
+          "faces_with_instances": 4744,
+          "edges_with_instances": 7200,
+          "open_or_nonmanifold_edges": 0,
+          "bounds_in": [
+            [
+              -3.999999999976245e-07,
+              -24.75,
+              0.0
+            ],
+            [
+              47.75,
+              4.000000011217253e-07,
+              83.9999974
+            ]
+          ],
+          "panel_components": [
+            "PANEL__freezer_left_door",
+            "PANEL__refrigerator_right_door"
+          ]
+        }
       }
     }
   ],

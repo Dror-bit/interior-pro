@@ -9,6 +9,7 @@ module InteriorProKitchenStartup
     KitchenLab.const_set(:TARGET_PID,Process.pid)
     require File.join(ROOT,'kitchen_plan')
     InteriorPro::KitchenPlan.install_editor!(toolbar: false)
+    KitchenLab.install_toolbar(restore: true) if defined?(UI::Toolbar) && defined?(UI::Command)
     @installed=true
   end
   def self.start!

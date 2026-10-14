@@ -566,11 +566,11 @@ module KitchenLab
     @model.active_view.invalidate
   end
 
-  def self.install_toolbar
-    guard!
+  def self.install_toolbar(restore: false)
     unless @toolbar
       @open_command=UI::Command.new('Kitchens') do
         begin
+          InteriorPro::KitchenPlan.bind_active_model!
           show
         rescue StandardError=>e
           UI.messagebox(e.message)
@@ -583,7 +583,7 @@ module KitchenLab
       @toolbar=UI::Toolbar.new('Kitchens')
       @toolbar.add_item(@open_command)
     end
-    @toolbar.show
+    restore ? @toolbar.restore : @toolbar.show
   end
 
   def self.show

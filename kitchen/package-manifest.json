@@ -13,8 +13,8 @@
     },
     {
       "path": "appliance_catalog.json",
-      "bytes": 65003,
-      "sha256": "09915fd2e5144470b4e07742ae5c9780c9a865b5b7da94953a95a8a8749e1a4a"
+      "bytes": 74171,
+      "sha256": "b6aadd99018638013a901fd391f4329de9856ffd3343994ba2125a638bf82f2d"
     },
     {
       "path": "appliance_gallery.js",
@@ -523,8 +523,8 @@
     },
     {
       "path": "kitchen_bootstrap.rb",
-      "bytes": 892,
-      "sha256": "0f22180a9814748c48f1b3c8cc4dbbc180e664315876bdf887aef9ed4f3fd61e"
+      "bytes": 1015,
+      "sha256": "a1e20b6386247258d48d86ef776893b65e5fc27f373cd58cb6b4e40aa9924ee2"
     },
     {
       "path": "kitchen_canvas_symbols.js",
@@ -578,13 +578,13 @@
     },
     {
       "path": "kitchen_icon.svg",
-      "bytes": 407,
-      "sha256": "87916ec142f2553c8e39027ceb4284c7c97ecf7d35d14cbead0cdd771b5dd4da"
+      "bytes": 376,
+      "sha256": "6ffe9539617a7a49761ae7f8bad12ba6c54ee12b4ff5095fd05338bb9f27b3a4"
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 34828,
-      "sha256": "918ee9e1651aef66d73b6888d6ef9fa6d38bd40917786f218ea60080ea32516e"
+      "bytes": 34916,
+      "sha256": "2272820fb5b5dba1c79f27eafc69bb0e306b09bd515c33f4c0fbfc14361f98e0"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1603,8 +1603,8 @@
     },
     {
       "path": "test_panel_ready.rb",
-      "bytes": 3303,
-      "sha256": "5cf9869b68deae2ade07d5c106d0bc6595bee2a70ea17ff943255a466ad670bb"
+      "bytes": 3339,
+      "sha256": "148e4b9dcf9326e999dcd38d90114d6360968a25e04b228e47c755a857225818"
     },
     {
       "path": "assets/appliances/panel-ready/det3650ci-r-panelready.png",
@@ -1635,6 +1635,21 @@
       "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
       "bytes": 1516,
       "path": "test_unit_pose.rb"
+    },
+    {
+      "path": "assets/appliances/panel-ready/thermador-columns-48-panelready.skp",
+      "bytes": 60053,
+      "sha256": "c60732a998519f5684bba951bc7be072995991450871a103423da7e5891b7ba1"
+    },
+    {
+      "path": "test_panel_ready_columns.rb",
+      "bytes": 2435,
+      "sha256": "b0e60d5ae17e7b4c07e28ebbee6619be9133f1d47c38ed0160dd2667d090c5de"
+    },
+    {
+      "path": "assets/appliances/panel-ready/thermador-columns-48-panelready.png",
+      "bytes": 13026,
+      "sha256": "eabfea311189ca9db4a909826ef4600c1955b8f1264fadeb8a495caaf3c37f02"
     }
   ]
 }

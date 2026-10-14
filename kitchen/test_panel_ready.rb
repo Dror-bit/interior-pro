@@ -32,5 +32,5 @@ KitchenLab::HandleCatalog.products.select{|p|p['ctc']&&p['family']!='Cup Pull'}.
   check((h['mount_points_in'][1][0]-h['mount_points_in'][0][0]-h['ctc']).abs<1e-6,'Incorrect screw coordinates')
  end
 end
-check(KitchenLab::ApplianceCatalog.products.length==31,'Existing products removed')
+check(KitchenLab::ApplianceCatalog.products.length==32,'Existing products removed')
 puts 'PASS: panel-ready catalog, all panels, independent finish, kitchen inheritance, plain/Shaker projection, 12/18 inch pulls, screw centers, persistence and invalid sizes.'
