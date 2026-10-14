@@ -36,7 +36,7 @@ module KitchenLab
       end
       path=File.join(__dir__,p.fetch('mesh_path'))
       data=JSON.parse(File.read(path));model=entities.model
-      key='Kitchen sink '+p['model']+' v1'
+      key='Kitchen sink '+p['model']+' '+Digest::SHA256.file(path).hexdigest[0,12]
       definition=model.definitions[key]
       unless definition
         definition=model.definitions.add(key)

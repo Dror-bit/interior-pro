@@ -853,8 +853,8 @@
     },
     {
       "path": "kitchen_sink_catalog.rb",
-      "bytes": 3560,
-      "sha256": "6a3fa94ca6f381fb9d063c80ba7b46589b379a6f2441d204344737463cb2b4cb"
+      "bytes": 3600,
+      "sha256": "656a263e7d48090c8482f5682b2f8f470570d8efd7816c5929f0955e58533a7e"
     },
     {
       "path": "sink_catalog.json",
@@ -878,8 +878,8 @@
     },
     {
       "path": "assets/appliances/kohler-sinks/K-5285-mesh.json",
-      "bytes": 93317,
-      "sha256": "ec7edcea5334e5a02f961ebf5e8760e673df730a31982eceb41ae8b7287cb410"
+      "bytes": 116679,
+      "sha256": "13b8667f72348c32452e7155641bfecdb82905cce1bf3e88e8b1ef0aa9be0978"
     },
     {
       "path": "assets/appliances/kohler-sinks/K-5285.png",
@@ -1650,6 +1650,11 @@
       "path": "assets/appliances/panel-ready/thermador-columns-48-panelready.png",
       "bytes": 13026,
       "sha256": "eabfea311189ca9db4a909826ef4600c1955b8f1264fadeb8a495caaf3c37f02"
+    },
+    {
+      "path": "test_sink_basin_mesh.rb",
+      "bytes": 850,
+      "sha256": "faa4d799d54f9f9623ce13699c09edeb4a9455e41463cf9054e5bbee384541a4"
     }
   ]
 }
