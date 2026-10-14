@@ -358,3 +358,57 @@
 20:00:26   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
 20:00:26     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
 20:00:26     built: TW001 yes, TW005 yes
+19:32:24   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+19:32:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+19:32:24     built: TW001 yes, TW004 yes
+19:32:24   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+19:32:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+19:32:24     built: TW001 yes, TW005 yes
+21:38:43   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+21:38:43     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+21:38:43     built: TW001 yes, TW004 yes
+21:38:43   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+21:38:43     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+21:38:43     built: TW001 yes, TW005 yes
+22:04:24   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:04:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+22:04:24     built: TW001 yes, TW004 yes
+22:04:24   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:04:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+22:04:24     built: TW001 yes, TW005 yes
+22:12:13   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:12:13     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+22:12:13     built: TW001 yes, TW004 yes
+22:12:13   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:12:13     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+22:12:13     built: TW001 yes, TW005 yes
+22:13:51   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:13:51     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+22:13:51     built: TW001 yes, TW004 yes
+22:13:51   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:13:51     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+22:13:51     built: TW001 yes, TW005 yes
+22:49:24   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:49:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+22:49:24     built: TW001 yes, TW004 yes
+22:49:24   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+22:49:24     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+22:49:24     built: TW001 yes, TW005 yes
+00:10:19   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+00:10:19     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+00:10:19     built: TW001 yes, TW004 yes
+00:10:19   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+00:10:19     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+00:10:19     built: TW001 yes, TW005 yes
+00:11:29   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+00:11:29     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+00:11:29     built: TW001 yes, TW004 yes
+00:11:29   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+00:11:29     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+00:11:29     built: TW001 yes, TW005 yes
+02:20:10   split TW001 h at 36.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+02:20:10     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>36.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>36.0, :w=>69.0, :h=>60.0, :ox=>-7.875, :oy=>-48.25, :centered=>false, :center_axis=>"uv"}]
+02:20:10     built: TW001 yes, TW004 yes
+02:20:10   split TW001 h at 30.0 | area u0=0.0 z0=0.0 w=69.0 h=96.0 bu0=0.0 bw=69.0 tile_w=12.0 tile_l=24.0 grout=0.125 stagger=0.0 angle=0.0 ox=0.0 oy=0.0 centered=true axis="uv"
+02:20:10     parts [{:u0=>0.0, :z0=>0.0, :w=>69.0, :h=>30.0, :ox=>-7.875, :oy=>-12.25, :centered=>false, :center_axis=>"uv"}, {:u0=>0.0, :z0=>30.0, :w=>69.0, :h=>66.0, :ox=>-7.875, :oy=>-42.25, :centered=>false, :center_axis=>"uv"}]
+02:20:10     built: TW001 yes, TW005 yes

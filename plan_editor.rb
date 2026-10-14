@@ -27,6 +27,22 @@ module InteriorPro
     # corner; a click - or a number + Enter - places it through the SketchUp tool's own check and place!.
     # Kill switch: false = no button.
     USE_ELEC_PLACE_2D = true unless const_defined?(:USE_ELEC_PLACE_2D, false)
+    # RECESSED LIGHTS IN HIS DRAWING (2026-10-13, his pick 12:26: "רססד = עיגול בתוך עיגול"): every recessed
+    # light on the level is sent with the outlets and drawn as two circles at its real size from above -
+    # the trim (outside) and the hole (inside). Picked and deleted like an outlet.
+    # Kill switch: false = no recessed light in the drawing.
+    USE_RECESSED_2D = true unless const_defined?(:USE_RECESSED_2D, false)
+    # ALL THE LIGHTS IN HIS DRAWING + A LIGHTING BUTTON (2026-10-13 15:08, his "תסיים איתו... גם עם מנורות הקיר וגם עם
+    # מנורות התקרה... שאת כולם יהיה אפשרי להציב גם בסירטוט"): a ceiling light = a circle with an X, a fan = a circle with
+    # four blades, a wall light = a half circle on the wall (light_signs.png). The Lighting button under Electrical opens
+    # HIS Lighting window; a wall light goes on a wall face like an outlet, a ceiling kind goes where he clicks inside a
+    # room, through the SketchUp tool's own place_on_ceiling!. Kill switch: false = recessed only, no Lighting button.
+    USE_LIGHT_2D = true unless const_defined?(:USE_LIGHT_2D, false)
+    # SPREAD RECESSED LIGHTS EVENLY IN A ROOM (2026-10-13 15:36, his "כלי שאני יכול לפזר אותם בצורה שווה בחדר"): in Lighting
+    # with a ceiling kind, over a room, he types ROWS x COLUMNS (2x3) - the ghosts show where they go - and Enter hangs them
+    # all in ONE undo step: the same distance between them and half of it to the walls (how it is done on site). A point
+    # outside an L-shaped room is skipped. Kill switch: false = no grid, a number + Enter does nothing on a ceiling kind.
+    USE_LIGHT_SPREAD = true unless const_defined?(:USE_LIGHT_SPREAD, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -143,7 +159,7 @@ module InteriorPro
         )
 
         dlg.add_action_callback('editor_ready') do |_|
-          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'})")
+          dlg.execute_script("elecEnable(#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, #{USE_LIGHT_2D ? 'true' : 'false'})")
           push_catalogs(dlg)
           push_walls(dlg)
           push_underlay(dlg)
@@ -567,6 +583,23 @@ module InteriorPro
               dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
             end
           end
+        end
+        dlg.add_action_callback('light_pick') do |_, _|
+          if USE_LIGHT_2D && USE_ELEC_PLACE_2D && defined?(InteriorPro::ElectricalDialog)
+            InteriorPro::ElectricalDialog.show(group: 'lighting') do |cfg|
+              @elec_cfg = cfg
+              InteriorPro::ElectricalLibrary.trace("2D: chose #{cfg['kind']} #{cfg['product']}")
+              dlg.execute_script("elecArmed(#{JSON.generate(cfg)})")
+            end
+          end
+        end
+        dlg.add_action_callback('place_lights') do |_, json|
+          res = place_lights(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
+        end
+        dlg.add_action_callback('place_light') do |_, json|
+          res = place_light(JSON.parse(json))
+          dlg.execute_script("elecResult(#{res[:ok] ? 'true' : 'false'}, #{JSON.generate(res[:why].to_s)})")
         end
         dlg.add_action_callback('elec_trace') do |_, msg|
           InteriorPro::ElectricalLibrary.trace("2D: #{msg}") if defined?(InteriorPro::ElectricalLibrary)
@@ -1125,13 +1158,28 @@ module InteriorPro
         cx = corners.map { |c| c[0].to_f }.sum / corners.length
         cy = corners.map { |c| c[1].to_f }.sum / corners.length
         back = corners.map { |c| (c[0].to_f - cx) * nx + (c[1].to_f - cy) * ny }.min
+        # a wall light: how wide it is along the wall (the half circle's size)
+        along = corners.map { |c| (c[0].to_f - cx) * -ny + (c[1].to_f - cy) * nx }
         {
+          'w' => (along.max - along.min).round(3),
           'id' => attrs['id'].to_s, 'kind' => attrs['kind'].to_s,
           'x' => (cx + nx * back).round(3), 'y' => (cy + ny * back).round(3),
           'nx' => nx.round(5), 'ny' => ny.round(5),
           'turn' => attrs['turn'].to_i, 'ct' => attrs['countertop'] == true,
           'gangs' => [attrs['gangs'].to_i, 1].max
         }
+      end
+
+      # One recessed light for the canvas: its middle and its two circles from its box seen from above
+      # (x0, y0, x1, y1, world) and the hole saved on it. PURE.
+      def recessed_item(attrs, box, hole_d)
+        x0, y0, x1, y1 = box.map(&:to_f)
+        d = [x1 - x0, y1 - y0].max
+        return nil if d <= 0.0
+        hd = hole_d.to_f
+        hd = d * 0.7 if hd <= 0.0 || hd >= d
+        { 'id' => attrs['id'].to_s, 'kind' => 'recessed', 'x' => ((x0 + x1) / 2.0).round(3), 'y' => ((y0 + y1) / 2.0).round(3),
+          'd' => d.round(3), 'hd' => hd.round(3) }
       end
 
       # Every outlet on the active level (top of the model, as the tool places it).
@@ -1142,9 +1190,20 @@ module InteriorPro
         model.entities.to_a.each do |g|
           next unless (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) && g.valid?
           next unless g.get_attribute('InteriorPro', 'type') == 'electrical'
-          next if g.get_attribute('InteriorPro', 'mount').to_s == 'ceiling'
-          kind = g.get_attribute('InteriorPro', 'kind').to_s
-          next unless %w[outlet switch].include?(kind)
+          ck = g.get_attribute('InteriorPro', 'kind').to_s
+          if g.get_attribute('InteriorPro', 'mount').to_s == 'ceiling'
+            next unless (USE_RECESSED_2D && ck == 'recessed') || (USE_LIGHT_2D && %w[ceiling_light ceiling_fan].include?(ck))
+            next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+            bb = g.bounds
+            it = recessed_item({ 'id' => g.get_attribute('InteriorPro', 'id') },
+                               [bb.min.x, bb.min.y, bb.max.x, bb.max.y], g.get_attribute('InteriorPro', 'hole_d'))
+            if it then it['kind'] = ck; out << it
+            else puts "[PlanEditor] #{ck} #{g.get_attribute('InteriorPro', 'id')} skipped: empty box"
+            end
+            next
+          end
+          kind = ck
+          next unless %w[outlet switch].include?(kind) || (USE_LIGHT_2D && kind == 'wall_light')
           lv = (g.get_attribute('InteriorPro', 'level') || 1).to_i
           next unless lv == lvl
           inst = g.definition.entities.to_a.find { |e| e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group) }
@@ -2711,6 +2770,92 @@ module InteriorPro
         (u_mouse - lo) <= (hi - u_mouse) ? lo + dist.to_f : hi - dist.to_f
       end
 
+      # A ceiling light / recessed / fan from the drawing: the ceiling over his click, the SketchUp tool's own
+      # place_on_ceiling! (the hole, the rebuild - all as in 3D). {ok:, why:}
+      def place_light(r)
+        cfg = @elec_cfg
+        return { ok: false, why: 'choose in the window first' } unless cfg
+        lib = InteriorPro::ElectricalLibrary
+        return { ok: false, why: 'not a ceiling light' } unless lib.ceiling?(cfg['kind'])
+        x, y = r['x'].to_f, r['y'].to_f
+        c = lib.ceiling_over(lib.ceilings, x, y)
+        unless c
+          lib.trace("2D: #{cfg['kind']} NOT hung: no ceiling over #{x.round(2)}, #{y.round(2)}")
+          return { ok: false, why: 'no ceiling there - build the ceilings first' }
+        end
+        cid = c[:grp].get_attribute('InteriorPro', 'id')   # read BEFORE: a recessed light builds the ceiling again (a new group)
+        grp = lib.place_on_ceiling!(ceiling: c, x: x, y: y, cfg: cfg)
+        lib.trace("2D: #{cfg['kind']} #{grp ? 'HUNG' : 'FAILED'}: #{cfg['product']} on ceiling #{cid} x #{x.round(2)} y #{y.round(2)}")
+        grp ? { ok: true, why: '' } : { ok: false, why: 'see the Ruby Console' }
+      rescue StandardError => e
+        puts "[PlanEditor] place_light: #{e.class}: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        lib.trace("2D: place_light ERROR #{e.class}: #{e.message} @ #{e.backtrace.first}") rescue nil
+        { ok: false, why: e.message }
+      end
+
+      # The grid points for a spread: rows x cols over the box [x0, y0, x1, y1], the same gap between them and
+      # half a gap to the box's sides; only points inside the polygon (flat [x, y, ...]) are kept. PURE.
+      def spread_points(box, rows, cols, poly = nil)
+        x0, y0, x1, y1 = box.map(&:to_f)
+        rows = [rows.to_i, 1].max
+        cols = [cols.to_i, 1].max
+        out = []
+        rows.times do |j|
+          cols.times do |i|
+            x = x0 + (x1 - x0) * (i + 0.5) / cols
+            y = y0 + (y1 - y0) * (j + 0.5) / rows
+            next if poly && !point_in_flat_poly?(poly, x, y)
+            out << [x.round(3), y.round(3)]
+          end
+        end
+        out
+      end
+
+      # Is x, y inside the polygon given flat [x, y, x, y, ...]? (the same ray test as ptInPoly in the window). PURE.
+      def point_in_flat_poly?(flat, x, y)
+        n = flat.length / 2
+        hit = false
+        j = n - 1
+        n.times do |i|
+          xi, yi = flat[i * 2].to_f, flat[i * 2 + 1].to_f
+          xj, yj = flat[j * 2].to_f, flat[j * 2 + 1].to_f
+          hit = !hit if (yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi
+          j = i
+        end
+        hit
+      end
+
+      # A whole grid of ceiling lights from the drawing, ONE undo step (USE_LIGHT_SPREAD). {ok:, why:}
+      def place_lights(r)
+        cfg = @elec_cfg
+        return { ok: false, why: 'choose in the window first' } unless cfg
+        return { ok: false, why: 'switched off' } unless USE_LIGHT_SPREAD
+        lib = InteriorPro::ElectricalLibrary
+        return { ok: false, why: 'not a ceiling light' } unless lib.ceiling?(cfg['kind'])
+        pts = Array(r['points']).map { |q| [q[0].to_f, q[1].to_f] }
+        return { ok: false, why: 'nothing to hang' } if pts.empty?
+        model = Sketchup.active_model
+        model.start_operation('Spread Lights', true)
+        hung = 0
+        pts.each do |x, y|
+          c = lib.ceiling_over(lib.ceilings, x, y)   # read again every time: a recessed light builds the ceiling again
+          unless c
+            lib.trace("2D: spread: no ceiling over #{x.round(2)}, #{y.round(2)} - skipped")
+            next
+          end
+          grp = lib.place_on_ceiling!(ceiling: c, x: x, y: y, cfg: cfg, op: false)
+          hung += 1 if grp
+        end
+        model.commit_operation
+        lib.trace("2D: #{cfg['kind']} SPREAD #{r['rows']}x#{r['cols']}: #{hung} of #{pts.length} hung (#{cfg['product']})")
+        hung > 0 ? { ok: true, why: '' } : { ok: false, why: 'no ceiling there - build the ceilings first' }
+      rescue StandardError => e
+        model&.abort_operation
+        puts "[PlanEditor] place_lights: #{e.class}: #{e.message}\n#{e.backtrace.first(4).join("\n")}"
+        lib.trace("2D: place_lights ERROR #{e.class}: #{e.message} @ #{e.backtrace.first}") rescue nil
+        { ok: false, why: e.message }
+      end
+
       # One outlet / switch from the drawing: the SketchUp tool's own check and place!. {ok:, why:}
       def place_elec(r)
         cfg = @elec_cfg
@@ -3887,16 +4032,20 @@ module InteriorPro
 
             // ---- Electrical from the drawing (USE_ELEC_PLACE_2D, 2026-10-13) ----
             var USE_ELEC_PLACE = false;   // Ruby turns it on (editor_ready -> elecEnable) when USE_ELEC_PLACE_2D
-            function elecEnable(on) { USE_ELEC_PLACE = !!on; placeElecBtn(); }
+            var USE_LIGHT_PLACE = false;  // Ruby turns it on with elecEnable when USE_LIGHT_2D
+            function elecEnable(on, light) { USE_ELEC_PLACE = !!on; USE_LIGHT_PLACE = !!on && !!light; placeElecBtn(); }
+            var CEIL_KINDS = { ceiling_light: 1, recessed: 1, ceiling_fan: 1 };
+            function elecCeiling() { return !!(elecCfg && CEIL_KINDS[elecCfg.kind]); }
+            function lightStart() { if (USE_LIGHT_PLACE) sketchup.light_pick(''); }
             var elecCfg = null;      // what he chose in his window
             var elecHover = null;    // {w, b, t, foff, ns, ta, tb, ok, dist}
             var elecMsg = null;      // why the last click placed nothing
             var elecSel = null;      // the id of the sign picked in Select (Delete takes it away)
             // The sign under the mouse in Select: within its circle (or 10 px, whichever is bigger).
             function elecPick(p) {
-              var best = null, r = Math.max(4.5, 10 / scale);
+              var best = null, r0 = Math.max(4.5, 10 / scale);
               elecShown.forEach(function(o) {
-                var d = Math.hypot(p.x - o.x, p.y - o.y);
+                var d = Math.hypot(p.x - o.x, p.y - o.y), r = Math.max(r0, o.r || 0);
                 if (d <= r && (!best || d < best.d)) best = { id: o.id, d: d };
               });
               return best;
@@ -3927,7 +4076,16 @@ module InteriorPro
                   '<path d="M2 12 L7 12"/><circle cx="12" cy="12" r="5"/><path d="M10.5 6 L10.5 18 M13.5 6 L13.5 18"/></g></svg><span>Electrical</span>';
                 b.onclick = elecStart;
               }
-              if (host.lastElementChild !== b) { host.appendChild(sep); host.appendChild(b); }
+              var lb = document.getElementById('modeLight');
+              if (USE_LIGHT_PLACE && !lb) {
+                lb = document.createElement('button'); lb.type = 'button'; lb.id = 'modeLight'; lb.className = 'modebtn';
+                lb.title = 'Lighting';
+                lb.innerHTML = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">' +
+                  '<path d="M9 18h6M10 21h4M8.5 14.5a5.5 5.5 0 1 1 7 0c-.9.8-1.5 1.5-1.5 3h-4c0-1.5-.6-2.2-1.5-3z"/></g></svg><span>Lighting</span>';
+                lb.onclick = lightStart;
+              }
+              var last = lb || b;
+              if (host.lastElementChild !== last) { host.appendChild(sep); host.appendChild(b); if (lb) host.appendChild(lb); }
             }
             window.addEventListener('load', function() { placeElecBtn(); setTimeout(placeElecBtn, 400); setTimeout(placeElecBtn, 1500); });
             setTimeout(placeElecBtn, 0);
@@ -3962,6 +4120,44 @@ module InteriorPro
               var o = h.foff + h.ns * (out || 0);
               return { x: h.w.sx + h.b.ux * h.t + h.b.nx * o, y: h.w.sy + h.b.uy * h.t + h.b.ny * o };
             }
+            // A ceiling kind: the point under the mouse, green inside a room of the model (its ceiling is there).
+            function lightHit(p) {
+              var room = null;
+              rooms.forEach(function(r) { if (r.pts && ptInPoly(r.pts, p)) room = r; });
+              return { x: p.x, y: p.y, ok: !!room, why: room ? '' : 'not inside a room', ceil: true, room: room };
+            }
+            // ROWS x COLS typed over a room (USE_LIGHT_SPREAD): the points of the grid - the same gap between them,
+            // half a gap to the walls; only the ones inside the room (an L-shaped room skips its missing corner).
+            // The grid from his window (rows x columns on a recessed light), or what he is typing; null = one light.
+            function elecGrid() {
+              var t = spreadParse(typed); if (t) return t;
+              var r = parseInt(elecCfg && elecCfg.rows, 10) || 1, c = parseInt(elecCfg && elecCfg.cols, 10) || 1;
+              return r * c > 1 ? { rows: r, cols: c } : null;
+            }
+            function spreadParse(t) { var m = /^\s*([0-9]+)\s*[xX*\u00d7]\s*([0-9]+)\s*$/.exec(t || ''); return m ? { rows: +m[1], cols: +m[2] } : null; }
+            function spreadPoints(room, rows, cols) {
+              if (!room || !room.pts || room.pts.length < 6) return [];
+              var xs = [], ys = [];
+              for (var i = 0; i < room.pts.length; i += 2) { xs.push(room.pts[i]); ys.push(room.pts[i + 1]); }
+              var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+              var out = [];
+              for (var j = 0; j < rows; j++) for (var k = 0; k < cols; k++) {
+                var p = { x: x0 + (x1 - x0) * (k + 0.5) / cols, y: y0 + (y1 - y0) * (j + 0.5) / rows };
+                if (ptInPoly(room.pts, p)) out.push([Math.round(p.x * 1000) / 1000, Math.round(p.y * 1000) / 1000]);
+              }
+              return out;
+            }
+            function spreadSend(h, g) {
+              var pts = spreadPoints(h.room, g.rows, g.cols);
+              if (!pts.length) return false;
+              histModel('place_lights');
+              sketchup.place_lights(JSON.stringify({ points: pts, rows: g.rows, cols: g.cols }));
+              return true;
+            }
+            function lightSend(h) {
+              histModel('place_light');
+              sketchup.place_light(JSON.stringify({ x: h.x, y: h.y }));
+            }
             function elecSend(h, dist) {
               var P = elecFacePt(h, 1);
               histModel('place_elec');
@@ -3969,6 +4165,18 @@ module InteriorPro
             }
             function drawElecGhost() {
               var h = elecHover; if (!h) return;
+              if (h.ceil) {
+                var cc = h.ok ? '#1a9d55' : '#e0392b';
+                var gs = elecGrid();
+                if (gs && h.room) {                 // the grid from his window or his typing, where it would go
+                  spreadPoints(h.room, gs.rows, gs.cols).forEach(function(q) { lightSign({ x: q[0], y: q[1], kind: elecCfg.kind, d: 8, hd: 5.6 }, cc, 1.8); });
+                  ctx.fillStyle = cc; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left'; ctx.fillText(gs.rows + 'x' + gs.cols, sx(h.x) + 14, sy(h.y) + 4);
+                  return;
+                }
+                lightSign({ x: h.x, y: h.y, kind: elecCfg.kind, d: 8, hd: 5.6 }, cc, 1.8);
+                if (elecMsg) { ctx.fillStyle = '#e0392b'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left'; ctx.fillText(elecMsg, sx(h.x) + 14, sy(h.y) + 20); }
+                return;
+              }
               var F = elecFacePt(h, 0), nx = h.b.nx * h.ns, ny = h.b.ny * h.ns;
               var col = h.ok ? '#1a9d55' : '#e0392b';
               elecSign({ x: F.x, y: F.y, nx: nx, ny: ny, kind: (elecCfg && elecCfg.kind) || 'outlet', gangs: (elecCfg && elecCfg.gangs) || 1 }, col, 1.8);
@@ -8133,8 +8341,13 @@ module InteriorPro
               ctx.save();
               ctx.strokeStyle = '#d0312d'; ctx.lineWidth = 1.3; ctx.setLineDash([]);
               elecItems.forEach(function(o) {
-                if (o.kind !== 'outlet' && o.kind !== 'switch') return;
                 var picked = elecSel && o.id === elecSel;
+                if (CEIL_KINDS[o.kind]) {             // on the ceiling: at its real size from above (light_signs.png)
+                  lightSign(o, picked ? '#2f6bd8' : '#d0312d', picked ? 2.4 : 1.3);
+                  elecShown.push({ id: o.id, kind: o.kind, x: o.x, y: o.y, r: o.d / 2 });
+                  return;
+                }
+                if (o.kind !== 'outlet' && o.kind !== 'switch' && o.kind !== 'wall_light') return;
                 var c = elecSign(o, picked ? '#2f6bd8' : '#d0312d', picked ? 2.4 : 1.3);
                 elecShown.push({ id: o.id, kind: o.kind, x: c.x, y: c.y });
               });
@@ -8143,11 +8356,42 @@ module InteriorPro
             }
             // One sign. Outlet: stem 3", circle 3" at 6", two lines along the wall. Switch: stem and
             // S (S2, S3 ... for more on one plate) at 6". Returns the middle of the sign.
+            // A ceiling sign: recessed = circle in circle; ceiling light = circle with an X; fan = a circle with four blades.
+            function lightSign(o, col, lw) {
+              var r = (o.d / 2) * scale, X = sx(o.x), Y = sy(o.y);
+              ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash([]);
+              if (o.kind === 'ceiling_fan') {       // light: a small hub, four thin blades (his "קצת מגושם", 15:48)
+                var hub = Math.max(r * 0.14, 2);
+                ctx.lineWidth = Math.max(lw * 0.75, 0.8);
+                ctx.beginPath(); ctx.arc(X, Y, hub, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+                [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function(v) {
+                  ctx.beginPath(); ctx.ellipse(X + v[0] * (hub + (r - hub) / 2), Y + v[1] * (hub + (r - hub) / 2),
+                    v[0] ? (r - hub) / 2 : r * 0.09, v[0] ? r * 0.09 : (r - hub) / 2, 0, 0, Math.PI * 2); ctx.stroke();
+                });
+                return;
+              }
+              ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+              if (o.kind === 'ceiling_light') {
+                var k = r * 0.7;
+                ctx.beginPath(); ctx.moveTo(X - k, Y - k); ctx.lineTo(X + k, Y + k); ctx.moveTo(X - k, Y + k); ctx.lineTo(X + k, Y - k); ctx.stroke();
+              } else {
+                ctx.beginPath(); ctx.arc(X, Y, (o.hd / 2) * scale, 0, Math.PI * 2); ctx.stroke();
+              }
+            }
             function elecSign(o, col, lw) {
               var nx = o.nx, ny = o.ny, ux = -ny, uy = nx;
               var at = function(a, b2) { return { x: o.x + nx * a + ux * b2, y: o.y + ny * a + uy * b2 }; };
               ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash([]);
               var c = at(6, 0);
+              if (o.kind === 'wall_light') {         // a half circle on the wall, as wide as the light
+                var hw = Math.max((o.w || 6) / 2, 2.5);
+                polyline([at(0, 0), at(2, 0)]);
+                ctx.beginPath();
+                var ang = Math.atan2(-ny, nx);     // the canvas has y upside down (sy)
+                ctx.arc(sx(o.x), sy(o.y), hw * scale, ang - Math.PI / 2, ang + Math.PI / 2);
+                ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+                return at(hw / 2, 0);
+              }
               if (o.kind === 'switch') {
                 polyline([at(0, 0), at(3, 0)]);
                 ctx.fillStyle = col; ctx.textAlign = 'center';
@@ -9996,6 +10240,13 @@ module InteriorPro
                 return;
               }
               if (mode === 'elec') {
+                if (elecCeiling()) {
+                  elecHover = lightHit(p); elecMsg = null; draw();
+                  try { sketchup.elec_trace(elecCfg.kind + ' click ' + (elecHover.ok ? 'GREEN' : 'RED (' + elecHover.why + ')') + ' at ' + p.x.toFixed(2) + ', ' + p.y.toFixed(2)); } catch (e) {}
+                  var gc = elecGrid();
+                  if (elecHover.ok) { if (gc) spreadSend(elecHover, gc); else lightSend(elecHover); }
+                  return;
+                }
                 elecHover = elecHit(p); elecMsg = null; draw();
                 try {
                   var eh = elecHover, ek = (elecCfg && elecCfg.kind) || '?';
@@ -10205,7 +10456,7 @@ module InteriorPro
                 return;
               }
               if (mode === 'door' || mode === 'win') { hoverHit = hitWall(cursor); draw(); return; }
-              if (mode === 'elec') { elecHover = elecHit(cursor); elecMsg = null; draw(); return; }
+              if (mode === 'elec') { elecHover = elecCeiling() ? lightHit(cursor) : elecHit(cursor); elecMsg = null; draw(); return; }
               // Wall mode BEFORE the first click: work out the inference now, so
               // the green corner marker shows while you are still aiming - it
               // used to appear only once a wall was already started.
@@ -10354,14 +10605,15 @@ module InteriorPro
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); ev.preventDefault(); return; }
                 if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); ev.preventDefault(); return; }
               }
-              if (mode === 'elec' && ev.key !== 'Escape') {   // a distance from the nearer corner + Enter
+              if (mode === 'elec' && ev.key !== 'Escape') {   // a distance from the nearer corner + Enter; ROWSxCOLS on a ceiling
                 if (ev.key === 'Enter') {
-                  var ed = parseLen(typed);
-                  if (ed && ed > 0 && elecHover) elecSend(elecHover, ed);
+                  var gs2 = elecCeiling() ? spreadParse(typed) : null;
+                  if (gs2) { if (elecHover && elecHover.room) spreadSend(elecHover, gs2); }
+                  else if (!elecCeiling()) { var ed = parseLen(typed); if (ed && ed > 0 && elecHover) elecSend(elecHover, ed); }
                   typed = ''; updateVcb(); draw(); ev.preventDefault(); return;
                 }
                 if (ev.key === 'Backspace') { typed = typed.slice(0, -1); updateVcb(); draw(); ev.preventDefault(); return; }
-                if (/^[0-9.'" -]$/.test(ev.key)) { typed += ev.key; updateVcb(); draw(); ev.preventDefault(); return; }
+                if (/^[0-9.'" xX*-]$/.test(ev.key)) { typed += ev.key; updateVcb(); draw(); ev.preventDefault(); return; }
               }
               if (rotOp) {                       // typing an exact angle
                 if (ev.key === 'Enter') {

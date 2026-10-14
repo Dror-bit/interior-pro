@@ -688,6 +688,25 @@ module InteriorPro
           end
         end
 
+        # The lines of an elevation's picture, for the dimension tool to lock onto (2026-10-08 19:46):
+        # the window asks once a picture, Ruby reads <picture>.snaps.json (ElevationTool.snaps_file)
+        # and hands it back. Nothing there (an older picture, a render) = no lines, and it says so.
+        dlg.add_action_callback('pic_dim_trace') do |_, line|
+          erase_trace("pic dims: drawn #{line}")
+        end
+
+        dlg.add_action_callback('elev_snaps') do |_, path|
+          begin
+            p = path.to_s
+            f = defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool.snaps_file(p) : nil
+            data = f && File.file?(f) ? File.read(f) : 'null'
+            dlg.execute_script("picSnaps(#{JSON.generate(p)}, #{data})")
+            erase_trace("pic dims: lines for #{File.basename(p)} - #{f && File.file?(f) ? "#{File.size(f)} bytes" : 'none beside it'}")
+          rescue StandardError => e
+            puts "[Sheet] elev_snaps: #{e.class}: #{e.message}"
+          end
+        end
+
         dlg.add_action_callback('set_state') do |_, json|
           begin
             t0 = Time.now
@@ -695,7 +714,15 @@ module InteriorPro
             was_order = (load_state['page_order'] rescue nil)
             save_state(st)
             apply_state!(document, st)
-            push_pages(dlg)
+            # a layer switched off over an elevation whose picture without it was never taken: taken now, and the
+            # window is sent everything again so it has the new picture's address (ElevationTool USE_LAZY_LAYERS)
+            act = document.pages[st['active'].to_i]
+            if act && ensure_layer_pictures!([act], st) > 0
+              apply_state!(document, st)
+              push_all(dlg)
+            else
+              push_pages(dlg)
+            end
             if st.key?('page_order') && st['page_order'] != was_order
               erase_trace('page order: ' + document.pages.map { |pg| "#{page_key(pg)}=#{pg.sheet_number}" }.join('  '))
             end
@@ -850,6 +877,11 @@ module InteriorPro
               dlg.execute_script("exportFailed(#{JSON.generate('לא סימנת אף דף ל-PDF')})")
               next
             end
+            # every printed elevation without the layers he switched off (USE_LAZY_LAYERS)
+            if ensure_layer_pictures!(pages, st) > 0
+              apply_state!(document, st)
+              pages = pages_for_pdf(document, st)
+            end
             path = UI.savepanel('Save the sheet as PDF', default_dir,
                                 default_name(st))
             if path
@@ -938,6 +970,11 @@ module InteriorPro
           undo: USE_SHEET_UNDO,
           line_pick: USE_LINE_PICK,
           line_draw: USE_LINE_DRAW,
+          pic_dims: InteriorPro::PlanCanvas::USE_PIC_DIMS,
+          pic_marks: InteriorPro::PlanCanvas::USE_PIC_MARKS,
+          layer_groups: InteriorPro::PlanCanvas::USE_LAYER_GROUPS,
+          # how tall an elevation's letters are - a note on a picture is typed at that size (2026-10-09)
+          elev_text_h: (InteriorPro::PlanCanvas.elev_style(st)[0] rescue 0.11),
           rotate: InteriorPro::PlanCanvas::USE_VIEW_ROTATION,
           pic_box: InteriorPro::PlanCanvas::USE_PIC_BOX,
           pics: pic_payload(st),
@@ -1388,7 +1425,11 @@ module InteriorPro
         # No default on purpose - nil is "the whole sheet, the scale from the list".
         # image_titles (2026-10-08): a name of its own for a picture, by path - the elevations.
         # image_dims (2026-10-08): the automatic dimensions of an elevation, by path.
-        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims]
+        # image_hand (2026-10-08 19:46): the dimensions he draws on an elevation, by path (USE_PIC_DIMS).
+        # page_marks (2026-10-09): the plan's marks on an elevation's sheet, by its picture (USE_PIC_MARKS).
+        # dim_off_p: the distance off for the next dimension there, paper inches.
+        # hide (2026-10-09): the groups he switched off under "שכבות" (PlanCanvas::USE_LAYER_GROUPS).
+        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims image_hand page_marks dim_off_p hide]
       end
 
       # -------------------------------------------------- the free geometry
@@ -1853,11 +1894,52 @@ module InteriorPro
         "file:///#{safe}"
       end
 
+      # The elevations on these pages, taken without the layers he switched off where that picture was never taken
+      # (ElevationTool USE_LAZY_LAYERS). Returns how many pictures were taken; 0 = all there already.
+      def ensure_layer_pictures!(pages, st)
+        et = defined?(InteriorPro::ElevationTool) ? InteriorPro::ElevationTool : nil
+        return 0 unless et && et.respond_to?(:ensure_variants!) && InteriorPro::PlanCanvas::USE_LAYER_GROUPS
+        hide = Array(st['hide']).map(&:to_s)
+        return 0 if hide.empty?
+        need = []
+        pages.each do |pg|
+          pg.layers.each do |l|
+            l.shapes.each do |s|
+              next unless s[:type] == :image
+              lay = InteriorPro::PlanCanvas.pic_layers(s[:path])
+              next unless lay
+              off = (lay['cats'] & hide).sort
+              next if off.empty?
+              f = lay['files'][off.join('+')]
+              need << [s[:path].to_s, off] unless f && File.file?(f)
+            end
+          end
+        end
+        return 0 if need.empty?
+        t0 = Time.now
+        n = et.ensure_variants!(need.uniq)
+        InteriorPro::PlanCanvas.instance_variable_set(:@pic_layers, {})    # read the files again
+        erase_trace("layers: #{n} pictures taken without #{hide.join(', ')} for #{need.size} wanted, #{((Time.now - t0) * 1000).round} ms")
+        n
+      rescue StandardError => e
+        erase_trace("layers: pictures NOT taken - #{e.class}: #{e.message}")
+        0
+      end
+
       def image_payload(st)
         Array(st['images']).each_with_index.map do |p, i|
           { 'i' => i, 'path' => p, 'name' => File.basename(p.to_s),
-            'url' => file_url(p), 'there' => File.file?(p.to_s) }
+            'url' => file_url(p), 'there' => File.file?(p.to_s), 'variants' => variant_urls(p) }
         end
+      end
+
+      # the same elevation without the tiles / plumbing / electric (ElevationTool USE_ELEV_LAYERS): [{path, url}]
+      def variant_urls(p)
+        lay = InteriorPro::PlanCanvas.respond_to?(:pic_layers) ? InteriorPro::PlanCanvas.pic_layers(p) : nil
+        return [] unless lay
+        lay['files'].values.map { |f| { 'path' => f, 'url' => file_url(f) } }
+      rescue StandardError
+        []
       end
 
       # An address for every picture that was added ONTO a sheet. The owners
@@ -1865,16 +1947,39 @@ module InteriorPro
       def pic_payload(st)
         Array(st['pics']).select { |pc| pc.is_a?(Hash) && !pc['path'].to_s.empty? }.map do |pc|
           p = pc['path'].to_s
-          { 'path' => p, 'name' => File.basename(p), 'url' => file_url(p), 'there' => File.file?(p) }
+          { 'path' => p, 'name' => File.basename(p), 'url' => file_url(p), 'there' => File.file?(p), 'variants' => variant_urls(p) }
         end
       end
 
       def load_state
         raw = Sketchup.active_model.get_attribute(ATTR_DICT, ATTR_STATE)
         st  = raw ? JSON.parse(raw.to_s) : {}
-        default_state.merge(st)
+        groups_from_layers!(default_state.merge(st))
       rescue StandardError
         default_state
+      end
+
+      # A layer he had switched off before the list became groups (2026-10-09) is that group switched off -
+      # and comes off the old list, which no longer shows it. SCHEDULES stays: it is the schedules sheet
+      # itself (the x in the page list), and keeps a row of its own.
+      OLD_LAYER_GROUP = { 'WALLS' => 'walls', 'SKETCH' => 'walls', 'DOORS' => 'doors', 'WINDOWS' => 'windows',
+                          'DIMENSIONS' => 'dims', 'ELEV_DIMS' => 'dims', 'NOTES' => 'notes', 'PNOTES' => 'notes',
+                          'ROOMS' => 'text', 'TEXT' => 'text', 'IMAGES' => 'pics', 'SITE' => 'lines',
+                          'TITLE' => nil }.freeze unless const_defined?(:OLD_LAYER_GROUP, false)
+      def groups_from_layers!(st)
+        return st unless defined?(InteriorPro::PlanCanvas) && InteriorPro::PlanCanvas::USE_LAYER_GROUPS
+        hidden = Array(st['hidden']).map(&:to_s)
+        old = hidden.select { |n| OLD_LAYER_GROUP.key?(n) }
+        return st if old.empty?
+        hide = Array(st['hide']).map(&:to_s)
+        old.each { |n| g = OLD_LAYER_GROUP[n]; hide << g if g && !hide.include?(g) }
+        st['hide'] = hide
+        st['hidden'] = hidden - old
+        st
+      rescue StandardError => e
+        # never lose the whole state over this: the old list stays as it was
+        puts "[Sheet] groups_from_layers!: #{e.class}: #{e.message}"
+        st
       end
 
       def save_state(st)
@@ -3033,9 +3138,8 @@ module InteriorPro
           // Every picture on the open sheet that can be handled, bottom one first.
           function pagePics(){
             var out=[]; if(!PAGE||!PICON||!STATE) return out;
-            var hid=STATE.hidden||[];
             (PAGE.layers||[]).forEach(function(l){
-              if(hid.indexOf(l.name)>=0) return;
+              if(layerOff(l.name)) return;
               (l.shapes||[]).forEach(function(s){
                 if(s.type==='image' && s.pic && (s.placed || (s.iw>0 && s.ih>0))) out.push(s);
               });
@@ -3069,10 +3173,56 @@ module InteriorPro
           // The shape as it stands, and put back that way.
           function picKeep(s){ return {placed:s.placed, x:s.x, y:s.y, w:s.w, h:s.h, rot:s.rot, crop:(s.crop ? s.crop.slice() : s.crop)}; }
           function picPut(s,q){
+            var cw=carryFrom(s);
             s.x=q.x; s.y=q.y; s.w=q.w; s.h=q.h;
             if(q.placed) s.placed=q.placed; else delete s.placed;
             if(q.rot===undefined) delete s.rot; else s.rot=q.rot;
             if(q.crop===undefined) delete s.crop; else s.crop=q.crop.slice();
+            carryTo(s, cw);
+          }
+
+          // The marks drawn on an elevation's picture go WITH the picture (2026-10-09, "עדיף שיזוזו"):
+          // moved, made bigger or smaller, cut or turned, every point of a mark that belongs to it keeps
+          // its spot ON the picture. A mark belongs to the picture its anchor lies on (a dimension's first
+          // point, a note's tip, a line's start) - m.pic, written the first time it is needed. A
+          // dimension's number does not change (Ruby reads its scale from the picture's width: per, pw).
+          function carryFrom(s){
+            if(!s || s.txt || !s.path || !onPaper()) return null;
+            var path=picPath(s);
+            marks().forEach(function(m){
+              if(m.pic) return;
+              var an = m.t==='note' ? (m.lx!==undefined ? [m.lx,m.ly] : [m.x,m.y]) : [m.x1,m.y1];
+              var q=picAtPaper(an);
+              if(q) m.pic=picPath(q);
+            });
+            var r=picRect(s);
+            return {path:path, s0:{placed:true, x:r.x, y:r.y, w:r.w, h:r.h, rot:r.rot, crop:(r.crop||[0,0,0,0]).slice()}};
+          }
+          function carryTo(s, cw){
+            if(!cw) return;
+            var r=picRect(s), a=cw.s0;
+            if(Math.abs(r.x-a.x)<1e-9 && Math.abs(r.y-a.y)<1e-9 && Math.abs(r.w-a.w)<1e-9 && Math.abs(r.h-a.h)<1e-9 &&
+               Math.abs(r.rot-a.rot)<1e-9 && String(r.crop)===String(a.crop)) return;
+            var c0=a.crop, c1=r.crop||[0,0,0,0];
+            var k=(r.w/Math.max(1-c1[0]-c1[2],1e-6))/(a.w/Math.max(1-c0[0]-c0[2],1e-6));   // how much the picture grew
+            var go=function(x,y){ var q=paperToPic(a,x,y); return picToPaper(s,q[0],q[1]); };
+            marks().forEach(function(m){
+              if(m.pic!==cw.path) return;
+              var p;
+              if(m.t==='note'){
+                p=go(m.x,m.y); m.x=p[0]; m.y=p[1];
+                if(m.kx!==undefined){ p=go(m.kx,m.ky); m.kx=p[0]; m.ky=p[1]; }
+                if(m.lx!==undefined){ p=go(m.lx,m.ly); m.lx=p[0]; m.ly=p[1]; }
+              } else {
+                p=go(m.x1,m.y1); m.x1=p[0]; m.y1=p[1];
+                p=go(m.x2,m.y2); m.x2=p[0]; m.y2=p[1];
+                if(m.t==='dim'){
+                  if(typeof m.off==='number') m.off*=k;
+                  if(typeof m.oa==='number') m.oa*=k;
+                  if(typeof m.oc==='number') m.oc*=k;
+                }
+              }
+            });
           }
 
           // Where this picture's three things are kept: null if nowhere.
@@ -3092,7 +3242,9 @@ module InteriorPro
               tbRebuild();
               return;
             }
+            var cw=carryFrom(s);
             s.placed=true; s.x=r.x; s.y=r.y; s.w=r.w; s.h=r.h; s.rot=r.rot; s.crop=r.crop.slice();
+            carryTo(s, cw);
             var nm=picName(s); if(!nm) return;
             if(nm.main){
               if(!STATE.image_geo) STATE.image_geo={};
@@ -3473,7 +3625,7 @@ module InteriorPro
           // Every box of writing on the open sheet, as Ruby (or tbRebuild) laid it.
           function pageTexts(){
             if(!PAGE||!TXTON||!STATE) return [];
-            if((STATE.hidden||[]).indexOf('TEXT')>=0) return [];
+            if(layerOff('TEXT')) return [];
             return PAGE.text_boxes||[];
           }
 
@@ -3632,6 +3784,28 @@ module InteriorPro
             // end of the shoulder, running the way the shoulder runs, in the
             // letters a note gets (2026-10-08). Nothing is on the sheet yet
             // but the dashed leader; the words go onto a mark when he is done.
+            // a note on a picture (2026-10-09): the same one line, past the end of its shoulder
+            if(LED.kind==='pnote'){
+              var pn=picNoteEdAt();
+              if(!pn||!LIVEK){ ed.className=''; return; }
+              var ppx=PICNOTE_H*LIVEK/0.717, pw=Math.max(ppx*14, 160), ph=ppx*1.3+4;
+              var side = Math.abs(pn.sx)>0.3;
+              var pl = pn.sx>0.3 ? pn.ax : (pn.sx<-0.3 ? pn.ax-pw : pn.ax-pw/2);
+              var ptop = side ? pn.ay-ph/2 : (pn.sy>0 ? pn.ay : pn.ay-ph);
+              ed.style.left=((wr.offsetLeft||0)+pl).toFixed(1)+'px';
+              ed.style.top=((wr.offsetTop||0)+ptop).toFixed(1)+'px';
+              ed.style.width=pw.toFixed(1)+'px';
+              ed.style.height=ph.toFixed(1)+'px';
+              ed.style.fontSize=ppx.toFixed(2)+'px';
+              ed.style.lineHeight=(ppx*1.3).toFixed(2)+'px';
+              ed.style.padding='1px 2px';
+              ed.style.textAlign = pn.sx>0.3 ? 'left' : (pn.sx<-0.3 ? 'right' : 'center');
+              ed.style.fontWeight=''; ed.style.fontStyle=''; ed.style.textDecoration=''; ed.style.color='';
+              ed.style.fontFamily=fontCss('', '');
+              ed.style.transform='';
+              ed.className='on one';
+              return;
+            }
             if(LED.kind==='note'){
               if(!NOTEED||!VIEW||!PAGE){ ed.className=''; return; }
               var n=NOTEED, hpx=markTextH()*VIEW.sf*VIEW.k, npx=hpx/0.717;
@@ -3665,7 +3839,7 @@ module InteriorPro
             if(up){
               ed.style.left=((wr.offsetLeft||0)+b.x+b.w/2-ew/2).toFixed(1)+'px';
               ed.style.textAlign='center';
-            } else if(TSEL.paper){
+            } else if(TSEL.paper && TSEL.shape.align!=='center'){
               // writing put straight on the sheet starts at its left end
               ed.style.left=((wr.offsetLeft||0)+b.x-2).toFixed(1)+'px';
               ed.style.textAlign='left';
@@ -3737,7 +3911,7 @@ module InteriorPro
             var m=marks()[i]; if(!m || m.t!=='note') return null;
             var best=null, bd=markTextH()*2;
             eachText(function(s,paper){
-              if(paper || !s.key || !/^NOTES\|/.test(s.key)) return;
+              if(paper!==onPaper() || !s.key || !/^P?NOTES\|/.test(s.key)) return;
               var d=Math.hypot(s.x-m.x, s.y-m.y);
               if(d<bd){ bd=d; best={key:s.key, shape:s, paper:false}; }
             });
@@ -3745,7 +3919,7 @@ module InteriorPro
             return best;
           }
           function noteOfText(ht){
-            if(!ht || ht.paper || !/^NOTES\|/.test(String(ht.key))) return null;
+            if(!ht || ht.paper!==onPaper() || !/^P?NOTES\|/.test(String(ht.key))) return null;
             var at=null, bd=markTextH()*2;
             marks().forEach(function(m,i){
               if(m.t!=='note') return;
@@ -3776,7 +3950,7 @@ module InteriorPro
               // on a hand dimension's LINE, not its number: still its number
               var lp=dimLabelXY(marks()[h.i]), bd=1e9;
               eachText(function(s2,paper){
-                if(paper || !s2.key || !/^NOTES\|/.test(s2.key)) return;
+                if(paper!==onPaper() || !s2.key || !/^P?NOTES\|/.test(s2.key)) return;
                 var d=Math.hypot(s2.x-lp[0], s2.y-lp[1]);
                 if(d<bd && d<markTextH()*2){ bd=d; ht={key:s2.key, shape:s2, paper:false}; }
               });
@@ -3789,7 +3963,7 @@ module InteriorPro
           // dimension or a label. null = neither (a picture, a note, paper).
           // The same order the press itself looks in.
           function pressName(e){
-            if(PICON && hitPic(e)){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }
+            if(PICON && hitPic(e) && !(onPaper() && markUnder(e))){ var hx=hitText(e); if(!(hx && elevKey(hx.key))) return null; }
             var h=markUnder(e);
             if(h) return marks()[h.i].t==='dim' ? ('m:'+h.i) :
                          (marks()[h.i].t==='note' ? ('n:'+h.i) : null);
@@ -3841,7 +4015,7 @@ module InteriorPro
           // the half-drawn note.
           function noteEditOpen(){
             if(!PEND||!PEND2||!PEND3||!VIEW) return false;
-            var sf=scaleFactor(STATE.scale);
+            var sf=markSf();
             var e2=noteEnd(PEND2, PEND3);
             var ux=e2[0]-PEND2[0], uy=e2[1]-PEND2[1], L=Math.sqrt(ux*ux+uy*uy);
             if(L<1e-9){ ux=1; uy=0; } else { ux/=L; uy/=L; }
@@ -3870,7 +4044,7 @@ module InteriorPro
             HOVER=null;
             NOTEJUST=Date.now();
             if(t && p1 && p2 && p3){
-              marks().push(noteMark(p1, p2, p3, t, STATE.note_arrow!==false, scaleFactor(STATE.scale)));
+              marks().push(noteMark(p1, p2, p3, t, STATE.note_arrow!==false, markSf()));
               SEL=marks().length-1;
               NOTENEW=SEL;                      // its settings go to the side when the sheet comes back
               push();
@@ -3936,8 +4110,8 @@ module InteriorPro
             if(!TXTON||TBED) return;
             var p=mouseAt(e), a=picArea();
             if(!p||!PAGE||!LIVEK||!a) return;
-            if((STATE.hidden||[]).indexOf('TEXT')>=0){
-              $('markinfo').textContent='השכבה TEXT כבויה. הדלק אותה תחת "שכבות" כדי לכתוב.';
+            if(layerOff('TEXT')){
+              $('markinfo').textContent='הכיתובים כבויים. הדלק אותם תחת "שכבות" כדי לכתוב.';
               return;
             }
             var hp=hitPic(e);
@@ -3995,8 +4169,9 @@ module InteriorPro
               var hp = s.h * (s.__paper ? 1 : scaleFactor(STATE.scale));
               var fs = hp * k / 0.717;
               if(fs<1.5) return '';
-              var anchor = s.__paper ? 'start' : 'middle';
-              var base   = s.__paper ? 'alphabetic' : 'central';
+              var pmid = s.__paper && s.align==='center';     // a mark's words on an elevation's sheet
+              var anchor = (s.__paper && !pmid) ? 'start' : 'middle';
+              var base   = (s.__paper && !pmid) ? 'alphabetic' : 'central';
               // writing on the plan carries the sheet's turn as well as its own
               var rdeg = (s.rotation||0) + (s.__paper ? 0 : VROT);
               var rot = rdeg ? ' transform="rotate('+(-rdeg)+','+px.toFixed(1)+','+py.toFixed(1)+')"' : '';
@@ -4035,7 +4210,7 @@ module InteriorPro
               var pa=tp(s.x,s.y), PX=pa[0]*k, PY=(ph-pa[1]-s.h)*k, PW=s.w*k, PH=s.h*k;
               var cr=s.crop||[0,0,0,0], piw=(s.iw>0 ? s.iw : 1000), pih=(s.ih>0 ? s.ih : 1000), prot=+s.rot||0;
               o.push(prot ? ('<g transform="rotate('+(-prot)+','+(PX+PW/2).toFixed(2)+','+(PY+PH/2).toFixed(2)+')">') : '<g>');
-              var pu=URLS[s.path];
+              var pu=URLS[picShownPath(s)]||URLS[s.path];
               if(pu){
                 o.push('<svg x="'+PX.toFixed(2)+'" y="'+PY.toFixed(2)+'" width="'+PW.toFixed(2)+'" height="'+PH.toFixed(2)+
                        '" viewBox="'+(cr[0]*piw).toFixed(3)+' '+(cr[3]*pih).toFixed(3)+' '+
@@ -4051,7 +4226,7 @@ module InteriorPro
               var a=tp(s.x,s.y);
               var ix=(a[0]*k).toFixed(1), iy=((ph-(s.y+s.h))*k).toFixed(1);
               var iw=(s.w*k).toFixed(1), ih=(s.h*k).toFixed(1);
-              var t=URLS[s.path];
+              var t=URLS[picShownPath(s)]||URLS[s.path];
               if(t){
                 // meet = keep the proportions and sit in the middle, which is
                 // exactly what plan_pdf does when it prints.
@@ -4201,8 +4376,8 @@ module InteriorPro
               o.push('<g clip-path="url(#'+cid+')">');
               var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
               if(cv) cv.layers.forEach(function(l){
-                if(STATE.hidden.indexOf(l.name)>=0) return;
-                o.push(layerSVG(l.shapes,toPaper,k,ph,false));
+                if(layerOff(l.name)) return;
+                o.push(layerSVG(shownShapes(l),toPaper,k,ph,false));
               });
               o.push('</g>');
               // the window itself, so the user can see where the plan may sit
@@ -4210,10 +4385,13 @@ module InteriorPro
                      '" width="'+(v.w*k).toFixed(1)+'" height="'+(v.h*k).toFixed(1)+
                      '" fill="none" stroke="#bcd" stroke-width="1" stroke-dasharray="5 4"'+vtr+'/>');
             }
+            // an elevation's sheet: a view in paper inches, so the plan's tools work on it (USE_PIC_MARKS)
+            if(live && !v && PICMARKS && pg.kind==='image')
+              VIEW={k:k, sf:1, cx:0, cy:0, toPaper:function(x,y){ return [x,y]; }, rot:0, rc:1, rs:0, paper:true};
 
             (pg.layers||[]).forEach(function(l){
-              if(STATE.hidden.indexOf(l.name)>=0) return;
-              o.push(layerSVG(l.shapes,same,k,ph,true));
+              if(layerOff(l.name)) return;
+              o.push(layerSVG(shownShapes(l),same,k,ph,true));
             });
 
             if(live){
@@ -4269,6 +4447,11 @@ module InteriorPro
                   o.push('<line x1="'+wb[0].toFixed(1)+'" y1="'+wb[1].toFixed(1)+
                          '" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+
                          '" stroke="#1f6feb" stroke-width="1.5" opacity=".45"/>');
+                } else if(sm.t==='line'){
+                  var pl1=screenOf(sm.x1,sm.y1), pl2=screenOf(sm.x2,sm.y2);
+                  o.push('<line x1="'+pl1[0].toFixed(1)+'" y1="'+pl1[1].toFixed(1)+
+                         '" x2="'+pl2[0].toFixed(1)+'" y2="'+pl2[1].toFixed(1)+
+                         '" stroke="#1f6feb" stroke-width="2.5" opacity=".7"/>');
                 } else {
                   // a note: its leader, drawn over itself in blue
                   var seg=function(p1,p2){
@@ -4338,10 +4521,14 @@ module InteriorPro
           function render(moving){
             PAGE=activePage();
             if(!DOC||!PAGE) return;
+            // (not a step of its own: Ctrl+Z would only bring the old kind back to be moved again)
+            if(moving!==true && migrateHand()){ UNDOING=true; push(); UNDOING=false; }
             $('sheetWrap').innerHTML=sheetSVG(PAGE, fitK()*(ZOOM||1), true);
             hookDrag();
             paintErase();
             paintSnap();
+            paintPicDim();
+            paintPicNote();
             paintDraw();
             paintRot();
             paintTextPick();
@@ -4452,6 +4639,7 @@ module InteriorPro
             var r=svg.getBoundingClientRect();
             var px=(e.clientX-r.left)/VIEW.k;                 // paper inches
             var py=PAGE.height-(e.clientY-r.top)/VIEW.k;
+            if(VIEW.paper) return [px, py];                    // an elevation's sheet: the paper itself
             if(!VIEW.rot)
               return [(px-VIEW.cx)/VIEW.sf+STATE.origin_x,    // model inches
                       (py-VIEW.cy)/VIEW.sf+STATE.origin_y];
@@ -4461,7 +4649,163 @@ module InteriorPro
                     -qx*VIEW.rs+qy*VIEW.rc+STATE.origin_y];
           }
 
-          function marks(){ return STATE.marks||(STATE.marks=[]); }
+          // ---- his groups instead of the document's layers (2026-10-09, PlanCanvas::USE_LAYER_GROUPS) ----
+          //
+          // "בתכלס צריך ... חלונות דלתות מדידות קירות תמונות הערות וכיתובים שונים כולל טבלאות שמות של דלתות",
+          // and by law TILE / PLUMBING / ELECTRIC each its own. STATE.hide = the groups switched off; a shape's
+          // group is its layer's, or - where one layer holds two kinds - its own (a door's name is writing, a
+          // hand dimension is a dimension). The same rule as PlanCanvas.shape_group, which the PDF goes by.
+          var LGROUPS=true;    // told by Ruby
+          var MIXED={DOORS:1, WINDOWS:1, NOTES:1, PNOTES:1, ELEV_DIMS:1};
+          // an elevation taken in layers (ElevationTool USE_ELEV_LAYERS): the picture without what is off -
+          // the same rule as PlanCanvas.pic_shown
+          function picShownPath(s){
+            if(!s || !s.layers || !LGROUPS) return s && s.path;
+            var h=hideList(), off=(s.layers.cats||[]).filter(function(c){ return h.indexOf(c)>=0; }).sort();
+            if(!off.length) return s.path;
+            return (s.layers.files||{})[off.join('+')] || s.path;
+          }
+          function hideList(){ return (LGROUPS && STATE && STATE.hide) || []; }
+          function shapeGroup(layer, s){
+            var text = s && s.type==='text';
+            switch(String(layer)){
+              case 'WALLS': case 'SKETCH': return 'walls';
+              case 'DOORS': return text ? 'text' : 'doors';
+              case 'WINDOWS': return text ? 'text' : 'windows';
+              case 'DIMENSIONS': case 'ELEV_DIMS': return 'dims';
+              case 'NOTES': case 'PNOTES': return (s && s.mdim) ? 'dims' : 'notes';
+              case 'ROOMS': case 'TEXT': return 'text';
+              case 'IMAGES': return 'pics';
+              case 'SITE': return 'lines';
+              case 'TILE': return 'tile';
+              case 'PLUMBING': return 'plumbing';
+              case 'ELECTRIC': return 'electric';
+            }
+            return null;
+          }
+          // the whole layer is off: by its old name (SCHEDULES), or its group (a layer of one kind)
+          function layerOff(name){
+            if(STATE && (STATE.hidden||[]).indexOf(name)>=0) return true;
+            var h=hideList(); if(!h.length || MIXED[name]) return false;
+            var g=shapeGroup(name, null);
+            return !!g && h.indexOf(g)>=0;
+          }
+          // what of a layer is shown (the same array when nothing of it is off)
+          function shownShapes(l){
+            var h=hideList(), sh=l.shapes||[];
+            if(!h.length || !MIXED[l.name]) return sh;
+            return sh.filter(function(q){ return h.indexOf(shapeGroup(l.name,q))<0 && !(q.grp && h.indexOf(q.grp)>=0); });
+          }
+          function markOff(m){
+            var h=hideList(); if(!h.length || !m) return false;
+            return h.indexOf(m.t==='dim' ? 'dims' : 'notes')>=0;
+          }
+
+          // ---- the plan's marks on an elevation's sheet (2026-10-09, PlanCanvas::USE_PIC_MARKS) ----
+          //
+          // His words: "תסתכל על איך כל הכלים האלו עובדים עם סירטוט רגיל ... ותחל את אותם הכללים על
+          // האלווישין" and "כל הסירטוטים חייבים להתנהג אותו הדבר". So an elevation's sheet is not given tools
+          // of its own: it is given a VIEW, like the plan's, in PAPER inches (VIEW.paper - one to one, no
+          // origin, no turn), and its marks are the plan's own marks - {t:'dim'}, {t:'note'}, and {t:'line'}
+          // for a line drawn there - kept in STATE.page_marks[its picture's path]. Every tool, the select
+          // arrow, the eraser, Delete, Ctrl+Z, two clicks on words and the panel at the side then run the
+          // plan's road unchanged. Locking: the lines of the pictures on the sheet (their snaps files) are
+          // eachSeg's lines there, so drawSnap / snapPoint lock onto their ends, middles and lines.
+          var PICMARKS=true;   // told by Ruby
+          function onPaper(){ return !!(PICMARKS && PAGE && PAGE.kind==='image'); }
+          function pageMarkKey(){
+            if(!PAGE || !STATE) return null;
+            var p=(STATE.images||[])[PAGE.ref];
+            return p ? String(p).split(String.fromCharCode(92)).join('/') : null;
+          }
+          function marks(){
+            if(onPaper()){
+              var k=pageMarkKey(); if(!k) return [];
+              var pm=STATE.page_marks||(STATE.page_marks={});
+              return pm[k]||(pm[k]=[]);
+            }
+            return STATE.marks||(STATE.marks=[]);
+          }
+          // the sheets' marks as they are, for Ctrl+Z (an empty list is no list)
+          function pmJSON(){
+            var o={}, pm=(STATE&&STATE.page_marks)||{};
+            Object.keys(pm).sort().forEach(function(k){ if(pm[k] && pm[k].length) o[k]=pm[k]; });
+            return JSON.stringify(o);
+          }
+          // the lines of every picture on the sheet, in paper inches - worked out again only when
+          // a picture moves or its lines arrive
+          var PSEGS=null, PSEGKEY='';
+          function paperSegs(){
+            var pics=pagePics().filter(function(q){ return !q.txt && q.path; });
+            var key=pics.map(function(q){
+              var r=picRect(q), pp=picPath(q), sn=PSNAPS[pp];
+              return pp+'|'+[r.x,r.y,r.w,r.h,r.rot].join(',')+'|'+(r.crop||[]).join(',')+'|'+(sn&&sn.segs ? sn.segs.length : String(sn));
+            }).join(';');
+            if(PSEGS && key===PSEGKEY) return PSEGS;
+            var out=[];
+            pics.forEach(function(q){
+              var pp=picPath(q), sn=PSNAPS[pp];
+              if(sn===undefined){ PSNAPS[pp]='asked'; sketchup.elev_snaps(pp); return; }
+              if(!sn || sn==='asked') return;
+              sn.segs.forEach(function(g){
+                var a=picToPaper(q,g[0],g[1]), b=picToPaper(q,g[2],g[3]);
+                out.push([a[0],a[1],b[0],b[1]]);
+              });
+            });
+            PSEGS=out; PSEGKEY=key;
+            return out;
+          }
+          // the picture a paper point lies on (not a box of writing), or null
+          function picAtPaper(pt){
+            var pics=pagePics();
+            for(var i=pics.length-1;i>=0;i--){
+              if(pics[i].txt) continue;
+              var r=picRect(pics[i]), t=r.rot*Math.PI/180, c=Math.cos(t), n=Math.sin(t);
+              var dx=pt[0]-(r.x+r.w/2), dy=pt[1]-(r.y+r.h/2);
+              if(Math.abs(dx*c+dy*n)<=r.w/2 && Math.abs(-dx*n+dy*c)<=r.h/2) return pics[i];
+            }
+            return null;
+          }
+          // how many paper inches a room inch is on the picture under pt: {pic, per, pw} -
+          // or why not, in words
+          function picScaleAt(pt){
+            var q=pt ? picAtPaper(pt) : null;
+            if(!q) return {why:'אין תמונה מתחת לעכבר.'};
+            var pp=picPath(q), sn=PSNAPS[pp];
+            if(sn===undefined || sn==='asked'){ paperSegs(); return {why:'', wait:true}; }
+            if(!sn || !(sn.w_in>0)) return {why:'לתמונה הזאת אין קווים - צריך לצלם אותה שוב ב-Elevations.'};
+            var r=picRect(q), c=r.crop||[0,0,0,0], full=r.w/Math.max(1-c[0]-c[2],1e-6);
+            return {pic:pp, per:full/sn.w_in, pw:full};
+          }
+          // What was drawn with the tools of 2026-10-08 (STATE.image_hand) on the pictures of this sheet
+          // becomes the plan's marks, once, so the eraser and the arrow reach it like anything else.
+          function migrateHand(){
+            if(!onPaper() || !STATE.image_hand) return false;
+            var hand=STATE.image_hand, moved=0;
+            pagePics().forEach(function(q){
+              if(q.txt || !q.path) return;
+              var pp=picPath(q), list=hand[pp];
+              if(!list || !list.length) return;
+              var r=picRect(q), c=r.crop||[0,0,0,0], full=r.w/Math.max(1-c[0]-c[2],1e-6);
+              list.forEach(function(h){
+                if(h.t==='note' && h.p && h.p.length===6){
+                  var tp=picToPaper(q,h.p[0],h.p[1]), kn=picToPaper(q,h.p[2],h.p[3]), en=picToPaper(q,h.p[4],h.p[5]);
+                  marks().push(noteMark(tp, kn, en, h.text, h.arrow!==false, 1)); moved++;
+                } else if(h.p && h.p.length===4 && (h.o==='h'||h.o==='v') && h.n>0){
+                  var A=picToPaper(q,h.p[0],h.p[1]);
+                  var B=h.o==='h' ? picToPaper(q,h.p[2],h.p[1]) : picToPaper(q,h.p[0],h.p[3]);
+                  var W=h.o==='h' ? picToPaper(q,h.p[0],h.at) : picToPaper(q,h.at,h.p[1]);
+                  var L=Math.hypot(B[0]-A[0],B[1]-A[1]); if(L<1e-6) return;
+                  marks().push({t:'dim', x1:A[0], y1:A[1], x2:B[0], y2:B[1], off:offsetToward(A,B,W),
+                                pic:pp, per:L/h.n, pw:full});
+                  moved++;
+                }
+              });
+              delete hand[pp];
+            });
+            if(moved) sketchup.pic_dim_trace('moved '+moved+' drawn with the old tools onto the sheet\'s marks');
+            return moved>0;
+          }
 
           // ---- snapping a dimension onto the drawing ----------------------
           //
@@ -4485,8 +4829,8 @@ module InteriorPro
             if(!cv) return;
             var hid=STATE.hidden||[];
             cv.layers.forEach(function(l){
-              if(hid.indexOf(l.name)>=0) return;
-              (l.shapes||[]).forEach(function(s){
+              if(hid.indexOf(l.name)>=0 || layerOff(l.name)) return;
+              shownShapes(l).forEach(function(s){
                 if(s.type==='line'){ fn(s.x1,s.y1); fn(s.x2,s.y2); }
                 else if(s.points){ s.points.forEach(function(q){ fn(q[0],q[1]); }); }
               });
@@ -4499,8 +4843,15 @@ module InteriorPro
 
           // p is where the mouse really is, in model inches. Returns the
           // corner it should lock onto, or p itself when there is none near.
+          var SNAPKIND=null;    // on an elevation's sheet: what it locked onto (end / mid / edge)
           function snapPoint(p){
             if(!p||!VIEW) return p;
+            if(onPaper()){
+              var ds=drawSnap(p);
+              SNAPPED = ds.kind ? ds.p.slice() : null;
+              SNAPKIND = ds.kind;
+              return ds.p ? ds.p.slice() : p;
+            }
             var ps=screenOf(p[0],p[1]);
             var best=null, bd=SNAP_PX;
             eachVertex(function(x,y){
@@ -4541,6 +4892,7 @@ module InteriorPro
             var p=mouseAt(e); if(!p) return null;
             var X=p[0], Y=p[1], best=null, bd=MARK_GRAB;
             marks().forEach(function(m,i){
+              if(markOff(m)) return;          // a group he switched off
               if(m.t==='dim'){
                 // the two CLICKED points - they sit on the thing being
                 // measured and they are what 'a' and 'b' move
@@ -4560,6 +4912,14 @@ module InteriorPro
                 var la=screenOf(L[0],L[1]), lb=screenOf(L[2],L[3]);
                 var ds=distToSeg(X,Y,la,lb);
                 if(ds<bd){ bd=ds; best={i:i,part:'off'}; }
+              } else if(m.t==='line'){
+                // a line drawn on an elevation's sheet (2026-10-09): its ends, or the whole of it
+                var la2=screenOf(m.x1,m.y1), lb2=screenOf(m.x2,m.y2);
+                var dla=Math.hypot(la2[0]-X,la2[1]-Y), dlb=Math.hypot(lb2[0]-X,lb2[1]-Y);
+                if(dla<bd){ bd=dla; best={i:i,part:'a'}; }
+                if(dlb<bd){ bd=dlb; best={i:i,part:'b'}; }
+                var dsl=distToSeg(X,Y,la2,lb2);
+                if(dsl<bd){ bd=dsl; best={i:i,part:'all'}; }
               } else if(m.t==='note'){
                 if(m.lx!==undefined){
                   var t=screenOf(m.lx,m.ly);
@@ -4590,7 +4950,7 @@ module InteriorPro
           // two lines lying on top of each other cannot be confused.
           function siteLayer(){
             if(!DOC||!PAGE||!STATE) return null;
-            if((STATE.hidden||[]).indexOf('SITE')>=0) return null;   // switched off
+            if(layerOff('SITE')) return null;   // switched off
             var v=pageView(); if(!v) return null;
             var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
             if(!cv) return null;
@@ -4664,6 +5024,7 @@ module InteriorPro
               return (s&&s.points) ? s.points.map(function(q){ return screenOf(q[0],q[1]); }) : null;
             }
             var m=marks()[x.i]; if(!m) return null;
+            if(m.t==='line') return [screenOf(m.x1,m.y1), screenOf(m.x2,m.y2)];
             if(m.t==='dim'){
               var L=dimLine(m);
               return [screenOf(L[0],L[1]), screenOf(L[2],L[3])];
@@ -4848,13 +5209,22 @@ module InteriorPro
           // lines, anything on a layer that is switched on.
           function eachSeg(fn){
             if(!DOC||!STATE||!PAGE) return;
+            if(onPaper()){
+              // an elevation's sheet: its pictures' lines, the lines drawn on it, the ends of its dimensions
+              paperSegs().forEach(function(q){ fn(q[0],q[1],q[2],q[3]); });
+              marks().forEach(function(m){
+                if(m.t==='line') fn(m.x1,m.y1,m.x2,m.y2);
+                else if(m.t==='dim'){ fn(m.x1,m.y1,m.x1,m.y1); fn(m.x2,m.y2,m.x2,m.y2); }
+              });
+              return;
+            }
             var v=pageView(); if(!v) return;
             var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
             if(!cv) return;
             var hid=STATE.hidden||[];
             cv.layers.forEach(function(l){
-              if(hid.indexOf(l.name)>=0) return;
-              var sh=l.shapes||[];
+              if(hid.indexOf(l.name)>=0 || layerOff(l.name)) return;
+              var sh=shownShapes(l);
               for(var i=0;i<sh.length;i++){
                 var s=sh[i];
                 if(s.type==='line'){ fn(s.x1,s.y1,s.x2,s.y2); continue; }
@@ -4975,7 +5345,7 @@ module InteriorPro
             if(!LINEDRAW) return;
             var ds=drawSnap(p);
             // a hundredth of an inch, like every other loose line
-            var pt=[Math.round(ds.p[0]*100)/100, Math.round(ds.p[1]*100)/100];
+            var pt=onPaper() ? ds.p.slice() : [Math.round(ds.p[0]*100)/100, Math.round(ds.p[1]*100)/100];
             DRAWSNAP={p:pt, kind:ds.kind};
             if(!PEND){
               PEND=pt; CHAIN0=pt.slice();
@@ -4985,7 +5355,11 @@ module InteriorPro
             // a second click on the very same spot is not a line
             var a=screenOf(PEND[0],PEND[1]), b=screenOf(pt[0],pt[1]);
             if(Math.hypot(a[0]-b[0],a[1]-b[1])<2) return;
-            if(!addSiteLine(PEND,pt)) return;
+            if(onPaper()){
+              // on an elevation's sheet a line is one of the sheet's marks (2026-10-09)
+              marks().push({t:'line', x1:PEND[0], y1:PEND[1], x2:pt[0], y2:pt[1]});
+              push(); render();
+            } else if(!addSiteLine(PEND,pt)) return;
             // line: done - the next click starts a new one.
             // chain: the next line starts where this one ended, unless it has
             // just come back to where the run began: the shape is closed.
@@ -4995,12 +5369,283 @@ module InteriorPro
             paintDraw(); showMarks();
           }
 
+          // ---- dimensions on an elevation's picture (2026-10-08 19:46, PlanCanvas::USE_PIC_DIMS) ----
+          //
+          // His words: "תאפשר לי גם להשתמש בכל הכלים ... גם על האליווישין ... חייב להינעל על פינות
+          // וסופי קווים". A picture has no lines of its own, so ElevationTool writes the lines it
+          // shows beside it (<picture>.snaps.json, shares of the picture) and Ruby hands them over
+          // (elev_snaps -> picSnaps). Three clicks, as on the plan: from, to (both lock onto an end,
+          // a middle or a line - the same colours), and where the dimension line stands. It measures
+          // ACROSS or UP, whichever way the two points are further apart. Kept in
+          // STATE.image_hand[path] in shares of the picture, so it follows the picture's box.
+          var PICDIMS=true;
+          var PSNAPS={};       // path -> { pts: [[u,v,kind]], segs, w_in, h_in } or 'asked' / null
+          var PD=null;         // the dimension being drawn: { s, path, a, b, at, o }
+          var PDHOV=null;      // where the mouse would land now: { u, v, kind } or a bare point
+          function picPath(s){ return String((s&&s.path)||'').split(String.fromCharCode(92)).join('/'); }
+          function picSnaps(path, data){
+            path=String(path).split(String.fromCharCode(92)).join('/');
+            if(!data || !data.segs){ PSNAPS[path]=null; return; }
+            var pts=[], seen={};
+            var add=function(u,v,k){
+              var key=k+(u*1e4|0)+'_'+(v*1e4|0);
+              if(seen[key]) return; seen[key]=1; pts.push([u,v,k]);
+            };
+            data.segs.forEach(function(g){
+              add(g[0],g[1],'end'); add(g[2],g[3],'end');
+              add((g[0]+g[2])/2,(g[1]+g[3])/2,'mid');
+            });
+            PSNAPS[path]={pts:pts, segs:data.segs, w_in:+data.w_in||0, h_in:+data.h_in||0};
+          }
+          // a share of picture s -> the paper (the sums PlanCanvas.elev_pt and draw_elev_dim use)
+          function picToPaper(s,u,v){
+            var r=picRect(s), c=r.crop||[0,0,0,0];
+            var x=r.x+(u-c[0])/(1-c[0]-c[2])*r.w, y=r.y+(v-c[1])/(1-c[1]-c[3])*r.h;
+            if(!r.rot) return [x,y];
+            var t=r.rot*Math.PI/180, cx=r.x+r.w/2, cy=r.y+r.h/2, dx=x-cx, dy=y-cy;
+            return [cx+dx*Math.cos(t)-dy*Math.sin(t), cy+dx*Math.sin(t)+dy*Math.cos(t)];
+          }
+          function paperToPic(s,px,py){
+            var r=picRect(s), c=r.crop||[0,0,0,0], x=px, y=py;
+            if(r.rot){
+              var t=-r.rot*Math.PI/180, cx=r.x+r.w/2, cy=r.y+r.h/2, dx=x-cx, dy=y-cy;
+              x=cx+dx*Math.cos(t)-dy*Math.sin(t); y=cy+dx*Math.sin(t)+dy*Math.cos(t);
+            }
+            return [c[0]+(x-r.x)/r.w*(1-c[0]-c[2]), c[1]+(y-r.y)/r.h*(1-c[1]-c[3])];
+          }
+          function pdScreen(s,u,v){ var p=picToPaper(s,u,v); return [p[0]*LIVEK, (PAGE.height-p[1])*LIVEK]; }
+          // the picture under the mouse that has lines (a box of writing is not one); asks for its lines once
+          function picDimTarget(e){
+            var s=hitPic(e); if(!s || s.txt) return null;
+            var path=picPath(s);
+            if(PSNAPS[path]===undefined){ PSNAPS[path]='asked'; sketchup.elev_snaps(path); }
+            return s;
+          }
+          // where a click would land: an end or a middle within SNAP_PX, else the nearest point ON a line,
+          // else the mouse itself
+          function picSnapAt(s,e){
+            var m=mouseAt(e); if(!m) return null;
+            var pp=[m[0]/LIVEK, PAGE.height-m[1]/LIVEK], raw=paperToPic(s,pp[0],pp[1]);
+            var sn=PSNAPS[picPath(s)];
+            if(!sn || sn==='asked') return {u:raw[0], v:raw[1], kind:null};
+            var best=null, bd=SNAP_PX;
+            sn.pts.forEach(function(q){
+              var p=pdScreen(s,q[0],q[1]), d=Math.hypot(p[0]-m[0],p[1]-m[1]);
+              if(d<bd || (best && d<=bd+0.5 && best.kind==='mid' && q[2]==='end')){ bd=Math.min(bd,d); best={u:q[0],v:q[1],kind:q[2]}; }
+            });
+            if(best) return best;
+            bd=SNAP_PX*0.6;
+            sn.segs.forEach(function(g){
+              var a=pdScreen(s,g[0],g[1]), b=pdScreen(s,g[2],g[3]);
+              var vx=b[0]-a[0], vy=b[1]-a[1], L=vx*vx+vy*vy; if(!L) return;
+              var t=Math.max(0,Math.min(1,((m[0]-a[0])*vx+(m[1]-a[1])*vy)/L));
+              var d=Math.hypot(a[0]+vx*t-m[0], a[1]+vy*t-m[1]);
+              if(d<bd){ bd=d; best={u:g[0]+(g[2]-g[0])*t, v:g[1]+(g[3]-g[1])*t, kind:'edge'}; }
+            });
+            return best || {u:raw[0], v:raw[1], kind:null};
+          }
+          // which way it measures and how long it is, in inches of the room
+          function picDimMeasure(path,a,b){
+            var sn=PSNAPS[path]; if(!sn||sn==='asked'||!sn.w_in) return null;
+            var du=Math.abs(b.u-a.u)*sn.w_in, dv=Math.abs(b.v-a.v)*sn.h_in;
+            return du>=dv ? {o:'h', n:du} : {o:'v', n:dv};
+          }
+          function picDimMove(e){
+            if(PD && PD.b){
+              var m=mouseAt(e); if(!m) return;
+              var q=paperToPic(PD.s, m[0]/LIVEK, PAGE.height-m[1]/LIVEK);
+              PD.at = PD.o==='h' ? q[1] : q[0];
+              paintPicDim(); return;
+            }
+            var s=PD ? PD.s : picDimTarget(e);
+            PDHOV = s ? picSnapAt(s,e) : null;
+            if(PDHOV) PDHOV.s=s;
+            paintPicDim();
+          }
+          function picDimClick(e){
+            if(PD && PD.b){
+              var hand=STATE.image_hand||(STATE.image_hand={});
+              (hand[PD.path]||(hand[PD.path]=[])).push({p:[PD.a.u,PD.a.v,PD.b.u,PD.b.v], o:PD.o, at:PD.at, n:PD.n});
+              var made=PD; PD=null; PDHOV=null;
+              sketchup.pic_dim_trace(made.path.split('/').pop()+' '+made.o+' '+made.n.toFixed(3)+'" from '+made.a.kind+' to '+made.b.kind);
+              push(); render(); showMarks();
+              return;
+            }
+            var s=PD ? PD.s : picDimTarget(e);
+            if(!s){ $('markinfo').textContent='אין תמונה מתחת לעכבר.'; return; }
+            var path=picPath(s), sn=PSNAPS[path];
+            if(sn===null){ $('markinfo').textContent='לתמונה הזאת אין קווים - צריך לצלם אותה שוב ב-Elevations.'; return; }
+            if(sn==='asked') return;      // its lines are on the way
+            var p=picSnapAt(s,e); if(!p) return;
+            if(!PD){ PD={s:s, path:path, a:p}; paintPicDim(); return; }
+            var me=picDimMeasure(path,PD.a,p); if(!me || me.n<0.05) return;
+            PD.b=p; PD.o=me.o; PD.n=me.n;
+            PD.at = me.o==='h' ? Math.min(PD.a.v,p.v)-0.04 : Math.max(PD.a.u,p.u)+0.04;
+            paintPicDim();
+          }
+          function picDimDrop(){ var had=!!(PD||PDHOV); PD=null; PDHOV=null; paintPicDim(); return had; }
+          // drawn over the sheet on every move, not with it: the ring where a click lands and the
+          // dimension being drawn (dashed, blue, as on the plan)
+          function paintPicDim(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#picdim'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(MODE!=='dim' || (!PD && !PDHOV)) return;
+            var o=[];
+            var dash=function(p1,p2,w){
+              o.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+
+                     '" stroke="#1f6feb" stroke-width="'+(w||1.5)+'" stroke-dasharray="4 3"/>');
+            };
+            if(PD && PD.b){
+              var s=PD.s, A, B;
+              if(PD.o==='h'){ A=pdScreen(s,PD.a.u,PD.at); B=pdScreen(s,PD.b.u,PD.at); }
+              else { A=pdScreen(s,PD.at,PD.a.v); B=pdScreen(s,PD.at,PD.b.v); }
+              dash(pdScreen(s,PD.a.u,PD.a.v),A,1); dash(pdScreen(s,PD.b.u,PD.b.v),B,1); dash(A,B,2);
+              var mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2;
+              o.push('<text x="'+mx.toFixed(1)+'" y="'+(my-6).toFixed(1)+'" font-size="13" fill="#1f6feb" text-anchor="middle">'+PD.n.toFixed(1)+'"</text>');
+            } else if(PD && PDHOV){
+              dash(pdScreen(PD.s,PD.a.u,PD.a.v), pdScreen(PD.s,PDHOV.u,PDHOV.v));
+            }
+            var ring = PDHOV && !(PD && PD.b) ? PDHOV : null;
+            if(ring && ring.kind){
+              var q=pdScreen(ring.s||PD.s, ring.u, ring.v);
+              var col = ring.kind==='end' ? '#2fbf5f' : (ring.kind==='mid' ? '#16c0d6' : '#d63ad6');
+              o.push('<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="6" fill="none" stroke="'+col+'" stroke-width="2"/>');
+            }
+            var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+            g.setAttribute('id','picdim');
+            g.innerHTML=o.join('');
+            svg.appendChild(g);
+          }
+
+          // ---- a note on an elevation's picture (2026-10-09, PlanCanvas::USE_PIC_DIMS) ----
+          //
+          // The plan's note, on a picture - the next of his list ("כל הכלים ... גם על האליווישין").
+          // Three clicks: what it points at (locks onto an end, a middle or a line of the picture,
+          // the same rings as the dimension), where the leader bends, where the shoulder ends (the
+          // right angle wins, as on the plan). Then the words are typed where they will stand;
+          // Enter or a press on the sheet keeps them, Escape drops the note. Kept in
+          // STATE.image_hand[path] beside his dimensions - {t:'note', p:[tip u,v, knee u,v, end u,v],
+          // text, arrow} in shares of the picture - so Ctrl+Z takes it back like a dimension, and
+          // Ruby draws it (PlanCanvas.draw_pic_note). A picture with no lines still takes a note,
+          // just with nothing to lock onto.
+          var PN=null;         // the note being drawn: { s, path, a, b, c }
+          var PNHOV=null;      // where the mouse would land now
+          var PICNOTE_H=0.11;  // how tall its letters are, paper inches (Ruby sends the elevation's own)
+          function picNoteAt(s,e){
+            var m=mouseAt(e); if(!m) return null;
+            var q=paperToPic(s, m[0]/LIVEK, PAGE.height-m[1]/LIVEK);
+            return {u:q[0], v:q[1], kind:null};
+          }
+          // the shoulder's end, the right angle winning on the PAPER (a share is not square)
+          function picNoteEnd(s,b,c){
+            var e2=noteEnd(picToPaper(s,b.u,b.v), picToPaper(s,c.u,c.v));
+            var q=paperToPic(s,e2[0],e2[1]);
+            return {u:q[0], v:q[1], kind:null};
+          }
+          function picNoteMove(e){
+            if(LED && LED.kind==='pnote') return;
+            var s=PN ? PN.s : picDimTarget(e);
+            if(!s){ if(PNHOV){ PNHOV=null; paintPicNote(); } return; }
+            if(!PN) PNHOV=picSnapAt(s,e);
+            else if(!PN.b) PNHOV=picNoteAt(s,e);
+            else { var r=picNoteAt(s,e); PNHOV=r ? picNoteEnd(s,PN.b,r) : null; }
+            if(PNHOV) PNHOV.s=s;
+            paintPicNote();
+          }
+          function picNoteClick(e){
+            if(LED && LED.kind==='pnote') return;
+            if(NOTEJUST && Date.now()-NOTEJUST<400) return;   // the press that kept the last one
+            var s=PN ? PN.s : picDimTarget(e);
+            if(!s){ $('markinfo').textContent='אין תמונה מתחת לעכבר.'; return; }
+            if(!PN){
+              var t=picSnapAt(s,e); if(!t) return;
+              PN={s:s, path:picPath(s), a:{u:t.u, v:t.v, kind:t.kind}};
+              PNHOV=null; paintPicNote(); return;
+            }
+            var r=picNoteAt(s,e); if(!r) return;
+            if(!PN.b){ PN.b=r; paintPicNote(); return; }
+            PN.c=picNoteEnd(s,PN.b,r);
+            PNHOV=null;
+            var ed=tbEditEl(); if(!ed) return;
+            ed.value='';
+            tbEditShow('pnote');
+            paintPicNote();
+          }
+          // where its words begin on the screen and which way the shoulder runs there
+          function picNoteEdAt(){
+            if(!PN || !PN.c) return null;
+            var a=pdScreen(PN.s,PN.c.u,PN.c.v), k=pdScreen(PN.s,PN.b.u,PN.b.v);
+            var sx=a[0]-k[0], sy=a[1]-k[1], L=Math.sqrt(sx*sx+sy*sy);
+            if(L<1e-9){ sx=1; sy=0; } else { sx/=L; sy/=L; }
+            return {ax:a[0]+sx*4, ay:a[1]+sy*4, sx:sx, sy:sy};
+          }
+          // byPress: kept by a press on the sheet - the click that follows that press starts nothing
+          function picNoteKeep(byPress){
+            if(!LED || LED.kind!=='pnote') return;
+            var ed=tbEditEl();
+            var t=String(ed.value||'').replace(/\s+/g,' ').trim(), n=PN;
+            tbEditHide(); PN=null; PNHOV=null;
+            if(byPress) NOTEJUST=Date.now();
+            if(t && n && n.c){
+              var hand=STATE.image_hand||(STATE.image_hand={});
+              (hand[n.path]||(hand[n.path]=[])).push({t:'note', p:[n.a.u,n.a.v,n.b.u,n.b.v,n.c.u,n.c.v],
+                                                     text:t, arrow:STATE.note_arrow!==false});
+              sketchup.pic_dim_trace(n.path.split('/').pop()+' note "'+t+'" pointing at '+(n.a.kind||'free'));
+              push();
+            }
+            render(); showMarks();
+          }
+          function picNoteDrop(){
+            var had=!!(PN||PNHOV||(LED && LED.kind==='pnote'));
+            if(LED && LED.kind==='pnote') tbEditHide();
+            PN=null; PNHOV=null; paintPicNote();
+            return had;
+          }
+          // drawn over the sheet on every move: the ring where the tip locks, the dashed leader so far
+          function paintPicNote(){
+            var svg=$('sheetWrap').firstChild; if(!svg) return;
+            var old=svg.querySelector('#picnote'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+            if(MODE!=='note' || (!PN && !PNHOV)) return;
+            var o=[], s=PN ? PN.s : PNHOV.s;
+            var dash=function(p1,p2){
+              o.push('<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+
+                     '" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4 3"/>');
+            };
+            if(PN){
+              var A=pdScreen(s,PN.a.u,PN.a.v), nb=PN.b||PNHOV;
+              if(nb){
+                var B=pdScreen(s,nb.u,nb.v); dash(A,B);
+                var nc=PN.c || (PN.b ? PNHOV : null);
+                if(nc) dash(B, pdScreen(s,nc.u,nc.v));
+              }
+            }
+            if(!PN && PNHOV && PNHOV.kind){
+              var q=pdScreen(s, PNHOV.u, PNHOV.v);
+              var col = PNHOV.kind==='end' ? '#2fbf5f' : (PNHOV.kind==='mid' ? '#16c0d6' : '#d63ad6');
+              o.push('<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="6" fill="none" stroke="'+col+'" stroke-width="2"/>');
+            }
+            var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+            g.setAttribute('id','picnote');
+            g.innerHTML=o.join('');
+            svg.appendChild(g);
+          }
+
           function paintSnap(){
             var svg=$('sheetWrap').firstChild; if(!svg) return;
             var old=svg.querySelector('#snaphi');
             if(old&&old.parentNode) old.parentNode.removeChild(old);
-            if(MODE!=='dim'||!SNAPPED||!VIEW) return;
+            if((MODE!=='dim' && !(MODE==='note' && onPaper()))||!SNAPPED||!VIEW) return;
             var q=screenOf(SNAPPED[0],SNAPPED[1]);
+            if(onPaper()){
+              // the same rings as the line tools: green an end, cyan a middle, magenta on a line
+              var rc=document.createElementNS('http://www.w3.org/2000/svg','circle');
+              rc.setAttribute('id','snaphi');
+              rc.setAttribute('cx',q[0].toFixed(1)); rc.setAttribute('cy',q[1].toFixed(1));
+              rc.setAttribute('r','7'); rc.setAttribute('fill','none');
+              rc.setAttribute('stroke',snapColor(SNAPKIND)||'#2fbf5f'); rc.setAttribute('stroke-width','2.5');
+              svg.appendChild(rc);
+              return;
+            }
             var n=document.createElementNS('http://www.w3.org/2000/svg','rect');
             n.setAttribute('id','snaphi');
             n.setAttribute('x',(q[0]-4).toFixed(1)); n.setAttribute('y',(q[1]-4).toFixed(1));
@@ -5176,11 +5821,13 @@ module InteriorPro
             var cx = p[0], cy = p[1];
             // Writing put straight on the sheet hangs off its start point;
             // writing on the plan is centred on it. Same rule as shapeSVG.
-            if(paper){ cx = p[0] + w/2; cy = p[1] + h/2; }
+            // (a mark's words on an elevation's sheet are centred, like the plan's - 2026-10-09)
+            var mid = paper && s.align==='center';
+            if(paper && !mid){ cx = p[0] + w/2; cy = p[1] + h/2; }
             // standing upright (an elevation's height, 2026-10-08): it runs UP from its
             // start point and lies to the LEFT of it
             if(paper && Math.abs(((+s.rotation||0) % 360 + 360) % 360 - 90) < 1){
-              cx = p[0] - h/2; cy = p[1] + w/2;
+              if(!mid){ cx = p[0] - h/2; cy = p[1] + w/2; }
               return { x:(cx - h/2)*K, y:(PAGE.height - cy - w/2)*K, w:h*K, h:w*K };
             }
             return { x:(cx - w/2)*K, y:(PAGE.height - cy - h/2)*K,
@@ -5199,15 +5846,15 @@ module InteriorPro
             if(v){
               var cv=(DOC.canvases||[]).filter(function(c){ return c.name===v.canvas; })[0];
               if(cv) cv.layers.forEach(function(l){
-                if(hid.indexOf(l.name)>=0) return;
-                (l.shapes||[]).forEach(function(s){
+                if(hid.indexOf(l.name)>=0 || layerOff(l.name)) return;
+                shownShapes(l).forEach(function(s){
                   if(s.type==='text'&&s.key) fn(s,false);
                 });
               });
             }
             (PG.layers||[]).forEach(function(l){
-              if(hid.indexOf(l.name)>=0) return;
-              (l.shapes||[]).forEach(function(s){
+              if(hid.indexOf(l.name)>=0 || layerOff(l.name)) return;
+              shownShapes(l).forEach(function(s){
                 if(s.type==='text'&&s.key) fn(s,true);
               });
             });
@@ -5388,7 +6035,7 @@ module InteriorPro
             if(wb){
               var hd=(hit.dim!==undefined && hit.dim!==null) ? marks()[hit.dim] : null;
               wb.value = hd ? (hd.label||'') : nt ? (nt.text||'') : (m.text||String(hit.shape.text||''));
-              wb.placeholder = nt ? 'מה כתוב' : (hd || /^(DIMENSIONS|NOTES)\|/.test(String(hit.key))) ? String(hit.shape.text||'') : 'מה כתוב';
+              wb.placeholder = nt ? 'מה כתוב' : (hd || /^(DIMENSIONS|P?NOTES)\|/.test(String(hit.key))) ? String(hit.shape.text||'') : 'מה כתוב';
               if(wb.style) wb.style.display = TXWORDS ? '' : 'none';
             }
             // a note's own setting: the head on its leader
@@ -5577,7 +6224,9 @@ module InteriorPro
           // its own - which is every mark this window makes. Ruby says the
           // number in the payload rather than the window guessing it; a guess
           // here is how the window and the paper start disagreeing.
-          function markTextH(){ return (DIM_TEXT_H>0) ? DIM_TEXT_H : 5; }
+          function markTextH(){ return onPaper() ? PICNOTE_H : ((DIM_TEXT_H>0) ? DIM_TEXT_H : 5); }
+          // paper inches to the mark's inch: the plan's scale, or one to one on an elevation's sheet
+          function markSf(){ return onPaper() ? 1 : scaleFactor(STATE.scale); }
 
           // Where a dimension's NUMBER sits. The SAME arithmetic as
           // PlanCanvas.dim_label_xy - see the long note over it. Two copies of
@@ -5639,7 +6288,7 @@ module InteriorPro
           // How far a NEW dimension stands off the wall. Remembered, because
           // a distance he liked once he will like again.
           function dimOff(){
-            var v=(STATE&&STATE.dim_off);
+            var v=(STATE&&(onPaper() ? STATE.dim_off_p : STATE.dim_off));
             return (typeof v==='number' && isFinite(v)) ? v : 0;
           }
 
@@ -5658,6 +6307,7 @@ module InteriorPro
             if(!isFinite(v)) return;
             var m=(SEL!==null)?marks()[SEL]:null;
             if(m && m.t==='dim'){ m.off=v; }      // the one he has picked
+            else if(onPaper()){ STATE.dim_off_p=v; }
             else { STATE.dim_off=v; }             // and otherwise the next one
             push(); render(); showMarks();
           }
@@ -5794,6 +6444,12 @@ module InteriorPro
           }
 
           function moveMark(m, part, dx, dy){
+            if(m.t==='line'){
+              if(part==='a'){ m.x1+=dx; m.y1+=dy; }
+              else if(part==='b'){ m.x2+=dx; m.y2+=dy; }
+              else { m.x1+=dx; m.y1+=dy; m.x2+=dx; m.y2+=dy; }
+              return;
+            }
             if(m.t==='dim'){
               if(part==='text'){
                 // The mouse moved dx,dy across the sheet; the mark stores the
@@ -5887,6 +6543,7 @@ module InteriorPro
           var NOTEPLACE = true;        // told by Ruby: a new note's words are typed on the sheet, not in a bar
           var NOTE_SNAP_DEG = 12;      // near level or upright, it locks there
           function escapeAll(){
+            PD=null; PDHOV=null;             // a dimension half drawn on a picture is dropped
             if(!ESCEXITS){
               // switched off: exactly what Escape did before 2026-10-07
               tbCancel();
@@ -5933,6 +6590,9 @@ module InteriorPro
             DRAWSNAP=null; CHAIN0=null; ROT=null; BOXD=null; BSEL=null;
             cancelCarry();
             BAND=null; SELS=[];
+            PD=null; PDHOV=null;
+            if(LED && LED.kind==='pnote') tbEditHide();
+            PN=null; PNHOV=null;
             MODE=m; PEND=null; PEND2=null; PEND3=null; HOVER=null; ERA=null; ERASWEEP=null; ERADONE=false; SNAPPED=null;
             SSEL=[];
             if(m!=='hand') SEL=null;
@@ -5992,6 +6652,10 @@ module InteriorPro
                 if(np){ HOVER=np; render(); }
                 return;
               }
+              if(MODE==='dim' && PICDIMS && !PICMARKS && !pageView()){ picDimMove(e); return; }
+              if(MODE==='note' && PICDIMS && !PICMARKS && !pageView()){ picNoteMove(e); return; }
+              // a note on an elevation's sheet: the ring shows where its tip will lock, before the click
+              if(MODE==='note' && onPaper() && !PEND){ snapPoint(atMouse(e)); paintSnap(); return; }
               if(MODE==='dim'){
                 if(PEND&&PEND2){
                   // the third stage: the mouse is choosing how far off the
@@ -6031,6 +6695,7 @@ module InteriorPro
               if(LED && LED.kind==='label'){ labelEditKeep(); }
               // a new note half written: this press keeps it, and does nothing else
               if(LED && LED.kind==='note'){ noteEditKeep(); e.preventDefault(); return; }
+              if(LED && LED.kind==='pnote'){ picNoteKeep(true); e.preventDefault(); return; }
               // In the hand tool a mark under the mouse is picked up; empty
               // paper still drags the plan the way it always did. With Alt
               // held nothing is picked at all: Alt+drag moves the DRAWING
@@ -6052,6 +6717,8 @@ module InteriorPro
                 // "1": the press picked the picture and never reached the number). The
                 // number wins, so its settings open like any label's.
                 if(hpic){ var hx=hitText(e); if(hx && elevKey(hx.key)) hpic=null; }
+                // and a mark drawn on an elevation's sheet lies on its picture too: the mark wins
+                if(hpic && onPaper() && markUnder(e)) hpic=null;
                 if(hpic){
                   if(TSEL) closeTextBar();
                   var had=(SEL!==null||SELS.length||SSEL.length);
@@ -6200,6 +6867,8 @@ module InteriorPro
               }
               // a box of writing goes on ANY sheet, with a drawing on it or not
               if(MODE==='text'){ textClick(e); return; }
+              if(MODE==='dim' && PICDIMS && !PICMARKS && !pageView()){ picDimClick(e); return; }
+              if(MODE==='note' && PICDIMS && !PICMARKS && !pageView()){ picNoteClick(e); return; }
               var p=atMouse(e);
               if(!p){ $('markinfo').textContent='אין תוכנית בדף הזה'; return; }
               if(MODE==='line'||MODE==='chain'){ drawClick(p); return; }
@@ -6209,7 +6878,13 @@ module InteriorPro
                 //   2  what to measure to     (locks onto a corner)
                 //   3  where the line sits    (pull it off the wall)
                 if(!PEND){
-                  PEND=snapPoint(p); HOVER=PEND; PEND2=null; PENDOFF=dimOff();
+                  var p1=snapPoint(p);
+                  if(onPaper()){
+                    // the number is in room inches: the picture under the first point says how many
+                    var sc1=picScaleAt(p1);
+                    if(!sc1.pic){ $('markinfo').textContent=sc1.why; return; }
+                  }
+                  PEND=p1; HOVER=PEND; PEND2=null; PENDOFF=dimOff();
                   showMarks(); return;
                 }
                 if(!PEND2){
@@ -6219,9 +6894,18 @@ module InteriorPro
                   render(); showMarks(); return;
                 }
                 // the third click leaves it where he pulled it to
-                marks().push({t:'dim',x1:PEND[0],y1:PEND[1],x2:PEND2[0],y2:PEND2[1],
-                              off:PENDOFF});
-                STATE.dim_off=PENDOFF;   // and the next one starts there too
+                var nd={t:'dim',x1:PEND[0],y1:PEND[1],x2:PEND2[0],y2:PEND2[1],
+                        off:PENDOFF};
+                if(onPaper()){
+                  var sc=picScaleAt(PEND);
+                  if(!sc.pic) sc=picScaleAt(PEND2);
+                  if(!sc.pic){ $('markinfo').textContent=sc.why; return; }
+                  nd.pic=sc.pic; nd.per=sc.per; nd.pw=sc.pw;
+                  STATE.dim_off_p=PENDOFF;
+                } else {
+                  STATE.dim_off=PENDOFF;   // and the next one starts there too
+                }
+                marks().push(nd);
                 PEND=null; PEND2=null; PEND3=null; HOVER=null; SNAPPED=null;
                 push(); render(); showMarks();
               } else if(MODE==='note'){
@@ -6385,7 +7069,8 @@ module InteriorPro
                 TBLAST=null;
                 // one pull is one step for Ctrl+Z, and Ruby is told once
                 if(UNDOON){ UNDO.push({g:++UGROUP, pics:pb.was}); if(UNDO.length>300) UNDO.shift(); }
-                push();
+                // the marks it carried go back with it: the same step
+                UCUR=UGROUP; try { push(); } finally { UCUR=null; }
               }
               render(); showMarks();
               return;
@@ -6395,7 +7080,7 @@ module InteriorPro
               ROT=null;
               if(pt.moved){
                 if(UNDOON){ UNDO.push({g:++UGROUP, pics:pt.was}); if(UNDO.length>300) UNDO.shift(); }
-                push();
+                UCUR=UGROUP; try { push(); } finally { UCUR=null; }
               }
               render(); showMarks();
               return;
@@ -6508,7 +7193,25 @@ module InteriorPro
           var LASTMARKS='[]';      // the marks as they were the last time they were saved
           var USITE_N=null;        // how many loose lines the sheet has, by our own count
 
+          var LASTHAND='{}';       // the dimensions drawn on pictures, as last saved (USE_PIC_DIMS)
+          var LASTPM='{}';         // the marks of the elevations' sheets, as last saved (USE_PIC_MARKS)
           function noteMarksForUndo(){
+            var pnow=pmJSON();
+            if(pnow!==LASTPM){
+              if(UNDOON && !UNDOING){
+                UNDO.push({g:(UCUR!==null ? UCUR : ++UGROUP), pm:LASTPM});
+                if(UNDO.length>300) UNDO.shift();
+              }
+              LASTPM=pnow;
+            }
+            var hnow=JSON.stringify(STATE.image_hand||{});
+            if(hnow!==LASTHAND){
+              if(UNDOON && !UNDOING){
+                UNDO.push({g:(UCUR!==null ? UCUR : ++UGROUP), hand:LASTHAND});
+                if(UNDO.length>300) UNDO.shift();
+              }
+              LASTHAND=hnow;
+            }
             var now=JSON.stringify(STATE.marks||[]);
             if(now===LASTMARKS) return;
             if(UNDOON && !UNDOING){
@@ -6535,10 +7238,13 @@ module InteriorPro
           function undoLast(){
             if(!UNDOON) return false;
             if(!UNDO.length){ $('markinfo').textContent='אין מה לבטל.'; return false; }
+            var handBack=null, pmBack=null;
             var g=UNDO[UNDO.length-1].g, marksBack=null, siteBack=[], addBack=[], rotBack=null, boxBack=null, picBack=null, orderBack=null, rboxBack=null;
             while(UNDO.length && UNDO[UNDO.length-1].g===g){
               var u=UNDO.pop();
               if(u.marks!==undefined) marksBack=u.marks;   // popped newest first: the oldest wins
+              if(u.hand!==undefined) handBack=u.hand;
+              if(u.pm!==undefined) pmBack=u.pm;
               if(u.site) siteBack=siteBack.concat(u.site);
               if(u.added) addBack=addBack.concat(u.added);
               if(u.rot!==undefined) rotBack=u.rot;
@@ -6610,6 +7316,22 @@ module InteriorPro
                   items:siteBack.map(function(x){ return {i:x.i, p:x.s.points}; }), n:n}));
               }
             }
+            if(pmBack!==null){
+              // a mark on an elevation's sheet comes off again (or back)
+              UNDOING=true;
+              STATE.page_marks=JSON.parse(pmBack);
+              LASTPM=pmBack;
+              sketchup.set_state(JSON.stringify(STATE));
+              UNDOING=false;
+            }
+            if(handBack!==null){
+              // a dimension drawn on a picture comes off again
+              UNDOING=true;
+              STATE.image_hand=JSON.parse(handBack);
+              LASTHAND=handBack;
+              sketchup.set_state(JSON.stringify(STATE));
+              UNDOING=false;
+            }
             if(marksBack!==null){
               UNDOING=true;
               STATE.marks=JSON.parse(marksBack);
@@ -6638,6 +7360,10 @@ module InteriorPro
             UNDOON = (p.undo!==false);
             LINEPICK = (p.line_pick!==false);
             LINEDRAW = (p.line_draw!==false);
+            PICDIMS = (p.pic_dims!==false);
+            PICMARKS = (p.pic_marks!==false);
+            LGROUPS = (p.layer_groups!==false);
+            PICNOTE_H = (+p.elev_text_h>0) ? +p.elev_text_h : 0.11;
             ROTON = (p.rotate!==false);
             BOXON = (p.view_box!==false);
             CROPON = (p.box_crop!==false);
@@ -6672,8 +7398,10 @@ module InteriorPro
             // block - and leaving it out of this list is why the user picked a
             // logo and saw nothing but the empty dashed box (2026-08-14).
             URLS={};
-            (p.images||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
-            (p.pics||[]).forEach(function(im){ if(im.url) URLS[im.path]=im.url; });
+            (p.images||[]).concat(p.pics||[]).forEach(function(im){
+              if(im.url) URLS[im.path]=im.url;
+              (im.variants||[]).forEach(function(v){ if(v.url) URLS[v.path]=v.url; });   // the same without a layer (2026-10-09)
+            });
             if(p.logo && p.logo.url) URLS[p.logo.path]=p.logo.url;
             if(STATE.active===undefined||STATE.active===null) STATE.active=0;
             // A sheet sent AGAIN to a window that is already open is a
@@ -6745,6 +7473,8 @@ module InteriorPro
             // window counted, the list was read again or cleared behind the
             // undo list's back: the numbers in those steps point at other
             // lines now, so those steps are forgotten rather than trusted.
+            LASTHAND=JSON.stringify(STATE.image_hand||{});
+            LASTPM=pmJSON();
             LASTMARKS=JSON.stringify(STATE.marks);
             var usl=rawSiteLayer(), usn=(usl&&usl.shapes) ? usl.shapes.length : 0;
             if(USITE_N!==null && usn!==USITE_N) UNDO=UNDO.filter(function(u){ return !u.site && !u.added; });
@@ -7186,7 +7916,7 @@ module InteriorPro
           }
 
           function layerCount(){
-            var off=(STATE.hidden||[]).length;
+            var off=(STATE.hidden||[]).length + hideList().length;
             tag('laycount', off ? (off + ' כבויות') : '');
           }
 
@@ -7201,7 +7931,55 @@ module InteriorPro
             tag('sitetag', STATE.site_count ? (STATE.site_count + ' קווים') : '');
           }
 
+          // his groups, in his words; the last four only once there is something of them (or one is off)
+          var GROUP_ROWS=[['walls','קירות'],['doors','דלתות'],['windows','חלונות'],['dims','מידות'],['notes','הערות'],
+                          ['text','כיתובים'],['pics','תמונות'],['lines','קווים'],['tile','TILE'],['plumbing','PLUMBING'],['electric','ELECTRICAL']];
+          // the three of his law are always there, in English, his way (2026-10-09: "אני רוצה אותן באנגלית את ה3")
+          var GROUP_ALWAYS=['walls','doors','windows','dims','notes','text','pics','tile','plumbing','electric'];
           function buildLayers(){
+            if(!LGROUPS) return buildLayersOld();
+            var box=$('layers'); box.innerHTML='';
+            if(!STATE.hide) STATE.hide=[];
+            var have={}, sched=false;
+            var look=function(l){
+              if(l.name==='SCHEDULES'){ sched=true; return; }
+              (l.shapes||[]).forEach(function(q){
+                if(q.layers && q.layers.cats) q.layers.cats.forEach(function(c){ have[c]=1; });   // an elevation in layers
+                if(q.grp) have[q.grp]=1;
+              });
+              if(!MIXED[l.name]){ var g=shapeGroup(l.name,null); if(g) have[g]=1; return; }
+              (l.shapes||[]).forEach(function(q){ var g2=shapeGroup(l.name,q); if(g2) have[g2]=1; });
+            };
+            (DOC.canvases||[]).forEach(function(c){ c.layers.forEach(look); });
+            (DOC.pages||[]).forEach(function(p){ (p.layers||[]).forEach(look); });
+            var row=function(label, on, flip){
+              var lab=document.createElement('label'); lab.className='chk';
+              var cb=document.createElement('input'); cb.type='checkbox';
+              cb.checked=on;
+              cb.onchange=function(){ flip(cb.checked); layerCount(); render(); push(); };
+              lab.appendChild(cb);
+              lab.appendChild(document.createTextNode(label));
+              box.appendChild(lab);
+            };
+            GROUP_ROWS.forEach(function(r){
+              var g=r[0];
+              if(GROUP_ALWAYS.indexOf(g)<0 && !have[g] && STATE.hide.indexOf(g)<0) return;
+              row(r[1], STATE.hide.indexOf(g)<0, function(on){
+                var i=STATE.hide.indexOf(g);
+                if(on){ if(i>=0) STATE.hide.splice(i,1); } else if(i<0) STATE.hide.push(g);
+              });
+            });
+            // the schedules: their own sheet, as before (an x in the page list takes it away)
+            if(sched || STATE.hidden.indexOf('SCHEDULES')>=0){
+              row('טבלאות', STATE.hidden.indexOf('SCHEDULES')<0, function(on){
+                var i=STATE.hidden.indexOf('SCHEDULES');
+                if(on){ if(i>=0) STATE.hidden.splice(i,1); } else if(i<0) STATE.hidden.push('SCHEDULES');
+              });
+            }
+            layerCount();
+          }
+
+          function buildLayersOld(){
             var box=$('layers'); box.innerHTML='';
             var names=[];
             function add(n){ if(names.indexOf(n)<0) names.push(n); }
@@ -7516,6 +8294,11 @@ module InteriorPro
                 else if(e.key==='Escape'){ e.preventDefault(); noteEditDrop(); }
                 return;
               }
+              if(LED.kind==='pnote'){
+                if(e.key==='Enter'){ e.preventDefault(); picNoteKeep(); }
+                else if(e.key==='Escape'){ e.preventDefault(); picNoteDrop(); render(); showMarks(); }
+                return;
+              }
               if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); tbSave(); }
               else if(e.key==='Escape'){ e.preventDefault(); tbCancel(); render(); showMarks(); }
             };
@@ -7749,7 +8532,7 @@ module InteriorPro
               if(t&&PEND&&PEND2&&PEND3){
                 marks().push(noteMark(PEND, PEND2, PEND3, t,
                                       STATE.note_arrow!==false,
-                                      scaleFactor(STATE.scale)));
+                                      markSf()));
                 SEL=marks().length-1;
               }
               closeNote();

@@ -17,7 +17,8 @@ module InteriorPro
     def self.defaults(group = 'electrical')
       k = InteriorPro::ElectricalLibrary.kinds_in(group).first || InteriorPro::ElectricalLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::ElectricalLibrary.products(k).first, 'gangs' => 1,
-        'height' => InteriorPro::ElectricalLibrary.default_height(k), 'turn' => 0, 'countertop' => false }
+        'height' => InteriorPro::ElectricalLibrary.default_height(k), 'turn' => 0, 'countertop' => false,
+        'rows' => 1, 'cols' => 1 }
     end
 
     # What he chose last time, so the second one is one click away.
@@ -80,6 +81,11 @@ module InteriorPro
         cfg['height'] = cfg['height'].to_f
         cfg['turn'] = cfg['turn'].to_i == 90 ? 90 : 0
         cfg['countertop'] = InteriorPro::ElectricalLibrary.countertop_of(cfg.merge('countertop' => cfg['countertop'] == true))
+        # HOW MANY IN THE ROOM (2026-10-13 19:18, his "הגדרה כמו בחלונות שברסס יהיו אפשרויות של כמה אני רוצה בחדר"): rows x
+        # columns, a recessed light only; 1 x 1 = one where he clicks, more = spread evenly over the room he clicks in.
+        spread = InteriorPro::ElectricalLibrary.kind_ok(cfg['kind']) == 'recessed'
+        cfg['rows'] = spread ? [[cfg['rows'].to_i, 1].max, 20].min : 1
+        cfg['cols'] = spread ? [[cfg['cols'].to_i, 1].max, 20].min : 1
         if cfg['height'] <= 0.0 && !InteriorPro::ElectricalLibrary.ceiling?(cfg['kind'])
           UI.messagebox('Type the height from the floor to its middle, e.g.  18')
           next
@@ -169,6 +175,9 @@ module InteriorPro
           <div class="row" id="turnRow" style="display:none;">Position<div class="grid" id="turnGrid"></div></div>
           <div class="row" id="counterRow" style="display:none;"><label><input type="checkbox" id="counter" onchange="pickCounter(this.checked)"> Countertop outlet</label></div>
           <div class="row" id="gangRow" style="display:none;">Switches<div class="grid" id="gangGrid"></div></div>
+          <div class="row" id="spreadRow" style="display:none;">
+            In the room <input type="number" id="rows" step="1" min="1" max="20" style="width:52px"> rows &times; <input type="number" id="cols" step="1" min="1" max="20" style="width:52px"> columns
+          </div>
           <div class="row" id="heightRow">
             Height from the floor to the middle of it <input type="number" id="height" step="0.5" min="0"> in
           </div>
@@ -183,6 +192,8 @@ module InteriorPro
             var turn = parseInt(D.turn, 10) === 90 ? 90 : 0;
             var counter = D.countertop === true;
             var COUNTER_H = #{InteriorPro::ElectricalLibrary::COUNTERTOP_H};
+            document.getElementById('rows').value = Math.max(1, parseInt(D.rows, 10) || 1);
+            document.getElementById('cols').value = Math.max(1, parseInt(D.cols, 10) || 1);
             var USE_COUNTER = #{InteriorPro::ElectricalLibrary::USE_COUNTERTOP ? 'true' : 'false'};
             function curProduct() {
               var list = CAT[kind].products;
@@ -248,6 +259,7 @@ module InteriorPro
               // on the ceiling: no height, and the words say where it goes
               document.getElementById('heightRow').style.display = CAT[kind].ceiling ? 'none' : '';
               document.getElementById('counterRow').style.display = (kind === 'outlet' && USE_COUNTER) ? '' : 'none';
+              document.getElementById('spreadRow').style.display = kind === 'recessed' ? '' : 'none';
               document.getElementById('counter').checked = counter;
               var pic = picOf(curProduct());
               var lying = pic.replace('<img ', '<img class="lying" ').replace('<svg ', '<svg class="lying" ');
@@ -271,7 +283,9 @@ module InteriorPro
             function cur() {
               return { kind: kind, product: product, gangs: CAT[kind].gangs ? gangs : 1,
                        height: parseFloat(document.getElementById('height').value) || 0,
-                       turn: kind === 'outlet' ? turn : 0, countertop: kind === 'outlet' && counter };
+                       turn: kind === 'outlet' ? turn : 0, countertop: kind === 'outlet' && counter,
+                       rows: kind === 'recessed' ? (parseInt(document.getElementById('rows').value, 10) || 1) : 1,
+                       cols: kind === 'recessed' ? (parseInt(document.getElementById('cols').value, 10) || 1) : 1 };
             }
             function addNew() { sketchup.add_new(JSON.stringify(cur())); }
             function saveSel() { sketchup.save_selected(JSON.stringify(cur())); }

@@ -39,7 +39,7 @@ ok('it uses the SketchUp tool\'s own check and place!', m.include?('lib.check(wa
 ok('a refusal writes why in the trace', m.include?('NOT placed') && m.include?("outside of the house"))
 ok('the click point goes into the wall\'s own axes first', m.include?('transform(wall.transformation.inverse)'))
 ok('his own window opens (group electrical)', src.include?("InteriorPro::ElectricalDialog.show(group: 'electrical')"))
-ok('the button is turned on by Ruby, behind the kill switch', src.include?("elecEnable(\#{USE_ELEC_PLACE_2D ? 'true' : 'false'})"))
+ok('the button is turned on by Ruby, behind the kill switch', src.include?("elecEnable(\#{USE_ELEC_PLACE_2D ? 'true' : 'false'}, "))
 # DELETE FROM THE DRAWING (his 13:55)
 d = src[/def delete_elec\(r\).*?\n      end\n/m].to_s
 ok('delete: only an electrical group with that id, one undo step', d.include?("== 'electrical'") && d.include?("start_operation('Delete Electrical', true)") && d.include?('erase_entities([g])') && d.include?('commit_operation'))

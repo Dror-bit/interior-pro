@@ -72,6 +72,7 @@ module InteriorPro
       setup_roofs_toolbar
       setup_2d_toolbar
       setup_landscape_toolbar
+      setup_electrical_toolbar
       hide_old_bars!
       # AND ONCE MORE, A MOMENT LATER (2026-09-22, his picture: an empty
       # bar with only an X, again). SketchUp puts back the bars that were
@@ -533,6 +534,7 @@ module InteriorPro
       fixture_edit_cmd.large_icon = icon_path('plumbing_edit')
       tb.add_separator unless on_bar.include?('Plumbing')
       [fixture_cmd, fixture_edit_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
+
       tb.restore
     end
 
@@ -645,6 +647,23 @@ module InteriorPro
       dspout_cmd.large_icon = icon_path('downspout')
       tb.add_item(dspout_cmd)
 
+      # Pull Roof Edge (2026-10-06, the user: "קודם כל תיצור כפתור לשינויים
+      # האלו"). Click a wall, type how far the roof edge over it comes
+      # out - the number the Roof End menu already carries, on a button
+      # of its own. It closes the ROOF buttons, before the skylight
+      # family. Same story as Edit Roof above: the length guard skips a
+      # populated bar whole, so this shows up on the next SketchUp
+      # restart, never twice.
+      rpull_cmd = UI::Command.new('Pull Roof Edge') {
+        Sketchup.active_model.select_tool(InteriorPro::RoofPullTool.new)
+      }
+      rpull_cmd.tooltip = 'Pull Roof Edge - click a wall, type how far its roof edge comes out'
+      rpull_cmd.status_bar_text =
+        'Click a wall and type how far the roof edge over it is pulled out (0 = back where it was)'
+      rpull_cmd.small_icon = icon_path('roof_pull')
+      rpull_cmd.large_icon = icon_path('roof_pull')
+      tb.add_item(rpull_cmd)
+
       # Skylight (2026-09-14). A hole in the slope with a low curb and one
       # sheet of glass - "כמו חלון תמונה רק להחליף צבעים". Click a roof.
       # It sits with the ROOF buttons, not the dormer ones (the user,
@@ -749,8 +768,9 @@ module InteriorPro
     # (TOOLBAR_ITEM_COUNT) would skip any item added there now.
     def self.setup_2d_toolbar
       tb = UI::Toolbar.new('Interior Pro 2D')
-      # two buttons now: the 2D editor and the sheet window (2026-08-12).
-      return if tb.length >= 2
+      # three buttons now: the 2D editor, the sheet window (2026-08-12) and
+      # Elevations (2026-10-08).
+      return if tb.length >= 3
 
       editor_cmd = UI::Command.new('2D Editor') {
         InteriorPro::PlanEditor.show
@@ -772,7 +792,52 @@ module InteriorPro
       sheet_cmd.large_icon = icon_path('sheet_pdf')
       tb.add_item(sheet_cmd)
 
+      # Elevations (2026-10-08): four pictures of a room, one per wall, onto
+      # the sheet. At the END of the bar, as the rule says.
+      elev_cmd = UI::Command.new('Elevations') {
+        InteriorPro::ElevationDialog.show
+      }
+      elev_cmd.tooltip = 'Elevations - the four walls of a room onto the sheet'
+      elev_cmd.status_bar_text = 'Pick a room: an elevation of each wall goes onto the sheet'
+      elev_cmd.small_icon = icon_path('elevation')
+      elev_cmd.large_icon = icon_path('elevation')
+      tb.add_item(elev_cmd)
+
       tb.restore
+    end
+
+    # ELECTRICAL AND LIGHTING (2026-10-12) - a bar of its own, his words:
+    # "אני מקווה שזה סרגל כלים חדש לחשמל ותאורה". Outlets and switches now;
+    # the ceiling lights, wall lights, fan and the rest join it later. Every
+    # button is added BY NAME (the surfaces bar rule), so a new one is never
+    # skipped by a length guard and a reload never doubles one.
+    def self.setup_electrical_toolbar
+      tb = UI::Toolbar.new('Interior Pro Electrical')
+      on_bar = begin
+        tb.map { |c| c.respond_to?(:menu_text) ? c.menu_text.to_s : nil }.compact
+      rescue StandardError
+        []
+      end
+      elec_cmd = UI::Command.new('Electrical') {
+        Sketchup.active_model.select_tool(InteriorPro::ElectricalTool.new)
+      }
+      elec_cmd.tooltip = 'Electrical - outlet or switches, placed on a wall at a set height'
+      elec_cmd.status_bar_text = 'Choose outlet or switches and the height, then move along a wall and click, or type the distance from the corner'
+      elec_cmd.small_icon = icon_path('electrical')
+      elec_cmd.large_icon = icon_path('electrical')
+      tb.add_item(elec_cmd) unless on_bar.include?('Electrical')
+      # LIGHTING (2026-10-12): the same bar, its own window and gallery
+      light_cmd = UI::Command.new('Lighting') {
+        Sketchup.active_model.select_tool(InteriorPro::LightingTool.new)
+      }
+      light_cmd.tooltip = 'Lighting - wall lights from your files, placed on a wall at a set height'
+      light_cmd.status_bar_text = 'Choose a light and the height, then move along a wall and click, or type the distance from the corner'
+      light_cmd.small_icon = icon_path('lighting')
+      light_cmd.large_icon = icon_path('lighting')
+      tb.add_item(light_cmd) unless on_bar.include?('Lighting')
+      tb.restore
+    rescue StandardError => e
+      puts "[InteriorPro] electrical toolbar: #{e.message}"
     end
 
     # ------------------------------------------------------- Landscape Pro

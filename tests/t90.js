@@ -14,11 +14,12 @@ c('loadWalls', [{ id: 'w1', sx: 0, sy: 0, ex: 0, ey: 200, th: 5, ha: 'center', s
                   corners: [2.5, 0, -2.5, 0, -2.5, 200, 2.5, 200] }]);
 
 ok('no button until Ruby says so (kill switch)', g('USE_ELEC_PLACE') === false);
-c('elecEnable', true);
+c('elecEnable', true, true);
 const rail = global.__els['kp-tool-rail'];
-ok('the Electrical button is the LAST thing on the tool rail, after a line',
-   rail && rail.children.length >= 2 && rail.children[rail.children.length - 1].id === 'modeElec' &&
-   rail.children[rail.children.length - 2].id === 'elecSep', rail && rail.children.map(x => x.id));
+ok('the Electrical button is at the end of the tool rail, after a line (Lighting under it since 15:08)',
+   rail && rail.children.length >= 3 && rail.children[rail.children.length - 1].id === 'modeLight' &&
+   rail.children[rail.children.length - 2].id === 'modeElec' &&
+   rail.children[rail.children.length - 3].id === 'elecSep', rail && rail.children.map(x => x.id));
 Object.defineProperty(rail, 'lastElementChild', { get() { return this.children[this.children.length - 1]; } });
 c('placeElecBtn');
 ok('asked again, it is not doubled', rail.children.filter(x => x.id === 'modeElec').length === 1, rail.children.map(x => x.id));

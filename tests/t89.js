@@ -22,9 +22,9 @@ ok('a wall facing down: the circle goes down', sh.length === 1 && Math.abs(sh[0]
 c('loadElec', [{ id: 'e3', kind: 'switch', x: 0, y: 0, nx: 1, ny: 0, gangs: 2 }]);
 c('draw');
 ok('a switch is drawn too (S2 at 6" off the wall)', g('elecShown').length === 1 && g('elecShown')[0].kind === 'switch' && Math.abs(g('elecShown')[0].x - 6) < 1e-9, g('elecShown'));
-c('loadElec', [{ id: 'e4', kind: 'wall_light', x: 0, y: 0, nx: 1, ny: 0 }]);
+c('loadElec', [{ id: 'e4', kind: 'wall_light', x: 0, y: 0, nx: 1, ny: 0, w: 8 }]);
 c('draw');
-ok('a kind with no sign yet is not drawn', g('elecShown').length === 0, g('elecShown'));
+ok('a wall light is drawn too (a half circle on the wall, since 15:08)', g('elecShown').length === 1 && g('elecShown')[0].kind === 'wall_light', g('elecShown'));
 
 c('loadElec', [{ id: 'e1', kind: 'outlet', x: 0, y: 38, nx: 1, ny: 0 }]);
 c('newPage');

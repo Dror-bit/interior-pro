@@ -73,6 +73,9 @@ module InteriorPro
       fixture_dialog.rb
       fixture_tool.rb
       fixture_edit_tool.rb
+      electrical_library.rb
+      electrical_dialog.rb
+      electrical_tool.rb
       floor_dialog.rb
       foundation_manager.rb
       ceiling_manager.rb
@@ -80,6 +83,7 @@ module InteriorPro
       roof_manager.rb
       roof_dialog.rb
       roof_gable_tool.rb
+      roof_pull_tool.rb
       roof_shed_tool.rb
       roof_edit_tool.rb
       dormer_manager.rb
@@ -102,6 +106,8 @@ module InteriorPro
       plan_canvas.rb
       plan_pdf.rb
       plan_sheet_dialog.rb
+      elevation_tool.rb
+      elevation_dialog.rb
       plan_editor.rb
       landscape/fence_math.rb
       landscape/fence_tool.rb

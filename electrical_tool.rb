@@ -218,6 +218,27 @@ module InteriorPro
         return
       end
       cid = h[:c][:grp].get_attribute('InteriorPro', 'id')
+      rows, cols = @pcfg['rows'].to_i, @pcfg['cols'].to_i
+      if rows * cols > 1 && defined?(InteriorPro::PlanEditor) && InteriorPro::PlanEditor::USE_LIGHT_SPREAD
+        # HOW MANY IN THE ROOM (2026-10-13 19:18): spread evenly over the ceiling he clicked, one undo step
+        xs = h[:c][:poly].map(&:first)
+        ys = h[:c][:poly].map(&:last)
+        pts = InteriorPro::PlanEditor.spread_points([xs.min, ys.min, xs.max, ys.max], rows, cols, h[:c][:poly].flatten)
+        model = Sketchup.active_model
+        model.start_operation('Spread Lights', true)
+        hung = 0
+        pts.each do |px, py|
+          c = LIB.ceiling_over(LIB.ceilings, px, py)
+          next unless c
+          hung += 1 if LIB.place_on_ceiling!(ceiling: c, x: px, y: py, cfg: @pcfg, op: false)
+        end
+        model.commit_operation
+        @ceils = LIB.ceilings
+        LIB.trace("#{label} SPREAD #{rows}x#{cols}: #{hung} of #{pts.length} hung on ceiling #{cid} (#{@pcfg['product']})")
+        status
+        view.invalidate
+        return
+      end
       grp = LIB.place_on_ceiling!(ceiling: h[:c], x: h[:x], y: h[:y], cfg: @pcfg)
       # a ceiling built again with a hole is a new group: read them again
       @ceils = LIB.ceilings
