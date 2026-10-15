@@ -209,7 +209,7 @@ module InteriorPro
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
           KitchenLab.guard!
           request=JSON.parse(json.to_s)
-          allowed=%w[doors drawers sink wall glass_wall tall oven_tower micro_tower fridge_surround filler fridge oven dishwasher hood microwave corner_base corner_lazy corner_upper]
+          allowed=%w[pullout_spice pullout_waste pullout_storage doors drawers sink wall glass_wall tall oven_tower micro_tower fridge_surround filler fridge oven dishwasher hood microwave corner_base corner_lazy corner_upper]
           product_id=request['product_id']
           raise 'Choose a cabinet from the library.' unless product_id || allowed.include?(request['kind'])
           payload={'kind'=>request['kind'],'wall'=>request.fetch('wall','A')}

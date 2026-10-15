@@ -32,8 +32,13 @@ KitchenLab::SinkCatalog.products.each do |product|
   check((KitchenLab::SinkCatalog.front_height(cab)-(cab['height']-8.9375)).abs<0.001,'Apron doors overlap lowered sink') if KitchenLab::SinkCatalog.apron?(cab)
   rows=KitchenLab.front_rows(cab)
   check(rows.none?{|r|r['kind']=='drawer'},'Apron has false drawer') if KitchenLab::SinkCatalog.apron?(cab)
+  if product['mesh_path']
   mesh=JSON.parse(File.read(File.join(__dir__,product['mesh_path'])))
   check(mesh['instances'].length>50 && mesh['definitions'].length>10,'Missing prepared mesh')
+  else
+    check(Digest::SHA256.file(File.join(__dir__,product['skp_path'])).hexdigest==product['geometry_sha256'],'Approved SKP changed')
+    check(bounds[4]==0.5,'Template corner radius lost')
+  end
   end
   check(File.size(File.join(__dir__,product['image_path']))>1000,'Missing thumbnail')
   begin
@@ -53,5 +58,5 @@ dialog=SinkDialog.new;InteriorPro::KitchenPlan.bind_catalog(dialog)
 dialog.callbacks.fetch('kitchen_appliance_library').call(nil,'sink')
 check(dialog.scripts.last.include?('receive("sink"'),'Library failed')
 check(dialog.scripts.last.scan('data:image/png;base64,').length==5,'Library is missing images')
-puts 'PASS: five approved sink models, two explicit no-cutout models, placement parity, persistence, apron fronts, assets and library'
+puts 'PASS: five approved sink models, verified K-5287 cutout and explicit K-33152 no-cutout, placement parity, persistence, apron fronts, assets and library'
 

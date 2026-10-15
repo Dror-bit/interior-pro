@@ -69,7 +69,7 @@ module KitchenLab
     hood_front=panel && d['surround_part']=='hood_front'
     thin_panel=hood_front || (panel && d['surround_part']=='plinth')
     raise 'Choose a plain or Shaker hood cover.' if hood_front && !%w[slab shaker].include?(d['style'])
-    {'width'=>[d['kind']=='filler' ? 0.5 : 12,60],'height'=>[panel ? 0.5 : surround ? 8.25 : 12,96],'depth'=>[thin_panel ? 0.75 : 8,thin_panel ? 0.75 : 36],'x'=>[0,1200],'z'=>[0,120]}.each do |k,range|
+    {'width'=>[d['kind']=='filler' ? 0.5 : (d['kind']=='doors' && d['pullout'].is_a?(Hash) && d['pullout']['type']=='spice' ? 9 : 12),60],'height'=>[panel ? 0.5 : surround ? 8.25 : 12,96],'depth'=>[thin_panel ? 0.75 : 8,thin_panel ? 0.75 : 36],'x'=>[0,1200],'z'=>[0,120]}.each do |k,range|
       d[k]=Float(d[k]);raise "Invalid #{k}" unless d[k].finite? && d[k].between?(*range)
     end
     raise 'Invalid item type' unless %w[doors drawers sink wall tall fridge oven wall_oven dishwasher oven_tower micro_tower fridge_surround filler corner hood microwave corner_base corner_upper corner_lazy].include?(d['kind'])
@@ -88,11 +88,15 @@ module KitchenLab
     raise 'Invalid handle' unless %w[brass black none].include?(d['handle'])
     raise 'Base cabinet must be at least 18 inches high' if !panel && !%w[wall hood microwave].include?(d['kind']) && d['height']<18
     raise 'Invalid cabinet ID' unless d['id'].to_s.match?(/\A[a-zA-Z0-9-]{1,64}\z/)
+    if d.key?('pullout')
+      d['pullout']=Pullouts.validate(d['pullout'],d)
+      d['front_layout']='single' if d['pullout']
+    end
     unless %w[fridge oven wall_oven dishwasher hood microwave].include?(d['kind'])
       d['toe_height']=(panel && !%w[left right].include?(d['surround_part'])) || %w[wall fridge_surround corner_upper].include?(d['kind']) ? 0.0 : Float(d['toe_height'])
       d['toe_setback']=Float(d['toe_setback'])
       d['toe_setback']=0 if thin_panel
-      raise 'Toe kick height must be 0–12 inches and leave at least 8 inches for fronts' unless d['toe_height'].finite? && d['toe_height'].between?(0,12) && (panel || d['height']-d['toe_height']>=8.25)
+      raise 'Toe kick height must be 0Ã¢â‚¬â€œ12 inches and leave at least 8 inches for fronts' unless d['toe_height'].finite? && d['toe_height'].between?(0,12) && (panel || d['height']-d['toe_height']>=8.25)
       raise 'Toe kick setback must fit inside the cabinet depth' unless d['toe_setback'].finite? && d['toe_setback'].between?(0,d['depth']-0.6)
       if builtin?(d)
         builtin_defaults(d).each { |key,value| d[key]=Float(d.fetch(key,value)) }
@@ -116,11 +120,16 @@ module KitchenLab
     %w[door_handle_model drawer_handle_model].each { |key|HandleCatalog.validate_id(d[key]) }
     ApplianceCatalog.validate(d)
     PanelReady.validate!(d,options)
-    d.slice('panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
+    if d.key?('backsplash')
+      d['backsplash']=Backsplash.validate(d['backsplash'])
+      raise 'Backsplash requires a base cabinet' if d['backsplash']['mode']!='none' && !Backsplash.eligible?(d)
+    end
+    d.slice('pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
   end
 
   # Row heights are visible front sizes, ordered from top to bottom.
   def self.front_rows(d)
+    return Pullouts.front_rows(d) if d['pullout']
     return [{'kind'=>'doors','doors'=>1,'height'=>d['height']}] if d['surround_part']=='hood_front'
     return [{'kind'=>'doors','doors'=>1,'height'=>d['height']-d.fetch('toe_height',4)-0.25}] if open_corner?(d)
     return [{'kind'=>'doors','doors'=>2,'height'=>SinkCatalog.front_height(d)-d.fetch('toe_height',4)-0.25}] if SinkCatalog.apron?(d)
@@ -172,13 +181,14 @@ module KitchenLab
 
   def self.validate_settings(raw,current=settings)
     raise 'Invalid kitchen settings' unless raw.is_a?(Hash)
-    allowed=%w[global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
+    allowed=%w[countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
     raise 'Use placement commands for kitchen position' unless (raw.keys-allowed).empty?
     %w[global_door_handle_model global_drawer_handle_model].each { |key|HandleCatalog.validate_id(raw[key]) }
+    CountertopMaterials.validate(raw['countertop_material']) if raw.key?('countertop_material')
     s=crown_settings(current.merge(raw))
     %w[shaker_width shaker_inset].each { |key| s[key]=Float(raw.fetch(key,current.fetch(key))) }
-    raise 'Frame width must be 0.25–6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
-    raise 'Panel inset must be 0–0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)
+    raise 'Frame width must be 0.25Ã¢â‚¬â€œ6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
+    raise 'Panel inset must be 0Ã¢â‚¬â€œ0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)
     raise 'Invalid global cabinet color' unless ['',*FINISHES.keys].include?(s.fetch('global_finish',''))
     raise 'Invalid global handle type' unless ['','bar','none'].include?(s.fetch('global_handle_type',''))
     raise 'Invalid global handle color' unless ['','brass','black'].include?(s.fetch('global_handle_color',''))
@@ -193,6 +203,9 @@ module KitchenLab
     Appearance.resolve(d,s)
   end
   def self.material(key,color)
+    if key=='Worktop' && settings['countertop_material']
+      return CountertopMaterials.resolve(@model,settings['countertop_material'])
+    end
     m=@model.materials["KitchenLab / #{key}"] || @model.materials.add("KitchenLab / #{key}")
     m.color=color;m
   end
@@ -285,9 +298,9 @@ module KitchenLab
     if %w[filler corner].include?(d['kind'])
       mat=material(d['finish'],FINISHES[d['finish']]);toe=d.fetch('toe_height',4)
       if d['surround_for']
-        if d['surround_part']=='hood_front'
+        if d['surround_part']=='hood_front' || (%w[left right].include?(d['surround_part']) && document['cabinets'].any? { |c| c['id']==d['surround_for'] && c['kind']=='hood' })
           g.name='Kitchen / Hood cover'
-          front(g.entities,'Fixed hood cover',0,0,d['width'],d['height'],d,mat,nil)
+          HoodMiters.build(g.entities,d,mat)
         elsif %w[left right].include?(d['surround_part']) && toe>0
           panel=g.entities.add_group;panel.name='Surround side'
           dep=d['depth'];h=d['height'];setback=d['toe_setback']
@@ -324,8 +337,11 @@ module KitchenLab
     end
     box(e,'Back',0.75,-0.5,0,w-1.5,0.5,h,finish)
     box(e,'Bottom panel',0.75,-dep+0.75,toe,w-1.5,dep-1.25,0.75,finish)
-    box(e,'Shadow behind fronts',0.75,-dep+0.78,toe,w-1.5,0.15,front_h-toe,dark) unless d['style']=='glass'
+    box(e,'Shadow behind fronts',0.75,-dep+0.78,toe,w-1.5,0.15,front_h-toe,dark) unless d['style']=='glass' || d['pullout']
     box(e,'Toe kick',0,-dep+d.fetch('toe_setback',3.0),0,w,0.6,toe,finish) if toe>0
+    if d['pullout']
+      Pullouts.build!(e,d,finish,metal);g.transformation=cabinet_transform(d);return g
+    end
     gap=0.125;cursor=front_h-gap
     front_rows(d).each_with_index do |row,i|
       fd=d.merge('_upper_front'=>builtin?(d) && i==0)
@@ -416,7 +432,7 @@ module KitchenLab
       holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.cooktop?(d)
       mat=material('Worktop','#F2F0E9')
       g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],1.5,holes,mat)
-      g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id'])
+      g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     bases.each do |d|
       r=runs.last
@@ -443,7 +459,7 @@ module KitchenLab
     end
     state['cabinets'].select { |d| %w[corner_base corner_lazy].include?(d['kind']) }.each do |d|
       top=d['height']
-      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,material('Worktop','#F2F0E9'));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id'])
+      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,material('Worktop','#F2F0E9'));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     # A base microwave bundle carries a worktop across its two side panels.
     state['cabinets'].select { |d| ApplianceCatalog.microwave_base?(d) }.each do |d|
@@ -453,7 +469,7 @@ module KitchenLab
       lp=Spatial.cabinet_point(left,0,0,settings);rp=Spatial.cabinet_point(right,right['width'],0,settings)
       width=Math.sqrt((rp[0]-lp[0])**2+(rp[1]-lp[1])**2)
       slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,material('Worktop','#F2F0E9'))
-      slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id'])
+      slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(slab,left.merge('width'=>width),d)
     end
     crowns!
     pack_units!
@@ -544,6 +560,8 @@ module KitchenLab
 
   def self.publish(error=nil,dialog=@dialog,command_results=nil)
     payload=state.merge('error'=>error,'house_context'=>house_context,'command_results'=>command_results,'appliance_catalog'=>ApplianceCatalog.products)
+    payload['molding_catalog']=MoldingProfiles.catalog
+    payload['house_molding']=MoldingProfiles.house_selection
     payload['cabinets']=payload['cabinets'].map { |d| d['appliance'] ? d.merge('appliance_parts'=>ApplianceCatalog.parts(d)) : d }
     if dialog && dialog.equal?(@dialog) && dialog.visible?
       dialog.execute_script("window.receiveKitchen(#{JSON.generate(payload)})")
@@ -597,6 +615,8 @@ module KitchenLab
     @dialog=UI::HtmlDialog.new(dialog_title:'Kitchens',preferences_key:'KitchenLab.Prototype',
       width:1120,height:760,min_width:900,min_height:650,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
     opened_dialog=@dialog
+    @dialog.add_action_callback('backsplash_materials') { |_,id,json| begin;CountertopMaterials.show(id,JSON.parse(json));rescue StandardError=>e;publish(e.message);end }
+    @dialog.add_action_callback('countertop_materials') { begin;CountertopMaterials.show;rescue StandardError=>e;publish(e.message);end }
     @dialog.add_action_callback('ready') { publish(nil,opened_dialog) }
     @dialog.add_action_callback('command') do |_,json|
       begin;execute_commands(JSON.parse(json));rescue StandardError=>e;publish(e.message);end
@@ -630,8 +650,8 @@ module KitchenLab
     @dialog.add_action_callback('undo') do |_|
       begin
         guard!
-        Sketchup.undo
-        publish
+        Sketchup.send_action('editUndo:')
+        UI.start_timer(0.2,false) { publish if @model.equal?(Sketchup.active_model) }
       rescue StandardError=>e
         publish(e.message)
       end
@@ -647,3 +667,11 @@ end
 load File.join(__dir__,'kitchen_accessories.rb')
 
 load File.join(__dir__,'kitchen_units.rb')
+
+load File.join(__dir__,'countertop_materials.rb')
+
+load File.join(__dir__,'kitchen_backsplash.rb')
+
+load File.join(__dir__,'kitchen_pullouts.rb')
+
+load File.join(__dir__,'kitchen_hood_miters.rb')

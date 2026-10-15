@@ -18,7 +18,7 @@ function sinkElevation(c,x,base,scale){
  return svg('g',{class:'sink-elevation','pointer-events':'none'},out);
 }
 const sinkEditor=document.createElement('section');sinkEditor.id='sinkEditor';sinkEditor.className='wide';
-sinkEditor.innerHTML='<h2>Sink & faucet</h2><p id="sinkCutoutStatus" role="status" hidden>Automatic countertop cutout unavailable — awaiting verified manufacturer template.</p>';
+sinkEditor.innerHTML='<h2>Sink & faucet</h2><p id="sinkCutoutStatus" role="status" hidden>Automatic countertop cutout unavailable â€” awaiting verified manufacturer template.</p>';
 const sinkFields={type:['Sink',['none','single','double']],width:['Width',null],depth:['Front to back',null],bowl_depth:['Bowl depth',null],offset_x:['Side offset (+ right)',null],front_setback:['From cabinet front',null],finish:['Sink finish',['stainless','white','black']],faucet:['Faucet',['arched','none']],faucet_finish:['Faucet finish',['chrome','brass','black']],faucet_height:['Faucet height',null]};
 for(const [key,[label,options]] of Object.entries(sinkFields)){const node=document.createElement('label');node.textContent=label;const input=document.createElement(options?'select':'input');input.id='sink_'+key;if(options)input.innerHTML=options.map(v=>`<option value="${v}">${v[0].toUpperCase()+v.slice(1)}</option>`).join('');else{input.type='number';input.step='0.125';}node.append(input);sinkEditor.append(node);}
 $('cabinetControls').prepend(sinkEditor);
@@ -33,7 +33,7 @@ function validateSink(c,s){
  if(c.height+1.5-s.bowl_depth<=(c.toe_height??4)+1)throw Error('Sink bowl reaches the cabinet bottom');
 }
 function readSink(d){if(d.kind!=='sink')return d;const s={...d.sink};for(const [key,[,options]] of Object.entries(sinkFields))s[key]=options?$('sink_'+key).value:Number($('sink_'+key).value);validateSink(d,s);return {...d,sink:s.type==='none'?{type:'none'}:s};}
-const sinkFill=fill;fill=function(){sinkFill();sinkEditor.hidden=selected?.kind!=='sink';$('sinkCutoutStatus').hidden=!['kohler-k-5287','kohler-k-33152'].includes(selected?.sink?.product_id);const s={...sinkDefaults(selected||{width:36,depth:24}),type:'none',...selected?.sink};for(const key of Object.keys(sinkFields)){$('sink_'+key).value=s[key];$('sink_'+key).disabled=!!s.product_id&&(['type','width','depth','bowl_depth','finish'].includes(key)||(s.product_id==='kohler-k-6489'&&['front_setback','offset_x'].includes(key)));}refreshCabinetPreview();};
+const sinkFill=fill;fill=function(){sinkFill();sinkEditor.hidden=selected?.kind!=='sink';$('sinkCutoutStatus').hidden=selected?.sink?.automatic_cutout_available!==false;const s={...sinkDefaults(selected||{width:36,depth:24}),type:'none',...selected?.sink};for(const key of Object.keys(sinkFields)){$('sink_'+key).value=s[key];$('sink_'+key).disabled=!!s.product_id&&(['type','width','depth','bowl_depth','finish'].includes(key)||(s.product_id==='kohler-k-6489'&&['front_setback','offset_x'].includes(key)));}refreshCabinetPreview();};
 const sinkDraft=cabinetDraft;cabinetDraft=function(){const d=sinkDraft();return d?readSink(d):d;};
 const sinkSend=send;send=function(name,...args){try{if(name==='apply'){let d=JSON.parse(args[0]);if(d.kind==='sink')d=cabinets.some(c=>c.id===d.id)?readSink(d):{...d,sink:sinkDefaults(d)};args[0]=JSON.stringify(d);}sinkSend(name,...args);}catch(e){pending(false);$('error').textContent=e.message;}};
 

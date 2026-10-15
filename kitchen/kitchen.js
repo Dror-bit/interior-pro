@@ -73,6 +73,7 @@ function fillHandleEditor(){
  document.querySelectorAll('#handleEditor input,#handleEditor select').forEach(el=>el.disabled=!selected||!!isAppliance(selected)||selected.handle==='none');
 }
 function handleLayout(c,w,h,horizontal,left,rowIndex=0){
+ if(c.pullout){horizontal=true;c={...c,handle_position:c.pullout.type==='waste'&&rowIndex===0?'center':'top'};}
  let pos=c.handle_position??'auto';const auto=pos==='auto';if(auto)pos=horizontal||c.kind==='tall'?'center':['wall','corner_upper'].includes(c.kind)||(FrontLayouts.builtin(c)&&rowIndex===0)?'bottom':'top';
  const rail=['shaker','glass'].includes(c.style)?kitchenSettings.shaker_width:2;
  const gap=auto?rail:(c.handle_offset??rail),edge=auto?rail/2:(c.handle_side??rail/2),len=horizontal?Math.min(5,w-4):Math.min(5,h-2);
@@ -277,7 +278,7 @@ window.addEventListener('keydown',e=>{
  const editing=el=>el instanceof Element&&(el.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')||el.isContentEditable);
  if(editing(e.target)||editing(document.activeElement))return;
  e.preventDefault();
- if(busy||document.querySelector('dialog[open]'))return;
+ if(busy||document.querySelector('dialog[open]:not(#cabinetDialog)'))return;
  if(drag){cancelDrag();return;}
  if(typeof islandDrag!=='undefined'&&islandDrag){cancelIslandDrag();return;}
  if(!window.sketchup?.undo){$('status').textContent='Open from SketchUp to undo a model action.';return;}

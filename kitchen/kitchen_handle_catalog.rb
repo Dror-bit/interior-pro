@@ -23,7 +23,7 @@ module KitchenLab
       find(id) if id && !id.empty?
     end
     def self.selected(d,horizontal,s)
-      key=horizontal ? 'drawer_handle_model' : 'door_handle_model'
+      key=d['_handle_model_key'] || (horizontal ? 'drawer_handle_model' : 'door_handle_model')
       id=d[key].nil? ? s['global_'+key] : d[key]
       id && !id.empty? ? find(id) : nil
     end

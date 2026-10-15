@@ -27,6 +27,7 @@ const FrontLayouts={
  available(c){return c.height-this.toe(c)-.25-(c.sink?.product_id==='kohler-k-6489'?8.9375:0);},
  heights(c){return c.drawer_heights|| (this.infer(c)==='drawers'?[.24,.36,.40].map(r=>(this.available(c)-.25)*r):[5.875]);},
  rows(c){
+  if(c.pullout){const available=this.available(c);return c.pullout.type==='waste'?[{kind:'drawer',height:5.875},{kind:'doors',doors:1,height:available-6}]:[{kind:'doors',doors:1,height:available}];}
   if(this.corner(c))return [{kind:'doors',height:this.available(c),doors:1}];
   if(['filler','corner'].includes(c.kind))return [];
   if(this.builtin(c))return this.builtinRows(c);

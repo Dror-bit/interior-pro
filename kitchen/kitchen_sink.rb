@@ -15,8 +15,10 @@ module KitchenLab
       product=raw['product_id'] && SinkCatalog.record(d)
       if product && %w[kohler-k-5287 kohler-k-33152].include?(raw['product_id'])
         raise 'Wrong sink snapshot' unless product['id']==raw['product_id']
-        s['catalog_snapshot']=JSON.parse(JSON.generate(product)).merge('automatic_cutout_available'=>false,'cutout'=>nil,'cutout_status'=>'awaiting_verified_manufacturer_template')
-        s['automatic_cutout_available']=false
+        available=SinkCatalog.verified_cutout?(product) && raw['automatic_cutout_available']!=false
+        s['catalog_snapshot']=JSON.parse(JSON.generate(product))
+        s['catalog_snapshot'].merge!('automatic_cutout_available'=>false,'cutout'=>nil,'cutout_status'=>'awaiting_verified_manufacturer_template') unless available
+        s['automatic_cutout_available']=available
         minimum=raw['product_id']=='kohler-k-5287' ? 18 : 21
         raise "Sink requires a cabinet at least #{minimum} inches wide" if d['width']<minimum
       end
@@ -38,11 +40,15 @@ module KitchenLab
       s.slice('automatic_cutout_available','catalog_snapshot','type',*ranges.keys,'finish','faucet','faucet_finish','product_id','drain_centres','mount')
     end
     def self.cutout(d)
-      return nil if %w[kohler-k-5287 kohler-k-33152].include?(d.dig('sink','product_id')) || d.dig('sink','automatic_cutout_available')==false
+      return nil if d.dig('sink','product_id')=='kohler-k-33152' || d.dig('sink','automatic_cutout_available')==false
+      return nil if d.dig('sink','product_id')=='kohler-k-5287' && !SinkCatalog.verified_cutout?(SinkCatalog.record(d))
       x,y,r,b=bounds(d);s=spec(d)
       return [x+0.5,y+0.5,r-0.5,b-0.5] unless s['product_id']
-      l,f,right,back=SinkCatalog.find(s['product_id'])['cutout']
-      [x+l,b+f,x+right,b+back]
+      product=SinkCatalog.record(d)
+      l,f,right,back=product['cutout']
+      result=[x+l,b+f,x+right,b+back]
+      result<<product['cutout_radius'] if product['cutout_radius']
+      result
     end
     def self.active?(d);d['kind']=='sink' && d['sink'].is_a?(Hash) && d['sink']['type']!='none';end
     def self.bounds(d)
@@ -54,7 +60,16 @@ module KitchenLab
   # One solid slab with real through-holes; caller supplies local coordinates.
   def self.slab_with_holes(entities,name,bounds,z,thickness,holes,mat)
     g=entities.add_group;g.name=name
-    loop_points=->(b) { [[b[0],b[1],z],[b[2],b[1],z],[b[2],b[3],z],[b[0],b[3],z]] }
+    loop_points=->(b) do
+      r=b[4]
+      if r && r>0
+        [[b[2]-r,b[3]-r,0],[b[0]+r,b[3]-r,90],[b[0]+r,b[1]+r,180],[b[2]-r,b[1]+r,270]].flat_map do |cx,cy,start|
+          (0..12).map { |i|a=(start+i*7.5)*Math::PI/180;[cx+r*Math.cos(a),cy+r*Math.sin(a),z] }
+        end
+      else
+        [[b[0],b[1],z],[b[2],b[1],z],[b[2],b[3],z],[b[0],b[3],z]]
+      end
+    end
     # Notches that reach the front edge are part of the outside contour.
     notches,inner=holes.partition { |h| h[1]<=bounds[1]+0.00001 }
     points=[[bounds[0],bounds[1],z]]

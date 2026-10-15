@@ -62,8 +62,14 @@ module InteriorPro
     def self.push(dlg)
       all = lib.cards
       cards = all.map { |c| card_for_js(c) }
+      # 2026-10-14, his ask: two choices - "חומרים מפרויקט" / "חומרים".
+      # A project folder = a top folder holding cards from Invoice Studio.
+      projects = all.select { |c| c['id'].to_s.start_with?('IS_') }
+                    .map { |c| c['path'].to_s.split('/').first.to_s }
+                    .reject(&:empty?).uniq
       data = { 'folder' => lib.folder.to_s,
                'folders' => lib.folders,
+               'projects' => projects,
                'cards' => cards }
       dlg.execute_script("render(#{JSON.generate(data)})")
     rescue StandardError => e
@@ -171,15 +177,18 @@ module InteriorPro
       f = selected_face(model)
       return UI.messagebox('סמן פאה שיש עליה חומר.') if f.nil? || f.material.nil?
       mat = f.material
-      path = nil
+      # 2026-10-14: "path = nil" here threw away the folder he picked, so
+      # every save landed in "כל החומרים". The result gets its own name.
+      saved = nil
       model.start_operation('Interior Pro: save material', true)
       begin
-        path = lib.save!(mat, path: path)
+        saved = lib.save!(mat, path: path)
       ensure
         model.commit_operation
       end
       push(dlg)
-      UI.messagebox(path ? "נשמר: #{mat.display_name}" : 'לא נשמר.')
+      where = path.to_s.empty? ? '' : " ב-#{path}"
+      UI.messagebox(saved ? "נשמר: #{mat.display_name}#{where}" : 'לא נשמר.')
     end
 
     # Click a thumbnail -> that material goes on every selected face.
@@ -316,7 +325,11 @@ module InteriorPro
           #side .row:hover .x { opacity: 1; }
           #side .count { margin-inline-start: auto; font-size: 11px; color: #888; }
           #side .row:hover .count { display: none; }
-          #newf { margin: 8px 6px; width: calc(100% - 12px); }
+          #newf { margin: 8px 6px; width: calc(100% - 12px); font-weight: bold; }
+          #side .row { font-weight: bold; }
+          #modes { display: flex; flex-direction: column; gap: 4px; margin: 0 6px 8px; }
+          #modes button { background: #444; font-weight: bold; text-align: start; }
+          #modes button.on { background: #3d7eff; }
           #menu { position: fixed; background: #3a3a3a; border: 1px solid #555;
                   border-radius: 6px; padding: 4px; display: none; z-index: 99;
                   min-width: 160px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
@@ -336,6 +349,18 @@ module InteriorPro
           .nm { padding: 7px 8px 2px; font-size: 13px; }
           .sub { padding: 0 8px 8px; font-size: 11px; color: #999; }
           .empty { padding: 40px; text-align: center; color: #888; grid-column: 1 / -1; }
+          .ftile { background: #333; border-radius: 10px; overflow: hidden; cursor: pointer;
+                   border: 2px solid transparent; }
+          .ftile:hover { border-color: #3d7eff; }
+          .ftile.drop { border: 2px dashed #3d7eff; }
+          .ftile .mini { height: 130px; display: grid; grid-template-columns: 1fr 1fr;
+                         grid-template-rows: 1fr 1fr; gap: 3px; padding: 6px; background: #2a2a2a; }
+          .ftile .mini div { background: #3a3a3a; border-radius: 4px; }
+          .ftile .nm { font-weight: bold; padding: 8px 8px 6px; }
+          .ftile .sub { padding: 6px 8px 8px; }
+          .back { grid-column: 1 / -1; padding: 8px 10px; background: #333; border-radius: 6px;
+                  cursor: pointer; font-weight: bold; color: #ccc; }
+          .back:hover { background: #3d7eff; color: #fff; }
         </style></head><body>
         <header>
           <button onclick="saveHere()">שמור את החומר המסומן</button>
@@ -347,14 +372,24 @@ module InteriorPro
         <div id="menu"></div>
         <div id="wrap">
           <div id="side">
+            <div id="modes">
+              <button id="m_proj" onclick="setMode('proj')">חומרים מפרויקט</button>
+              <button id="m_mat" onclick="setMode('mat')">חומרים</button>
+            </div>
             <button class="ghost" id="newf" onclick="sketchup.newfolder(PICKED)">+ תיקייה חדשה</button>
             <div id="tree"></div>
           </div>
           <div id="grid"></div>
         </div>
         <script>
-          var DATA = { cards: [], folders: [] };
+          var DATA = { cards: [], folders: [], projects: [] };
           var PICKED = '';
+          var MODE = 'mat';
+
+          function isProj(path) {
+            return (DATA.projects || []).indexOf((path || '').split('/')[0]) >= 0;
+          }
+          function setMode(m) { MODE = m; PICKED = ''; render(DATA); }
 
           function countIn(p) {
             return DATA.cards.filter(function (c) {
@@ -368,11 +403,14 @@ module InteriorPro
             document.getElementById('path').textContent = data.folder || '';
             var t = document.getElementById('tree');
             t.innerHTML = '';
-            t.appendChild(rowFor('', 'כל החומרים', 0));
+            document.getElementById('m_proj').className = MODE === 'proj' ? 'on' : '';
+            document.getElementById('m_mat').className = MODE === 'mat' ? 'on' : '';
             (data.folders || []).forEach(function (f) {
-              var depth = f.split('/').length;
+              if (isProj(f) !== (MODE === 'proj')) return;
+              var depth = f.split('/').length - 1;
               t.appendChild(rowFor(f, f.split('/').pop(), depth));
             });
+            if (MODE === 'mat') t.appendChild(rowFor('', 'כל החומרים', 0));
             draw();
           }
 
@@ -465,31 +503,96 @@ module InteriorPro
           window.addEventListener('click', hideMenu);
           window.addEventListener('scroll', hideMenu, true);
 
+          // 2026-10-14, his ask: "כמו בלומיון" - inside a folder its sub-folders
+          // are big tiles with up to 4 of their materials in small; click opens.
+          function parentOf(p) { return p.indexOf('/') >= 0 ? p.slice(0, p.lastIndexOf('/')) : ''; }
+          function cardsUnder(p) {
+            return DATA.cards.filter(function (c) {
+              var cp = c.path || '';
+              return cp === p || cp.indexOf(p + '/') === 0;
+            });
+          }
+          function bgOf(c) {
+            return c.img ? ('url(' + c.img + ')')
+                 : (c.color ? ('rgb(' + c.color.join(',') + ')') : '#555');
+          }
+          function folderTile(f) {
+            var d = document.createElement('div');
+            d.className = 'ftile';
+            var mini = document.createElement('div');
+            mini.className = 'mini';
+            var inside = cardsUnder(f).slice(0, 4);
+            for (var k = 0; k < 4; k++) {
+              var m = document.createElement('div');
+              if (inside[k]) { m.style.background = bgOf(inside[k]); m.style.backgroundSize = 'cover'; }
+              mini.appendChild(m);
+            }
+            var nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = '📁 ' + f.split('/').pop();
+            d.appendChild(nm);   // the name on top (his ask, 2026-10-14)
+            d.appendChild(mini);
+            var sub = document.createElement('div');
+            sub.className = 'sub';
+            sub.textContent = cardsUnder(f).length + ' חומרים';
+            d.appendChild(sub);
+            d.onclick = function () { PICKED = f; render(DATA); };
+            d.oncontextmenu = function (ev) { ev.preventDefault(); showMenu(ev, f); };
+            d.ondragover = function (ev) { ev.preventDefault(); d.classList.add('drop'); };
+            d.ondragleave = function () { d.classList.remove('drop'); };
+            d.ondrop = function (ev) {
+              ev.preventDefault();
+              d.classList.remove('drop');
+              var id = ev.dataTransfer.getData('text/plain');
+              if (id) sketchup.move(id, f);
+            };
+            return d;
+          }
+
           function draw() {
             var g = document.getElementById('grid');
-            var cards = DATA.cards.filter(function (c) {
-              var cp = c.path || '';
-              return PICKED === '' ? true : (cp === PICKED || cp.indexOf(PICKED + '/') === 0);
-            });
             g.innerHTML = '';
-            if (!cards.length) {
-              g.innerHTML = '<div class="empty">אין כאן חומרים.<br>סמן חומר במודל ולחץ "שמור את החומר המסומן".</div>';
+            var subs, cards;
+            if (PICKED === '' && MODE === 'mat') {
+              // "כל החומרים": everything, no sorting.
+              subs = [];
+              cards = DATA.cards.slice();
+            } else if (PICKED === '') {
+              subs = (DATA.folders || []).filter(function (f) { return f.indexOf('/') < 0 && isProj(f); });
+              cards = [];
+            } else {
+              subs = (DATA.folders || []).filter(function (f) { return parentOf(f) === PICKED; });
+              cards = DATA.cards.filter(function (c) { return (c.path || '') === PICKED; });
+            }
+            if (PICKED !== '') {
+              var back = document.createElement('div');
+              back.className = 'back';
+              var up = parentOf(PICKED);
+              back.textContent = '→ ' + (up ? up.split('/').pop() : 'חזרה') + '   /   ' + PICKED.split('/').pop();
+              back.onclick = function () { PICKED = up; render(DATA); };
+              g.appendChild(back);
+            }
+            subs.forEach(function (f) { g.appendChild(folderTile(f)); });
+            if (!subs.length && !cards.length) {
+              var e = document.createElement('div');
+              e.className = 'empty';
+              e.innerHTML = 'אין כאן חומרים.<br>סמן חומר במודל ולחץ "שמור את החומר המסומן".';
+              g.appendChild(e);
               return;
             }
             cards.forEach(function (c) {
               var d = document.createElement('div');
               d.className = 'card';
               d.draggable = true;
-              var bg = c.img ? ('url(' + c.img + ')')
-                     : (c.color ? ('rgb(' + c.color.join(',') + ')') : '#555');
+              var bg = bgOf(c);
               var sub = [];
-              if (c.path) sub.push(c.path);
+              if (c.path && c.path !== PICKED) sub.push(c.path);
               if (c.gloss !== null && c.gloss !== undefined) sub.push('ברק ' + c.gloss);
               d.innerHTML = '<div class="sw"></div><div class="nm"></div><div class="sub"></div>';
               d.querySelector('.sw').style.background = bg;
               d.querySelector('.sw').style.backgroundSize = 'cover';
               d.querySelector('.nm').textContent = c.name || c.id;
-              d.querySelector('.sub').textContent = sub.join(' \u00b7 ');
+              d.querySelector('.sub').textContent = sub.join(' · ');
               d.ondragstart = function (ev) { ev.dataTransfer.setData('text/plain', c.id); };
               d.onclick = function () { sketchup.apply(c.id); };
               d.oncontextmenu = function (ev) { ev.preventDefault(); cardMenu(ev, c); };

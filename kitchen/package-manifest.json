@@ -448,8 +448,8 @@
     },
     {
       "path": "cabinet_fronts.js",
-      "bytes": 3634,
-      "sha256": "c16b5d7e6b7f2f92c87bdf1a068cc61bf931d17829ebf4fae7a49d4c49c378e6"
+      "bytes": 3782,
+      "sha256": "c149e6a64597fc3cb97088fc284ad2a35b2e4aae965415a7e363e160fe27c6a6"
     },
     {
       "path": "cabinet_selection.js",
@@ -498,13 +498,13 @@
     },
     {
       "path": "kitchen.html",
-      "bytes": 17176,
-      "sha256": "3eda1db2aaea2fdfdd960646be54085ae9327164d495076e272eec38357a50b7"
+      "bytes": 17339,
+      "sha256": "803dd394122ef1254312c11fc6cb478417781e7dc5bafdf0b7b3a033b6e55010"
     },
     {
       "path": "kitchen.js",
-      "bytes": 45014,
-      "sha256": "f7297c7bbb0450017cad8251ce8a6c4ca8c8d695f5c6b1ec9150b86d4ac51492"
+      "bytes": 45146,
+      "sha256": "4c60630eceae645d7c67771aca65d9820ec79e5cad443e6404a8e122b3157933"
     },
     {
       "path": "kitchen_appearance.rb",
@@ -528,8 +528,8 @@
     },
     {
       "path": "kitchen_canvas_symbols.js",
-      "bytes": 8227,
-      "sha256": "8f278ec33ca1447aba8201b0d270a25a7c899a9d4d1f854c59c1a05d42d72499"
+      "bytes": 8357,
+      "sha256": "57cee86854ce805a6367896332b65527057f43d7bf91480133306e9cedc885cd"
     },
     {
       "path": "kitchen_clean_notes.js",
@@ -538,13 +538,13 @@
     },
     {
       "path": "kitchen_commands.rb",
-      "bytes": 2183,
-      "sha256": "cddeb3421b126115c9f735df6ac108a6e904546afccc37580d4d76619b293bb9"
+      "bytes": 2581,
+      "sha256": "919648d785b5cd008be2b3b70a8b9be7e7ba97bcedcaf428c601f167cdb479af"
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 3735,
-      "sha256": "592d6baf7895b48965f66a21c7e0546b4a8a7cf6c0a418f200aed81f1c546426"
+      "bytes": 8934,
+      "sha256": "716dd696a05fdc7a4cae3f53687e602063b05bd1b9733386cfec32c51bb0e6f2"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 34916,
-      "sha256": "2272820fb5b5dba1c79f27eafc69bb0e306b09bd515c33f4c0fbfc14361f98e0"
+      "bytes": 36781,
+      "sha256": "896041634d107ed9c5f51bafcfd0a8ffcb30c948af0c7761c6060c6f112b2f99"
     },
     {
       "path": "kitchen_layout.rb",
@@ -598,13 +598,13 @@
     },
     {
       "path": "kitchen_sidebar.js",
-      "bytes": 7403,
-      "sha256": "6abec5269f7b84b406c7fb83def830a2871763a06a1acd01a23f7868fcf93bee"
+      "bytes": 8196,
+      "sha256": "7ac92abdb82920e8e2c0caff47797213852990ec140a38843feb306480879429"
     },
     {
       "path": "kitchen_sink.rb",
-      "bytes": 7016,
-      "sha256": "0dd5c5804232193a1ffb97d23b0f68533da737f81fddbec9ac707c9393bec18a"
+      "bytes": 7774,
+      "sha256": "36ac6557f4532f1c65054a5648cf5f2caabe15e0f42d3bc74f2f78fb96ba756e"
     },
     {
       "path": "kitchen_spatial.rb",
@@ -663,8 +663,8 @@
     },
     {
       "path": "sink_editor.js",
-      "bytes": 5524,
-      "sha256": "53465fe81b18faaed7855f1f6b8274eb69aefe5e7f65201d6302e2921dd784e8"
+      "bytes": 5546,
+      "sha256": "f579101573ac9314de618e0707a565e7e0a97b0d941fb375c8da299317c9d89a"
     },
     {
       "path": "test_engine.rb",
@@ -853,18 +853,18 @@
     },
     {
       "path": "kitchen_sink_catalog.rb",
-      "bytes": 3600,
-      "sha256": "656a263e7d48090c8482f5682b2f8f470570d8efd7816c5929f0955e58533a7e"
+      "bytes": 4227,
+      "sha256": "69a8724107384daa140860fb3dc7b73afe997829f073c6f91036d51d8ee9e56f"
     },
     {
       "path": "sink_catalog.json",
-      "bytes": 4750,
-      "sha256": "0fcc8e4ed43c24903dd1fbfd522854e4d176b84ce90f28896d9f5933888b029f"
+      "bytes": 5536,
+      "sha256": "7a8ec8e641ef2008d4ec20a0c5da7babe99979043aba637c20aae30787fed93c"
     },
     {
       "path": "test_sink_catalog.rb",
-      "bytes": 3769,
-      "sha256": "8f275c85967beb3ccbdbebf41d4f5966afd3d3e29c87a655466f9410bfa8c4bf"
+      "bytes": 4082,
+      "sha256": "a621c86a8ca2213ec004c76f1c497e1dfbfc4bd32dcbbc7895d4d696cce35c30"
     },
     {
       "path": "assets/appliances/kohler-sinks/K-3838-1-mesh.json",
@@ -1548,13 +1548,13 @@
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 26205,
-      "sha256": "dcb08a1e5fe161a7774572a37ff19678e0cfe58f5d84c08450947ad8aa7d37bb"
+      "bytes": 26735,
+      "sha256": "a4587226478110b3a9c83d39bad72a6e5a1d4fc1d454b1e74b54503d02be7968"
     },
     {
       "path": "kitchen_engine.rb",
-      "bytes": 20236,
-      "sha256": "13a44295c8f3f0af1752f99987961e323c71eb93a031138547b7a2d0b9aa6516"
+      "bytes": 23563,
+      "sha256": "9edeab781c988d7063829ccc0ce7e84ba4374164786afa6d47c8387c7657b2ce"
     },
     {
       "path": "kitchen_house_placement.js",
@@ -1563,13 +1563,13 @@
     },
     {
       "path": "handle_gallery.js",
-      "bytes": 14657,
-      "sha256": "3bdbad4d1078ddd5084adad9ae119ab2aee624d42d4305b8317e324dbc6037ed"
+      "bytes": 15091,
+      "sha256": "0cfd0d580deb43520747d84e4f8fa2df434005d629485edba99d291c3bf2d499"
     },
     {
       "path": "kitchen_handle_catalog.rb",
-      "bytes": 4832,
-      "sha256": "141cb26bb623413aea2f1a331bcf0f374552171ddaffad4acc8f55876cb383ce"
+      "bytes": 4860,
+      "sha256": "85fdce612f70b45009c8d64b4d4fdf8a0b71036129f2634b7a4feaf0ea21ddef"
     },
     {
       "path": "test_handle_sizes.rb",
@@ -1655,6 +1655,101 @@
       "path": "test_sink_basin_mesh.rb",
       "bytes": 850,
       "sha256": "faa4d799d54f9f9623ce13699c09edeb4a9455e41463cf9054e5bbee384541a4"
+    },
+    {
+      "path": "cabinet_replace.js",
+      "bytes": 6954,
+      "sha256": "6508a795e47a7babd2626a43e1591b526c3fd8219207861d456b47b723057efe"
+    },
+    {
+      "path": "test_cabinet_replace.rb",
+      "bytes": 2148,
+      "sha256": "38d04a6026298a5308662c33d0827c5738c2de2e1dd603fe4dbb0dcde04aa6f4"
+    },
+    {
+      "path": "test_verified_cutout.rb",
+      "bytes": 1447,
+      "sha256": "69d24fcf840247ea20a0e9bd353edd7824064451b9ca6deabf28e9f3cdfdea2e"
+    },
+    {
+      "path": "assets/appliances/prep-sinks/templates/1207219_7_a.dxf",
+      "bytes": 98375,
+      "sha256": "a1d77da84fc70964692f227793dab2789a0d85074932186ed502b71986c3a1f9"
+    },
+    {
+      "path": "countertop_materials.rb",
+      "bytes": 3978,
+      "sha256": "2f8a813fe60be7770addbb1856f663fc82da0c0ab545a69856a4c4965576ead4"
+    },
+    {
+      "path": "countertop_materials.html",
+      "bytes": 1982,
+      "sha256": "c5f13f2065fa992b06d8e750590227272ec1c14453e89e8c74c55b532a32fbf6"
+    },
+    {
+      "path": "countertop_editor.js",
+      "bytes": 479,
+      "sha256": "a8a36118a682fc4ecc517d1905305860f40d9521f52f96c3b69f338bd196221e"
+    },
+    {
+      "path": "test_countertop_materials.rb",
+      "bytes": 890,
+      "sha256": "2d088620780dc521fa9f445b0d23e49a180dcece41cba82d3cadf19c2c080f18"
+    },
+    {
+      "path": "kitchen_backsplash.rb",
+      "bytes": 5039,
+      "sha256": "e25a622a811e77deb72777b2c2dcb45e5ec074fa2c930cebba57b781f01e3f9c"
+    },
+    {
+      "path": "backsplash_editor.js",
+      "bytes": 3032,
+      "sha256": "a901d8dca0f039c437e114d8c6437a0c356585534866d2f2aa39cde63cff52a2"
+    },
+    {
+      "path": "test_backsplash.rb",
+      "bytes": 1262,
+      "sha256": "23cde899cf9c8046ecf77af8cda2f80bd3550e0e2074dfb36593aaa4cdd68295"
+    },
+    {
+      "path": "kitchen_pullouts.rb",
+      "bytes": 3718,
+      "sha256": "630c06faab30631ebbe4ef1e2f7a45318d40dfabf6e5a5bb18dcdd4fba0a60f6"
+    },
+    {
+      "path": "pullout_editor.js",
+      "bytes": 2063,
+      "sha256": "b14dcf19383cf52ed2645b02c02b45d147c0f91bb3a24ef0cec746ea10c9b468"
+    },
+    {
+      "path": "test_pullouts.rb",
+      "bytes": 2108,
+      "sha256": "5c40c6c8f13d2ab4886209a7d8d2122448940ac7c5ef07f995147899b7080578"
+    },
+    {
+      "path": "hood_cover_editor.js",
+      "bytes": 2822,
+      "sha256": "f33fa7b432aa8bd96fbaa81fad6dc9ab3452bd54c514586bf82a5c6e82d79c6c"
+    },
+    {
+      "path": "kitchen_hood_miters.rb",
+      "bytes": 1641,
+      "sha256": "581a9479e1ca4695a0946f38bdb2beebfbadae7f3bd2beff63c846df7285ffd1"
+    },
+    {
+      "path": "kitchen_molding_profiles.rb",
+      "bytes": 2520,
+      "sha256": "bad90d519c1f9df48ee84ca00323e331fa048ec90ad69b82a85b4527f61f76ee"
+    },
+    {
+      "path": "molding_gallery.js",
+      "bytes": 4348,
+      "sha256": "4a71653326d1d860380c3a999309498ae474eca663a8ba33a9ce43a4d78066c6"
+    },
+    {
+      "path": "test_molding_profiles.rb",
+      "bytes": 1063,
+      "sha256": "e572b17ac64241cf2135e98a155516d9ce1fa2ff5bfd5a0e7cfc99d9cd38af0e"
     }
   ]
 }

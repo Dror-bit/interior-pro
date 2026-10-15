@@ -28,6 +28,10 @@
    }
    if(drawer&&c.kind!=='sink'){line([[width/2,0],[width/2,10]]);line([[width/2-2,7],[width/2,10],[width/2+2,7]]);if(c.handle!=='none')path([local(width/2-2.5,1),local(width/2+2.5,1)],null,hardware,[],2.3);}
   }
+  if(c.pullout){
+   if(c.handle!=='none')path([[w/2-2,d+1],[w/2+2,d+1]],null,hardware,[],2.3);
+   ctx.setLineDash([]);return;
+  }
   if(!appliance&&!['filler','corner'].includes(c.kind)){if(corner){front(d,d,w-d,false,true);front(d,d,w-d,true,true);}else front(0,d,w);}
   // Deliberate plan symbols, rather than hundreds of overlapping mesh bounds.
   const ink='#465d68',light='#f3f6f7';

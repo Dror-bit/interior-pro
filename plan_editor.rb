@@ -72,6 +72,12 @@ module InteriorPro
     # wall shows it green / red as when placing and lets go through the fixture tool's own check and place! (the same id,
     # ONE undo step - move_plumb). Kill switch: false = shown only, as in step 1.
     USE_PLUMB_MOVE = true unless const_defined?(:USE_PLUMB_MOVE, false)
+    # TILE IN HIS DRAWING (2026-10-14 12:53, his words: "הטיל צריך להיות רק לקירות ולהראות את סוג רצפת המקלחת ואת הביוב -
+    # הפריסה היא רק לתוכניות PDF לא לסירטוט, כי הסירטוט צריך להישאר נקי לעבודה"; "קיר דק קטן של טיל... בצבע ירוק או סגול",
+    # "גם המקווקו הזה זה רעיון לא רע"): a tiled wall area = a thin DASHED PURPLE strip on the wall face, as thick as its tile;
+    # a shower floor = its outline with the drain and its kind (curb / curbless). NO floor grid in the drawing - that is the
+    # PDF's. Shown only, with the outlets (elec_payload). Kill switch: false = no tile in the drawing.
+    USE_TILE_2D = true unless const_defined?(:USE_TILE_2D, false)
     PDFJS_DIR = File.join(File.dirname(__FILE__), 'assets', 'pdfjs')
     # Refreshes the canvas after ANY model undo/redo (2026-07-30) - whether it
     # came from the editor's Undo button, Ctrl+Z in the SketchUp window, or the
@@ -1298,10 +1304,70 @@ module InteriorPro
           else puts "[PlanEditor] outlet #{attrs['id']} skipped: no direction off the wall"
           end
         end
-        out + plumb_payload(model)
+        tile_payload(model) + out + plumb_payload(model)   # the tile first: under everything
       rescue StandardError => e
         puts "[PlanEditor] elec_payload: #{e.class}: #{e.message}"
         []
+      end
+
+      # The tiled wall areas (their strip on the wall face, u0..u0+w, 0..tile_depth out of it) and the shower floors
+      # (outline, drain outline, kind) on the active level, for the drawing (USE_TILE_2D).
+      def tile_payload(model = Sketchup.active_model)
+        return [] unless USE_TILE_2D && defined?(InteriorPro::TileWall)
+        lvl = defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level : 1
+        tw = InteriorPro::TileWall
+        out = []
+        model.entities.to_a.each do |g|
+          next unless (g.is_a?(Sketchup::Group) || g.is_a?(Sketchup::ComponentInstance)) && g.valid?
+          a = ->(k) { g.get_attribute('InteriorPro', k) }
+          case a.call('type')
+          when 'tile_wall'
+            wall = tw.wall_by_id(a.call('wall_id').to_s, model)
+            next unless wall && (wall.get_attribute('InteriorPro', 'level') || 1).to_i == lvl
+            fr = tw.frame_for(wall, a.call('side').to_s)
+            next unless fr
+            u0 = (a.call('built_u0') || a.call('u0')).to_f
+            w = (a.call('built_w') || a.call('area_w')).to_f
+            d = a.call('tile_depth').to_f
+            d = 0.5 if d <= 0.0
+            next if w <= 0.0
+            pts = [[u0, 0.0], [u0 + w, 0.0], [u0 + w, d], [u0, d]].map { |u, o| q = tw.world(fr, u, 0, o); [q[0].round(3), q[1].round(3)] }
+            out << { 'id' => a.call('id').to_s, 'kind' => 'tile', 'pts' => pts }
+          when 'shower_floor'
+            loop = Array(a.call('poly_xy')).map(&:to_f).each_slice(2).to_a
+            next if loop.length < 3
+            out << { 'id' => a.call('id').to_s, 'kind' => 'shower', 'pts' => loop.map { |x, y| [x.round(3), y.round(3)] },
+                     'drain' => shower_drain_pts(loop, a), 'label' => a.call('kind').to_s == 'flat' ? 'Curbless' : "Curb #{a.call('curb_h_in').to_f.round(1)}\"" }
+          end
+        end
+        out
+      rescue StandardError => e
+        puts "[PlanEditor] tile_payload: #{e.class}: #{e.message}"
+        []
+      end
+
+      # The drain's outline from the shower floor's own numbers, through ShowerFloor's pure helpers. nil = no drain.
+      def shower_drain_pts(loop, a)
+        return nil unless defined?(InteriorPro::ShowerFloor)
+        sf = InteriorPro::ShowerFloor
+        drain = a.call('drain').to_s
+        dw = a.call('drain_w').to_f
+        dl = a.call('drain_l').to_f
+        pts = if sf::CENTER_DRAINS.include?(drain)
+                dw = sf::DEFAULT_DRAIN_W if dw <= 0.25
+                dl = sf::DEFAULT_DRAIN_W if dl <= 0.25
+                c = sf.area_centroid(loop)
+                c && (drain == 'round' ? sf.drain_circle(c[0], c[1], dw) : sf.drain_rect(c[0], c[1], dw, dl))
+              elsif sf::WALL_DRAINS.include?(drain)
+                dw = sf::LINEAR_W if dw <= 0.25
+                dl = sf::LINEAR_L if dl <= 0.25
+                side = sf::DRAIN_SIDES.include?(a.call('drain_side').to_s) ? a.call('drain_side').to_s : 'right'
+                sf.wall_drain_rect(loop, side, dw, dl, a.call('drain_shift').to_f)
+              end
+        pts && pts.map { |x, y| [x.to_f.round(3), y.to_f.round(3)] }
+      rescue StandardError => e
+        puts "[PlanEditor] shower_drain_pts: #{e.message}"
+        nil
       end
 
       # Which sign a product gets (plumb_signs.png): a shower set = its head only; a tub whose file name says
@@ -8910,6 +8976,7 @@ module InteriorPro
               ctx.save();
               ctx.strokeStyle = '#d0312d'; ctx.lineWidth = 1.3; ctx.setLineDash([]);
               elecItems.forEach(function(o) {
+                if (o.kind === 'tile' || o.kind === 'shower') { tileSign(o); return; }   // shown only (USE_TILE_2D)
                 if (o.kind === 'plumb') {             // a plumbing product: picked (blue) and dragged when Ruby allows it
                   var pk = USE_PLUMB_DRAG && elecSel && o.id === elecSel;
                   plumbSign(o, pk ? '#2f6bd8' : null);
@@ -8972,6 +9039,39 @@ module InteriorPro
             // A plumbing product (USE_PLUMB_2D, 2026-10-14, plumb_signs.png): thin black lines at its real size from
             // above, in the frame of its wall - a = out of the wall (o.a0..o.a1), b = along it (-o.w/2..o.w/2).
             // Closed shapes are white inside, so the floor pattern under them is covered.
+            // Tile in the drawing (USE_TILE_2D, 2026-10-14): a tiled wall area = a thin dashed purple strip on the wall face at
+            // its real thickness; a shower floor = its outline, the drain (with its grate lines) and its kind. No floor grid.
+            function tileSign(o) {
+              var path = function(pts) { ctx.beginPath(); pts.forEach(function(q, i) { i ? ctx.lineTo(sx(q[0]), sy(q[1])) : ctx.moveTo(sx(q[0]), sy(q[1])); }); ctx.closePath(); };
+              ctx.save();
+              if (o.kind === 'tile') {
+                path(o.pts); ctx.fillStyle = 'rgba(142, 68, 173, 0.18)'; ctx.fill();
+                ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.stroke();
+              } else {
+                ctx.strokeStyle = '#000000'; ctx.setLineDash([]);
+                path(o.pts); ctx.lineWidth = 1.1; ctx.stroke();
+                if (o.drain && o.drain.length >= 3) {
+                  path(o.drain); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 0.9; ctx.stroke();
+                  var xs = o.drain.map(function(q) { return q[0]; }), ys = o.drain.map(function(q) { return q[1]; });
+                  var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+                  var along = (x1 - x0) >= (y1 - y0), L = along ? x1 - x0 : y1 - y0, n = Math.max(2, Math.round(L / 3));
+                  ctx.lineWidth = 0.5; ctx.beginPath();
+                  for (var i = 1; i < n; i++) {
+                    var k = i / n;
+                    if (along) { ctx.moveTo(sx(x0 + (x1 - x0) * k), sy(y0 + 0.4)); ctx.lineTo(sx(x0 + (x1 - x0) * k), sy(y1 - 0.4)); }
+                    else { ctx.moveTo(sx(x0 + 0.4), sy(y0 + (y1 - y0) * k)); ctx.lineTo(sx(x1 - 0.4), sy(y0 + (y1 - y0) * k)); }
+                  }
+                  ctx.stroke();
+                }
+                if (o.label) {
+                  var cx = 0, cy = 0; o.pts.forEach(function(q) { cx += q[0]; cy += q[1]; }); cx /= o.pts.length; cy /= o.pts.length;
+                  ctx.fillStyle = '#555555'; ctx.font = Math.max(9, Math.round(3 * scale)) + 'px Arial'; ctx.textAlign = 'center';
+                  ctx.fillText('SHOWER', sx(cx), sy(cy) - 2); ctx.fillText(o.label, sx(cx), sy(cy) + Math.max(9, Math.round(3 * scale)) + 1);
+                  ctx.textAlign = 'left';
+                }
+              }
+              ctx.restore();
+            }
             function plumbSign(o, col, ghost) {
               var nx = o.nx, ny = o.ny, ux = -ny, uy = nx;
               var at = function(a, b) { return { x: o.x + nx * a + ux * b, y: o.y + ny * a + uy * b }; };

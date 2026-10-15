@@ -146,9 +146,14 @@
     "skp_path": "assets/appliances/prep-sinks/K-5287.skp",
     "geometry_sha256": "652c2941a2e17ac960817208ecf6f27e0879587ad289fbfee3f6a970188f461c",
     "geometry_revision": 1,
-    "automatic_cutout_available": false,
-    "cutout": null,
-    "cutout_status": "awaiting_verified_manufacturer_template",
+    "automatic_cutout_available": true,
+    "cutout": [
+      0.875,
+      -14.125,
+      14.125,
+      -0.875
+    ],
+    "cutout_status": "verified_manufacturer_template",
     "spec": {
       "type": "single",
       "width": 15,
@@ -160,6 +165,21 @@
       "faucet": "none",
       "faucet_finish": "chrome",
       "faucet_height": 12
+    },
+    "cutout_radius": 0.5,
+    "cutout_template": {
+      "id": "1207219-7-A",
+      "model": "K-5287",
+      "units": "inches",
+      "scale": 1,
+      "width": 13.25,
+      "depth": 13.25,
+      "radius": 0.5,
+      "rim_width": 15,
+      "rim_depth": 15,
+      "reveal": "Manufacturer CUT ALONG THIS LINE; no alternative reveal offset applied",
+      "source_url": "https://techcomm.kohler.com/techcomm/cad/1207219_7_a.dxf",
+      "sha256": "a1d77da84fc70964692f227793dab2789a0d85074932186ed502b71986c3a1f9"
     }
   },
   {

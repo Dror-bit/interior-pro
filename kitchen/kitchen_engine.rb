@@ -33,6 +33,8 @@ module KitchenLab
 
     def create_data(doc,payload,forced_kind=nil)
       kind=forced_kind||payload.fetch('kind','doors')
+      pullout={'pullout_spice'=>'spice','pullout_waste'=>'waste','pullout_storage'=>'storage'}[kind]
+      kind='doors' if pullout
       glass=kind=='glass_wall';kind='wall' if glass
       house_corner=%w[corner_base corner_lazy corner_upper].include?(kind) && payload.fetch('overrides',{}).is_a?(Hash) && payload['overrides']['house_placement']
       raise 'Use the corner tool for coordinated corner placement' if kind.start_with?('corner') && !house_corner
@@ -65,6 +67,7 @@ module KitchenLab
       if %w[oven_tower micro_tower fridge_surround].include?(kind)
         c.merge!('width'=>kind=='fridge_surround' ? 39 : 30,'height'=>96,'depth'=>kind=='fridge_surround' ? 30 : 24)
       end
+      c.merge!('width'=>pullout=='spice' ? 9 : 18,'pullout'=>{'type'=>pullout},'front_layout'=>'single') if pullout
       overrides=payload.fetch('overrides',{})
       raise 'Invalid cabinet overrides' unless overrides.is_a?(Hash)
       raise 'ID and kind belong to the creation command' unless (overrides.keys & %w[id kind wall]).empty?
@@ -195,6 +198,46 @@ module KitchenLab
         c=create_data(doc,payload,forced);id=c['id']
         raise 'Cabinet ID already exists' if data.any? { |o| o['id']==id }
         data<<c
+      when 'update_hood_cover'
+        owner=data.find { |c| c['id']==id }
+        raise 'Select a built-in hood with a cover.' unless owner && owner['kind']=='hood'
+        parts=data.select { |c| c['surround_for']==id }
+        raise 'Hood cover is incomplete.' unless parts.map { |c| c['surround_part'] }.sort==%w[hood_front left right]
+        style=payload.fetch('style');height=Float(payload.fetch('height'));depth=Float(payload.fetch('depth'))
+        raise 'Choose Plain box or Shaker.' unless %w[slab shaker].include?(style)
+        raise 'Cover height must fit the hood and be at most 96 inches.' unless height.finite? && height.between?(owner['height'],96)
+        raise 'Cover depth must clear the hood by one inch and be at most 36 inches.' unless depth.finite? && depth.between?(owner['depth']+1,36)
+        side=parts.find { |c| c['surround_part']=='left' };delta=depth-side['depth']
+        parts.each do |part|
+          updated=part.merge('height'=>height)
+          if part['surround_part']=='hood_front'
+            raise 'Hood cover placement is unavailable.' unless part['house_placement']
+            origin=Spatial.cabinet_point(part,0,0,s);point=Spatial.cabinet_point(part,0,-delta,s)
+            placement=part['house_placement'].dup
+            placement['x']+=point[0]-origin[0];placement['y']+=point[1]-origin[1]
+            updated.merge!('style'=>style,'house_placement'=>placement)
+          else
+            updated['depth']=depth
+          end
+          data[data.index(part)]=@validator.call(updated,s)
+        end
+      when 'replace_cabinet'
+        index=data.index { |c| c['id']==id };raise 'Cabinet no longer exists' unless index
+        original=data[index]
+        raise 'Select the complete appliance to replace its cabinet.' if original['surround_for']
+        kind=payload.fetch('kind')
+        raise 'Choose a cabinet from the replacement list.' unless %w[doors drawers wall glass_wall tall filler corner_base corner_upper corner_lazy pullout_spice pullout_waste pullout_storage].include?(kind)
+        # Preserve placement and user finishes, but never carry obsolete appliance,
+        # sink, accessory, overlay or front-layout data into a different cabinet.
+        keep=%w[width height depth x z rotation offset_y rotation_pivot flip_x flip_y house_placement finish handle appearance_overrides door_handle_model drawer_handle_model handle_position handle_offset handle_side]
+        overrides=original.slice(*keep)
+        overrides['style']=kind=='glass_wall' ? 'glass' : original.fetch('style','shaker')
+        overrides['style']='shaker' if overrides['style']=='glass' && !%w[wall glass_wall].include?(kind)
+        overrides.merge!(original.slice('toe_height','toe_setback')) unless %w[wall glass_wall corner_upper].include?(kind)
+        candidate=doc.merge('cabinets'=>data.reject { |c| c['id']==id || c['surround_for']==id })
+        fresh=create_data(candidate,{'id'=>id,'kind'=>kind,'wall'=>original.fetch('wall','A'),'overrides'=>overrides})
+        data[index]=fresh
+        data.reject! { |c| c['surround_for']==id }
       when 'flip_cabinet'
         cabinet=data.find { |c| c['id']==id };raise 'Cabinet no longer exists' unless cabinet
         axis=payload.fetch('axis');raise 'Choose left/right or front/back' unless %w[x y].include?(axis)

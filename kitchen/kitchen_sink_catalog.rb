@@ -11,7 +11,14 @@ module KitchenLab
     def self.options(id)
       p=find(id)
       {'kind'=>'sink','width'=>p['cabinet_width'],'depth'=>p['cabinet_depth'],
-       'sink'=>p['spec'].merge('product_id'=>id).merge(p['skp_path'] ? {'catalog_snapshot'=>JSON.parse(JSON.generate(p)),'automatic_cutout_available'=>false} : {})}
+       'sink'=>p['spec'].merge('product_id'=>id).merge(p['skp_path'] ? {'catalog_snapshot'=>JSON.parse(JSON.generate(p)),'automatic_cutout_available'=>p.fetch('automatic_cutout_available',false)} : {})}
+    end
+    def self.verified_cutout?(product)
+      product['id']=='kohler-k-5287' && product['automatic_cutout_available']==true &&
+        product['cutout']==[0.875,-14.125,14.125,-0.875] && product['cutout_radius']==0.5 &&
+        product.dig('cutout_template','id')=='1207219-7-A' &&
+        product.dig('cutout_template','sha256')=='a1d77da84fc70964692f227793dab2789a0d85074932186ed502b71986c3a1f9' &&
+        product.dig('cutout_template','units')=='inches' && product.dig('cutout_template','scale')==1
     end
     def self.record(d)
       snapshot=d.dig('sink','catalog_snapshot')

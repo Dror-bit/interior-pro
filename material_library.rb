@@ -489,6 +489,17 @@ module InteriorPro
           trace(nil, "write via material: #{e.class} #{e.message}")
         end
       end
+      # 2026-10-14: no face found and TextureWriter refused the material
+      # ("does not support the loading of the passed object type") - the
+      # Countertop card was saved with no picture. Texture#write (SU 2021+)
+      # writes the image straight from the material.
+      unless File.exist?(out)
+        begin
+          mat.texture.write(out)
+        rescue StandardError => e
+          trace(nil, "write via texture: #{e.class} #{e.message}")
+        end
+      end
       return trace(File.join('textures', "#{id}#{ext}"), "texture -> #{out}") if File.exist?(out)
       trace(nil, 'no texture file was written')
     rescue StandardError => e

@@ -1,0 +1,72 @@
+# Kitchen adapter for Interior Pro's material cards. No host callbacks are replaced.
+require 'json'
+require 'digest'
+module KitchenLab
+  module CountertopMaterials
+    def self.validate(value)
+      return nil if value.nil?
+      raise 'Invalid countertop material' unless value.is_a?(Hash) && value['card'].is_a?(Hash) && value['key'].to_s.match?(/\A[0-9a-f]{64}\z/)
+      raise 'Countertop material snapshot changed' unless Digest::SHA256.hexdigest(JSON.generate(value['card']))==value['key']
+      value
+    end
+    def self.snapshot(card)
+      copy=JSON.parse(JSON.generate(card))
+      path=InteriorPro::MaterialLibrary.texture_path(card)
+      raise 'The material texture is missing' if !card['texture_file'].to_s.empty? && !path
+      copy['texture_file']=path if path
+      {'card'=>copy,'key'=>Digest::SHA256.hexdigest(JSON.generate(copy))}
+    end
+    def self.resolve(model, value)
+      validate(value)
+      name='Kitchen countertop / '+value['key']
+      return model.materials[name] if model.materials[name]
+      card=value['card'];mat=model.materials.add(name)
+      c=card['color'];mat.color=Sketchup::Color.new(*c.first(3)) if c.is_a?(Array) && c.size>=3
+      mat.alpha=card['alpha'] if card['alpha']
+      path=card['texture_file'].to_s
+      unless path.empty?
+        raise 'The saved countertop texture is unavailable' unless File.file?(path)
+        mat.texture=path
+        w=card['texture_width_inches'];h=card['texture_height_inches']
+        mat.texture.size=[w,h] if w && h
+      end
+      mat.set_attribute('KitchenLab','material_card',JSON.generate(card))
+      mat
+    end
+    def self.show(cabinet_id=nil, backsplash=nil)
+      KitchenLab.guard!
+      raise 'Interior Pro material library is unavailable' unless defined?(InteriorPro::MaterialLibraryDialog)
+      backsplash=Backsplash.validate(backsplash) if cabinet_id
+      model=Sketchup.active_model
+      @dialog.close if @dialog && @dialog.visible?
+      dlg=UI::HtmlDialog.new(dialog_title: cabinet_id ? 'Backsplash · Interior Pro materials' : 'Countertop · Interior Pro materials',preferences_key:'KitchenLab.CountertopMaterials',width:760,height:600,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
+      @dialog=dlg
+      cards=InteriorPro::MaterialLibrary.cards
+      data=cards.map { |c| InteriorPro::MaterialLibraryDialog.card_for_js(c) }
+      dlg.set_html(File.read(File.join(KitchenLab::ROOT,'countertop_materials.html')))
+      dlg.add_action_callback('ready') { dlg.execute_script("render(#{JSON.generate(data)},#{JSON.generate(cabinet_id ? "Backsplash tile materials" : "Countertop materials")},#{JSON.generate(cabinet_id ? "Apply to the selected cabinet backsplash" : "Apply to all kitchen countertops")})") }
+      dlg.add_action_callback('choose') do |_,id|
+        begin
+          raise 'Return to the kitchen model before choosing a material' unless Sketchup.active_model.equal?(model)
+          KitchenLab.guard!
+          card=cards.find { |c| c['id']==id };raise 'Material not found' unless card
+          value=snapshot(card)
+          if cabinet_id
+            KitchenLab.execute_commands({'commands'=>[{'type'=>'update_cabinet','payload'=>{'id'=>cabinet_id,'changes'=>{'backsplash'=>backsplash.merge('mode'=>'tile','material'=>value)}}}]})
+          else
+            KitchenLab.update_settings({'countertop_material'=>value})
+          end
+          mat=model.materials['Kitchen countertop / '+value['key']]
+          if mat && card['vray']
+            begin;InteriorPro::MaterialLibrary.apply_vray_numbers!(mat,card['vray']);rescue StandardError=>e;puts '[Kitchen material] V-Ray: '+e.message;end
+          end
+          dlg.close
+        rescue StandardError=>e
+          dlg.execute_script("document.getElementById('error').textContent=#{JSON.generate(e.message)}")
+        end
+      end
+      dlg.set_on_closed { @dialog=nil if @dialog.equal?(dlg) }
+      dlg.show
+    end
+  end
+end
