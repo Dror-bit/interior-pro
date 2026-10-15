@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 37132,
-      "sha256": "7f8de2fdac2cf1ba314420018c66b47e2bd2886a7b58b48184690b6f6730300f"
+      "bytes": 37219,
+      "sha256": "a2583940fb848c3d563b9cbbe432407f3baadaa293887fb063736daa859bd77a"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "kitchen_units.rb",
-      "bytes": 5577,
-      "sha256": "dc2a4ceb3c6d1e161da201e037b5256fcf0c3aa074340dc8e63f7b05b963653d"
+      "bytes": 5591,
+      "sha256": "7c8043913731e50822eb2cf64b7a4636149ebe49120fe8b974ca84fdaab8210c"
     },
     {
       "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
@@ -1755,6 +1755,11 @@
       "path": "surface_settings.html",
       "bytes": 1132,
       "sha256": "88cac8e388a39f322f12f91aa4aceb9e209f43821242687619c7f012083a0525"
+    },
+    {
+      "path": "kitchen_continuous_surfaces.rb",
+      "bytes": 3393,
+      "sha256": "84af4173640bf586de7915bec6e554c07167083716de4ca6a77a1140a0537338"
     }
   ]
 }

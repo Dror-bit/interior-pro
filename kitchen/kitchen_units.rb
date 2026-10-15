@@ -60,6 +60,7 @@ module KitchenLab
       cabinets.each do |g|
         d=data.find{|c|c['id']==g.get_attribute(DICT,'id')};g.set_attribute(DICT,'data',JSON.generate(d)) if d
       end
+      worktops!
       model.commit_operation
     rescue StandardError
       model.abort_operation
