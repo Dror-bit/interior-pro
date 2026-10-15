@@ -149,6 +149,14 @@ module InteriorPro
     end
 
     def self.bind_catalog(dlg)
+      dlg.add_action_callback('kitchen_surfaces') do |_,focus|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          KitchenLab::CountertopMaterials.show_settings(focus)
+        rescue StandardError=>e
+          dlg.execute_script("window.alert(#{JSON.generate(e.message)})")
+        end
+      end
       dlg.add_action_callback('kitchen_faucet_gallery') do |_,id|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
@@ -170,10 +178,15 @@ module InteriorPro
           dlg.execute_script("window.KitchenHouseAppliances.fail(#{JSON.generate(error.message)});")
         end
       end
-      dlg.add_action_callback('kitchen_project_handles') do |_,_|
+      dlg.add_action_callback('kitchen_project_handles') do |_,request|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
           KitchenLab.guard!
+          # Existing dialogs expose this bridge even before newly added callbacks reload.
+          if %w[surfaces:countertop surfaces:backsplash].include?(request.to_s)
+            KitchenLab::CountertopMaterials.show_settings(request.split(':').last)
+            next
+          end
           KitchenLab.instance_variable_set(:@hosted_cabinet_id,nil)
           KitchenLab.instance_variable_set(:@hosted_catalog_ids,nil)
           KitchenLab.instance_variable_set(:@hosted_project_handles,true)

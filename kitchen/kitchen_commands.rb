@@ -21,7 +21,8 @@ module KitchenLab
         next_settings=plan['document']['settings']
         settings_keys=previous['settings'].keys|next_settings.keys
         molding_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| k.start_with?('crown_') }
-        changed_ids=molding_only ? [] : geometry_settings_changed ? (before.keys|after.keys) : plan['changed_ids']
+        surface_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| %w[countertop_material island_countertop_material backsplash].include?(k) || k.start_with?('crown_') }
+        changed_ids=(molding_only || surface_only) ? [] : geometry_settings_changed ? (before.keys|after.keys) : plan['changed_ids']
         changed_ids.each do |id|
           d=after[id];old=before[id]
           groups=cabinets.select { |g| g.get_attribute(DICT,'id')==id }
@@ -38,7 +39,7 @@ module KitchenLab
           crowns!
           pack_units!
         else
-          worktops! unless changed_ids.empty?
+          worktops! if surface_only || !changed_ids.empty?
         end
         @model.commit_operation
       rescue StandardError

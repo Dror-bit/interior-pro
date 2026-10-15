@@ -46,10 +46,10 @@ module KitchenLab
       tiles
     end
     def self.build!(top,d,source=d)
-      config=validate(source['backsplash']);return if config['mode']=='none' || !eligible?(source)
+      config=validate(KitchenLab.settings['backsplash']);return if config['mode']=='none' || !eligible?(source)
       thick=config['thickness'];bottom=d['height']+1.5
       model=KitchenLab.instance_variable_get(:@model)
-      mat=config['mode']=='tile' ? (config['material'] ? CountertopMaterials.resolve(model,config['material']) : KitchenLab.material('Backsplash tile','#F5F3ED')) : KitchenLab.material('Worktop','#F2F0E9')
+      mat=config['mode']=='tile' ? (config['material'] ? CountertopMaterials.resolve(model,config['material']) : KitchenLab.material('Backsplash tile','#F5F3ED')) : CountertopMaterials.for_cabinet(source)
       strips=[{width:d['width'],transform:Geom::Transformation.new}]
       if %w[corner corner_base corner_lazy].include?(d['kind'])
         strips<<{width:d['width']-thick,transform:Geom::Transformation.axes([0,-thick,0],Geom::Vector3d.new(0,-1,0),Geom::Vector3d.new(-1,0,0),Z_AXIS)}

@@ -181,10 +181,12 @@ module KitchenLab
 
   def self.validate_settings(raw,current=settings)
     raise 'Invalid kitchen settings' unless raw.is_a?(Hash)
-    allowed=%w[countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
+    allowed=%w[backsplash island_countertop_material countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
     raise 'Use placement commands for kitchen position' unless (raw.keys-allowed).empty?
     %w[global_door_handle_model global_drawer_handle_model].each { |key|HandleCatalog.validate_id(raw[key]) }
     CountertopMaterials.validate(raw['countertop_material']) if raw.key?('countertop_material')
+    CountertopMaterials.validate(raw['island_countertop_material']) if raw.key?('island_countertop_material')
+    raw=raw.merge('backsplash'=>Backsplash.validate(raw['backsplash'])) if raw.key?('backsplash')
     s=crown_settings(current.merge(raw))
     %w[shaker_width shaker_inset].each { |key| s[key]=Float(raw.fetch(key,current.fetch(key))) }
     raise 'Frame width must be 0.25Ã¢â‚¬â€œ6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
@@ -430,7 +432,7 @@ module KitchenLab
         hole=Sink.cutout(d);holes<<hole if hole
       end
       holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.cooktop?(d)
-      mat=material('Worktop','#F2F0E9')
+      mat=CountertopMaterials.for_cabinet(d)
       g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],1.5,holes,mat)
       g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
@@ -443,6 +445,7 @@ module KitchenLab
       end
     end
     runs.each do |r|
+      d={'wall'=>r[:wall]}
       overhang=r[:corner] ? 0 : 1
       holes=bases.select { |d| Sink.active?(d) && wall_of(d)==r[:wall] && d['x']>=r[:start] && d['x']+d['width']<=r[:end] && (d['z']+d['height']-r[:z]).abs<0.001 }.map do |d|
         hole=Sink.cutout(d);next unless hole
@@ -452,14 +455,14 @@ module KitchenLab
       holes+=bases.select { |d| ApplianceCatalog.cooktop?(d) && wall_of(d)==r[:wall] && d['x']>=r[:start] && d['x']+d['width']<=r[:end] && (d['z']+d['height']-r[:z]).abs<0.001 }.map do |d|
         x,y,right,back=ApplianceCatalog.cooktop_bounds(d,true);[d['x']+x,y,d['x']+right,back]
       end
-      mat=material('Worktop','#F2F0E9')
+      mat=CountertopMaterials.for_cabinet(d)
       g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',r[:start],-r[:depth]-overhang,r[:z],r[:end]-r[:start],r[:depth]+overhang,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[r[:start],-r[:depth]-overhang,r[:end],0],r[:z],1.5,holes,mat)
       g.transformation=wall_transform(r[:wall])
       g.set_attribute(DICT,'kind','worktop')
     end
     state['cabinets'].select { |d| %w[corner_base corner_lazy].include?(d['kind']) }.each do |d|
       top=d['height']
-      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,material('Worktop','#F2F0E9'));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
+      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,CountertopMaterials.for_cabinet(d));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     # A base microwave bundle carries a worktop across its two side panels.
     state['cabinets'].select { |d| ApplianceCatalog.microwave_base?(d) }.each do |d|
@@ -468,7 +471,7 @@ module KitchenLab
       left=sides.find { |p| p['surround_part']=='left' };right=sides.find { |p| p['surround_part']=='right' }
       lp=Spatial.cabinet_point(left,0,0,settings);rp=Spatial.cabinet_point(right,right['width'],0,settings)
       width=Math.sqrt((rp[0]-lp[0])**2+(rp[1]-lp[1])**2)
-      slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,material('Worktop','#F2F0E9'))
+      slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,CountertopMaterials.for_cabinet(d))
       slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(slab,left.merge('width'=>width),d)
     end
     crowns!
@@ -616,7 +619,7 @@ module KitchenLab
       width:1120,height:760,min_width:900,min_height:650,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
     opened_dialog=@dialog
     @dialog.add_action_callback('backsplash_materials') { |_,id,json| begin;CountertopMaterials.show(id,JSON.parse(json));rescue StandardError=>e;publish(e.message);end }
-    @dialog.add_action_callback('countertop_materials') { begin;CountertopMaterials.show;rescue StandardError=>e;publish(e.message);end }
+    @dialog.add_action_callback('countertop_materials') { |_,scope| begin;CountertopMaterials.show(nil,nil,scope=='island' ? 'island' : 'kitchen');rescue StandardError=>e;publish(e.message);end }
     @dialog.add_action_callback('ready') { publish(nil,opened_dialog) }
     @dialog.add_action_callback('command') do |_,json|
       begin;execute_commands(JSON.parse(json));rescue StandardError=>e;publish(e.message);end
