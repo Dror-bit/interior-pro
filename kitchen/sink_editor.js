@@ -18,7 +18,7 @@ function sinkElevation(c,x,base,scale){
  return svg('g',{class:'sink-elevation','pointer-events':'none'},out);
 }
 const sinkEditor=document.createElement('section');sinkEditor.id='sinkEditor';sinkEditor.className='wide';
-sinkEditor.innerHTML='<h2>Sink & faucet</h2><p id="sinkCutoutStatus" role="status" hidden>Automatic countertop cutout unavailable â€” awaiting verified manufacturer template.</p>';
+sinkEditor.innerHTML='<h2>Sink & faucet</h2><p id="sinkCutoutStatus" role="status" hidden>Automatic countertop cutout unavailable — awaiting verified manufacturer template.</p>';
 const sinkFields={type:['Sink',['none','single','double']],width:['Width',null],depth:['Front to back',null],bowl_depth:['Bowl depth',null],offset_x:['Side offset (+ right)',null],front_setback:['From cabinet front',null],finish:['Sink finish',['stainless','white','black']],faucet:['Faucet',['arched','none']],faucet_finish:['Faucet finish',['chrome','brass','black']],faucet_height:['Faucet height',null]};
 for(const [key,[label,options]] of Object.entries(sinkFields)){const node=document.createElement('label');node.textContent=label;const input=document.createElement(options?'select':'input');input.id='sink_'+key;if(options)input.innerHTML=options.map(v=>`<option value="${v}">${v[0].toUpperCase()+v.slice(1)}</option>`).join('');else{input.type='number';input.step='0.125';}node.append(input);sinkEditor.append(node);}
 $('cabinetControls').prepend(sinkEditor);

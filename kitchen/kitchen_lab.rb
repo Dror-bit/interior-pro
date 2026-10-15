@@ -14,6 +14,8 @@ load File.join(File.dirname(__FILE__),'kitchen_spatial.rb')
 load File.join(File.dirname(__FILE__),'kitchen_dimensions.rb')
 load File.join(File.dirname(__FILE__),'kitchen_house_context.rb')
 load File.join(File.dirname(__FILE__),'builtin_cabinets.rb')
+load File.join(File.dirname(__FILE__),'kitchen_pantry.rb')
+load File.join(File.dirname(__FILE__),'kitchen_cabinet_picker.rb')
 load File.join(File.dirname(__FILE__),'kitchen_crown.rb')
 load File.join(File.dirname(__FILE__),'kitchen_layout.rb')
 load File.join(File.dirname(__FILE__),'overhead_appliances.rb')
@@ -96,11 +98,12 @@ module KitchenLab
       d['toe_height']=(panel && !%w[left right].include?(d['surround_part'])) || %w[wall fridge_surround corner_upper].include?(d['kind']) ? 0.0 : Float(d['toe_height'])
       d['toe_setback']=Float(d['toe_setback'])
       d['toe_setback']=0 if thin_panel
-      raise 'Toe kick height must be 0Ã¢â‚¬â€œ12 inches and leave at least 8 inches for fronts' unless d['toe_height'].finite? && d['toe_height'].between?(0,12) && (panel || d['height']-d['toe_height']>=8.25)
+      raise 'Toe kick height must be 0–12 inches and leave at least 8 inches for fronts' unless d['toe_height'].finite? && d['toe_height'].between?(0,12) && (panel || d['height']-d['toe_height']>=8.25)
       raise 'Toe kick setback must fit inside the cabinet depth' unless d['toe_setback'].finite? && d['toe_setback'].between?(0,d['depth']-0.6)
       if builtin?(d)
         builtin_defaults(d).each { |key,value| d[key]=Float(d.fetch(key,value)) }
       end
+      Pantry.validate!(d)
       front_rows(d)
       raise 'Invalid handle position' unless %w[auto top center bottom].include?(d['handle_position'])
       %w[handle_offset handle_side].each { |key| d[key]=Float(d[key]);raise 'Invalid handle distance' unless d[key].finite? && d[key].between?(0.25,48) }
@@ -108,7 +111,7 @@ module KitchenLab
         front_rows(d).each_with_index do |row,i|
           next if row['kind']=='appliance' || (d['kind']=='sink' && row['kind']=='drawer')
           n=row['kind']=='drawer' ? 1 : row['doors']
-          handle_layout(d.merge('_upper_front'=>builtin?(d) && i==0),(d['width']-0.125*(n+1))/n,row['height'],row['kind']=='drawer',true,options)
+          handle_layout(Pantry.front_data(d.merge('_upper_front'=>builtin?(d) && i==0),row),(d['width']-0.125*(n+1))/n,row['height'],row['kind']=='drawer' || row['opening']=='lift',true,options)
         end
       end
     end
@@ -124,11 +127,12 @@ module KitchenLab
       d['backsplash']=Backsplash.validate(d['backsplash'])
       raise 'Backsplash requires a base cabinet' if d['backsplash']['mode']!='none' && !Backsplash.eligible?(d)
     end
-    d.slice('pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
+    d.slice('pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
   end
 
   # Row heights are visible front sizes, ordered from top to bottom.
   def self.front_rows(d)
+    return Pantry.rows(d) if d['kind']=='tall' && d['pantry']
     return Pullouts.front_rows(d) if d['pullout']
     return [{'kind'=>'doors','doors'=>1,'height'=>d['height']}] if d['surround_part']=='hood_front'
     return [{'kind'=>'doors','doors'=>1,'height'=>d['height']-d.fetch('toe_height',4)-0.25}] if open_corner?(d)
@@ -189,8 +193,8 @@ module KitchenLab
     raw=raw.merge('backsplash'=>Backsplash.validate(raw['backsplash'])) if raw.key?('backsplash')
     s=crown_settings(current.merge(raw))
     %w[shaker_width shaker_inset].each { |key| s[key]=Float(raw.fetch(key,current.fetch(key))) }
-    raise 'Frame width must be 0.25Ã¢â‚¬â€œ6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
-    raise 'Panel inset must be 0Ã¢â‚¬â€œ0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)
+    raise 'Frame width must be 0.25–6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
+    raise 'Panel inset must be 0–0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)
     raise 'Invalid global cabinet color' unless ['',*FINISHES.keys].include?(s.fetch('global_finish',''))
     raise 'Invalid global handle type' unless ['','bar','none'].include?(s.fetch('global_handle_type',''))
     raise 'Invalid global handle color' unless ['','brass','black'].include?(s.fetch('global_handle_color',''))
@@ -339,22 +343,22 @@ module KitchenLab
     end
     box(e,'Back',0.75,-0.5,0,w-1.5,0.5,h,finish)
     box(e,'Bottom panel',0.75,-dep+0.75,toe,w-1.5,dep-1.25,0.75,finish)
-    box(e,'Shadow behind fronts',0.75,-dep+0.78,toe,w-1.5,0.15,front_h-toe,dark) unless d['style']=='glass' || d['pullout']
+    box(e,'Shadow behind fronts',0.75,-dep+0.78,toe,w-1.5,0.15,front_h-toe,dark) unless d['style']=='glass' || d['pullout'] || d['pantry']
     box(e,'Toe kick',0,-dep+d.fetch('toe_setback',3.0),0,w,0.6,toe,finish) if toe>0
     if d['pullout']
       Pullouts.build!(e,d,finish,metal);g.transformation=cabinet_transform(d);return g
     end
     gap=0.125;cursor=front_h-gap
     front_rows(d).each_with_index do |row,i|
-      fd=d.merge('_upper_front'=>builtin?(d) && i==0)
+      fd=Pantry.front_data(d.merge('_upper_front'=>builtin?(d) && i==0),row)
       fh=row['height'];cursor-=fh
       if row['kind']=='appliance'
-        builtin_front(e,row,cursor,d,finish)
+        row['pantry_appliance'] ? Pantry.build_device(e,row,cursor,d,finish) : builtin_front(e,row,cursor,d,finish)
       elsif row['kind']=='drawer'
         name=d['kind']=='sink' ? 'False drawer' : "Drawer #{i+1}"
         front(e,name,gap-d.fetch('front_overlay',0),cursor,w-2*gap+2*d.fetch('front_overlay',0),fh,d['kind']=='sink' ? fd.merge('handle'=>'none') : fd,finish,metal,true)
       elsif row['doors']==1
-        front(e,'Door left',gap,cursor,w-2*gap,fh,fd,finish,metal)
+        front(e,'Door left',gap,cursor,w-2*gap,fh,fd,finish,metal,row['opening']=='lift')
       else
         dw=(w-3*gap)/2
         front(e,'Door left',gap,cursor,dw,fh,fd,finish,metal)
@@ -566,9 +570,10 @@ module KitchenLab
 
   def self.publish(error=nil,dialog=@dialog,command_results=nil)
     payload=state.merge('error'=>error,'house_context'=>house_context,'command_results'=>command_results,'appliance_catalog'=>ApplianceCatalog.products)
+    payload['pantry_appliances']=Pantry.choices
     payload['molding_catalog']=MoldingProfiles.catalog
     payload['house_molding']=MoldingProfiles.house_selection
-    payload['cabinets']=payload['cabinets'].map { |d| d['appliance'] ? d.merge('appliance_parts'=>ApplianceCatalog.parts(d)) : d }
+    payload['cabinets']=payload['cabinets'].map { |d| d['appliance'] ? d.merge('appliance_parts'=>ApplianceCatalog.parts(d)) : d.dig('pantry','appliance') ? d.merge('pantry_appliance_parts'=>ApplianceCatalog.parts(Pantry.device_data(d['pantry']['appliance']))) : d }
     if dialog && dialog.equal?(@dialog) && dialog.visible?
       dialog.execute_script("window.receiveKitchen(#{JSON.generate(payload)})")
     end
@@ -594,14 +599,13 @@ module KitchenLab
     unless @toolbar
       @open_command=UI::Command.new('Kitchens') do
         begin
-          InteriorPro::KitchenPlan.bind_active_model!
-          show
+          InteriorPro::KitchenPlan::CabinetPicker.activate
         rescue StandardError=>e
           UI.messagebox(e.message)
         end
       end
-      @open_command.tooltip='Kitchens'
-      @open_command.status_bar_text='Open the kitchen planner'
+      @open_command.tooltip='Edit kitchen cabinet'
+      @open_command.status_bar_text='Edit the selected cabinet or click a cabinet in the model'
       @open_command.small_icon=File.join(ROOT,'kitchen_icon.svg')
       @open_command.large_icon=File.join(ROOT,'kitchen_icon.svg')
       @toolbar=UI::Toolbar.new('Kitchens')

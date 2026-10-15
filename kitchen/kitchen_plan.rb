@@ -53,7 +53,7 @@ module InteriorPro
         rows['wall_token']=Digest::SHA256.hexdigest(JSON.generate(host_walls))
         unless dlg.instance_variable_get(:@kitchen_scripts_loaded)
           scripts=%w[kitchen_plan.js kitchen_workspace.js].map { |name| File.read(File.join(__dir__,name)) }
-          symbols=File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
+          symbols=File.read(File.join(__dir__,'pantry_layout.js'))+File.read(File.join(__dir__,'cabinet_fronts.js'))+File.read(File.join(__dir__,'kitchen_canvas_symbols.js'))
           scripts << '(function(){'+symbols+'})();'
           %w[kitchen_sidebar.js kitchen_house_selection.js kitchen_house_placement.js kitchen_house_drag.js kitchen_house_insert.js kitchen_house_appliances.js kitchen_appliance_surround.js].each do |name|
             scripts << File.read(File.join(__dir__,name))
@@ -394,11 +394,11 @@ module InteriorPro
     module CabinetEditorBridge
       def show
         unless instance_variable_get(:@hosted_cabinet_id) || instance_variable_get(:@hosted_catalog_ids) || instance_variable_get(:@hosted_project_handles)
-          chosen=Sketchup.active_model.selection.to_a.find { |e|e.get_attribute('KitchenLab','kind')=='kitchen_unit' || e.get_attribute('KitchenLab','kind')=='cabinet' }
+          chosen=CabinetPicker.selected_id
           if chosen
-            instance_variable_set(:@hosted_cabinet_id,chosen.get_attribute('KitchenLab','id'))
+            instance_variable_set(:@hosted_cabinet_id,chosen)
           else
-            return InteriorPro::PlanEditor.show
+            return CabinetPicker.activate
           end
         end
         result=super
@@ -481,10 +481,7 @@ module InteriorPro
       return if @toolbar
       command=UI::Command.new('Edit cabinet') do
         begin
-          bind_active_model!
-          selected=Sketchup.active_model.selection.to_a
-          raise 'Select one kitchen cabinet in the model.' unless selected.length==1 && %w[cabinet kitchen_unit].include?(selected.first.get_attribute('KitchenLab','kind'))
-          edit_cabinet(selected.first.get_attribute('KitchenLab','id'))
+          CabinetPicker.activate
         rescue StandardError=>error
           UI.messagebox(error.message)
         end

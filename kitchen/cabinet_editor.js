@@ -42,7 +42,7 @@ function cabinetDraft(){
  if(!selected)return null;
  const d={...selected};
  for(const key of fields)d[key]=$(key).type==='checkbox'?$(key).checked:['wall','style','handle','finish','appliance_finish','handle_position','rotation_pivot'].includes(key)?$(key).value:Number($(key).value);
- if(!isAppliance(d)&&!plainPanel(d)){Object.assign(d,readFrontEditor());validateToe(d);checkHandles(d);checkShaker(d);}
+ if(!isAppliance(d)&&!plainPanel(d)){Object.assign(d,readFrontEditor());if(d.kind==='tall'&&window.readPantryEditor)d.pantry=readPantryEditor(d);validateToe(d);checkHandles(d);checkShaker(d);}
  return d;
 }
 function refreshCabinetPreview(){

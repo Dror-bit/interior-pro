@@ -88,6 +88,12 @@ module InteriorPro
     # (dictionary KITCHEN_DICT, any kind) whose middle lies outside the room is put aside too. Off = kitchen untouched.
     USE_ROOM_ONLY_KITCHEN = true unless const_defined?(:USE_ROOM_ONLY_KITCHEN, false)
     KITCHEN_DICT = 'KitchenLab' unless const_defined?(:KITCHEN_DICT, false)
+    # ONLY WHAT IS ON THE WALL IN ITS PICTURE (2026-10-15 10:06, his "יותר נקי ורק את הדברים שעל הקיר", approved on the
+    # kitchen rendering 10:11): for each wall's shot, every thing of ours (not wall/door/window) and every top-level
+    # kitchen group whose box starts more than ON_WALL_PIC off that wall's face is put aside - the pendants, the island,
+    # a sconce on the next wall. A whole kitchen unit decides, not its parts (the hood's cover). Off = as before.
+    USE_ON_WALL_ONLY = true unless const_defined?(:USE_ON_WALL_ONLY, false)
+    ON_WALL_PIC = 3.0 unless const_defined?(:ON_WALL_PIC, false)
     ROOM_ONLY_KEEP = %w[wall door window].freeze   # 17:39 ("המידות צריכות לבוא או מלמעלה או מלמטה ולא על המוצר"): the row of
                                                              # distances runs this far above the plates' top (upper half) or under their bottom
     USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
@@ -838,6 +844,35 @@ module InteriorPro
         end
       end
 
+      # the things NOT on this wall (USE_ON_WALL_ONLY): our Things (walls, doors, windows and the ones already aside
+      # excepted) and the top-level kitchen groups whose box starts more than ON_WALL_PIC off the wall's face. Returns
+      # entities. PURE apart from the boxes.
+      def off_wall(side, all, kitchen, base_z)
+        return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:box_in_frame)
+        ux = (side.b.x - side.a.x) / side.len
+        uy = (side.b.y - side.a.y) / side.len
+        fr = { ox: side.a.x, oy: side.a.y, ux: ux, uy: uy, nx: side.inward.x, ny: side.inward.y, floor_z: base_z }
+        pairs = all.reject { |t| ROOM_ONLY_KEEP.include?(t.type) || TOP_ASIDE.include?(t.type) || set_aside?(t.type) }
+                   .map { |t| [t.ent, t.xf] }
+        pairs += Array(kitchen).map { |e, _k, wxf| [e, wxf] }
+        pairs.select do |e, wxf|
+          next false unless e.valid?
+          o0 = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)[4]
+          o0 > ON_WALL_PIC
+        end.map(&:first)
+      rescue StandardError => e
+        puts "[Elevation] off_wall: #{e.class}: #{e.message}"
+        []
+      end
+
+      # the top-level kitchen groups with their world transformation: [[ent, kind, xf], ...]
+      def kitchen_tops(model)
+        return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:kitchen_pieces)
+        InteriorPro::ElectricalLibrary.kitchen_pieces(model).select { |e, _k, _x| e.parent.is_a?(Sketchup::Model) }
+      rescue StandardError
+        []
+      end
+
       # the kitchen groups (USE_ROOM_ONLY_KITCHEN) whose middle lies outside the room: walks like collect, into plain
       # groups and into kitchen groups that stay (a run of backsplash may cross the line; its parts outside go). Returns
       # Things. PURE apart from the model.
@@ -1264,9 +1299,21 @@ module InteriorPro
           ro['RenderMode'] = (style == 'shaded' ? 3 : 1)
           lines_drawn = []
           snap_edges = nil
+          kitchen = USE_ON_WALL_ONLY ? kitchen_tops(model) : []
           sides(poly).each do |side|
             next if only && !only.key?(side.name)
             s = shot(side, wall_h, cut_for(cut, side.name), base_z)
+            # only what is on this wall (USE_ON_WALL_ONLY): aside for this side's pictures, back right after
+            aside = []
+            if USE_ON_WALL_ONLY
+              snap_edges ||= model_edges(model.entities) if USE_ELEV_SNAPS   # the lines of everything, before any goes
+              off_wall(side, all, kitchen, base_z).each do |e|
+                next unless e.respond_to?(:hidden=) && !e.hidden?
+                e.hidden = true
+                aside << e
+              end
+              trace("#{name} side #{side.name}: #{aside.size} things not on the wall put aside")
+            end
             sp = model.entities.add_section_plane([s[:plane_pt], s[:normal]])
             sp.activate
             # the floor and the ceiling as one straight line each, whatever stands at the foot
@@ -1290,6 +1337,7 @@ module InteriorPro
               # on demand: the pictures without a layer, only - the whole one is already there
               shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all), only[side.name], meta) if File.file?(path)
               sp.erase!
+              aside.each { |e| e.hidden = false if e.valid? }
               next
             end
             tw = Time.now
@@ -1322,6 +1370,7 @@ module InteriorPro
               end
             end
             sp.erase!
+            aside.each { |e| e.hidden = false if e.valid? }
             trace("#{name} side #{side.name}: #{side.len.round(1)}\" long, cut #{s[:cut].round(1)}\", " \
                   "#{s[:w_px]}x#{s[:h_px]} -> #{File.basename(path)} #{ok ? 'written' : 'NOT written'}")
             paths << path if ok

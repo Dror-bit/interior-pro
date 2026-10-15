@@ -9,7 +9,7 @@
       "manufacturer": "Thermador",
       "category": "wall_oven",
       "model": "MED301WS",
-      "name": "MasterpieceÃ‚Â® Single Wall Oven 30'' Stainless Steel",
+      "name": "Masterpiece® Single Wall Oven 30'' Stainless Steel",
       "dimensions": {
         "width": 29.75,
         "height": 29,
@@ -93,7 +93,7 @@
       "manufacturer": "Thermador",
       "category": "fridge",
       "model": "T36FT820NS",
-      "name": "FreedomÃ‚Â® Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
+      "name": "Freedom® Freestanding French Door Bottom Mount Refrigerator 36_IN Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/T36FT820NS",
       "appearance": {
         "finish": "stainless",
@@ -124,7 +124,7 @@
       "manufacturer": "Thermador",
       "category": "dishwasher",
       "model": "DWHD661EFP",
-      "name": " Star SapphireÃ‚Â® Dishwasher 24'' Professional, Stainless Steel",
+      "name": " Star Sapphire® Dishwasher 24'' Professional, Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/DWHD661EFP",
       "appearance": {
         "finish": "stainless"
@@ -174,7 +174,7 @@
       "manufacturer": "Thermador",
       "category": "cooktop",
       "model": "SGS305TS",
-      "name": "MasterpieceÃ‚Â® Gas Cooktop 30'' Stainless Steel",
+      "name": "Masterpiece® Gas Cooktop 30'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/SGS305TS",
       "appearance": {
         "finish": "stainless",
@@ -206,7 +206,7 @@
       "manufacturer": "Thermador",
       "category": "cooktop",
       "model": "SGS365TS",
-      "name": "MasterpieceÃ‚Â® Gas Cooktop 36'' Stainless Steel",
+      "name": "Masterpiece® Gas Cooktop 36'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/cooktops/gas-cooktops/SGS365TS",
       "appearance": {
         "finish": "stainless",
@@ -316,7 +316,7 @@
       "manufacturer": "Thermador",
       "category": "microwave",
       "model": "MD24BS",
-      "name": "Professional MicroDrawerÃ‚Â® Microwave 24'' Stainless Steel",
+      "name": "Professional MicroDrawer® Microwave 24'' Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/ovens/ovensmicrowaves/MD24BS",
       "appearance": {
         "finish": "stainless",
@@ -347,7 +347,7 @@
       "manufacturer": "Thermador",
       "category": "range",
       "model": "PRG304WH",
-      "name": "PRG304WH Gas Professional Range 30'' Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
+      "name": "PRG304WH Gas Professional Range 30'' Pro Harmony® Standard Depth Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/PRG304WH",
       "appearance": {
         "finish": "stainless",
@@ -375,7 +375,7 @@
       "manufacturer": "Thermador",
       "category": "range",
       "model": "PRG366WH",
-      "name": "PRG366WH Gas Professional Range 36'' Pro HarmonyÃ‚Â® Standard Depth Stainless Steel",
+      "name": "PRG366WH Gas Professional Range 36'' Pro Harmony® Standard Depth Stainless Steel",
       "product_url": "https://www.thermador.com/us/en/mkt-product/PRG366WH",
       "appearance": {
         "finish": "stainless",
@@ -402,8 +402,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "42\" Columns â€” 18\" Freezer + 24\" Refrigerator",
-      "name": "T18IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "model": "42\" Columns — 18\" Freezer + 24\" Refrigerator",
+      "name": "T18IF905SP + T24IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 41.75,
         "height": 84,
@@ -425,8 +425,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "48\" Columns â€” 24\" Freezer + 24\" Refrigerator",
-      "name": "T24IF905SP + T24IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "model": "48\" Columns — 24\" Freezer + 24\" Refrigerator",
+      "name": "T24IF905SP + T24IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 47.75,
         "height": 84,
@@ -448,8 +448,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "fridge",
-      "model": "48\" Columns â€” 18\" Freezer + 30\" Refrigerator",
-      "name": "T18IF905SP + T30IR905SP Â· Stainless panels Â· Professional handles Â· Exterior only",
+      "model": "48\" Columns — 18\" Freezer + 30\" Refrigerator",
+      "name": "T18IF905SP + T30IR905SP · Stainless panels · Professional handles · Exterior only",
       "dimensions": {
         "width": 47.75,
         "height": 84,
@@ -471,8 +471,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "range",
-      "model": "PRG366WH â€” 36\" Range",
-      "name": "36\" Professional gas range with cooktop Â· Custom model",
+      "model": "PRG366WH — 36\" Range",
+      "name": "36\" Professional gas range with cooktop · Custom model",
       "dimensions": {
         "width": 35.9375,
         "height": 35.875,
@@ -493,8 +493,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "range",
-      "model": "PRG486WDH â€” 48\" Range",
-      "name": "48\" Professional gas range with cooktop Â· Custom model",
+      "model": "PRG486WDH — 48\" Range",
+      "name": "48\" Professional gas range with cooktop · Custom model",
       "dimensions": {
         "width": 47.9375,
         "height": 35.875,
@@ -515,8 +515,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "dishwasher",
-      "model": "DWHD661EFP â€” 24\" Professional",
-      "name": "Star Sapphire dishwasher Â· Professional handle Â· Exterior only",
+      "model": "DWHD661EFP — 24\" Professional",
+      "name": "Star Sapphire dishwasher · Professional handle · Exterior only",
       "dimensions": {
         "width": 23.5625,
         "depth": 26,
@@ -537,8 +537,8 @@
       "brand": "Thermador",
       "manufacturer": "Thermador",
       "category": "dishwasher",
-      "model": "DWHD661EFM â€” 24\" Masterpiece",
-      "name": "Star Sapphire dishwasher Â· Masterpiece handle Â· Exterior only",
+      "model": "DWHD661EFM — 24\" Masterpiece",
+      "name": "Star Sapphire dishwasher · Masterpiece handle · Exterior only",
       "dimensions": {
         "width": 23.5625,
         "depth": 25.75,
@@ -4067,7 +4067,18 @@
       "gallery_image_kind": "Approved Blender render",
       "preview_note": null,
       "image_path": "assets/appliances/gallery-oct14/bosch-hmb50152uc.jpg",
-      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hmb50152uc-original.jpg"
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hmb50152uc-original.jpg",
+      "cutout": {
+        "width": 28.5,
+        "height": 19.25,
+        "depth": 19.25
+      },
+      "cutout_source": {
+        "type": "manufacturer_design_guide",
+        "page": 56,
+        "installation": "standard",
+        "product": "HMB50152UC"
+      }
     },
     {
       "id": "bosch-hmv8054u",

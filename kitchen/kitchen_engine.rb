@@ -72,6 +72,7 @@ module KitchenLab
       raise 'Invalid cabinet overrides' unless overrides.is_a?(Hash)
       raise 'ID and kind belong to the creation command' unless (overrides.keys & %w[id kind wall]).empty?
       c.merge!(overrides)
+      c['pantry']=Pantry.defaults(c) if kind=='tall' && !overrides.key?('pantry')
       c['sink']=Sink.defaults(c) if kind=='sink' && !overrides.key?('sink')
       c['appearance_overrides']=overrides.fetch('appearance_overrides',overrides.slice('finish','handle'))
       c=Appearance.resolve(c,s)

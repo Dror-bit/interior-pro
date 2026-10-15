@@ -9,7 +9,7 @@ module KitchenLab
     raise 'Invalid crown profile' unless %w[none flat crown].include?(s['crown_profile']) || s['crown_profile'].to_s.start_with?('house:')
     raise 'Invalid crown color' unless %w[cabinet white].include?(s['crown_color'])
     %w[crown_height crown_depth].each do |k|
-      s[k]=Float(s[k]);raise 'Crown dimensions must be 0.5ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“12 inches' unless s[k].finite? && s[k].between?(k=='crown_depth' && s['crown_shape'] ? 0.01 : 0.5,12)
+      s[k]=Float(s[k]);raise 'Crown dimensions must be 0.5–12 inches' unless s[k].finite? && s[k].between?(k=='crown_depth' && s['crown_shape'] ? 0.01 : 0.5,12)
     end
     s
   end
