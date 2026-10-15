@@ -13,13 +13,13 @@
     },
     {
       "path": "appliance_catalog.json",
-      "bytes": 74171,
-      "sha256": "b6aadd99018638013a901fd391f4329de9856ffd3343994ba2125a638bf82f2d"
+      "bytes": 167155,
+      "sha256": "e7df806cf960556015d9fb509abe2b0da6a505aab3e27f7dc3f8f1f0767fabad"
     },
     {
       "path": "appliance_gallery.js",
-      "bytes": 6670,
-      "sha256": "9e2d97ace162bb1bc305d9fad78491150ecdf8bf8936d98826281e0ba56a644f"
+      "bytes": 6878,
+      "sha256": "97ee866849a52f93995fa11842e5ad41c4ae8516ce549af06a906f9e8d82724f"
     },
     {
       "path": "assets/appliances/blender/thermador-columns-42-24r-18f.asset.json",
@@ -518,8 +518,8 @@
     },
     {
       "path": "kitchen_appliance_catalog.rb",
-      "bytes": 9332,
-      "sha256": "a72e77f2afa24d06a4d8d41508c3fd070b602323246a46f7a998b3175e6e5ef5"
+      "bytes": 9768,
+      "sha256": "48f39d74de74c810c10c3dc7fbb4a95e3f6936daf61fb9514787d43ea58c9d93"
     },
     {
       "path": "kitchen_bootstrap.rb",
@@ -528,8 +528,8 @@
     },
     {
       "path": "kitchen_canvas_symbols.js",
-      "bytes": 8357,
-      "sha256": "57cee86854ce805a6367896332b65527057f43d7bf91480133306e9cedc885cd"
+      "bytes": 8476,
+      "sha256": "7960b0d945deddb82c7dd359241ceeb4220cdbc6ef9452141c2c302f3e0927c4"
     },
     {
       "path": "kitchen_clean_notes.js",
@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 37347,
-      "sha256": "038dea89878b061993b1fb0f5c4db6af039d638e2b6ef5fffffe96d1bfc6981e"
+      "bytes": 37484,
+      "sha256": "0baf1aa6d175d7d4d08088f96809004405b500d632bda621697cfca10da01b6b"
     },
     {
       "path": "kitchen_layout.rb",
@@ -723,8 +723,8 @@
     },
     {
       "path": "kitchen_house_appliances.js",
-      "bytes": 7557,
-      "sha256": "cfe62370d116cb8346965b07ce50f5275440031877b1ae66dcf5295ca28ecbfe"
+      "bytes": 7644,
+      "sha256": "65258cf6f0293c96567d6153995010b08a338fe3e50b83008cb0af06129f5ace"
     },
     {
       "path": "test_house_appliance_catalog.rb",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 26886,
-      "sha256": "d8abbfa52e475ecdf9d326ec7697a7246f597357400463edb86bdd008eb967c5"
+      "bytes": 27404,
+      "sha256": "eff83275ea38085ec66d33674448ff2eea5a75a78ef99196188e7d88cffa11fc"
     },
     {
       "path": "kitchen_engine.rb",
@@ -1593,13 +1593,13 @@
     },
     {
       "path": "kitchen_panel_ready.rb",
-      "bytes": 9282,
-      "sha256": "8aa31a56fb33fd991221295c1d16e16e058e679c2db7ae9bb4af8434d544c5be"
+      "bytes": 9478,
+      "sha256": "910977083b36a28fa177e2721c8fc9483d5963c81cbc79f3a00de39e5d380936"
     },
     {
       "path": "panel_ready_editor.js",
-      "bytes": 6624,
-      "sha256": "9a0b4ad0a9cf8f7fd0a0d70bc9c557104f3d03c0a53a41b60723de3f8b37ea97"
+      "bytes": 6731,
+      "sha256": "d202dab54a11d8ea1a31a97e8536a38605ca08ce131acef41075785b2c60c63b"
     },
     {
       "path": "test_panel_ready.rb",
@@ -1770,6 +1770,951 @@
       "path": "test_corner_snap_matrix.js",
       "bytes": 2364,
       "sha256": "c73220074a7e824ac9fd449d2cd3f8292ae0494409775943d79ac21eee690ad7"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b24cb80ess.asset.json",
+      "bytes": 5180,
+      "sha256": "39078ff81dacf056dcb46a68a774865e72dfa73f9df78ece85a2f9ce27e26f0d"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b24cb80ess.skp",
+      "bytes": 121626,
+      "sha256": "2e4973f18dd42c33a6f00e174f8b2b6cf604887e4e9e84f62e89574a7f678748"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b33cm10sns.asset.json",
+      "bytes": 5710,
+      "sha256": "c31ce0d6c1d222584aaef393aee79f884f24ff9451f52eb8ef453cf89eb67a6d"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b33cm10sns.skp",
+      "bytes": 177494,
+      "sha256": "32feb9d264f2bf55f7c97eeeca392df0a918e4872e03e29ef963ec0e284747e5"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b36ct80sns.asset.json",
+      "bytes": 7419,
+      "sha256": "0c9b43ec52dce0a5e0585740a36b7efa88cd308eee9dc17bd315cc3c3f800a53"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-b36ct80sns.skp",
+      "bytes": 213282,
+      "sha256": "2fd9f7a379aac6efc87fc8391993bdc6ebe271df04ebe7c3c96e3d86f0b177c6"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8454uc.asset.json",
+      "bytes": 32042,
+      "sha256": "e67c59b516a10b37917417cc35fcec624996eb9586f2a70386386a4363577976"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8454uc.skp",
+      "bytes": 347953,
+      "sha256": "fc22c0568d286685fee4a9ebe3cb8e3ca2462b75c035a69f67b84184c2e03356"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8651uc.asset.json",
+      "bytes": 47873,
+      "sha256": "dc0db1c9af62ae252d414741aabd78f4f3294b05d2a9fe13d42b757e7c20472f"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8651uc.skp",
+      "bytes": 398984,
+      "sha256": "7c71c557bea00c883ebbb9767f58cbf7c1d36b599751a48eca65912d1a6a7c88"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8753uc.asset.json",
+      "bytes": 52299,
+      "sha256": "2d024ef32bdf1f5d4d43eca376c2e399ebe032b320dd66a840d79163c0674203"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hbl8753uc.skp",
+      "bytes": 571357,
+      "sha256": "7eae0b2b2c3a2dc457dfdbec2b96c3067dcb0b3cb24b34e71161b242c0d8935e"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hcb56651uc.asset.json",
+      "bytes": 134310,
+      "sha256": "2ba43561c684162835099c107729c5d73b8598ea079665f5225b41afb0e40406"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hcb56651uc.skp",
+      "bytes": 142948,
+      "sha256": "869ef352a9ee9db095ecec7d91cdbfa1e470e8ecfe771b98651f2de610535eb0"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hcp50652uc.asset.json",
+      "bytes": 137082,
+      "sha256": "58af8b69147b2f98fe4ae93108dec0efa67c784d94f5e1242c63b916ac753c92"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hcp50652uc.skp",
+      "bytes": 129755,
+      "sha256": "82a93d15c5b7c9fdc885f1b324133f375ce9e01abf4964a4015a76887632cfc6"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hgi8056uc.asset.json",
+      "bytes": 112073,
+      "sha256": "9c9d2074037032d09c1836dbad42d226707aec7b2a2e5b9933158816c2ac2703"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hgi8056uc.skp",
+      "bytes": 709627,
+      "sha256": "45f3381f3c18a43c719698f6a9e7dfdf51e5704167c2fc8f5fd940115ca3aa4d"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hgs8655uc.asset.json",
+      "bytes": 112819,
+      "sha256": "4ec92d8cf6c3053f67318cc70c7f5f0d2f194f07e639c6e4da897ad7e082215f"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hgs8655uc.skp",
+      "bytes": 602814,
+      "sha256": "cce92a14c9b384a21717add4917e4d3f4c5df016f777ad8e64809e7c7154122b"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hib82651uc.asset.json",
+      "bytes": 152591,
+      "sha256": "5f8c5c7c3bbabb7a54fbe252ccf827cc876d4304d9ae0703e336be125d73c185"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hib82651uc.skp",
+      "bytes": 154087,
+      "sha256": "30a7e1f72d12e9d972e88987089d0c65cc4095fc7974d94d23a92fb2fd12058d"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hii8057u.asset.json",
+      "bytes": 43123,
+      "sha256": "e4b0b5a19b8fcf340dd0b28d3d5dd770f6a8745a8d171e0c6e8373d2734a9d9c"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hii8057u.skp",
+      "bytes": 352072,
+      "sha256": "75fc253858ca5d8e4a9f9b652c0cba4666b276ee59e30716fa2ca0f67a385f57"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmb50152uc.asset.json",
+      "bytes": 20082,
+      "sha256": "e396cc7bb2b3dca012ef9a669997a0e7721a907e185fbd2444406199bb88ba8e"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmb50152uc.skp",
+      "bytes": 243019,
+      "sha256": "4c39251f55c037a61e5c120f1014429791d2d27b5f620752e7a6576bceac1115"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmd8454uc.asset.json",
+      "bytes": 11440,
+      "sha256": "90008b0dd5066ed2745bd0fd4ac4848aed4f52adea81eb6e79ce246da869153f"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmd8454uc.skp",
+      "bytes": 78417,
+      "sha256": "0ff3a65a5da67b2f21f21c16d1c8e426356fce336e91d77c0c3928f7d5c71339"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmv8054u.asset.json",
+      "bytes": 26375,
+      "sha256": "d923bf132746161b926d442f976deb515d362866f0b423627a0ac1b3ea516d7f"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-hmv8054u.skp",
+      "bytes": 274352,
+      "sha256": "07d8214d02e98ae62f9b363c353c67d3548fc0f27fae20a19cb69344245c6506"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-ngm8059uc.asset.json",
+      "bytes": 45967,
+      "sha256": "9f5b815ee6cdce697fce8385d1f32c2d9488bf491a949687dd1aab581c6ca335"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-ngm8059uc.skp",
+      "bytes": 728528,
+      "sha256": "0f9c9238eb51ee130bcf5a1c7cda54a46c19e8b0a99a51cd15106d56a8337f30"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-ngm8659uc.asset.json",
+      "bytes": 45997,
+      "sha256": "7d4ac9f57461b14a688484ff31ecd2300ff522917173cedb9b5f29c5db0dd75d"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-ngm8659uc.skp",
+      "bytes": 729495,
+      "sha256": "1efd243ff78cb197a04154459f189bf3aa0a47b73448b41fac3ea8feb6efef08"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-nit8661uc.asset.json",
+      "bytes": 9009,
+      "sha256": "06d5956861b44b93f2a8629e8929f423e02f2943ef19209ce6c9847834141c09"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-nit8661uc.skp",
+      "bytes": 154388,
+      "sha256": "20148213c9889de43a12483ad1491c4d94c2c93ecae410f715f6ce018c532e59"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-rgm8058uc.asset.json",
+      "bytes": 51714,
+      "sha256": "fbb6b84494b8aebc2cbc00fb55f9c36a8afba61bc56ef601f027de4b0e15373b"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-rgm8058uc.skp",
+      "bytes": 654935,
+      "sha256": "1cec9e006c39c3383e5990d3fe9dbcf1c617818ed4f0406136fb098bd5b58d8a"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-rgm8658uc.asset.json",
+      "bytes": 76432,
+      "sha256": "cc38656ae1ed4a4576a52de6813a30620cefbfe14a510aaa5c27dbf95d68eeb4"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-rgm8658uc.skp",
+      "bytes": 734384,
+      "sha256": "4b108079e4dcbe213074aab24cfb76a9516e518151dc0340f1ebe33f9d1b7c87"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-shp78dm5n.asset.json",
+      "bytes": 6054,
+      "sha256": "7a1db9ada2207036c37d788cf9da90bb977de9c974960a873e388441286599e8"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-shp78dm5n.skp",
+      "bytes": 125673,
+      "sha256": "26be8cda2bd5182c1faf10d0f40f372587008ac87ceec17648f18c93f739d55c"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-shx78dm5n.asset.json",
+      "bytes": 6277,
+      "sha256": "4be6f3c90e5714be5a79f3e54c4c81ae21b11a857a8dfba54bb7f26f8d2a39bb"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-shx78dm5n.skp",
+      "bytes": 101050,
+      "sha256": "ed44863dd97c2fa797c46706475254bb88f14a2a839a29652230f06e11f8ba11"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-spx68c75uc.asset.json",
+      "bytes": 6298,
+      "sha256": "a4e9d4f2fdce493d47266871514530e83a8f2d08533b6df35fd438440d917fce"
+    },
+    {
+      "path": "assets/appliances/blender/bosch-spx68c75uc.skp",
+      "bytes": 100421,
+      "sha256": "71f32c1554043f51f5b348672024b9dc23cc424f49a26a5b5ce7d9f1172a5a90"
+    },
+    {
+      "path": "assets/appliances/blender/cove-dw2451-9019419.asset.json",
+      "bytes": 7055,
+      "sha256": "58fa518aa6867669bcd8114589fe7b9090078cdaa89060617537ac66ce3be123"
+    },
+    {
+      "path": "assets/appliances/blender/cove-dw2451-9019419.skp",
+      "bytes": 128272,
+      "sha256": "426875119018b718fba2f444583b75568c59596964e01022020dd9df3f2f4b32"
+    },
+    {
+      "path": "assets/appliances/blender/cove-dw2451-9019420.asset.json",
+      "bytes": 7625,
+      "sha256": "b83e911d5f42a4c306f4e0f3ddb4aac04b3bce779c62fd1222b5711b11de6eb9"
+    },
+    {
+      "path": "assets/appliances/blender/cove-dw2451-9019420.skp",
+      "bytes": 158651,
+      "sha256": "3f073b7010a9d2dfa1804a50519be7ef98929e0d75840fb5a1d0f3885a854e72"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl3650u-s.asset.json",
+      "bytes": 10197,
+      "sha256": "db916c0318bf28306f216dd40787a90927cdd292634ac3eef98915088ec86d37"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl3650u-s.skp",
+      "bytes": 489533,
+      "sha256": "7571774ea2c3769dce7c92405ccfab76dd7fbe22f0733d2e8f35d63c0b6ec530"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl3650ufd-s.asset.json",
+      "bytes": 12044,
+      "sha256": "50511671d77940f08a6b476793cb61ce885b97a94d0d64c17ada8e37232745a9"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl3650ufd-s.skp",
+      "bytes": 581856,
+      "sha256": "69b55be9d794e1b987b2840f4c6076190fde374ab3a7bfa25186dffba9cb5544"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl4250ufd-s.asset.json",
+      "bytes": 12136,
+      "sha256": "c4fd91916be93368024ebcf0a136b35f4893ce9ed606c1d1a8c5b8e7e5b09066"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl4250ufd-s.skp",
+      "bytes": 581891,
+      "sha256": "b2665a5ad3b3200551add888c76f99002005424096199b6bb7ef390c8f32bf71"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl4850s-s.asset.json",
+      "bytes": 9887,
+      "sha256": "f784b075046cb1c583c09af7103aa96142c666e0fb590a18cd80342727bf4a3a"
+    },
+    {
+      "path": "assets/appliances/blender/sub-zero-cl4850s-s.skp",
+      "bytes": 474224,
+      "sha256": "12404a793c4b3de60fbff4ac9f5b5f93472c1a514ea29f5939a43e947c53b4ea"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cg304p-s.asset.json",
+      "bytes": 45510,
+      "sha256": "acaa6df13b4ad784fe094270981d25cfcbfbeb7d0f1724948cfdf3e9789a5cca"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cg304p-s.skp",
+      "bytes": 1157922,
+      "sha256": "12eeb71bb7d3c786c3480d7d537a48f71425a5283ea0559f7911b147dfeeea74"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cg365p-s.asset.json",
+      "bytes": 57396,
+      "sha256": "d41cbfbf7d3fdd48885fefc3adec507948760155b0ed1f5f6383ac932f1a9e72"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cg365p-s.skp",
+      "bytes": 1453066,
+      "sha256": "0f1e4ef5ee6767ad846b55f71f89b1fd8788f9171ec500787f887c4d9a7a59ae"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-ci36560t-s.asset.json",
+      "bytes": 14249,
+      "sha256": "a9ae817a707c988d9ec66833e5590390299e4d946a7c45d4dc0757b7ee39128c"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-ci36560t-s.skp",
+      "bytes": 63692,
+      "sha256": "b014e081d6753c344ae1ab3749c25dfaaa46adae0f19d3504ff110224fd17cea"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cso3050pm-s-p.asset.json",
+      "bytes": 5736,
+      "sha256": "61fa24a94dc8a7d2491490fff2b0ca92af092863d3a2887960288c394f1eee14"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-cso3050pm-s-p.skp",
+      "bytes": 150722,
+      "sha256": "16119baa462cd3e5007c65791788072dc9a54fdb318feea105a0757547e811b8"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df30450.asset.json",
+      "bytes": 56890,
+      "sha256": "4f50e7e0ddeef4134327a704d38a3b1d6172bdf601f41c2ec7756ec267687caa"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df30450.skp",
+      "bytes": 703486,
+      "sha256": "3a452d1320c8cc4d9dc9c03a3af94872bf4d1b3e63f2d22e51d38b0d83d8d38f"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df36650.asset.json",
+      "bytes": 75662,
+      "sha256": "dbb8248cd591966ad30ed64b7b952957886a7c5961c8cbf95c262def0e52e9e8"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df36650.skp",
+      "bytes": 633294,
+      "sha256": "17298666cd117c39ee212f5ee2825e55442f2549aebd505b90f5581381a9c3b2"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df48650g.asset.json",
+      "bytes": 89741,
+      "sha256": "7d16852532303c033d179cc8dfe68593f96dba0ae8f81f80a4249f1741e085d3"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-df48650g.skp",
+      "bytes": 697084,
+      "sha256": "2271cbadf4f1ba9c549205237b8d867ad11a1857aec9feb45c560a9c4f80c638"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-do3050pm-s-p.asset.json",
+      "bytes": 20908,
+      "sha256": "8a53c99a620b35a6a601bb6e048c0892c74be5d47c4e423f64972fa719ed8957"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-do3050pm-s-p.skp",
+      "bytes": 458815,
+      "sha256": "bdce9a9bb34d1de9eb1f087711e12acaaff1c402797ee13d88c0c146999dccde"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-md24te-s.asset.json",
+      "bytes": 32927,
+      "sha256": "6234437084251727a9a509f7cdd533f02d577d7f7113ea3d15b642c57bb1c7ab"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-md24te-s.skp",
+      "bytes": 225592,
+      "sha256": "586793823f1e5d43e244d7c91da9bd579d9887a6a829bbc8b2b4674ed68d1c16"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-md30pe-s.asset.json",
+      "bytes": 32943,
+      "sha256": "59f0929ea04f60dfc05c60e6f6a2b399a3ec3582ad3759c2e8f8ca2b46ffd1f6"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-md30pe-s.skp",
+      "bytes": 225940,
+      "sha256": "118d33bff412a59c137dfbaa668344ac239e1779ff876f0c0848e59ba44bc095"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-ms24-828022.asset.json",
+      "bytes": 38246,
+      "sha256": "ab257d57b094ff504ea7bd71f757b8286c2e4580474f8682c9b91156bfd84956"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-ms24-828022.skp",
+      "bytes": 246913,
+      "sha256": "904ec63b271ae703d870393695cee731fa58def466c7b48e63a08e356ca0585f"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc362418.asset.json",
+      "bytes": 10161,
+      "sha256": "5598cf0d4b19eed32c955b7a500d8c45553c46f3053178bce2ee0b208ac0a384"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc362418.skp",
+      "bytes": 223878,
+      "sha256": "021ef59c79c2e006799d1fc9f20af6bd5841ab8c8494b24881c29b3aa7f49d60"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc422418.asset.json",
+      "bytes": 13499,
+      "sha256": "1cc4490b0eb4ff93219c17a5a489a2b0bd20799d6536ed8b02e50e1db8337142"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc422418.skp",
+      "bytes": 245100,
+      "sha256": "7a7a858d0e086c39d2fd99e6bc02485fcfb8c635ba6c8397d22d7085cd7cac95"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc482418.asset.json",
+      "bytes": 13509,
+      "sha256": "6986700fc0833f58cdbb493fc91df8c165ced8047562c43aa674f97e41eec24c"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-pwc482418.skp",
+      "bytes": 282885,
+      "sha256": "4eab61d605c0a2040fdbebaf6f998b5c6f5d580754631868313938985bc4e622"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-so3050pm-s-p.asset.json",
+      "bytes": 11801,
+      "sha256": "4fbf071bc8a9dd9de774a3d50210ec9b69f243f8202d63cbd344465de46fd632"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-so3050pm-s-p.skp",
+      "bytes": 259047,
+      "sha256": "735e4066c95c8d380a26916aaa3dc059aaa7fcf2c1debdc878a783d0f44c82b0"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt304.asset.json",
+      "bytes": 49570,
+      "sha256": "0bcf0b10a9e0e3eba84478f7e82f8f99a61d1b08c8270f8d4bc2dd8a299c984f"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt304.skp",
+      "bytes": 607442,
+      "sha256": "cadd60d340ed7af3e33ff3a8823abf2ba6f6ed7cc733e3f314cc839522a0e4db"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt366.asset.json",
+      "bytes": 60856,
+      "sha256": "a5cb9d34d2b5c75db3f98961a49483eb52fff04c717469ac5656365c3d1451fb"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt366.skp",
+      "bytes": 760312,
+      "sha256": "f05113480510dedab7d35f14569814337d1904a94975acd9c0efdc0a72bad6f5"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt486g.asset.json",
+      "bytes": 72512,
+      "sha256": "3414b5704307795dc713d9885a40cbb84bb504a390315fa810dea95d83fada53"
+    },
+    {
+      "path": "assets/appliances/blender/wolf-srt486g.skp",
+      "bytes": 847384,
+      "sha256": "1db758033b2a94d2cf3eadb9c3f9ba729d123807f9aef5837c9587d77b5d12b6"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b24cb80ess-original.jpg",
+      "bytes": 20755,
+      "sha256": "5d858bae05aca6fa93dc2fe8e7e8a83b19930420e29a94afe2b5aca7ed6c569b"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b24cb80ess.jpg",
+      "bytes": 16919,
+      "sha256": "396a9abafd9297a473377b6773a845eba8637c1d25aec2fee89bdd1ff2678f9c"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b33cm10sns-original.jpg",
+      "bytes": 28525,
+      "sha256": "9fbb835af82431e74517b3a1730d13e0772eac77ba815857f6d7ae28d10704ff"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b33cm10sns.jpg",
+      "bytes": 22563,
+      "sha256": "d9e70995ba6a0fff0c6b371b2bc95400979caaa47082c7a90da095a0984055a2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b36ct80sns-original.jpg",
+      "bytes": 30118,
+      "sha256": "96116a1902b158a53108c84abc71e29804ad21d3697dfef11aed2d382ea9e879"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-b36ct80sns.jpg",
+      "bytes": 26021,
+      "sha256": "306cff2150786b5ce696302d28565b89713e529f91a45928f6cc87761abe19d8"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8454uc-original.jpg",
+      "bytes": 64249,
+      "sha256": "bb77122b9f2decf79aac8f2314718cf2c61e996d41c799e7d78e5fcf46703c20"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8454uc.jpg",
+      "bytes": 57425,
+      "sha256": "0d411ae6dffe4e18703b699f691f39a6c553ac7126d6314e11d573eb1be384f4"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8651uc-original.jpg",
+      "bytes": 55038,
+      "sha256": "2f216b24fb8a8a41266789b9ead33ee186d10cfb2bf8209d43e0e5da4a187fdd"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8651uc.jpg",
+      "bytes": 41664,
+      "sha256": "a92418d20975b1313c894182b8e7f65bfc8c4b137e07d0ca4989629ff70e44b8"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8753uc-original.jpg",
+      "bytes": 69350,
+      "sha256": "02591b2c7ba2098fb0398c177dcaf9bb2dffb64a040f7c5e7d1eebd1a00beaa3"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hbl8753uc.jpg",
+      "bytes": 44563,
+      "sha256": "351c341c5a95235327744947b93158eb6b5486efbc50da8e02c23b48e0dde71c"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hcb56651uc-original.jpg",
+      "bytes": 32236,
+      "sha256": "899c349af36399e815ae9718f50b5da5b689c129bcf65a9c4114ca2ddc0c874e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hcb56651uc.jpg",
+      "bytes": 26488,
+      "sha256": "95be351e20897936182949b99a11de3f4991d08f64c99cc9eedef5eb0e34c7d1"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hcp50652uc-original.jpg",
+      "bytes": 39476,
+      "sha256": "b3da204fc07db68f8d42e0acddbb434d30c048ccbc9aff14bb49df3b8e25bd11"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hcp50652uc.jpg",
+      "bytes": 29624,
+      "sha256": "0d939686cf38d9f72d12f837e78d4aa9d21d8e465d0381890f844aa654820937"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hgi8056uc-original.jpg",
+      "bytes": 102872,
+      "sha256": "4fabf00e5f57cb5703f6d4ce09f34d76058cf4e516b9ccf0daa34faf25bd96de"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hgi8056uc.jpg",
+      "bytes": 58099,
+      "sha256": "8fed9fb9217a787507fbb827c05cb7b4e686f79321aa51a39d1a937e8da5541e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hgs8655uc-original.jpg",
+      "bytes": 77641,
+      "sha256": "580288803466f34937c26cb1aa5fbeb9d69a39558beb1e55461c219cc149727f"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hgs8655uc.jpg",
+      "bytes": 49702,
+      "sha256": "811eb9f4044474dd6e6122d49cbb8e5274a5aa8b4eb55f8943178e0b2edae4bf"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hib82651uc-original.jpg",
+      "bytes": 39395,
+      "sha256": "34b1c823ac62641ec7e46cf6854e5e32bf2cf1bbd485b11258f494865e409ffe"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hib82651uc.jpg",
+      "bytes": 28583,
+      "sha256": "bcd5089485757d354da21598563178e64a05c3a93116cde9840ba1976ce69abb"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hii8057u-original.jpg",
+      "bytes": 70840,
+      "sha256": "2cb64adeabcf99e7c99297055acb75660bb8c4bc412eec1312a2d559a69e2dc8"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hii8057u.jpg",
+      "bytes": 47527,
+      "sha256": "dc86cfbc3e40c80869dafcf4f3524d1f0e70da816cb0da9186e700490d093995"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmb50152uc-original.jpg",
+      "bytes": 45147,
+      "sha256": "e073ab0f1d912ea8ea5b0fe051ed1912bf55854907c73838db2f12e40ebb6cd6"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmb50152uc.jpg",
+      "bytes": 39114,
+      "sha256": "a180de1acbb1c880f3e3d30950d8ead6a85f8a04e7c69702049e6b0f0e5fec78"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmd8454uc-original.jpg",
+      "bytes": 76852,
+      "sha256": "b8b99839ab64aaaa0b208e09fb395a32b9aa950dec42a95fcc6519f742b75116"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmd8454uc.jpg",
+      "bytes": 35058,
+      "sha256": "f2f67ab7c91f7e31a3ee99f7e1b0d21b53a8560736aade61f7bf4c89e3afa9f4"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmv8054u-original.jpg",
+      "bytes": 58333,
+      "sha256": "d51200eae29692091d19a5d96f89304e973f794bbf9d7307e0aed7d43f53bbe2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-hmv8054u.jpg",
+      "bytes": 32483,
+      "sha256": "5939ae803d35475f139f156ae9e5617a66db113710cbf794a9d03ee25f48b36e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-ngm8059uc-original.jpg",
+      "bytes": 82534,
+      "sha256": "88cc10b4eee10a569de49b157edbe72cbc48124746f3a0d2faafd9e904287c4f"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-ngm8059uc.jpg",
+      "bytes": 64191,
+      "sha256": "cb0e0bba88693ff38054e0e86f1cf609afcd34b8e032f0406485befa1b5a212e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-ngm8659uc-original.jpg",
+      "bytes": 71100,
+      "sha256": "9658aef0809b81064e62a3a517442673e6c1109b5eb7fe17db0f319f3dc5fcdb"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-ngm8659uc.jpg",
+      "bytes": 58458,
+      "sha256": "b8639544de8543f7ee4141ea0cbca9939512524628080545169bd376e5b482b6"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-nit8661uc-original.jpg",
+      "bytes": 23289,
+      "sha256": "908bb8f53297673d5d55e3f20778777f30166fe0f36200674f8619e7f7cfd8a2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-nit8661uc.jpg",
+      "bytes": 20882,
+      "sha256": "6bc7834d318a0e398cdc436fc0715c81b431cf48f15b75a9cf322dd35131bfae"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-rgm8058uc-original.jpg",
+      "bytes": 68320,
+      "sha256": "44657012add6da0392247fea20f10ba9b8278d03861e9511fd0dbe960203bc31"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-rgm8058uc.jpg",
+      "bytes": 44390,
+      "sha256": "de6bd422850825b2ff8033ebb181144d7bee41d96e81d8e1858262be79f40e0a"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-rgm8658uc-original.jpg",
+      "bytes": 64102,
+      "sha256": "4b1bb1a2656b69322e33843f33d972a9eb62b57243546a6f0dc4e47a78ca182b"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-rgm8658uc.jpg",
+      "bytes": 44241,
+      "sha256": "cb056c39d452383e7013b23177424a660f028d9c714a83aeb8a961ae7c1b31b8"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-shp78dm5n-original.jpg",
+      "bytes": 47074,
+      "sha256": "7c3f38805ae28b1a3c4a651ee05aab920118c2de9371e082553ace37829859a1"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-shp78dm5n.jpg",
+      "bytes": 20034,
+      "sha256": "21c94ecf8fa5154d36c9a2a24b9012baa104c01a4240140c728aaeb15e6ca24e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-shx78dm5n-original.jpg",
+      "bytes": 45710,
+      "sha256": "ccb171e6667fefe627128829f65b7534600570bb88ccc58da879e3d6941c7afe"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-shx78dm5n.jpg",
+      "bytes": 20431,
+      "sha256": "114a23e1d31593ac80f86d557f0686c54569944e6d1f64c075b99ab24f6e17c0"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-spx68c75uc-original.jpg",
+      "bytes": 33844,
+      "sha256": "49399ce2d8bf9d519d9752dccba6c144f98b7e23ca20ec9e00dd5985a95abb87"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/bosch-spx68c75uc.jpg",
+      "bytes": 18654,
+      "sha256": "ecee384834de4dba8096504afa75733c3cf3286798be0f31783521c789575024"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/cove-dw2451-9019419-original.jpg",
+      "bytes": 4493443,
+      "sha256": "7d74920a8467973b801048ae4a661fb46f6b561870b57e4650dce3c1c8d0d2c6"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/cove-dw2451-9019419.png",
+      "bytes": 795573,
+      "sha256": "453a2a3cadcca823b8cfa826a402038cef41ba99a56cd12736507f4a5da7cb12"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/cove-dw2451-9019420-original.jpg",
+      "bytes": 4485895,
+      "sha256": "e4722b06d8a2e2b1d80e0d46fb7719dbd1c9976b84f41c61026dcf8e56bda5eb"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/cove-dw2451-9019420.png",
+      "bytes": 795373,
+      "sha256": "576afbdce11f5991665205c1c1d2bd08c4e162eda04657bc95b1cb395623b430"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl3650u-s-original.png",
+      "bytes": 59150,
+      "sha256": "da32bf052e41f6e1c94447b6afad5d9a43bb9e69570ee41b0b91e81a80aafa75"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl3650u-s.png",
+      "bytes": 964338,
+      "sha256": "14fcf2bf24bb8f0c23305e21377db542be0e9ef4c98674a8071a9c9268fcd6bf"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl3650ufd-s-original.png",
+      "bytes": 63542,
+      "sha256": "2d21033426e51569b18462f7f432f3f6a91811f6f4363dabc1d0e53c077c3bc0"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl3650ufd-s.png",
+      "bytes": 975861,
+      "sha256": "6a6d5acc06b272f73fe559e3a3a73106f1b6668cee662a96ed67b9963771d475"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-o-panelready.png",
+      "bytes": 742528,
+      "sha256": "5b7fcedd5983d19f2392afd652b74c0304fcfa48a89e59c17a9babbf6869408e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-s-original.png",
+      "bytes": 71013,
+      "sha256": "f4b49d6b9c90818ad20a62eb432019e9f2579b2cf491398f8af69a8422154446"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-s.png",
+      "bytes": 1035484,
+      "sha256": "6bb2fc9053f167c37fb122b9d1decd48aa87a091a91687a01d01bbd9ff40e58c"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-o-panelready.png",
+      "bytes": 791947,
+      "sha256": "02fef33722bd551e39908560908903abde716d0e178858dd8390a4d31487dde7"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-s-original.png",
+      "bytes": 77180,
+      "sha256": "761e352b8582e1f537b3835182f9a73a8505928b9cbeef07ea1a464a71d53e39"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-s.png",
+      "bytes": 1106447,
+      "sha256": "169bbea90071cc5f60ba5440b11b6f25bc4fe26055f5a2453610adbbf5b9742b"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cg304p-s-original.jpg",
+      "bytes": 70573,
+      "sha256": "560e370a22c09a0b553fe3540757ec945b9433d76b7f61bcf351efd8cb03487e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cg304p-s.png",
+      "bytes": 1056796,
+      "sha256": "b83ad5451996faacd644d922a8af1661240ce1c6b2d74cf1cf3986de50688813"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cg365p-s-original.jpg",
+      "bytes": 76275,
+      "sha256": "ba3fa499fdbeb1a67e0fbbcd12c48e6b7f55f36c6b5dcdf569c94e380f2de137"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cg365p-s.png",
+      "bytes": 946743,
+      "sha256": "7e95befe35006d16e6aed1c60b107ae43ec5a8759a80870c654916ba0c666a8e"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-ci36560t-s-original.jpg",
+      "bytes": 64576,
+      "sha256": "6cd54d2462aff0cc5109ced093a7c8ae4b5d816a22e317c25ba2ee5aaf85b7a2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-ci36560t-s.png",
+      "bytes": 793787,
+      "sha256": "efd3a27b33c384191967c3a734c6ef0dc3f0bc27dc8657f40909196aff6e8922"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cso3050pm-s-p-original.jpg",
+      "bytes": 32645,
+      "sha256": "7cb93ef821d04e3d11cec6db51fc7f5e464d052581bf88b207edf2248c9f6b69"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-cso3050pm-s-p.png",
+      "bytes": 829765,
+      "sha256": "eceed89bbc508d089aabe47ae97a544c6ab09b277b8430dbb5952367ae7ec10b"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-df30450.png",
+      "bytes": 996283,
+      "sha256": "e31e369a88841538985461713cdc349a15933b4857b8ca1b0c5c05bf15049858"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-df36650.png",
+      "bytes": 1087080,
+      "sha256": "246e8f1b4de0a93dae548b3f0c55bb58910c6eb8d24304a37f38573c8709c6fa"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-df48650g.png",
+      "bytes": 1124448,
+      "sha256": "97d1a3c24757c9c366e599098c114d2b478f3c2f0c3a5f9c0a4832f6e118b517"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-do3050pm-s-p-original.jpg",
+      "bytes": 1341304,
+      "sha256": "1a3c674dd955485b5de862e391a39e2068c83fe38cb47ddf7df6d755d385d2a5"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-do3050pm-s-p.png",
+      "bytes": 759316,
+      "sha256": "e6f7bc09ef6442461daa564b629c73671c69a809dcd1b9003d0322282fd40367"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-md24te-s-original.jpg",
+      "bytes": 448012,
+      "sha256": "b00c9f1537d5fd5f53b92c44b81803e9d3a1979540f8d54ba9677f2ca122bc82"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-md24te-s.png",
+      "bytes": 848258,
+      "sha256": "67b299b02ade319990b1e73026a58922f2415a517fcf45fee53b39f09f593360"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-md30pe-s-original.jpg",
+      "bytes": 2334728,
+      "sha256": "f3c749ae1fb5fc6249121250c81f4237ad2d77cca46de4ec24bae082e2329fa2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-md30pe-s.png",
+      "bytes": 725885,
+      "sha256": "ed5104fbc80159cb566f4f5bb233f6bc40fb9397a842bb6b6a10c786064b82f9"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-ms24-828022-original.jpg",
+      "bytes": 17150,
+      "sha256": "fd487d6854aa12ede0ae4eaeb2c55c592e8b253981dd07e6a82d8222516495b2"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-ms24-828022.png",
+      "bytes": 859573,
+      "sha256": "29c34d53bb2447a8cf7427e88afe15cfeb3c3663c96609a54c46552b80f66676"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc362418-original.jpg",
+      "bytes": 1093600,
+      "sha256": "4a0af802321108e0a085ae993fe907b2d02367edf652f2fa8b24714fd8816e09"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc362418.png",
+      "bytes": 650394,
+      "sha256": "06b9bed82ea2532d8a69fe6ebf28bccf7d0d24099bf4cb95827aa95b94feb1bb"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc422418-original.jpg",
+      "bytes": 1294017,
+      "sha256": "c3d38044055cea8348a160040a1127d9cf77f78c6f81066151077d00fde5c33a"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc422418.png",
+      "bytes": 600815,
+      "sha256": "b4af49b754ad5839d08c38c1d624ba0be687860bcfa8905ea6d102c32cb539ab"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc482418-original.jpg",
+      "bytes": 1514803,
+      "sha256": "4a12bcf4a10393a47397e2ad5ad802bfa1e6b72fcb9378ca286977379954970a"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-pwc482418.png",
+      "bytes": 564804,
+      "sha256": "228f80950791f840c7919b56c0f1401c22f521f03ad294aa2429debb4e62159b"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-so3050pm-s-p-original.jpg",
+      "bytes": 613372,
+      "sha256": "a9046f8f0d4481c299f1b65047154f4db1d8371dd2f832eda4ff687295610972"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-so3050pm-s-p.png",
+      "bytes": 973264,
+      "sha256": "9257b16a5a1459410cc231578aa06fcbcedd424cb4692de9029ddabed8e00a5d"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt304-original.jpg",
+      "bytes": 36832,
+      "sha256": "4def43eca6ccc5b784b2c279518cd06e23d3b6c67c3e1f2d18f225d095c27bee"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt304.png",
+      "bytes": 673592,
+      "sha256": "8731d173e636d573e6a989c15ec6e03b9496ca7e568e1f01d562e7bf7070ca93"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt366-original.jpg",
+      "bytes": 299461,
+      "sha256": "128449c87f5e6d9b98bd22b3b27b692374f949d224eeca51b55dcb9259291170"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt366.png",
+      "bytes": 621984,
+      "sha256": "cdc6820350f1c4cd1c2baaea7d06783d926897798c6687454c34662ee8a5359d"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt486g-original.jpg",
+      "bytes": 229815,
+      "sha256": "84292d9f05d0559a59afe266d01e6a46d49a1862f1b1c690d696dee042345d95"
+    },
+    {
+      "path": "assets/appliances/gallery-oct14/wolf-srt486g.png",
+      "bytes": 540408,
+      "sha256": "ff045dedd8ca019adce3e65c6c9378b457a5b1f78644b850bdf510aab6544404"
+    },
+    {
+      "path": "assets/appliances/panel-ready/sub-zero-cl4250ufd-o-panelready.skp",
+      "bytes": 34392,
+      "sha256": "e5e4946466d3495ccc01f125f9d8323b0cb44df852e92e7384e230b479fae7db"
+    },
+    {
+      "path": "assets/appliances/panel-ready/sub-zero-cl4850s-o-panelready.skp",
+      "bytes": 32439,
+      "sha256": "1345c3b88e8d8210b25b92d2b206cb89707cf4bb2f8fce6376fc0623b02af261"
     }
   ]
 }

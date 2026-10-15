@@ -1,6 +1,6 @@
 (function(){
  if(window.KitchenHouseAppliances)return;
- const categories={sink:'Sinks',fridge:'Refrigerators',range:'Ranges',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
+ const categories={sink:'Sinks',fridge:'Refrigerators',range:'Ranges',rangetop:'Rangetops',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
  const kinds={sink:'sink',fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave',wall_oven:'wall_oven'};
  const section=document.getElementById('kp-kitchen'),library=document.getElementById('kp-cab-library');
  const panel=document.createElement('div');panel.id='kp-appliance-library';panel.hidden=true;
@@ -25,7 +25,7 @@
    const title=document.createElement('strong');title.textContent=product.model;button.append(title);
    const name=document.createElement('span');name.textContent=product.name;button.append(name);
    if(product.dimensions){const size=document.createElement('span');size.textContent=`${product.sku||product.model} · ${product.dimensions.width}″ W × ${product.dimensions.depth}″ D × ${product.dimensions.height}″ H`;button.append(size);}
-   if(product.automatic_cutout_available===false){const status=document.createElement('span');status.textContent='Automatic countertop cutout unavailable — awaiting verified manufacturer template.';button.append(status);}
+   if(product.automatic_cutout_available===false||(product.category==='cooktop'&&product.automatic_cutout===false)){const status=document.createElement('span');status.textContent='Automatic countertop cutout unavailable — awaiting verified manufacturer template.';button.append(status);}
    button.onclick=()=>{
     if(window.KitchenHouseInsert.state.pending||window.KitchenHouseInsert.state.waiting)return;
     error('');const request_id=window.KitchenHouseInsert.request();

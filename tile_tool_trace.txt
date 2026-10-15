@@ -127,3 +127,4 @@
 16:28:25 click 1649,528 dof 2 vertex false pos [-497.58, 402.5, 71.11] | hover_wall 3b85b93f side "a" | result wall 3b85b93f side "a" u 59.58 z 72.0 kind :edge | first none
 16:30:42 click 1246,503 dof 3 vertex false pos [-645.21, 473.71, 0.0] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u -110.61 z 0.0 kind :edge | first none
 16:30:45 click 1240,453 dof 3 vertex false pos [-649.55, 501.72, 0.0] | hover_wall 849179b2 side "a" | result wall 849179b2 side "a" u -114.95 z 0.0 kind :edge | first none
+20:34:19 click 1320,372 dof 2 vertex false pos [-696.63, 322.1, 45.45] | hover_wall c8a403d4 side "a" | result wall c8a403d4 side "a" u 85.4 z 45.45 kind nil | first none

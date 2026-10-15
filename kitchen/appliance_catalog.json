@@ -763,7 +763,7 @@
         "depth": 24.75
       },
       "appearance": {
-        "finish": "white",
+        "finish": "stainless",
         "configuration": "bottom_freezer_single",
         "panel_ready": true
       },
@@ -1403,7 +1403,7 @@
         "depth": 24
       },
       "appearance": {
-        "finish": "white",
+        "finish": "stainless",
         "configuration": "bottom_freezer_single",
         "panel_ready": true
       },
@@ -1704,7 +1704,7 @@
       },
       "depth_basis": "Approved two-column body; custom 3/4-inch panels included, handles excluded. Nominal opening 48 inches.",
       "appearance": {
-        "finish": "white",
+        "finish": "stainless",
         "configuration": "side_by_side",
         "panel_ready": true
       },
@@ -1921,6 +1921,2471 @@
           ]
         }
       }
+    },
+    {
+      "id": "wolf-cg304p-s",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "cooktop",
+      "model": "CG304P/S",
+      "name": "30\" Professional Gas Cooktop - 4 Burners",
+      "dimensions": {
+        "width": 30,
+        "height": 4,
+        "depth": 21.0
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "CG304P-S",
+      "geometry_sha256": "12eeb71bb7d3c786c3480d7d537a48f71425a5283ea0559f7911b147dfeeea74",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-cg304p-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-cg304p-s-original.jpg"
+    },
+    {
+      "id": "wolf-cg365p-s",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "cooktop",
+      "model": "CG365P/S",
+      "name": "36\" Professional Gas Cooktop - 5 Burners",
+      "dimensions": {
+        "width": 36,
+        "height": 4,
+        "depth": 21.0
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "CG365P-S",
+      "geometry_sha256": "0f1e4ef5ee6767ad846b55f71f89b1fd8788f9171ec500787f887c4d9a7a59ae",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-cg365p-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-cg365p-s-original.jpg"
+    },
+    {
+      "id": "wolf-ci36560t-s",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "cooktop",
+      "model": "CI36560T/S",
+      "name": "36\" Transitional Induction Cooktop",
+      "dimensions": {
+        "width": 36,
+        "height": 2,
+        "depth": 21.0
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "CI36560T-S",
+      "geometry_sha256": "b014e081d6753c344ae1ab3749c25dfaaa46adae0f19d3504ff110224fd17cea",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-ci36560t-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-ci36560t-s-original.jpg"
+    },
+    {
+      "id": "wolf-cso3050pm-s-p",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "wall_oven",
+      "model": "CSO3050PM/S/P",
+      "name": "30\" M Series Professional Convection Steam Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.875,
+        "depth": 25.83
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "CSO3050PM-S-P",
+      "geometry_sha256": "16119baa462cd3e5007c65791788072dc9a54fdb318feea105a0757547e811b8",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-cso3050pm-s-p.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-cso3050pm-s-p-original.jpg"
+    },
+    {
+      "id": "wolf-do3050pm-s-p",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "wall_oven",
+      "model": "DO3050PM/S/P",
+      "name": "30\" M Series Professional Built-In Double Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 50.875,
+        "depth": 26.33
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "DO3050PM-S-P",
+      "geometry_sha256": "bdce9a9bb34d1de9eb1f087711e12acaaff1c402797ee13d88c0c146999dccde",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-do3050pm-s-p.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-do3050pm-s-p-original.jpg"
+    },
+    {
+      "id": "cove-dw2451-9019419",
+      "brand": "Cove",
+      "manufacturer": "Cove",
+      "category": "dishwasher",
+      "model": "DW2451",
+      "name": "Cove DW2451 dishwasher · panel kit 9019419",
+      "dimensions": {
+        "width": 23.75,
+        "height": 34.5,
+        "depth": 26.57
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.subzero-wolf.com/store/installation/cove/panels/dishwasher-panel-with-tubular-handle-24-in-opening-4-in-toekick",
+      "source_asset_id": "DW2451-9019419",
+      "geometry_sha256": "426875119018b718fba2f444583b75568c59596964e01022020dd9df3f2f4b32",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/cove-dw2451-9019419.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/cove-dw2451-9019419-original.jpg"
+    },
+    {
+      "id": "cove-dw2451-9019420",
+      "brand": "Cove",
+      "manufacturer": "Cove",
+      "category": "dishwasher",
+      "model": "DW2451",
+      "name": "Cove DW2451 dishwasher · panel kit 9019420",
+      "dimensions": {
+        "width": 23.75,
+        "height": 34.5,
+        "depth": 26.79
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.subzero-wolf.com/store/installation/cove/panels/dishwasher-panel-with-pro-handle-24-in-opening-4-in-toekick",
+      "source_asset_id": "DW2451-9019420",
+      "geometry_sha256": "3f073b7010a9d2dfa1804a50519be7ef98929e0d75840fb5a1d0f3885a854e72",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/cove-dw2451-9019420.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/cove-dw2451-9019420-original.jpg"
+    },
+    {
+      "id": "wolf-md24te-s",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "microwave",
+      "model": "MD24TE/S",
+      "name": "24\" Transitional Drawer Microwave",
+      "dimensions": {
+        "width": 23.875,
+        "height": 15.125,
+        "depth": 23.28
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer",
+        "installation": "under_counter",
+        "cabinet_depth": 21.875
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "MD24TE-S",
+      "geometry_sha256": "586793823f1e5d43e244d7c91da9bd579d9887a6a829bbc8b2b4674ed68d1c16",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-md24te-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-md24te-s-original.jpg"
+    },
+    {
+      "id": "wolf-md30pe-s",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "microwave",
+      "model": "MD30PE/S",
+      "name": "30\" Professional Drawer Microwave",
+      "dimensions": {
+        "width": 29.875,
+        "height": 15.125,
+        "depth": 23.28
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer",
+        "installation": "under_counter",
+        "cabinet_depth": 21.875
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "MD30PE-S",
+      "geometry_sha256": "118d33bff412a59c137dfbaa668344ac239e1779ff876f0c0848e59ba44bc095",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-md30pe-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-md30pe-s-original.jpg"
+    },
+    {
+      "id": "wolf-ms24-828022",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "microwave",
+      "model": "MS24",
+      "name": "24\" Standard Microwave Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 18.25,
+        "depth": 19.065
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "side_hinged",
+        "installation": "built_in"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "MS24-828022",
+      "geometry_sha256": "904ec63b271ae703d870393695cee731fa58def466c7b48e63a08e356ca0585f",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-ms24-828022.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-ms24-828022-original.jpg"
+    },
+    {
+      "id": "wolf-pwc362418",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "hood",
+      "model": "PWC362418",
+      "name": "36\" Pro Wall Chimney Hood",
+      "dimensions": {
+        "width": 36,
+        "height": 18,
+        "depth": 24.06
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "PWC362418",
+      "geometry_sha256": "021ef59c79c2e006799d1fc9f20af6bd5841ab8c8494b24881c29b3aa7f49d60",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-pwc362418.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-pwc362418-original.jpg"
+    },
+    {
+      "id": "wolf-pwc422418",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "hood",
+      "model": "PWC422418",
+      "name": "42\" Pro Wall Chimney Hood",
+      "dimensions": {
+        "width": 42,
+        "height": 18,
+        "depth": 24.06
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "PWC422418",
+      "geometry_sha256": "7a7a858d0e086c39d2fd99e6bc02485fcfb8c635ba6c8397d22d7085cd7cac95",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-pwc422418.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-pwc422418-original.jpg"
+    },
+    {
+      "id": "wolf-pwc482418",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "hood",
+      "model": "PWC482418",
+      "name": "48\" Pro Wall Chimney Hood",
+      "dimensions": {
+        "width": 48,
+        "height": 18,
+        "depth": 24.06
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "PWC482418",
+      "geometry_sha256": "4eab61d605c0a2040fdbebaf6f998b5c6f5d580754631868313938985bc4e622",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-pwc482418.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-pwc482418-original.jpg"
+    },
+    {
+      "id": "wolf-so3050pm-s-p",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "wall_oven",
+      "model": "SO3050PM/S/P",
+      "name": "30\" M Series Professional Built-In Single Oven",
+      "dimensions": {
+        "width": 29.875,
+        "height": 28.5,
+        "depth": 26.33
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "SO3050PM-S-P",
+      "geometry_sha256": "735e4066c95c8d380a26916aaa3dc059aaa7fcf2c1debdc878a783d0f44c82b0",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-so3050pm-s-p.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-so3050pm-s-p-original.jpg"
+    },
+    {
+      "id": "wolf-srt304",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "rangetop",
+      "model": "SRT304",
+      "name": "30\" Sealed Burner Rangetop - 4 Burners",
+      "dimensions": {
+        "width": 29.875,
+        "height": 8.5,
+        "depth": 28.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "rangetop",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "SRT304",
+      "geometry_sha256": "cadd60d340ed7af3e33ff3a8823abf2ba6f6ed7cc733e3f314cc839522a0e4db",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-srt304.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-srt304-original.jpg"
+    },
+    {
+      "id": "wolf-srt366",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "rangetop",
+      "model": "SRT366",
+      "name": "36\" Sealed Burner Rangetop - 6 Burners",
+      "dimensions": {
+        "width": 35.875,
+        "height": 8.5,
+        "depth": 28.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "rangetop",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "SRT366",
+      "geometry_sha256": "f05113480510dedab7d35f14569814337d1904a94975acd9c0efdc0a72bad6f5",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-srt366.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-srt366-original.jpg"
+    },
+    {
+      "id": "wolf-srt486g",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "rangetop",
+      "model": "SRT486G",
+      "name": "48\" Sealed Burner Rangetop - 6 Burners and Infrared Griddle",
+      "dimensions": {
+        "width": 47.875,
+        "height": 8.5,
+        "depth": 28.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "rangetop",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/trade-resources/brochure-maker/product-select",
+      "source_asset_id": "SRT486G",
+      "geometry_sha256": "1db758033b2a94d2cf3eadb9c3f9ba729d123807f9aef5837c9587d77b5d12b6",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-srt486g.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/wolf-srt486g-original.jpg"
+    },
+    {
+      "id": "wolf-df30450",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "range",
+      "model": "DF30450",
+      "name": "Wolf DF30450 range",
+      "dimensions": {
+        "width": 29.875,
+        "height": 36.5,
+        "depth": 29.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/wolf/ranges/dual-fuel/30-inch-dual-fuel-range-4-burners",
+      "source_asset_id": "DF30450",
+      "geometry_sha256": "3a452d1320c8cc4d9dc9c03a3af94872bf4d1b3e63f2d22e51d38b0d83d8d38f",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-df30450.png"
+    },
+    {
+      "id": "wolf-df36650",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "range",
+      "model": "DF36650",
+      "name": "Wolf DF36650 range",
+      "dimensions": {
+        "width": 35.875,
+        "height": 36.5,
+        "depth": 29.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/wolf/ranges/dual-fuel/36-inch-dual-fuel-range-6-burners",
+      "source_asset_id": "DF36650",
+      "geometry_sha256": "17298666cd117c39ee212f5ee2825e55442f2549aebd505b90f5581381a9c3b2",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-df36650.png"
+    },
+    {
+      "id": "wolf-df48650g",
+      "brand": "Wolf",
+      "manufacturer": "Wolf",
+      "category": "range",
+      "model": "DF48650G",
+      "name": "Wolf DF48650G range",
+      "dimensions": {
+        "width": 47.875,
+        "height": 36.5,
+        "depth": 29.5
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://ca.subzero-wolf.com/en/wolf/ranges/dual-fuel/48-inch-dual-fuel-range-6-burners-infrared-griddle",
+      "source_asset_id": "DF48650G",
+      "geometry_sha256": "2271cbadf4f1ba9c549205237b8d867ad11a1857aec9feb45c560a9c4f80c638",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/wolf-df48650g.png"
+    },
+    {
+      "id": "sub-zero-cl3650u-s",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL3650U/S/P/R",
+      "name": "Sub-Zero CL3650U/S/P/R fridge",
+      "dimensions": {
+        "width": 36.0,
+        "height": 84.0,
+        "depth": 28.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL3650U-S",
+      "geometry_sha256": "7571774ea2c3769dce7c92405ccfab76dd7fbe22f0733d2e8f35d63c0b6ec530",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl3650u-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/sub-zero-cl3650u-s-original.png"
+    },
+    {
+      "id": "sub-zero-cl4250ufd-s",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL4250UFD/S/P",
+      "name": "Sub-Zero CL4250UFD/S/P fridge",
+      "dimensions": {
+        "width": 42.0,
+        "height": 84.0,
+        "depth": 28.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL4250UFD-S",
+      "geometry_sha256": "b2665a5ad3b3200551add888c76f99002005424096199b6bb7ef390c8f32bf71",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-s-original.png"
+    },
+    {
+      "id": "sub-zero-cl4850s-s",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL4850S/S/P",
+      "name": "Sub-Zero CL4850S/S/P fridge",
+      "dimensions": {
+        "width": 48.0,
+        "height": 84.0,
+        "depth": 28.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL4850S-S",
+      "geometry_sha256": "12404a793c4b3de60fbff4ac9f5b5f93472c1a514ea29f5939a43e947c53b4ea",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-s-original.png"
+    },
+    {
+      "id": "sub-zero-cl3650ufd-s",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL3650UFD/S/P",
+      "name": "Sub-Zero CL3650UFD/S/P fridge",
+      "dimensions": {
+        "width": 36.0,
+        "height": 84.0,
+        "depth": 28.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL3650UFD-S",
+      "geometry_sha256": "69b55be9d794e1b987b2840f4c6076190fde374ab3a7bfa25186dffba9cb5544",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl3650ufd-s.png",
+      "reference_image_path": "assets/appliances/gallery-oct14/sub-zero-cl3650ufd-s-original.png"
+    },
+    {
+      "id": "sub-zero-cl4250ufd-o-panelready",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL4250UFD/O",
+      "name": "Sub-Zero CL4250UFD/O fridge",
+      "dimensions": {
+        "width": 42,
+        "height": 84,
+        "depth": 26.1875
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL4250UFD-O-PanelReady",
+      "geometry_sha256": "e5e4946466d3495ccc01f125f9d8323b0cb44df852e92e7384e230b479fae7db",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl4250ufd-o-panelready.png",
+      "panel_ready": {
+        "geometry_revision": 1,
+        "body_bounds_asset_in": [
+          [
+            0,
+            -23.875,
+            0
+          ],
+          [
+            42,
+            0,
+            84
+          ]
+        ],
+        "body_dimensions_in": {
+          "width": 42,
+          "height": 84,
+          "depth_without_custom_panels_or_handles": 23.875
+        },
+        "panels": [
+          {
+            "panel_id": "refrigerator_left_door",
+            "component_name": "PANEL__refrigerator_left_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 20.875,
+              "height": 50.625,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -26.1875,
+              24.625
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                20.875,
+                0.75,
+                50.625
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0,
+                -26.1875,
+                24.625
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "hinged_left",
+              "hinge_side": "left",
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                18.375,
+                0,
+                25.3125
+              ],
+              "center_asset_in": [
+                18.375,
+                -26.1875,
+                49.9375
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      18.375,
+                      0.0,
+                      19.3125
+                    ],
+                    [
+                      18.375,
+                      0.0,
+                      31.3125
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      18.375,
+                      0.0,
+                      16.3125
+                    ],
+                    [
+                      18.375,
+                      0.0,
+                      34.3125
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  0,
+                  0,
+                  1
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  -1,
+                  0,
+                  0
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 20,
+                "height": 49.8125,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 20.625,
+                "height": 50.4375,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          },
+          {
+            "panel_id": "refrigerator_right_door",
+            "component_name": "PANEL__refrigerator_right_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 20.875,
+              "height": 50.625,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              21.125,
+              -26.1875,
+              24.625
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                20.875,
+                0.75,
+                50.625
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                21.125,
+                -26.1875,
+                24.625
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "hinged_right",
+              "hinge_side": "right",
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                2.5,
+                0,
+                25.3125
+              ],
+              "center_asset_in": [
+                23.625,
+                -26.1875,
+                49.9375
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0.0,
+                      19.3125
+                    ],
+                    [
+                      2.5,
+                      0.0,
+                      31.3125
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0.0,
+                      16.3125
+                    ],
+                    [
+                      2.5,
+                      0.0,
+                      34.3125
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  0,
+                  0,
+                  1
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  -1,
+                  0,
+                  0
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 20,
+                "height": 49.8125,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 20.625,
+                "height": 50.4375,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          },
+          {
+            "panel_id": "freezer_drawer",
+            "component_name": "PANEL__freezer_drawer",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 42,
+              "height": 20,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -26.1875,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                42,
+                0.75,
+                20
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0,
+                -26.1875,
+                4
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "slide_out",
+              "hinge_side": null,
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                21.0,
+                0,
+                17.5
+              ],
+              "center_asset_in": [
+                21.0,
+                -26.1875,
+                21.5
+              ],
+              "length_axis_panel_local": [
+                1,
+                0,
+                0
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      15.0,
+                      0.0,
+                      17.5
+                    ],
+                    [
+                      27.0,
+                      0.0,
+                      17.5
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      12.0,
+                      0.0,
+                      17.5
+                    ],
+                    [
+                      30.0,
+                      0.0,
+                      17.5
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  1,
+                  0,
+                  0
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 41.125,
+                "height": 19.0625,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 41.75,
+                "height": 19.6875,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          },
+          {
+            "panel_id": "upper_grille",
+            "component_name": "PANEL__upper_grille",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 42,
+              "height": 7.75,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -26.1875,
+              75.8125
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                42,
+                0.75,
+                7.75
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0,
+                -26.1875,
+                75.8125
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "service_grille",
+              "hinge_side": null,
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": null,
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 41.125,
+                "height": 6.8125,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 41.75,
+                "height": 7.4375,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          }
+        ],
+        "panel_configuration": {
+          "type": "Classic standard overlay, not flush inset",
+          "toe_kick_height_in": 4,
+          "panel_thickness_in": 0.75,
+          "panels_are_replaceable": true,
+          "placement_precision": "Panel face sizes are manufacturer dimensions. Vertical origins derive from the 4 inch toe and overall drawing; grille frame and backing placements are visualization approximations, not installation/fabrication instructions."
+        },
+        "installation_opening_in": {
+          "width": 41.5,
+          "height": 83.75,
+          "min_depth": 24
+        },
+        "skp_path": "assets/appliances/panel-ready/sub-zero-cl4250ufd-o-panelready.skp",
+        "skp_sha256": "e5e4946466d3495ccc01f125f9d8323b0cb44df852e92e7384e230b479fae7db"
+      }
+    },
+    {
+      "id": "sub-zero-cl4850s-o-panelready",
+      "brand": "Sub-Zero",
+      "manufacturer": "Sub-Zero",
+      "category": "fridge",
+      "model": "CL4850S/O",
+      "name": "Sub-Zero CL4850S/O fridge",
+      "dimensions": {
+        "width": 48,
+        "height": 84,
+        "depth": 26.1875
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "",
+      "source_asset_id": "CL4850S-O-PanelReady",
+      "geometry_sha256": "1345c3b88e8d8210b25b92d2b206cb89707cf4bb2f8fce6376fc0623b02af261",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/sub-zero-cl4850s-o-panelready.png",
+      "panel_ready": {
+        "geometry_revision": 1,
+        "body_bounds_asset_in": [
+          [
+            0,
+            -23.875,
+            0
+          ],
+          [
+            48,
+            0,
+            84
+          ]
+        ],
+        "body_dimensions_in": {
+          "width": 48,
+          "height": 84,
+          "depth_without_custom_panels_or_handles": 23.875
+        },
+        "panels": [
+          {
+            "panel_id": "freezer_door",
+            "component_name": "PANEL__freezer_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 19,
+              "height": 71.25,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -26.1875,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                19,
+                0.75,
+                71.25
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0,
+                -26.1875,
+                4
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "hinged_left",
+              "hinge_side": "left",
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                16.5,
+                0,
+                35.625
+              ],
+              "center_asset_in": [
+                16.5,
+                -26.1875,
+                39.625
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      16.5,
+                      0.0,
+                      29.625
+                    ],
+                    [
+                      16.5,
+                      0.0,
+                      41.625
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      16.5,
+                      0.0,
+                      26.625
+                    ],
+                    [
+                      16.5,
+                      0.0,
+                      44.625
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  0,
+                  0,
+                  1
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  -1,
+                  0,
+                  0
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 18.125,
+                "height": 70.4375,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 18.75,
+                "height": 71.0625,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          },
+          {
+            "panel_id": "refrigerator_door",
+            "component_name": "PANEL__refrigerator_door",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 28.75,
+              "height": 71.25,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              19.25,
+              -26.1875,
+              4
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                28.75,
+                0.75,
+                71.25
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                19.25,
+                -26.1875,
+                4
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "hinged_right",
+              "hinge_side": "right",
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": {
+              "center_panel_local_in": [
+                2.5,
+                0,
+                35.625
+              ],
+              "center_asset_in": [
+                21.75,
+                -26.1875,
+                39.625
+              ],
+              "length_axis_panel_local": [
+                0,
+                0,
+                1
+              ],
+              "mount_normal_panel_local": [
+                0,
+                -1,
+                0
+              ],
+              "mount_plane_panel_local_y_in": 0,
+              "allowed_nominal_overall_lengths_in": [
+                12,
+                18
+              ],
+              "options": [
+                {
+                  "nominal_overall_length_in": 12,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0.0,
+                      29.625
+                    ],
+                    [
+                      2.5,
+                      0.0,
+                      41.625
+                    ]
+                  ],
+                  "not_drill_points": true
+                },
+                {
+                  "nominal_overall_length_in": 18,
+                  "placement_envelope_endpoints_local_in": [
+                    [
+                      2.5,
+                      0.0,
+                      26.625
+                    ],
+                    [
+                      2.5,
+                      0.0,
+                      44.625
+                    ]
+                  ],
+                  "not_drill_points": true
+                }
+              ],
+              "actual_screw_centers_panel_local_in": null,
+              "screw_center_rule": "Use the selected handle asset mount points, centered on center_panel_local_in and aligned with length_axis_panel_local. Do not use overall length as screw spacing.",
+              "placement_basis": "Project default: 2.5 in from free door edge, vertically centered; drawers/dishwasher centered horizontally, 2.5 in below top. Not manufacturer drilling coordinates.",
+              "attachment_frame_panel_local": {
+                "x_length": [
+                  0,
+                  0,
+                  1
+                ],
+                "y_into_panel": [
+                  0,
+                  1,
+                  0
+                ],
+                "z_cross_x_y": [
+                  -1,
+                  0,
+                  0
+                ]
+              }
+            },
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 27.875,
+                "height": 70.4375,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 28.5,
+                "height": 71.0625,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          },
+          {
+            "panel_id": "upper_grille",
+            "component_name": "PANEL__upper_grille",
+            "role": "replaceable_custom_panel",
+            "dimensions_in": {
+              "width": 48,
+              "height": 7.75,
+              "thickness": 0.75
+            },
+            "origin_asset_in": [
+              0,
+              -26.1875,
+              75.8125
+            ],
+            "local_bounds_in": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                48,
+                0.75,
+                7.75
+              ]
+            ],
+            "local_axes": {
+              "x": "right",
+              "y": "back through thickness",
+              "z": "up"
+            },
+            "front_normal": [
+              0,
+              -1,
+              0
+            ],
+            "transform_to_asset": {
+              "translation_in": [
+                0,
+                -26.1875,
+                75.8125
+              ],
+              "rotation_degrees_xyz": [
+                0,
+                0,
+                0
+              ],
+              "scale_xyz": [
+                1,
+                1,
+                1
+              ]
+            },
+            "opening": {
+              "kind": "service_grille",
+              "hinge_side": null,
+              "direction": "toward room / negative Y",
+              "precision": "Semantic motion only; no certified hinge mechanism or clearances."
+            },
+            "handle_attachment": null,
+            "replacement_contract": {
+              "preserve_panel_id": true,
+              "preserve_instance_transform": true,
+              "geometry_local_origin": "front-bottom-left",
+              "material_policy": "Unpainted panel faces inherit the panel-instance material. For independent geometry edits, make the panel definition unique.",
+              "no_handle_geometry": true,
+              "no_drilled_holes": true
+            },
+            "dimensions_source": {
+              "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+              "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+              "pdf_pages_1_based": [
+                17,
+                19
+              ]
+            },
+            "min_panel_thickness_in": 0.75,
+            "assembly_layers": {
+              "spacer_dimensions_in": {
+                "width": 47.125,
+                "height": 6.8125,
+                "thickness": 0.1
+              },
+              "backer_dimensions_in": {
+                "width": 47.75,
+                "height": 7.4375,
+                "thickness": 0.25
+              },
+              "source": {
+                "url": "https://www.subzero-wolf.com/-/media/files/united-states/product-downloads/sub-zero-wolf/design-guides/subzero-design-guide.pdf",
+                "local_path": "C:\\Users\\rordt\\OneDrive\\Documents\\ChatGPT\\Kitchen Plugin\\assets\\appliances\\panel-ready-review\\subzero-design-guide.pdf",
+                "pdf_pages_1_based": [
+                  17,
+                  19
+                ]
+              },
+              "placement_note": "Rear layers centered for visualization; factory edge offsets must be checked before fabrication."
+            }
+          }
+        ],
+        "panel_configuration": {
+          "type": "Classic standard overlay, not flush inset",
+          "toe_kick_height_in": 4,
+          "panel_thickness_in": 0.75,
+          "panels_are_replaceable": true,
+          "placement_precision": "Panel face sizes are manufacturer dimensions. Vertical origins derive from the 4 inch toe and overall drawing; grille frame and backing placements are visualization approximations, not installation/fabrication instructions."
+        },
+        "installation_opening_in": {
+          "width": 47.5,
+          "height": 83.75,
+          "min_depth": 24
+        },
+        "skp_path": "assets/appliances/panel-ready/sub-zero-cl4850s-o-panelready.skp",
+        "skp_sha256": "1345c3b88e8d8210b25b92d2b206cb89707cf4bb2f8fce6376fc0623b02af261"
+      }
+    },
+    {
+      "id": "bosch-ngm8059uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "cooktop",
+      "model": "NGM8059UC",
+      "name": "800 Series Gas Cooktop 30'' Stainless steel",
+      "dimensions": {
+        "width": 31,
+        "height": 4.5,
+        "depth": 21.25
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/NGM8059UC",
+      "source_asset_id": "NGM8059UC",
+      "geometry_sha256": "0f9c9238eb51ee130bcf5a1c7cda54a46c19e8b0a99a51cd15106d56a8337f30",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-ngm8059uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-ngm8059uc-original.jpg"
+    },
+    {
+      "id": "bosch-ngm8659uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "cooktop",
+      "model": "NGM8659UC",
+      "name": "800 Series Gas Cooktop 36'' Stainless steel",
+      "dimensions": {
+        "width": 37,
+        "height": 4.5,
+        "depth": 21.25
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/NGM8659UC",
+      "source_asset_id": "NGM8659UC",
+      "geometry_sha256": "1efd243ff78cb197a04154459f189bf3aa0a47b73448b41fac3ea8feb6efef08",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-ngm8659uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-ngm8659uc-original.jpg"
+    },
+    {
+      "id": "bosch-nit8661uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "cooktop",
+      "model": "NIT8661UC",
+      "name": "800 Series Induction Cooktop 36'' Without Frame",
+      "dimensions": {
+        "width": 37,
+        "height": 4.125,
+        "depth": 21.25
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "cooktop": "induction"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/NIT8661UC",
+      "source_asset_id": "NIT8661UC",
+      "geometry_sha256": "20148213c9889de43a12483ad1491c4d94c2c93ecae410f715f6ce018c532e59",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-nit8661uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-nit8661uc-original.jpg"
+    },
+    {
+      "id": "bosch-shp78dm5n",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "dishwasher",
+      "model": "SHP78DM5N",
+      "name": "800 Series Dishwasher 24'' Stainless Steel Anti-fingerprint",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 23.765
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/SHP78DM5N",
+      "source_asset_id": "SHP78DM5N",
+      "geometry_sha256": "26be8cda2bd5182c1faf10d0f40f372587008ac87ceec17648f18c93f739d55c",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-shp78dm5n.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-shp78dm5n-original.jpg"
+    },
+    {
+      "id": "bosch-shx78dm5n",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "dishwasher",
+      "model": "SHX78DM5N",
+      "name": "800 Series Dishwasher 24'' Stainless Steel Anti-fingerprint",
+      "dimensions": {
+        "width": 23.5625,
+        "height": 33.875,
+        "depth": 25.6
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/SHX78DM5N",
+      "source_asset_id": "SHX78DM5N",
+      "geometry_sha256": "ed44863dd97c2fa797c46706475254bb88f14a2a839a29652230f06e11f8ba11",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-shx78dm5n.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-shx78dm5n-original.jpg"
+    },
+    {
+      "id": "bosch-spx68c75uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "dishwasher",
+      "model": "SPX68C75UC",
+      "name": "800 Series Dishwasher 17 3/4'' Stainless steel",
+      "dimensions": {
+        "width": 17.625,
+        "height": 32.0625,
+        "depth": 24.413
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/SPX68C75UC",
+      "source_asset_id": "SPX68C75UC",
+      "geometry_sha256": "71f32c1554043f51f5b348672024b9dc23cc424f49a26a5b5ce7d9f1172a5a90",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-spx68c75uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-spx68c75uc-original.jpg"
+    },
+    {
+      "id": "bosch-hcp50652uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "hood",
+      "model": "HCP50652UC",
+      "name": "500 Series Wall Hood Stainless Steel",
+      "dimensions": {
+        "width": 30.0,
+        "height": 30.12,
+        "depth": 19.723
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HCP50652UC",
+      "source_asset_id": "HCP50652UC",
+      "geometry_sha256": "82a93d15c5b7c9fdc885f1b324133f375ce9e01abf4964a4015a76887632cfc6",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hcp50652uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hcp50652uc-original.jpg"
+    },
+    {
+      "id": "bosch-hcb56651uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "hood",
+      "model": "HCB56651UC",
+      "name": "500 Series Wall Hood 36'' Stainless Steel",
+      "dimensions": {
+        "width": 36.0,
+        "height": 30.12,
+        "depth": 19.723
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HCB56651UC",
+      "source_asset_id": "HCB56651UC",
+      "geometry_sha256": "869ef352a9ee9db095ecec7d91cdbfa1e470e8ecfe771b98651f2de610535eb0",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hcb56651uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hcb56651uc-original.jpg"
+    },
+    {
+      "id": "bosch-hib82651uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "hood",
+      "model": "HIB82651UC",
+      "name": "800 Series Island Hood 42'' Stainless Steel",
+      "dimensions": {
+        "width": 42.063,
+        "height": 34.12,
+        "depth": 27.035
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HIB82651UC",
+      "source_asset_id": "HIB82651UC",
+      "geometry_sha256": "30a7e1f72d12e9d972e88987089d0c65cc4095fc7974d94d23a92fb2fd12058d",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hib82651uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hib82651uc-original.jpg"
+    },
+    {
+      "id": "bosch-hmd8454uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "microwave",
+      "model": "HMD8454UC",
+      "name": "800 Series Drawer Microwave 24'' Stainless Steel",
+      "dimensions": {
+        "width": 23.875,
+        "height": 16.3125,
+        "depth": 23.46
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "drawer",
+        "installation": "under_counter",
+        "cabinet_depth": 23.5
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HMD8454UC",
+      "source_asset_id": "HMD8454UC",
+      "geometry_sha256": "0ff3a65a5da67b2f21f21c16d1c8e426356fce336e91d77c0c3928f7d5c71339",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hmd8454uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hmd8454uc-original.jpg"
+    },
+    {
+      "id": "bosch-hmb50152uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "microwave",
+      "model": "HMB50152UC",
+      "name": "500 Series Built-In Microwave Oven 30'' Stainless steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 19.625,
+        "depth": 21.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "side_hinged",
+        "installation": "built_in"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HMB50152UC",
+      "source_asset_id": "HMB50152UC",
+      "geometry_sha256": "4c39251f55c037a61e5c120f1014429791d2d27b5f620752e7a6576bceac1115",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hmb50152uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hmb50152uc-original.jpg"
+    },
+    {
+      "id": "bosch-hmv8054u",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "microwave",
+      "model": "HMV8054U",
+      "name": "800 Series Over-The-Range Microwave 30'' Left SideOpening Door, Stainless Steel",
+      "dimensions": {
+        "width": 29.875,
+        "height": 17.5,
+        "depth": 17.875
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "door": "side_hinged",
+        "installation": "over_range"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HMV8054U",
+      "source_asset_id": "HMV8054U",
+      "geometry_sha256": "07d8214d02e98ae62f9b363c353c67d3548fc0f27fae20a19cb69344245c6506",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hmv8054u.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hmv8054u-original.jpg"
+    },
+    {
+      "id": "bosch-hgi8056uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "range",
+      "model": "HGI8056UC",
+      "name": "800 Series Gas Slide-in Range 30'' Stainless Steel",
+      "dimensions": {
+        "width": 31.5,
+        "height": 36.5,
+        "depth": 29.188
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HGI8056UC",
+      "source_asset_id": "HGI8056UC",
+      "geometry_sha256": "45f3381f3c18a43c719698f6a9e7dfdf51e5704167c2fc8f5fd940115ca3aa4d",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hgi8056uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hgi8056uc-original.jpg"
+    },
+    {
+      "id": "bosch-hii8057u",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "range",
+      "model": "HII8057U",
+      "name": "800 Series Induction Slide-in Range 30''",
+      "dimensions": {
+        "width": 31.5,
+        "height": 36.5,
+        "depth": 28.875
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HII8057U",
+      "source_asset_id": "HII8057U",
+      "geometry_sha256": "75fc253858ca5d8e4a9f9b652c0cba4666b276ee59e30716fa2ca0f67a385f57",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hii8057u.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hii8057u-original.jpg"
+    },
+    {
+      "id": "bosch-hgs8655uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "range",
+      "model": "HGS8655UC",
+      "name": "800 Series Gas Freestanding Range 36'' Stainless Steel",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 36,
+        "depth": 28.75
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HGS8655UC",
+      "source_asset_id": "HGS8655UC",
+      "geometry_sha256": "cce92a14c9b384a21717add4917e4d3f4c5df016f777ad8e64809e7c7154122b",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hgs8655uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hgs8655uc-original.jpg"
+    },
+    {
+      "id": "bosch-rgm8058uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "rangetop",
+      "model": "RGM8058UC",
+      "name": "800 Series Gas Rangetop 30 \" Stainless steel",
+      "dimensions": {
+        "width": 29.9375,
+        "height": 7.5,
+        "depth": 26.625
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "rangetop",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/RGM8058UC",
+      "source_asset_id": "RGM8058UC",
+      "geometry_sha256": "1cec9e006c39c3383e5990d3fe9dbcf1c617818ed4f0406136fb098bd5b58d8a",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-rgm8058uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-rgm8058uc-original.jpg"
+    },
+    {
+      "id": "bosch-rgm8658uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "rangetop",
+      "model": "RGM8658UC",
+      "name": "800 Series Gas Rangetop 36 \" Stainless steel",
+      "dimensions": {
+        "width": 35.9375,
+        "height": 7.5,
+        "depth": 26.625
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless",
+        "installation": "rangetop",
+        "cooktop": "gas"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/RGM8658UC",
+      "source_asset_id": "RGM8658UC",
+      "geometry_sha256": "4b108079e4dcbe213074aab24cfb76a9516e518151dc0340f1ebe33f9d1b7c87",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-rgm8658uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-rgm8658uc-original.jpg"
+    },
+    {
+      "id": "bosch-b24cb80ess",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "fridge",
+      "model": "B24CB80ESS",
+      "name": "800 Series Freestanding Bottom Freezer Refrigerator 24'' Brushed steel",
+      "dimensions": {
+        "width": 23.625,
+        "height": 79.9375,
+        "depth": 26.216
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/B24CB80ESS",
+      "source_asset_id": "B24CB80ESS",
+      "geometry_sha256": "2e4973f18dd42c33a6f00e174f8b2b6cf604887e4e9e84f62e89574a7f678748",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-b24cb80ess.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-b24cb80ess-original.jpg"
+    },
+    {
+      "id": "bosch-b33cm10sns",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "fridge",
+      "model": "B33CM10SNS",
+      "name": "100 Series Freestanding Bottom Freezer Refrigerator Brushed steel",
+      "dimensions": {
+        "width": 31.25,
+        "height": 69.125,
+        "depth": 28.13
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/B33CM10SNS",
+      "source_asset_id": "B33CM10SNS",
+      "geometry_sha256": "32feb9d264f2bf55f7c97eeeca392df0a918e4872e03e29ef963ec0e284747e5",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": "Full front preview is R1; selected native geometry and handle review are approved R2. Preserve linked handle review files.",
+      "image_path": "assets/appliances/gallery-oct14/bosch-b33cm10sns.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-b33cm10sns-original.jpg"
+    },
+    {
+      "id": "bosch-b36ct80sns",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "fridge",
+      "model": "B36CT80SNS",
+      "name": "800 Series French Door Bottom Mount Refrigerator 36'' Brushed steel",
+      "dimensions": {
+        "width": 35.625,
+        "height": 72,
+        "depth": 31.125
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/B36CT80SNS",
+      "source_asset_id": "B36CT80SNS",
+      "geometry_sha256": "2fd9f7a379aac6efc87fc8391993bdc6ebe271df04ebe7c3c96e3d86f0b177c6",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": "Full front preview is R1; selected native geometry and handle review are approved R2. Preserve linked handle review files.",
+      "image_path": "assets/appliances/gallery-oct14/bosch-b36ct80sns.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-b36ct80sns-original.jpg"
+    },
+    {
+      "id": "bosch-hbl8454uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "wall_oven",
+      "model": "HBL8454UC",
+      "name": "800 Series Single Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 29,
+        "depth": 26.64
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HBL8454UC",
+      "source_asset_id": "HBL8454UC",
+      "geometry_sha256": "fc22c0568d286685fee4a9ebe3cb8e3ca2462b75c035a69f67b84184c2e03356",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hbl8454uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hbl8454uc-original.jpg"
+    },
+    {
+      "id": "bosch-hbl8651uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "wall_oven",
+      "model": "HBL8651UC",
+      "name": "800 Series Double Wall Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 52.0625,
+        "depth": 26.64
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HBL8651UC",
+      "source_asset_id": "HBL8651UC",
+      "geometry_sha256": "7c71c557bea00c883ebbb9767f58cbf7c1d36b599751a48eca65912d1a6a7c88",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hbl8651uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hbl8651uc-original.jpg"
+    },
+    {
+      "id": "bosch-hbl8753uc",
+      "brand": "Bosch",
+      "manufacturer": "Bosch",
+      "category": "wall_oven",
+      "model": "HBL8753UC",
+      "name": "800 Series Combination Oven 30'' Stainless Steel",
+      "dimensions": {
+        "width": 29.75,
+        "height": 49,
+        "depth": 26.64
+      },
+      "depth_basis": "Approved exterior model envelope, including projecting details; not an installation opening.",
+      "appearance": {
+        "finish": "stainless"
+      },
+      "verified_at": "2026-10-14",
+      "product_url": "https://www.bosch-home.com/us/en/product/HBL8753UC",
+      "source_asset_id": "HBL8753UC",
+      "geometry_sha256": "7eae0b2b2c3a2dc457dfdbec2b96c3067dcb0b3cb24b34e71161b242c0d8935e",
+      "automatic_cutout": false,
+      "gallery_image_kind": "Approved Blender render",
+      "preview_note": null,
+      "image_path": "assets/appliances/gallery-oct14/bosch-hbl8753uc.jpg",
+      "reference_image_path": "assets/appliances/gallery-oct14/bosch-hbl8753uc-original.jpg"
     }
   ],
   "retired_ids": [

@@ -37,6 +37,7 @@ module KitchenLab
           candidate||=HandleCatalog.products.find{|p|p['number']==18}
           {'source_asset_id'=>candidate['asset_id'],'overall_length'=>12}
         end
+        h=nil unless panel['handle_attachment']
         if h
           raise 'Invalid appliance handle' unless h.is_a?(Hash) && [12,18].include?(h['overall_length'])
           snap=h['snapshot']

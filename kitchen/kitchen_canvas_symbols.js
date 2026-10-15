@@ -41,7 +41,7 @@
    for(const part of c.appliance_parts||[]){if(part.panel_id)rect(part.x,-part.y-part.depth,part.width,part.depth,part.color);}
    ctx.setLineDash([]);return;
   }
-  if(category==='range'||category==='cooktop'){
+  if(category==='range'||category==='rangetop'||category==='cooktop'){
    const dim=c.appliance?.dimensions,ww=category==='cooktop'&&dim?dim.width:w-2,dd=category==='cooktop'&&dim?dim.depth:d-3;
    const x=(w-ww)/2,y=category==='cooktop'?(d-dd)/2:1;
    rect(x,y,ww,dd,light);

@@ -421,3 +421,4 @@
 2026-10-14 16:30:45 Wall Light NOT placed: wall 849179b2 side a u -114.95 on 0.0..0.0, rect [[-117.2, -112.7, 56.88, 75.13]], red: on a door/window/niche or past the wall end
 2026-10-14 18:03:13 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 27.19 on 5.00..259.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
 2026-10-14 18:03:13 2D plumbing: shower_set fix-tmlvkv-3799 MOVED: wall 3b85b93f side a u 27.19
+2026-10-14 20:34:19 Switch PLACED: wall c8a403d4 side a u 85.4 height 48.0 turn 0 off the wall 0.375

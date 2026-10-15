@@ -16,6 +16,7 @@
  for(const p of selected.appliance.panel_ready.panels){const id=p.panel_id,o=draft[id];if(!o)continue;const article=document.createElement('article');article.dataset.panelId=id;const name=document.createElement('strong');name.textContent=id.replaceAll('_',' ');article.append(name);
  select(article,'Panel style',[['slab','Plain'],['shaker','Shaker']],o.style,v=>o.style=v);
  select(article,'Panel finish',[['','Match kitchen'],['ivory','Warm white'],['sage','Sage green'],['charcoal','Charcoal'],['oak','Wood tone']],o.finish||'',v=>o.finish=v||null);
+ if(!p.handle_attachment){o.handle=null;section.append(article);continue;}
  const button=document.createElement('button');button.type='button';button.className='handle-choice';if(o.handle?.snapshot){const img=document.createElement('img');img.src=o.handle.snapshot.preview_path;img.alt=o.handle.snapshot.family;button.append(img);}const text=document.createElement('span');text.textContent=o.handle?o.handle.snapshot.family:'Choose handle';button.append(text);button.onclick=()=>browse(id);article.append(button);
  select(article,'Handle overall length',[['12','12″'],['18','18″'],['none','No handle']],o.handle?String(o.handle.overall_length):'none',v=>setHandle(id,v==='none'?null:o.handle?.source_asset_id||pulls[0].asset_id,Number(v)));
  section.append(article);}}

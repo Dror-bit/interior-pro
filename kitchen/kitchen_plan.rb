@@ -203,7 +203,7 @@ module InteriorPro
           products=products.reject { |p| products.any? { |q| q['id']=='thermador-custom-'+p['id'].sub(/^thermador-/,'') } }
           products=products.select { |p| p['category']==category.to_s }.sort_by { |p| [p['reference_image_path'] ? 0 : 1,p['brand'],p['model']] }
           cards=products.map do |p|
-            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path','sku','automatic_cutout_available')
+            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path','sku','automatic_cutout_available','automatic_cutout')
             relative=p['image_path'].to_s
             file=File.expand_path(relative,__dir__)
             if file.start_with?(File.expand_path('assets/appliances',__dir__)+File::SEPARATOR) && File.file?(file)

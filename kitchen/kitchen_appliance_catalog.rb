@@ -2,7 +2,7 @@
 # a later catalog refresh cannot silently change the user's kitchen.
 module KitchenLab
   module ApplianceCatalog
-    KINDS={'fridge'=>'fridge','range'=>'oven','wall_oven'=>'wall_oven','dishwasher'=>'dishwasher','hood'=>'hood','microwave'=>'microwave','cooktop'=>'doors'}.freeze unless const_defined?(:KINDS,false)
+    KINDS={'fridge'=>'fridge','range'=>'oven','rangetop'=>'oven','wall_oven'=>'wall_oven','dishwasher'=>'dishwasher','hood'=>'hood','microwave'=>'microwave','cooktop'=>'doors'}.freeze unless const_defined?(:KINDS,false)
     def self.products
       JSON.parse(File.read(File.join(__dir__,'appliance_catalog.json')))['products'].select { |p| p['dimensions'] && p['verified_at'] }
     end
@@ -10,7 +10,7 @@ module KitchenLab
       products.find { |p| p['id']==id } || raise('Appliance model is not in the verified US catalog')
     end
     def self.snapshot(id)
-      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at','panel_ready').merge('schema_version'=>1)
+      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at','panel_ready','automatic_cutout','source_asset_id','geometry_sha256').merge('schema_version'=>1)
       asset=ApplianceAssets.selection(id);a['asset']=asset if asset;a
     end
     def self.microwave_base?(d)
@@ -22,6 +22,7 @@ module KitchenLab
       d={'kind'=>KINDS.fetch(category),'appliance'=>a,'appliance_finish'=>a.fetch('appearance',{}).fetch('finish','stainless')}.merge(dim)
       d['z']=case category;when 'wall_oven';28;when 'hood';66;when 'microwave';a.dig('appearance','installation')=='over_range' ? 54 : 36;else;0;end
       d['z']=34.5-d['height']-1 if microwave_base?(d)
+      d['z']=36-d['height'] if category=='rangetop'
       if category=='cooktop'
         d.merge!('width'=>((dim['width']+2)/3.0).ceil*3.0,'height'=>34.5,'depth'=>[24,dim['depth']+3].max,'z'=>0)
       end
@@ -43,12 +44,14 @@ module KitchenLab
       if a['category']=='cooktop'
         raise 'Cooktop must fit the base with 1 inch at either side' unless dim['width']<=d['width']-2
         raise 'Cooktop must fit the countertop depth' unless dim['depth']<=d['depth']-2
+        return if a['automatic_cutout']==false
         raise 'Cooktop requires a recorded countertop cutout' unless a['cutout'].is_a?(Hash)
         %w[width depth].each { |k| raise 'Invalid cooktop cutout' unless a['cutout'][k].is_a?(Numeric) && a['cutout'][k]>0 && a['cutout'][k]<dim[k] }
       else
         raise 'Catalog appliance dimensions are fixed. Choose another model or detach from catalog.' unless %w[width height depth].all? { |k| expected=dim[k];expected+=d['installation_depth']-a.dig('appearance','cabinet_depth').to_f if k=='depth' && d['installation_depth'];(d[k]-expected).abs<0.0001 }
       end
     end
+    def self.automatic_cooktop_cutout?(d);cooktop?(d) && d.dig('appliance','automatic_cutout')!=false;end
     def self.cooktop?(d);d.dig('appliance','category')=='cooktop';end
     # One set of local-inch boxes drives both native geometry and SVG projections.
     def self.parts(d)

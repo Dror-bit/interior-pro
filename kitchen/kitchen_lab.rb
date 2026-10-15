@@ -69,7 +69,7 @@ module KitchenLab
     hood_front=panel && d['surround_part']=='hood_front'
     thin_panel=hood_front || (panel && d['surround_part']=='plinth')
     raise 'Choose a plain or Shaker hood cover.' if hood_front && !%w[slab shaker].include?(d['style'])
-    {'width'=>[d['kind']=='filler' ? 0.5 : (d['kind']=='doors' && d['pullout'].is_a?(Hash) && d['pullout']['type']=='spice' ? 9 : 12),60],'height'=>[panel ? 0.5 : surround ? 8.25 : 12,96],'depth'=>[thin_panel ? 0.75 : 8,thin_panel ? 0.75 : 36],'x'=>[0,1200],'z'=>[0,120]}.each do |k,range|
+    {'width'=>[d['kind']=='filler' ? 0.5 : (d['kind']=='doors' && d['pullout'].is_a?(Hash) && d['pullout']['type']=='spice' ? 9 : 12),60],'height'=>[panel ? 0.5 : surround ? 8.25 : d.dig('appliance','category')=='rangetop' ? 1 : 12,96],'depth'=>[thin_panel ? 0.75 : 8,thin_panel ? 0.75 : 36],'x'=>[0,1200],'z'=>[0,120]}.each do |k,range|
       d[k]=Float(d[k]);raise "Invalid #{k}" unless d[k].finite? && d[k].between?(*range)
     end
     raise 'Invalid item type' unless %w[doors drawers sink wall tall fridge oven wall_oven dishwasher oven_tower micro_tower fridge_surround filler corner hood microwave corner_base corner_upper corner_lazy].include?(d['kind'])
@@ -86,7 +86,7 @@ module KitchenLab
     raise 'Invalid front style' unless %w[shaker slab glass].include?(d['style'])
     raise 'Invalid finish' unless FINISHES.key?(d['finish'])
     raise 'Invalid handle' unless %w[brass black none].include?(d['handle'])
-    raise 'Base cabinet must be at least 18 inches high' if !panel && !%w[wall hood microwave].include?(d['kind']) && d['height']<18
+    raise 'Base cabinet must be at least 18 inches high' if !panel && !%w[wall hood microwave wall_oven].include?(d['kind']) && d.dig('appliance','category')!='rangetop' && d['height']<18
     raise 'Invalid cabinet ID' unless d['id'].to_s.match?(/\A[a-zA-Z0-9-]{1,64}\z/)
     if d.key?('pullout')
       d['pullout']=Pullouts.validate(d['pullout'],d)
@@ -431,7 +431,7 @@ module KitchenLab
       if Sink.active?(d)
         hole=Sink.cutout(d);holes<<hole if hole
       end
-      holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.cooktop?(d)
+      holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.automatic_cooktop_cutout?(d)
       mat=CountertopMaterials.for_cabinet(d)
       g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],1.5,holes,mat)
       g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
@@ -452,7 +452,7 @@ module KitchenLab
         x,y,right,back=hole;[d['x']+x,y,d['x']+right,back]
       end
       holes.compact!
-      holes+=bases.select { |d| ApplianceCatalog.cooktop?(d) && wall_of(d)==r[:wall] && d['x']>=r[:start] && d['x']+d['width']<=r[:end] && (d['z']+d['height']-r[:z]).abs<0.001 }.map do |d|
+      holes+=bases.select { |d| ApplianceCatalog.automatic_cooktop_cutout?(d) && wall_of(d)==r[:wall] && d['x']>=r[:start] && d['x']+d['width']<=r[:end] && (d['z']+d['height']-r[:z]).abs<0.001 }.map do |d|
         x,y,right,back=ApplianceCatalog.cooktop_bounds(d,true);[d['x']+x,y,d['x']+right,back]
       end
       mat=CountertopMaterials.for_cabinet(d)

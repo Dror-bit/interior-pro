@@ -667,9 +667,73 @@ module InteriorPro
       end
     end
 
+    # ON THE KITCHEN BACKSPLASH TOO (2026-10-14 20:20, his words: "כל פלאג או שקע שיושב על באק ספלאש או טייל על קיר צריך
+    # לעבור לקידמת הטיל ולא לשבת מאחוריו על הקיר או בתוכו"). Measured (debug_elec_front.rb): the outlet over the range
+    # stood at 0 off the wall with the kitchen's backsplash pieces (KitchenLab worktop, 0.38" thick) over it. Now a thin
+    # kitchen piece (worktop / backsplash, no more than KITCHEN_FRONT_MAX off the wall) over the plate's rectangle pushes
+    # the plate out to its face, like an Interior Pro tile does. Off = the tile alone, as before.
+    USE_KITCHEN_FRONT = true unless const_defined?(:USE_KITCHEN_FRONT, false)
+    KITCHEN_FRONT_MAX = 3.0 unless const_defined?(:KITCHEN_FRONT_MAX, false)
+    KITCHEN_FRONT_KINDS = %w[worktop backsplash].freeze unless const_defined?(:KITCHEN_FRONT_KINDS, false)
+
+    # every kitchen group in the model, at any depth, with its world transformation: [[ent, kind, wxf], ...]
+    def self.kitchen_pieces(model = Sketchup.active_model, ents = nil, xf = nil, depth = 0, out = [])
+      ents ||= model.entities
+      xf ||= Geom::Transformation.new
+      ents.each do |e|
+        next unless e.is_a?(Sketchup::Group) ||
+                    (defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance))
+        next unless e.valid?
+        next if e.get_attribute('InteriorPro', 'type')
+        next if e.respond_to?(:hidden?) && e.hidden?
+        wxf = xf * e.transformation
+        k = e.get_attribute('KitchenLab', 'kind')
+        out << [e, k.to_s, wxf] if k
+        next if depth >= 4
+        kids = e.respond_to?(:definition) ? e.definition.entities : e.entities
+        kitchen_pieces(model, kids, wxf, depth + 1, out)
+      end
+      out
+    rescue StandardError => e
+      puts "[Electrical] kitchen_pieces: #{e.class}: #{e.message}"
+      out
+    end
+
+    # a group's box in the frame of the wall face: [u0, u1, z0, z1, out_min, out_max]. The box is in its container's
+    # coordinates, so only what is OUTSIDE it is applied (wxf = outer * own). PURE.
+    def self.box_in_frame(ent, wxf, fr)
+      b = ent.bounds
+      outer = wxf * ent.transformation.inverse
+      mn = b.min
+      mx = b.max
+      pts = [mn.x, mx.x].product([mn.y, mx.y], [mn.z, mx.z]).map { |x, y, z| Geom::Point3d.new(x, y, z).transform(outer) }
+      us = pts.map { |q| (q.x - fr[:ox]) * fr[:ux] + (q.y - fr[:oy]) * fr[:uy] }
+      os = pts.map { |q| (q.x - fr[:ox]) * fr[:nx] + (q.y - fr[:oy]) * fr[:ny] }
+      zs = pts.map { |q| q.z - fr[:floor_z] }
+      [us.min, us.max, zs.min, zs.max, os.min, os.max]
+    end
+
+    # how far the face of a thin kitchen piece over [u0,u1]x[z0,z1] stands off the wall; 0.0 = none. boxes = the
+    # pieces' [kind, u0, u1, z0, z1, o0, o1] (box_in_frame). PURE.
+    def self.kitchen_front(u0, u1, z0, z1, boxes)
+      best = 0.0
+      Array(boxes).each do |k, bu0, bu1, bz0, bz1, bo0, bo1|
+        next unless KITCHEN_FRONT_KINDS.include?(k.to_s)
+        next unless bu0.to_f < u1.to_f && bu1.to_f > u0.to_f && bz0.to_f < z1.to_f && bz1.to_f > z0.to_f
+        next if bo0.to_f < -0.5 || bo1.to_f > KITCHEN_FRONT_MAX          # a cabinet, or behind the face
+        best = bo1.to_f if bo1.to_f > best
+      end
+      best
+    end
+
+    def self.kitchen_boxes(fr, model = Sketchup.active_model)
+      kitchen_pieces(model).map { |e, k, wxf| [k] + box_in_frame(e, wxf, fr) }
+    end
+
     # ONE CHECK for the tool: does it fit with its middle at u?
     # { ok:, lo:, hi:, outs:, rects:, on_hole:, outside: }
     def self.check(wall, side, fr, u, parts, wall_h)
+      kboxes = USE_KITCHEN_FRONT ? kitchen_boxes(fr) : []
       lo, hi = InteriorPro::TileWall.face_limits(wall, fr, u)
       holes = InteriorPro::FixtureLibrary.holes_on(wall, fr, side)
       res = { ok: !parts.empty?, lo: lo, hi: hi, outs: [], rects: [], on_hole: false, no_tile: false }
@@ -680,11 +744,51 @@ module InteriorPro
         res[:on_hole] = true if on_hole?(u0, u1, z0, z1, holes)
         # on a tiled backsplash it stands on the tile, not inside it
         t = InteriorPro::FixtureLibrary.tile_under(wall, side, u0, u1, z0, z1)
-        res[:outs] << (t ? t[:out].to_f : 0.0)
+        out = t ? t[:out].to_f : 0.0
+        kf = kitchen_front(u0, u1, z0, z1, kboxes)
+        out = kf if kf > out
+        res[:outs] << out
       end
       res[:outside] = InteriorPro::FixtureLibrary.outside?(wall, side)
       res[:ok] = false if res[:on_hole] || res[:outside]
       res
+    end
+
+    # THE ONES ALREADY ON THE WALLS come out to the face too (20:20): every plate on a wall whose back does not stand
+    # where the tile / backsplash face is, moved out (or back) along the wall's normal. ONE undo step. Returns how many.
+    def self.refront!(model = Sketchup.active_model)
+      walls = {}
+      model.entities.each do |e|
+        next unless e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro', 'type') == 'wall'
+        walls[e.get_attribute('InteriorPro', 'id').to_s] = e
+      end
+      moved = 0
+      model.start_operation('Electrical To The Face', true)
+      model.entities.to_a.each do |e|
+        next unless e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro', 'type') == 'electrical'
+        w = walls[e.get_attribute('InteriorPro', 'host_wall_id').to_s]
+        next unless w
+        side = e.get_attribute('InteriorPro', 'side').to_s
+        fr = InteriorPro::TileWall.frame_for(w, side)
+        next unless fr
+        u0, u1, z0, z1, o0, = box_in_frame(e, e.transformation, fr)
+        t = InteriorPro::FixtureLibrary.tile_under(w, side, u0, u1, z0, z1)
+        want = t ? t[:out].to_f : 0.0
+        kf = USE_KITCHEN_FRONT ? kitchen_front(u0, u1, z0, z1, kitchen_boxes(fr, model)) : 0.0
+        want = kf if kf > want
+        d = want - o0.to_f
+        next if d.abs < 0.01
+        e.transform!(Geom::Transformation.translation(Geom::Vector3d.new(fr[:nx] * d, fr[:ny] * d, 0)))
+        puts "[Electrical] #{e.name} on wall #{w.get_attribute('InteriorPro', 'id').to_s[0, 8]}: #{o0.round(3)} -> #{want.round(3)} off the wall"
+        moved += 1
+      end
+      model.commit_operation
+      puts "[Electrical] refront!: #{moved} moved to the face"
+      moved
+    rescue StandardError => e
+      model.abort_operation rescue nil
+      puts "[Electrical] refront!: #{e.class}: #{e.message}"
+      0
     end
 
     # Put it on the face: ONE group with the plate inside. ONE undo step.
