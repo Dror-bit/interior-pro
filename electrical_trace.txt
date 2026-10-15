@@ -1,0 +1,423 @@
+2026-10-12 17:44:50 5 switches PLACED: wall c8a403d4 side a u 191.57 height 48.0 off the wall 0.0
+2026-10-12 17:45:15 Outlet PLACED: wall c8a403d4 side a u 181.06 height 18.0 off the wall 0.0
+2026-10-12 17:59:52 3 switches PLACED: wall c8a403d4 side a u 195.83 height 48.0 off the wall 0.0
+2026-10-12 18:02:21 Outlet PLACED: wall c8a403d4 side a u 184.3 height 18.0 off the wall 0.0
+2026-10-12 18:02:30 Outlet PLACED: wall c8a403d4 side a u 204.87 height 18.0 off the wall 0.0
+2026-10-12 18:21:03 2 switches PLACED: wall c8a403d4 side a u 200.88 height 48.0 off the wall 0.0
+2026-10-12 18:21:25 3 switches PLACED: wall c8a403d4 side a u 208.37 height 48.0 off the wall 0.0
+2026-10-12 18:44:46 3 switches PLACED: wall c8a403d4 side a u 208.76 height 48.0 off the wall 0.0
+2026-10-12 18:44:48 3 switches PLACED: wall c8a403d4 side a u 205.23 height 48.0 off the wall 0.0
+2026-10-12 18:44:49 3 switches PLACED: wall c8a403d4 side a u 201.33 height 48.0 off the wall 0.0
+2026-10-12 18:44:50 3 switches PLACED: wall c8a403d4 side a u 197.96 height 48.0 off the wall 0.0
+2026-10-12 18:45:02 3 switches PLACED: wall c8a403d4 side a u 214.43 height 48.0 off the wall 0.0
+2026-10-12 18:45:13 Outlet PLACED: wall 045fe78b side a u 32.98 height 18.0 off the wall 0.0
+2026-10-12 19:08:12 picture outlet/Duplex Classic: front view, 644 lines -> Duplex Classic.svg
+2026-10-12 19:08:12 picture outlet/Duplex Decora: front view, 560 lines -> Duplex Decora.svg
+2026-10-12 19:08:12 picture switch/Rocker 1: front view, 448 lines -> Rocker 1.svg
+2026-10-12 19:08:12 picture switch/Rocker 2: front view, 784 lines -> Rocker 2.svg
+2026-10-12 19:08:12 picture switch/Rocker 3: front view, 1120 lines -> Rocker 3.svg
+2026-10-12 19:08:12 picture switch/Rocker 4: front view, 1456 lines -> Rocker 4.svg
+2026-10-12 19:08:12 picture switch/Rocker 5: front view, 1792 lines -> Rocker 5.svg
+2026-10-12 19:26:45 Outlet PLACED: wall 045fe78b side a u 54.99 height 18.0 turn 0 off the wall 0.0
+2026-10-12 19:35:12 Outlet PLACED: wall 045fe78b side a u 47.48 height 18.0 turn 0 off the wall 0.0
+2026-10-12 19:35:14 Outlet PLACED: wall 045fe78b side a u 42.31 height 18.0 turn 0 off the wall 0.0
+2026-10-12 19:35:14 key down: 27 (cfg yes, kind outlet)
+2026-10-12 19:48:47 picture wall_light/Kuzco Chute 23 Black: front view, 300 lines -> Kuzco Chute 23 Black.svg
+2026-10-12 19:48:47 picture wall_light/QAZQA Sunrise Black Gold: front view, 548 lines -> QAZQA Sunrise Black Gold.svg
+2026-10-12 19:48:54 click 1722,536: no wall face under the mouse
+2026-10-12 19:49:11 Wall Light PLACED: wall c8a403d4 side a u 29.1 height 66.0 turn 0 off the wall 0.0
+2026-10-12 19:49:23 Wall Light PLACED: wall 3b85b93f side a u 226.29 height 66.0 turn 0 off the wall 0.0
+2026-10-12 19:54:40 picture ceiling_light/ET2 Groove 24 Black: front view, 1068 lines -> ET2 Groove 24 Black.svg
+2026-10-12 19:54:40 picture ceiling_light/Maxim Chip 9 Black: front view, 192 lines -> Maxim Chip 9 Black.svg
+2026-10-12 19:54:40 picture ceiling_fan/Hinkley Sculpt 60 Black: front view, 1166 lines -> Hinkley Sculpt 60 Black.svg
+2026-10-12 19:54:40 picture ceiling_fan/Kuzco Baylor 60 Oak: front view, 910 lines -> Kuzco Baylor 60 Oak.svg
+2026-10-12 19:54:46 Ceiling Light ET2 Groove 24 Black: 2 ceilings in the model
+2026-10-12 19:54:47 Ceiling Light HUNG: ET2 Groove 24 Black on ceiling ceil-tmtrt8-9223 x -625.45 y 336.49 z 96.0
+2026-10-12 19:55:13 Ceiling Light Maxim Chip 9 Black: 2 ceilings in the model
+2026-10-12 19:55:14 Ceiling Light HUNG: Maxim Chip 9 Black on ceiling ceil-tmtrt8-9223 x -584.21 y 345.82 z 96.0
+2026-10-12 19:55:21 Ceiling Light HUNG: Maxim Chip 9 Black on ceiling ceil-tmtrt8-9223 x -599.62 y 340.23 z 96.0
+2026-10-12 19:55:38 Ceiling Fan Hinkley Sculpt 60 Black: 2 ceilings in the model
+2026-10-12 19:55:39 Ceiling Fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmtrt8-9223 x -645.42 y 324.58 z 96.0
+2026-10-12 19:55:49 Ceiling Fan Kuzco Baylor 60 Oak: 2 ceilings in the model
+2026-10-12 19:55:50 Ceiling Fan HUNG: Kuzco Baylor 60 Oak on ceiling ceil-tmtrt8-9223 x -571.05 y 344.06 z 96.0
+2026-10-12 20:01:09 Outlet PLACED: wall 3b85b93f side a u 228.98 height 42.0 turn 0 COUNTERTOP off the wall 0.0
+2026-10-12 20:01:27 Outlet NOT placed: wall 3b85b93f side a u 197.29 on 96.6..259.0, rect [[195.91, 198.66, 39.75, 44.25]], red: on a door/window/niche or past the wall end
+2026-10-13 10:54:35 picture recessed/Recessed 4in Round White: front view, 384 lines -> Recessed 4in Round White.svg
+2026-10-13 10:54:35 picture recessed/Recessed 6in Round White: front view, 384 lines -> Recessed 6in Round White.svg
+2026-10-13 10:54:41 Recessed Recessed 4in Round White: 2 ceilings in the model
+2026-10-13 10:54:42 Recessed HUNG: Recessed 4in Round White on ceiling ceil-tmuxql-6232 x -483.65 y 242.46 z 96.0
+2026-10-13 11:00:49 Recessed Recessed 4in Round White: 2 ceilings in the model
+2026-10-13 11:00:50 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuy1e-5686)
+2026-10-13 11:00:50 Recessed HUNG: Recessed 4in Round White on ceiling ceil-tmuxql-6232 x -537.97 y 222.99 z 96.0
+2026-10-13 11:02:03 Recessed Recessed 6in Round White: 2 ceilings in the model
+2026-10-13 11:02:04 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuy3g-1982)
+2026-10-13 11:02:04 Recessed HUNG: Recessed 6in Round White on ceiling ceil-tmuy1e-5686 x -512.01 y 256.46 z 96.0
+2026-10-13 11:14:56 picture recessed/Recessed 4in Round White: front view, 384 lines -> Recessed 4in Round White.top.svg
+2026-10-13 11:14:56 picture recessed/Recessed 6in Round White: front view, 384 lines -> Recessed 6in Round White.top.svg
+2026-10-13 11:14:56 picture ceiling_fan/Hinkley Sculpt 60 Black: front view, 1166 lines -> Hinkley Sculpt 60 Black.top.svg
+2026-10-13 11:14:56 picture ceiling_fan/Kuzco Baylor 60 Oak: front view, 910 lines -> Kuzco Baylor 60 Oak.top.svg
+2026-10-13 11:15:00 Recessed Recessed 6in Round White: 2 ceilings in the model
+2026-10-13 11:15:00 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuyp0-8852)
+2026-10-13 11:15:00 Recessed HUNG: Recessed 6in Round White on ceiling ceil-tmuyor-0782 x -581.69 y 339.15 z 96.0
+2026-10-13 11:15:01 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuyp1-1177)
+2026-10-13 11:15:01 Recessed HUNG: Recessed 6in Round White on ceiling ceil-tmuyp0-8852 x -645.47 y 339.75 z 96.0
+2026-10-13 11:15:24 Recessed Recessed 6in Round White: 2 ceilings in the model
+2026-10-13 11:15:24 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuypo-6768)
+2026-10-13 11:15:24 Recessed HUNG: Recessed 6in Round White on ceiling ceil-tmuypk-4170 x -639.76 y 346.04 z 96.0
+2026-10-13 11:15:25 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuypp-7464)
+2026-10-13 11:15:25 Recessed HUNG: Recessed 6in Round White on ceiling ceil-tmuypo-6768 x -591.09 y 345.87 z 96.0
+2026-10-13 11:30:45 light removed: ceiling of room-tlf7le-9399 already has 0 hole(s) for 1 light(s) - nothing to do
+2026-10-13 11:30:46 light removed: ceiling of room-tlf7le-9399 already has 0 hole(s) for 0 light(s) - nothing to do
+2026-10-13 11:30:56 Recessed Recessed 4in Round White: 2 ceilings in the model
+2026-10-13 11:30:57 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuzfl-4048)
+2026-10-13 11:30:57 Recessed HUNG: Recessed 4in Round White on ceiling ceil-tmuzfd-0690 x -653.86 y 310.82 z 96.0
+2026-10-13 11:30:58 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmuzfm-5751)
+2026-10-13 11:30:58 Recessed HUNG: Recessed 4in Round White on ceiling ceil-tmuzfl-4048 x -595.68 y 307.87 z 96.0
+2026-10-13 11:31:00 light removed: ceiling of room-tlf7le-9399 built again, 2 -> 1 hole(s)
+2026-10-13 11:54:21 light removed: ceiling of room-tlf7le-9399 already has 0 hole(s) for 1 light(s) - nothing to do
+2026-10-13 11:54:22 light removed: ceiling of room-tlf7le-9399 already has 0 hole(s) for 0 light(s) - nothing to do
+2026-10-13 12:56:06 picture ceiling_light/Alora Belleview 12 Gold Clear: front view, 1508 lines -> Alora Belleview 12 Gold Clear.svg
+2026-10-13 12:56:07 picture ceiling_light/Kuzco Bolla 6 Gold Clear: front view, 452 lines -> Kuzco Bolla 6 Gold Clear.svg
+2026-10-13 12:56:07 picture ceiling_light/Kuzco Drift 45 Black: front view, 396 lines -> Kuzco Drift 45 Black.svg
+2026-10-13 12:56:17 Outlet PLACED: wall c8a403d4 side a u 100.13 height 42.0 turn 0 COUNTERTOP off the wall 0.0
+2026-10-13 13:19:03 Outlet PLACED: wall c8a403d4 side a u 200.02 height 42.0 turn 0 COUNTERTOP off the wall 0.0
+2026-10-13 13:19:17 Outlet PLACED: wall c8a403d4 side a u 217.25 height 42.0 turn 0 COUNTERTOP off the wall 0.0
+2026-10-13 13:38:24 2D: chose outlet Duplex Classic at 18.0
+2026-10-13 13:38:43 2D: chose outlet Duplex Classic at 18.0
+2026-10-13 13:39:23 2D: outlet PLACED: wall c8a403d4 side a u 172.9 height 18.0
+2026-10-13 13:40:22 2D: chose outlet Duplex Decora at 18.0
+2026-10-13 13:40:34 2D: outlet PLACED: wall c8a403d4 side a u 118.94 height 18.0
+2026-10-13 13:40:44 2D: chose outlet Duplex Decora at 42.0
+2026-10-13 13:40:45 2D: outlet PLACED: wall c8a403d4 side a u 121.23 height 42.0
+2026-10-13 13:48:50 2D: chose outlet Duplex Decora at 42.0
+2026-10-13 13:48:52 2D: outlet PLACED: wall c8a403d4 side a u 185.25 height 42.0
+2026-10-13 13:58:29 2D: chose switch Rocker 1 at 48.0
+2026-10-13 13:58:36 2D: outlet elec-tmv5fm-135 DELETED
+2026-10-13 14:49:09 2D: chose switch Rocker 3 at 48.0
+2026-10-13 14:49:11 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 148.20 on 5.00..219.50 height 48
+2026-10-13 14:49:12 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 145.99 on 5.00..219.50 height 48
+2026-10-13 14:49:13 2D: switch click on no wall
+2026-10-13 14:49:13 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 146.21 on 5.00..219.50 height 48
+2026-10-13 14:49:15 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 146.21 on 5.00..219.50 height 48
+2026-10-13 14:49:16 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 143.57 on 5.00..219.50 height 48
+2026-10-13 14:49:16 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 136.73 on 5.00..219.50 height 48
+2026-10-13 14:49:25 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 152.83 on 5.00..219.50 height 48
+2026-10-13 14:49:25 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 152.83 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 152.83 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 153.05 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 153.05 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 153.05 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 153.05 on 5.00..219.50 height 48
+2026-10-13 14:49:26 2D: switch click RED (on a window 44..80 at t 149.764 w 36) wall c8a403d4 t 153.05 on 5.00..219.50 height 48
+2026-10-13 14:49:40 2D: switch click GREEN wall c8a403d4 t 174.68 on 5.00..219.50 height 48
+2026-10-13 14:49:40 2D: switch PLACED: wall c8a403d4 side a u 174.68 height 48.0
+2026-10-13 14:49:46 2D: switch click GREEN wall c8a403d4 t 183.55 on 5.00..219.50 height 48
+2026-10-13 14:49:46 2D: switch PLACED: wall c8a403d4 side a u 183.55 height 48.0
+2026-10-13 14:49:51 2D: switch elec-tmv8my-3109 DELETED
+2026-10-13 15:07:22 picture wall_light/Hinkley Facet 51150HB: front view, 672 lines -> Hinkley Facet 51150HB.svg
+2026-10-13 15:07:22 picture wall_light/Hinkley Moore 46410HB: front view, 2208 lines -> Hinkley Moore 46410HB.svg
+2026-10-13 15:07:22 picture ceiling_light/Alora Belleview 12 Gold Clear: front view, 1508 lines -> Alora Belleview 12 Gold Clear.svg
+2026-10-13 15:07:22 picture ceiling_light/Kuzco Bolla 6 Gold Clear: front view, 452 lines -> Kuzco Bolla 6 Gold Clear.svg
+2026-10-13 15:07:22 picture ceiling_light/Kuzco Drift 45 Black: front view, 396 lines -> Kuzco Drift 45 Black.svg
+2026-10-13 15:07:22 picture ceiling_light/Schonbek Kindjal 9 Aged Brass: front view, 1356 lines -> Schonbek Kindjal 9 Aged Brass.svg
+2026-10-13 15:07:26 Recessed Recessed 4in Round White: 2 ceilings in the model
+2026-10-13 15:07:26 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9ge-1536)
+2026-10-13 15:07:26 Recessed HUNG: Recessed 4in Round White on ceiling ceil-tmv9g1-4304 x -510.92 y 248.66 z 96.0
+2026-10-13 15:07:44 light removed: ceiling of room-tlf7le-9399 already has 0 hole(s) for 0 light(s) - nothing to do
+2026-10-13 15:15:58 2D: chose recessed Recessed 4in Round White
+2026-10-13 15:15:59 2D: recessed click GREEN at -628.78, 307.16
+2026-10-13 15:15:59 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9un-2649)
+2026-10-13 15:15:59 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:00 2D: recessed click GREEN at -581.37, 307.60
+2026-10-13 15:16:00 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9uo-0485)
+2026-10-13 15:16:00 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:02 2D: recessed click GREEN at -532.63, 306.72
+2026-10-13 15:16:02 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9uq-1935)
+2026-10-13 15:16:02 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:03 2D: recessed click GREEN at -497.13, 306.50
+2026-10-13 15:16:03 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9ur-2682)
+2026-10-13 15:16:03 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:04 2D: recessed click GREEN at -628.56, 257.32
+2026-10-13 15:16:04 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9us-4934)
+2026-10-13 15:16:05 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:05 2D: recessed click GREEN at -587.54, 256.44
+2026-10-13 15:16:05 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9ut-4542)
+2026-10-13 15:16:05 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:15 2D: recessed click GREEN at -576.78, 289.87
+2026-10-13 15:16:15 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9v3-5814)
+2026-10-13 15:16:15 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:21 2D: recessed click GREEN at -504.74, 271.50
+2026-10-13 15:16:21 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9v9-1467)
+2026-10-13 15:16:21 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:23 2D: recessed click GREEN at -635.98, 269.75
+2026-10-13 15:16:23 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9vb-1793)
+2026-10-13 15:16:23 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:30 2D: recessed click GREEN at -545.86, 188.67
+2026-10-13 15:16:30 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9vi-6487)
+2026-10-13 15:16:30 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:31 2D: recessed click GREEN at -598.36, 189.83
+2026-10-13 15:16:31 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmv9vj-3881)
+2026-10-13 15:16:32 2D: place_light ERROR TypeError: reference to deleted Entity @ C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/plan_editor.rb:2778:in `get_attribute'
+2026-10-13 15:16:35 2D: chose ceiling_fan Hinkley Sculpt 60 Black
+2026-10-13 15:16:36 2D: ceiling_fan click GREEN at -553.74, 272.08
+2026-10-13 15:16:36 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmv9vj-3881 x -553.74 y 272.08
+2026-10-13 15:46:52 2D: ceiling_fan click GREEN at -640.36, 398.66
+2026-10-13 15:46:52 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmv9vj-3881 x -640.36 y 398.66
+2026-10-13 15:46:58 2D: ceiling_fan click GREEN at -602.15, 286.37
+2026-10-13 15:46:58 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmv9vj-3881 x -602.15 y 286.37
+2026-10-13 15:48:59 light removed: ceiling of room-tlf7le-9399 already has 9 hole(s) for 10 light(s) - nothing to do
+2026-10-13 15:49:00 light removed: ceiling of room-tlf7le-9399 already has 9 hole(s) for 9 light(s) - nothing to do
+2026-10-13 15:49:09 light removed: ceiling of room-tlf7le-9399 built again, 9 -> 8 hole(s)
+2026-10-13 15:49:09 light removed: ceiling of room-tlf7le-9399 built again, 8 -> 7 hole(s)
+2026-10-13 15:49:10 light removed: ceiling of room-tlf7le-9399 built again, 7 -> 6 hole(s)
+2026-10-13 15:49:11 light removed: ceiling of room-tlf7le-9399 built again, 6 -> 5 hole(s)
+2026-10-13 15:49:13 light removed: ceiling of room-tlf7le-9399 built again, 5 -> 4 hole(s)
+2026-10-13 15:49:15 light removed: ceiling of room-tlf7le-9399 built again, 4 -> 3 hole(s)
+2026-10-13 15:49:16 light removed: ceiling of room-tlf7le-9399 built again, 3 -> 2 hole(s)
+2026-10-13 15:49:17 light removed: ceiling of room-tlf7le-9399 built again, 2 -> 1 hole(s)
+2026-10-13 15:49:17 light removed: ceiling of room-tlf7le-9399 built again, 1 -> 0 hole(s)
+2026-10-13 15:55:11 2D: chose ceiling_fan Hinkley Sculpt 60 Black
+2026-10-13 15:55:12 2D: ceiling_fan click GREEN at -514.99, 280.92
+2026-10-13 15:55:12 2D: ceiling_fan NOT hung: no ceiling over -514.99, 280.92
+2026-10-13 15:55:14 2D: ceiling_fan click GREEN at -534.62, 280.92
+2026-10-13 15:55:14 2D: ceiling_fan NOT hung: no ceiling over -534.62, 280.92
+2026-10-13 15:55:34 2D: chose ceiling_fan Hinkley Sculpt 60 Black
+2026-10-13 15:55:35 2D: ceiling_fan click GREEN at -523.81, 285.99
+2026-10-13 15:55:35 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmvboa-7480 x -523.81 y 285.99
+2026-10-13 15:55:37 2D: ceiling_fan click GREEN at -562.94, 272.97
+2026-10-13 15:55:37 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmvboa-7480 x -562.94 y 272.97
+2026-10-13 15:55:38 2D: ceiling_fan click GREEN at -518.36, 277.07
+2026-10-13 15:55:38 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmvboa-7480 x -518.36 y 277.07
+2026-10-13 15:55:38 2D: ceiling_fan click GREEN at -518.36, 277.07
+2026-10-13 15:55:38 2D: ceiling_fan HUNG: Hinkley Sculpt 60 Black on ceiling ceil-tmvboa-7480 x -518.36 y 277.07
+2026-10-13 15:55:47 2D: chose ceiling_fan Kuzco Baylor 60 Oak
+2026-10-13 15:55:48 2D: ceiling_fan click GREEN at -520.35, 274.21
+2026-10-13 15:55:48 2D: ceiling_fan HUNG: Kuzco Baylor 60 Oak on ceiling ceil-tmvboa-7480 x -520.35 y 274.21
+2026-10-13 15:55:55 2D: chose recessed Recessed 4in Round White
+2026-10-13 15:55:56 2D: recessed click GREEN at -617.60, 255.24
+2026-10-13 15:55:56 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvbp8-7565)
+2026-10-13 15:55:56 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvboa-7480 x -617.6 y 255.24
+2026-10-13 15:55:57 2D: recessed click GREEN at -550.78, 257.67
+2026-10-13 15:55:57 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvbp9-8970)
+2026-10-13 15:55:57 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvbp8-7565 x -550.78 y 257.67
+2026-10-13 16:17:43 2D: probe: items 7 kinds ceiling_fan,ceiling_fan,ceiling_fan,ceiling_fan,ceiling_fan,recessed,recessed page 0 mode sel scale 4.534521158129176 light boolean=true | draw ok, shown 7 first {"id":"elec-tmvbon-5335","kind":"ceiling_fan","x":-516.658,"y":286.138,"r":26.2015} | drawElec ok 7
+2026-10-13 16:18:02 2D: chose recessed Recessed 6in Round White
+2026-10-13 16:18:03 2D: recessed click GREEN at -638.93, 246.29
+2026-10-13 16:18:03 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcq3-7951)
+2026-10-13 16:18:03 2D: recessed HUNG: Recessed 6in Round White on ceiling ceil-tmvbp9-8970 x -638.93 y 246.29
+2026-10-13 16:18:04 2D: recessed click GREEN at -558.88, 239.01
+2026-10-13 16:18:04 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcq4-6745)
+2026-10-13 16:18:04 2D: recessed HUNG: Recessed 6in Round White on ceiling ceil-tmvcq3-7951 x -558.88 y 239.01
+2026-10-13 16:18:05 2D: recessed click GREEN at -487.86, 241.66
+2026-10-13 16:18:05 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcq5-2545)
+2026-10-13 16:18:05 2D: recessed HUNG: Recessed 6in Round White on ceiling ceil-tmvcq4-6745 x -487.86 y 241.66
+2026-10-13 16:20:55 2D: chose recessed Recessed 4in Round White
+2026-10-13 16:20:56 2D: recessed click GREEN at -529.32, 224.02
+2026-10-13 16:20:56 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcuw-4415)
+2026-10-13 16:20:56 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvcq5-2545 x -529.32 y 224.02
+2026-10-13 16:20:57 2D: recessed click GREEN at -528.22, 219.39
+2026-10-13 16:20:57 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcux-1478)
+2026-10-13 16:20:57 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvcuw-4415 x -528.22 y 219.39
+2026-10-13 16:21:01 2D: chose recessed Recessed 6in Round White
+2026-10-13 16:21:02 2D: recessed click GREEN at -592.84, 231.30
+2026-10-13 16:21:02 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcv2-6058)
+2026-10-13 16:21:02 2D: recessed HUNG: Recessed 6in Round White on ceiling ceil-tmvcux-1478 x -592.84 y 231.3
+2026-10-13 16:21:03 2D: recessed click GREEN at -642.46, 230.41
+2026-10-13 16:21:03 hole 5.5" for Recessed 6in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvcv3-6446)
+2026-10-13 16:21:03 2D: recessed HUNG: Recessed 6in Round White on ceiling ceil-tmvcv2-6058 x -642.46 y 230.41
+2026-10-13 16:21:54 light removed: ceiling of room-tlf7le-9399 built again, 9 -> 8 hole(s)
+2026-10-13 16:23:35 2D: ceiling_fan elec-tmvbop-5116 DELETED
+2026-10-13 16:23:35 2D: ceiling_fan elec-tmvbp0-7780 DELETED
+2026-10-13 16:23:36 2D: ceiling_fan elec-tmvbon-5335 DELETED
+2026-10-13 16:23:36 2D: ceiling_fan elec-tmvboq-1807 DELETED
+2026-10-13 16:23:37 2D: recessed elec-tmvcq4-3105 DELETED
+2026-10-13 16:23:37 light removed: ceiling of room-tlf7le-9399 built again, 8 -> 7 hole(s)
+2026-10-13 16:23:38 2D: recessed elec-tmvcuw-7348 DELETED
+2026-10-13 16:23:38 light removed: ceiling of room-tlf7le-9399 built again, 7 -> 6 hole(s)
+2026-10-13 16:23:38 2D: recessed elec-tmvcux-61 DELETED
+2026-10-13 16:23:38 light removed: ceiling of room-tlf7le-9399 built again, 6 -> 5 hole(s)
+2026-10-13 16:23:44 2D: chose recessed Recessed 4in Round White
+2026-10-13 16:23:44 2D: recessed click GREEN at -544.32, 242.32
+2026-10-13 16:23:44 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvczk-4943)
+2026-10-13 16:23:44 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvcze-7092 x -544.32 y 242.32
+2026-10-13 16:23:46 2D: recessed click GREEN at -520.50, 241.44
+2026-10-13 16:23:46 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvczm-9634)
+2026-10-13 16:23:46 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvczk-4943 x -520.5 y 241.44
+2026-10-13 16:25:59 2D: chose recessed Recessed 4in Round White
+2026-10-13 16:26:00 2D: recessed click GREEN at -571.23, 259.74
+2026-10-13 16:26:00 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvd3c-3950)
+2026-10-13 16:26:00 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmvczm-9634 x -571.23 y 259.74
+2026-10-13 16:27:22 2D: recessed elec-tmvbp8-6922 DELETED
+2026-10-13 16:27:22 light removed: ceiling of room-tlf7le-9399 built again, 8 -> 7 hole(s)
+2026-10-13 16:27:23 2D: recessed elec-tmvcv2-7834 DELETED
+2026-10-13 16:27:23 light removed: ceiling of room-tlf7le-9399 built again, 7 -> 6 hole(s)
+2026-10-13 16:27:23 2D: recessed elec-tmvcq3-7588 DELETED
+2026-10-13 16:27:23 light removed: ceiling of room-tlf7le-9399 built again, 6 -> 5 hole(s)
+2026-10-13 16:27:24 2D: recessed elec-tmvcv3-4270 DELETED
+2026-10-13 16:27:24 light removed: ceiling of room-tlf7le-9399 built again, 5 -> 4 hole(s)
+2026-10-13 16:27:24 2D: recessed elec-tmvd3c-8601 DELETED
+2026-10-13 16:27:24 light removed: ceiling of room-tlf7le-9399 built again, 4 -> 3 hole(s)
+2026-10-13 16:27:25 2D: recessed elec-tmvczk-4297 DELETED
+2026-10-13 16:27:25 light removed: ceiling of room-tlf7le-9399 built again, 3 -> 2 hole(s)
+2026-10-13 16:27:25 2D: recessed elec-tmvczm-5257 DELETED
+2026-10-13 16:27:25 light removed: ceiling of room-tlf7le-9399 built again, 2 -> 1 hole(s)
+2026-10-13 16:27:26 2D: recessed elec-tmvcq5-6190 DELETED
+2026-10-13 16:27:26 light removed: ceiling of room-tlf7le-9399 built again, 1 -> 0 hole(s)
+2026-10-13 16:27:27 2D: ceiling_fan elec-tmvboq-339 DELETED
+2026-10-13 19:55:14 2D: chose wall_light Hinkley Moore 46410HB
+2026-10-13 19:55:16 2D: wall_light click GREEN wall 6269165a t 77.68 on 5.00..219.50 height 66
+2026-10-13 19:55:16 2D: wall_light PLACED: wall 6269165a side a u 77.68 height 66.0
+2026-10-13 19:55:20 2D: wall_light click GREEN wall 045fe78b t 162.39 on 5.00..259.00 height 66
+2026-10-13 19:55:20 2D: wall_light PLACED: wall 045fe78b side a u 162.39 height 66.0
+2026-10-13 19:55:28 2D: chose wall_light Hinkley Facet 51150HB
+2026-10-13 19:55:30 2D: wall_light click GREEN wall c8a403d4 t 183.27 on 5.00..219.50 height 66
+2026-10-13 19:55:30 2D: wall_light PLACED: wall c8a403d4 side a u 183.27 height 66.0
+2026-10-13 19:55:31 2D: wall_light click GREEN wall 045fe78b t 35.93 on 5.00..259.00 height 66
+2026-10-13 19:55:31 2D: wall_light PLACED: wall 045fe78b side a u 35.93 height 66.0
+2026-10-13 19:55:44 2D: chose ceiling_light Alora Belleview 12 Gold Clear
+2026-10-13 19:55:45 2D: ceiling_light click GREEN at -640.06, 312.30
+2026-10-13 19:55:45 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -640.06 y 312.3
+2026-10-13 19:55:47 2D: ceiling_light click GREEN at -614.39, 311.42
+2026-10-13 19:55:47 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -614.39 y 311.42
+2026-10-13 19:55:48 2D: ceiling_light click GREEN at -589.60, 310.26
+2026-10-13 19:55:48 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -589.6 y 310.26
+2026-10-13 19:56:01 2D: ceiling_light elec-tmvmsz-3111 DELETED
+2026-10-13 19:56:01 2D: ceiling_light elec-tmvmt0-7041 DELETED
+2026-10-13 19:56:02 2D: ceiling_light elec-tmvmsx-1634 DELETED
+2026-10-13 19:56:11 2D: chose ceiling_light Alora Belleview 12 Gold Clear
+2026-10-13 19:56:15 2D: ceiling_light click GREEN at -633.11, 312.39
+2026-10-13 19:56:15 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -633.11 y 312.39
+2026-10-13 19:56:19 2D: ceiling_light click GREEN at -612.71, 311.95
+2026-10-13 19:56:19 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -612.71 y 311.95
+2026-10-13 19:56:21 2D: ceiling_light click GREEN at -594.54, 311.95
+2026-10-13 19:56:21 2D: ceiling_light HUNG: Alora Belleview 12 Gold Clear on ceiling ceil-tmvd5q-4609 x -594.54 y 311.95
+2026-10-13 19:56:43 2D: chose recessed Recessed 4in Round White
+2026-10-13 19:56:47 2D: recessed click GREEN at -566.76, 282.89
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-4468)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-9242)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-9548)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-9930)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-5967)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-6438)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-1337)
+2026-10-13 19:56:47 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmvmun-5006)
+2026-10-13 19:56:47 2D: recessed SPREAD 3x3: 8 of 8 hung (Recessed 4in Round White)
+2026-10-13 19:57:38 Ceiling Light Schonbek Kindjal 9 Aged Brass: 2 ceilings in the model
+2026-10-13 19:57:40 Ceiling Light HUNG: Schonbek Kindjal 9 Aged Brass on ceiling ceil-tmvmun-5006 x -611.82 y 252.08 z 96.0
+2026-10-13 19:58:17 2D: recessed elec-tmvmun-1133 DELETED
+2026-10-13 19:58:17 light removed: ceiling of room-tlf7le-9399 built again, 8 -> 7 hole(s)
+2026-10-13 20:16:48 2D: recessed elec-tmvmun-9339 MOVED to -555.22, 295.25 - ceiling built again with the hole
+2026-10-13 20:16:50 2D: ceiling_light elec-tmvmtx-2808 MOVED to -585.5, 312.0
+2026-10-13 20:16:53 2D: ceiling_light elec-tmvmtv-2526 MOVED to -609.85, 312.0
+2026-10-13 20:16:55 2D: ceiling_light elec-tmvmtv-2526 MOVED to -609.68, 312.0
+2026-10-13 20:16:57 2D: ceiling_light elec-tmvmtr-9373 MOVED to -633.02, 312.0
+2026-10-13 20:17:00 2D: ceiling_light elec-tmvmtx-2808 MOVED to -578.94, 314.7
+2026-10-13 20:17:02 2D: ceiling_light elec-tmvmtx-2808 MOVED to -577.4, 312.0
+2026-10-13 20:17:04 2D: ceiling_light elec-tmvmtv-2526 MOVED to -605.25, 312.0
+2026-10-13 20:17:07 2D: recessed elec-tmvmun-9339 MOVED to -546.72, 312.0 - ceiling built again with the hole
+2026-10-13 20:17:14 2D: recessed elec-tmvmun-9339 MOVED to -570.0, 295.25 - ceiling built again with the hole
+2026-10-13 20:17:16 2D: ceiling_light elec-tmvmtv-2526 MOVED to -605.58, 312.0
+2026-10-13 20:17:20 2D: recessed elec-tmvmun-6142 MOVED to -654.67, 372.73 - ceiling built again with the hole
+2026-10-13 20:17:24 2D: recessed elec-tmvmun-7402 MOVED to -570.0, 372.73 - ceiling built again with the hole
+2026-10-13 20:21:24 2D: chose outlet Duplex Classic at 18.0
+2026-10-13 20:21:25 2D: outlet click GREEN wall c8a403d4 t 125.17 on 5.00..219.50 height 18
+2026-10-13 20:21:25 2D: outlet PLACED: wall c8a403d4 side a u 125.17 height 18.0
+2026-10-13 20:21:27 2D: outlet click GREEN wall c8a403d4 t 121.62 on 5.00..219.50 height 18
+2026-10-13 20:21:27 2D: outlet PLACED: wall c8a403d4 side a u 121.62 height 18.0
+2026-10-13 20:21:28 2D: outlet click GREEN wall c8a403d4 t 123.65 on 5.00..219.50 height 18
+2026-10-13 20:21:29 2D: outlet PLACED: wall c8a403d4 side a u 123.65 height 18.0
+2026-10-13 20:21:30 2D: outlet click GREEN wall c8a403d4 t 197.70 on 5.00..219.50 height 18
+2026-10-13 20:21:30 2D: outlet PLACED: wall c8a403d4 side a u 197.7 height 18.0
+2026-10-13 20:21:32 2D: outlet click GREEN wall 045fe78b t 47.12 on 5.00..259.00 height 18
+2026-10-13 20:21:32 2D: outlet PLACED: wall 045fe78b side a u 47.12 height 18.0
+2026-10-13 20:22:24 2D: outlet elec-tmvnzr-7843 DELETED
+2026-10-13 20:22:57 2D: chose outlet Duplex Classic at 18.0
+2026-10-13 20:22:58 2D: outlet click GREEN wall c8a403d4 t 174.07 on 5.00..219.50 height 18
+2026-10-13 20:22:58 2D: outlet PLACED: wall c8a403d4 side a u 174.07 height 18.0
+2026-10-13 20:23:22 2D: outlet click GREEN wall 045fe78b t 24.64 on 5.00..259.00 height 18
+2026-10-13 20:23:22 2D: outlet PLACED: wall 045fe78b side a u 24.64 height 18.0
+2026-10-13 20:23:26 2D: outlet click GREEN wall 045fe78b t 121.51 on 5.00..259.00 height 18
+2026-10-13 20:23:26 2D: outlet PLACED: wall 045fe78b side a u 121.51 height 18.0
+2026-10-13 20:26:05 2D: chose outlet Duplex Classic at 18.0
+2026-10-13 20:26:07 2D: outlet click GREEN wall 045fe78b t 105.85 on 5.00..259.00 height 18
+2026-10-13 20:26:07 2D: outlet PLACED: wall 045fe78b side a u 105.85 height 18.0
+2026-10-14 09:31:02 2D: recessed elec-tmvmun-9339 MOVED to -562.72, 295.25 - ceiling built again with the hole
+2026-10-14 09:32:09 2D: wall_light elec-tmvmsj-4859 MOVED: wall 045fe78b side a u 43.03 height 66.0 Hinkley Facet 51150HB
+2026-10-14 09:33:28 2D: wall_light elec-tmvmsi-1924 MOVED: wall c8a403d4 side a u 191.62 height 66.0 Hinkley Facet 51150HB
+2026-10-14 10:03:07 2D: recessed elec-tmvmun-9339 MOVED to -553.9, 293.27 - ceiling built again with the hole
+2026-10-14 10:04:09 2D: outlet elec-tmvnzp-8893 EDITED: wall c8a403d4 side a u 125.17 height 42.0 Duplex Classic
+2026-10-14 10:04:10 2D: outlet elec-tmvnzp-8893 MOVED: wall c8a403d4 side a u 102.32 height 42.0 Duplex Classic
+2026-10-14 10:49:12 2D: drag outlet elec-tmvo2a-9086: no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:52:25 2D: drag outlet elec-tmvo2a-9086: GREEN wall c8a403d4 t 146.87 on 5.00..219.50 | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:52:25 2D: outlet elec-tmvo2a-9086 MOVED: wall c8a403d4 side a u 146.87 height 18.0 Duplex Classic
+2026-10-14 10:53:43 2D: drag outlet elec-tmvo2a-9086: GREEN wall c8a403d4 t 136.42 on 5.00..219.50 | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:53:43 2D: outlet elec-tmvo2a-9086 MOVED: wall c8a403d4 side a u 136.42 height 18.0 Duplex Classic
+2026-10-14 10:53:45 2D: drag outlet elec-tmvnzu-808: GREEN wall c8a403d4 t 204.96 on 5.00..219.50 | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:53:45 2D: outlet elec-tmvnzu-808 MOVED: wall c8a403d4 side a u 204.96 height 18.0 Duplex Classic
+2026-10-14 10:53:54 2D: drag outlet elec-tmvo7j-3307 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:53:55 2D: outlet elec-tmvo7j-3307 DELETED
+2026-10-14 10:53:58 2D: drag outlet elec-tmvo32-9191 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:53:58 2D: outlet elec-tmvo32-9191 DELETED
+2026-10-14 10:53:59 2D: drag outlet elec-tmvnzw-8224 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:53:59 2D: outlet elec-tmvnzw-8224 DELETED
+2026-10-14 10:54:01 2D: drag outlet elec-tmvo2a-9086 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:54:01 2D: outlet elec-tmvo2a-9086 DELETED
+2026-10-14 10:54:02 2D: drag outlet elec-tmvnzu-808 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 10:54:02 2D: outlet elec-tmvnzu-808 DELETED
+2026-10-14 11:53:49 2D: recessed elec-tmvmun-9339 MOVED to -570.0, 295.25 - ceiling built again with the hole
+2026-10-14 11:54:05 2D: chose recessed Recessed 4in Round White
+2026-10-14 11:54:07 2D: recessed click GREEN at -655.91, 292.60
+2026-10-14 11:54:07 hole 4.0" for Recessed 4in Round White: ceiling of room-tlf7le-9399 built again (ceil-tmwv67-6642)
+2026-10-14 11:54:07 2D: recessed HUNG: Recessed 4in Round White on ceiling ceil-tmwv5p-2562 x -655.91 y 292.6
+2026-10-14 11:54:11 2D: recessed elec-tmwv67-1028 MOVED to -654.67, 295.25 - ceiling built again with the hole
+2026-10-14 11:55:16 2D: drag outlet elec-tmvo2y-7536 (not moved): no wall under the mouse | sign h 18 w 2.75 hh 2.25 gangs 1
+2026-10-14 11:55:51 2D: drag outlet elec-tmvnzp-8893: GREEN wall c8a403d4 t 93.37 on 5.00..219.50 | sign h 42 w 2.75 hh 2.25 gangs 1
+2026-10-14 11:55:51 2D: outlet elec-tmvnzp-8893 MOVED: wall c8a403d4 side a u 93.37 height 42.0 Duplex Classic
+2026-10-14 11:55:53 2D: drag outlet elec-tmvnzp-8893: GREEN wall c8a403d4 t 97.16 on 5.00..219.50 | sign h 42 w 2.75 hh 2.25 gangs 1
+2026-10-14 11:55:53 2D: outlet elec-tmvnzp-8893 MOVED: wall c8a403d4 side a u 97.16 height 42.0 Duplex Classic
+2026-10-14 12:28:50 2D: drag plumb fix-tmwvx9-261 (not moved): no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:51 2D: drag plumb fix-tmwvx9-261: no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:52 2D: drag plumb fix-tmwvx9-261: no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:53 2D: drag plumb fix-tmwvx9-261: no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:55 2D: drag plumb fix-tmwvx9-261: no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:56 2D: drag plumb fix-tmwvx9-261 (not moved): no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:28:56 2D plumbing: tub fix-tmwvx9-261 DELETED
+2026-10-14 12:28:59 2D: drag plumb fix-tmwvx9-261: no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:29:02 2D: drag plumb fix-tmlvkv-3799 (not moved): no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:29:02 2D plumbing: shower_set fix-tmlvkv-3799 DELETED
+2026-10-14 12:29:05 2D: drag plumb fix-tmwvx9-261 (not moved): no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:29:05 2D plumbing: tub fix-tmwvx9-261 DELETED
+2026-10-14 12:29:06 2D: drag plumb fix-tmlvkv-3799 (not moved): no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:29:07 2D: drag plumb fix-tmlvkv-3799: no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:29:15 2D: drag plumb fix-tmlvkv-3799: no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:32:20 2D plumbing: chose tub Free standing Devinchy
+2026-10-14 12:32:28 2D: plumb click GREEN wall 3b85b93f t 56.15 on 0.00..264.00 height 11
+2026-10-14 12:32:28 2D plumbing: tub NOT placed: wall 3b85b93f side b u 56.15 on 0.0..264.0, outside of the house
+2026-10-14 12:32:30 2D: plumb click GREEN wall 3b85b93f t 52.17 on 5.00..259.00 height 11
+2026-10-14 12:32:30 2D plumbing: tub Free standing Devinchy PLACED: wall 3b85b93f side a u 52.17
+2026-10-14 12:32:39 2D: plumb click on no wall
+2026-10-14 12:32:41 2D: drag plumb fix-tmwwy6-2340 (not moved): no wall under the mouse | sign h 11 w 67 hh 11 gangs undefined
+2026-10-14 12:32:42 2D plumbing: tub fix-tmwwy6-2340 DELETED
+2026-10-14 12:32:44 2D: drag plumb fix-tmlvkv-3799 (not moved): no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:32:45 2D: drag plumb fix-tmlvkv-3799: no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:32:46 2D: drag plumb fix-tmlvkv-3799: no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:36:27 2D: drag plumb fix-tmlvkv-3799 (not moved): no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:36:27 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 17.77 on 0.00..264.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:36:27 2D plumbing: shower_set fix-tmlvkv-3799 NOT moved: wall 3b85b93f side b u 17.77, only on a tiled wall
+2026-10-14 12:36:29 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 35.85 on 0.00..264.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:36:29 2D plumbing: shower_set fix-tmlvkv-3799 NOT moved: wall 3b85b93f side b u 35.85, only on a tiled wall
+2026-10-14 12:36:31 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 14.40 on 0.00..264.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:36:31 2D plumbing: shower_set fix-tmlvkv-3799 NOT moved: wall 3b85b93f side b u 14.4, only on a tiled wall
+2026-10-14 12:39:18 2D: drag plumb fix-tmlvkv-3799 (not moved): no wall under the mouse | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:39:19 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 19.84 on 5.00..259.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:39:19 2D plumbing: shower_set fix-tmlvkv-3799 MOVED: wall 3b85b93f side a u 19.84
+2026-10-14 12:39:23 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 24.38 on 5.00..259.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 12:39:23 2D plumbing: shower_set fix-tmlvkv-3799 MOVED: wall 3b85b93f side a u 24.38
+2026-10-14 16:28:17 Outlet PLACED: wall 3b85b93f side a u 82.51 height 18.0 turn 0 off the wall 0.0
+2026-10-14 16:28:18 Outlet PLACED: wall 3b85b93f side a u 61.46 height 18.0 turn 0 off the wall 0.0
+2026-10-14 16:28:23 Wall Light PLACED: wall 3b85b93f side a u 80.29 height 66.0 turn 0 off the wall 0.0
+2026-10-14 16:28:25 Wall Light PLACED: wall 3b85b93f side a u 59.58 height 66.0 turn 0 off the wall 0.0
+2026-10-14 16:30:42 Wall Light NOT placed: wall 849179b2 side a u -110.61 on 0.0..0.0, rect [[-112.86, -108.36, 56.88, 75.13]], red: on a door/window/niche or past the wall end
+2026-10-14 16:30:45 Wall Light NOT placed: wall 849179b2 side a u -114.95 on 0.0..0.0, rect [[-117.2, -112.7, 56.88, 75.13]], red: on a door/window/niche or past the wall end
+2026-10-14 18:03:13 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 27.19 on 5.00..259.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
+2026-10-14 18:03:13 2D plumbing: shower_set fix-tmlvkv-3799 MOVED: wall 3b85b93f side a u 27.19

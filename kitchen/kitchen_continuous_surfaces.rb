@@ -53,6 +53,10 @@ module KitchenLab
           groups=groups.reject{|g|g==a || g==b}+[merged]
         end
       end
+      config=Backsplash.validate(KitchenLab.settings['backsplash'])
+      roots.grep(Sketchup::Group).each do |g|
+        Backsplash.map_tile_photo!(g,config) if g.get_attribute(KitchenLab::DICT,'surface_finish')=='Tile' && g.get_attribute(KitchenLab::DICT,'tile_cell')
+      end
       # A kitchen backsplash is one selectable object, including disconnected wall runs.
       # Preserve real gaps/windows in its geometry; the island remains independent.
       backs=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'surface_role')=='backsplash'}

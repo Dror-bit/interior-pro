@@ -1,8 +1,19 @@
+require 'digest'
 module KitchenLab
   module Backsplash
     BASE_KINDS=%w[doors drawers sink dishwasher filler corner corner_base corner_lazy].freeze unless const_defined?(:BASE_KINDS,false)
     def self.eligible?(d)
       !d['surround_for'] && ((BASE_KINDS+['oven']).include?(d['kind']) || (defined?(ApplianceCatalog) && ApplianceCatalog.microwave_base?(d)))
+    end
+    def self.product_dimensions(card)
+      return nil unless card.is_a?(Hash)
+      width=Float(card['tile_w_inches']) rescue nil
+      height=Float(card['tile_l_inches']) rescue nil
+      return nil unless [width,height].all?{|n|n && n.finite? && n.between?(1,120)}
+      {'tile_width'=>width,'tile_height'=>height}
+    end
+    def self.with_material(raw,value)
+      raw.merge('mode'=>'tile','material'=>value).merge(product_dimensions(value['card']) || {})
     end
     def self.validate(raw)
       return {'mode'=>'none'} if raw.nil?
@@ -11,7 +22,7 @@ module KitchenLab
       return {'mode'=>'none'} if mode=='none'
       out={'mode'=>mode}
       {'height'=>[18,1,60],'thickness'=>[mode=='tile' ? 0.375 : 0.75,0.125,2],
-       'tile_width'=>[6,1,48],'tile_height'=>[3,1,48],'grout'=>[0.125,0.03125,0.5]}.each do |key,(default,min,max)|
+       'tile_width'=>[6,1,120],'tile_height'=>[3,1,120],'grout'=>[0.125,0.03125,0.5]}.each do |key,(default,min,max)|
         n=Float(raw.fetch(key,default));raise "Invalid backsplash #{key}" unless n.finite? && n.between?(min,max);out[key]=n
       end
       out['material']=CountertopMaterials.validate(raw['material']) if raw['material']
@@ -44,6 +55,77 @@ module KitchenLab
         z+=th+gap
       end
       tiles
+    end
+    # Like TileWall: each logical tile samples one tile from the product photo.
+    # Inspect only the declared grid boundaries; do not mistake arbitrary veins for grout.
+    def self.photo_region(card)
+      @photo_regions ||= {}
+      cache=Digest::SHA256.hexdigest(JSON.generate(card))
+      return @photo_regions[cache] if @photo_regions.key?(cache)
+      nx=[[card.fetch('image_tiles_x',1).to_i,1].max,16].min
+      ny=[[card.fetch('image_tiles_y',1).to_i,1].max,16].min
+      rotated=false
+      if nx!=ny && nx*ny>1 && File.file?(card['texture_file'].to_s)
+        rep=Sketchup::ImageRep.new;rep.load_file(card['texture_file'])
+        bytes=rep.data;channels=rep.bits_per_pixel/8;stride=rep.width*channels+rep.row_padding
+        intensity=lambda do |x,y|
+          offset=y*stride+x*channels
+          3.times.sum{|i|bytes.getbyte(offset+i)} / 3.0
+        end
+        score=lambda do |count,vertical|
+          next 0.0 if count<2
+          extent=vertical ? rep.width : rep.height
+          cross=vertical ? rep.height : rep.width
+          (1...count).map do |k|
+            center=extent*k/count;radius=[(extent.to_f/count*0.015).ceil,2].max
+            ((center-radius)..(center+radius)).map do |at|
+              next 0.0 if at-radius<0 || at+radius>=extent
+              contrasts=48.times.map do |i|
+                across=((i+0.5)*cross/48).to_i
+                sample=lambda{|q|vertical ? intensity.call(q,across) : intensity.call(across,q)}
+                (sample.call(at)-(sample.call(at-radius)+sample.call(at+radius))/2).abs
+              end
+              contrasts.count{|v|v>5}>=40 ? contrasts.sum/48 : 0.0
+            end.max
+          end.min || 0.0
+        end
+        normal=score.call(nx,true)+score.call(ny,false)
+        swapped=score.call(ny,true)+score.call(nx,false)
+        if swapped>8 && swapped>normal*2
+          nx,ny=ny,nx;rotated=true
+        end
+      end
+      # Exclude the photographed joint and antialiasing at the cell boundary.
+      inset=nx*ny>1 ? 0.015 : 0.0
+      @photo_regions[cache]=[nx,ny,rotated,inset]
+    end
+    def self.map_tile_photo!(group,config)
+      return unless config['material'] && group.material && group.material.texture
+      cell=JSON.parse(group.get_attribute(KitchenLab::DICT,'tile_cell'))
+      ux,uy,vx,vy,plane,col,row=cell
+      tw=config['tile_width'];th=config['tile_height'];gap=config['grout']
+      nx,ny,rotated,inset=photo_region(config['material']['card'])
+      group.entities.grep(Sketchup::Face).each do |face|
+        normal=face.normal.transform(group.transformation)
+        next unless (normal.x*vx+normal.y*vy).abs>0.99
+        mapping=face.vertices.first(3).flat_map do |vertex|
+          pt=vertex.position;world=pt.transform(group.transformation)
+          a=(world.x*ux+world.y*uy-col*(tw+gap))/tw
+          b=(world.z-36.0-row*(th+gap))/th
+          a,b=b,1-a if rotated
+          [pt,Geom::Point3d.new((inset+a*(1-2*inset))/nx,(inset+b*(1-2*inset))/ny,0)]
+        end
+        face.position_material(group.material,mapping,true)
+        face.position_material(group.material,mapping,false)
+      end
+    end
+    def self.opening_signature(model)
+      rows=model.entities.select{|e|e.respond_to?(:transformation) && %w[wall window door].include?(e.get_attribute('InteriorPro','type'))}.map do |e|
+        attrs=e.attribute_dictionary('InteriorPro')
+        keys=%w[type id host_wall_id start_x start_y end_x end_y height thickness anchor arc_sag door_openings width_in height_in sill_height_in header_height_in position_along_wall_in]
+        [e.persistent_id,keys.map{|k|attrs && attrs[k]},e.transformation.to_a,e.bounds.min.to_a,e.bounds.max.to_a]
+      end.sort_by(&:first)
+      Digest::SHA256.hexdigest(JSON.generate(rows))
     end
     # Opening data is authoritative even when the rendered window is recessed.
     def self.opening_holes(model,inv,thick)
@@ -97,7 +179,7 @@ module KitchenLab
       if %w[corner corner_base corner_lazy].include?(d['kind'])
         strips<<{width:d['width']-thick,transform:Geom::Transformation.axes([0,-thick,0],Geom::Vector3d.new(0,-1,0),Geom::Vector3d.new(-1,0,0),Z_AXIS)}
       end
-      obstacles=model.entities.select{|e|e.respond_to?(:bounds) && %w[window door].include?(e.get_attribute('InteriorPro','type'))}
+      obstacles=model.entities.select{|e|e.respond_to?(:bounds) && %w[window door].include?(e.get_attribute('InteriorPro','type')) && !e.get_attribute('InteriorPro','host_wall_id')}
       strips.each do |strip|
         transform=top.transformation*strip[:transform];inv=transform.inverse
         # Shared world-space lattice: adjoining cabinets never restart the tile grid.

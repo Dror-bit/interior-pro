@@ -1,0 +1,186 @@
+# encoding: utf-8
+# debug_top_leaf.rb - MEASURING ONLY (2026-10-08 19:08): the white faces under the door leaf. The window in Room 2's view from
+# above: what the window is (group / component), whether the tool's cut reaches it, what parts
+# of it stand outside the wall, and four pictures to compare. Changes nothing. Run:
+#   load 'C:/Users/rordt/AppData/Roaming/SketchUp/SketchUp 2024/SketchUp/Plugins/interior_pro/debug_top_window.rb'
+module InteriorPro
+  module TopLeafProbe
+    DIR = 'C:/Users/rordt/OneDrive/InteriorPro'
+    D = 'InteriorPro'
+
+    def self.box(b)
+      "x #{b.min.x.round(2)}..#{b.max.x.round(2)} y #{b.min.y.round(2)}..#{b.max.y.round(2)} z #{b.min.z.round(2)}..#{b.max.z.round(2)}"
+    end
+
+    def self.run
+      lines = []
+      InteriorPro.reload! if InteriorPro.respond_to?(:reload!)
+      m = Sketchup.active_model
+      et = InteriorPro::ElevationTool
+      pg = InteriorPro::PlanGenerator
+      lines << "time: #{Time.now}"
+      lines << "model: #{m.path}"
+      lines << "code: PLAN_CUT=#{et::PLAN_CUT} USE_TOP_VIEW=#{et::USE_TOP_VIEW} USE_ONE_SHEET=#{et::USE_ONE_SHEET}"
+      room = et.rooms(m).find { |r| et.room_name(r) =~ /2/ } || et.rooms(m).first
+      lines << "room: #{et.room_name(room)}"
+      poly = et.room_poly(room)
+      wall_h = et.room_height(room, m)
+      base_z = poly.first.z
+      lines << "base_z=#{base_z.round(2)} wall_h=#{wall_h.to_f.round(2)} walls cut at z=#{(base_z + et::PLAN_CUT).round(2)}"
+      all = []
+      et.collect(m.entities, nil, 0, all)
+      ids = Array(room.ent.get_attribute(D, 'bounding_wall_ids')).map(&:to_s)
+      lines << "bounding walls: #{ids.inspect}"
+      by_id = {}
+      all.select { |t| t.type == 'wall' }.each { |t| by_id[t.ent.get_attribute(D, 'id').to_s] = t }
+      wins = all.select { |t| t.type == 'window' }
+      lines << "windows in the model: #{wins.size} (#{wins.map { |t| t.ent.class.to_s.split('::').last }.uniq.join(', ')})"
+      mine = wins.select { |t| ids.include?(t.ent.get_attribute(D, 'host_wall_id').to_s) }
+      lines << "windows on this room's walls: #{mine.size}"
+      mine.each do |t|
+        e = t.ent
+        host = by_id[e.get_attribute(D, 'host_wall_id').to_s]
+        lines << "window #{e.get_attribute(D, 'id')}: #{e.class} responds to entities=#{e.respond_to?(:entities)} hidden=#{e.hidden?} " \
+                 "layer=#{e.layer.name} host=#{e.get_attribute(D, 'host_wall_id')} wall thickness=#{host && host.ent.get_attribute(D, 'thickness')} " \
+                 "clicked_side=#{e.get_attribute(D, 'clicked_side')} ext casing=#{e.get_attribute(D, 'exterior_casing_style')} " \
+                 "int casing=#{e.get_attribute(D, 'interior_casing_style')} width=#{e.get_attribute(D, 'width_in')} " \
+                 "bottom_z=#{e.get_attribute(D, 'bottom_z')} top_z=#{e.get_attribute(D, 'top_z')}"
+        xf = t.xf
+        turned = !(xf.xaxis.parallel?(Geom::Vector3d.new(1, 0, 0)) && xf.zaxis.parallel?(Geom::Vector3d.new(0, 0, 1)))
+        lines << "  origin in the world: #{Geom::Point3d.new(0, 0, 0).transform(xf).to_a.map { |v| v.round(2) }.inspect} turned=#{turned}"
+        lines << "  window box (parent coords): #{box(e.bounds)}"
+        lines << "  host wall box (parent coords): #{host ? box(host.ent.bounds) : 'no host'}"
+        ents = e.respond_to?(:entities) ? e.entities : e.definition.entities
+        lines << "  inside: #{ents.size} entities - groups #{ents.grep(Sketchup::Group).size}, faces #{ents.grep(Sketchup::Face).size}, " \
+                 "section planes already there #{ents.grep(Sketchup::SectionPlane).size}"
+        ents.grep(Sketchup::Group).each do |g|
+          gb = g.bounds
+          lo = gb.min.transform(xf)
+          hi = gb.max.transform(xf)
+          lines << "    part #{g.name.inspect}: hidden=#{g.hidden?} world x #{lo.x.round(2)}..#{hi.x.round(2)} y #{lo.y.round(2)}..#{hi.y.round(2)} " \
+                   "z #{lo.z.round(2)}..#{hi.z.round(2)} faces=#{g.entities.grep(Sketchup::Face).size} material=#{g.material && g.material.name}"
+        end
+      end
+
+      view = m.active_view
+      cam0 = view.camera
+      keep = [cam0.eye, cam0.target, cam0.up, cam0.perspective?, (cam0.perspective? ? cam0.fov : cam0.height)]
+      ro = m.rendering_options
+      saved = {}
+      %w[RenderMode DrawHorizon DrawGround BackgroundColor DisplaySectionPlanes SectionCutFilled DisplayText DisplayDims DisplaySketchAxes EdgeDisplayMode DrawSilhouettes ExtendLines DisplaySectionCuts].each { |k| saved[k] = ro[k] }
+      hidden = []
+      m.start_operation('top window probe', true)
+      begin
+        all.each do |t|
+          next unless et.set_aside?(t.type) && t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+          t.ent.hidden = true
+          hidden << t.ent
+        end
+        hidden.each { |e| e.hidden = false if e.valid? && !et::TOP_ASIDE.include?(e.get_attribute(D, 'type').to_s) }
+        all.each do |t|
+          next unless %w[floor_pattern shower_pattern].include?(t.type)
+          c = et.world_centre(t)
+          next unless c && et.inside?(poly, c.x, c.y)
+          ents = t.ent.respond_to?(:entities) ? t.ent.entities : t.ent.definition.entities
+          ents.grep(Sketchup::Edge).each do |ed|
+            fs = ed.respond_to?(:faces) ? ed.faces : []
+            if fs.size == 2
+              same_mat = (fs[0].material && fs[0].material.name) == (fs[1].material && fs[1].material.name)
+              flat = (fs[0].normal.parallel?(fs[1].normal) rescue false)
+              next if same_mat && flat
+            end
+            ed.hidden = false if ed.hidden?
+            ed.soft = false if ed.soft?
+            ed.smooth = false if ed.smooth?
+          end
+        end
+        ro['DrawHorizon'] = false; ro['DrawGround'] = false
+        ro['BackgroundColor'] = Sketchup::Color.new(255, 255, 255)
+        ro['DisplaySectionPlanes'] = false; ro['DisplaySectionCuts'] = true; ro['SectionCutFilled'] = true
+        ro['DisplayText'] = false; ro['DisplayDims'] = false; ro['DisplaySketchAxes'] = false
+        ro['RenderMode'] = 1
+        s = et.top_shot(poly, base_z, wall_h)
+        sp = m.entities.add_section_plane([s[:plane_pt], s[:normal]])
+        sp.activate
+        all.each do |t|
+          next unless t.type == 'door' && t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+          t.ent.hidden = true
+          hidden << t.ent
+        end
+        # the tool's own cut, line for line
+        cut = 0
+        skipped = []
+        all.each do |t|
+          next unless %w[wall window].include?(t.type)
+          unless t.ent.respond_to?(:entities)
+            skipped << "#{t.type} #{t.ent.get_attribute(D, 'id')} (#{t.ent.class})"
+            next
+          end
+          inv = t.xf.inverse
+          lp = Geom::Point3d.new(s[:eye].x, s[:eye].y, base_z + et::PLAN_CUT).transform(inv)
+          ln = Geom::Vector3d.new(0, 0, -1).transform(inv)
+          wsp = t.ent.entities.add_section_plane([lp, ln])
+          wsp.activate
+          cut += 1
+          next unless ids.include?(t.ent.get_attribute(D, 'id').to_s) || t.type == 'window'
+          back = lp.transform(t.xf)
+          lines << "cut in #{t.type} #{t.ent.get_attribute(D, 'id')}: plane valid=#{wsp.valid?} point back in the world z=#{back.z.round(2)} " \
+                   "normal back=#{ln.transform(t.xf).to_a.map { |v| v.round(2) }.inspect}"
+        end
+        lines << "tool's cut: #{cut} cut; skipped: #{skipped.empty? ? 'none' : skipped.join(', ')}"
+        # the symbols, as the tool draws them
+        sym = m.entities.add_group
+        begin
+          doors, = pg.send(:hosted_bodies, m)
+          all.each do |t|
+            next unless t.type == 'wall'
+            next unless ids.empty? || ids.include?(t.ent.get_attribute(D, 'id').to_s)
+            d = pg.send(:wall_attrs, t.ent)
+            next unless d
+            dm = doors.select { |b| b[:host] == d[:id] }
+            pg.send(:draw_door_symbols, sym.entities, d, dm)
+            et.swing_faces(pg, sym.entities, d, dm)
+          end
+          sym.transformation = Geom::Transformation.new(Geom::Vector3d.new(0, 0, base_z + et::PLAN_CUT - 0.5 - pg::PLAN_Z)) * sym.transformation
+          lines << "symbols: #{sym.entities.size} entities in the group"
+        rescue StandardError => e
+          lines << "symbols NOT drawn: #{e.class}: #{e.message}"
+        end
+        cam = Sketchup::Camera.new(s[:eye], s[:target], s[:up], false)
+        cam.height = s[:height]
+        view.camera = cam
+        shoot = lambda do |fn|
+          view.refresh
+          ok = view.write_image(File.join(DIR, fn), s[:w_px], s[:h_px], true)
+          lines << "#{fn}: #{ok ? 'written' : 'NOT written'}"
+        end
+        # E: each window on this room's walls is cut through its definition at ITS OWN middle height
+        mine.each do |t|
+          next if t.ent.respond_to?(:entities)
+          zmid = (t.ent.get_attribute(D, 'bottom_z').to_f + t.ent.get_attribute(D, 'top_z').to_f) / 2.0
+          inv = t.xf.inverse
+          lp = Geom::Point3d.new(s[:eye].x, s[:eye].y, zmid).transform(inv)
+          ln = Geom::Vector3d.new(0, 0, -1).transform(inv)
+          wsp = t.ent.definition.entities.add_section_plane([lp, ln])
+          wsp.activate
+          lines << "E: window #{t.ent.get_attribute(D, 'id')} cut through its definition at its own middle z=#{zmid.round(2)}: valid=#{wsp.valid?}"
+        end
+        shoot.call('top_leaf.png')
+        sp.erase!
+      ensure
+        hidden.each { |e| e.hidden = false if e.valid? }
+        m.abort_operation
+        saved.each { |k, v| ro[k] = v unless v.nil? }
+        cam = Sketchup::Camera.new(keep[0], keep[1], keep[2], keep[3])
+        keep[3] ? cam.fov = keep[4] : cam.height = keep[4]
+        view.camera = cam
+      end
+      File.write(File.join(DIR, 'top_leaf_report.txt'), lines.join("\n") + "\n")
+      puts "top_leaf_report written (#{lines.size} lines)"
+    rescue StandardError => e
+      File.write(File.join(DIR, 'top_leaf_report.txt'), (lines + ["ERROR #{e.class}: #{e.message}", *e.backtrace.first(8)]).join("\n"))
+      puts "top_leaf_report ERROR #{e.message}"
+    end
+  end
+end
+InteriorPro::TopLeafProbe.run

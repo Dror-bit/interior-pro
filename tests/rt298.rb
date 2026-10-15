@@ -41,7 +41,7 @@ ok('three make seven', ET.cat_mixes(%w[a b c]).size == 7)
 ok('the files beside the picture', ET.variant_file('/e/Room_2_North_lines.png', %w[tile plumbing]) == '/e/Room_2_North_lines__no_plumbing+tile.png' &&
    ET.layers_file('/e/Room_2_North_lines.png') == '/e/Room_2_North_lines.layers.json')
 ok('a tile, a fixture, an outlet - each its own; a wall none', ET.cat_of('tile_wall') == 'tile' && ET.cat_of('tile_niche') == 'tile' &&
-   ET.cat_of('fixture') == 'plumbing' && ET.cat_of('outlet') == 'electric' && ET.cat_of('wall').nil?)
+   ET.cat_of('fixture') == 'plumbing' && ET.cat_of('outlet') == 'electric' && ET.cat_of('electrical') == 'electric' && ET.cat_of('wall').nil?)
 
 # the shots: a stand-in for the view writes a file per shot and remembers what was hidden at that moment
 dir = Dir.mktmpdir('elev_layers')

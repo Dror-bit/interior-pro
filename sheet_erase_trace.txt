@@ -1,0 +1,819 @@
+2026-10-07 12:22:12  2 gone, 14181 left, quick, 29 ms
+2026-10-07 12:22:13  1 gone, 14180 left, quick, 29 ms
+2026-10-07 12:22:14  2 gone, 14178 left, quick, 29 ms
+2026-10-07 12:22:14  1 gone, 14177 left, quick, 28 ms
+2026-10-07 12:22:19  1 gone, 14176 left, quick, 27 ms
+2026-10-07 12:22:20  1 gone, 14175 left, quick, 37 ms
+2026-10-07 12:22:20  1 gone, 14174 left, quick, 29 ms
+2026-10-07 12:22:21  1 gone, 14173 left, quick, 29 ms
+2026-10-07 12:22:23  1 gone, 14172 left, quick, 29 ms
+2026-10-07 12:22:24  1 gone, 14171 left, quick, 28 ms
+2026-10-07 12:22:25  1 gone, 14170 left, quick, 28 ms
+2026-10-07 12:22:26  1 gone, 14169 left, quick, 28 ms
+2026-10-07 12:22:26  1 gone, 14168 left, quick, 34 ms
+2026-10-07 12:22:27  1 gone, 14167 left, quick, 29 ms
+2026-10-07 12:22:29  1 gone, 14166 left, quick, 28 ms
+2026-10-07 12:22:32  2 gone, 14164 left, quick, 29 ms
+2026-10-07 12:22:34  6 gone, 14158 left, quick, 28 ms
+2026-10-07 12:22:34  1 gone, 14157 left, quick, 28 ms
+2026-10-07 12:22:35  1 gone, 14156 left, quick, 27 ms
+2026-10-07 12:22:36  1 gone, 14155 left, quick, 34 ms
+2026-10-07 12:22:42  1 gone, 14154 left, quick, 28 ms
+2026-10-07 12:22:43  1 gone, 14153 left, quick, 29 ms
+2026-10-07 12:22:43  1 gone, 14152 left, quick, 28 ms
+2026-10-07 12:22:44  1 gone, 14151 left, quick, 28 ms
+2026-10-07 12:22:44  1 gone, 14150 left, quick, 28 ms
+2026-10-07 12:22:45  1 gone, 14149 left, quick, 27 ms
+2026-10-07 12:22:45  1 gone, 14148 left, quick, 35 ms
+2026-10-07 12:22:46  1 gone, 14147 left, quick, 29 ms
+2026-10-07 12:22:48  1 gone, 14146 left, quick, 28 ms
+2026-10-07 12:22:48  1 gone, 14145 left, quick, 28 ms
+2026-10-07 12:22:49  1 gone, 14144 left, quick, 28 ms
+2026-10-07 12:22:50  1 gone, 14143 left, quick, 28 ms
+2026-10-07 12:22:51  1 gone, 14142 left, quick, 27 ms
+2026-10-07 12:22:52  1 gone, 14141 left, quick, 36 ms
+2026-10-07 12:22:53  1 gone, 14140 left, quick, 28 ms
+2026-10-07 12:22:53  1 gone, 14139 left, quick, 28 ms
+2026-10-07 12:22:54  1 gone, 14138 left, quick, 28 ms
+2026-10-07 12:22:54  1 gone, 14137 left, quick, 28 ms
+2026-10-07 12:22:55  1 gone, 14136 left, quick, 28 ms
+2026-10-07 12:22:59  1 gone, 14135 left, quick, 27 ms
+2026-10-07 12:22:59  1 gone, 14134 left, quick, 37 ms
+2026-10-07 12:23:01  1 gone, 14133 left, quick, 29 ms
+2026-10-07 12:23:04  1 gone, 14132 left, quick, 28 ms
+2026-10-07 12:23:04  2 gone, 14130 left, quick, 27 ms
+2026-10-07 12:23:07  2 gone, 14128 left, quick, 28 ms
+2026-10-07 12:23:11  1 gone, 14127 left, quick, 28 ms
+2026-10-07 12:23:12  1 gone, 14126 left, quick, 27 ms
+2026-10-07 12:23:13  1 gone, 14125 left, quick, 36 ms
+2026-10-07 12:23:14  1 gone, 14124 left, quick, 28 ms
+2026-10-07 12:23:14  1 gone, 14123 left, quick, 28 ms
+2026-10-07 12:23:15  1 gone, 14122 left, quick, 28 ms
+2026-10-07 12:23:17  1 gone, 14121 left, quick, 29 ms
+2026-10-07 12:23:17  1 gone, 14120 left, quick, 28 ms
+2026-10-07 12:23:19  2 gone, 14118 left, quick, 27 ms
+2026-10-07 12:23:20  1 gone, 14117 left, quick, 35 ms
+2026-10-07 12:23:21  1 gone, 14116 left, quick, 28 ms
+2026-10-07 12:23:21  1 gone, 14115 left, quick, 29 ms
+2026-10-07 12:23:22  1 gone, 14114 left, quick, 28 ms
+2026-10-07 12:23:39  1 gone, 14113 left, quick, 28 ms
+2026-10-07 12:23:39  2 gone, 14111 left, quick, 28 ms
+2026-10-07 12:23:39  1 gone, 14110 left, quick, 27 ms
+2026-10-07 12:23:55  1 gone, 14109 left, quick, 36 ms
+2026-10-07 12:23:56  1 gone, 14108 left, quick, 29 ms
+2026-10-07 12:23:57  1 gone, 14107 left, quick, 29 ms
+2026-10-07 12:23:57  1 gone, 14106 left, quick, 29 ms
+2026-10-07 12:23:59  1 gone, 14105 left, quick, 29 ms
+2026-10-07 12:23:59  1 gone, 14104 left, quick, 29 ms
+2026-10-07 12:24:00  1 gone, 14103 left, quick, 27 ms
+2026-10-07 12:24:01  1 gone, 14102 left, quick, 34 ms
+2026-10-07 12:24:02  1 gone, 14101 left, quick, 29 ms
+2026-10-07 12:24:02  1 gone, 14100 left, quick, 28 ms
+2026-10-07 12:24:03  1 gone, 14099 left, quick, 28 ms
+2026-10-07 12:24:03  1 gone, 14098 left, quick, 28 ms
+2026-10-07 12:24:05  1 gone, 14097 left, quick, 28 ms
+2026-10-07 12:24:07  1 gone, 14096 left, quick, 34 ms
+2026-10-07 12:24:10  3 gone, 14093 left, quick, 35 ms
+2026-10-07 12:24:10  1 gone, 14092 left, quick, 29 ms
+2026-10-07 12:24:12  5 gone, 14087 left, quick, 28 ms
+2026-10-07 12:24:15  1 gone, 14086 left, quick, 28 ms
+2026-10-07 12:24:16  2 gone, 14084 left, quick, 28 ms
+2026-10-07 12:24:17  3 gone, 14081 left, quick, 28 ms
+2026-10-07 12:24:19  1 gone, 14080 left, quick, 27 ms
+2026-10-07 12:24:20  1 gone, 14079 left, quick, 34 ms
+2026-10-07 12:24:21  2 gone, 14077 left, quick, 28 ms
+2026-10-07 12:24:23  1 gone, 14076 left, quick, 30 ms
+2026-10-07 12:24:25  1 gone, 14075 left, quick, 28 ms
+2026-10-07 12:24:31  1 gone, 14074 left, quick, 28 ms
+2026-10-07 12:24:31  2 gone, 14072 left, quick, 28 ms
+2026-10-07 12:24:33  1 gone, 14071 left, quick, 28 ms
+2026-10-07 12:24:36  1 gone, 14070 left, quick, 34 ms
+2026-10-07 12:24:37  1 gone, 14069 left, quick, 29 ms
+2026-10-07 12:24:38  1 gone, 14068 left, quick, 28 ms
+2026-10-07 12:24:39  1 gone, 14067 left, quick, 28 ms
+2026-10-07 12:24:40  1 gone, 14066 left, quick, 28 ms
+2026-10-07 12:24:41  1 gone, 14065 left, quick, 28 ms
+2026-10-07 12:24:42  1 gone, 14064 left, quick, 27 ms
+2026-10-07 12:24:45  1 gone, 14063 left, quick, 38 ms
+2026-10-07 12:24:48  3 gone, 14060 left, quick, 28 ms
+2026-10-07 12:24:49  4 gone, 14056 left, quick, 28 ms
+2026-10-07 12:24:50  1 gone, 14055 left, quick, 28 ms
+2026-10-07 12:24:51  3 gone, 14052 left, quick, 29 ms
+2026-10-07 12:24:51  1 gone, 14051 left, quick, 28 ms
+2026-10-07 12:24:52  1 gone, 14050 left, quick, 28 ms
+2026-10-07 12:24:53  2 gone, 14048 left, quick, 45 ms
+2026-10-07 12:24:54  1 gone, 14047 left, quick, 28 ms
+2026-10-07 12:24:54  1 gone, 14046 left, quick, 28 ms
+2026-10-07 12:24:54  1 gone, 14045 left, quick, 28 ms
+2026-10-07 12:24:55  1 gone, 14044 left, quick, 28 ms
+2026-10-07 12:24:55  2 gone, 14042 left, quick, 28 ms
+2026-10-07 12:24:56  1 gone, 14041 left, quick, 27 ms
+2026-10-07 12:24:58  2 gone, 14039 left, quick, 34 ms
+2026-10-07 12:24:59  3 gone, 14036 left, quick, 28 ms
+2026-10-07 12:24:59  1 gone, 14035 left, quick, 28 ms
+2026-10-07 12:25:01  2 gone, 14033 left, quick, 28 ms
+2026-10-07 12:25:02  1 gone, 14032 left, quick, 28 ms
+2026-10-07 12:25:03  1 gone, 14031 left, quick, 28 ms
+2026-10-07 12:25:03  1 gone, 14030 left, quick, 27 ms
+2026-10-07 12:25:04  1 gone, 14029 left, quick, 34 ms
+2026-10-07 12:25:05  1 gone, 14028 left, quick, 29 ms
+2026-10-07 12:25:06  1 gone, 14027 left, quick, 28 ms
+2026-10-07 12:25:07  2 gone, 14025 left, quick, 28 ms
+2026-10-07 12:25:08  2 gone, 14023 left, quick, 28 ms
+2026-10-07 12:25:09  1 gone, 14022 left, quick, 28 ms
+2026-10-07 12:25:10  1 gone, 14021 left, quick, 27 ms
+2026-10-07 12:25:13  2 gone, 14019 left, quick, 33 ms
+2026-10-07 12:25:13  2 gone, 14017 left, quick, 28 ms
+2026-10-07 12:25:14  2 gone, 14015 left, quick, 28 ms
+2026-10-07 12:25:15  3 gone, 14012 left, quick, 27 ms
+2026-10-07 12:25:17  1 gone, 14011 left, quick, 27 ms
+2026-10-07 12:25:19  3 gone, 14008 left, quick, 28 ms
+2026-10-07 12:25:20  1 gone, 14007 left, quick, 27 ms
+2026-10-07 12:25:20  3 gone, 14004 left, quick, 33 ms
+2026-10-07 12:25:22  1 gone, 14003 left, quick, 28 ms
+2026-10-07 12:25:24  2 gone, 14001 left, quick, 29 ms
+2026-10-07 12:25:25  1 gone, 14000 left, quick, 28 ms
+2026-10-07 12:25:25  1 gone, 13999 left, quick, 28 ms
+2026-10-07 12:25:28  4 gone, 13995 left, quick, 28 ms
+2026-10-07 12:25:29  1 gone, 13994 left, quick, 65 ms
+2026-10-07 12:25:32  3 gone, 13991 left, quick, 34 ms
+2026-10-07 12:25:33  1 gone, 13990 left, quick, 40 ms
+2026-10-07 12:25:34  1 gone, 13989 left, quick, 29 ms
+2026-10-07 12:25:38  1 gone, 13988 left, quick, 29 ms
+2026-10-07 12:25:39  1 gone, 13987 left, quick, 28 ms
+2026-10-07 12:25:40  1 gone, 13986 left, quick, 28 ms
+2026-10-07 12:25:42  1 gone, 13985 left, quick, 29 ms
+2026-10-07 12:26:24  41 gone, 13944 left, quick, 31 ms
+2026-10-07 12:26:44  21 gone, 13923 left, quick, 29 ms
+2026-10-07 12:26:46  33 gone, 13890 left, quick, 29 ms
+2026-10-07 12:26:47  1 gone, 13889 left, quick, 28 ms
+2026-10-07 12:26:48  1 gone, 13888 left, quick, 28 ms
+2026-10-07 12:26:48  1 gone, 13887 left, quick, 27 ms
+2026-10-07 12:26:49  2 gone, 13885 left, quick, 27 ms
+2026-10-07 12:26:50  1 gone, 13884 left, quick, 36 ms
+2026-10-07 12:26:51  1 gone, 13883 left, quick, 28 ms
+2026-10-07 12:26:52  1 gone, 13882 left, quick, 28 ms
+2026-10-07 12:26:52  1 gone, 13881 left, quick, 30 ms
+2026-10-07 12:28:07  7 gone, 13874 left, quick, 27 ms
+2026-10-07 12:28:15  5 gone, 13869 left, quick, 31 ms
+2026-10-07 12:28:17  6 gone, 13863 left, quick, 28 ms
+2026-10-07 12:28:19  2 gone, 13861 left, quick, 28 ms
+2026-10-07 12:28:20  1 gone, 13860 left, quick, 29 ms
+2026-10-07 12:28:21  1 gone, 13859 left, quick, 33 ms
+2026-10-07 12:28:22  1 gone, 13858 left, quick, 28 ms
+2026-10-07 12:28:23  1 gone, 13857 left, quick, 28 ms
+2026-10-07 12:28:24  1 gone, 13856 left, quick, 28 ms
+2026-10-07 12:28:24  1 gone, 13855 left, quick, 28 ms
+2026-10-07 12:28:25  1 gone, 13854 left, quick, 28 ms
+2026-10-07 12:28:26  1 gone, 13853 left, quick, 28 ms
+2026-10-07 12:28:27  1 gone, 13852 left, quick, 27 ms
+2026-10-07 12:28:30  1 gone, 13851 left, quick, 27 ms
+2026-10-07 12:28:32  4 gone, 13847 left, quick, 34 ms
+2026-10-07 12:28:34  6 gone, 13841 left, quick, 29 ms
+2026-10-07 12:28:45  1 gone, 13840 left, quick, 28 ms
+2026-10-07 12:28:48  1 gone, 13839 left, quick, 27 ms
+2026-10-07 12:28:49  1 gone, 13838 left, quick, 28 ms
+2026-10-07 12:28:50  1 gone, 13837 left, quick, 27 ms
+2026-10-07 12:28:53  1 gone, 13836 left, quick, 28 ms
+2026-10-07 12:28:53  1 gone, 13835 left, quick, 27 ms
+2026-10-07 12:28:54  1 gone, 13834 left, quick, 27 ms
+2026-10-07 12:28:54  3 gone, 13831 left, quick, 27 ms
+2026-10-07 12:28:55  1 gone, 13830 left, quick, 35 ms
+2026-10-07 12:28:56  1 gone, 13829 left, quick, 28 ms
+2026-10-07 12:28:57  4 gone, 13825 left, quick, 28 ms
+2026-10-07 12:28:58  1 gone, 13824 left, quick, 28 ms
+2026-10-07 12:28:59  1 gone, 13823 left, quick, 28 ms
+2026-10-07 12:29:00  1 gone, 13822 left, quick, 28 ms
+2026-10-07 12:29:01  1 gone, 13821 left, quick, 27 ms
+2026-10-07 12:29:02  1 gone, 13820 left, quick, 27 ms
+2026-10-07 12:29:04  3 gone, 13817 left, quick, 27 ms
+2026-10-07 12:29:05  1 gone, 13816 left, quick, 26 ms
+2026-10-07 12:29:07  1 gone, 13815 left, quick, 31 ms
+2026-10-07 12:29:09  1 gone, 13814 left, quick, 28 ms
+2026-10-07 12:29:17  1 gone, 13813 left, quick, 27 ms
+2026-10-07 12:29:19  1 gone, 13812 left, quick, 28 ms
+2026-10-07 12:29:20  1 gone, 13811 left, quick, 27 ms
+2026-10-07 12:29:21  1 gone, 13810 left, quick, 27 ms
+2026-10-07 12:29:26  1 gone, 13809 left, quick, 27 ms
+2026-10-07 12:29:26  1 gone, 13808 left, quick, 27 ms
+2026-10-07 12:29:29  1 gone, 13807 left, quick, 26 ms
+2026-10-07 12:29:31  7 gone, 13800 left, quick, 35 ms
+2026-10-07 12:29:34  6 gone, 13794 left, quick, 28 ms
+2026-10-07 12:29:36  1 gone, 13793 left, quick, 28 ms
+2026-10-07 12:29:36  1 gone, 13792 left, quick, 27 ms
+2026-10-07 12:29:38  4 gone, 13788 left, quick, 28 ms
+2026-10-07 12:29:39  1 gone, 13787 left, quick, 28 ms
+2026-10-07 12:29:42  6 gone, 13781 left, quick, 28 ms
+2026-10-07 12:29:44  1 gone, 13780 left, quick, 26 ms
+2026-10-07 12:29:46  6 gone, 13774 left, quick, 27 ms
+2026-10-07 12:29:48  7 gone, 13767 left, quick, 27 ms
+2026-10-07 12:29:51  6 gone, 13761 left, quick, 34 ms
+2026-10-07 12:29:51  1 gone, 13760 left, quick, 28 ms
+2026-10-07 12:29:54  2 gone, 13758 left, quick, 28 ms
+2026-10-07 12:29:55  4 gone, 13754 left, quick, 34 ms
+2026-10-07 12:29:57  1 gone, 13753 left, quick, 28 ms
+2026-10-07 12:29:59  1 gone, 13752 left, quick, 27 ms
+2026-10-07 12:30:00  1 gone, 13751 left, quick, 27 ms
+2026-10-07 12:30:05  6 gone, 13745 left, quick, 27 ms
+2026-10-07 12:30:08  6 gone, 13739 left, quick, 26 ms
+2026-10-07 12:30:10  1 gone, 13738 left, quick, 33 ms
+2026-10-07 12:30:11  1 gone, 13737 left, quick, 32 ms
+2026-10-07 12:30:12  3 gone, 13734 left, quick, 35 ms
+2026-10-07 12:30:16  1 gone, 13733 left, quick, 27 ms
+2026-10-07 12:30:17  2 gone, 13731 left, quick, 27 ms
+2026-10-07 12:30:21  6 gone, 13725 left, quick, 28 ms
+2026-10-07 12:30:25  6 gone, 13719 left, quick, 27 ms
+2026-10-07 12:30:26  1 gone, 13718 left, quick, 27 ms
+2026-10-07 12:30:28  1 gone, 13717 left, quick, 34 ms
+2026-10-07 12:30:28  1 gone, 13716 left, quick, 26 ms
+2026-10-07 12:30:30  5 gone, 13711 left, quick, 34 ms
+2026-10-07 12:30:33  6 gone, 13705 left, quick, 27 ms
+2026-10-07 12:30:36  6 gone, 13699 left, quick, 28 ms
+2026-10-07 12:30:39  4 gone, 13695 left, quick, 28 ms
+2026-10-07 12:30:47  4 gone, 13691 left, quick, 27 ms
+2026-10-07 12:30:48  1 gone, 13690 left, quick, 27 ms
+2026-10-07 12:30:48  1 gone, 13689 left, quick, 27 ms
+2026-10-07 12:30:49  1 gone, 13688 left, quick, 26 ms
+2026-10-07 12:30:50  1 gone, 13687 left, quick, 26 ms
+2026-10-07 12:30:51  1 gone, 13686 left, quick, 34 ms
+2026-10-07 12:30:52  1 gone, 13685 left, quick, 28 ms
+2026-10-07 12:30:54  1 gone, 13684 left, quick, 38 ms
+2026-10-07 12:30:54  1 gone, 13683 left, quick, 27 ms
+2026-10-07 12:30:55  1 gone, 13682 left, quick, 29 ms
+2026-10-07 12:30:56  2 gone, 13680 left, quick, 27 ms
+2026-10-07 12:30:57  1 gone, 13679 left, quick, 30 ms
+2026-10-07 12:30:59  2 gone, 13677 left, quick, 27 ms
+2026-10-07 12:31:00  1 gone, 13676 left, quick, 27 ms
+2026-10-07 12:31:00  1 gone, 13675 left, quick, 27 ms
+2026-10-07 12:31:01  1 gone, 13674 left, quick, 33 ms
+2026-10-07 12:31:01  1 gone, 13673 left, quick, 27 ms
+2026-10-07 12:31:02  2 gone, 13671 left, quick, 27 ms
+2026-10-07 12:31:08  4 gone, 13667 left, quick, 27 ms
+2026-10-07 12:31:17  5 gone, 13662 left, quick, 27 ms
+2026-10-07 12:31:19  4 gone, 13658 left, quick, 27 ms
+2026-10-07 12:31:20  4 gone, 13654 left, quick, 27 ms
+2026-10-07 12:31:20  4 gone, 13650 left, quick, 27 ms
+2026-10-07 12:31:23  4 gone, 13646 left, quick, 26 ms
+2026-10-07 12:31:24  2 gone, 13644 left, quick, 26 ms
+2026-10-07 12:31:25  4 gone, 13640 left, quick, 28 ms
+2026-10-07 12:31:26  3 gone, 13637 left, quick, 27 ms
+2026-10-07 12:31:27  1 gone, 13636 left, quick, 27 ms
+2026-10-07 12:31:30  6 gone, 13630 left, quick, 27 ms
+2026-10-07 12:31:32  5 gone, 13625 left, quick, 27 ms
+2026-10-07 12:31:33  4 gone, 13621 left, quick, 27 ms
+2026-10-07 12:31:35  4 gone, 13617 left, quick, 27 ms
+2026-10-07 12:31:38  5 gone, 13612 left, quick, 26 ms
+2026-10-07 12:31:39  1 gone, 13611 left, quick, 26 ms
+2026-10-07 12:31:40  1 gone, 13610 left, quick, 33 ms
+2026-10-07 12:31:41  1 gone, 13609 left, quick, 27 ms
+2026-10-07 12:31:42  1 gone, 13608 left, quick, 27 ms
+2026-10-07 12:31:43  1 gone, 13607 left, quick, 27 ms
+2026-10-07 12:31:44  1 gone, 13606 left, quick, 27 ms
+2026-10-07 12:31:47  6 gone, 13600 left, quick, 27 ms
+2026-10-07 12:31:51  6 gone, 13594 left, quick, 27 ms
+2026-10-07 12:31:55  6 gone, 13588 left, quick, 26 ms
+2026-10-07 12:31:57  5 gone, 13583 left, quick, 26 ms
+2026-10-07 12:32:01  5 gone, 13578 left, quick, 26 ms
+2026-10-07 12:32:03  5 gone, 13573 left, quick, 33 ms
+2026-10-07 12:32:04  2 gone, 13571 left, quick, 27 ms
+2026-10-07 12:32:06  2 gone, 13569 left, quick, 27 ms
+2026-10-07 12:32:07  3 gone, 13566 left, quick, 27 ms
+2026-10-07 12:32:09  1 gone, 13565 left, quick, 27 ms
+2026-10-07 12:32:11  3 gone, 13562 left, quick, 27 ms
+2026-10-07 12:32:12  1 gone, 13561 left, quick, 27 ms
+2026-10-07 12:32:13  1 gone, 13560 left, quick, 26 ms
+2026-10-07 12:32:15  2 gone, 13558 left, quick, 27 ms
+2026-10-07 12:32:17  3 gone, 13555 left, quick, 27 ms
+2026-10-07 12:32:19  4 gone, 13551 left, quick, 33 ms
+2026-10-07 12:32:21  5 gone, 13546 left, quick, 27 ms
+2026-10-07 12:32:24  5 gone, 13541 left, quick, 27 ms
+2026-10-07 12:32:26  5 gone, 13536 left, quick, 32 ms
+2026-10-07 12:32:29  6 gone, 13530 left, quick, 27 ms
+2026-10-07 12:32:32  6 gone, 13524 left, quick, 27 ms
+2026-10-07 12:32:35  6 gone, 13518 left, quick, 26 ms
+2026-10-07 12:32:36  7 gone, 13511 left, quick, 26 ms
+2026-10-07 12:32:39  7 gone, 13504 left, quick, 26 ms
+2026-10-07 12:32:42  7 gone, 13497 left, quick, 34 ms
+2026-10-07 12:32:45  7 gone, 13490 left, quick, 27 ms
+2026-10-07 12:32:49  7 gone, 13483 left, quick, 27 ms
+2026-10-07 12:32:52  7 gone, 13476 left, quick, 27 ms
+2026-10-07 12:32:56  6 gone, 13470 left, quick, 27 ms
+2026-10-07 12:32:58  6 gone, 13464 left, quick, 27 ms
+2026-10-07 12:32:59  7 gone, 13457 left, quick, 27 ms
+2026-10-07 12:33:01  5 gone, 13452 left, quick, 27 ms
+2026-10-07 12:33:05  3 gone, 13449 left, quick, 26 ms
+2026-10-07 12:33:06  3 gone, 13446 left, quick, 26 ms
+2026-10-07 12:33:08  1 gone, 13445 left, quick, 35 ms
+2026-10-07 12:33:09  2 gone, 13443 left, quick, 28 ms
+2026-10-07 12:33:10  2 gone, 13441 left, quick, 27 ms
+2026-10-07 12:33:11  4 gone, 13437 left, quick, 27 ms
+2026-10-07 12:33:12  1 gone, 13436 left, quick, 27 ms
+2026-10-07 12:33:13  1 gone, 13435 left, quick, 27 ms
+2026-10-07 12:33:14  1 gone, 13434 left, quick, 27 ms
+2026-10-07 12:33:15  1 gone, 13433 left, quick, 26 ms
+2026-10-07 12:33:18  5 gone, 13428 left, quick, 26 ms
+2026-10-07 12:33:19  1 gone, 13427 left, quick, 26 ms
+2026-10-07 12:33:20  1 gone, 13426 left, quick, 33 ms
+2026-10-07 12:33:20  1 gone, 13425 left, quick, 27 ms
+2026-10-07 12:33:21  1 gone, 13424 left, quick, 27 ms
+2026-10-07 12:33:23  1 gone, 13423 left, quick, 26 ms
+2026-10-07 12:33:25  1 gone, 13422 left, quick, 27 ms
+2026-10-07 12:33:26  1 gone, 13421 left, quick, 30 ms
+2026-10-07 12:33:27  1 gone, 13420 left, quick, 27 ms
+2026-10-07 12:33:27  1 gone, 13419 left, quick, 26 ms
+2026-10-07 12:33:34  150 gone, 13269 left, quick, 35 ms
+2026-10-07 12:33:36  9 gone, 13260 left, quick, 26 ms
+2026-10-07 12:33:38  6 gone, 13254 left, quick, 26 ms
+2026-10-07 12:33:39  1 gone, 13253 left, quick, 26 ms
+2026-10-07 12:33:42  2 gone, 13251 left, quick, 29 ms
+2026-10-07 12:33:43  1 gone, 13250 left, quick, 26 ms
+2026-10-07 12:33:46  1 gone, 13249 left, quick, 26 ms
+2026-10-07 12:33:47  1 gone, 13248 left, quick, 25 ms
+2026-10-07 12:33:51  51 gone, 13197 left, quick, 29 ms
+2026-10-07 12:33:52  3 gone, 13194 left, quick, 26 ms
+2026-10-07 12:33:53  2 gone, 13192 left, quick, 33 ms
+2026-10-07 12:33:54  1 gone, 13191 left, quick, 26 ms
+2026-10-07 12:33:54  1 gone, 13190 left, quick, 26 ms
+2026-10-07 12:34:36  1 gone, 13189 left, quick, 35 ms
+2026-10-07 12:34:38  undo: 1 back, 13190 on the sheet, quick, 28 ms
+2026-10-07 12:34:39  1 gone, 13189 left, quick, 27 ms
+2026-10-07 12:34:40  1 gone, 13188 left, quick, 27 ms
+2026-10-07 12:34:42  1 gone, 13187 left, quick, 26 ms
+2026-10-07 12:34:50  130 gone, 13057 left, quick, 28 ms
+2026-10-07 12:34:51  1 gone, 13056 left, quick, 26 ms
+2026-10-07 12:34:53  1 gone, 13055 left, quick, 26 ms
+2026-10-07 12:34:54  1 gone, 13054 left, quick, 25 ms
+2026-10-07 12:35:03  76 gone, 12978 left, quick, 35 ms
+2026-10-07 12:35:06  1 gone, 12977 left, quick, 26 ms
+2026-10-07 12:35:07  1 gone, 12976 left, quick, 26 ms
+2026-10-07 12:35:08  1 gone, 12975 left, quick, 27 ms
+2026-10-07 12:35:10  3 gone, 12972 left, quick, 26 ms
+2026-10-07 12:35:13  1 gone, 12971 left, quick, 26 ms
+2026-10-07 12:35:13  1 gone, 12970 left, quick, 48 ms
+2026-10-07 12:35:16  1 gone, 12969 left, quick, 43 ms
+2026-10-07 12:35:22  2 gone, 12967 left, quick, 28 ms
+2026-10-07 12:35:25  1 gone, 12966 left, quick, 26 ms
+2026-10-07 12:35:29  3 gone, 12963 left, quick, 26 ms
+2026-10-07 12:35:31  3 gone, 12960 left, quick, 26 ms
+2026-10-07 12:35:32  2 gone, 12958 left, quick, 26 ms
+2026-10-07 12:35:33  1 gone, 12957 left, quick, 28 ms
+2026-10-07 12:35:34  1 gone, 12956 left, quick, 28 ms
+2026-10-07 12:35:35  1 gone, 12955 left, quick, 28 ms
+2026-10-07 12:35:38  1 gone, 12954 left, quick, 25 ms
+2026-10-07 12:35:40  1 gone, 12953 left, quick, 25 ms
+2026-10-07 12:35:42  1 gone, 12952 left, quick, 25 ms
+2026-10-07 12:35:48  1 gone, 12951 left, quick, 32 ms
+2026-10-07 12:35:50  1 gone, 12950 left, quick, 26 ms
+2026-10-07 12:35:59  1 gone, 12949 left, quick, 26 ms
+2026-10-07 12:36:01  1 gone, 12948 left, quick, 26 ms
+2026-10-07 12:36:03  1 gone, 12947 left, quick, 26 ms
+2026-10-07 12:36:04  1 gone, 12946 left, quick, 30 ms
+2026-10-07 12:36:05  1 gone, 12945 left, quick, 26 ms
+2026-10-07 12:36:05  1 gone, 12944 left, quick, 27 ms
+2026-10-07 12:36:06  1 gone, 12943 left, quick, 25 ms
+2026-10-07 12:36:07  1 gone, 12942 left, quick, 27 ms
+2026-10-07 12:36:07  1 gone, 12941 left, quick, 25 ms
+2026-10-07 12:36:09  2 gone, 12939 left, quick, 35 ms
+2026-10-07 12:36:11  1 gone, 12938 left, quick, 26 ms
+2026-10-07 12:36:11  1 gone, 12937 left, quick, 26 ms
+2026-10-07 12:36:13  2 gone, 12935 left, quick, 26 ms
+2026-10-07 12:36:14  1 gone, 12934 left, quick, 26 ms
+2026-10-07 12:36:15  1 gone, 12933 left, quick, 25 ms
+2026-10-07 12:36:17  1 gone, 12932 left, quick, 25 ms
+2026-10-07 12:36:17  1 gone, 12931 left, quick, 25 ms
+2026-10-07 12:36:18  1 gone, 12930 left, quick, 25 ms
+2026-10-07 12:36:19  2 gone, 12928 left, quick, 25 ms
+2026-10-07 12:36:21  2 gone, 12926 left, quick, 25 ms
+2026-10-07 12:36:24  3 gone, 12923 left, quick, 25 ms
+2026-10-07 12:36:25  2 gone, 12921 left, quick, 32 ms
+2026-10-07 12:36:26  2 gone, 12919 left, quick, 26 ms
+2026-10-07 12:36:28  2 gone, 12917 left, quick, 26 ms
+2026-10-07 12:36:30  2 gone, 12915 left, quick, 26 ms
+2026-10-07 12:36:30  1 gone, 12914 left, quick, 26 ms
+2026-10-07 12:36:33  2 gone, 12912 left, quick, 26 ms
+2026-10-07 12:36:34  2 gone, 12910 left, quick, 26 ms
+2026-10-07 12:36:35  2 gone, 12908 left, quick, 25 ms
+2026-10-07 12:36:39  3 gone, 12905 left, quick, 26 ms
+2026-10-07 12:36:40  2 gone, 12903 left, quick, 25 ms
+2026-10-07 12:36:42  2 gone, 12901 left, quick, 24 ms
+2026-10-07 12:36:43  2 gone, 12899 left, quick, 24 ms
+2026-10-07 12:36:44  2 gone, 12897 left, quick, 32 ms
+2026-10-07 12:36:48  1 gone, 12896 left, quick, 26 ms
+2026-10-07 12:36:49  2 gone, 12894 left, quick, 25 ms
+2026-10-07 12:36:50  1 gone, 12893 left, quick, 25 ms
+2026-10-07 12:36:51  1 gone, 12892 left, quick, 26 ms
+2026-10-07 12:36:51  1 gone, 12891 left, quick, 26 ms
+2026-10-07 12:36:52  1 gone, 12890 left, quick, 26 ms
+2026-10-07 12:36:53  1 gone, 12889 left, quick, 26 ms
+2026-10-07 12:36:54  2 gone, 12887 left, quick, 25 ms
+2026-10-07 12:36:55  1 gone, 12886 left, quick, 27 ms
+2026-10-07 12:36:56  1 gone, 12885 left, quick, 24 ms
+2026-10-07 12:36:57  2 gone, 12883 left, quick, 33 ms
+2026-10-07 12:36:58  1 gone, 12882 left, quick, 26 ms
+2026-10-07 12:37:01  3 gone, 12879 left, quick, 25 ms
+2026-10-07 12:37:02  2 gone, 12877 left, quick, 25 ms
+2026-10-07 12:37:04  2 gone, 12875 left, quick, 25 ms
+2026-10-07 12:37:04  1 gone, 12874 left, quick, 25 ms
+2026-10-07 12:37:05  1 gone, 12873 left, quick, 25 ms
+2026-10-07 12:37:06  1 gone, 12872 left, quick, 25 ms
+2026-10-07 12:37:06  1 gone, 12871 left, quick, 25 ms
+2026-10-07 12:37:08  1 gone, 12870 left, quick, 25 ms
+2026-10-07 12:37:09  3 gone, 12867 left, quick, 25 ms
+2026-10-07 12:37:11  3 gone, 12864 left, quick, 25 ms
+2026-10-07 12:37:12  2 gone, 12862 left, quick, 32 ms
+2026-10-07 12:37:13  1 gone, 12861 left, quick, 26 ms
+2026-10-07 12:37:13  2 gone, 12859 left, quick, 26 ms
+2026-10-07 12:37:14  1 gone, 12858 left, quick, 26 ms
+2026-10-07 12:37:15  1 gone, 12857 left, quick, 26 ms
+2026-10-07 12:37:16  1 gone, 12856 left, quick, 26 ms
+2026-10-07 12:37:16  1 gone, 12855 left, quick, 26 ms
+2026-10-07 12:37:17  1 gone, 12854 left, quick, 26 ms
+2026-10-07 12:37:17  1 gone, 12853 left, quick, 25 ms
+2026-10-07 12:37:18  1 gone, 12852 left, quick, 25 ms
+2026-10-07 12:37:18  1 gone, 12851 left, quick, 25 ms
+2026-10-07 12:37:19  1 gone, 12850 left, quick, 25 ms
+2026-10-07 12:37:20  1 gone, 12849 left, quick, 32 ms
+2026-10-07 12:37:21  1 gone, 12848 left, quick, 26 ms
+2026-10-07 12:37:21  1 gone, 12847 left, quick, 25 ms
+2026-10-07 12:37:22  1 gone, 12846 left, quick, 26 ms
+2026-10-07 12:37:22  1 gone, 12845 left, quick, 25 ms
+2026-10-07 12:37:23  1 gone, 12844 left, quick, 26 ms
+2026-10-07 12:37:24  1 gone, 12843 left, quick, 26 ms
+2026-10-07 12:37:24  1 gone, 12842 left, quick, 25 ms
+2026-10-07 12:37:25  1 gone, 12841 left, quick, 25 ms
+2026-10-07 12:37:26  1 gone, 12840 left, quick, 25 ms
+2026-10-07 12:37:26  1 gone, 12839 left, quick, 25 ms
+2026-10-07 12:37:27  1 gone, 12838 left, quick, 31 ms
+2026-10-07 12:37:28  1 gone, 12837 left, quick, 27 ms
+2026-10-07 12:37:28  1 gone, 12836 left, quick, 26 ms
+2026-10-07 12:37:29  1 gone, 12835 left, quick, 26 ms
+2026-10-07 12:37:29  1 gone, 12834 left, quick, 25 ms
+2026-10-07 12:37:30  1 gone, 12833 left, quick, 26 ms
+2026-10-07 12:37:31  1 gone, 12832 left, quick, 25 ms
+2026-10-07 12:37:31  1 gone, 12831 left, quick, 26 ms
+2026-10-07 12:37:32  1 gone, 12830 left, quick, 25 ms
+2026-10-07 12:37:34  1 gone, 12829 left, quick, 25 ms
+2026-10-07 12:37:34  1 gone, 12828 left, quick, 25 ms
+2026-10-07 12:37:35  1 gone, 12827 left, quick, 26 ms
+2026-10-07 12:37:36  1 gone, 12826 left, quick, 31 ms
+2026-10-07 12:37:36  1 gone, 12825 left, quick, 25 ms
+2026-10-07 12:37:37  1 gone, 12824 left, quick, 25 ms
+2026-10-07 12:37:38  1 gone, 12823 left, quick, 26 ms
+2026-10-07 12:37:39  1 gone, 12822 left, quick, 25 ms
+2026-10-07 12:37:39  1 gone, 12821 left, quick, 25 ms
+2026-10-07 12:37:40  1 gone, 12820 left, quick, 25 ms
+2026-10-07 12:37:42  1 gone, 12819 left, quick, 25 ms
+2026-10-07 12:37:43  1 gone, 12818 left, quick, 25 ms
+2026-10-07 12:37:44  1 gone, 12817 left, quick, 24 ms
+2026-10-07 12:37:45  1 gone, 12816 left, quick, 25 ms
+2026-10-07 12:37:46  1 gone, 12815 left, quick, 24 ms
+2026-10-07 12:37:47  1 gone, 12814 left, quick, 32 ms
+2026-10-07 12:37:50  1 gone, 12813 left, quick, 26 ms
+2026-10-07 12:37:50  1 gone, 12812 left, quick, 26 ms
+2026-10-07 12:37:51  1 gone, 12811 left, quick, 25 ms
+2026-10-07 12:37:55  1 gone, 12810 left, quick, 25 ms
+2026-10-07 12:37:56  1 gone, 12809 left, quick, 26 ms
+2026-10-07 12:38:00  1 gone, 12808 left, quick, 25 ms
+2026-10-07 12:38:01  1 gone, 12807 left, quick, 25 ms
+2026-10-07 12:38:04  2 gone, 12805 left, quick, 25 ms
+2026-10-07 12:38:05  3 gone, 12802 left, quick, 25 ms
+2026-10-07 12:38:06  2 gone, 12800 left, quick, 25 ms
+2026-10-07 12:38:11  2 gone, 12798 left, quick, 25 ms
+2026-10-07 12:38:12  1 gone, 12797 left, quick, 32 ms
+2026-10-07 12:38:13  1 gone, 12796 left, quick, 25 ms
+2026-10-07 12:38:13  1 gone, 12795 left, quick, 25 ms
+2026-10-07 12:38:14  1 gone, 12794 left, quick, 25 ms
+2026-10-07 12:38:16  1 gone, 12793 left, quick, 26 ms
+2026-10-07 12:38:18  1 gone, 12792 left, quick, 25 ms
+2026-10-07 12:38:18  1 gone, 12791 left, quick, 29 ms
+2026-10-07 12:38:20  1 gone, 12790 left, quick, 25 ms
+2026-10-07 12:38:21  1 gone, 12789 left, quick, 25 ms
+2026-10-07 12:38:22  1 gone, 12788 left, quick, 24 ms
+2026-10-07 12:38:23  1 gone, 12787 left, quick, 25 ms
+2026-10-07 12:38:25  1 gone, 12786 left, quick, 25 ms
+2026-10-07 12:38:25  1 gone, 12785 left, quick, 32 ms
+2026-10-07 12:38:26  1 gone, 12784 left, quick, 25 ms
+2026-10-07 12:38:28  1 gone, 12783 left, quick, 25 ms
+2026-10-07 12:38:28  2 gone, 12781 left, quick, 25 ms
+2026-10-07 12:38:31  4 gone, 12777 left, quick, 26 ms
+2026-10-07 12:38:32  1 gone, 12776 left, quick, 25 ms
+2026-10-07 12:38:33  1 gone, 12775 left, quick, 26 ms
+2026-10-07 12:38:34  1 gone, 12774 left, quick, 26 ms
+2026-10-07 12:38:36  5 gone, 12769 left, quick, 24 ms
+2026-10-07 12:38:37  1 gone, 12768 left, quick, 25 ms
+2026-10-07 12:38:40  6 gone, 12762 left, quick, 24 ms
+2026-10-07 12:38:43  1 gone, 12761 left, quick, 30 ms
+2026-10-07 12:38:44  6 gone, 12755 left, quick, 26 ms
+2026-10-07 12:38:45  1 gone, 12754 left, quick, 25 ms
+2026-10-07 12:38:47  1 gone, 12753 left, quick, 25 ms
+2026-10-07 12:38:48  2 gone, 12751 left, quick, 25 ms
+2026-10-07 12:38:51  5 gone, 12746 left, quick, 25 ms
+2026-10-07 12:39:01  1 gone, 12745 left, quick, 25 ms
+2026-10-07 12:39:02  1 gone, 12744 left, quick, 26 ms
+2026-10-07 12:39:04  1 gone, 12743 left, quick, 25 ms
+2026-10-07 12:39:05  1 gone, 12742 left, quick, 24 ms
+2026-10-07 12:39:11  2 gone, 12740 left, quick, 25 ms
+2026-10-07 12:39:11  1 gone, 12739 left, quick, 25 ms
+2026-10-07 12:39:12  1 gone, 12738 left, quick, 32 ms
+2026-10-07 12:39:14  1 gone, 12737 left, quick, 26 ms
+2026-10-07 12:39:17  1 gone, 12736 left, quick, 25 ms
+2026-10-07 12:39:19  2 gone, 12734 left, quick, 25 ms
+2026-10-07 12:39:21  1 gone, 12733 left, quick, 25 ms
+2026-10-07 12:39:22  2 gone, 12731 left, quick, 25 ms
+2026-10-07 12:39:24  2 gone, 12729 left, quick, 26 ms
+2026-10-07 12:39:24  undo: 2 back, 12731 on the sheet, quick, 27 ms
+2026-10-07 12:39:25  undo: 2 back, 12733 on the sheet, quick, 26 ms
+2026-10-07 12:39:25  undo: 1 back, 12734 on the sheet, quick, 26 ms
+2026-10-07 12:39:26  1 gone, 12733 left, quick, 24 ms
+2026-10-07 12:39:30  3 gone, 12730 left, quick, 31 ms
+2026-10-07 12:39:33  3 gone, 12727 left, quick, 26 ms
+2026-10-07 12:39:34  2 gone, 12725 left, quick, 25 ms
+2026-10-07 12:39:34  1 gone, 12724 left, quick, 25 ms
+2026-10-07 12:39:35  1 gone, 12723 left, quick, 25 ms
+2026-10-07 12:39:36  undo: 1 back, 12724 on the sheet, quick, 29 ms
+2026-10-07 12:39:44  undo: 1 back, 12725 on the sheet, quick, 26 ms
+2026-10-07 12:39:44  undo: 2 back, 12727 on the sheet, quick, 27 ms
+2026-10-07 12:39:44  undo: 3 back, 12730 on the sheet, quick, 29 ms
+2026-10-07 12:39:45  undo: 3 back, 12733 on the sheet, quick, 30 ms
+2026-10-07 12:39:48  1 gone, 12732 left, quick, 25 ms
+2026-10-07 12:39:49  1 gone, 12731 left, quick, 25 ms
+2026-10-07 12:39:50  1 gone, 12730 left, quick, 31 ms
+2026-10-07 12:39:51  1 gone, 12729 left, quick, 25 ms
+2026-10-07 12:39:54  1 gone, 12728 left, quick, 25 ms
+2026-10-07 12:39:55  1 gone, 12727 left, quick, 25 ms
+2026-10-07 12:39:56  1 gone, 12726 left, quick, 25 ms
+2026-10-07 12:39:57  1 gone, 12725 left, quick, 25 ms
+2026-10-07 12:40:07  1 gone, 12724 left, quick, 25 ms
+2026-10-07 12:40:09  1 gone, 12723 left, quick, 25 ms
+2026-10-07 12:40:12  1 gone, 12722 left, quick, 25 ms
+2026-10-07 12:40:12  1 gone, 12721 left, quick, 24 ms
+2026-10-07 12:40:23  2 gone, 12719 left, quick, 24 ms
+2026-10-07 12:40:24  2 gone, 12717 left, quick, 33 ms
+2026-10-07 12:40:26  2 gone, 12715 left, quick, 25 ms
+2026-10-07 12:40:26  2 gone, 12713 left, quick, 25 ms
+2026-10-07 12:40:27  2 gone, 12711 left, quick, 25 ms
+2026-10-07 12:40:28  1 gone, 12710 left, quick, 25 ms
+2026-10-07 12:40:28  2 gone, 12708 left, quick, 25 ms
+2026-10-07 12:40:29  1 gone, 12707 left, quick, 25 ms
+2026-10-07 12:40:30  2 gone, 12705 left, quick, 25 ms
+2026-10-07 12:40:37  10 gone, 12695 left, quick, 25 ms
+2026-10-07 12:40:37  3 gone, 12692 left, quick, 25 ms
+2026-10-07 12:40:38  4 gone, 12688 left, quick, 25 ms
+2026-10-07 12:40:38  2 gone, 12686 left, quick, 27 ms
+2026-10-07 12:40:39  4 gone, 12682 left, quick, 32 ms
+2026-10-07 12:40:40  4 gone, 12678 left, quick, 26 ms
+2026-10-07 12:40:41  5 gone, 12673 left, quick, 25 ms
+2026-10-07 12:40:41  3 gone, 12670 left, quick, 25 ms
+2026-10-07 12:40:42  1 gone, 12669 left, quick, 25 ms
+2026-10-07 12:40:42  3 gone, 12666 left, quick, 25 ms
+2026-10-07 12:40:43  4 gone, 12662 left, quick, 25 ms
+2026-10-07 12:40:43  2 gone, 12660 left, quick, 26 ms
+2026-10-07 12:40:43  1 gone, 12659 left, quick, 25 ms
+2026-10-07 12:40:45  1 gone, 12658 left, quick, 25 ms
+2026-10-07 12:40:45  2 gone, 12656 left, quick, 24 ms
+2026-10-07 12:40:46  1 gone, 12655 left, quick, 25 ms
+2026-10-07 12:41:36  1 gone, 12654 left, quick, 32 ms
+2026-10-07 12:47:16  1 gone, 12653 left, quick, 42 ms
+2026-10-07 12:47:18  1 gone, 12652 left, quick, 25 ms
+2026-10-07 12:47:21  1 gone, 12651 left, quick, 25 ms
+2026-10-07 12:48:08  1 gone, 12650 left, quick, 25 ms
+2026-10-07 12:48:09  1 gone, 12649 left, quick, 25 ms
+2026-10-07 12:48:10  1 gone, 12648 left, quick, 24 ms
+2026-10-07 12:48:11  1 gone, 12647 left, quick, 25 ms
+2026-10-07 12:48:12  1 gone, 12646 left, quick, 25 ms
+2026-10-07 12:48:12  1 gone, 12645 left, quick, 25 ms
+2026-10-07 12:48:13  1 gone, 12644 left, quick, 24 ms
+2026-10-07 12:48:13  1 gone, 12643 left, quick, 24 ms
+2026-10-07 12:48:35  1 gone, 12642 left, quick, 32 ms
+2026-10-07 12:48:36  1 gone, 12641 left, quick, 26 ms
+2026-10-07 12:48:37  1 gone, 12640 left, quick, 27 ms
+2026-10-07 12:48:41  1 gone, 12639 left, quick, 26 ms
+2026-10-07 12:48:43  1 gone, 12638 left, quick, 29 ms
+2026-10-07 12:48:44  2 gone, 12636 left, quick, 26 ms
+2026-10-07 12:48:44  2 gone, 12634 left, quick, 25 ms
+2026-10-07 12:48:45  1 gone, 12633 left, quick, 25 ms
+2026-10-07 12:48:45  1 gone, 12632 left, quick, 25 ms
+2026-10-07 12:48:46  1 gone, 12631 left, quick, 24 ms
+2026-10-07 12:48:48  2 gone, 12629 left, quick, 25 ms
+2026-10-07 12:48:49  1 gone, 12628 left, quick, 24 ms
+2026-10-07 12:51:14  2 gone, 12626 left, quick, 25 ms
+2026-10-07 12:51:15  1 gone, 12625 left, quick, 25 ms
+2026-10-07 12:51:16  2 gone, 12623 left, quick, 26 ms
+2026-10-07 12:51:56  2 gone, 12621 left, quick, 25 ms
+2026-10-07 12:51:57  undo: 2 back, 12623 on the sheet, quick, 27 ms
+2026-10-07 13:20:48  draw: 1 added, 12624 on the sheet, quick, 36 ms
+2026-10-07 13:21:20  draw: 1 added, 12625 on the sheet, quick, 26 ms
+2026-10-07 13:21:24  draw: 1 added, 12626 on the sheet, quick, 26 ms
+2026-10-07 13:21:27  draw: 1 added, 12627 on the sheet, quick, 25 ms
+2026-10-07 13:21:30  1 gone, 12626 left, quick, 26 ms
+2026-10-07 13:21:30  1 gone, 12625 left, quick, 25 ms
+2026-10-07 13:21:31  1 gone, 12624 left, quick, 28 ms
+2026-10-07 13:21:34  2 gone, 12622 left, quick, 25 ms
+2026-10-07 13:21:35  1 gone, 12621 left, quick, 24 ms
+2026-10-07 13:21:40  2 gone, 12619 left, quick, 32 ms
+2026-10-07 13:21:41  undo: 2 back, 12621 on the sheet, quick, 82 ms
+2026-10-07 13:21:48  draw: 1 added, 12622 on the sheet, quick, 25 ms
+2026-10-07 13:21:54  draw: 1 added, 12623 on the sheet, quick, 25 ms
+2026-10-07 13:21:58  2 gone, 12621 left, quick, 25 ms
+2026-10-07 13:22:01  1 gone, 12620 left, quick, 25 ms
+2026-10-07 13:22:03  1 gone, 12619 left, quick, 25 ms
+2026-10-07 13:22:08  draw: 1 added, 12620 on the sheet, quick, 25 ms
+2026-10-07 13:22:13  draw: 1 added, 12621 on the sheet, quick, 24 ms
+2026-10-07 13:22:18  1 gone, 12620 left, quick, 31 ms
+2026-10-07 13:22:22  draw: 1 added, 12621 on the sheet, quick, 26 ms
+2026-10-07 13:22:29  draw: 1 added, 12622 on the sheet, quick, 25 ms
+2026-10-07 13:22:33  draw: 1 added, 12623 on the sheet, quick, 25 ms
+2026-10-07 13:22:35  1 gone, 12622 left, quick, 25 ms
+2026-10-07 13:22:38  1 gone, 12621 left, quick, 25 ms
+2026-10-07 13:22:40  1 gone, 12620 left, quick, 25 ms
+2026-10-07 13:22:43  1 gone, 12619 left, quick, 26 ms
+2026-10-07 13:22:44  1 gone, 12618 left, quick, 24 ms
+2026-10-07 13:22:46  1 gone, 12617 left, quick, 32 ms
+2026-10-07 13:22:53  draw: 1 added, 12618 on the sheet, quick, 25 ms
+2026-10-07 13:23:00  draw: 1 added, 12619 on the sheet, quick, 25 ms
+2026-10-07 13:23:01  draw: 1 added, 12620 on the sheet, quick, 25 ms
+2026-10-07 13:23:13  2 gone, 12618 left, quick, 26 ms
+2026-10-07 13:23:14  1 gone, 12617 left, quick, 25 ms
+2026-10-07 13:23:17  1 gone, 12616 left, quick, 25 ms
+2026-10-07 13:23:17  1 gone, 12615 left, quick, 24 ms
+2026-10-07 13:23:18  1 gone, 12614 left, quick, 24 ms
+2026-10-07 13:23:20  1 gone, 12613 left, quick, 31 ms
+2026-10-07 13:23:24  1 gone, 12612 left, quick, 25 ms
+2026-10-07 13:23:27  1 gone, 12611 left, quick, 25 ms
+2026-10-07 13:23:29  1 gone, 12610 left, quick, 25 ms
+2026-10-07 13:23:29  1 gone, 12609 left, quick, 25 ms
+2026-10-07 13:23:30  2 gone, 12607 left, quick, 25 ms
+2026-10-07 13:23:31  2 gone, 12605 left, quick, 25 ms
+2026-10-07 13:23:31  4 gone, 12601 left, quick, 24 ms
+2026-10-07 13:23:33  1 gone, 12600 left, quick, 31 ms
+2026-10-07 13:23:33  1 gone, 12599 left, quick, 26 ms
+2026-10-07 13:23:34  1 gone, 12598 left, quick, 25 ms
+2026-10-07 13:23:35  1 gone, 12597 left, quick, 25 ms
+2026-10-07 13:23:37  1 gone, 12596 left, quick, 25 ms
+2026-10-07 13:23:38  1 gone, 12595 left, quick, 25 ms
+2026-10-07 13:23:45  1 gone, 12594 left, quick, 25 ms
+2026-10-07 13:23:45  1 gone, 12593 left, quick, 25 ms
+2026-10-07 13:23:46  1 gone, 12592 left, quick, 24 ms
+2026-10-07 13:23:47  1 gone, 12591 left, quick, 31 ms
+2026-10-07 13:23:48  1 gone, 12590 left, quick, 29 ms
+2026-10-07 13:23:48  1 gone, 12589 left, quick, 25 ms
+2026-10-07 13:23:49  1 gone, 12588 left, quick, 25 ms
+2026-10-07 13:23:50  1 gone, 12587 left, quick, 25 ms
+2026-10-07 13:23:51  1 gone, 12586 left, quick, 25 ms
+2026-10-07 13:23:52  1 gone, 12585 left, quick, 26 ms
+2026-10-07 13:23:53  1 gone, 12584 left, quick, 25 ms
+2026-10-07 13:23:54  1 gone, 12583 left, quick, 25 ms
+2026-10-07 13:23:55  1 gone, 12582 left, quick, 25 ms
+2026-10-07 13:23:55  1 gone, 12581 left, quick, 32 ms
+2026-10-07 13:23:56  1 gone, 12580 left, quick, 25 ms
+2026-10-07 13:23:57  1 gone, 12579 left, quick, 25 ms
+2026-10-07 13:23:58  1 gone, 12578 left, quick, 25 ms
+2026-10-07 13:23:59  1 gone, 12577 left, quick, 25 ms
+2026-10-07 13:24:00  1 gone, 12576 left, quick, 25 ms
+2026-10-07 13:24:01  1 gone, 12575 left, quick, 25 ms
+2026-10-07 13:24:03  1 gone, 12574 left, quick, 24 ms
+2026-10-07 13:24:03  1 gone, 12573 left, quick, 25 ms
+2026-10-07 13:24:06  1 gone, 12572 left, quick, 31 ms
+2026-10-07 13:24:06  1 gone, 12571 left, quick, 24 ms
+2026-10-07 13:24:07  1 gone, 12570 left, quick, 25 ms
+2026-10-07 13:24:09  1 gone, 12569 left, quick, 25 ms
+2026-10-07 13:24:09  1 gone, 12568 left, quick, 25 ms
+2026-10-07 13:24:10  1 gone, 12567 left, quick, 25 ms
+2026-10-07 13:24:11  1 gone, 12566 left, quick, 25 ms
+2026-10-07 13:24:12  1 gone, 12565 left, quick, 24 ms
+2026-10-07 13:24:13  1 gone, 12564 left, quick, 24 ms
+2026-10-07 13:24:13  1 gone, 12563 left, quick, 33 ms
+2026-10-07 13:24:15  1 gone, 12562 left, quick, 25 ms
+2026-10-07 13:24:15  1 gone, 12561 left, quick, 25 ms
+2026-10-07 13:24:16  1 gone, 12560 left, quick, 25 ms
+2026-10-07 13:24:17  1 gone, 12559 left, quick, 26 ms
+2026-10-07 13:24:18  1 gone, 12558 left, quick, 25 ms
+2026-10-07 13:24:21  1 gone, 12557 left, quick, 25 ms
+2026-10-07 13:24:22  1 gone, 12556 left, quick, 24 ms
+2026-10-07 13:24:23  1 gone, 12555 left, quick, 24 ms
+2026-10-07 13:24:23  1 gone, 12554 left, quick, 31 ms
+2026-10-07 13:24:24  1 gone, 12553 left, quick, 25 ms
+2026-10-07 13:24:24  1 gone, 12552 left, quick, 25 ms
+2026-10-07 13:24:25  1 gone, 12551 left, quick, 25 ms
+2026-10-07 13:24:26  1 gone, 12550 left, quick, 25 ms
+2026-10-07 13:24:28  1 gone, 12549 left, quick, 25 ms
+2026-10-07 13:24:29  1 gone, 12548 left, quick, 25 ms
+2026-10-07 13:24:30  1 gone, 12547 left, quick, 24 ms
+2026-10-07 13:24:32  1 gone, 12546 left, quick, 24 ms
+2026-10-07 13:24:33  1 gone, 12545 left, quick, 32 ms
+2026-10-07 13:24:35  1 gone, 12544 left, quick, 25 ms
+2026-10-07 13:24:37  1 gone, 12543 left, quick, 25 ms
+2026-10-07 13:24:38  1 gone, 12542 left, quick, 28 ms
+2026-10-07 13:24:40  1 gone, 12541 left, quick, 25 ms
+2026-10-07 13:24:40  1 gone, 12540 left, quick, 25 ms
+2026-10-07 13:24:42  1 gone, 12539 left, quick, 25 ms
+2026-10-07 13:24:42  1 gone, 12538 left, quick, 24 ms
+2026-10-07 13:24:44  1 gone, 12537 left, quick, 24 ms
+2026-10-07 13:24:45  1 gone, 12536 left, quick, 31 ms
+2026-10-07 13:24:46  1 gone, 12535 left, quick, 24 ms
+2026-10-07 13:24:47  1 gone, 12534 left, quick, 25 ms
+2026-10-07 13:24:55  draw: 1 added, 12535 on the sheet, quick, 25 ms
+2026-10-07 13:24:59  draw: 1 added, 12536 on the sheet, quick, 25 ms
+2026-10-07 13:25:07  draw: 1 added, 12537 on the sheet, quick, 25 ms
+2026-10-07 13:25:17  1 gone, 12536 left, quick, 24 ms
+2026-10-07 13:25:17  2 gone, 12534 left, quick, 24 ms
+2026-10-07 13:25:18  2 gone, 12532 left, quick, 24 ms
+2026-10-07 13:25:19  1 gone, 12531 left, quick, 32 ms
+2026-10-07 13:25:32  4 gone, 12527 left, quick, 25 ms
+2026-10-07 13:25:37  draw: 1 added, 12528 on the sheet, quick, 25 ms
+2026-10-07 13:25:42  draw: 1 added, 12529 on the sheet, quick, 28 ms
+2026-10-07 13:25:47  draw: 1 added, 12530 on the sheet, quick, 25 ms
+2026-10-07 13:25:52  draw: 1 added, 12531 on the sheet, quick, 25 ms
+2026-10-07 13:25:54  draw: 1 added, 12532 on the sheet, quick, 24 ms
+2026-10-07 13:25:57  draw: 1 added, 12533 on the sheet, quick, 24 ms
+2026-10-07 13:26:01  draw: 1 added, 12534 on the sheet, quick, 24 ms
+2026-10-07 13:26:06  draw: 1 added, 12535 on the sheet, quick, 32 ms
+2026-10-07 13:26:09  1 gone, 12534 left, quick, 25 ms
+2026-10-07 13:26:12  1 gone, 12533 left, quick, 25 ms
+2026-10-07 13:26:13  1 gone, 12532 left, quick, 25 ms
+2026-10-07 13:26:14  1 gone, 12531 left, quick, 25 ms
+2026-10-07 13:26:15  1 gone, 12530 left, quick, 25 ms
+2026-10-07 13:26:17  1 gone, 12529 left, quick, 25 ms
+2026-10-07 13:26:18  1 gone, 12528 left, quick, 25 ms
+2026-10-07 13:26:21  1 gone, 12527 left, quick, 24 ms
+2026-10-07 13:26:27  draw: 1 added, 12528 on the sheet, quick, 32 ms
+2026-10-07 13:26:29  draw: 1 added, 12529 on the sheet, quick, 25 ms
+2026-10-07 13:32:51  draw: 1 added, 12530 on the sheet, quick, 33 ms
+2026-10-07 13:32:53  lines file: 12530 lines, 471 KB, 20 ms, read back and counted -> 6 Bronco Ln, Bell Canyon, CA 91307.sheet_lines.json
+2026-10-07 13:42:35  draw: 1 added, 12531 on the sheet, quick, 26 ms
+2026-10-07 13:42:37  lines file: 12531 lines, 471 KB, 4 ms -> 6 Bronco Ln, Bell Canyon, CA 91307.sheet_lines.json
+2026-10-07 13:42:46  draw: 1 added, 12532 on the sheet, quick, 32 ms
+2026-10-07 13:42:48  lines file: 12532 lines, 471 KB, 14 ms -> 6 Bronco Ln, Bell Canyon, CA 91307.sheet_lines.json
+2026-10-07 13:53:04  1 gone, 12531 left, quick, 29 ms
+2026-10-07 13:53:05  1 gone, 12530 left, quick, 26 ms
+2026-10-07 13:53:06  lines file: 12530 lines, 471 KB, 8 ms -> 6 Bronco Ln, Bell Canyon, CA 91307.sheet_lines.json
+2026-10-07 14:50:16  draw: 1 added, 12531 on the sheet, quick, 25 ms
+2026-10-07 14:50:18  lines file: 12531 lines, 471 KB, 2 ms -> 6 Bronco Ln, Bell Canyon, CA 91307.sheet_lines.json
+2026-10-07 15:33:22  text box: 1 added, laid at [32.41, 2.38, 2.63, 0.50] 24.0 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 17 ms
+2026-10-07 15:33:25  text box: one changed (box), laid at [31.06, 4.32, 2.63, 0.50] 24.0 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 24 ms
+2026-10-07 15:35:51  text box: one changed (size, box), laid at [31.06, 4.25, 2.97, 0.56] 27.1 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 18 ms
+2026-10-07 15:35:55  text box: one changed (size, box), laid at [31.06, 4.29, 2.75, 0.52] 25.1 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 27 ms
+2026-10-07 16:09:11  text box: one changed (box), laid at [31.12, 4.27, 2.75, 0.52] 25.1 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 18 ms
+2026-10-07 16:09:14  text box: one changed (box), laid at [31.11, 4.27, 2.75, 0.52] 25.1 pt turned 0.0, 1 lines; 1 saved, 1 on the sheets, 26 ms
+2026-10-07 16:09:58  text box: 1 taken off; 0 saved, 0 on the sheets, 23 ms
+2026-10-07 16:15:24  text box: 1 added, laid at [33.10, 1.85, 2.15, 2.58] 24.0 pt turned 0.0, 6 lines; 1 saved, 1 on the sheets, 22 ms
+2026-10-07 16:15:26  text box: one changed (box), laid at [31.50, 3.10, 3.75, 1.33] 24.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 19 ms
+2026-10-07 16:15:28  text box: one changed (box), laid at [30.62, 2.67, 3.75, 1.33] 24.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 21 ms
+2026-10-07 16:15:32  text box: one changed (size, box), laid at [30.62, 2.39, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 19 ms
+2026-10-07 16:16:09  text box: one changed (box), laid at [30.70, 2.32, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 24 ms
+2026-10-07 17:10:43  text box: one changed (box), laid at [30.70, 2.34, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 20 ms
+2026-10-07 17:10:50  text box: one changed (size, box), laid at [30.70, 2.35, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 18 ms
+2026-10-07 20:10:04  text box: one changed (style), laid at [30.70, 2.35, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 18 ms
+2026-10-07 20:10:12  text box: one changed (style), laid at [30.70, 2.35, 4.55, 1.62] 29.1 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 23 ms
+2026-10-07 20:10:15  text box: one changed (size, box), laid at [30.56, 2.30, 4.69, 1.67] 30.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 21 ms
+2026-10-07 20:10:16  text box: one changed (size, box), laid at [30.41, 2.24, 4.84, 1.72] 31.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 19 ms
+2026-10-07 20:10:16  text box: one changed (size, box), laid at [30.25, 2.18, 5.00, 1.78] 32.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 22 ms
+2026-10-07 20:10:16  text box: one changed (size, box), laid at [30.09, 2.13, 5.16, 1.83] 33.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 18 ms
+2026-10-07 20:10:16  text box: one changed (size, box), laid at [29.94, 2.07, 5.31, 1.89] 34.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 21 ms
+2026-10-07 20:10:18  text box: one changed (size, box), laid at [29.94, 2.13, 5.16, 1.83] 33.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 25 ms
+2026-10-07 20:10:18  text box: one changed (size, box), laid at [29.94, 2.18, 5.00, 1.78] 32.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 30 ms
+2026-10-07 20:10:18  text box: one changed (size, box), laid at [29.94, 2.24, 4.84, 1.72] 31.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 20 ms
+2026-10-07 20:10:18  text box: one changed (size, box), laid at [29.94, 2.30, 4.69, 1.67] 30.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 22 ms
+2026-10-07 20:10:19  text box: one changed (size, box), laid at [29.94, 2.35, 4.53, 1.61] 29.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 26 ms
+2026-10-07 20:10:21  text box: one changed (box), laid at [30.72, 2.30, 4.53, 1.61] 29.0 pt turned 0.0, 3 lines; 1 saved, 1 on the sheets, 19 ms
+2026-10-07 20:21:28  page order: plan=A-101  schedules=A-102  image:1=A-103  image:0=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-07 20:23:35  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-07 20:23:38  page order: plan=A-101  schedules=A-102  image:1=A-103  image:0=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-07 20:27:26  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-07 20:27:30  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:4=A-105  image:2=A-106  image:3=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-07 21:02:26  turn: 0.0 deg, box [2.176, 2.208, 28.132, 20.189] (the box turns as a whole)
+2026-10-07 21:02:32  turn: 90.0 deg, box [5.542, 4.871, 21.400, 15.358] (the box turns as a whole)
+2026-10-08 04:57:33  text box: 1 added, NOT ON ANY SHEET; 1 saved, 0 on the sheets, 8 ms
+2026-10-08 05:10:33  text box: 1 added, laid at [22.72, 3.56, 3.41, 0.50] 24.0 pt turned 0.0, 1 lines; 2 saved, 1 on the sheets, 9 ms
+2026-10-08 05:10:36  text box: one changed (size, box), laid at [22.72, 2.85, 8.27, 1.21] 58.2 pt turned 0.0, 1 lines; 2 saved, 1 on the sheets, 7 ms
+2026-10-08 05:10:38  text box: 1 taken off; 1 saved, 0 on the sheets, 7 ms
+2026-10-08 05:50:29  text box: 1 added, laid at [32.88, 4.23, 0.62, 0.50] 24.0 pt turned 0.0, 1 lines; 2 saved, 1 on the sheets, 7 ms
+2026-10-08 05:50:32  note: note 0 moved; 1 on the sheet
+2026-10-08 11:54:34  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112  image:10=A-113  image:11=A-114  image:12=A-115  image:13=A-116  image:14=A-117  image:15=A-118  image:16=A-119  image:18=A-120  image:19=A-121  image:17=A-122
+2026-10-08 12:04:43  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:3=A-105  image:2=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-08 12:04:49  page order: plan=A-101  schedules=A-102  image:0=A-103  image:1=A-104  image:2=A-105  image:3=A-106  image:4=A-107  image:5=A-108  image:6=A-109  image:7=A-110  image:8=A-111  image:9=A-112
+2026-10-08 12:18:02  drawing sheet: draft:0 added, 2 pages
+2026-10-08 19:57:36  pic dims: lines for Room_2_East_lines.png - 275482 bytes
+2026-10-08 19:57:40  pic dims: drawn Room_2_East_lines.png v 96.000" from end to end
+2026-10-08 19:57:43  pic dims: lines for Room_2_North_lines.png - 327749 bytes
+2026-10-08 19:57:49  pic dims: lines for Room_2_Plan_lines.png - none beside it
+2026-10-08 19:57:53  pic dims: lines for Room_2_West_lines.png - 4826 bytes
+2026-10-09 05:17:33  pic dims: lines for Room_2_East_lines.png - 275482 bytes
+2026-10-09 05:17:44  pic dims: drawn Room_2_East_lines.png note "חשלמל" pointing at end
+2026-10-09 05:17:45  pic dims: lines for Room_2_North_lines.png - 327749 bytes
+2026-10-09 05:40:58  pic dims: drawn moved 2 drawn with the old tools onto the sheet's marks
+2026-10-09 10:31:32  layers: 3 pictures taken without plumbing for 3 wanted, 2221 ms
+2026-10-09 10:31:47  layers: 5 pictures taken without plumbing, tile for 5 wanted, 3245 ms
+2026-10-09 10:31:53  layers: 3 pictures taken without tile for 3 wanted, 2454 ms
+2026-10-14 16:29:17  layers: 5 pictures taken without tile for 5 wanted, 5761 ms
+2026-10-14 16:29:47  layers: 5 pictures taken without tile, plumbing for 5 wanted, 5195 ms
+2026-10-14 16:30:01  layers: 5 pictures taken without tile, plumbing, electric for 5 wanted, 4980 ms
+2026-10-14 16:30:11  layers: 5 pictures taken without tile, electric for 5 wanted, 5649 ms
+2026-10-14 17:36:35  layers: 4 pictures taken without tile, plumbing for 4 wanted, 3758 ms
+2026-10-14 17:36:54  layers: 2 pictures taken without tile, plumbing for 2 wanted, 3310 ms
+2026-10-14 17:45:19  layers: 5 pictures taken without plumbing for 5 wanted, 4947 ms
+2026-10-14 17:45:24  layers: 5 pictures taken without plumbing, tile for 5 wanted, 4770 ms
+2026-10-14 17:45:29  layers: 5 pictures taken without tile for 5 wanted, 5388 ms
+2026-10-14 17:45:44  layers: 5 pictures taken without tile, plumbing, electric for 5 wanted, 4844 ms
+2026-10-14 19:34:25  layers: 4 pictures taken without tile, plumbing for 4 wanted, 3781 ms
+2026-10-14 20:16:45  layers: 4 pictures taken without tile, plumbing for 4 wanted, 3698 ms

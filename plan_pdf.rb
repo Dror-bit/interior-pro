@@ -866,7 +866,11 @@ module InteriorPro
           x1, y1 = to_paper.call(s[:x1], s[:y1])
           x2, y2 = to_paper.call(s[:x2], s[:y2])
           st << "#{n((s[:weight] || DEFAULT_WEIGHT) * PT)} w"
+          # a line in a colour of its own (2026-10-14: a layer's dimensions - plumbing blue, electric green)
+          lc = s[:color].to_s =~ /\A#([0-9a-fA-F]{6})\z/ ? [$1[0, 2], $1[2, 2], $1[4, 2]].map { |h| h.to_i(16) } : nil
+          st << "#{grey(lc)} RG" if lc
           st << "#{n(x1 * PT)} #{n(y1 * PT)} m #{n(x2 * PT)} #{n(y2 * PT)} l S"
+          st << '0 0 0 RG' if lc
         when :polyline, :polygon
           pts = s[:points].map { |p| to_paper.call(p[0], p[1]) }
           next if pts.length < 2

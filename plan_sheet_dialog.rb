@@ -4152,7 +4152,7 @@ module InteriorPro
             if(s.type==='line'){
               o.push('<line x1="'+P(s.x1,s.y1).split(',')[0]+'" y1="'+P(s.x1,s.y1).split(',')[1]+
                      '" x2="'+P(s.x2,s.y2).split(',')[0]+'" y2="'+P(s.x2,s.y2).split(',')[1]+
-                     '" stroke="#000" stroke-width="'+Math.max(w,0.6)+'"/>');
+                     '" stroke="'+(/^#[0-9a-f]{6}$/i.test(String(s.color||'')) ? s.color : '#000')+'" stroke-width="'+Math.max(w,0.6)+'"/>');
             } else if(s.type==='polyline'||s.type==='polygon'){
               var pts=s.points.map(function(p){ return P(p[0],p[1]); }).join(' ');
               if(s.fill){

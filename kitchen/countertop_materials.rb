@@ -6,7 +6,14 @@ module KitchenLab
     def self.validate(value)
       return nil if value.nil?
       raise 'Invalid countertop material' unless value.is_a?(Hash) && value['card'].is_a?(Hash) && value['key'].to_s.match?(/\A[0-9a-f]{64}\z/)
-      raise 'Countertop material snapshot changed' unless Digest::SHA256.hexdigest(JSON.generate(value['card']))==value['key']
+      unless Digest::SHA256.hexdigest(JSON.generate(value['card']))==value['key']
+        # JavaScript serializes 24.0 as 24. Recover only an unchanged saved snapshot.
+        saved=KitchenLab.settings
+        candidates=[saved['countertop_material'],saved['island_countertop_material'],saved.dig('backsplash','material')]
+        original=candidates.compact.find { |v| v['key']==value['key'] && v['card']==value['card'] && Digest::SHA256.hexdigest(JSON.generate(v['card']))==v['key'] }
+        raise 'Countertop material snapshot changed' unless original
+        return original
+      end
       value
     end
     def self.snapshot(card)
@@ -85,7 +92,7 @@ module KitchenLab
           card=cards.find { |c| c['id']==id };raise 'Material not found' unless card
           value=snapshot(card)
           if cabinet_id
-            KitchenLab.update_settings({'backsplash'=>backsplash.merge('mode'=>'tile','material'=>value)})
+            KitchenLab.update_settings({'backsplash'=>Backsplash.with_material(backsplash,value)})
           else
             KitchenLab.update_settings({(scope=='island' ? 'island_countertop_material' : 'countertop_material')=>value})
           end

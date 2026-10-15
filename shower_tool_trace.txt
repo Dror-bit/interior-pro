@@ -570,3 +570,40 @@
 13:22:27   rehole: room room-tm7m0t-7069 floor floor-tm8wlf-0431 -> 0 added, 0 stored
 13:23:19   rehole: room room-tm7m0t-8242 floor floor-tm8wmv-6844 -> 0 added, 0 stored
 13:23:19   rehole: room room-tm7m0t-7069 floor floor-tm8wmv-6634 -> 0 added, 0 stored
+13:30:00 click 746,774 dof 0 on Vertex in shower_floor raw [-486.6118, 401.875, 0.0] | prev none | kept [-486.6118, 401.875] kind :corner | corners 0
+13:30:03 click 1330,781 dof 0 on Vertex in  raw [-486.5493, 333.0428, 0.0] | prev [-486.6118, 401.875] | kept [-486.6118, 333.0428] kind :corner | corners 1
+13:30:05 click 1324,421 dof 0 on Vertex in shower_floor raw [-443.625, 333.0428, 0.0] | prev [-486.6118, 333.0428] | kept [-443.625, 333.0428] kind :corner | corners 2
+13:30:07 click 752,418 dof 0 on Edge in shower_floor raw [-443.625, 401.875, 0.05] | prev [-443.625, 333.0428] | kept [-443.625, 401.875] kind :corner | corners 3
+13:30:08 click 740,783 dof 0 on Edge in  raw [-486.612, 401.875, 0.03] | prev [-443.625, 401.875] | kept [-486.612, 401.875] kind :corner | corners 4
+13:30:08   build! kind curb tile Same as the room floor settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"none", "drain_w"=>5, "drain_l"=>5, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>""}
+13:30:08   under? floor floor-tlul5a-4291 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+13:30:08   under? floor floor-tlul5a-1070 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+13:30:08   under? floor_pattern  floor_id "floor-tlul5a-4291" room room-tlf7le-9399 middle no holes 0 -> no
+13:30:08   under? floor_pattern  floor_id "floor-tlul5a-1070" room room-tlj2de-3087 middle no holes 0 -> YES
+13:30:08   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+13:30:08   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+13:30:08   build! own no lay yes src floor pad_top 1.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+13:30:08   build! tiles laid
+13:30:08   curb: wears the shower floor - Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+13:30:08   curb: 1 of 1 built, 4.0" tall from z 0.05
+13:30:46   under? floor floor-tlul5a-4291 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+13:30:46   under? floor floor-tlul5a-1070 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+13:30:46   under? floor_pattern  floor_id "floor-tlul5a-4291" room room-tlf7le-9399 middle no holes 0 -> no
+13:30:46   under? floor_pattern  floor_id "floor-tlul5a-1070" room room-tlj2de-3087 middle no holes 0 -> YES
+13:30:46   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+13:30:51   build! kind curb tile Same as the room floor settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>false, "same_room"=>true, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IS_e5cd42a7-634c-4312-a62c-1474dd76fa1b"}
+13:30:51   under? floor floor-tlul5a-4291 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+13:30:51   under? floor floor-tlul5a-1070 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+13:30:51   under? floor_pattern  floor_id "floor-tlul5a-4291" room room-tlf7le-9399 middle no holes 0 -> no
+13:30:51   under? floor_pattern  floor_id "floor-tlul5a-1070" room room-tlj2de-3087 middle no holes 0 -> YES
+13:30:51   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+13:30:51   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+13:30:51   drain: linear_tile on the right side, 2.0" off the wall, shift 0.0
+13:30:51   drain: hole opened in the pad
+13:30:51   build! own no lay yes src floor pad_top 1.0 mat Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+13:30:51   build! tiles laid
+13:30:51   drain: linear_tile 3.0 x 24.0 at [-448.625, 355.459] z 1.05, 0 grate hole(s), tile inside: Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory, channel yes
+13:30:51   curb: wears the shower floor - Poetry Stone 24_ x 48_ Satin Porcelain Deco in Ivory
+13:30:51   curb: 1 of 1 built, 4.0" tall from z 0.05
+20:15:30   rehole: room room-tlf7le-9399 floor floor-tmvnpu-5433 -> 0 added, 0 stored
+20:15:30   rehole: room room-tlj2de-3087 floor floor-tmvnpu-4764 -> 0 added, 2 stored

@@ -1,0 +1,217 @@
+10-09 04:45:38   wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c (hip end): typed "2'" -> 24.00" (was 0.00"), saved 24.00", NOT BUILT
+10-09 04:45:38       [Roof] wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c: pulled out 24.0" (was 0.0")
+10-09 04:45:38       [Roof] a pulled edge is not built on this kind of roof yet (it dies into a wall, it is a shed, or its outline is not square) - 1 pull(s) left out: 56280eb8
+10-09 04:45:38       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 04:45:38       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 04:45:38       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 04:45:38       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 04:45:38       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 04:45:38       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 04:45:38       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:45:38       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 04:45:38       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 04:45:38       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 04:45:38       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 04:45:38       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 04:46:43   wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c (hip end): typed "24" -> 24.00" (was 24.00"), saved 24.00", NOT BUILT
+10-09 04:46:43       [Roof] a pulled edge is not built on this kind of roof yet (it dies into a wall, it is a shed, or its outline is not square) - 1 pull(s) left out: 56280eb8
+10-09 04:46:43       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 04:46:43       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 04:46:43       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 04:46:43       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 04:46:43       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 04:46:43       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 04:46:43       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 04:46:43       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 04:46:43       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 04:46:43       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 04:46:43       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 04:46:43       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:06:16   wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c (hip end): typed "24" -> 24.00" (was 24.00"), saved 24.00", BUILT
+10-09 05:06:16       [Roof] edge 56280eb8 pulled out 24"
+10-09 05:06:16       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 05:06:16       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 05:06:16       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 05:06:16       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 05:06:16       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 05:06:16       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 05:06:16       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:16       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 05:06:16       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 05:06:16       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:06:16       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 05:06:16       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:06:39   wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8 (hip end): typed "120" -> 120.00" (was 0.00"), saved 120.00", NOT BUILT
+10-09 05:06:39       [Roof] wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8: pulled out 120.0" (was 0.0")
+10-09 05:06:39       [Roof] 1 wall(s) carry a pull but have no edge of their own on this roof - nothing is pulled there: 4b76e4cc
+10-09 05:06:39       [Roof] edge 56280eb8 pulled out 24"
+10-09 05:06:39       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 05:06:39       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 05:06:39       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 05:06:39       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 05:06:39       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 05:06:39       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 05:06:39       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:06:39       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 05:06:39       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 05:06:39       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:06:39       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 05:06:39       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:37:21   wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8 (hip end): typed "120" -> 120.00" (was 120.00"), saved 120.00", NOT BUILT
+10-09 05:37:21       [Roof] edge 4b76e4cc is held to 0" (asked 120") - there it would touch the slope of the roof in front of it
+10-09 05:37:21       [Roof] edge 56280eb8 pulled out 24"
+10-09 05:37:21       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 05:37:21       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 05:37:21       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 05:37:21       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 05:37:21       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 05:37:21       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 05:37:21       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:37:21       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 05:37:21       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 05:37:21       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:37:21       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 05:37:21       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:46:49   wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8 (hip end): typed "60" -> 60.00" (was 120.00"), saved 60.00", NOT BUILT
+10-09 05:46:49       [Roof] wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8: pulled out 60.0" (was 120.0")
+10-09 05:46:49       [Roof] pull room: 1 other roof(s), 928 face(s) read, this roof s deck at its eave line 78.12
+10-09 05:46:49       [Roof] pull room: edge 56280eb8 from (-334.5,201.0), own top there 78.63
+10-09 05:46:49       [Roof] pull room: measured in 0.1 s
+10-09 05:46:49       [Roof] pull room: edge 4b76e4cc from (-50.5,481.5), own top there 78.63
+10-09 05:46:49       [Roof] pull room: stopped 0" out at (-145.0,481.5) - a roof face at 100.25 sits on this roof s top 102.25
+10-09 05:46:49       [Roof] pull room: measured in 0.1 s
+10-09 05:46:49       [Roof] edge 4b76e4cc is held to 0" (asked 60") - there it would touch the slope of the roof in front of it
+10-09 05:46:49       [Roof] edge 56280eb8 pulled out 24"
+10-09 05:46:49       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 05:46:49       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 05:46:49       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 05:46:49       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 05:46:49       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 05:46:49       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 05:46:49       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 05:46:49       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 05:46:49       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 05:46:49       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 05:46:49       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 05:46:49       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 09:24:17   wall 4b76e4cc-8f7c-4708-87bd-76fd03190ac8 (hip end): typed "60" -> 60.00" (was 60.00"), saved 60.00", BUILT
+10-09 09:24:17       [Roof] pull room: 1 other roof(s), 789 face(s) read, this roof s deck at its eave line 78.12
+10-09 09:24:17       [Roof] pull room: edge 56280eb8 from (-334.5,201.0), own top there 78.63
+10-09 09:24:17       [Roof] pull room: measured in 0.1 s
+10-09 09:24:17       [Roof] pull room: edge 4b76e4cc from (-50.5,481.5), own top there 78.63
+10-09 09:24:17       [Roof] pull room: measured in 0.4 s
+10-09 09:24:17       [Roof] edge 4b76e4cc pulled out 60"
+10-09 09:24:17       [Roof] edge 56280eb8 pulled out 24"
+10-09 09:24:17       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 09:24:17       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 09:24:17       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 09:24:17       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 09:24:17       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 09:24:17       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 09:24:17       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:17       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 09:24:17       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 09:24:17       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 09:24:17       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 09:24:17       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 09:24:54   wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c (hip end): typed "-24" -> 0.00" (was 24.00"), saved 0.00", back in place
+10-09 09:24:54       [Roof] wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c: pulled out 0.0" (was 24.0")
+10-09 09:24:54       [Roof] pull room: 1 other roof(s), 789 face(s) read, this roof s deck at its eave line 78.12
+10-09 09:24:54       [Roof] pull room: edge 4b76e4cc from (-50.5,481.5), own top there 78.63
+10-09 09:24:54       [Roof] pull room: measured in 0.3 s
+10-09 09:24:54       [Roof] edge 4b76e4cc pulled out 60"
+10-09 09:24:54       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 09:24:54       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 09:24:54       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 09:24:54       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 09:24:54       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 09:24:54       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 09:24:54       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 09:24:54       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 09:24:54       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 09:24:54       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 09:24:54       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 09:24:54       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface
+10-09 10:06:06   wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c (hip end): typed "-40" -> -40.00" (was 0.00"), saved -40.00", BUILT
+10-09 10:06:06       [Roof] wall 56280eb8-1483-4657-b4e8-b5ddaf1b539c: pulled in 40.0" (was 0.0")
+10-09 10:06:06       [Roof] edge 56280eb8 pulled in only 9.5" - the roof ends on the wall s outer face, never inside the house
+10-09 10:06:06       [Roof] pull room: 1 other roof(s), 789 face(s) read, this roof s deck at its eave line 78.12
+10-09 10:06:06       [Roof] pull room: edge 4b76e4cc from (-50.5,481.5), own top there 78.63
+10-09 10:06:06       [Roof] pull room: measured in 0.3 s
+10-09 10:06:06       [Roof] edge 4b76e4cc pulled out 60"
+10-09 10:06:06       [Roof] edge 56280eb8 pulled in 10"
+10-09 10:06:06       [Roof] valley: this roof is set 2.88" lower, so its slope and the taller roof's are one surface (3.12" over its wall top instead of 6.00")
+10-09 10:06:06       [Roof] valley: 29" of ridge cap left off where this ridge runs into the gable of the roof above
+10-09 10:06:06       [Roof] valley: this roof's trim stops at the taller wall (1 edge(s))
+10-09 10:06:06       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 1 overhang strip(s) pulled back to the wall
+10-09 10:06:06       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 0 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 3 region(s) of this roof cut off under the gable of the roof above (1 of them lying in its sheet)
+10-09 10:06:06       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 2 face(s) swept out of the overhang strip past the wall
+10-09 10:06:06       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: 2 deck face(s) cut back on 2 shell(s)
+10-09 10:06:06       [Roof] valley: closed the wall of the gable above this roof, 60" x 15"
+10-09 10:06:06       [Roof] valley: the roof above stands a gable here - this roof ends on it, nothing is carried on
+10-09 10:06:06       [Roof] valley: 5 edge(s) hidden where this roof and the lower one are one surface
+10-09 10:06:06       [Roof] valley: the roof below changed - this roof is built again, cut for it
+10-09 10:06:06       [Roof] valley: 1 edge(s) hidden where this roof and the lower one are one surface

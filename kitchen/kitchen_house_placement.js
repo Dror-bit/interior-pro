@@ -47,8 +47,18 @@
    for(const other of rows){
     if(other.id===row.id||!vertical(other)||!other.basis)continue;
     const q=other.basis,ox=sub(q[1],q[0]),of=sub(q[2],q[0]);
-    if(dot(x,ox)<.999||dot(front,of)<.999)continue;
-    for(const target of [add(q[0],mul(ox,other.cabinet.width)),sub(q[0],mul(x,c.width))]){
+    let targets;
+    if(['corner_base','corner_lazy','corner_upper'].includes(other.cabinet.kind)){
+     // Both exposed ends of a corner can receive a cabinet, including the return wall.
+     const aligned=Math.max(Math.abs(dot(x,ox)),Math.abs(dot(x,of)))>.999;
+     if(!aligned)continue;
+     const xs=other.polygon.map(v=>dot(sub(v,p[0]),x)),ys=other.polygon.map(v=>dot(sub(v,p[0]),front));
+     targets=[Math.min(...xs)-c.width,Math.max(...xs)].map(t=>add(p[0],add(mul(x,t),mul(front,Math.min(...ys)))));
+    }else{
+     if(dot(x,ox)<.999||dot(front,of)<.999)continue;
+     targets=[add(q[0],mul(ox,other.cabinet.width)),sub(q[0],mul(x,c.width))];
+    }
+    for(const target of targets){
      const shift=sub(target,p[0]),alongShift=dot(shift,x),depthShift=dot(shift,front);
      const capture=held?.neighbor===other.id?tolerance*1.8:tolerance; if(Math.abs(alongShift)>capture||Math.abs(depthShift)>capture)continue;
      // On a wall, preserve its face even if the old neighbor has a small gap.

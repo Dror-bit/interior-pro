@@ -66,6 +66,30 @@ module InteriorPro
     ON_WALL = 3.0 unless const_defined?(:ON_WALL, false)               # a fixture this close to a wall stands on it
     WORDS_APART = 8.0 unless const_defined?(:WORDS_APART, false)       # two distances closer than this: the lower one's words go under its line
     USE_TYPED_DIMS = true unless const_defined?(:USE_TYPED_DIMS, false) # 16:25: a set's numbers are the ones he typed
+    # ELECTRIC ON THE ELEVATION GETS ITS NUMBERS (2026-10-14 17:29, his "עכשיו צריך רק את המידות"): an outlet, a switch or
+    # a wall light on this wall gets the numbers he TYPED in the electrical tool - its height from the floor (height_in,
+    # to its middle) by the nearer wall and its distance from that wall along the face (u_in) at that height - on the
+    # ELECTRIC layer (g 'electric'), so they go off with the plates. A ceiling kind has no wall: nothing.
+    USE_ELEC_DIMS = true unless const_defined?(:USE_ELEC_DIMS, false)
+    ELEC_ROW = 4.0 unless const_defined?(:ELEC_ROW, false)
+    # ONLY THIS ROOM IN ITS PICTURES (2026-10-14 17:47, his "למה הוא מראה חלקים מחוץ לחדר, תוריד אותם"): the camera's air past
+    # the corner walls showed the next room's vanity. Every Interior Pro thing whose middle lies outside the room's outline
+    # (walls, doors and windows excepted - the cut walls must show) is put aside for the room's shots, like the floors are.
+    # Kill switch: false = as before.
+    USE_ROOM_ONLY = true unless const_defined?(:USE_ROOM_ONLY, false)
+    # 19:51, his words: "הוא עדיין מסרטט לי חלקים מחוץ לחדר הנבחר... הוא חייב לעצור בגבול החדר הנבחר" - measured
+    # (debug_room_only.rb): what was left outside were the walls, doors and windows of the NEXT room, kept as the
+    # frame. Now only this room's own walls (its bounding_wall_ids) stay, and only the doors and windows that sit on its
+    # outline (their middle within FRAME_NEAR of a side, inside that side's length). Off = every wall/door/window stays.
+    USE_ROOM_ONLY_FRAME = true unless const_defined?(:USE_ROOM_ONLY_FRAME, false)
+    FRAME_NEAR = 8.0 unless const_defined?(:FRAME_NEAR, false)
+    # 20:05, his "עדיין קיים" - measured (debug_room_only2.rb): what was left by the corner was the KITCHEN (the hood, its
+    # cover, the range's backsplash) - KitchenLab groups, no Interior Pro type, so collect never saw them. A kitchen group
+    # (dictionary KITCHEN_DICT, any kind) whose middle lies outside the room is put aside too. Off = kitchen untouched.
+    USE_ROOM_ONLY_KITCHEN = true unless const_defined?(:USE_ROOM_ONLY_KITCHEN, false)
+    KITCHEN_DICT = 'KitchenLab' unless const_defined?(:KITCHEN_DICT, false)
+    ROOM_ONLY_KEEP = %w[wall door window].freeze   # 17:39 ("המידות צריכות לבוא או מלמעלה או מלמטה ולא על המוצר"): the row of
+                                                             # distances runs this far above the plates' top (upper half) or under their bottom
     USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
     USE_LEAF_FACE = true unless const_defined?(:USE_LEAF_FACE, false) # 19:01: a white face under a door's leaf too, not only under its swing; off = the swing alone, as before
     USE_SWING_FACE = false unless const_defined?(:USE_SWING_FACE, false) # 19:16: no white under the swing's quarter circle - the leaf only
@@ -93,7 +117,10 @@ module InteriorPro
     remove_const(:CAT_TYPES) if const_defined?(:CAT_TYPES, false)
     CAT_TYPES = { 'tile' => %w[tile_wall tile_niche floor_pattern shower_pattern],
                   'plumbing' => %w[fixture],
-                  'electric' => %w[electric outlet switch light lighting] }.freeze
+                  # 'electrical' is what the electrical tool really writes (ElectricalLibrary.place! / place_on_ceiling!, measured
+                  # 2026-10-13 mep_2d_report: cat_of('electrical') -> nil, so the ELECTRIC layer never caught an outlet, a switch or
+                  # a light); the old names stay in case something older wrote them (2026-10-14, his pick "1": electric on the elevation)
+                  'electric' => %w[electrical electric outlet switch light lighting] }.freeze
     SNAP_SEEN = 0.6 unless const_defined?(:SNAP_SEEN, false)   # a line is kept when this share of it lies on drawn pixels
     DIM_STEP = 2 unless const_defined?(:DIM_STEP, false)               # 16:33 ("סליחה, רק חצי"): numbers to the half inch, no finer (16 = the sixteenth, as before)
     ROW_GAP = 0.4 unless const_defined?(:ROW_GAP, false)   # paper inches between two walls, past their heights
@@ -703,6 +730,10 @@ module InteriorPro
               out << { kind: 'niche', a0: [a0, 0.0].max, a1: [a1, side.len].min,
                        z0: [p0.z, p1.z].min - base_z, z1: [p0.z, p1.z].max - base_z }
             end
+          when 'electrical'
+            next unless USE_ELEC_DIMS
+            it = elec_point(t, all, al, inn, side.len, base_z)
+            out << it if it
           when 'fixture', 'tile_wall'
             pts = world_box(t)
             next unless pts
@@ -790,6 +821,141 @@ module InteriorPro
           out << { kind: 'part', a0: a, a1: a, z0: z, z1: z, fix: t.ent.object_id, name: k.to_s }
         end
         out.empty? ? nil : out
+      end
+
+      # The things that are NOT in this room (USE_ROOM_ONLY): their middle outside its outline. Walls, doors and
+      # windows are never put aside (the corner walls are the picture's frame). PURE apart from the boxes.
+      def outside_room(poly, all, wall_ids = nil)
+        ids = Array(wall_ids)
+        all.reject do |t|
+          next true if TOP_ASIDE.include?(t.type) || set_aside?(t.type)
+          if ROOM_ONLY_KEEP.include?(t.type)
+            next true unless USE_ROOM_ONLY_FRAME
+            next !foreign_frame?(poly, t, ids)
+          end
+          c = world_centre(t)
+          c.nil? || inside?(poly, c.x, c.y)
+        end
+      end
+
+      # the kitchen groups (USE_ROOM_ONLY_KITCHEN) whose middle lies outside the room: walks like collect, into plain
+      # groups and into kitchen groups that stay (a run of backsplash may cross the line; its parts outside go). Returns
+      # Things. PURE apart from the model.
+      def outside_kitchen(poly, ents, outer = nil, depth = 0, out = [])
+        ents.each do |e|
+          next unless e.is_a?(Sketchup::Group) ||
+                      (defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance))
+          next unless e.valid?
+          next if e.get_attribute(D, 'type')                      # ours: outside_room's business
+          next if e.respond_to?(:hidden?) && e.hidden?
+          xf = outer ? outer * e.transformation : e.transformation
+          if e.get_attribute(KITCHEN_DICT, 'kind')
+            c = e.bounds.center.transform(outer || Geom::Transformation.new)
+            unless inside?(poly, c.x, c.y)
+              out << Thing.new(e, xf, 'kitchen')
+              next
+            end
+          end
+          next if depth >= NEST_DEPTH
+          kids = defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance) ? e.definition.entities : e.entities
+          outside_kitchen(poly, kids, xf, depth + 1, out)
+        end
+        out
+      rescue StandardError => e
+        puts "[Elevation] outside_kitchen: #{e.class}: #{e.message}"
+        out
+      end
+
+      # a wall, door or window that is NOT this room's (USE_ROOM_ONLY_FRAME): a wall not among its bounding walls (no
+      # list = every wall is kept); a door or window whose middle is farther than FRAME_NEAR from the room's sides
+      # (measured to the side itself, not its line - one on the same long wall past the corner is not on it). PURE.
+      def foreign_frame?(poly, t, ids)
+        if t.type == 'wall'
+          return false if ids.empty? || !t.ent.respond_to?(:get_attribute)
+          return !ids.include?(t.ent.get_attribute(D, 'id'))
+        end
+        c = world_centre(t)
+        return false if c.nil?
+        outline_gap(poly, c.x, c.y) > FRAME_NEAR
+      end
+
+      # the distance from a point to the nearest side of the outline (to the side, its ends clamped). PURE.
+      def outline_gap(poly, x, y)
+        poly.each_with_index.map do |a, i|
+          b = poly[(i + 1) % poly.size]
+          dx = b.x - a.x
+          dy = b.y - a.y
+          l2 = dx * dx + dy * dy
+          k = l2 > 0 ? [[((x - a.x) * dx + (y - a.y) * dy) / l2, 0.0].max, 1.0].min : 0.0
+          Math.hypot(x - (a.x + k * dx), y - (a.y + k * dy))
+        end.min
+      end
+
+      # The rows of electric distances (USE_ELEC_DIMS, 17:39): the plates at one height, sorted from the wall nearer to
+      # the first of them, chained - the wall to the first, the first to the second... Their row runs ELEC_ROW over the
+      # tallest plate's top when they sit in the upper half of the wall, else ELEC_ROW under the lowest bottom. PURE.
+      def elec_rows(items, len, wh, near, wall_a, ux, vz)
+        out = []
+        groups = []
+        items.sort_by { |it| it[:z1].to_f }.each do |it|
+          g = groups.find { |gr| (gr[:z] - it[:z1].to_f).abs <= DIM_MIN }
+          g ? g[:items] << it : groups << { z: it[:z1].to_f, items: [it] }
+        end
+        groups.each do |gr|
+          its = gr[:items].sort_by { |it| it[:a0].to_f }
+          sd = near.call(its.first[:a0].to_f)
+          w_a = wall_a.call(sd)
+          its = its.reverse if sd == 'L'      # from that wall outward
+          zrow = if gr[:z] > wh / 2.0
+                   its.map { |it| (it[:hi] || it[:z1]).to_f }.max + ELEC_ROW
+                 else
+                   its.map { |it| (it[:lo] || it[:z0]).to_f }.min - ELEC_ROW
+                 end
+          zrow = [[zrow, DIM_MIN].max, wh - DIM_MIN].min
+          above = gr[:z] > wh / 2.0
+          prev = w_a
+          its.each do |it|
+            am = it[:a0].to_f
+            next if (am - prev).abs <= DIM_MIN
+            # the witness line starts at the plate's edge (its top for a row over it, its bottom for a row under it) -
+            # never through the plate; the words go UNDER a row that runs under the plates (19:40)
+            from = above ? (it[:hi] || it[:z1]).to_f : (it[:lo] || it[:z1]).to_f
+            d = { 'k' => 'hi', 'u' => [ux.call(prev), ux.call(am)].sort, 'v' => vz.call(zrow), 'from' => vz.call(from),
+                  't' => fmt_in((am - prev).abs), 'g' => 'electric' }
+            d['below'] = true unless above
+            out << d
+            prev = am
+          end
+        end
+        out
+      end
+
+      # An outlet / switch / wall light at the numbers he typed (USE_ELEC_DIMS): `height_in` up from the floor, `u_in`
+      # along its wall's face (ElectricalLibrary.place! writes host_wall_id, side, u_in, height_in, mount). nil for a
+      # ceiling kind, a wall not in the room, or a point off this side. PURE apart from the frame.
+      def elec_point(t, all, al, inn, len, base_z)
+        return nil unless defined?(InteriorPro::TileWall)
+        return nil if t.ent.get_attribute(D, 'mount').to_s == 'ceiling'
+        wid = t.ent.get_attribute(D, 'host_wall_id').to_s
+        w = all.find { |x| x.type == 'wall' && x.ent.get_attribute(D, 'id').to_s == wid }
+        return nil unless w
+        fr = InteriorPro::TileWall.frame_for(w.ent, t.ent.get_attribute(D, 'side').to_s)
+        return nil unless fr
+        outer = w.xf * w.ent.transformation.inverse
+        p = Geom::Point3d.new(*InteriorPro::TileWall.world(fr, t.ent.get_attribute(D, 'u_in').to_f, t.ent.get_attribute(D, 'height_in').to_f)).transform(outer)
+        return nil unless inn.call(p).abs <= ON_WALL
+        a = al.call(p)
+        return nil if a <= 0 || a >= len
+        z = p.z - base_z
+        pts = world_box(t)
+        zs = pts ? pts.map { |q| q.z - base_z } : [z, z]
+        as = pts ? pts.map { |q| al.call(q) } : [a, a]
+        # a0/a1 = its line (the typed point); l/r = the plate's edges along the wall, lo/hi = its bottom / top - so no
+        # line of a number is ever drawn INTO the plate (19:40, his "שהמוצרים יישארו נקיים שלא ייכנסו אליהם קווים")
+        { kind: 'elec', a0: a, a1: a, z0: z, z1: z, name: t.ent.get_attribute(D, 'kind').to_s, lo: zs.min, hi: zs.max, l: as.min, r: as.max }
+      rescue StandardError => e
+        puts "[Elevation] elec_point: #{e.class}: #{e.message}"
+        nil
       end
 
       # the names of the same parts, in the same order (a shower set: ..._head, ..._valve, ..._hand)
@@ -925,6 +1091,7 @@ module InteriorPro
         end
         row1 = []
         said = []     # the parts' distances already written: [a, z]
+        said_e = []   # the electric distances already written: [a, z, d] (USE_ELEC_DIMS)
         # 16:13, his North wall ("זה הכי מבולגן בעולם"): a set made of parts gets ONE distance from the
         # wall - to its valve (the plumber's point), else to its middle part - not one a part
         anchor = {}
@@ -969,10 +1136,29 @@ module InteriorPro
             sd = near.call((a0 + a1) / 2.0)
             col.call(sd, [0.0, it[:z1].to_f], nil, 'plumbing')
             row1 << [a0, a1]
+          when 'elec'                # an outlet / switch / wall light: its height (one column for all at one height)
+            am = it[:a0].to_f
+            zm = it[:z1].to_f
+            next if zm <= DIM_MIN
+            sd = near.call(am)
+            unless said_e.any? { |a, z, _| (z - zm).abs <= DIM_MIN && near.call(a) == sd }
+              # the height's line reaches the plate NEAREST that wall, not the farthest (17:46: "הקו של הגובה צריך להיפסק במוצר הראשון"),
+              # and stops at its EDGE, not its middle (19:40: the plate stays clean)
+              w_a = wall_a.call(sd)
+              first = items.select { |o| o[:kind] == 'elec' && (o[:z1].to_f - zm).abs <= DIM_MIN && near.call(o[:a0].to_f) == sd }
+                           .min_by { |o| (o[:a0].to_f - w_a).abs } || it
+              edge = sd == 'L' ? (first[:r] || first[:a0]).to_f : (first[:l] || first[:a0]).to_f
+              col.call(sd, [0.0, zm], edge, 'electric')
+            end
+            said_e << [am, zm, nil]
           end
         end
         # one close under another writes its words under its line (16:05: 21 3/16 on 30 7/8)
         said.sort_by { |x| x[1] }.each_cons(2) { |lo, hi| lo[2]['below'] = true if hi[1] - lo[1] < WORDS_APART }
+        # the electric distances: a CHAIN per height from the nearer wall - wall to the first, first to the next... - in a
+        # row ABOVE the plates (upper half of the wall) or UNDER them (lower half), never on them (17:39); witness lines
+        # from the plate's middle to the row
+        out.concat(elec_rows(items.select { |it| it[:kind] == 'elec' }, len, wh, near, wall_a, ux, vz))
         if row1.any?
           stops = ([0.0, len] + row1.flatten).sort
           run = []
@@ -1051,6 +1237,20 @@ module InteriorPro
             next unless set_aside?(t.type) && t.ent.respond_to?(:hidden=) && !t.ent.hidden?
             t.ent.hidden = true
             hidden << t.ent
+          end
+          if USE_ROOM_ONLY
+            outside_room(poly, all, room.ent.get_attribute(D, 'bounding_wall_ids')).each do |t|
+              next unless t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+              t.ent.hidden = true
+              hidden << t.ent
+            end
+            if USE_ROOM_ONLY_KITCHEN
+              outside_kitchen(poly, model.entities).each do |t|
+                next unless t.ent.respond_to?(:hidden=) && !t.ent.hidden?
+                t.ent.hidden = true
+                hidden << t.ent
+              end
+            end
           end
           ro['DrawHorizon'] = false
           ro['DrawGround'] = false

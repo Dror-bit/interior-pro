@@ -478,6 +478,7 @@ module KitchenLab
     ContinuousSurfaces.build!
     crowns!
     pack_units!
+    @model.set_attribute(DICT,'backsplash_opening_signature',Backsplash.opening_signature(@model))
   end
 
   def self.apply(raw,notify=true)

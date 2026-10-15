@@ -59,3 +59,22 @@
 18:46:29  card has no vray numbers
 13:16:00  RuntimeError: no brdf on live plugin
 13:17:03  RuntimeError: no brdf on live plugin
+17:10:14  write via material: ArgumentError TextureWriter does not support the loading of the passed object type.
+17:10:14  no texture file was written
+17:10:14  material is not a V-Ray material yet
+17:15:00  write via material: ArgumentError TextureWriter does not support the loading of the passed object type.
+17:15:00  no texture file was written
+17:15:00  material is not a V-Ray material yet
+17:15:11  card has no vray numbers
+17:15:34  card has no vray numbers
+17:17:45  write via material: ArgumentError TextureWriter does not support the loading of the passed object type.
+17:17:45  texture -> C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IP_MAT_0274.jpg
+17:17:45  material is not a V-Ray material yet
+17:18:48  texture -> C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IP_MAT_0274.jpg
+17:18:48  material is not a V-Ray material yet
+17:18:56  card has no vray numbers
+17:19:00  card has no vray numbers
+17:19:12  write via material: ArgumentError TextureWriter does not support the loading of the passed object type.
+17:19:12  texture -> C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IP_MAT_0274.jpg
+17:19:12  material is not a V-Ray material yet
+17:25:53  card has no vray numbers

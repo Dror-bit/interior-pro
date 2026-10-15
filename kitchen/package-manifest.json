@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 37248,
-      "sha256": "399540b04bedf6f697b291f0655dcfd39d8eaabddfa0c09eaee8c03316db4557"
+      "bytes": 37347,
+      "sha256": "038dea89878b061993b1fb0f5c4db6af039d638e2b6ef5fffffe96d1bfc6981e"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1558,8 +1558,8 @@
     },
     {
       "path": "kitchen_house_placement.js",
-      "bytes": 10104,
-      "sha256": "946bb4d06383088f7327a48656f632e35b8acfa91778d321ba541278c1d3104a"
+      "bytes": 10552,
+      "sha256": "438135bf4871702287c776f68da50d429c0f863e684721c8048ce6fb07774c3a"
     },
     {
       "path": "handle_gallery.js",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "kitchen_units.rb",
-      "bytes": 5591,
-      "sha256": "7c8043913731e50822eb2cf64b7a4636149ebe49120fe8b974ca84fdaab8210c"
+      "bytes": 5761,
+      "sha256": "4a6b2d3318809db8bdd9e81029a42902bdb7c0bc9ced91c2d615808064bd9f6c"
     },
     {
       "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
@@ -1678,8 +1678,8 @@
     },
     {
       "path": "countertop_materials.rb",
-      "bytes": 6545,
-      "sha256": "9e52b3eaf1be25a772ec64e1ba658b3d05f77529291e402fa8345e0b17d6f8d8"
+      "bytes": 7000,
+      "sha256": "5747dc0ebc5a9f733f265c692dc0484375fd1486b77071744e4216b1b9fa56e1"
     },
     {
       "path": "countertop_materials.html",
@@ -1698,13 +1698,13 @@
     },
     {
       "path": "kitchen_backsplash.rb",
-      "bytes": 8754,
-      "sha256": "57373175c22867711e95e17833416740998c4146f56eae9b868ebee07949cdaa"
+      "bytes": 13034,
+      "sha256": "df9a7c0b6e6409e26b8cf5e1426847a67f62d86c2741affce2841995cbf3de6f"
     },
     {
       "path": "backsplash_editor.js",
-      "bytes": 2920,
-      "sha256": "f27f4bcd61d4604607951c1285a0d0a7b2878d930e9c9109309d1f6953b9e3c6"
+      "bytes": 3763,
+      "sha256": "57a73be938752d198ddbdce34e850ba239e184522b10bfa3baa01a4b3ea1a726"
     },
     {
       "path": "test_backsplash.rb",
@@ -1758,8 +1758,18 @@
     },
     {
       "path": "kitchen_continuous_surfaces.rb",
-      "bytes": 3710,
-      "sha256": "84a7b4f7874a21c47b44b01166e967fd014e934e8d0afd767bfe3f35f8c9fe1f"
+      "bytes": 3990,
+      "sha256": "8959d9d3864868196d62584a86c9d18e4bf1684a036d676611d7dbf258b3c02f"
+    },
+    {
+      "path": "test_corner_return_snap.js",
+      "bytes": 1335,
+      "sha256": "96fb24e2692f8498f2fe23e3c5623cdda551a60657d261e79c73f99b46b515a4"
+    },
+    {
+      "path": "test_corner_snap_matrix.js",
+      "bytes": 2364,
+      "sha256": "c73220074a7e824ac9fd449d2cd3f8292ae0494409775943d79ac21eee690ad7"
     }
   ]
 }

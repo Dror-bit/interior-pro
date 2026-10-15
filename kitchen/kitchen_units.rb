@@ -44,7 +44,8 @@ module KitchenLab
     saved=JSON.parse(model.get_attribute(DICT,'unit_owners','[]'))
     removed=saved-units.map{|g|g.get_attribute(DICT,'id')}
     changed=units.select { |u|prev=u.get_attribute(DICT,'unit_transform');prev && u.transformation.to_a.zip(prev).any?{|a,b|(a-b).abs>0.000001} }
-    return if changed.empty? && removed.empty?
+    openings_changed=defined?(Backsplash) && model.get_attribute(DICT,'backsplash_opening_signature')!=Backsplash.opening_signature(model)
+    return if changed.empty? && removed.empty? && !openings_changed
     data=doc['cabinets'].reject{|d|removed.include?(d['surround_for']||d['id'])}
     changed.each do |u|
       delta=u.transformation*Geom::Transformation.new(u.get_attribute(DICT,'unit_transform')).inverse
@@ -52,7 +53,7 @@ module KitchenLab
       data=data.map{|d|ids.include?(d['id']) ? unit_pose(d,delta*cabinet_transform(d),doc['settings']) : d}
     end
     @unit_syncing=true
-    model.start_operation('Kitchen: sync 3D placement',true,false,true)
+    model.start_operation('Kitchen: sync placement and openings',true,false,true)
     begin
       write_document!(data,doc['settings'])
       changed.each{|u|u.set_attribute(DICT,'unit_transform',u.transformation.to_a)}
