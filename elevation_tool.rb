@@ -37,6 +37,10 @@ module InteriorPro
     USE_KITCHEN_ISLAND_VIEWS = true
     remove_const(:USE_KITCHEN_UPPER_DASHES) if const_defined?(:USE_KITCHEN_UPPER_DASHES, false)
     USE_KITCHEN_UPPER_DASHES = true
+    remove_const(:USE_KITCHEN_CABINET_PLAN) if const_defined?(:USE_KITCHEN_CABINET_PLAN, false)
+    USE_KITCHEN_CABINET_PLAN = true
+    remove_const(:USE_KITCHEN_PLAN_DIMS) if const_defined?(:USE_KITCHEN_PLAN_DIMS, false)
+    USE_KITCHEN_PLAN_DIMS = true
     remove_const(:USE_KITCHEN_BODY_HEIGHTS) if const_defined?(:USE_KITCHEN_BODY_HEIGHTS, false)
     USE_KITCHEN_BODY_HEIGHTS = true
     USE_ELEVATIONS = true unless const_defined?(:USE_ELEVATIONS, false)
@@ -903,6 +907,94 @@ module InteriorPro
           pos += dash + gap
         end
         out
+      end
+
+      # Cabinet footprints, independent of the worktop skin that covers base units.
+      # Plan dimensions use the same editable vector dimension shapes as the elevations.
+      # Inner chain = base/tall units; outer chain = upper cabinets and hood.
+      def kitchen_plan_dimension_rows(poly, kitchen, base_z)
+        return [] unless USE_KITCHEN_PLAN_DIMS
+        xs=poly.map(&:x);ys=poly.map(&:y)
+        x0=xs.min-MARGIN;y0=ys.min-MARGIN
+        w=xs.max-xs.min+2*MARGIN;h=ys.max-ys.min+2*MARGIN
+        uv=->(p){[(p.x-x0)/w,(p.y-y0)/h]}
+        views=sides(poly)+kitchen_island_views(poly,kitchen,base_z).select{|s|s.name =~ /Island(?:Front|Right)/}
+        out=[]
+        views.each do |side|
+          fr=side_frame(side,base_z)
+          # The current plan renderer's dimensions are horizontal or vertical.
+          next unless fr[:ux].abs<0.001 || fr[:uy].abs<0.001
+          levels={'base'=>[],'upper'=>[]}
+          kitchen.each do |e,k,xf|
+            next unless KITCHEN_WALL_KINDS.include?(k.to_s)
+            if kitchen_island?(side)
+              next unless side.instance_variable_get(:@kitchen_island)[:ids].include?(e.persistent_id)
+              box=InteriorPro::ElectricalLibrary.box_in_frame(e,xf,fr)
+            else
+              box=kitchen_on(side,e,xf,fr);next unless box
+            end
+            c=kitchen_cab(e);next unless c
+            d=JSON.parse(c.get_attribute(KITCHEN_DICT,'data').to_s) rescue nil
+            next unless d.is_a?(Hash)
+            level=%w[wall glass_wall corner_upper hood].include?(d['kind'].to_s) ? 'upper' : 'base'
+            a,b=box
+            levels[level]<<[[a,0].max,[b,side.len].min]
+          end
+          levels.each_with_index do |(level,intervals),row|
+            stops=intervals.flatten.sort.each_with_object([]){|x,a|a<<x if a.empty? || x-a.last>0.125}
+            next if stops.size<2
+            offset=18.0+row*18.0
+            stops.each_cons(2) do |a,b|
+              next if b-a<0.5
+              pa=Geom::Point3d.new(side.a.x+fr[:ux]*a,side.a.y+fr[:uy]*a,base_z)
+              pb=Geom::Point3d.new(side.a.x+fr[:ux]*b,side.a.y+fr[:uy]*b,base_z)
+              line=pa.offset(side.inward,-offset)
+              aa=uv.call(pa);bb=uv.call(pb);ll=uv.call(line)
+              horizontal=fr[:uy].abs<0.001
+              out<<{'k'=>'f','p'=>aa+bb,'o'=>horizontal ? 'h' : 'v','at'=>ll[horizontal ? 1 : 0],
+                    't'=>fmt_in(b-a),'g'=>'kitchen','cabinet_level'=>level,'wall'=>side.name}
+            end
+          end
+        end
+        out
+      end
+
+      def kitchen_plan_outline(d)
+        w = d['width'].to_f; depth = d['depth'].to_f
+        return [] unless w.finite? && depth.finite? && w > 0 && depth > 0
+        return [] unless %w[doors drawers sink wall glass_wall tall fridge oven wall_oven dishwasher oven_tower micro_tower fridge_surround filler corner hood microwave corner_base corner_upper corner_lazy pullout_spice pullout_waste pullout_storage].include?(d['kind'].to_s)
+        %w[corner_base corner_lazy corner_upper].include?(d['kind'].to_s) ?
+          [[0,0],[w,0],[w,-depth],[depth,-depth],[depth,-w],[0,-w]] :
+          [[0,0],[w,0],[w,-depth],[0,-depth]]
+      end
+
+      def kitchen_cabinet_plan!(model, kitchen, draw_z)
+        return kitchen_upper_plan!(model, kitchen, draw_z) unless USE_KITCHEN_CABINET_PLAN
+        count = 0
+        Array(kitchen).each do |e, kind, wxf|
+          next unless e.valid? && !e.hidden? && KITCHEN_WALL_KINDS.include?(kind.to_s)
+          c = kitchen_cab(e); next unless c
+          d = JSON.parse(c.get_attribute(KITCHEN_DICT, 'data').to_s) rescue nil
+          next unless d.is_a?(Hash)
+          points = kitchen_plan_outline(d); next if points.empty?
+          upper = %w[wall glass_wall corner_upper hood].include?(d['kind'].to_s)
+          xf = c.equal?(e) ? wxf : wxf * c.transformation
+          points = points.map { |x,y| p = Geom::Point3d.new(x,y,0).transform(xf); Geom::Point3d.new(p.x,p.y,draw_z) }
+          g = model.entities.add_group
+          g.name = upper ? 'Kitchen upper plan outline (temporary)' : 'Kitchen base plan outline (temporary)'
+          (points + [points.first]).each_cons(2) do |a,b|
+            if upper
+              vec = b - a
+              kitchen_dash_ranges(vec.length.to_f).each { |p,q| g.entities.add_line(a.offset(vec,p), a.offset(vec,q)) }
+            else
+              g.entities.add_line(a,b)
+            end
+          end
+          # Upper cabinets and hood covers must not occlude base units, sink or range.
+          e.hidden = true if upper
+          count += 1
+        end
+        count
       end
 
       def kitchen_upper_plan!(model, kitchen, draw_z)
@@ -1912,12 +2004,13 @@ module InteriorPro
               trace("#{name} from above: symbols NOT drawn - #{e.class}: #{e.message}")
               puts "[Elevation] door/window symbols: #{e.message}"
             end
-            kitchen_upper_plan!(model, kitchen, s[:eye].z - 0.25) if label == KITCHEN_LABEL
+            kitchen_cabinet_plan!(model, kitchen, s[:eye].z - 0.25) if label == KITCHEN_LABEL
             cam = Sketchup::Camera.new(s[:eye], s[:target], s[:up], false)
             cam.height = s[:height]
             view.camera = cam
             view.refresh
             path = file_for(dir, name, 'Plan', style)
+            last_dims[path.tr('\\', '/')] = kitchen_plan_dimension_rows(poly, kitchen, base_z) if label == KITCHEN_LABEL && !only
             meta = { 'room' => name, 'room_pid' => (room.ent.respond_to?(:persistent_id) ? room.ent.persistent_id : nil),
                      'side' => 'Plan', 'style' => style }
             if only
