@@ -35,7 +35,7 @@ ok('the wall light (upper half) gets its row OVER it, witness from its TOP edge 
 ok('a row never sits on the plate: the two rows differ from the heights', lo.all? { |d| (d['v'] - d['from']).abs > 0.01 } && (sw['v'] - sw['from']).abs > 0.01)
 src = File.read('./elevation_tool.rb')
 pc = File.read('./plan_canvas.rb') rescue ''
-ok('the numbers of a layer in its colour: plumbing blue, electric green, the rest black (19:40)', pc.include?("ELEV_DIM_COLORS = { 'plumbing' => '#1f5fbf', 'electric' => '#1a9d55' }") && pc.include?('gx[:color] = ELEV_DIM_COLORS'))
+ok('the numbers of a layer in its colour: plumbing blue, electric green, the rest black (19:40)', pc.include?("ELEV_DIM_COLORS = { 'plumbing' => '#1f5fbf', 'electric' => '#1a9d55'") && pc.include?('gx[:color] = ELEV_DIM_COLORS'))
 pdf = File.read('./plan_pdf.rb') rescue ''
 ok('the PDF draws a coloured line and goes back to black', pdf.include?('st << "#{grey(lc)} RG" if lc') && pdf.include?("st << '0 0 0 RG' if lc"))
 sd = File.read('./plan_sheet_dialog.rb') rescue ''

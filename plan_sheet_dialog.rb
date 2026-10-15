@@ -7933,7 +7933,7 @@ module InteriorPro
 
           // his groups, in his words; the last four only once there is something of them (or one is off)
           var GROUP_ROWS=[['walls','קירות'],['doors','דלתות'],['windows','חלונות'],['dims','מידות'],['notes','הערות'],
-                          ['text','כיתובים'],['pics','תמונות'],['lines','קווים'],['tile','TILE'],['plumbing','PLUMBING'],['electric','ELECTRICAL']];
+                          ['text','כיתובים'],['pics','תמונות'],['lines','קווים'],['tile','TILE'],['plumbing','PLUMBING'],['electric','ELECTRICAL'],['kitchen','KITCHEN']];
           // the three of his law are always there, in English, his way (2026-10-09: "אני רוצה אותן באנגלית את ה3")
           var GROUP_ALWAYS=['walls','doors','windows','dims','notes','text','pics','tile','plumbing','electric'];
           function buildLayers(){

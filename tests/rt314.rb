@@ -38,7 +38,7 @@ ok('the hood, the nested backsplash and the part of the run outside are put asid
 ok('they come as kitchen Things', out.all? { |t| t.type == 'kitchen' })
 ok('the sink inside and our outlet are not its business', names.none? { |n| %w[sink outlet run house].include?(n) })
 src = File.read('./elevation_tool.rb')
-m = src[/def shoot!.*?sides\(poly\)\.each/m].to_s
+m = src[/def shoot!.*?capture_sides\.each/m].to_s
 ok('shoot! puts them aside with the floors (hidden, and back after)', m.include?('outside_kitchen(poly, model.entities).each') && m.include?('USE_ROOM_ONLY_KITCHEN'))
 puts($fails.zero? ? "\nALL PASS" : "\n#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

@@ -34,7 +34,9 @@ module InteriorPro
       if kroom
         et = InteriorPro::ElevationTool
         poly = et.room_poly(kroom)
-        ksides = et.kitchen_sides(poly, et.kitchen_tops(Sketchup.active_model), poly.first.z)
+        kit = et.kitchen_tops(Sketchup.active_model)
+        ksides = et.kitchen_sides(poly, kit, poly.first.z)
+        ksides += et.kitchen_island_views(poly, kit, poly.first.z).map(&:name)
       end
       dlg = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Elevations',
@@ -101,10 +103,10 @@ module InteriorPro
       wet = et.send(:wet_count, rooms)
       kopt = ''
       unless ksides.empty?
-        walls = ksides.map { |l| "<label class=\"wl\">#{l}: <input type=\"number\" class=\"wcut\" data-side=\"#{l}\" min=\"1\" step=\"1\" placeholder=\"in\"></label>" }.join
+        walls = ksides.map { |l| "<label class=\"wl\">#{l}: <input type=\"number\" class=\"wcut\" data-side=\"#{l}\" min=\"1\" step=\"1\" placeholder=\"Auto\"></label>" }.join
         kopt = "<div class=\"rm\" data-i=\"K\">" \
                "<label><input type=\"checkbox\" class=\"tick\" value=\"K\" checked> #{et::KITCHEN_LABEL}</label>" \
-               "<input type=\"number\" class=\"rcut\" min=\"1\" step=\"1\" placeholder=\"in\" title=\"distance for the kitchen (in)\">" \
+               "<input type=\"number\" class=\"rcut\" min=\"1\" step=\"1\" placeholder=\"Auto\" title=\"Automatic per wall; enter inches to override\">" \
                "<button type=\"button\" class=\"fold\" onclick=\"fold(this)\" title=\"one number a wall\">walls</button>" \
                "<div class=\"walls\">#{walls}</div></div>"
       end

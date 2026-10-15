@@ -29,6 +29,16 @@ require 'json'
 require 'tmpdir'
 module InteriorPro
   module ElevationTool
+    remove_const(:USE_KITCHEN_SHEET_GRID) if const_defined?(:USE_KITCHEN_SHEET_GRID, false)
+    USE_KITCHEN_SHEET_GRID = true
+    remove_const(:USE_KITCHEN_AUTO_DEPTH) if const_defined?(:USE_KITCHEN_AUTO_DEPTH, false)
+    USE_KITCHEN_AUTO_DEPTH = true
+    remove_const(:USE_KITCHEN_ISLAND_VIEWS) if const_defined?(:USE_KITCHEN_ISLAND_VIEWS, false)
+    USE_KITCHEN_ISLAND_VIEWS = true
+    remove_const(:USE_KITCHEN_UPPER_DASHES) if const_defined?(:USE_KITCHEN_UPPER_DASHES, false)
+    USE_KITCHEN_UPPER_DASHES = true
+    remove_const(:USE_KITCHEN_BODY_HEIGHTS) if const_defined?(:USE_KITCHEN_BODY_HEIGHTS, false)
+    USE_KITCHEN_BODY_HEIGHTS = true
     USE_ELEVATIONS = true unless const_defined?(:USE_ELEVATIONS, false)
     # A fixture made of parts (a shower set: head, valve, hand shower - measured on his model,
     # debug_fixture_parts.rb 13:42) is measured part by part, each at its MIDDLE: the height of
@@ -93,12 +103,34 @@ module InteriorPro
     # kitchen group whose box starts more than ON_WALL_PIC off that wall's face is put aside - the pendants, the island,
     # a sconce on the next wall. A whole kitchen unit decides, not its parts (the hood's cover). Off = as before.
     USE_ON_WALL_ONLY = true unless const_defined?(:USE_ON_WALL_ONLY, false)
+    # (2026-10-15 13:00, his "מזה התמונה השלישית שניראת נורא" - measured south_black_report.txt): the continuous backsplash is
+    # ONE kitchen group over the whole L, its box touches South, so it stayed - and the section plane cut its far piece (out
+    # 104.5..214.5) into a big black shape. The PIECES of a worktop group that stand off this wall are put aside too (back
+    # right after, never erased). Off = the whole group decides, as before.
+    USE_WORKTOP_PIECES = true unless const_defined?(:USE_WORKTOP_PIECES, false)
     ON_WALL_PIC = 3.0 unless const_defined?(:ON_WALL_PIC, false)
     # "Kitchen" in the Elevations list (10:48) - see make_kitchen!
     USE_KITCHEN_PICK = true unless const_defined?(:USE_KITCHEN_PICK, false)
     KITCHEN_LABEL = 'Kitchen' unless const_defined?(:KITCHEN_LABEL, false)
     PLAN_NO_FLOOR = %w[floor floor_pattern floor_patch subfloor underlay].freeze unless const_defined?(:PLAN_NO_FLOOR, false)
     KITCHEN_WALL_KINDS = %w[kitchen_unit cabinet].freeze unless const_defined?(:KITCHEN_WALL_KINDS, false)
+    # KITCHEN WALLS BY THE WAY THE CABINETS FACE (2026-10-15 12:26, measured kitchen_dims_report: every cabinet carries the
+    # letter A, so the letter picked ONE wall and West went missing; his words "לא אות אלא כיווני שמים" and "כל קבינט שקשור
+    # לחדר המטבח הוא חלק ממנו"): a wall is a kitchen wall when a cabinet stands on it with its BACK (KitchenLab builds a
+    # cabinet with its back at local y = 0 and its front at -depth: +y looks at the wall). A corner cabinet stands on both.
+    # Off = by letter, as at 11:49.
+    USE_KITCHEN_FACING = true unless const_defined?(:USE_KITCHEN_FACING, false)
+    # THE KITCHEN'S NUMBERS (12:17, his "אין מידות לארונות"): on the wall's picture, orange (g 'kitchen'): the base cabinets'
+    # widths in a chain under the floor, the upper ones' over the ceiling, the heights by the nearer wall (the counter, the
+    # uppers, a tall one). A cabinet's width is its box's (an appliance's 35 15/16 = 36 at the half inch). Off = none.
+    USE_KITCHEN_DIMS = true unless const_defined?(:USE_KITCHEN_DIMS, false)
+    UPPER_Z = 30.0 unless const_defined?(:UPPER_Z, false)     # a cabinet starting this high is an upper one
+    TALL_Z = 80.0 unless const_defined?(:TALL_Z, false)       # a base one reaching this high is a tall one
+    # ROWS OF ELECTRIC DISTANCES NEVER ON EACH OTHER (12:16, his "המידות מבולגנות", measured kitchen_dims_report: on West the
+    # rows of the plates at 42" and at 48" stood 6" apart, their words on each other): the rows of one half of the wall
+    # stand past ALL the plates of that half, ELEC_STACK apart. Off = each row by its own plates, as before.
+    USE_ELEC_STACK = true unless const_defined?(:USE_ELEC_STACK, false)
+    ELEC_STACK = 10.0 unless const_defined?(:ELEC_STACK, false)
     ROOM_ONLY_KEEP = %w[wall door window].freeze   # 17:39 ("המידות צריכות לבוא או מלמעלה או מלמטה ולא על המוצר"): the row of
                                                              # distances runs this far above the plates' top (upper half) or under their bottom
     USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
@@ -595,7 +627,7 @@ module InteriorPro
           end
           next if only.empty?
           t0 = Time.now
-          shoot!(room, cut: { 'walls' => cuts }, style: style, model: model, only: only)
+          shoot!(room, cut: { 'walls' => cuts }, style: style, model: model, only: only, label: (rn == KITCHEN_LABEL ? KITCHEN_LABEL : nil))
           n = only.values.map(&:size).sum
           made += n
           trace("layers: #{rn} - #{n} pictures taken on demand (#{only.map { |k, v| "#{k}: #{v.map { |x| x.join('+') }.join(', ')}" }.join('; ')}) in #{((Time.now - t0) * 1000).round} ms")
@@ -715,7 +747,7 @@ module InteriorPro
       #   niche     - on a wall face looking INTO the room, on this side's line
       #   fixture   - its box reaches into the `cut` in front of the wall
       #   tile_wall - a tiled area lying ON this wall (thin, at the face): along only
-      def side_items(side, cut, all, base_z)
+      def side_items(side, cut, all, base_z, kitchen = nil)
         dir = Geom::Vector3d.new(side.b.x - side.a.x, side.b.y - side.a.y, 0)
         dir.normalize!
         n = side.inward
@@ -784,14 +816,201 @@ module InteriorPro
                      z0: zs.min - base_z, z1: zs.max - base_z }
           end
         end
+        out.concat(kitchen_items(side, kitchen, base_z)) if USE_KITCHEN_DIMS && kitchen
         out
       end
 
-      def safely_items(side, cut, all, base_z)
-        side_items(side, cut, all, base_z)
+      def safely_items(side, cut, all, base_z, kitchen = nil)
+        side_items(side, cut, all, base_z, kitchen)
       rescue StandardError => e
         puts "[Elevation] dimensions skipped on #{side.name}: #{e.class}: #{e.message}"
         []
+      end
+
+      # the frame of a side's face, as ElectricalLibrary.box_in_frame takes it
+      def side_frame(side, base_z)
+        { ox: side.a.x, oy: side.a.y, ux: (side.b.x - side.a.x) / side.len, uy: (side.b.y - side.a.y) / side.len,
+          nx: side.inward.x, ny: side.inward.y, floor_z: base_z }
+      end
+
+      # the cabinet group of a kitchen unit (the unit itself when it is one)
+      def kitchen_cab(e)
+        return e if e.get_attribute(KITCHEN_DICT, 'kind').to_s == 'cabinet'
+        kids = e.respond_to?(:entities) ? e.entities : (e.respond_to?(:definition) ? e.definition.entities : [])
+        kids.find { |k| k.respond_to?(:get_attribute) && k.get_attribute(KITCHEN_DICT, 'kind').to_s == 'cabinet' }
+      rescue StandardError
+        nil
+      end
+
+      # which way a kitchen unit's BACK looks, flat, in the world (its cabinet's +y); nil = a corner one (both walls) or none
+      def kitchen_back(e, wxf)
+        c = kitchen_cab(e)
+        return nil unless c
+        d = (JSON.parse(c.get_attribute(KITCHEN_DICT, 'data').to_s) rescue {})
+        return nil if d.is_a?(Hash) && d['kind'].to_s.start_with?('corner')
+        xf = c.equal?(e) ? wxf : wxf * c.transformation
+        v = Geom::Vector3d.new(0, 1, 0).transform(xf)
+        l = Math.hypot(v.x, v.y)
+        l > 0.5 ? Geom::Vector3d.new(v.x / l, v.y / l, 0) : nil
+      rescue StandardError
+        nil
+      end
+
+      # a kitchen unit standing ON this side: its box at the face and along it, and (USE_KITCHEN_FACING) its back to it.
+      # [u0, u1, z0, z1] in the side's numbers; nil = not on it. PURE apart from the box.
+      def kitchen_on(side, e, wxf, fr)
+        u0, u1, z0, z1, o0, = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)
+        return nil unless o0 <= ON_WALL_PIC && o0 > -ON_WALL_PIC
+        return nil if [u1, side.len].min - [u0, 0.0].max <= 0
+        if USE_KITCHEN_FACING
+          b = kitchen_back(e, wxf)
+          return nil if b && b.x * side.inward.x + b.y * side.inward.y > -0.7
+        end
+        [u0, u1, z0, z1]
+      end
+
+      # Body dimensions exclude crown and accessories; compound appliance surrounds keep their envelope.
+      def kitchen_body_heights(e, wxf, fr, fallback)
+        return fallback unless USE_KITCHEN_BODY_HEIGHTS
+        c = kitchen_cab(e)
+        return fallback unless c
+        d = JSON.parse(c.get_attribute(KITCHEN_DICT, 'data').to_s)
+        return fallback unless %w[doors drawers sink tall wall glass_wall corner_upper corner_base].include?(d['kind'].to_s)
+        h = Float(d['height'])
+        return fallback unless h.finite? && h > 0
+        xf = c.equal?(e) ? wxf : wxf * c.transformation
+        zs = [0.0, h].map { |z| Geom::Point3d.new(0, 0, z).transform(xf).z - fr[:floor_z] }
+        zs.minmax
+      rescue StandardError
+        fallback
+      end
+
+      # Top-plan symbols only; caller's aborted capture operation restores all geometry/visibility.
+      def kitchen_upper_outline(d)
+        return [] unless %w[wall glass_wall corner_upper].include?(d['kind'].to_s)
+        return [] if d['surround_part'] || d['z'].to_f < UPPER_Z
+        w = d['width'].to_f; depth = d['depth'].to_f
+        return [] unless w.finite? && depth.finite? && w > 0 && depth > 0
+        d['kind'] == 'corner_upper' ? [[0,0],[w,0],[w,-depth],[depth,-depth],[depth,-w],[0,-w]] :
+          [[0,0],[w,0],[w,-depth],[0,-depth]]
+      end
+
+      def kitchen_dash_ranges(length, dash = 2.0, gap = 1.0)
+        return [] unless length.finite? && length > 0 && dash > 0 && gap > 0
+        out = []; pos = 0.0
+        while pos < length - 0.001
+          out << [pos, [pos + dash, length].min]
+          pos += dash + gap
+        end
+        out
+      end
+
+      def kitchen_upper_plan!(model, kitchen, draw_z)
+        return 0 unless USE_KITCHEN_UPPER_DASHES
+        count = 0
+        Array(kitchen).each do |e, _kind, wxf|
+          next unless e.valid? && !e.hidden?
+          c = kitchen_cab(e); next unless c
+          d = JSON.parse(c.get_attribute(KITCHEN_DICT, 'data').to_s) rescue nil
+          next unless d.is_a?(Hash)
+          points = kitchen_upper_outline(d); next if points.empty?
+          xf = c.equal?(e) ? wxf : wxf * c.transformation
+          points = points.map { |x,y| p = Geom::Point3d.new(x,y,0).transform(xf); Geom::Point3d.new(p.x,p.y,draw_z) }
+          g = model.entities.add_group; g.name = 'Kitchen upper plan outline (temporary)'
+          (points + [points.first]).each_cons(2) do |a,b|
+            vec = b - a; length = vec.length.to_f
+            kitchen_dash_ranges(length).each { |p,q| g.entities.add_line(a.offset(vec,p), a.offset(vec,q)) }
+          end
+          e.hidden = true
+          count += 1
+        end
+        count
+      end
+
+      # the kitchen on this side (USE_KITCHEN_DIMS): every cabinet standing on it ('cabinet', w = its box's width) and the
+      # countertop's top ('counter')
+      def kitchen_items(side, kitchen, base_z)
+        return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:box_in_frame)
+        fr = side_frame(side, base_z)
+        out = []
+        Array(kitchen).each do |e, k, wxf|
+          next unless e.valid?
+          if KITCHEN_WALL_KINDS.include?(k.to_s)
+            r = kitchen_on(side, e, wxf, fr)
+            next unless r
+            u0, u1, z0, z1 = r
+            z0, z1 = kitchen_body_heights(e, wxf, fr, [z0, z1])
+            out << { kind: 'cabinet', a0: [u0, 0.0].max, a1: [u1, side.len].min, z0: z0, z1: z1, w: u1 - u0, name: e.name.to_s }
+          elsif e.name.to_s =~ /countertop/i
+            u0, u1, _z0, z1, o0, = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)
+            next unless o0 <= ON_WALL_PIC && o0 > -ON_WALL_PIC && [u1, side.len].min - [u0, 0.0].max > 0
+            out << { kind: 'counter', a0: [u0, 0.0].max, a1: [u1, side.len].min, z0: z1, z1: z1 }
+          end
+        end
+        out
+      rescue StandardError => e
+        puts "[Elevation] kitchen_items: #{e.class}: #{e.message}"
+        []
+      end
+
+      # the kitchen's numbers (USE_KITCHEN_DIMS) into out: the chains of widths - the base cabinets under the floor, the
+      # upper ones over the ceiling ('up'), from corner to corner (a cabinet's own width, the real distance between) - and
+      # the columns of heights by the nearer wall: each set of uppers floor -> counter -> bottom -> top, a tall one floor ->
+      # top, the counter's own when no upper column on that side carries it. Returns the rows it took under the floor. PURE.
+      def kitchen_dims!(out, items, len, wh, near, col, ux, vz)
+        cabs = items.select { |it| it[:kind] == 'cabinet' }
+        return 0 if cabs.empty?
+        bases = cabs.select { |it| it[:z0].to_f < UPPER_Z }
+        ups = cabs.select { |it| it[:z0].to_f >= UPPER_Z }
+        chain = lambda do |list|
+          stops = [0.0, len]
+          list.each { |it| stops << it[:a0].to_f << it[:a1].to_f }
+          run = []
+          stops.map { |a| [[a, 0.0].max, len].min }.sort.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
+          run[-1] = len
+          run.each_cons(2).map do |p, q|
+            [p, q, list.find { |c| (c[:a0].to_f - p).abs <= DIM_MIN && (c[:a1].to_f - q).abs <= DIM_MIN }]
+          end
+        end
+        rows = 0
+        if bases.any?
+          rows = 1
+          chain.call(bases).reverse.each do |p, q, it|      # left to right as the picture shows it
+            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0),
+                     't' => fmt_in(it ? it[:w] : q - p), 'g' => 'kitchen' }
+          end
+        end
+        if ups.any?
+          top = lambda do |a|
+            zs = ups.select { |c| (c[:a0].to_f - a).abs <= DIM_MIN || (c[:a1].to_f - a).abs <= DIM_MIN }.map { |c| c[:z1].to_f }
+            zs.empty? ? nil : vz.call(zs.max)
+          end
+          chain.call(ups).reverse.each do |p, q, it|
+            d = { 'k' => 'h', 'row' => 1, 'up' => true, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(wh),
+                  't' => fmt_in(it ? it[:w] : q - p), 'g' => 'kitchen' }
+            r = [top.call(q), top.call(p)]
+            d['r'] = r if r.any?
+            out << d
+          end
+        end
+        mid = ->(cs) { cs.sum { |c| (c[:a0].to_f + c[:a1].to_f) / 2.0 } / cs.size }
+        ctop = items.select { |it| it[:kind] == 'counter' }.map { |it| it[:z1].to_f }.max
+        ctop ||= bases.reject { |c| c[:z1].to_f >= TALL_Z }.map { |c| c[:z1].to_f }.max
+        used = {}
+        ups.group_by { |c| [c[:z0].to_f.round(1), c[:z1].to_f.round(1)] }.each do |(z0, z1), cs|
+          sd = near.call(mid.call(cs))
+          zs = ctop && ctop < z0 - DIM_MIN ? [0.0, ctop, z0, z1] : [0.0, z0, z1]
+          col.call(sd, zs, nil, 'kitchen')
+          used[sd] = true if ctop && zs.include?(ctop)
+        end
+        bases.select { |c| c[:z1].to_f >= TALL_Z }.group_by { |c| c[:z1].to_f.round(1) }.each do |z1, cs|
+          col.call(near.call(mid.call(cs)), [0.0, z1], nil, 'kitchen')
+        end
+        if ctop && bases.any?
+          sd = near.call(mid.call(bases))
+          col.call(sd, [0.0, ctop], nil, 'kitchen') unless used[sd]
+        end
+        rows
       end
 
       # The parts a fixture is made of (USE_PART_MIDDLES): the eight corners of each part's
@@ -860,17 +1079,185 @@ module InteriorPro
         pairs = all.reject { |t| ROOM_ONLY_KEEP.include?(t.type) || TOP_ASIDE.include?(t.type) || set_aside?(t.type) }
                    .map { |t| [t.ent, t.xf] }
         pairs += Array(kitchen).map { |e, _k, wxf| [e, wxf] }
-        pairs.select do |e, wxf|
+        out = pairs.select do |e, wxf|
           next false unless e.valid?
           o0 = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)[4]
           o0 > ON_WALL_PIC
         end.map(&:first)
+        if USE_WORKTOP_PIECES
+          Array(kitchen).each do |e, k, wxf|
+            next unless k.to_s == 'worktop' && e.valid? && !out.include?(e)
+            kids = e.respond_to?(:definition) ? e.definition.entities : e.entities
+            kids.each do |c|
+              next unless c.respond_to?(:bounds) && c.respond_to?(:transformation) && c.respond_to?(:hidden=)
+              next if c.respond_to?(:valid?) && !c.valid?
+              next if defined?(Sketchup::Edge) && c.is_a?(Sketchup::Edge)
+              next if defined?(Sketchup::Face) && c.is_a?(Sketchup::Face)
+              out << c if InteriorPro::ElectricalLibrary.box_in_frame(c, wxf * c.transformation, fr)[4] > ON_WALL_PIC
+            end
+          end
+        end
+        out
       rescue StandardError => e
         puts "[Elevation] off_wall: #{e.class}: #{e.message}"
         []
       end
 
       # the top-level kitchen groups with their world transformation: [[ent, kind, xf], ...]
+      # Keep wall elevations large; each island gets its own four-view sheet.
+      def kitchen_add_sheets!(paths, dims)
+        island, walls = paths.partition { |p| File.basename(p).match?(/_Island(?:Front|Right|Back|Left)\d+_/) }
+        count = walls.empty? ? 0 : add_room_sheet!(walls, KITCHEN_LABEL, dims.slice(*walls))
+        island.group_by { |p| File.basename(p)[/_Island[A-Za-z]+(\d+)_/, 1] }.each do |id, views|
+          count += add_room_sheet!(views, "#{KITCHEN_LABEL} - Island #{id}", dims.slice(*views))
+        end
+        count
+      end
+
+      def kitchen_world_points(e, xf)
+        outer = xf * e.transformation.inverse
+        (0..7).map { |i| e.bounds.corner(i).transform(outer) }
+      end
+
+      # Ceiling and pendant dimensions can share the ceiling clamp in the room renderer.
+      # Give their separate heights separate rows on island views only.
+      def kitchen_island_dims(side, wall_h, items)
+        dims = dims_for(side, wall_h, items)
+        rows = dims.select { |d| d['k'] == 'hi' && d['g'] == 'electric' }
+        rows.group_by { |d| d['v'] }.each_value do |same_height|
+          same_height.group_by { |d| d['from'] }.values.each_with_index do |row, i|
+            row.each { |d| d['v'] -= i * 10.0 / (wall_h + 2 * MARGIN) }
+          end
+        end
+        dims
+      end
+
+      def kitchen_island?(side)
+        !!side.instance_variable_get(:@kitchen_island)
+      end
+
+      # Cabinet groups with no back on a room wall form independent island runs.
+      def kitchen_island_views(poly, kit, base_z)
+        return [] unless USE_KITCHEN_ISLAND_VIEWS
+        wall_sides = sides(poly)
+        free = kit.select do |e,k,xf|
+          next false unless KITCHEN_WALL_KINDS.include?(k.to_s)
+          c = e.bounds.center.transform(xf * e.transformation.inverse)
+          next false unless inside?(poly,c.x,c.y)
+          kitchen_wall_tag(e) == 'I' || wall_sides.none? { |s| kitchen_on(s,e,xf,side_frame(s,base_z)) }
+        end
+        clusters = []
+        until free.empty?
+          run = [free.shift]
+          loop do
+            near,far = free.partition do |e,k,xf|
+              p = kitchen_world_points(e,xf)
+              run.any? do |g,_,gx|
+                q = kitchen_world_points(g,gx)
+                [p.map(&:x).min-q.map(&:x).max,q.map(&:x).min-p.map(&:x).max].max <= 6 &&
+                  [p.map(&:y).min-q.map(&:y).max,q.map(&:y).min-p.map(&:y).max].max <= 6
+              end
+            end
+            break if near.empty?
+            run.concat(near); free=far
+          end
+          clusters << run
+        end
+        clusters.sort_by { |run| run.map { |e,_,_| e.persistent_id }.min }.each_with_index.flat_map do |run,index|
+          e,_,xf = run.first; c=kitchen_cab(e); cx=c.equal?(e) ? xf : xf*c.transformation
+          axis=cx.xaxis; angle=Math.atan2(axis.y,axis.x)
+          basis=Geom::Transformation.rotation(ORIGIN,Z_AXIS,angle); inv=basis.inverse
+          pts=run.flat_map { |g,_,gx| kitchen_world_points(g,gx).map { |p| p.transform(inv) } }
+          x0,x1=pts.map(&:x).minmax; y0,y1=pts.map(&:y).minmax
+          x0-=1.5;x1+=1.5;y0-=1.5;y1+=1.5 # countertop overhang
+          rect=[[x0,y1],[x1,y1],[x1,y0],[x0,y0]]
+          %w[Front Right Back Left].each_with_index.map do |name,j|
+            a=Geom::Point3d.new(*rect[j],base_z).transform(basis)
+            b=Geom::Point3d.new(*rect[(j+1)%4],base_z).transform(basis)
+            v=b-a; n=Geom::Vector3d.new(v.y,-v.x,0);n.normalize!
+            depth=j.even? ? y1-y0 : x1-x0
+            s=Side.new("Island#{name}#{index+1}",a,b,a.distance(b),n,depth+4)
+            s.instance_variable_set(:@kitchen_island,{ids:run.map { |g,_,_| g.persistent_id },basis:basis,rect:[x0,x1,y0,y1],depth:depth})
+            s
+          end
+        end
+      end
+
+      def kitchen_view_sides(poly,kit,base_z)
+        sides(poly) + kitchen_island_views(poly,kit,base_z)
+      end
+
+      def kitchen_view_cut(side,kit,base_z,requested)
+        chosen=cut_for(requested,side.name).to_f
+        return chosen if chosen.finite? && chosen>0
+        island=side.instance_variable_get(:@kitchen_island)
+        return island[:depth]+2 if island
+        return nil unless USE_KITCHEN_AUTO_DEPTH
+        fr=side_frame(side,base_z)
+        depths=kit.filter_map do |e,k,xf|
+          next unless KITCHEN_WALL_KINDS.include?(k.to_s) && kitchen_on(side,e,xf,fr)
+          InteriorPro::ElectricalLibrary.box_in_frame(e,xf,fr)[5]
+        end
+        return nil if depths.empty?
+        [(depths.max+2).ceil.to_f,side.depth.to_f-0.5].min
+      end
+
+      def kitchen_island_contains?(side,e,xf)
+        d=side.instance_variable_get(:@kitchen_island);return false unless d
+        p=e.bounds.center.transform(xf*e.transformation.inverse).transform(d[:basis].inverse)
+        x0,x1,y0,y1=d[:rect]
+        p.x>=x0-0.1 && p.x<=x1+0.1 && p.y>=y0-0.1 && p.y<=y1+0.1
+      end
+
+      # Isolation is temporary: the existing shoot! transaction restores every hidden entity.
+      def kitchen_island_aside(side,all,kit)
+        out=all.filter_map do |t|
+          keep=%w[electrical fixture].include?(t.type) && kitchen_island_contains?(side,t.ent,t.xf)
+          t.ent unless keep
+        end
+        kit.each do |e,k,xf|
+          if k.to_s=='worktop'
+            kids=e.entities.grep(Sketchup::Group)
+            if kids.empty?
+              out<<e unless kitchen_island_contains?(side,e,xf)
+            else
+              kids.each { |c| out<<c unless kitchen_island_contains?(side,c,xf*c.transformation) }
+            end
+          elsif !side.instance_variable_get(:@kitchen_island)[:ids].include?(e.persistent_id)
+            out<<e
+          end
+        end
+        out.uniq
+      end
+
+      def kitchen_island_items(side,kit,all,base_z)
+        fr=side_frame(side,base_z);out=[]
+        ids=side.instance_variable_get(:@kitchen_island)[:ids]
+        kit.each do |e,k,xf|
+          next unless ids.include?(e.persistent_id) || (e.name.to_s =~ /countertop/i && kitchen_island_contains?(side,e,xf))
+          a,b,z0,z1=InteriorPro::ElectricalLibrary.box_in_frame(e,xf,fr)
+          if k.to_s=='worktop'
+            out<<{kind:'counter',a0:a,a1:b,z0:z1,z1:z1}
+          else
+            z0,z1=kitchen_body_heights(e,xf,fr,[z0,z1])
+            out<<{kind:'cabinet',a0:[a,0].max,a1:[b,side.len].min,z0:z0,z1:z1,w:b-a,name:e.name}
+          end
+        end
+        all.each do |t|
+          next unless %w[electrical fixture].include?(t.type) && kitchen_island_contains?(side,t.ent,t.xf)
+          a,b,z0,z1 = InteriorPro::ElectricalLibrary.box_in_frame(t.ent,t.xf,fr)
+          mid=(a+b)/2.0; z=(z0+z1)/2.0
+          next unless mid.between?(0,side.len)
+          if t.type=='electrical'
+            out << {kind:'elec',a0:mid,a1:mid,z0:z,z1:z,name:t.ent.get_attribute(D,'kind').to_s,lo:z0,hi:z1,l:a,r:b}
+          else
+            out << {kind:'part',a0:mid,a1:mid,z0:z,z1:z,fix:t.ent.object_id,name:t.ent.name.to_s}
+          end
+        end
+        out
+      end
+
+
       def kitchen_tops(model)
         return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:kitchen_pieces)
         InteriorPro::ElectricalLibrary.kitchen_pieces(model).select { |e, _k, _x| e.parent.is_a?(Sketchup::Model) }
@@ -941,12 +1328,25 @@ module InteriorPro
           g = groups.find { |gr| (gr[:z] - it[:z1].to_f).abs <= DIM_MIN }
           g ? g[:items] << it : groups << { z: it[:z1].to_f, items: [it] }
         end
+        # USE_ELEC_STACK (2026-10-15): the rows of one half stand past ALL its plates, ELEC_STACK apart - the nearest
+        # height nearest the plates
+        stack = {}
+        if USE_ELEC_STACK
+          ups = groups.select { |gr| gr[:z] > wh / 2.0 }.sort_by { |gr| gr[:z] }
+          dns = groups.reject { |gr| gr[:z] > wh / 2.0 }.sort_by { |gr| -gr[:z] }
+          top = ups.flat_map { |gr| gr[:items].map { |it| (it[:hi] || it[:z1]).to_f } }.max
+          bot = dns.flat_map { |gr| gr[:items].map { |it| (it[:lo] || it[:z0]).to_f } }.min
+          ups.each_with_index { |gr, i| stack[gr.object_id] = top + ELEC_ROW + i * ELEC_STACK }
+          dns.each_with_index { |gr, i| stack[gr.object_id] = bot - ELEC_ROW - i * ELEC_STACK }
+        end
         groups.each do |gr|
           its = gr[:items].sort_by { |it| it[:a0].to_f }
           sd = near.call(its.first[:a0].to_f)
           w_a = wall_a.call(sd)
           its = its.reverse if sd == 'L'      # from that wall outward
-          zrow = if gr[:z] > wh / 2.0
+          zrow = if stack[gr.object_id]
+                   stack[gr.object_id]
+                 elsif gr[:z] > wh / 2.0
                    its.map { |it| (it[:hi] || it[:z1]).to_f }.max + ELEC_ROW
                  else
                    its.map { |it| (it[:lo] || it[:z0]).to_f }.min - ELEC_ROW
@@ -1199,16 +1599,19 @@ module InteriorPro
         # row ABOVE the plates (upper half of the wall) or UNDER them (lower half), never on them (17:39); witness lines
         # from the plate's middle to the row
         out.concat(elec_rows(items.select { |it| it[:kind] == 'elec' }, len, wh, near, wall_a, ux, vz))
+        # the kitchen's chains and heights (USE_KITCHEN_DIMS); its chain under the floor is the first row
+        rown = USE_KITCHEN_DIMS ? kitchen_dims!(out, items, len, wh, near, col, ux, vz) : 0
         if row1.any?
+          rown += 1
           stops = ([0.0, len] + row1.flatten).sort
           run = []
           stops.each { |a| run << a if run.empty? || a - run.last > DIM_MIN }
           run[-1] = len
           run.reverse.each_cons(2) do |q, p|
-            out << { 'k' => 'h', 'row' => 1, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p), 'g' => 'plumbing' }
+            out << { 'k' => 'h', 'row' => rown, 'u' => [ux.call(q), ux.call(p)], 'v' => vz.call(0.0), 't' => fmt_in(q - p), 'g' => 'plumbing' }
           end
         end
-        out << { 'k' => 'h', 'row' => (row1.any? ? 2 : 1), 'u' => [ux.call(len), ux.call(0.0)], 'v' => vz.call(0.0), 't' => fmt_in(len) }
+        out << { 'k' => 'h', 'row' => rown + 1, 'u' => [ux.call(len), ux.call(0.0)], 'v' => vz.call(0.0), 't' => fmt_in(len) }
         col.call('R', [0.0, wh])
         %w[L R].each do |sd|
           stacks.select { |x| x[0] == sd }.sort_by { |x| x[1] }.each_with_index do |(_, _, ds), i|
@@ -1307,15 +1710,21 @@ module InteriorPro
           lines_drawn = []
           snap_edges = nil
           kitchen = USE_ON_WALL_ONLY ? kitchen_tops(model) : []
-          sides(poly).each do |side|
+          # the kitchen for its numbers (USE_KITCHEN_DIMS) - read HERE, before any wall puts its far cabinets aside (12:44,
+          # measured: read inside the loop it lost what West had put aside, and South got no cabinet)
+          kit_d = USE_KITCHEN_DIMS ? (USE_ON_WALL_ONLY ? kitchen : kitchen_tops(model)) : nil
+          capture_sides = label == KITCHEN_LABEL ? kitchen_view_sides(poly, kitchen, base_z) : sides(poly)
+          capture_sides.each do |side|
             next if only && !only.key?(side.name)
             next if sides && !sides.include?(side.name)
-            s = shot(side, wall_h, cut_for(cut, side.name), base_z)
+            depth = label == KITCHEN_LABEL ? kitchen_view_cut(side, kitchen, base_z, cut) : cut_for(cut, side.name)
+            s = shot(side, wall_h, depth, base_z)
             # only what is on this wall (USE_ON_WALL_ONLY): aside for this side's pictures, back right after
             aside = []
             if USE_ON_WALL_ONLY
               snap_edges ||= model_edges(model.entities) if USE_ELEV_SNAPS   # the lines of everything, before any goes
-              off_wall(side, all, kitchen, base_z).each do |e|
+              put_aside = kitchen_island?(side) ? kitchen_island_aside(side, all, kitchen) : off_wall(side, all, kitchen, base_z)
+              put_aside.each do |e|
                 next unless e.respond_to?(:hidden=) && !e.hidden?
                 e.hidden = true
                 aside << e
@@ -1340,7 +1749,7 @@ module InteriorPro
             view.refresh
             path = file_for(dir, name, side.name, style)
             meta = { 'room' => name, 'room_pid' => (room.ent.respond_to?(:persistent_id) ? room.ent.persistent_id : nil),
-                     'side' => side.name, 'cut' => cut_for(cut, side.name), 'style' => style }
+                     'side' => side.name, 'cut' => (label == KITCHEN_LABEL ? s[:cut] : cut_for(cut, side.name)), 'style' => style }
             if only
               # on demand: the pictures without a layer, only - the whole one is already there
               shoot_variants!(view, path, s[:w_px], s[:h_px], side_cats(side, s[:cut], all), only[side.name], meta) if File.file?(path)
@@ -1361,8 +1770,8 @@ module InteriorPro
             end
             # the automatic dimensions of this wall (2026-10-08), for the sheet to draw over it
             if ok
-              its = safely_items(side, s[:cut], all, base_z)
-              last_dims[path.tr('\\', '/')] = dims_for(side, wall_h, its)
+              its = kitchen_island?(side) ? kitchen_island_items(side, kit_d || [], all, base_z) : safely_items(side, s[:cut], all, base_z, kit_d)
+              last_dims[path.tr('\\', '/')] = kitchen_island?(side) ? kitchen_island_dims(side, wall_h, its) : dims_for(side, wall_h, its)
               trace("#{name} side #{side.name}: dims #{its.map { |i| "#{i[:kind]} #{i[:a0].round(2)}..#{i[:a1].round(2)} z #{i[:z0].round(2)}..#{i[:z1].round(2)}" }.join('; ')}")
               if USE_ELEV_SNAPS
                 begin
@@ -1503,6 +1912,7 @@ module InteriorPro
               trace("#{name} from above: symbols NOT drawn - #{e.class}: #{e.message}")
               puts "[Elevation] door/window symbols: #{e.message}"
             end
+            kitchen_upper_plan!(model, kitchen, s[:eye].z - 0.25) if label == KITCHEN_LABEL
             cam = Sketchup::Camera.new(s[:eye], s[:target], s[:up], false)
             cam.height = s[:height]
             view.camera = cam
@@ -1585,7 +1995,7 @@ module InteriorPro
       # Boxes for pictures in a row, at one scale, in the top half of area [x, y, w, h].
       # sizes: [[w_px, h_px]]; cols: how many columns of heights stand right of each - or
       # [left, right] since the heights stand by both walls (USE_CLEAN_DIMS, 15:57).
-      def row_boxes(area, sizes, cols)
+      def row_boxes(area, sizes, cols, up = 0)
         ax, ay, aw, ah = area.map(&:to_f)
         er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
         lr = cols.map { |c| c.is_a?(Array) ? [c[0].to_i, c[1].to_i] : [0, c.to_i] }
@@ -1596,14 +2006,42 @@ module InteriorPro
         room_w = aw - gaps[0...-1].sum - gaps.last.to_f
         wpx = sizes.sum { |s| s[0].to_f }
         hpx = sizes.map { |s| s[1].to_f }.max
-        k = [room_w / wpx, (ah * 0.5 - 3 * er) / hpx].min     # paper inches a pixel
+        k = [room_w / wpx, (ah * 0.5 - 3 * er - up * er) / hpx].min     # paper inches a pixel; up = rows over the pictures
         x = ax
         sizes.each_with_index.map do |s, i|
           w = s[0].to_f * k
           h = s[1].to_f * k
-          b = [x, ay + ah - h, w, h]
+          b = [x, ay + ah - h - up * er, w, h]
           x += w + gaps[i]
           b
+        end
+      end
+
+      # Kitchen only: small reference plan + large elevations in two columns.
+      # All elevations share a scale; space outside each box is reserved for dimension rows.
+      def kitchen_boxes(area, sizes, cols, up = 0, plan: true)
+        return row_boxes(area, sizes, cols, up) unless USE_KITCHEN_SHEET_GRID && sizes.size > 1
+        ax, ay, aw, ah = area.map(&:to_f)
+        er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
+        rows = (sizes.size / 2.0).ceil
+        cw = aw / 2.0; ch = ah / rows
+        pads = sizes.each_index.map do |i|
+          c = cols[i]; left, right = c.is_a?(Array) ? c : [0, c.to_i]
+          [0.35 + left.to_i * er, 0.35 + right.to_i * er, 3 * er + 0.35, up * er + 0.35]
+        end
+        scales = sizes.each_with_index.filter_map do |s, i|
+          next if i.zero? && plan
+          l,r,b,t = pads[i]
+          [(cw-l-r)/s[0].to_f, (ch-b-t)/s[1].to_f].min
+        end
+        scale = scales.min
+        return row_boxes(area, sizes, cols, up) unless scale && scale > 0
+        sizes.each_with_index.map do |s,i|
+          l,r,b,t = pads[i]
+          x = ax + (i % 2) * cw; y = ay + ah - (i / 2 + 1) * ch
+          k = i.zero? && plan ? [(cw * 0.65)/s[0].to_f, (ch * 0.78)/s[1].to_f, scale].min : scale
+          w = s[0].to_f*k; h = s[1].to_f*k
+          [x+l+(cw-l-r-w)/2.0, y+b+(ch-b-t-h)/2.0, w, h]
         end
       end
 
@@ -1667,7 +2105,11 @@ module InteriorPro
               [vs.select { |x| x['side'] == 'L' }.map { |x| x['col'].to_i }.max.to_i,
                vs.reject { |x| x['side'] == 'L' }.map { |x| x['col'].to_i }.max.to_i]
             end
-            boxes = row_boxes(pc.pic_area(pg), sizes, cols)
+            # the kitchen's uppers' row stands over the ceiling (USE_KITCHEN_DIMS): room for it over the row of pictures
+            ups = fresh.map { |p| Array(dd[p]).select { |x| x['up'] }.map { |x| x['row'].to_i }.max.to_i }.max.to_i
+            boxes = row_boxes(pc.pic_area(pg), sizes, cols, ups)
+            boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups) if sheet_title == KITCHEN_LABEL
+        boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups, plan: false) if sheet_title.to_s.start_with?("#{KITCHEN_LABEL} - Island ")
             fresh.each_with_index do |p, i|
               next unless need[i]
               if i.zero?
@@ -1699,7 +2141,11 @@ module InteriorPro
         paths = shoot!(room, cut: cut, style: style, sides: sides, label: label)
         dims = paths.each_with_object({}) { |p, h| d = last_dims[p.to_s.tr('\\', '/')]; h[p] = d if d }
         title = label || room_name(room)
+        if USE_ONE_SHEET && title == KITCHEN_LABEL && paths.any? { |p| File.basename(p).include?('_Island') }
+          n = kitchen_add_sheets!(paths, dims)
+        else
         n = USE_ONE_SHEET ? add_room_sheet!(paths, title, dims) : add_to_sheet!(paths, titles_for(room, paths), dims)
+        end
         trace("#{title}: #{paths.size} pictures, #{n} onto the sheet")
         paths
       end
@@ -1732,6 +2178,13 @@ module InteriorPro
       # No letter = the wall that one touches most. PURE apart from the boxes.
       def kitchen_sides(poly, kitchen, base_z)
         return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:box_in_frame)
+        if USE_KITCHEN_FACING
+          on = sides(poly).select do |side|
+            fr = side_frame(side, base_z)
+            Array(kitchen).any? { |e, k, wxf| KITCHEN_WALL_KINDS.include?(k.to_s) && kitchen_on(side, e, wxf, fr) }
+          end
+          return on.map(&:name)
+        end
         all_sides = sides(poly)
         frames = all_sides.map do |side|
           ux = (side.b.x - side.a.x) / side.len
@@ -1776,8 +2229,14 @@ module InteriorPro
         room = kitchen_room(model)
         return [] unless room
         poly = room_poly(room)
-        names = kitchen_sides(poly, kitchen_tops(model), poly.first.z)
+        kit = kitchen_tops(model)
+        names = kitchen_sides(poly, kit, poly.first.z)
+        names += kitchen_island_views(poly, kit, poly.first.z).map(&:name)
+        trace("Kitchen walls #{names.inspect} (#{USE_KITCHEN_FACING ? 'by the way the cabinets face' : 'by letter'}): " +
+              kit.select { |_e, k, _x| KITCHEN_WALL_KINDS.include?(k.to_s) }
+                 .map { |e, _k, x| b = kitchen_back(e, x); "#{e.name.to_s.sub('Kitchen / ', '')[0, 20]} back #{b ? compass(b) : 'corner/none'}" }.join(', '))
         return [] if names.empty?
+        InteriorPro::PlanPDF.forget_images! if defined?(InteriorPro::PlanPDF) && InteriorPro::PlanPDF.respond_to?(:forget_images!)
         make!(room, cut: cut, style: style, sides: names, label: KITCHEN_LABEL)
       end
 

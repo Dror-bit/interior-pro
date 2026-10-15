@@ -42,7 +42,7 @@ ok('its own door and window stay', !o2.include?(own_d) && !o2.include?(own_win))
 ok('a window on the same wall line past the corner is put aside', o2.include?(far_win))
 ok('kill switch for the frame is there', ET::USE_ROOM_ONLY_FRAME == true)
 src = File.read('./elevation_tool.rb')
-m = src[/def shoot!.*?sides\(poly\)\.each/m].to_s
+m = src[/def shoot!.*?capture_sides\.each/m].to_s
 ok('shoot! puts them aside with the floors (hidden, and back after)', m.include?("outside_room(poly, all, room.ent.get_attribute(D, 'bounding_wall_ids')).each") && m.include?('hidden << t.ent'))
 puts($fails.zero? ? "\nALL PASS" : "\n#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

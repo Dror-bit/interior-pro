@@ -675,6 +675,13 @@ module InteriorPro
     USE_KITCHEN_FRONT = true unless const_defined?(:USE_KITCHEN_FRONT, false)
     KITCHEN_FRONT_MAX = 3.0 unless const_defined?(:KITCHEN_FRONT_MAX, false)
     KITCHEN_FRONT_KINDS = %w[worktop backsplash].freeze unless const_defined?(:KITCHEN_FRONT_KINDS, false)
+    # THE FACE BY A RAY (2026-10-15 14:26, his "המתגים והשקעים יושבים מאחורי הקאונטר טופ באק ספלאש"; measured
+    # debug_elec_face.rb → elec_face_report.txt): the backsplash is now one L-shaped solid 1.5" thick - its BOX runs 145.9"
+    # into the room, so kitchen_front threw it out and the outlet and the switch over the range stayed at 0.375, behind its
+    # face. A ray from 12" in the room straight at the wall through the plate's middle and corners finds the real face: the
+    # first kitchen worktop / backsplash it hits, no more than KITCHEN_FRONT_MAX off the wall (plates of ours are passed
+    # through). The larger of the box rule and the ray wins. Off = the box rule alone, as before.
+    USE_KITCHEN_RAY = true unless const_defined?(:USE_KITCHEN_RAY, false)
 
     # every kitchen group in the model, at any depth, with its world transformation: [[ent, kind, wxf], ...]
     def self.kitchen_pieces(model = Sketchup.active_model, ents = nil, xf = nil, depth = 0, out = [])
@@ -726,6 +733,36 @@ module InteriorPro
       best
     end
 
+    # how far the kitchen face over [u0,u1]x[z0,z1] stands off the wall, by rays (USE_KITCHEN_RAY); 0.0 = none
+    def self.kitchen_face_ray(fr, u0, u1, z0, z1, model = Sketchup.active_model)
+      return 0.0 unless model.respond_to?(:raytest)
+      dir = Geom::Vector3d.new(-fr[:nx], -fr[:ny], 0)
+      pts = [[(u0 + u1) / 2.0, (z0 + z1) / 2.0], [u0 + 0.1, z0 + 0.1], [u1 - 0.1, z0 + 0.1], [u0 + 0.1, z1 - 0.1], [u1 - 0.1, z1 - 0.1]]
+      best = 0.0
+      pts.each do |u, z|
+        p = Geom::Point3d.new(fr[:ox] + fr[:ux] * u + fr[:nx] * 12.0, fr[:oy] + fr[:uy] * u + fr[:ny] * 12.0, fr[:floor_z].to_f + z)
+        6.times do
+          r = model.raytest([p, dir], true)
+          break unless r
+          path = Array(r[1])
+          if path.any? { |x| x.respond_to?(:get_attribute) && x.get_attribute('InteriorPro', 'type').to_s == 'electrical' }
+            p = r[0].offset(dir, 0.01)      # one of our plates: through it
+            next
+          end
+          if path.any? { |x| x.respond_to?(:get_attribute) && KITCHEN_FRONT_KINDS.include?(x.get_attribute('KitchenLab', 'kind').to_s) }
+            q = r[0]
+            o = (q.x - fr[:ox]) * fr[:nx] + (q.y - fr[:oy]) * fr[:ny]
+            best = o if o > best && o <= KITCHEN_FRONT_MAX + 1.0e-6
+          end
+          break
+        end
+      end
+      best
+    rescue StandardError => e
+      puts "[Electrical] kitchen_face_ray: #{e.class}: #{e.message}"
+      0.0
+    end
+
     def self.kitchen_boxes(fr, model = Sketchup.active_model)
       kitchen_pieces(model).map { |e, k, wxf| [k] + box_in_frame(e, wxf, fr) }
     end
@@ -746,6 +783,7 @@ module InteriorPro
         t = InteriorPro::FixtureLibrary.tile_under(wall, side, u0, u1, z0, z1)
         out = t ? t[:out].to_f : 0.0
         kf = kitchen_front(u0, u1, z0, z1, kboxes)
+        kf = [kf, kitchen_face_ray(fr, u0, u1, z0, z1)].max if USE_KITCHEN_FRONT && USE_KITCHEN_RAY
         out = kf if kf > out
         res[:outs] << out
       end
@@ -775,6 +813,7 @@ module InteriorPro
         t = InteriorPro::FixtureLibrary.tile_under(w, side, u0, u1, z0, z1)
         want = t ? t[:out].to_f : 0.0
         kf = USE_KITCHEN_FRONT ? kitchen_front(u0, u1, z0, z1, kitchen_boxes(fr, model)) : 0.0
+        kf = [kf, kitchen_face_ray(fr, u0, u1, z0, z1, model)].max if USE_KITCHEN_FRONT && USE_KITCHEN_RAY
         want = kf if kf > want
         d = want - o0.to_f
         next if d.abs < 0.01

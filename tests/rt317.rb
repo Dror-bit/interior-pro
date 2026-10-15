@@ -33,17 +33,39 @@ ok('no kitchen: no walls', ET.kitchen_sides(poly, [], 0.0).empty?)
 ell = Ent.new(0, 200, 0, 150)
 got2 = ET.kitchen_sides(poly, [[run, 'kitchen_unit', xf], [ell, 'worktop', xf]], 0.0)
 ok('the run of countertop / backsplash adds no wall', got2 == got, got2)
-# 11:49, measured: the tall cabinet in the corner touches the next wall with its side; the lone microwave base on the far
-# wall goes with its letter - neither adds a wall
-tall = Ent.new(0, 16, 0, 25, 'A')          # in the corner: touches x=0 (its side) and y=0 (its back)
-lone = Ent.new(190, 200, 100, 130, 'A')    # against x=200, alone, but letter A = the y=0 run
-got3 = ET.kitchen_sides(poly, [[run, 'kitchen_unit', xf], [tall, 'kitchen_unit', xf], [lone, 'kitchen_unit', xf]], 0.0)
-ok('a corner cabinet\'s side and a lone cabinet of the same letter add no wall', got3 == got, got3)
-b_run = Ent.new(0, 25, 20, 120, 'B')       # the other leg of the L, letter B, on x=0
-got4 = ET.kitchen_sides(poly, [[run, 'kitchen_unit', xf], [b_run, 'kitchen_unit', xf]], 0.0)
-ok('two letters: two walls', got4.size == 2, got4)
-nolet = Ent.new(0, 16, 0, 25, nil)
-ok('no letter: the wall it touches most', ET.kitchen_sides(poly, [[nolet, 'kitchen_unit', xf]], 0.0).size == 1)
+# 12:26 (USE_KITCHEN_FACING), measured kitchen_dims_report: every cabinet carries the letter A, so the letter picked ONE
+# wall and West went missing. Now a wall counts when a cabinet stands on it with its BACK (its cabinet's +y), whatever
+# the letter; a corner cabinet on both; his "כל קבינט שקשור לחדר המטבח הוא חלק ממנו" - a lone one on a far wall counts.
+ok('kill switch for the facing rule is there and on', ET::USE_KITCHEN_FACING == true)
+Cab = Struct.new(:ang, :kind) do
+  def transformation; Geom::Transformation.rotation(Geom::Point3d.new(0, 0, 0), Geom::Vector3d.new(0, 0, 1), ang * Math::PI / 180.0); end
+  def get_attribute(d, k)
+    return nil unless d == 'KitchenLab'
+    k == 'kind' ? 'cabinet' : (k == 'data' ? "{\"kind\":\"#{kind}\",\"wall\":\"A\"}" : nil)
+  end
+end
+Unit = Struct.new(:x0, :x1, :y0, :y1, :cab) do
+  def transformation; Geom::Transformation.new; end
+  def bounds; Box.new(Geom::Point3d.new(x0, y0, 0), Geom::Point3d.new(x1, y1, 36)); end
+  def valid?; true; end
+  def entities; [cab]; end
+  def get_attribute(_d, _k); nil; end
+end
+y0w = ET.sides(poly).find { |s| s.inward.y > 0.5 }.name     # the wall at y = 0
+x0w = ET.sides(poly).find { |s| s.inward.x > 0.5 }.name     # the wall at x = 0
+x2w = ET.sides(poly).find { |s| s.inward.x < -0.5 }.name    # the wall at x = 200
+frun = Unit.new(16, 130, 0, 25, Cab.new(180, 'doors'))       # back to y = 0
+ftall = Unit.new(0, 16, 0, 25, Cab.new(180, 'tall'))         # in the corner, back to y = 0, its SIDE on x = 0
+flone = Unit.new(175, 200, 100, 130, Cab.new(-90, 'microwave'))  # alone, back to x = 200
+fcorner = Unit.new(0, 38, 0, 38, Cab.new(0, 'corner_base'))  # the corner of the L: both
+back = ET.kitchen_back(frun, xf)
+ok('a cabinet\'s back looks at its wall (+y of its cabinet turned 180 = -y)', back && back.y < -0.9, back && [back.x, back.y])
+g5 = ET.kitchen_sides(poly, [[frun, 'kitchen_unit', xf], [ftall, 'kitchen_unit', xf]], 0.0)
+ok('the tall one in the corner: its side on the next wall adds no wall', g5 == [y0w], g5)
+g6 = ET.kitchen_sides(poly, [[frun, 'kitchen_unit', xf], [flone, 'kitchen_unit', xf]], 0.0)
+ok('a lone cabinet on a far wall is part of the kitchen (same letter A)', g6.sort == [y0w, x2w].sort, g6)
+g7 = ET.kitchen_sides(poly, [[fcorner, 'kitchen_unit', xf]], 0.0)
+ok('a corner cabinet stands on both of its walls', g7.sort == [y0w, x0w].sort, g7)
 ok('the Kitchen sheet keeps the floors down in its plan', src.include?("keep_down = label == KITCHEN_LABEL ? PLAN_NO_FLOOR : []") && ET::PLAN_NO_FLOOR.include?('floor_pattern'))
 ok('shoot! takes only the walls asked for, under the label', src.include?('next if sides && !sides.include?(side.name)') && src.include?('name = label || room_name(room)'))
 ok('make_kitchen! is there and goes through make! with the kitchen walls and the label', src.include?("make!(room, cut: cut, style: style, sides: names, label: KITCHEN_LABEL)"))
