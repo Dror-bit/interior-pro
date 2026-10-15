@@ -40,6 +40,7 @@ const refreshBeforeZoom=refreshCabinetPreview;
 refreshCabinetPreview=function(){
  refreshBeforeZoom();if(!cabinetDialog.open||!selected)return;
  const changed=CabinetPreviewZoom.cabinetId!==selected.id;CabinetPreviewZoom.cabinetId=selected.id;
+ const pantryDimensions=!!cabinetDraft().pantry;if(CabinetPreviewZoom.pantryDimensions!==pantryDimensions){CabinetPreviewZoom.pantryDimensions=pantryDimensions;const elevation=CabinetPreviewZoom.views.get('cabinetPreview');if(elevation)elevation.fit=null;}
  const pose=JSON.stringify([cabinetDraft().rotation,cabinetDraft().rotation_pivot]);for(const view of CabinetPreviewZoom.views.values()){if(changed||!view.fit||(view.svg.id==='cabinetTopPreview'&&CabinetPreviewZoom.pose!==pose))zoomFit(view);else zoomApply(view);}CabinetPreviewZoom.pose=pose;
 };
 cabinetDialog.addEventListener('close',()=>{for(const view of CabinetPreviewZoom.views.values())view.pan=null;});

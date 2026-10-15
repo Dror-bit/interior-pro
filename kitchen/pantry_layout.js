@@ -18,9 +18,13 @@ const PantryLayouts={
    out.push({kind:'appliance',height:middle,width:p.appliance.dimensions.width,device:p.middle,pantry_appliance:p.appliance,zone:'middle'});
   }else out.push({kind:'doors',height:middle,doors:p.middle==='double'?2:1,zone:'middle'});
   if(p.bottom==='drawers'){
-   const n=Number(p.drawers),height=(lower-.125*(n-1))/n;
-   if(!Number.isInteger(n)||n<1||n>5||height<3)throw Error('Choose 1 to 5 drawers with at least 3 inches per front');
-   for(let i=0;i<n;i++)out.push({kind:'drawer',height,zone:'bottom'});
+   const n=Number(p.drawers);
+   if(!Number.isInteger(n)||n<1||n>5)throw Error('Choose 1 to 5 lower drawers');
+   const heights=p.drawer_heights??Array(n).fill((lower-.125*(n-1))/n);
+   if(!Array.isArray(heights)||heights.length!==n)throw Error('Provide one height for each lower drawer');
+   if(!heights.every(v=>Number.isFinite(v)&&v>=3))throw Error('Lower drawers must be at least 3 inches high');
+   if(Math.abs(heights.reduce((a,b)=>a+b,0)+.125*(n-1)-lower)>=.005)throw Error('Drawer heights plus reveals must fill the bottom section');
+   for(const height of heights)out.push({kind:'drawer',height,zone:'bottom'});
   }else{
    if(lower<14)throw Error('Lower section needs 14 inches for a drawer and doors');
    out.push({kind:'drawer',height:5.875,zone:'bottom'},{kind:'doors',height:lower-6,doors:p.bottom==='combo_double'?2:1,zone:'bottom'});

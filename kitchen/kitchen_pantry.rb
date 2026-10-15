@@ -22,9 +22,12 @@ module KitchenLab
       end
       if p['bottom']=='drawers'
         n=Integer(p['drawers']);raise 'Choose 1 to 5 lower drawers' unless n.between?(1,5)
-        height=(lower-0.125*(n-1))/n
-        raise 'Lower drawers must be at least 3 inches high' if height<3
-        n.times { out<<{'kind'=>'drawer','height'=>height,'zone'=>'bottom'} }
+        heights=p['drawer_heights'] || Array.new(n,(lower-0.125*(n-1))/n)
+        raise 'Provide one height for each lower drawer' unless heights.is_a?(Array) && heights.length==n
+        heights=heights.map { |v| Float(v) }
+        raise 'Lower drawers must be at least 3 inches high' unless heights.all? { |v| v.finite? && v>=3 }
+        raise 'Drawer heights plus reveals must fill the bottom section' unless (heights.sum+0.125*(n-1)-lower).abs<0.005
+        heights.each { |height| out<<{'kind'=>'drawer','height'=>height,'zone'=>'bottom'} }
       else
         raise 'Lower section needs 14 inches for a drawer and doors' if lower<14
         out<<{'kind'=>'drawer','height'=>5.875,'zone'=>'bottom'}

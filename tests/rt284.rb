@@ -156,7 +156,7 @@ ok('and not RENDERING', imgs[1].layers.none? { |l| l.shapes.any? { |sh| sh.inspe
 # several rooms in one go: make_all! walks them in order (the shot is stubbed here)
 class << ET
   alias_method :real_shoot!, :shoot!
-  def shoot!(room, cut: nil, style: 'lines', model: nil)
+  def shoot!(room, cut: nil, style: 'lines', model: nil, sides: nil, label: nil)
     ['A', 'B'].map { |sd| "/e/#{slug(room_name(room))}_#{sd}_#{style}.png" }
   end
 end
@@ -185,7 +185,7 @@ ok('nothing anywhere = the whole room (nil)', ET.cut_for({ 'house' => '', 'room'
 ok('a plain number still works', ET.cut_for(24, 'A') == 24)
 seen = []
 class << ET
-  def shoot!(room, cut: nil, style: 'lines', model: nil)
+  def shoot!(room, cut: nil, style: 'lines', model: nil, sides: nil, label: nil)
     $seen_cuts << [room_name(room), cut]
     ["/e/#{slug(room_name(room))}_A_#{style}.png"]
   end

@@ -1,5 +1,6 @@
 # Domain command planner. No SketchUp, UI, model attributes or transactions.
 require 'securerandom'
+require_relative 'kitchen_pantry'
 module KitchenLab
   class Engine
     def initialize(validator:, settings_validator: nil, reference_provider: nil, id_generator: -> { "c-#{SecureRandom.hex(8)}" })

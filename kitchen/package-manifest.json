@@ -458,8 +458,8 @@
     },
     {
       "path": "cabinet_zoom.js",
-      "bytes": 4677,
-      "sha256": "610410de7e305ff8b0d97164bab203393fdea4ee661fd57788144f65066ad43a"
+      "bytes": 4934,
+      "sha256": "573e9064dd0c733465391cd3f4e0188d27243da8b70bb9aa71cf62482fca98fc"
     },
     {
       "path": "command_client.js",
@@ -503,8 +503,8 @@
     },
     {
       "path": "kitchen.js",
-      "bytes": 45234,
-      "sha256": "89734736097843d959284710dfd200f4ec22ba80e588787bbda936e2121747fa"
+      "bytes": 45366,
+      "sha256": "e4119e3c9fa1486d187e945cf66c9435fe9662809b29ad3c226699ef0aa2434e"
     },
     {
       "path": "kitchen_appearance.rb",
@@ -1553,8 +1553,8 @@
     },
     {
       "path": "kitchen_engine.rb",
-      "bytes": 23645,
-      "sha256": "d6676239401fef96fa5ee3f6a8b18945f362b1727dbe0554eef148bf5af37e6d"
+      "bytes": 23679,
+      "sha256": "aa07e20962408726c44dc7f0f29eba08da8e377948113b841f3c3afd71ca8877"
     },
     {
       "path": "kitchen_house_placement.js",
@@ -2718,8 +2718,8 @@
     },
     {
       "path": "kitchen_pantry.rb",
-      "bytes": 5229,
-      "sha256": "7fb6b0cf323c2a878baded32a7e86f8faee17a58ce02d70c8fb03c712686112b"
+      "bytes": 5587,
+      "sha256": "4c8da3cee38585f93d4fcebca7051f510811a7a165cae9cab3b89dae7f2132dc"
     },
     {
       "path": "kitchen_cabinet_picker.rb",
@@ -2728,13 +2728,23 @@
     },
     {
       "path": "pantry_layout.js",
-      "bytes": 2303,
-      "sha256": "68bdc8551f477ba2ec12ec9f30f109f92e17943b7f3309916a6f81ff14391d94"
+      "bytes": 2677,
+      "sha256": "187aad3891f78155f7f1345666e6f6e55113fbfd3908367bd4d62d767635d405"
     },
     {
       "path": "pantry_editor.js",
-      "bytes": 7025,
-      "sha256": "286a4e72be69be684baa7b57a94fb8d6530f78f77189fe12c60e141bf064bd59"
+      "bytes": 11772,
+      "sha256": "154ccc7f32d65d93c4b87f4d4c6c43c82d13c1aedb5a9792c556afcca70c34be"
+    },
+    {
+      "path": "test_pantry.js",
+      "bytes": 2134,
+      "sha256": "70d6ace99a6ea57ad4dd7cafd4a99bd1f4495da24dbb753cd60b03b96a9f3707"
+    },
+    {
+      "path": "test_pantry.rb",
+      "bytes": 2835,
+      "sha256": "30f5233e85bc9adeb612e0ba8a153e6e62ec1587aa578b457a72cff6dbb90214"
     }
   ]
 }

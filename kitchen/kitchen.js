@@ -447,6 +447,7 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
    out+=rect(x,yy,w,hh,'#478b6318',drag.valid?'#388453':'#c94646',{'stroke-width':2,'stroke-dasharray':'6 4',class:'drop-placeholder'});
    floatingCabinet=svg('g',{class:'cab floating-cabinet','data-id':c.id,opacity:.78,'pointer-events':'none',transform:`translate(${(drag.floating.x-c.x)*s} ${mode==='front'?(c.z-drag.floating.z)*s:0})`},inner);
   }else out+=svg('g',{class:'cab','data-id':c.id},inner);
+  if(single&&c.pantry&&typeof pantrySectionDimensions==='function')out+=pantrySectionDimensions(c,x,base,s);
   // Separate dimension rows for upper and lower cabinets.
   const dy=mode==='front'?(c.kind==='wall'?75:base+34):(c.kind==='wall'?130:base+34);
   out+=dimension(x,x+w,dy,fmt(c.width),c.id);
@@ -466,7 +467,7 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
  if(c&&(!tall||c.height!==tall.height||c.z!==tall.z))measurements.push({cabinet:c,lane:0});
  if(tall)measurements.push({cabinet:tall,lane:1});
  measurements.forEach(({cabinet:d,lane})=>{
-  const xx=ox+end*s+28+40*lane,dim=mode==='front'?d.height:d.depth;
+  const xx=ox+end*s+28+40*lane+(single?.pantry?110:0),dim=mode==='front'?d.height:d.depth;
   const y1=mode==='front'?base-(d.z+d.height)*s:base-d.depth*s;
   const y2=mode==='front'?base-d.z*s:base;
   const edge=ox+(d.x+d.width)*s;

@@ -28,6 +28,14 @@ module InteriorPro
         return
       end
       @rooms = rooms
+      # "Kitchen" at the top of the list (USE_KITCHEN_PICK, 2026-10-15 10:48): the kitchen walls of its room only
+      kroom = InteriorPro::ElevationTool::USE_KITCHEN_PICK ? InteriorPro::ElevationTool.kitchen_room : nil
+      ksides = []
+      if kroom
+        et = InteriorPro::ElevationTool
+        poly = et.room_poly(kroom)
+        ksides = et.kitchen_sides(poly, et.kitchen_tops(Sketchup.active_model), poly.first.z)
+      end
       dlg = UI::HtmlDialog.new(
         dialog_title: 'Interior Pro - Elevations',
         preferences_key: 'InteriorPro_Elevations',
@@ -42,10 +50,17 @@ module InteriorPro
         begin
           req = JSON.parse(json.to_s)
           rows = Array(req['rooms'])
+          krow = rows.find { |row| row['i'].to_s == 'K' }
+          rows = rows.reject { |row| row['i'].to_s == 'K' }
           picked = rows.map { |row| @rooms[row['i'].to_i] }
-          raise 'tick at least one room' if picked.empty? || picked.any?(&:nil?)
+          raise 'tick at least one room' if (picked.empty? && krow.nil?) || picked.any?(&:nil?)
           cuts = rows.map { |row| { 'house' => req['house'], 'room' => row['cut'], 'walls' => (row['walls'].is_a?(Hash) ? row['walls'] : {}) } }
-          paths = InteriorPro::ElevationTool.make_all!(picked, cut: cuts, style: req['style'].to_s)
+          paths = []
+          if krow
+            kc = { 'house' => req['house'], 'room' => krow['cut'], 'walls' => (krow['walls'].is_a?(Hash) ? krow['walls'] : {}) }
+            paths += InteriorPro::ElevationTool.make_kitchen!(cut: kc, style: req['style'].to_s)
+          end
+          paths += InteriorPro::ElevationTool.make_all!(picked, cut: cuts, style: req['style'].to_s) unless picked.empty?
           dlg.execute_script("done(#{paths.size})")
           InteriorPro::PlanSheetDialog.show unless InteriorPro::PlanSheetDialog.instance_variable_get(:@dialog)
         rescue StandardError => e
@@ -70,7 +85,7 @@ module InteriorPro
           puts "[Elevation] fit_height: #{e.message}"
         end
       end
-      dlg.set_html(build_html(rooms))
+      dlg.set_html(build_html(rooms, ksides))
       begin
         dlg.center if dlg.respond_to?(:center)
       rescue StandardError
@@ -80,10 +95,19 @@ module InteriorPro
       @dialog = dlg
     end
 
-    def self.build_html(rooms)
+    def self.build_html(rooms, ksides = [])
       et = InteriorPro::ElevationTool
       # the rooms with plumbing come first and are ticked; the rest are there to tick
       wet = et.send(:wet_count, rooms)
+      kopt = ''
+      unless ksides.empty?
+        walls = ksides.map { |l| "<label class=\"wl\">#{l}: <input type=\"number\" class=\"wcut\" data-side=\"#{l}\" min=\"1\" step=\"1\" placeholder=\"in\"></label>" }.join
+        kopt = "<div class=\"rm\" data-i=\"K\">" \
+               "<label><input type=\"checkbox\" class=\"tick\" value=\"K\" checked> #{et::KITCHEN_LABEL}</label>" \
+               "<input type=\"number\" class=\"rcut\" min=\"1\" step=\"1\" placeholder=\"in\" title=\"distance for the kitchen (in)\">" \
+               "<button type=\"button\" class=\"fold\" onclick=\"fold(this)\" title=\"one number a wall\">walls</button>" \
+               "<div class=\"walls\">#{walls}</div></div>"
+      end
       opts = rooms.each_with_index.map do |r, i|
         nm = et.room_name(r).to_s.gsub('<', '&lt;')
         letters = et.sides(et.room_poly(r)).map(&:name)
@@ -129,7 +153,7 @@ module InteriorPro
         <div class="row"><label>Style</label>
           <select id="style"><option value="lines">Lines</option><option value="shaded">Colors</option></select></div>
         <div class="row"><label>Rooms - a distance for the room; "walls" = a distance for one wall</label></div>
-        <div class="rooms" id="rooms">#{opts}</div>
+        <div class="rooms" id="rooms">#{kopt}#{opts}</div>
         <div id="msg"></div>
         <div class="btns">
           <button onclick="sketchup.close_dialog()">Close</button>

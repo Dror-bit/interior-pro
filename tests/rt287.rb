@@ -101,7 +101,7 @@ ok('the window marks a moved picture as his', File.read('./plan_sheet_dialog.rb'
 
 ok('switch: USE_ONE_SHEET', ET::USE_ONE_SHEET == true)
 src = File.read('./elevation_tool.rb', encoding: 'utf-8')
-ok('make! goes to one sheet only when switched on', src.include?('n = USE_ONE_SHEET ? add_room_sheet!(paths, room_name(room), dims) : add_to_sheet!('))
+ok('make! goes to one sheet only when switched on', src.include?('n = USE_ONE_SHEET ? add_room_sheet!(paths, title, dims) : add_to_sheet!('))
 
 puts($fails.zero? ? 'ALL PASS' : "#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

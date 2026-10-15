@@ -94,6 +94,11 @@ module InteriorPro
     # a sconce on the next wall. A whole kitchen unit decides, not its parts (the hood's cover). Off = as before.
     USE_ON_WALL_ONLY = true unless const_defined?(:USE_ON_WALL_ONLY, false)
     ON_WALL_PIC = 3.0 unless const_defined?(:ON_WALL_PIC, false)
+    # "Kitchen" in the Elevations list (10:48) - see make_kitchen!
+    USE_KITCHEN_PICK = true unless const_defined?(:USE_KITCHEN_PICK, false)
+    KITCHEN_LABEL = 'Kitchen' unless const_defined?(:KITCHEN_LABEL, false)
+    PLAN_NO_FLOOR = %w[floor floor_pattern floor_patch subfloor underlay].freeze unless const_defined?(:PLAN_NO_FLOOR, false)
+    KITCHEN_WALL_KINDS = %w[kitchen_unit cabinet].freeze unless const_defined?(:KITCHEN_WALL_KINDS, false)
     ROOM_ONLY_KEEP = %w[wall door window].freeze   # 17:39 ("המידות צריכות לבוא או מלמעלה או מלמטה ולא על המוצר"): the row of
                                                              # distances runs this far above the plates' top (upper half) or under their bottom
     USE_WINDOW_MIDCUT = true unless const_defined?(:USE_WINDOW_MIDCUT, false) # 18:56: from above a window is cut at its own middle; off = not cut (seen whole), as before
@@ -1246,7 +1251,9 @@ module InteriorPro
       # order. style: 'lines' (hidden line) or 'shaded' (as he sees it).
       # only (USE_LAZY_LAYERS): { side name or 'Plan' => [[cats], ...] } - take ONLY those pictures without a layer,
       # with everything else exactly as the button sets it up; nothing else is written. nil = the button.
-      def shoot!(room, cut: nil, style: 'lines', model: Sketchup.active_model, only: nil)
+      # sides (USE_KITCHEN_PICK): the names of the walls to take, nil = all; label: the name the pictures and the sheet
+      # carry instead of the room's ("Kitchen")
+      def shoot!(room, cut: nil, style: 'lines', model: Sketchup.active_model, only: nil, sides: nil, label: nil)
         raise 'Elevations are switched off (USE_ELEVATIONS)' unless USE_ELEVATIONS
         poly = room_poly(room)
         raise 'this room has no outline' unless poly
@@ -1255,7 +1262,7 @@ module InteriorPro
         base_z = poly.first.z
         dir = out_dir(model)
         FileUtils.mkdir_p(dir)
-        name = room_name(room)
+        name = label || room_name(room)
         paths = []
         cam0 = view.camera
         keep = [cam0.eye, cam0.target, cam0.up, cam0.perspective?, (cam0.perspective? ? cam0.fov : cam0.height)]
@@ -1302,6 +1309,7 @@ module InteriorPro
           kitchen = USE_ON_WALL_ONLY ? kitchen_tops(model) : []
           sides(poly).each do |side|
             next if only && !only.key?(side.name)
+            next if sides && !sides.include?(side.name)
             s = shot(side, wall_h, cut_for(cut, side.name), base_z)
             # only what is on this wall (USE_ON_WALL_ONLY): aside for this side's pictures, back right after
             aside = []
@@ -1380,8 +1388,14 @@ module InteriorPro
             # the walls' floor and ceiling lines would lie along the walls seen from above
             gone = lines_drawn.select { |e| e.respond_to?(:valid?) && e.valid? }
             model.entities.erase_entities(gone) unless gone.empty?
-            # and the floor, the tiles, the drain, the curb come back for it
-            hidden.each { |e| e.hidden = false if e.valid? && !TOP_ASIDE.include?(e.get_attribute(D, 'type').to_s) }
+            # and the floor, the tiles, the drain, the curb come back for it - not the floors on the Kitchen sheet
+            # (11:22, his "קבוצת הרצפות ... אני רוצה להעלים אותה")
+            keep_down = label == KITCHEN_LABEL ? PLAN_NO_FLOOR : []
+            hidden.each do |e|
+              next unless e.valid?
+              ty = e.get_attribute(D, 'type').to_s
+              e.hidden = false unless TOP_ASIDE.include?(ty) || keep_down.include?(ty)
+            end
             # the tile lines of the floor and the shower pan are SOFT + HIDDEN edges (measured 16:39,
             # debug_top_shot.rb: 57 of 57) so the texture draws clean - a line drawing shows none of
             # them. Shown for the shot; the aborted operation puts them back.
@@ -1616,6 +1630,16 @@ module InteriorPro
         tt[main] = sheet_title.to_s
         st['image_titles'] = tt
         pics = Array(st['pics']).select { |r| r.is_a?(Hash) }
+        # a wall of this sheet that is NOT taken this time leaves it (11:56, his Kitchen sheet kept the walls of the
+        # first run under the new ones): the pictures on this page from the same room (file name prefix) not among
+        # the fresh ones go
+        pre = File.basename(main)[/\A(.*)_[A-Za-z]+\d*_[a-z]+\.png\z/, 1]
+        if pre
+          pics = pics.reject do |r|
+            rp = r['path'].to_s.tr('\\', '/')
+            r['on'].to_s == on && !fresh.include?(rp) && File.basename(rp).start_with?("#{pre}_")
+          end
+        end
         rest.each { |p| pics << { 'path' => p, 'on' => on } unless pics.any? { |r| r['path'].to_s.tr('\\', '/') == p && r['on'].to_s == on } }
         st['pics'] = pics
         dd = st['image_dims'].is_a?(Hash) ? st['image_dims'] : {}
@@ -1671,12 +1695,90 @@ module InteriorPro
       end
 
       # the whole job from the panel: shoot, then onto the sheet
-      def make!(room, cut: nil, style: 'lines')
-        paths = shoot!(room, cut: cut, style: style)
+      def make!(room, cut: nil, style: 'lines', sides: nil, label: nil)
+        paths = shoot!(room, cut: cut, style: style, sides: sides, label: label)
         dims = paths.each_with_object({}) { |p, h| d = last_dims[p.to_s.tr('\\', '/')]; h[p] = d if d }
-        n = USE_ONE_SHEET ? add_room_sheet!(paths, room_name(room), dims) : add_to_sheet!(paths, titles_for(room, paths), dims)
-        trace("#{room_name(room)}: #{paths.size} pictures, #{n} onto the sheet")
+        title = label || room_name(room)
+        n = USE_ONE_SHEET ? add_room_sheet!(paths, title, dims) : add_to_sheet!(paths, titles_for(room, paths), dims)
+        trace("#{title}: #{paths.size} pictures, #{n} onto the sheet")
         paths
+      end
+
+      # ---- "Kitchen" in the list (USE_KITCHEN_PICK, 2026-10-15 10:48, his words: "הוא מראה לי אופציה של חדר, אתה לא חושב
+      # שהוא צריך להראות לי אופציה של מטבח? ... אני לא רוצה שהסלון יהיה באליוויישן"): the room that holds the kitchen, but
+      # ONLY the walls with kitchen on them - its sheet is "Kitchen". Off = the rooms alone, as before.
+
+      # the room whose outline holds a top-level kitchen group's middle; nil = no kitchen
+      def kitchen_room(model = Sketchup.active_model)
+        kit = kitchen_tops(model)
+        return nil if kit.empty?
+        rooms(model).find do |r|
+          poly = room_poly(r)
+          kit.any? do |e, _k, wxf|
+            c = e.bounds.center.transform(wxf * e.transformation.inverse)
+            inside?(poly, c.x, c.y)
+          end
+        end
+      rescue StandardError => e
+        puts "[Elevation] kitchen_room: #{e.class}: #{e.message}"
+        nil
+      end
+
+      # the names of the room's walls that have kitchen ON them. Measured 11:49 (debug_kitchen_sides.rb): a box touches
+      # more walls than it stands on - the tall cabinet in the corner touched the short wall with its SIDE, and the one
+      # microwave base on the far wall made a third. So: every top-level kitchen CABINET group (kitchen_unit / cabinet -
+      # not the run of countertop or backsplash) goes with the kitchen's own wall letter (KitchenLab data 'wall': A, B,
+      # I = island), and each letter's cabinets stand on the ONE wall they touch most (their contact along it, summed).
+      # No letter = the wall that one touches most. PURE apart from the boxes.
+      def kitchen_sides(poly, kitchen, base_z)
+        return [] unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:box_in_frame)
+        all_sides = sides(poly)
+        frames = all_sides.map do |side|
+          ux = (side.b.x - side.a.x) / side.len
+          uy = (side.b.y - side.a.y) / side.len
+          [side, { ox: side.a.x, oy: side.a.y, ux: ux, uy: uy, nx: side.inward.x, ny: side.inward.y, floor_z: base_z }]
+        end
+        contact = Hash.new { |h, k| h[k] = Hash.new(0.0) }     # letter => { side name => inches of contact }
+        Array(kitchen).each do |e, k, wxf|
+          next unless KITCHEN_WALL_KINDS.include?(k.to_s)
+          tag = kitchen_wall_tag(e)
+          frames.each do |side, fr|
+            u0, u1, _z0, _z1, o0, = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)
+            next unless o0 <= ON_WALL_PIC && o0 > -ON_WALL_PIC
+            len = [u1, side.len].min - [u0, 0.0].max
+            next if len <= 0
+            contact[tag || e.object_id][side.name] += len
+          end
+        end
+        picked = contact.values.map { |by_side| by_side.max_by { |_n, l| l }&.first }.compact.uniq
+        all_sides.map(&:name).select { |n| picked.include?(n) }
+      end
+
+      # the kitchen's own wall letter of a unit (A, B, I...): from the 'data' of the unit itself or of a cabinet in it
+      def kitchen_wall_tag(ent)
+        cands = [ent]
+        kids = ent.respond_to?(:entities) ? ent.entities : (ent.respond_to?(:definition) ? ent.definition.entities : [])
+        kids.each { |k| cands << k if (k.is_a?(Sketchup::Group) || (defined?(Sketchup::ComponentInstance) && k.is_a?(Sketchup::ComponentInstance))) && k.get_attribute('KitchenLab', 'kind') == 'cabinet' }
+        cands.each do |c|
+          raw = c.get_attribute('KitchenLab', 'data')
+          next unless raw.is_a?(String) && !raw.empty?
+          d = JSON.parse(raw)
+          w = d['wall'].to_s
+          return w unless w.empty?
+        end
+        nil
+      rescue StandardError
+        nil
+      end
+
+      # the kitchen's pictures onto its own sheet: the kitchen walls of its room. [] = no kitchen.
+      def make_kitchen!(cut: nil, style: 'lines', model: Sketchup.active_model)
+        room = kitchen_room(model)
+        return [] unless room
+        poly = room_poly(room)
+        names = kitchen_sides(poly, kitchen_tops(model), poly.first.z)
+        return [] if names.empty?
+        make!(room, cut: cut, style: style, sides: names, label: KITCHEN_LABEL)
       end
 
       # several rooms in one go (2026-10-08): every picture of every room, in order

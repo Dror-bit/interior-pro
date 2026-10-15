@@ -63,7 +63,8 @@ ok('a white face under each swing, from the same hinge and sweep as the arc', sr
    src.include?("f.material = white"))
 ok('from above the floor, the shower pan, its drain and curb are back; only what is over the room stays aside (16:14)',
    ET::TOP_ASIDE == %w[ceiling roof dormer skylight downspout plan2d sketch2d room] &&
-   src.include?("hidden.each { |e| e.hidden = false if e.valid? && !TOP_ASIDE.include?(e.get_attribute(D, 'type').to_s) }"))
+   src.include?("e.hidden = false unless TOP_ASIDE.include?(ty) || keep_down.include?(ty)") &&
+   src.include?("keep_down = label == KITCHEN_LABEL ? PLAN_NO_FLOOR : []"))
 
 # onto the sheet: the view from above owns it and stands first in the row
 psd = InteriorPro::PlanSheetDialog
