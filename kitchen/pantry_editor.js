@@ -9,6 +9,11 @@
  <div id="pantryDrawerSizing"><div id="pantryDrawerHeights" class="fields"></div><div id="pantryDrawerBalance" role="status" style="font-size:12px;margin:8px 0"></div><button id="pantryFitDrawer" class="subtle" type="button">Fit last drawer</button> <button id="pantryEqualDrawers" class="subtle" type="button">Equal heights</button></div>
  </div>`;
  $('frontEditor').before(section);
+ for(const zone of ['Top','Middle','Bottom']){
+  const label=document.createElement('label');label.id='pantry'+zone+'HingeLabel';label.textContent='Door opening';
+  const input=document.createElement('select');input.id='pantry'+zone+'Hinge';input.setAttribute('form','form');input.innerHTML='<option value="left">Hinges on left</option><option value="right">Hinges on right</option>';label.append(input);$('pantry'+zone).closest('label').after(label);
+ }
+
  // Pantry inspector: size, sections, style/color, toe kick, then all hardware.
  const controls=$('cabinetControls'),originalOrder=[...controls.children];
  function arrangePantryControls(){
@@ -26,7 +31,8 @@
  function draft(){return {...selected,width:Number($('width').value),depth:Number($('depth').value),height:Number($('height').value),toe_height:Number($('toe_height').value)};}
  window.readPantryEditor=function(c){
   if(c.kind!=='tall'||!$('pantryEnabled').checked)return null;
-  const p={version:1,top:$('pantryTop').value,middle:$('pantryMiddle').value,bottom:$('pantryBottom').value,bottom_height:Number($('pantryBottomHeight').value),middle_height:Number($('pantryMiddleHeight').value),drawers:Number($('pantryDrawers').value)};
+  const p={version:1,drawer_height_basis:'section',top:$('pantryTop').value,middle:$('pantryMiddle').value,bottom:$('pantryBottom').value,bottom_height:Number($('pantryBottomHeight').value),middle_height:Number($('pantryMiddleHeight').value),drawers:Number($('pantryDrawers').value)};
+  for(const zone of ['Top','Middle','Bottom'])p[zone.toLowerCase()+'_hinge']=$('pantry'+zone+'Hinge').value;
   if(p.bottom==='drawers')p.drawer_heights=drawerInputs().map(input=>Number(input.value));
   if(['microwave','wall_oven'].includes(p.middle)&&device)p.appliance=structuredClone(device);
   return p;
@@ -34,38 +40,40 @@
 
  function drawerInputs(){return [...section.querySelectorAll('[data-pantry-drawer]')];}
  function renderDrawerHeights(values){
-  const n=Number($('pantryDrawers').value),available=Number($('pantryBottomHeight').value)-.125*(n-1);
-  const heights=Array.isArray(values)&&values.length===n?values:Array(n).fill(available/n);
+  const n=Number($('pantryDrawers').value),available=Number($('pantryBottomHeight').value);
+  const heights=Array.isArray(values)&&values.length===n?values:PantryLayouts.equalDrawers(available,n);
   $('pantryDrawerHeights').replaceChildren();
-  heights.forEach((height,i)=>{const label=document.createElement('label');label.textContent='Drawer '+(i+1)+(i===0?' · top':'')+' height (in)';const input=document.createElement('input');input.type='number';input.min='3';input.step='any';input.required=true;input.dataset.pantryDrawer=String(i);input.setAttribute('form','form');input.value=Number(height.toFixed(8));label.append(input);$('pantryDrawerHeights').append(label);});
+  heights.forEach((height,i)=>{const label=document.createElement('label');label.textContent='Drawer '+(i+1)+(i===0?' · top':'')+' height (in)';const input=document.createElement('input');input.type='number';input.min='3';input.step='0.125';input.required=true;input.dataset.pantryDrawer=String(i);input.setAttribute('form','form');input.value=Number(height.toFixed(8));label.append(input);$('pantryDrawerHeights').append(label);});
  }
  $('pantryDrawers').addEventListener('change',()=>renderDrawerHeights());
  $('pantryEqualDrawers').onclick=()=>{renderDrawerHeights();refresh();refreshCabinetPreview();};
- $('pantryFitDrawer').onclick=()=>{const inputs=drawerInputs(),n=inputs.length;if(!n)return;const rest=inputs.slice(0,-1).reduce((sum,input)=>sum+Number(input.value),0);inputs[n-1].value=Number((Number($('pantryBottomHeight').value)-.125*(n-1)-rest).toFixed(8));refresh();refreshCabinetPreview();};
+ $('pantryFitDrawer').onclick=()=>{const inputs=drawerInputs(),n=inputs.length;if(!n)return;const rest=inputs.slice(0,-1).reduce((sum,input)=>sum+Number(input.value),0);inputs[n-1].value=Number((Number($('pantryBottomHeight').value)-rest).toFixed(8));refresh();refreshCabinetPreview();};
 
  function refresh(){
   const enabled=selected?.kind==='tall'&&$('pantryEnabled').checked;
   $('pantrySections').hidden=!enabled;
   section.querySelectorAll('#pantrySections input,#pantrySections select').forEach(e=>{e.disabled=!enabled;});
   if(selected?.kind==='tall')$('frontEditor').hidden=enabled;
+  for(const zone of ['Top','Middle','Bottom']){const single=$('pantry'+zone).value===(zone==='Bottom'?'combo_single':'single');$('pantry'+zone+'HingeLabel').hidden=!single;$('pantry'+zone+'Hinge').disabled=!enabled||!single;}
   const drawers=$('pantryBottom').value==='drawers';
   $('pantryDrawerLabel').hidden=$('pantryDrawerSizing').hidden=!drawers;
   drawerInputs().forEach(input=>input.disabled=!enabled||!drawers);
-  const remaining=Number($('pantryBottomHeight').value)-.125*(drawerInputs().length-1)-drawerInputs().reduce((sum,input)=>sum+Number(input.value),0);
-  $('pantryDrawerBalance').textContent=Math.abs(remaining)<.005?'Heights fit · 1/8 in reveals included':(remaining>0?'Remaining: ':'Over by: ')+Number(Math.abs(remaining).toFixed(3))+' in';
+  const remaining=Number($('pantryBottomHeight').value)-drawerInputs().reduce((sum,input)=>sum+Number(input.value),0);
+  $('pantryDrawerBalance').textContent=Math.abs(remaining)<.005?'Heights fit · front gaps calculated automatically':(remaining>0?'Remaining: ':'Over by: ')+fmt(Math.abs(remaining));
   $('pantryDrawerBalance').style.color=Math.abs(remaining)<.005?'#315f4f':'#a43425';
   const appliance=['microwave','wall_oven'].includes($('pantryMiddle').value);
   $('pantryChoose').hidden=!appliance;
   $('pantryDevice').textContent=appliance?(device?device.brand+' '+device.model:'Choose an appliance to complete this section.'):'';
   const c=draft(),h=c.height-c.toe_height-.5-Number($('pantryBottomHeight').value)-Number($('pantryMiddleHeight').value);
-  $('pantryTopHeight').textContent='Remaining top height: '+(Math.round(h*1000)/1000)+' in';
+  $('pantryTopHeight').textContent='Remaining top height: '+fmt(h);
  }
  const oldFill=fill;fill=function(){
   // Populate before older fill wrappers request a live preview.
   const p=selected?.pantry||PantryLayouts.defaults();device=p.appliance?structuredClone(p.appliance):null;
   $('pantryEnabled').checked=!!selected?.pantry;section.hidden=selected?.kind!=='tall';
   for(const [key,id] of Object.entries({top:'pantryTop',middle:'pantryMiddle',bottom:'pantryBottom',bottom_height:'pantryBottomHeight',middle_height:'pantryMiddleHeight',drawers:'pantryDrawers'}))$(id).value=p[key];
-  renderDrawerHeights(p.drawer_heights);
+  for(const zone of ['Top','Middle','Bottom'])$('pantry'+zone+'Hinge').value=p[zone.toLowerCase()+'_hinge']??'left';
+  renderDrawerHeights(PantryLayouts.drawerSlots(p));
   const result=oldFill.apply(this,arguments);arrangePantryControls();refresh();refreshCabinetPreview();return result;
  };
  section.addEventListener('change',e=>{if(e.target.id==='pantryMiddle'&&device?.category!==e.target.value)device=null;refresh();refreshCabinetPreview();});
@@ -76,7 +84,7 @@
   const matches=choices.filter(v=>PantryLayouts.fits(v.snapshot,c,height,category));
   const available=choices.filter(v=>v.snapshot.category===category).map(v=>{const a=v.snapshot;return {model:a.model,width:Math.max(a.dimensions.width+.25,a.cutout.width+1.5),depth:a.cutout.depth+.5,height:Math.max(a.dimensions.height,a.cutout.height)};});
   available.sort((a,b)=>(Math.max(0,a.width-c.width)+Math.max(0,a.depth-c.depth)+Math.max(0,a.height-height))-(Math.max(0,b.width-c.width)+Math.max(0,b.depth-c.depth)+Math.max(0,b.height-height))||a.width-b.width);
-  const minimum=available[0],inch=v=>Number(v.toFixed(3))+'″';
+  const minimum=available[0],inch=v=>fmt(Math.ceil(v*8-.000001)/8);
   gallery.querySelector('[data-empty]').textContent=matches.length?'':minimum?'No model fits. Minimum for '+minimum.model+': '+inch(minimum.width)+' wide × '+inch(minimum.depth)+' deep; middle section '+inch(minimum.height)+' high.':'No verified built-in model available.';
   for(const item of matches){
    const a=item.snapshot,p=item.product,button=document.createElement('button');button.type='button';button.className='subtle';
@@ -91,11 +99,15 @@
  window.pantrySectionDimensions=function(c,x,base,s){
   const rows=PantryLayouts.rows(c),zones=new Map(),top=base-(c.z+c.height)*s;
   const measure=(xx,y1,y2,label,side)=>line(xx,y1,xx,y2,'#738571')+line(xx-4,y1,xx+4,y1,'#738571')+line(xx-4,y2,xx+4,y2,'#738571')+text(xx+side*9,(y1+y2)/2+4,label,{'font-size':12,'text-anchor':side<0?'end':'start',fill:'#365346'});
-  const value=v=>Number(v.toFixed(3))+'″';let y=top+.125*s,out='',drawer=0;
+  const value=v=>fmt(v);let y=top+.125*s,out='',drawer=0;
   for(const row of rows){
    const end=y+row.height*s,zone=zones.get(row.zone);
    if(zone)zone.end=end;else zones.set(row.zone,{start:y,end});
-   if(row.kind==='drawer')out+=measure(x+c.width*s+18,y,end,'D'+(++drawer)+' · '+value(row.height),1);
+   if(row.kind==='doors'&&row.doors===1&&row.opening!=='lift'){
+    const right=(row.hinge==='right')!==!!c.flip_x,hx=x+(right?c.width-.125:.125)*s,free=x+(right?.125:c.width-.125)*s;
+    out+=svg('polyline',{class:'pantry-door-swing',points:`${free},${y} ${hx},${(y+end)/2} ${free},${end}`,fill:'none',stroke:'#748b7d','stroke-width':1,'stroke-dasharray':'4 3'});
+   }
+   if(row.kind==='drawer')out+=measure(x+c.width*s+18,y,y+(row.allocated_height??row.height)*s,'D'+(++drawer)+' · '+value(row.allocated_height??row.height),1);
    y=end+.125*s;
   }
   for(const [key,zone] of zones)out+=measure(x-20,zone.start,zone.end,({top:'Top',middle:'Middle',bottom:'Bottom'}[key])+' · '+value((zone.end-zone.start)/s),-1);

@@ -26,13 +26,15 @@ module KitchenLab
           raise 'Incompatible appliance accepted' unless rejected
         end
       end
-      custom=base.merge('pantry'=>Pantry.defaults(base).merge('bottom'=>'drawers','drawers'=>4,'drawer_heights'=>[5,6,7,9.625]))
+      custom=base.merge('pantry'=>Pantry.defaults(base).merge('bottom'=>'drawers','drawers'=>4,'drawer_height_basis'=>'face','drawer_heights'=>[5,6,7,9.625]))
       raise 'Custom drawer heights ignored' unless Pantry.rows(custom).select{|r|r['zone']=='bottom'}.map{|r|r['height']}==[5,6,7,9.625]
       [[5,6,7,8],[5,6],[2,6,7,12.625]].each do |heights|
         rejected=false
         begin;Pantry.rows(custom.merge('pantry'=>custom['pantry'].merge('drawer_heights'=>heights)));rescue RuntimeError;rejected=true;end
         raise 'Invalid custom heights accepted' unless rejected
       end
+      clean=base.merge('pantry'=>Pantry.defaults(base).merge('bottom'=>'drawers','drawers'=>4))
+      raise 'Default heights must be 7 inches' unless Pantry.rows(clean).select{|r|r['zone']=='bottom'}.map{|r|r['allocated_height']}==[7,7,7,7]
       engine=Engine.new(validator:->(d,s){KitchenLab.validate(d,s)})
       source=Document.create(settings,[])
       created=engine.plan(source,[{'type'=>'create_tall_cabinet','payload'=>{'id'=>'pantry-engine'}}])['document']

@@ -111,7 +111,7 @@ module KitchenLab
         front_rows(d).each_with_index do |row,i|
           next if row['kind']=='appliance' || (d['kind']=='sink' && row['kind']=='drawer')
           n=row['kind']=='drawer' ? 1 : row['doors']
-          handle_layout(Pantry.front_data(d.merge('_upper_front'=>builtin?(d) && i==0),row),(d['width']-0.125*(n+1))/n,row['height'],row['kind']=='drawer' || row['opening']=='lift',true,options)
+          handle_layout(Pantry.front_data(d.merge('_upper_front'=>builtin?(d) && i==0),row),(d['width']-0.125*(n+1))/n,row['height'],row['kind']=='drawer' || row['opening']=='lift',row['hinge']!='right',options)
         end
       end
     end
@@ -358,7 +358,7 @@ module KitchenLab
         name=d['kind']=='sink' ? 'False drawer' : "Drawer #{i+1}"
         front(e,name,gap-d.fetch('front_overlay',0),cursor,w-2*gap+2*d.fetch('front_overlay',0),fh,d['kind']=='sink' ? fd.merge('handle'=>'none') : fd,finish,metal,true)
       elsif row['doors']==1
-        front(e,'Door left',gap,cursor,w-2*gap,fh,fd,finish,metal,row['opening']=='lift')
+        front(e,row['hinge']=='right' ? 'Door right' : 'Door left',gap,cursor,w-2*gap,fh,fd,finish,metal,row['opening']=='lift')
       else
         dw=(w-3*gap)/2
         front(e,'Door left',gap,cursor,dw,fh,fd,finish,metal)
@@ -485,8 +485,50 @@ module KitchenLab
     @model.set_attribute(DICT,'backsplash_opening_signature',Backsplash.opening_signature(@model))
   end
 
+  # Try the opposite edge when a width-only expansion hits a neighbour.
+  def self.resolve_width_growth(d)
+    old=state['cabinets'].find { |c| c['id']==d['id'] }
+    return d unless old && d['width']>old['width']+0.001
+    return d if d['kind'].start_with?('corner') || d['surround_for']
+    keys=%w[x z wall depth rotation rotation_pivot offset_y flip_x flip_y house_placement]
+    return d unless keys.all? { |key| old[key]==d[key] }
+    others=state['cabinets'].reject { |c| c['id']==d['id'] }
+    return d unless others.any? { |c| overlap?(d,c) }
+    candidate=JSON.parse(JSON.generate(d))
+    # Ignore door mirroring: preserve the physical right edge of the carcass.
+    before=Spatial.cabinet_point(old.merge('flip_x'=>false,'flip_y'=>false),old['width'],0,settings)
+    after=Spatial.cabinet_point(candidate.merge('flip_x'=>false,'flip_y'=>false),candidate['width'],0,settings)
+    dx=before[0]-after[0];dy=before[1]-after[1]
+    if (p=candidate['house_placement'])
+      p['x']+=dx;p['y']+=dy
+      walls=InteriorPro::KitchenPlan.walls_payload
+      if p['wall_id']
+        wall=walls.find { |w| w['id']==p['wall_id'] }
+        return d unless wall && wall['corners']&.length==8
+        pts=wall['corners'].each_slice(2).to_a;a=pts[p['face']];b=pts[(p['face']+1)%4]
+        vx=b[0]-a[0];vy=b[1]-a[1];length=Math.hypot(vx,vy)
+        center=Spatial.cabinet_point(candidate,candidate['width']/2.0,0,settings)
+        p['along']=((center[0]-a[0])*vx+(center[1]-a[1])*vy)/length
+      end
+      begin
+        InteriorPro::KitchenPlan.validate_house_placement!(candidate,settings,walls)
+      rescue StandardError
+        return d
+      end
+    else
+      origin=Spatial.point(candidate['wall'],0,0,settings)
+      xx=Spatial.point(candidate['wall'],1,0,settings);yy=Spatial.point(candidate['wall'],0,1,settings)
+      candidate['x']+=dx*(xx[0]-origin[0])+dy*(xx[1]-origin[1])
+      candidate['offset_y']=candidate.fetch('offset_y',0)+dx*(yy[0]-origin[0])+dy*(yy[1]-origin[1])
+      return d if candidate['x']<0
+    end
+    return d if others.any? { |c| overlap?(candidate,c) }
+    validate(candidate)
+  end
+
   def self.apply(raw,notify=true)
     guard!;d=validate(raw)
+    d=resolve_width_growth(d)
     check_shaker(d)
     state['cabinets'].each do |o|
       next if o['id']==d['id']

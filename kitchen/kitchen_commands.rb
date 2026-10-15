@@ -10,7 +10,18 @@ module KitchenLab
     guard!
     raise 'Invalid command request' unless request.is_a?(Hash)
     previous=document
-    plan=command_engine.plan(previous,request.fetch('commands'),expected_revision:request['expected_revision'])
+    commands=JSON.parse(JSON.generate(request.fetch('commands')))
+    # The inspector saves through commands, not the legacy apply callback.
+    if commands.length==1 && commands[0]['type']=='update_cabinet'
+      payload=commands[0].fetch('payload');changes=payload.fetch('changes')
+      old=previous['cabinets'].find { |c| c['id']==payload['id'] }
+      if old && changes.key?('width')
+        candidate=validate(old.merge(changes),previous['settings'])
+        resolved=resolve_width_growth(candidate)
+        %w[x offset_y house_placement].each { |key| changes[key]=resolved[key] if resolved[key]!=candidate[key] }
+      end
+    end
+    plan=command_engine.plan(previous,commands,expected_revision:request['expected_revision'])
     unless plan['changed_ids'].empty? && !plan['settings_changed']
       @model.start_operation('Kitchen: commands',true)
       begin

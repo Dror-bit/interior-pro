@@ -2,7 +2,7 @@
 module KitchenLab
   module Pantry
     def self.defaults(d)
-      {'version'=>1,'top'=>'double','middle'=>'double','bottom'=>'combo_double','bottom_height'=>28.0,'middle_height'=>30.0,'drawers'=>3}
+      {'version'=>1,'drawer_height_basis'=>'section','top'=>'double','middle'=>'double','bottom'=>'combo_double','bottom_height'=>28.0,'middle_height'=>30.0,'drawers'=>3}
     end
     def self.rows(d)
       p=d['pantry'];return nil unless d['kind']=='tall' && p
@@ -10,28 +10,43 @@ module KitchenLab
       raise 'Invalid upper section' unless %w[single double lift].include?(p['top'])
       raise 'Invalid middle section' unless %w[single double microwave wall_oven].include?(p['middle'])
       raise 'Invalid lower section' unless %w[combo_single combo_double drawers].include?(p['bottom'])
+      %w[top middle bottom].each { |zone| raise 'Choose left or right door hinges' unless %w[left right].include?(p.fetch(zone+'_hinge','left')) }
       lower=Float(p['bottom_height']);middle=Float(p['middle_height'])
       upper=d['height']-d.fetch('toe_height',4)-0.5-lower-middle
       raise 'Each pantry section must be at least 8 inches high' unless [lower,middle,upper].all? { |v| v.finite? && v>=8 }
-      out=[{'kind'=>'doors','doors'=>p['top']=='double' ? 2 : 1,'height'=>upper,'zone'=>'top','opening'=>p['top']=='lift' ? 'lift' : 'swing'}]
+      out=[{'kind'=>'doors','doors'=>p['top']=='double' ? 2 : 1,'height'=>upper,'zone'=>'top','hinge'=>p.fetch('top_hinge','left'),'opening'=>p['top']=='lift' ? 'lift' : 'swing'}]
       if %w[microwave wall_oven].include?(p['middle'])
         a=p['appliance'];raise 'Choose a compatible appliance for the middle section' unless a && fits?(a,d,middle,p['middle'])
         out<<{'kind'=>'appliance','height'=>middle,'width'=>a['dimensions']['width'],'device'=>a['category'],'pantry_appliance'=>a,'zone'=>'middle'}
       else
-        out<<{'kind'=>'doors','doors'=>p['middle']=='double' ? 2 : 1,'height'=>middle,'zone'=>'middle'}
+        out<<{'kind'=>'doors','doors'=>p['middle']=='double' ? 2 : 1,'height'=>middle,'zone'=>'middle','hinge'=>p.fetch('middle_hinge','left')}
       end
       if p['bottom']=='drawers'
         n=Integer(p['drawers']);raise 'Choose 1 to 5 lower drawers' unless n.between?(1,5)
-        heights=p['drawer_heights'] || Array.new(n,(lower-0.125*(n-1))/n)
+        allocated=p['drawer_height_basis']=='section'
+        units=(lower*8).round
+        equal=Array.new(n) { |i| (units/n+(i<units%n ? 1 : 0))/8.0 }
+        heights=p['drawer_heights'] || (allocated ? equal : Array.new(n,(lower-0.125*(n-1))/n))
         raise 'Provide one height for each lower drawer' unless heights.is_a?(Array) && heights.length==n
         heights=heights.map { |v| Float(v) }
         raise 'Lower drawers must be at least 3 inches high' unless heights.all? { |v| v.finite? && v>=3 }
-        raise 'Drawer heights plus reveals must fill the bottom section' unless (heights.sum+0.125*(n-1)-lower).abs<0.005
-        heights.each { |height| out<<{'kind'=>'drawer','height'=>height,'zone'=>'bottom'} }
+        if allocated
+          raise 'Use 1/8 inch increments for drawer heights' unless heights.all? { |v| (v*8-(v*8).round).abs<0.0001 }
+          raise 'Drawer heights must add up to the bottom section height' unless (heights.sum-lower).abs<0.005
+        else
+          raise 'Drawer heights plus reveals must fill the bottom section' unless (heights.sum+0.125*(n-1)-lower).abs<0.005
+        end
+        heights.each_with_index do |height,i|
+          visible=height-(allocated && i<n-1 ? 0.125 : 0)
+          raise 'Drawer front must be at least 3 inches high' if visible<3
+          row={'kind'=>'drawer','height'=>visible,'zone'=>'bottom'}
+          row['allocated_height']=height if allocated
+          out<<row
+        end
       else
         raise 'Lower section needs 14 inches for a drawer and doors' if lower<14
         out<<{'kind'=>'drawer','height'=>5.875,'zone'=>'bottom'}
-        out<<{'kind'=>'doors','doors'=>p['bottom']=='combo_double' ? 2 : 1,'height'=>lower-6,'zone'=>'bottom'}
+        out<<{'kind'=>'doors','doors'=>p['bottom']=='combo_double' ? 2 : 1,'height'=>lower-6,'zone'=>'bottom','hinge'=>p.fetch('bottom_hinge','left')}
       end
       out
     end
