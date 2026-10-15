@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 37219,
-      "sha256": "a2583940fb848c3d563b9cbbe432407f3baadaa293887fb063736daa859bd77a"
+      "bytes": 37248,
+      "sha256": "399540b04bedf6f697b291f0655dcfd39d8eaabddfa0c09eaee8c03316db4557"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1698,8 +1698,8 @@
     },
     {
       "path": "kitchen_backsplash.rb",
-      "bytes": 5051,
-      "sha256": "7dfb8a87e8edbcb023ffe13fffc7c7d7ab73c873591c96b907719c7fd2dc0b1c"
+      "bytes": 8754,
+      "sha256": "57373175c22867711e95e17833416740998c4146f56eae9b868ebee07949cdaa"
     },
     {
       "path": "backsplash_editor.js",
@@ -1758,8 +1758,8 @@
     },
     {
       "path": "kitchen_continuous_surfaces.rb",
-      "bytes": 3393,
-      "sha256": "84af4173640bf586de7915bec6e554c07167083716de4ca6a77a1140a0537338"
+      "bytes": 3710,
+      "sha256": "84a7b4f7874a21c47b44b01166e967fd014e934e8d0afd767bfe3f35f8c9fe1f"
     }
   ]
 }

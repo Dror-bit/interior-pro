@@ -27,15 +27,20 @@ module KitchenLab
             g=roots.add_group
             g.entities.add_instance(slab.definition,top.transformation*bs.transformation*slab.transformation).explode
             g.material=slab.material || bs.material || top.material
-            stamp(g,'backsplash',[id],assembly);pieces<<g
+            stamp(g,'backsplash',[id],assembly);g.set_attribute(KitchenLab::DICT,'surface_finish',slab.name);g.set_attribute(KitchenLab::DICT,'tile_cell',slab.get_attribute(KitchenLab::DICT,'tile_cell'));pieces<<g
           end
           bs.erase!
         end
-        stamp(top,'countertop',[id],assembly);pieces<<top
+        if top.entities.grep(Sketchup::Face).empty?
+          top.erase!
+        else
+          stamp(top,'countertop',[id],assembly);pieces<<top
+        end
       end
       pieces.each{|g|raise "Surface is not solid: #{g.name}" unless g.manifold?}
-      buckets=pieces.group_by{|g|[g.get_attribute(KitchenLab::DICT,'surface_role'),g.get_attribute(KitchenLab::DICT,'assembly'),g.material && g.material.name]}
-      buckets.each do |(role,assembly,_),groups|
+      buckets=pieces.group_by{|g|[g.get_attribute(KitchenLab::DICT,'surface_role'),g.get_attribute(KitchenLab::DICT,'assembly'),g.material && g.material.name,g.get_attribute(KitchenLab::DICT,'surface_finish'),g.get_attribute(KitchenLab::DICT,'tile_cell')]}
+      buckets.each do |(role,assembly,_,finish,cell),groups|
+        next if finish=='Tile' && !cell
         loop do
           pair=groups.combination(2).find{|a,b|touch?(a,b)}
           break unless pair
@@ -43,21 +48,18 @@ module KitchenLab
           merged=a.union(b)
           raise 'Unable to join kitchen surfaces; change was cancelled.' unless merged && merged.manifold?
           merged.material=mat;stamp(merged,role,owners,assembly)
+          merged.set_attribute(KitchenLab::DICT,'surface_finish',finish)
+          merged.set_attribute(KitchenLab::DICT,'tile_cell',cell)
           groups=groups.reject{|g|g==a || g==b}+[merged]
         end
       end
-      # Keep tile joints, but expose one selectable backsplash assembly per run.
+      # A kitchen backsplash is one selectable object, including disconnected wall runs.
+      # Preserve real gaps/windows in its geometry; the island remains independent.
       backs=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'surface_role')=='backsplash'}
-      until backs.empty?
-        connected=[backs.shift]
-        loop do
-          additions=backs.select{|g|connected.any?{|p|p.get_attribute(KitchenLab::DICT,'assembly')==g.get_attribute(KitchenLab::DICT,'assembly') && touch?(p,g)}}
-          break if additions.empty?
-          connected.concat(additions);backs-=additions
-        end
-        next if connected.length==1
-        owners=connected.flat_map{|g|g.get_attribute(KitchenLab::DICT,'owners')};assembly=connected.first.get_attribute(KitchenLab::DICT,'assembly')
-        parent=roots.add_group(connected);stamp(parent,'backsplash',owners,assembly)
+      backs.group_by{|g|g.get_attribute(KitchenLab::DICT,'assembly')}.each do |assembly,groups|
+        next if groups.length==1
+        owners=groups.flat_map{|g|g.get_attribute(KitchenLab::DICT,'owners')}
+        parent=roots.add_group(groups);stamp(parent,'backsplash',owners,assembly)
       end
     end
   end

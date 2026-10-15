@@ -474,6 +474,7 @@ module KitchenLab
       slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,CountertopMaterials.for_cabinet(d))
       slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(slab,left.merge('width'=>width),d)
     end
+    Backsplash.build_ranges!
     ContinuousSurfaces.build!
     crowns!
     pack_units!
