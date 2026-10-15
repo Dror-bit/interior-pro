@@ -181,7 +181,16 @@ module KitchenLab
       end
       obstacles=model.entities.select{|e|e.respond_to?(:bounds) && %w[window door].include?(e.get_attribute('InteriorPro','type')) && !e.get_attribute('InteriorPro','host_wall_id')}
       strips.each do |strip|
-        transform=top.transformation*strip[:transform];inv=transform.inverse
+        # Canonical world tangent: corner returns and mirrored cabinets may
+        # traverse the same wall in opposite directions. Reverse the local strip
+        # before clipping/grid construction, retaining its wall-facing Y axis.
+        transform=top.transformation*strip[:transform]
+        tangent=transform.xaxis
+        if tangent.x < -1e-8 || (tangent.x.abs<=1e-8 && tangent.y < 0)
+          strip=strip.merge(transform:strip[:transform]*Geom::Transformation.translation([strip[:width],0,0])*Geom::Transformation.scaling(-1,1,1))
+          transform=top.transformation*strip[:transform]
+        end
+        inv=transform.inverse
         # Shared world-space lattice: adjoining cabinets never restart the tile grid.
         ux=transform.xaxis;uy=transform.yaxis;o=transform.origin
         gx=o.x*ux.x+o.y*ux.y;plane=o.x*uy.x+o.y*uy.y
@@ -215,7 +224,7 @@ module KitchenLab
           piece=KitchenLab.box(group.entities,config['mode']=='tile' ? 'Tile' : 'Slab',x,-thick,z,r-x,thick,t-z,mat)
           if config['mode']=='tile'
             col=((gx+(x+r)/2.0)/pitch_x).floor;row=((o.z+(z+t)/2.0-36.0)/pitch_z).floor
-            key=[ux.x.round(6),ux.y.round(6),uy.x.round(6),uy.y.round(6),plane.round(5),col,row]
+            key=[ux.x,ux.y,uy.x,uy.y].map{|v|v.abs<1e-8 ? 0.0 : v.round(6)}+[plane.round(5),col,row]
             piece.set_attribute(KitchenLab::DICT,'tile_cell',JSON.generate(key))
           end
 

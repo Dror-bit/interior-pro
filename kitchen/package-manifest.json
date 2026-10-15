@@ -1698,8 +1698,8 @@
     },
     {
       "path": "kitchen_backsplash.rb",
-      "bytes": 13034,
-      "sha256": "df9a7c0b6e6409e26b8cf5e1426847a67f62d86c2741affce2841995cbf3de6f"
+      "bytes": 13602,
+      "sha256": "c967aaebca5b5debcdd5004d294330ce7b85782fb0b189918516fd2ae9d765a4"
     },
     {
       "path": "backsplash_editor.js",
