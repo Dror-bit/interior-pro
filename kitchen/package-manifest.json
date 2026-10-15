@@ -503,8 +503,8 @@
     },
     {
       "path": "kitchen.js",
-      "bytes": 45601,
-      "sha256": "3c1c46332504855c5c364ee4f125a3ed82e77159f0b3580416a88850c6f0b13f"
+      "bytes": 45607,
+      "sha256": "e123cfcc22a3afe365224b42c71d6151adf6c40d34bd854e8821fd0fa139d14a"
     },
     {
       "path": "kitchen_appearance.rb",
@@ -543,8 +543,8 @@
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 8898,
-      "sha256": "4161a262611c2552f96c01b97774461061487c374ebdc13f5758f6944f17f321"
+      "bytes": 9824,
+      "sha256": "9ee3e2bc0ef360553331371257e0e939ee25b3a09fbd9a95859d6c0913c4e522"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -583,13 +583,13 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 40261,
-      "sha256": "3ebd435c46698ae821d32412868438b7d049765bf5d7268bba3e24f4bef67d21"
+      "bytes": 40387,
+      "sha256": "79a16aec2e34b061e0c1b187b78fc52c05ae1d215688bd44f101acf0d0ee6739"
     },
     {
       "path": "kitchen_layout.rb",
       "bytes": 5028,
-      "sha256": "f32840043866ff8ff6cec72e9696d1a96899ae7ce6a0e0eef056f4ecd73d753f"
+      "sha256": "258fabba9d9aa8fd35e9f9f079635079b60c6bd1f074dc271e3b9d95f5c0e877"
     },
     {
       "path": "kitchen_plan.js",
@@ -1533,8 +1533,8 @@
     },
     {
       "path": "kitchen_store.rb",
-      "bytes": 4355,
-      "sha256": "e79ef84bd15805a71eddf28513e57a425eae250f8dce140c5b5d3a83ea4d7846"
+      "bytes": 4371,
+      "sha256": "987fc2b8170e24d59bf19caaa6eefa3ddd754b9709e171789cd09f1a3b01730d"
     },
     {
       "path": "test_handle_defaults.rb",
@@ -1553,8 +1553,8 @@
     },
     {
       "path": "kitchen_engine.rb",
-      "bytes": 23679,
-      "sha256": "aa07e20962408726c44dc7f0f29eba08da8e377948113b841f3c3afd71ca8877"
+      "bytes": 23922,
+      "sha256": "00b87f3a30cc1454076983b25a80af545fd85f22b2df58bfebbb8e3c4d13a638"
     },
     {
       "path": "kitchen_house_placement.js",
@@ -1728,8 +1728,8 @@
     },
     {
       "path": "hood_cover_editor.js",
-      "bytes": 2822,
-      "sha256": "f33fa7b432aa8bd96fbaa81fad6dc9ab3452bd54c514586bf82a5c6e82d79c6c"
+      "bytes": 3089,
+      "sha256": "a44fa9fa8e5e05049bde4af39e687aabb9e4f8a2023bb1dd28352c62a65f16fb"
     },
     {
       "path": "kitchen_hood_miters.rb",
@@ -1744,7 +1744,7 @@
     {
       "path": "molding_gallery.js",
       "bytes": 4348,
-      "sha256": "4a71653326d1d860380c3a999309498ae474eca663a8ba33a9ce43a4d78066c6"
+      "sha256": "1fd8d5d6e19c31514ba8bd13592cee7e4f26eebedd082e05da2dbe2aad0e4020"
     },
     {
       "path": "test_molding_profiles.rb",
@@ -2745,6 +2745,16 @@
       "path": "test_pantry.rb",
       "bytes": 3106,
       "sha256": "76fe4240d43a20e9fbfe78e7dd9f8805789d5b56708fdfb00d76bdf5556a1928"
+    },
+    {
+      "path": "rt_height_defaults.rb",
+      "bytes": 1304,
+      "sha256": "586518f598e8c3001ecb4b2dc8e3bffb0be75c96522c8a549be0ab7e515082eb"
+    },
+    {
+      "path": "rt_hood_molding.rb",
+      "bytes": 2473,
+      "sha256": "139c521e71d5e375975fd250f86d58fe5529bddd10f60fdc5cb477e98059d6aa"
     }
   ]
 }

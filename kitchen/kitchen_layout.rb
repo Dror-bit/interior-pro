@@ -65,7 +65,7 @@ module KitchenLab
     replaced=all.select { |d| any_corner?(d) && (d['kind']=='corner_upper')==upper }
     data=all-replaced
     size=upper ? 24 : kind=='corner' ? 27 : 36
-    corner=validate({'id'=>replaced.first&.fetch('id')||"corner-#{SecureRandom.hex(4)}",'kind'=>kind,'width'=>size,'depth'=>upper ? 12 : kind=='corner' ? 27 : 24,'height'=>upper ? 30 : 34.5,'z'=>upper ? 54 : 0,'wall'=>'A','style'=>kind=='corner' ? 'slab' : 'shaker','handle'=>kind=='corner' ? 'none' : 'brass'})
+    corner=validate({'id'=>replaced.first&.fetch('id')||"corner-#{SecureRandom.hex(4)}",'kind'=>kind,'width'=>size,'depth'=>upper ? 12 : kind=='corner' ? 27 : 24,'height'=>upper ? 36 : 34.5,'z'=>upper ? 54 : 0,'wall'=>'A','style'=>kind=='corner' ? 'slab' : 'shaker','handle'=>kind=='corner' ? 'none' : 'brass'})
     corner=global_appearance(corner.merge('appearance_overrides'=>{}))
     shifts=%w[A B].to_h do |wall|
       candidates=data.select { |d| !any_corner?(d) && wall_of(d)==wall && [d['z']+d['height'],corner['z']+corner['height']].min>[d['z'],corner['z']].max }

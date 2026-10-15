@@ -42,10 +42,10 @@ module KitchenLab
       s=doc['settings'];data=doc['cabinets'];area=payload.fetch('wall','A')
       c={'id'=>payload.fetch('id') { @id_generator.call },'kind'=>kind,'wall'=>area,
         'width'=>%w[drawers tall].include?(kind) ? 24 : 36,
-        'height'=>kind=='wall' ? 30 : kind=='tall' ? 96 : 34.5,
+        'height'=>kind=='wall' ? 36 : kind=='tall' ? 90 : 34.5,
         'depth'=>kind=='wall' ? 12 : 24,'z'=>kind=='wall' ? 54 : 0,
         'style'=>glass ? 'glass' : 'shaker','finish'=>'ivory','handle'=>'brass'}
-      c.merge!('width'=>kind=='corner_upper' ? 24 : 36,'height'=>kind=='corner_upper' ? 30 : 34.5,'depth'=>kind=='corner_upper' ? 12 : 24,'z'=>kind=='corner_upper' ? 54 : 0,'x'=>0) if house_corner
+      c.merge!('width'=>kind=='corner_upper' ? 24 : 36,'height'=>kind=='corner_upper' ? 36 : 34.5,'depth'=>kind=='corner_upper' ? 12 : 24,'z'=>kind=='corner_upper' ? 54 : 0,'x'=>0) if house_corner
       c['finish']=s['global_finish'] unless s.fetch('global_finish','').empty?
       c['handle']=s['global_handle_color'] unless s.fetch('global_handle_color','').empty?
       c['handle']='none' if s['global_handle_type']=='none'
@@ -66,7 +66,7 @@ module KitchenLab
         'hood'=>[30,30,20,66],'microwave'=>[30,18,16,54]}
       c.merge!(%w[width height depth z].zip(appliances[kind]).to_h) if appliances.key?(kind)
       if %w[oven_tower micro_tower fridge_surround].include?(kind)
-        c.merge!('width'=>kind=='fridge_surround' ? 39 : 30,'height'=>96,'depth'=>kind=='fridge_surround' ? 30 : 24)
+        c.merge!('width'=>kind=='fridge_surround' ? 39 : 30,'height'=>90,'depth'=>kind=='fridge_surround' ? 30 : 24)
       end
       c.merge!('width'=>pullout=='spice' ? 9 : 18,'pullout'=>{'type'=>pullout},'front_layout'=>'single') if pullout
       overrides=payload.fetch('overrides',{})
@@ -209,6 +209,10 @@ module KitchenLab
         raise 'Choose Plain box or Shaker.' unless %w[slab shaker].include?(style)
         raise 'Cover height must fit the hood and be at most 96 inches.' unless height.finite? && height.between?(owner['height'],96)
         raise 'Cover depth must clear the hood by one inch and be at most 36 inches.' unless depth.finite? && depth.between?(owner['depth']+1,36)
+        if payload.key?('molding')
+          raise 'Invalid hood molding option' unless [true,false].include?(payload['molding'])
+          data[data.index(owner)]=@validator.call(owner.merge('hood_molding'=>payload['molding']),s)
+        end
         side=parts.find { |c| c['surround_part']=='left' };delta=depth-side['depth']
         parts.each do |part|
           updated=part.merge('height'=>height)

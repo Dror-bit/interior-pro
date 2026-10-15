@@ -127,7 +127,8 @@ module KitchenLab
       d['backsplash']=Backsplash.validate(d['backsplash'])
       raise 'Backsplash requires a base cabinet' if d['backsplash']['mode']!='none' && !Backsplash.eligible?(d)
     end
-    d.slice('pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
+    raise 'Invalid hood molding option' if d.key?('hood_molding') && ![true,false].include?(d['hood_molding'])
+    d.slice('hood_molding','pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
   end
 
   # Row heights are visible front sizes, ordered from top to bottom.

@@ -1,8 +1,19 @@
 load File.join(__dir__,'kitchen_molding_profiles.rb')
 # Kitchen-specific crown runs. Interior Pro files remain read-only.
 module KitchenLab
+  remove_const(:USE_HOOD_MOLDING_OPTION) if const_defined?(:USE_HOOD_MOLDING_OPTION, false)
+  USE_HOOD_MOLDING_OPTION = true
+  def self.hood_molding?(hood)
+    USE_HOOD_MOLDING_OPTION && hood['hood_molding']==true
+  end
+  def self.hood_crown_settings
+    s=crown_settings(settings)
+    s['crown_profile']=='none' ? crown_settings(s.merge('crown_profile'=>'flat','crown_height'=>6.0,'crown_depth'=>0.75,'crown_match_house'=>false)) : s
+  end
+  remove_const(:USE_KITCHEN_CEILING_FIT) if const_defined?(:USE_KITCHEN_CEILING_FIT, false)
+  USE_KITCHEN_CEILING_FIT = true
   def self.crown_settings(raw={})
-    s={'crown_profile'=>'none','crown_height'=>4.0,'crown_depth'=>3.0,'crown_color'=>'cabinet'}.merge(raw)
+    s={'crown_profile'=>'flat','crown_height'=>6.0,'crown_depth'=>0.75,'crown_color'=>'cabinet'}.merge(raw)
     raise 'Invalid house molding option' unless [nil,true,false].include?(s['crown_match_house'])
     MoldingProfiles.settings(s)
     s['crown_depth']=0.75 if s['crown_profile']=='flat'
@@ -87,9 +98,9 @@ module KitchenLab
       next unless ceiling
       parts.each do |part|
         base=cabinet_transform(part).origin.z.to_f
-        limit=ceiling-base-height
+        limit=ceiling-base-(hood_molding?(hood) ? hood_crown_settings['crown_height'] : 0)
         raise 'Not enough space above the hood for this molding.' if limit<hood['height']-0.001
-        next unless part['height']>limit+0.001
+        next if (part['height']-limit).abs<0.001
         part['height']=limit;changed<<part
       end
     end
@@ -116,14 +127,17 @@ module KitchenLab
 
   def self.crowns!
     @model.entities.grep(Sketchup::Group).select { |g| g.get_attribute(DICT,'kind')=='crown' }.each(&:erase!)
-    s=crown_settings(settings);return if s['crown_profile']=='none'
+    s=crown_settings(settings)
+    fit_cabinet_crowns!(s['crown_profile']=='none' ? 0 : s['crown_height']) if USE_KITCHEN_CEILING_FIT
+    cabinet_crowns=s['crown_profile']!='none'
+    return unless cabinet_crowns || state['cabinets'].any? { |d| d['kind']=='hood' && hood_molding?(d) }
+    s=hood_crown_settings unless cabinet_crowns
     h=s['crown_height'];p=s['crown_depth']
     shape=s['crown_profile'].to_s.start_with?('house:') ? MoldingProfiles.shape(s) : s['crown_profile']=='flat' ? [[-p,0],[0,0],[0,h],[-p,h]] : [[0,0],[p*0.18,h*0.1],[p*0.55,h*0.82],[p*0.85,h*0.9],[p,h],[0,h]]
     shape=seated_crown_shape(shape)
-    fit_cabinet_crowns!(h)
     data=state['cabinets']
     custom,regular=data,[]
-    custom.select { |d| d['kind']=='corner_upper' }.each do |d|
+    custom.select { |d| cabinet_crowns && d['kind']=='corner_upper' }.each do |d|
       w=d['width'];arm=d['depth'];top=d['height']
       g=@model.entities.add_group;g.name='Kitchen / Corner crown';g.set_attribute(DICT,'kind','crown');g.set_attribute(DICT,'owner_id',d['id']);g.transformation=cabinet_transform(d)
       mat=s['crown_color']=='white' ? material('Crown white','#F5F3ED') : material(d['finish'],FINISHES.fetch(d['finish']))
@@ -135,9 +149,9 @@ module KitchenLab
       end
     end
     runs=crown_runs(regular)
-    custom.each { |d| crown_runs([d.merge('x'=>0,'z'=>0)]).each { |r| runs<<r.merge(transform:cabinet_transform(d),owner_id:d['id']) } }
+    (cabinet_crowns ? custom : []).each { |d| crown_runs([d.merge('x'=>0,'z'=>0)]).each { |r| runs<<r.merge(transform:cabinet_transform(d),owner_id:d['id']) } }
     # One continuous crown around the casing, owned by the hood assembly.
-    custom.select { |d| d['kind']=='hood' }.each do |hood|
+    custom.select { |d| d['kind']=='hood' && hood_molding?(d) }.each do |hood|
       parts=custom.select { |d| d['surround_for']==hood['id'] }
       front=parts.find { |d| d['surround_part']=='hood_front' }
       left=parts.find { |d| d['surround_part']=='left' }

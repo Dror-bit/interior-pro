@@ -7,7 +7,7 @@ module KitchenLab
     return Document.read(raw) unless raw.nil?
     existing=cabinets.map { |g| JSON.parse(g.get_attribute(DICT,'data')) }
     saved_settings=@model.get_attribute(DICT,'settings')
-    initial={'shaker_width'=>2.25,'shaker_inset'=>0.25}
+    initial={'shaker_width'=>2.25,'shaker_inset'=>0.25,'crown_profile'=>'flat','crown_height'=>6.0,'crown_depth'=>0.75,'crown_color'=>'cabinet','crown_match_house'=>false}
     if saved_settings.nil? && existing.empty?
       default_handle=HandleCatalog.products.find { |p|p['number']==18 }.fetch('asset_id')
       initial.merge!('global_door_handle_model'=>default_handle,'global_drawer_handle_model'=>default_handle)
