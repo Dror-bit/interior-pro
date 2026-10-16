@@ -2156,7 +2156,65 @@ module InteriorPro
         InteriorPro::PlanSheetDialog.save_state(state)
       end
 
+      # S retains the former Medium. M reserves the lower photo strip for photos.
+      # L packs rows by actual image proportions, using the whole printable area.
       def grid_boxes(area, sizes, cols, up = 0, size = 1)
+        return row_boxes(area, sizes, cols, up) unless USE_SHEET_SIZE
+        size = 1 unless [1,2,3].include?(size.to_i)
+        return small_sheet_boxes(area, sizes, cols, up, 2) if size.to_i == 1 || sizes.empty?
+        ax, ay, aw, ah = area.map(&:to_f)
+        reserved = size.to_i == 2 ? ah * 0.08 : 0.0
+        ay += reserved; ah -= reserved
+        er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
+        pads = sizes.each_index.map do |i|
+          c = cols[i]; l,r = c.is_a?(Array) ? c : [0,c.to_i]
+          [l.to_i*er+ROW_GAP/2.0,r.to_i*er+ROW_GAP/2.0]
+        end
+        vertical = (3+up)*er+ROW_GAP
+        # Pack into free rectangles so short elevations can sit beside the tall plan.
+        pack = lambda do |scale|
+          free=[[0.0,0.0,aw,ah]]; placed=Array.new(sizes.size)
+          order=sizes.each_index.sort_by{|i| -[sizes[i][0].to_f*scale+pads[i].sum,sizes[i][1].to_f*scale+vertical].max}
+          order.each do |i|
+            w=sizes[i][0].to_f*scale+pads[i].sum; h=sizes[i][1].to_f*scale+vertical
+            candidates=free.select{|r|r[2]+1e-7>=w && r[3]+1e-7>=h}
+            return_value=nil
+            if candidates.empty?
+              placed=nil; break
+            end
+            r=candidates.min_by{|q|[[q[2]-w,q[3]-h].min,q[1],q[0]]}
+            x,y=r[0],r[1];placed[i]=[x,y,w,h]
+            fresh=[]
+            free.each do |fx,fy,fw,fh|
+              if x>=fx+fw-1e-8 || x+w<=fx+1e-8 || y>=fy+fh-1e-8 || y+h<=fy+1e-8
+                fresh<<[fx,fy,fw,fh];next
+              end
+              fresh<<[fx,fy,x-fx,fh] if x>fx+1e-8
+              fresh<<[x+w,fy,fx+fw-x-w,fh] if x+w<fx+fw-1e-8
+              fresh<<[fx,fy,fw,y-fy] if y>fy+1e-8
+              fresh<<[fx,y+h,fw,fy+fh-y-h] if y+h<fy+fh-1e-8
+            end
+            free=fresh.reject.with_index do |q,k|
+              fresh.each_with_index.any?{|r,j|j!=k && r[0]<=q[0] && r[1]<=q[1] && r[0]+r[2]>=q[0]+q[2] && r[1]+r[3]>=q[1]+q[3] && (r!=q || j<k)}
+            end
+          end
+          placed
+        end
+        lo=0.0;hi=sizes.map{|w,h|[aw/w.to_f,ah/h.to_f].min}.max
+        55.times do
+          mid=(lo+hi)/2.0
+          pack.call(mid) ? lo=mid : hi=mid
+        end
+        lo *= 0.94 if size.to_i == 2
+        placed=pack.call(lo)
+        return small_sheet_boxes(area,sizes,cols,up,2) unless placed
+        placed.each_with_index.map do |(x,y,w,h),i|
+          iw,ih=sizes[i].map{|v|v.to_f*lo}
+          [ax+x+pads[i][0],ay+ah-y-up*er-ROW_GAP/2.0-ih,iw,ih]
+        end
+      end
+
+      def small_sheet_boxes(area, sizes, cols, up = 0, size = 2)
         return row_boxes(area, sizes, cols, up) unless USE_SHEET_SIZE && [2,3].include?(size.to_i) && !sizes.empty?
         ax, ay, aw, ah = area.map(&:to_f)
         er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
@@ -2175,6 +2233,7 @@ module InteriorPro
             [(aw-padding)/width,(height-(3+up)*er-ROW_GAP)/indices.map { |i| sizes[i][1].to_f }.max]
           end
           scale = scales.min
+          scale *= 0.85 if size.to_i == 2
           next unless scale > 0 && (!best || scale > best[0])
           boxes = Array.new(sizes.size)
           groups.each_with_index do |indices,row|
@@ -2304,7 +2363,7 @@ module InteriorPro
             # the kitchen's uppers' row stands over the ceiling (USE_KITCHEN_DIMS): room for it over the row of pictures
             ups = fresh.map { |p| Array(dd[p]).select { |x| x['up'] }.map { |x| x['row'].to_i }.max.to_i }.max.to_i
             boxes = row_boxes(pc.pic_area(pg), sizes, cols, ups)
-            boxes = grid_boxes(pc.pic_area(pg), sizes, cols, ups, sheet_size(st, sheet_title)) if USE_SHEET_SIZE && sheet_size(st, sheet_title) > 1
+            boxes = grid_boxes(pc.pic_area(pg), sizes, cols, ups, sheet_size(st, sheet_title)) if USE_SHEET_SIZE
             boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups) if sheet_title == KITCHEN_LABEL
         boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups, plan: false) if sheet_title.to_s.start_with?("#{KITCHEN_LABEL} - Island ")
             fresh.each_with_index do |p, i|

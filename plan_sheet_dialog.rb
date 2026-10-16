@@ -745,6 +745,16 @@ module InteriorPro
           end
         end
 
+        dlg.add_action_callback('resize_room_drawings') do |_, json|
+          begin
+            req = JSON.parse(json.to_s)
+            resize_room_drawings!(req.fetch('state'), req.fetch('size'))
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] Drawing size: #{e.message}"
+          end
+        end
+
         dlg.add_action_callback('set_state') do |_, json|
           begin
             t0 = Time.now
@@ -946,6 +956,38 @@ module InteriorPro
       end
 
       # ------------------------------------------------------------ document
+
+      # Explicit page layout command: affects only the selected elevation sheet.
+      def resize_room_drawings!(st, value)
+        value = value.to_i
+        raise 'Unknown drawing size' unless [1,2,3].include?(value)
+        apply_state!(document, st)
+        pg = document.pages[st['active'].to_i]
+        return false unless pg && pg.kind.to_s == 'image'
+        ref = pg.ref.to_i; owner = "image:#{ref}"
+        main = Array(st['images'])[ref]
+        title = (st['image_titles'] || {})[main]
+        return false if title.to_s.empty?
+        pics = Array(st['pics']).select { |r| r['on'] == owner }
+        paths = [main] + pics.map { |r| r['path'] }
+        dims = st['image_dims'] || {}
+        sizes = paths.map { |p| InteriorPro::PlanCanvas.pic_size(p) || [1333,1440] }
+        cols = paths.map do |p|
+          vs = Array(dims[p]).select { |d| d['k'] == 'v' }
+          [vs.select { |d| d['side'] == 'L' }.map { |d| d['col'].to_i }.max.to_i,
+           vs.reject { |d| d['side'] == 'L' }.map { |d| d['col'].to_i }.max.to_i]
+        end
+        up = paths.map { |p| Array(dims[p]).select { |d| d['up'] }.map { |d| d['row'].to_i }.max.to_i }.max.to_i
+        boxes = InteriorPro::ElevationTool.grid_boxes(InteriorPro::PlanCanvas.pic_area(pg),sizes,cols,up,value)
+        st['image_geo'] ||= {}
+        st['image_geo'][ref.to_s] ||= {}
+        st['image_geo'][ref.to_s].merge!('box'=>boxes[0], 'auto'=>false)
+        pics.each_with_index { |pic,i| pic.merge!('box'=>boxes[i+1], 'auto'=>false) }
+        st['elev_size'] ||= {}; st['elev_size'][title.to_s] = value
+        save_state(st)
+        @doc = nil
+        true
+      end
 
       def document
         @doc ||= begin
@@ -2445,6 +2487,10 @@ module InteriorPro
                     <button id="port">לאורך</button>
                   </div>
                   <select id="scale" style="margin-top:8px"></select>
+                  <div id="roomDrawingSizeBox" style="margin-top:8px;display:none">
+                    <label for="roomDrawingSize">גודל השרטוטים בחדר</label>
+                    <select id="roomDrawingSize"><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option></select>
+                  </div>
                   <div id="fit"></div>
                   <button id="fitplan" class="go2">התאם את התוכנית לדף</button>
                   <button id="center">מרכז את התוכנית</button>
@@ -8070,7 +8116,15 @@ module InteriorPro
           }
 
           // what each heading says about itself when it is shut
+          function roomDrawingSizeUI(){
+            var pg=DOC&&DOC.pages&&DOC.pages[STATE.active||0];
+            var path=pg&&pg.kind==='image'&&(STATE.images||[])[pg.ref];
+            var title=path&&(STATE.image_titles||{})[path];
+            $('roomDrawingSizeBox').style.display=title?'':'none';
+            if(title) $('roomDrawingSize').value=String((STATE.elev_size||{})[title]||1);
+          }
           function headings(){
+            roomDrawingSizeUI();
             layerCount();
             var n=marks().length;
             tag('markstag', n ? (n + ' על הדף') : '');
@@ -8391,6 +8445,7 @@ module InteriorPro
 
           // ---- wiring -----------------------------------------------------
           window.addEventListener('load',function(){
+            $('roomDrawingSize').onchange=function(){ sketchup.resize_room_drawings(JSON.stringify({state:STATE,size:Number(this.value)})); };
             $('size').onchange=function(){ STATE.size=this.value; push(); };
             // Picking a scale from the list puts the drawing on that EXACT scale:
             // a size set by hand is forgotten. ("Any size" itself is not a choice.)
