@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 48802,
-      "sha256": "a7bc8916c94c22aa14c3f546692b630c60523749ab0ace971f0522ca4de21d96"
+      "bytes": 48911,
+      "sha256": "f175eff9e2c34edf1321268509356fdcca5ff96ab76c2f22e49e69b2b6757fe4"
     },
     {
       "path": "kitchen_layout.rb",
@@ -598,8 +598,8 @@
     },
     {
       "path": "kitchen_sidebar.js",
-      "bytes": 8753,
-      "sha256": "7a1c0e3173c5e835937f12732350c5785d9685b572fe1a823eb7cf67402a4d48"
+      "bytes": 8793,
+      "sha256": "9646337179ff7f9b2b5be2906ef6c31094b86d00f5a8e089a1a1a0bdd9639966"
     },
     {
       "path": "kitchen_sink.rb",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "kitchen_plan.rb",
-      "bytes": 27111,
-      "sha256": "3a073ffc1cf2500de16b40af6b4f462b47fc6301d93eaf900a191a4086b392ed"
+      "bytes": 27128,
+      "sha256": "efae4290726e14eeb02df79918a1dd991fd26c9fd2195a9c867f037b3927935e"
     },
     {
       "path": "kitchen_engine.rb",
@@ -1678,8 +1678,8 @@
     },
     {
       "path": "countertop_materials.rb",
-      "bytes": 7322,
-      "sha256": "7ebe06346bc424c46663206fc2e55cc00bdabb8ddf80988ee76a7dd0cf257132"
+      "bytes": 9888,
+      "sha256": "934cec9db26f9f2af00d14f5d00f5fd29868877dfb61d45093fe8e03dbd1ba3e"
     },
     {
       "path": "countertop_materials.html",
@@ -1743,8 +1743,8 @@
     },
     {
       "path": "molding_gallery.js",
-      "bytes": 4348,
-      "sha256": "1fd8d5d6e19c31514ba8bd13592cee7e4f26eebedd082e05da2dbe2aad0e4020"
+      "bytes": 4422,
+      "sha256": "cfd2b9dcb162a1679f1a6af28c4e071097cd5ecf3ebbee115863000ee7ba4bea"
     },
     {
       "path": "test_molding_profiles.rb",

@@ -48,7 +48,42 @@ module KitchenLab
     def self.countertop_cards(cards)
       cards.select { |c| %w[countertop countertops].include?(c['path'].to_s.tr('\\','/').split('/').first.to_s.downcase) }
     end
+    def self.show_molding
+      KitchenLab.guard!
+      model=Sketchup.active_model
+      @molding_dialog.close if @molding_dialog && @molding_dialog.visible?
+      dlg=UI::HtmlDialog.new(dialog_title:'Kitchen molding',preferences_key:'KitchenLab.MoldingSettings',width:820,height:720,resizable:true)
+      @molding_dialog=dlg
+      dlg.add_action_callback('ready') do
+        data={settings:KitchenLab.settings,molding_catalog:KitchenLab::MoldingProfiles.catalog,house_molding:KitchenLab::MoldingProfiles.house_selection}
+        dlg.execute_script("receiveKitchen(#{JSON.generate(data)});window.openKitchenMolding();")
+      end
+      dlg.add_action_callback('surface_update') do |_,json|
+        begin
+          raise 'Return to the kitchen model' unless Sketchup.active_model.equal?(model)
+          KitchenLab.guard!
+          raw=JSON.parse(json)
+          raise 'Invalid molding settings' unless raw.is_a?(Hash) && (raw.keys-%w[crown_match_house crown_profile crown_height crown_color]).empty?
+          KitchenLab.update_settings(raw)
+          dlg.close
+        rescue StandardError=>e
+          dlg.execute_script("document.querySelector('#kitchenMoldingGallery [data-error]').textContent=#{JSON.generate(e.message)}")
+        end
+      end
+      dlg.add_action_callback('close_molding') { dlg.close }
+      dlg.set_on_closed { @molding_dialog=nil if @molding_dialog.equal?(dlg) }
+      html=<<~HTML
+        <!doctype html><meta charset="utf-8"><style>[hidden]{display:none!important}body{font:14px Segoe UI,sans-serif;background:#f7f8f4}button,input,select{font:inherit;padding:8px}label{display:block;margin:12px 0}dialog::backdrop{background:#f7f8f4}</style>
+        <div hidden><div id="cabinetControls"></div><div><select id="crown_profile"></select><input id="crown_depth"></div></div>
+        <script>const $=id=>document.getElementById(id);let kitchenSettings={};window.receiveKitchen=data=>{kitchenSettings=data.settings||{}};function sendCommands(commands){sketchup.surface_update(JSON.stringify(commands[0].payload))}</script>
+        <script>#{File.read(File.join(KitchenLab::ROOT,'molding_gallery.js'))}</script>
+        <script>document.querySelector('#kitchenMoldingGallery [data-close]').onclick=()=>sketchup.close_molding();document.getElementById('kitchenMoldingGallery').addEventListener('cancel',()=>sketchup.close_molding());window.addEventListener('DOMContentLoaded',()=>sketchup.ready());</script>
+      HTML
+      dlg.set_html(html);dlg.show
+    end
+
     def self.show_settings(focus='countertop')
+      return show_molding if focus=='molding'
       KitchenLab.guard!
       model=Sketchup.active_model
       @settings_dialog.close if @settings_dialog && @settings_dialog.visible?

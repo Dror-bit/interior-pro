@@ -183,7 +183,7 @@ module InteriorPro
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
           KitchenLab.guard!
           # Existing dialogs expose this bridge even before newly added callbacks reload.
-          if %w[surfaces:countertop surfaces:backsplash].include?(request.to_s)
+          if %w[surfaces:countertop surfaces:backsplash surfaces:molding].include?(request.to_s)
             KitchenLab::CountertopMaterials.show_settings(request.split(':').last)
             next
           end

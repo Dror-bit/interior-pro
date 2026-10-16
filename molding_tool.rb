@@ -8,6 +8,79 @@ module InteriorPro
   module MoldingBuilder
     module_function
 
+    # STOP AT TILE AND CABINET (2026-10-15). His words (10-14): "הוא לא יכול לעבור בתוך טיל או קבינט", and
+    # "המולדינג צריך להיחתך גם מאחורי קבינט למעלה ולמטה". Measured (molding_room_report.txt): base cabinets
+    # z 0..34.5 at the face, uppers/hood/tall reach the ceiling, wall tile is a thin sheet on the face (niche
+    # tile -4..0.63). A run is cut, square, wherever such a piece stands at the face (<= STOP_NEAR) and
+    # reaches the molding's height. Wall tile counts only as a thin sheet on THIS face (the tile of the next
+    # wall, seen side-on, is deep and is skipped). false = old behaviour (doors only).
+    USE_STOP_AT_TILE_CAB = true unless const_defined?(:USE_STOP_AT_TILE_CAB, false)
+    STOP_NEAR = 3.0 unless const_defined?(:STOP_NEAR, false)
+    STOP_TILE_TYPES = %w[tile_wall tile_niche].freeze unless const_defined?(:STOP_TILE_TYPES, false)
+    STOP_KITCHEN_KINDS = %w[kitchen_unit cabinet].freeze unless const_defined?(:STOP_KITCHEN_KINDS, false)
+
+    # Every wall tile / kitchen unit in the model, as 8 world box corners. Cached while apply_all! runs.
+    def stoppers
+      @stoppers || collect_stoppers
+    end
+
+    def with_stoppers
+      @stoppers = collect_stoppers
+      yield
+    ensure
+      @stoppers = nil
+    end
+
+    def collect_stoppers(ents = Sketchup.active_model.entities, outer = nil, depth = 0, out = [])
+      ents.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        next unless e.valid?
+        next if e.respond_to?(:hidden?) && e.hidden?
+        t = e.get_attribute('InteriorPro', 'type').to_s
+        k = e.get_attribute('KitchenLab', 'kind').to_s
+        kind = if STOP_TILE_TYPES.include?(t) then :tile
+               elsif t.empty? && STOP_KITCHEN_KINDS.include?(k) then :cab
+               end
+        if kind
+          bb = e.bounds
+          out << { kind: kind, pts: (0..7).map { |i| outer ? bb.corner(i).transform(outer) : bb.corner(i) } }
+          next
+        end
+        next unless t.empty? && k.empty?
+        next if depth >= 4
+        kids = e.is_a?(Sketchup::ComponentInstance) ? e.definition.entities : e.entities
+        collect_stoppers(kids, outer ? outer * e.transformation : e.transformation, depth + 1, out)
+      end
+      out
+    rescue StandardError => e
+      puts "[Molding] stoppers: #{e.class}: #{e.message}"
+      out
+    end
+
+    # Along-face gaps {a:, b:, kind: :stop} for the pieces at this face between heights z0..z1 (house floor = 0).
+    def stop_gaps(wall, geo, z0, z1)
+      return [] unless USE_STOP_AT_TILE_CAB
+      bz = wall_base_z(wall)
+      p0 = geo[:p0]
+      u = geo[:u]
+      nd = geo[:nd]
+      out = []
+      stoppers.each do |s|
+        ts = s[:pts].map { |c| (c.x - p0.x) * u.x + (c.y - p0.y) * u.y }
+        ds = s[:pts].map { |c| (c.x - p0.x) * nd.x + (c.y - p0.y) * nd.y }
+        zs = s[:pts].map { |c| c.z - bz }
+        next if ts.max <= 0.1 || ts.min >= geo[:len] - 0.1
+        next if zs.max <= z0 + 0.1 || zs.min >= z1 - 0.1
+        next if ds.min > STOP_NEAR || ds.min < -8.0
+        next if s[:kind] == :tile && ds.max > STOP_NEAR
+        out << { a: ts.min, b: ts.max, kind: :stop }
+      end
+      out
+    rescue StandardError => e
+      puts "[Molding] stop_gaps: #{e.class}: #{e.message}"
+      []
+    end
+
     # The two long face edges of a wall from its stored (mitered) corners.
     # Corner order in the attribute is NOT guaranteed (merge/move can change
     # it), so classify each corner by side of the wall axis and sort along it.
@@ -92,6 +165,7 @@ module InteriorPro
         { a: g[:t] - g[:width] / 2.0, b: g[:t] + g[:width] / 2.0, kind: :door }
       end
       gaps += tee_gaps.map { |g| { a: g[:a], b: g[:b], kind: :tee } }
+      gaps += stop_gaps(wall, geo, 0.0, base_top)
       segs = segments_ex(geo[:len], gaps)
       make_molding_group(wall, 'baseboard', profile_name, side, height) do |ge|
         segs.each do |s|
@@ -114,11 +188,14 @@ module InteriorPro
       geo = edge_geometry(wall, edge)
       return unless geo
       gaps = tee_gaps.map { |g| { a: g[:a], b: g[:b], kind: :tee } }
+      czs = prof.map { |p| p[1].to_f }
+      gaps += stop_gaps(wall, geo, czs.min, czs.max)
       segs = segments_ex(geo[:len], gaps)
       make_molding_group(wall, 'crown', profile_name, side, height) do |ge|
         segs.each do |s|
-          sa = s[:start_kind] == :run ? shifts[:start] : 1
-          sb = s[:end_kind] == :run ? shifts[:end] : -1
+          # a cut at tile/cabinet (:stop) is square, like at a door
+          sa = s[:start_kind] == :run ? shifts[:start] : (s[:start_kind] == :stop ? 0 : 1)
+          sb = s[:end_kind] == :run ? shifts[:end] : (s[:end_kind] == :stop ? 0 : -1)
           extrude_profile!(ge, geo, prof, s[:a], s[:b], sa, sb)
         end
       end
@@ -340,6 +417,55 @@ module InteriorPro
   module MoldingManager
     module_function
 
+    # MOLDING PER ROOM (2026-10-15). His words (10-14): "המולדינג צריך לבחור אותו לפי חדרים אם הוא יהיה או לא".
+    # A room group carries 'no_molding' = true; every wall side that faces it (probe 2" in front of the face
+    # middle, same level - the test sides_for already uses) stays in the plan (it still shapes tees) but is not
+    # built. Chosen in the Molding window, "Rooms". false = rooms ignored.
+    USE_ROOM_MOLDING = true unless const_defined?(:USE_ROOM_MOLDING, false)
+
+    def rooms(model = Sketchup.active_model)
+      model.entities.grep(Sketchup::Group).select { |g| g.valid? && g.get_attribute('InteriorPro', 'type') == 'room' }
+    rescue StandardError
+      []
+    end
+
+    # [[room group, flat polygon]] with molding switched OFF.
+    def rooms_off(model = Sketchup.active_model)
+      rooms(model).map do |g|
+        next unless g.get_attribute('InteriorPro', 'no_molding') == true
+        flat = g.get_attribute('InteriorPro', 'boundary_xy')
+        next unless flat && flat.length >= 6
+        [g, flat.each_slice(2).map { |x, y| Geom::Point3d.new(x.to_f, y.to_f, 0) }]
+      end.compact
+    end
+
+    def side_in_off_room?(wall, geo, off)
+      return false if off.empty?
+      probe = geo[:p0].offset(geo[:u], geo[:len] / 2.0).offset(geo[:nd], 2.0)
+      lvl = wall_lvl(wall)
+      off.any? do |g, poly|
+        (g.get_attribute('InteriorPro', 'level') || 1).to_i == lvl && Geom.point_in_polygon_2D(probe, poly, true)
+      end
+    end
+
+    # The window's checkbox: on = the room gets molding. Rebuilds with the last profiles, one undo.
+    def set_room!(room_id, on)
+      model = Sketchup.active_model
+      g = rooms(model).find { |r| r.get_attribute('InteriorPro', 'id').to_s == room_id.to_s }
+      return unless g
+      model.start_operation('Molding: Room', true)
+      g.set_attribute('InteriorPro', 'no_molding', !on)
+      model.commit_operation
+      lp = last_profiles
+      if lp[:base] || lp[:crown]
+        apply_all!(base_name: lp[:base], crown_name: lp[:crown], base_h: lp[:base_h], crown_h: lp[:crown_h],
+                   transparent: true)
+      else
+        refresh!(transparent: true)
+      end
+      puts "[Molding] room #{g.get_attribute('InteriorPro', 'name')} #{on ? 'ON' : 'OFF'}"
+    end
+
     def walls(model = Sketchup.active_model)
       model.entities.grep(Sketchup::Group).select do |g|
         g.get_attribute('InteriorPro', 'type') == 'wall'
@@ -469,6 +595,7 @@ module InteriorPro
       # Collect all molding runs first, then resolve 45deg miters at shared
       # corners between runs.
       plan = []
+      off = USE_ROOM_MOLDING ? rooms_off(model) : []
       ws.each do |w|
         next if w.get_attribute('InteriorPro', 'no_molding')
         edges = MoldingBuilder.wall_edges(w)
@@ -482,6 +609,7 @@ module InteriorPro
           geo = MoldingBuilder.edge_geometry(w, edges[s])
           next unless geo
           excluded = w.get_attribute("InteriorPro", "no_molding_#{s}") ? true : false
+          excluded ||= side_in_off_room?(w, geo, off)
           plan << { wall: w, side: s, edge: edges[s], geo: geo,
                     shifts: { start: 0, end: 0 }, tee_gaps: [], build: !excluded }
         end
@@ -499,6 +627,7 @@ module InteriorPro
       end
       count = 0
       built = 0
+      MoldingBuilder.with_stoppers do
       plan.group_by { |r| r[:wall] }.each do |w, runs|
         wall_built = false
         runs.each do |r|
@@ -517,6 +646,7 @@ module InteriorPro
           built += 1
         end
         count += 1 if wall_built
+      end
       end
       model.commit_operation
       puts "[Molding] applied to #{count}/#{ws.length} walls, #{built} runs (base=#{base_name.inspect} crown=#{crown_name.inspect})"

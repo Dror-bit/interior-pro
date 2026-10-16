@@ -198,8 +198,10 @@ module KitchenLab
     CountertopMaterials.validate(raw['island_countertop_material']) if raw.key?('island_countertop_material')
     raw=raw.merge('backsplash'=>Backsplash.validate(raw['backsplash'])) if raw.key?('backsplash')
     s=crown_settings(current.merge(raw))
-    s['countertop_thickness']=Float(s.fetch('countertop_thickness',1.5))
-    raise 'Countertop thickness must be 0.25–6 inches' unless s['countertop_thickness'].finite? && s['countertop_thickness'].between?(0.25,6)
+    thickness=Float(s.fetch('countertop_thickness',1.5))
+    raise 'Countertop thickness must be 0.25–6 inches' unless thickness.finite? && thickness.between?(0.25,6)
+    # Keep legacy implicit thickness implicit during unrelated settings changes.
+    s['countertop_thickness']=thickness if s.key?('countertop_thickness')
     %w[shaker_width shaker_inset].each { |key| s[key]=Float(raw.fetch(key,current.fetch(key))) }
     raise 'Frame width must be 0.25–6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
     raise 'Panel inset must be 0–0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)

@@ -40,7 +40,9 @@ module InteriorPro
                                            color_mode: (cm.to_s.empty? ? nil : cm))
       end
       dlg.add_action_callback('remove') { |_| MoldingManager.remove_all! }
-      dlg.set_html(build_html(base, crown, MoldingBuilder.color_mode(Sketchup.active_model)))
+      # Molding per room (2026-10-15): one checkbox per room, on = molding.
+      dlg.add_action_callback('room') { |_, id, on| MoldingManager.set_room!(id, on == true || on.to_s == 'true') }
+      dlg.set_html(build_html(base, crown, MoldingBuilder.color_mode(Sketchup.active_model), room_list))
       # IT OPENS WHOLE (2026-09-12). Same mechanism the roof and dormer panels
       # got: the PAGE measures itself once it is laid out and the window
       # follows, so a row added later can never push a button under the scroll.
@@ -72,7 +74,19 @@ module InteriorPro
       end
     end
 
-    def self.build_html(base, crown, color_mode = 'white')
+    def self.room_list
+      return [] unless MoldingManager.const_defined?(:USE_ROOM_MOLDING) && MoldingManager::USE_ROOM_MOLDING
+      MoldingManager.rooms.map do |g|
+        lv = (g.get_attribute('InteriorPro', 'level') || 1).to_i
+        nm = g.get_attribute('InteriorPro', 'name').to_s
+        { 'id' => g.get_attribute('InteriorPro', 'id').to_s, 'name' => (lv > 1 ? "#{nm} (L#{lv})" : nm),
+          'on' => g.get_attribute('InteriorPro', 'no_molding') != true }
+      end.sort_by { |r| r['name'] }
+    rescue StandardError
+      []
+    end
+
+    def self.build_html(base, crown, color_mode = 'white', rooms = [])
       <<~HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>
@@ -90,6 +104,7 @@ module InteriorPro
           button.secondary { background: #9e9e9e; }
           .hrow { margin: 6px 0 2px; color: #444; }
           .hrow input { width: 70px; padding: 3px; }
+          .room { display: block; margin: 4px 0; color: #444; cursor: pointer; }
         </style></head><body>
           <div class="section-title">Baseboard</div>
           <div class="grid" id="baseGrid"></div>
@@ -97,12 +112,14 @@ module InteriorPro
           <div class="section-title">Crown (Ceiling)</div>
           <div class="grid" id="crownGrid"></div>
           <div class="hrow">Height (in): <input id="crownH" type="number" step="0.25" min="0" placeholder="auto"></div>
+          <div id="roomsBox" style="display:none"><div class="section-title">Rooms</div><div id="roomList"></div></div>
           <button onclick="applyAll()">Apply to House</button>
           <button onclick="applySel()">Apply to Selected Walls</button>
           <button class="secondary" onclick="sketchup.remove()">Remove All</button>
           <script>
             var BASE = #{base.to_json};
             var CROWN = #{crown.to_json};
+            var ROOMS = #{rooms.to_json};
             var selBase = BASE.length ? BASE[0].name : '';
             var selCrown = CROWN.length ? CROWN[0].name : '';
 
@@ -142,7 +159,17 @@ module InteriorPro
                                  document.getElementById('crownH').value,
                                  colorMode());
             }
+            function renderRooms() {
+              if (!ROOMS.length) return;
+              document.getElementById('roomsBox').style.display = 'block';
+              document.getElementById('roomList').innerHTML = ROOMS.map(function(r, i) {
+                return '<label class="room"><input type="checkbox" ' + (r.on ? 'checked' : '') +
+                       ' onchange="roomSet(' + i + ', this.checked)"> ' + r.name + '</label>';
+              }).join('');
+            }
+            function roomSet(i, on) { ROOMS[i].on = on; sketchup.room(ROOMS[i].id, on); }
             renderAll();
+            renderRooms();
           </script>
         <script>
           var ipFitLast = 0, ipFitTimer = null;
