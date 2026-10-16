@@ -23,8 +23,8 @@ module KitchenLab
         end
         location=p['role']=='pot' ? 'cooktop' : a.fetch('location','main_sink')
         raise 'Invalid sink placement' unless %w[main_sink island_sink secondary_sink cooktop].include?(location) && (p['role']=='pot' || location!='cooktop')
-        surface=d['height']+(d.dig('appliance','category')=='cooktop' ? 1.5 : 0)
-        anchor=a.fetch('anchor',[d['width']/2.0,p['mount']=='wall' ? 0 : -1.5,p['mount']=='wall' ? surface+18 : d['height']+1.5])
+        surface=d['height']+(d.dig('appliance','category')=='cooktop' ? KitchenLab.settings.fetch('countertop_thickness',1.5) : 0)
+        anchor=a.fetch('anchor',[d['width']/2.0,p['mount']=='wall' ? 0 : -1.5,p['mount']=='wall' ? surface+18 : d['height']+KitchenLab.settings.fetch('countertop_thickness',1.5)])
         raise 'Invalid faucet anchor' unless anchor.is_a?(Array)&&anchor.size==3&&anchor.all?{|v|v.is_a?(Numeric)&&v.finite?}
         raise 'Faucet anchor outside cabinet' unless anchor[0].between?(0,d['width'])&&anchor[1].between?(-d['depth'],0)&&anchor[2].between?(0,120)
         angle=a.fetch('angle',0);raise 'Invalid faucet angle' unless angle.is_a?(Numeric)&&angle.finite?&&angle.between?(-360,360)

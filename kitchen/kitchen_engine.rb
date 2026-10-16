@@ -2,11 +2,14 @@
 require 'securerandom'
 require_relative 'kitchen_pantry'
 module KitchenLab
+  remove_const(:USE_BACKSPLASH_UPPER_CLEARANCE) if const_defined?(:USE_BACKSPLASH_UPPER_CLEARANCE,false)
+  USE_BACKSPLASH_UPPER_CLEARANCE=true
   class Engine
-    def initialize(validator:, settings_validator: nil, reference_provider: nil, id_generator: -> { "c-#{SecureRandom.hex(8)}" })
+    def initialize(validator:, settings_validator: nil, reference_provider: nil, ceiling_provider: nil, id_generator: -> { "c-#{SecureRandom.hex(8)}" })
       @validator=validator
       @settings_validator=settings_validator
       @reference_provider=reference_provider
+      @ceiling_provider=ceiling_provider
       @id_generator=id_generator
     end
 
@@ -34,6 +37,7 @@ module KitchenLab
 
     def create_data(doc,payload,forced_kind=nil)
       kind=forced_kind||payload.fetch('kind','doors')
+      garage=kind=='appliance_garage';kind='wall' if garage
       pullout={'pullout_spice'=>'spice','pullout_waste'=>'waste','pullout_storage'=>'storage'}[kind]
       kind='doors' if pullout
       glass=kind=='glass_wall';kind='wall' if glass
@@ -72,6 +76,13 @@ module KitchenLab
       overrides=payload.fetch('overrides',{})
       raise 'Invalid cabinet overrides' unless overrides.is_a?(Hash)
       raise 'ID and kind belong to the creation command' unless (overrides.keys & %w[id kind wall]).empty?
+      c.merge!('appliance_garage'=>true,'height'=>54,'depth'=>24,'z'=>34.5+s.fetch('countertop_thickness',1.5),'toe_height'=>0) if garage
+      if %w[wall corner_upper].include?(kind) && !garage && USE_BACKSPLASH_UPPER_CLEARANCE
+        gap=(s['backsplash']||{}).fetch('height',18)
+        c['z']=34.5+s.fetch('countertop_thickness',1.5)+gap
+        c['height']=[90-c['z'],12].max
+      end
+      c['height']=90-c['z'] if garage
       c.merge!(overrides)
       c['pantry']=Pantry.defaults(c) if kind=='tall' && !overrides.key?('pantry')
       c['sink']=Sink.defaults(c) if kind=='sink' && !overrides.key?('sink')
@@ -118,6 +129,39 @@ module KitchenLab
         end
       end
       c
+    end
+
+    # Move only uppers above a kitchen worktop, within the same command/Undo.
+    def fit_upper_clearance!(doc,old)
+      return unless USE_BACKSPLASH_UPPER_CLEARANCE
+      settings=doc['settings'];b=settings['backsplash']||{}
+      thickness_delta=settings.fetch('countertop_thickness',1.5)-old.fetch('countertop_thickness',1.5)
+      doc['cabinets'].each do |c|
+        if c['appliance_garage']
+          c['z']+=thickness_delta;c['height']-=thickness_delta
+        end
+        Array(c['accessories']).each do |a|
+          next if a['usage']=='pot' || a.dig('snapshot','mount')=='wall' || !a['anchor']
+          a['anchor'][2]+=thickness_delta
+        end
+      end
+      return if b.fetch('mode','none')=='none' && thickness_delta.abs<0.000001
+      old_b=old['backsplash']||{}
+      delta=(b.fetch('mode','none')=='none' ? 0 : b.fetch('height',18)-old_b.fetch('height',18))+thickness_delta
+      data=doc['cabinets']
+      data.each_with_index do |c,i|
+        next unless %w[wall corner_upper].include?(c['kind']) && !c['surround_for'] && !c['appliance'] && !c['appliance_garage']
+        bases=data.select do |base|
+          !base['surround_for'] && %w[doors drawers sink dishwasher corner_base corner_lazy].include?(base['kind']) && Spatial.overlap?(c.merge('z'=>0,'height'=>1),base.merge('z'=>0,'height'=>1),settings)
+        end
+        next if bases.empty?
+        required=bases.map{|base|base['z']+base['height']+settings.fetch('countertop_thickness',1.5)+(b.fetch('mode','none')=='none' ? 0 : b.fetch('height',18))}.max
+        z=[c['z']+delta,required].max
+        height=c['height'];ceiling=@ceiling_provider && @ceiling_provider.call(c,settings)
+        height=[height,ceiling-z].min if ceiling
+        raise 'Not enough space above the backsplash for an upper cabinet.' if height<12
+        data[i]=@validator.call(c.merge('z'=>z,'height'=>height),settings)
+      end
     end
 
     def gap_lane(data,reference)
@@ -232,7 +276,7 @@ module KitchenLab
         original=data[index]
         raise 'Select the complete appliance to replace its cabinet.' if original['surround_for']
         kind=payload.fetch('kind')
-        raise 'Choose a cabinet from the replacement list.' unless %w[doors drawers wall glass_wall tall filler corner_base corner_upper corner_lazy pullout_spice pullout_waste pullout_storage].include?(kind)
+        raise 'Choose a cabinet from the replacement list.' unless %w[doors drawers wall glass_wall tall filler corner_base corner_upper corner_lazy pullout_spice pullout_waste pullout_storage appliance_garage].include?(kind)
         # Preserve placement and user finishes, but never carry obsolete appliance,
         # sink, accessory, overlay or front-layout data into a different cabinet.
         keep=%w[width height depth x z rotation offset_y rotation_pivot flip_x flip_y house_placement finish handle appearance_overrides door_handle_model drawer_handle_model handle_position handle_offset handle_side]
@@ -298,6 +342,7 @@ module KitchenLab
         raise 'Settings validation is unavailable' unless @settings_validator
         doc['settings']=@settings_validator.call(payload,s)
         doc['cabinets']=data.map { |c| Appearance.resolve(c,doc['settings']) }
+        fit_upper_clearance!(doc,s) if (payload.keys & %w[backsplash countertop_thickness]).any?
       when 'use_kitchen_style'
         raise 'Cabinet no longer exists' if id && data.none? { |c| c['id']==id }
         doc['cabinets']=data.map { |c| (!id || c['id']==id) && !Appearance.appliance?(c) ? Appearance.resolve(c.merge('appearance_overrides'=>{}),s) : c }

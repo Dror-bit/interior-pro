@@ -11,7 +11,10 @@ module KitchenLab
       g.entities.add_face(low.reverse);g.entities.add_face(high)
       4.times { |i| j=(i+1)%4;g.entities.add_face(low[i],low[j],high[j],high[i]) }
       g.material=metal;g.entities.grep(Sketchup::Face).each { |f| f.material=metal;f.back_material=metal }
-      box(e,'Hood chimney',w*0.35,-dep*0.55,h*0.35,w*0.3,dep*0.55,h*0.65,metal)
+      ceiling=USE_HOOD_CHIMNEY_CEILING && crown_ceiling_for(d)
+      chimney_top=ceiling ? ceiling-cabinet_transform(d).origin.z.to_f : h
+      raise 'Hood canopy is above the ceiling.' if chimney_top<=h*0.35
+      box(e,'Hood chimney',w*0.35,-dep*0.55,h*0.35,w*0.3,dep*0.55,chimney_top-h*0.35,metal)
       box(e,'Hood controls',w*0.42,-dep-0.025,0.6,w*0.16,0.03,0.5,glass)
       box(e,'Hood filter',w*0.15,-dep*0.85,-0.025,w*0.7,dep*0.65,0.03,glass)
     else

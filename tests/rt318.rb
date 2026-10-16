@@ -62,7 +62,7 @@ ok('kitchen_items: the cabinet with its back on the wall, the countertop\'s top;
 src = File.read('./elevation_tool.rb')
 ok('shoot! hands the kitchen to the numbers', src.include?('safely_items(side, s[:cut], all, base_z, kit_d)'))
 ok('the kitchen is read BEFORE any wall puts its far cabinets aside (12:44: South lost its cabinet)', src.include?('kit_d = USE_KITCHEN_DIMS ? (USE_ON_WALL_ONLY ? kitchen : kitchen_tops(model)) : nil') && !src.include?('kit_d ||='))
-ok('the row of pictures leaves room over them for the uppers\' row', src.include?('boxes = row_boxes(pc.pic_area(pg), sizes, cols, ups)'))
+ok('the row of pictures leaves room over them for the uppers\' row', src.include?('row_boxes(pc.pic_area(pg), sizes, cols, ups)'))
 bx0 = ET.row_boxes([0.5, 1.5, 30.0, 20.0], [[2000, 1440]], [[0, 1]])
 bx1 = ET.row_boxes([0.5, 1.5, 30.0, 20.0], [[2000, 1440]], [[0, 1]], 1)
 ok('with an uppers\' row the picture stands lower by a row', bx1[0][1] + bx1[0][3] < bx0[0][1] + bx0[0][3] - 0.4, [bx0, bx1])
@@ -92,5 +92,6 @@ if defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.re
   aside = ET.off_wall(side, [], [[run, 'worktop', xf]], 0.0)
   ok('the worktop group stays, only its far piece is put aside', aside == [far], aside.map { |a| a.class.name })
 end
+ok(%q(16:51: the cabinets numbers only on the Kitchen sheet), ET::USE_KITCHEN_DIMS_ONLY_KITCHEN == true && src.include?(%q(kit_d = nil if USE_KITCHEN_DIMS_ONLY_KITCHEN && label != KITCHEN_LABEL)))
 puts($fails.zero? ? "\nALL PASS" : "\n#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

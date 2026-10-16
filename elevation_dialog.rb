@@ -55,6 +55,8 @@ module InteriorPro
           krow = rows.find { |row| row['i'].to_s == 'K' }
           rows = rows.reject { |row| row['i'].to_s == 'K' }
           picked = rows.map { |row| @rooms[row['i'].to_i] }
+          # the size of each room's drawings on its page (USE_SHEET_SIZE, 17:05)
+          rows.each_with_index { |row, j| InteriorPro::ElevationTool.remember_size!(InteriorPro::ElevationTool.room_name(picked[j]), row['size']) if picked[j] && row['size'] }
           raise 'tick at least one room' if (picked.empty? && krow.nil?) || picked.any?(&:nil?)
           cuts = rows.map { |row| { 'house' => req['house'], 'room' => row['cut'], 'walls' => (row['walls'].is_a?(Hash) ? row['walls'] : {}) } }
           paths = []
@@ -97,10 +99,20 @@ module InteriorPro
       @dialog = dlg
     end
 
+    # the size of a room's drawings on its page (USE_SHEET_SIZE): S / M / L, his last pick selected
+    def self.size_pick(et, title, sizes)
+      return '' unless et::USE_SHEET_SIZE
+      cur = sizes[title.to_s].to_i
+      cur = 1 unless [1, 2, 3].include?(cur)
+      opts = [[1, 'S'], [2, 'M'], [3, 'L']].map { |v, l| "<option value=\"#{v}\"#{v == cur ? ' selected' : ''}>#{l}</option>" }.join
+      "<select class=\"rsize\" title=\"Drawings size on the page\">#{opts}</select>"
+    end
+
     def self.build_html(rooms, ksides = [])
       et = InteriorPro::ElevationTool
       # the rooms with plumbing come first and are ticked; the rest are there to tick
       wet = et.send(:wet_count, rooms)
+      sizes = et::USE_SHEET_SIZE ? et.sheet_sizes : {}
       kopt = ''
       unless ksides.empty?
         walls = ksides.map { |l| "<label class=\"wl\">#{l}: <input type=\"number\" class=\"wcut\" data-side=\"#{l}\" min=\"1\" step=\"1\" placeholder=\"Auto\"></label>" }.join
@@ -117,6 +129,7 @@ module InteriorPro
         "<div class=\"rm\" data-i=\"#{i}\">" \
         "<label><input type=\"checkbox\" class=\"tick\" value=\"#{i}\"#{i < wet ? ' checked' : ''}> #{nm}</label>" \
         "<input type=\"number\" class=\"rcut\" min=\"1\" step=\"1\" placeholder=\"in\" title=\"distance for this room (in)\">" \
+        "#{size_pick(et, et.room_name(r), sizes)}" \
         "<button type=\"button\" class=\"fold\" onclick=\"fold(this)\" title=\"one number a wall\">walls</button>" \
         "<div class=\"walls\">#{walls}</div></div>"
       end.join
@@ -137,6 +150,7 @@ module InteriorPro
           .rm > label { flex: 1; }
           .rm input.rcut { width: 64px; padding: 3px 4px; }
           .fold { flex: 0; padding: 3px 8px; font-size: 11px; }
+          .rm select.rsize { width: 58px; padding: 3px 2px; }
           .walls { display: none; width: 100%; padding-left: 22px; gap: 8px; flex-wrap: wrap; }
           .walls.open { display: flex; }
           .wl input { width: 50px; padding: 2px 4px; margin-right: 4px; }
@@ -170,7 +184,8 @@ module InteriorPro
               if (!rm.querySelector('.tick').checked) return;
               var walls = {};
               rm.querySelectorAll('.wcut').forEach(function (w) { if (w.value) walls[w.dataset.side] = w.value; });
-              rows.push({ i: rm.dataset.i, cut: rm.querySelector('.rcut').value, walls: walls });
+              var sz = rm.querySelector('.rsize');
+              rows.push({ i: rm.dataset.i, cut: rm.querySelector('.rcut').value, walls: walls, size: sz ? sz.value : null });
             });
             if (!rows.length) { failed('tick at least one room'); return; }
             sketchup.make_elevations(JSON.stringify({ house: document.getElementById('cut').value,

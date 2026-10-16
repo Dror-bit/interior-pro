@@ -102,3 +102,18 @@ Hebrew only, one or two sentences. Every command in its own box labelled Ruby Co
 plugin folder). Never run git; he commits after each working step. Measure before changing. One change per round. Every new
 geometry/feature gets a kill switch. A frozen constant list = `remove_const` + define; module level, never inside
 `class << self`.
+
+## 8. ONE-LINE REQUEST from Claude (2026-10-15 14:35) — the outlets follow the backsplash automatically
+The user: "הם צריכים לעקוב אחריו אוטומטית" — when the backsplash thickness changes (1", 3"...), the outlets / switches on it must
+move to its new face by themselves. Claude made `InteriorPro::ElectricalLibrary.refront!(model, op: false)` (finds the face
+by a ray, `USE_KITCHEN_RAY`; with `op: false` it opens no operation of its own, so it rides inside yours and one Ctrl+Z
+undoes both). Please add, as the LAST line inside `KitchenLab.worktops!` (kitchen/kitchen_lab.rb, after the backsplash and
+countertop are built again):
+```ruby
+    (InteriorPro::ElectricalLibrary.refront!(@model, op: false) if defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:refront!)) rescue nil
+```
+Nothing else. Test: change the backsplash thickness to 1 and then 3 in the kitchen window → the Ruby Console prints
+`[Electrical] ... -> 1.0 off the wall` / `-> 3.0`, and the outlet and switch over the range stand on the face. (Over 3" =
+`KITCHEN_FRONT_MAX` they are not moved — tell the user if he wants more.)
+**UPDATE 14:40: Claude added this line himself** (the user asked) — `kitchen/kitchen_lab.rb`, end of `worktops!`, marked
+"2026-10-15 (Claude ...)". Nothing else in kitchen/ was touched. If you have kitchen_lab.rb open, re-read it before saving.

@@ -794,14 +794,16 @@ module InteriorPro
 
     # THE ONES ALREADY ON THE WALLS come out to the face too (20:20): every plate on a wall whose back does not stand
     # where the tile / backsplash face is, moved out (or back) along the wall's normal. ONE undo step. Returns how many.
-    def self.refront!(model = Sketchup.active_model)
+    # op: false (2026-10-15 14:30, his "הם צריכים לעקוב אחריו אוטומטית") - called from inside the kitchen's own operation
+    # (KitchenLab.worktops!, after the backsplash is built again): no operation of its own, so his one Ctrl+Z undoes both.
+    def self.refront!(model = Sketchup.active_model, op: true)
       walls = {}
       model.entities.each do |e|
         next unless e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro', 'type') == 'wall'
         walls[e.get_attribute('InteriorPro', 'id').to_s] = e
       end
       moved = 0
-      model.start_operation('Electrical To The Face', true)
+      model.start_operation('Electrical To The Face', true) if op
       model.entities.to_a.each do |e|
         next unless e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro', 'type') == 'electrical'
         w = walls[e.get_attribute('InteriorPro', 'host_wall_id').to_s]
@@ -821,11 +823,11 @@ module InteriorPro
         puts "[Electrical] #{e.name} on wall #{w.get_attribute('InteriorPro', 'id').to_s[0, 8]}: #{o0.round(3)} -> #{want.round(3)} off the wall"
         moved += 1
       end
-      model.commit_operation
+      model.commit_operation if op
       puts "[Electrical] refront!: #{moved} moved to the face"
       moved
     rescue StandardError => e
-      model.abort_operation rescue nil
+      (model.abort_operation rescue nil) if op
       puts "[Electrical] refront!: #{e.class}: #{e.message}"
       0
     end

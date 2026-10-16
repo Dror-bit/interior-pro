@@ -17,7 +17,7 @@
  // Pantry inspector: size, sections, style/color, toe kick, then all hardware.
  const controls=$('cabinetControls'),originalOrder=[...controls.children];
  function arrangePantryControls(){
-  if(selected?.kind!=='tall'){for(const node of originalOrder)controls.append(node);return;}
+  if(!selected){return;}
   const label=id=>$(id)?.closest('label');
   const hardware=[label('inherit_handle'),label('handle'),controls.querySelector('.handle-choices'),$('handleEditor')].filter(Boolean);
   const molding=originalOrder.find(node=>node.tagName==='BUTTON'&&node.textContent==='Choose cabinet molding...');

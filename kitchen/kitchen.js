@@ -346,7 +346,7 @@ function applianceDrawing(c,x,base,s,active){
  }else{
   out+=r(.01,.015,.98,.075,glass)+r(.65,.033,.18,.02,pull,'none');
   out+=l(.18,.13,.82,.13)+r(0,.94,1,.06,glass,'none');
-  out+=rect(x,y-1.5*s,w,1.5*s,'#f0eee6');
+  out+=rect(x,y-(kitchenSettings.countertop_thickness??1.5)*s,w,(kitchenSettings.countertop_thickness??1.5)*s,'#f0eee6');
  }
  out+=rect(x,y,w,h,'none',active?'#315f4f':'transparent',{class:'outline','stroke-width':active?2.5:1});
  return out;
@@ -405,7 +405,7 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
  const source=single?all:all.filter(c=>wallOf(c)===activeWall||(activeWall!=='I'&&FrontLayouts.corner(c)));if(!single)$('stamp').textContent='Elevation '+activeWall;
  if(!source.length){drawing.innerHTML='';$('empty').style.display='grid';return;}
  const crowns=single?[]:crownRuns(source),ch=kitchenSettings.crown_height||6,cp=kitchenSettings.crown_depth||0.75;
- const end=Math.max(...source.map(c=>c.x+c.width));const height=Math.max(40,...source.map(c=>c.z+c.height+1.5+(c.sink?.type!=='none'&&c.sink?.faucet!=='none'?(c.sink?.faucet_height||0):0)),...crowns.map(r=>r.top+ch));const depth=Math.max(...source.map(c=>c.depth+1),...crowns.map(r=>r.depth+cp));
+ const end=Math.max(...source.map(c=>c.x+c.width));const height=Math.max(40,...source.map(c=>c.z+c.height+(kitchenSettings.countertop_thickness??1.5)+(c.sink?.type!=='none'&&c.sink?.faucet!=='none'?(c.sink?.faucet_height||0):0)),...crowns.map(r=>r.top+ch));const depth=Math.max(...source.map(c=>c.depth+1),...crowns.map(r=>r.depth+cp));
  const autoScale=Math.min(740/Math.max(end,50),365/(mode==='front'?height:Math.max(depth,40)));
  const frame=drag?drag.frame:{s:autoScale,ox:(960-end*autoScale)/2,base:mode==='front'?475:180+depth*autoScale};
  const {s,ox,base}=frame;if(!single)layout=frame;
@@ -434,7 +434,7 @@ function draw(single=null,view=mode,currentDrag=drag,target=null){
     yy+=fh+.125*s;
    });
    fronts.forEach(([fx,fy,fw,fh,horiz,side,rowIndex],i)=>{inner+=rect(fx,fy,fw,fh,fill);if(['shaker','glass'].includes(c.style)){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),fill,'#8a9184')+rect(fx+r,fy+r,Math.max(0,fw-2*r),Math.max(0,fh-2*r),'#23382b','none',{'fill-opacity':kitchenSettings.shaker_inset*.18});}if(c.style==='glass'&&!horiz){const r=kitchenSettings.shaker_width*s;inner+=rect(fx+r,fy+r,fw-2*r,fh-2*r,'#afdae2','#7fa5af',{'fill-opacity':.55})+line(fx+r+3,fy+fh-r-3,fx+fw-r-3,fy+r+3,'#edf9fc');}if(c.handle!=='none'&&!(c.kind==='sink'&&horiz)){const ink=c.handle==='brass'?'#a38344':'#232b26';const hp=handleLayout(c,fw/s,fh/s,horiz,side==='left',rowIndex);inner+=rect(fx+hp[0]*s,fy+(fh/s-hp[1]-hp[3])*s,hp[2]*s,hp[3]*s,ink,ink);}});
-   if(!['wall','tall','oven_tower','micro_tower','fridge_surround'].includes(c.kind))inner+=rect(x,y-1.5*s,w,1.5*s,'#f0eee6');
+   if(!['wall','tall','oven_tower','micro_tower','fridge_surround'].includes(c.kind))inner+=rect(x,y-(kitchenSettings.countertop_thickness??1.5)*s,w,(kitchenSettings.countertop_thickness??1.5)*s,'#f0eee6');
    inner+=rect(x,y,w,c.height*s,'none',active?'#315f4f':'transparent',{class:'outline','stroke-width':active?2.5:1});
   }
   if(mode==='front'&&typeof sinkElevation==='function')inner+=sinkElevation(c,x,base,s);

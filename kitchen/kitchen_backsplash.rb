@@ -22,7 +22,7 @@ module KitchenLab
       return {'mode'=>'none'} if mode=='none'
       out={'mode'=>mode}
       {'height'=>[18,1,60],'thickness'=>[mode=='tile' ? 0.375 : 0.75,0.125,2],
-       'tile_width'=>[6,1,120],'tile_height'=>[3,1,120],'grout'=>[0.125,0.03125,0.5]}.each do |key,(default,min,max)|
+       'tile_width'=>[6,1,120],'tile_height'=>[3,1,120],'grout'=>[0.125,0,0.5]}.each do |key,(default,min,max)|
         n=Float(raw.fetch(key,default));raise "Invalid backsplash #{key}" unless n.finite? && n.between?(min,max);out[key]=n
       end
       out['material']=CountertopMaterials.validate(raw['material']) if raw['material']
@@ -170,7 +170,7 @@ module KitchenLab
     end
     def self.build!(top,d,source=d,bottom_override:nil,top_override:nil)
       config=validate(KitchenLab.settings['backsplash']);return if config['mode']=='none' || !eligible?(source)
-      thick=config['thickness'];bottom=bottom_override || d['height']+1.5
+      thick=config['thickness'];bottom=bottom_override || d['height']+KitchenLab.settings.fetch('countertop_thickness',1.5)
       top_override ||= hood_bottom(d) if ApplianceCatalog.cooktop?(d)
       config=config.merge('height'=>top_override-bottom) if top_override && top_override>bottom
       model=KitchenLab.instance_variable_get(:@model)
@@ -216,7 +216,7 @@ module KitchenLab
         if config['mode']=='tile'
           grout=KitchenLab.material('Backsplash grout','#C9C6BF')
           rectangles(strip[:width],bottom,config.merge('mode'=>'countertop'),holes).each do |x,z,r,t|
-            grout_depth=thick-[1.0/32.0,thick/4.0].min
+            grout_depth=[thick-(defined?(InteriorPro::TileWall::GROUT_BACK) ? InteriorPro::TileWall::GROUT_BACK : 0.005),0.02].max
             KitchenLab.box(group.entities,'Grout',x,-grout_depth,z,r-x,grout_depth,t-z,grout)
           end
         end

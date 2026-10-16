@@ -1210,6 +1210,12 @@ module InteriorPro
     # columns stand off the picture by paper inches, and the words are the size
     # of writing, however big the picture was made.
     ELEV_DIM_LAYER = 'ELEV_DIMS' unless const_defined?(:ELEV_DIM_LAYER, false)
+    # the numbers of a layer in its colour (2026-10-14 19:40): plumbing blue, electric green, the wall's own and the
+    # tiles' black. Kill switch: false = all black, as before.
+    USE_ELEV_DIM_COLORS = true unless const_defined?(:USE_ELEV_DIM_COLORS, false)
+    # 2026-10-15: and the kitchen's orange - read again on every reload (a frozen list kept by `unless` never got it)
+    remove_const(:ELEV_DIM_COLORS) if const_defined?(:ELEV_DIM_COLORS, false)
+    ELEV_DIM_COLORS = { 'plumbing' => '#1f5fbf', 'electric' => '#1a9d55', 'kitchen' => '#c8731e' }.freeze
     ELEV_ROW    = 0.45 unless const_defined?(:ELEV_ROW, false)     # paper inches between rows
     ELEV_TEXT_H = 0.11 unless const_defined?(:ELEV_TEXT_H, false) # capital height, paper inches
     ELEV_TICK   = 0.06 unless const_defined?(:ELEV_TICK, false)
@@ -1382,7 +1388,9 @@ module InteriorPro
       end
       # the layer it belongs to besides the dimensions: a niche's numbers go with the tiles, a fixture's with the
       # plumbing (2026-10-09, ElevationTool dims 'g'; shape_group / apply_visibility!)
-      gx = %w[tile plumbing electric].include?(d['g'].to_s) ? { grp: d['g'].to_s } : {}
+      gx = %w[tile plumbing electric kitchen].include?(d['g'].to_s) ? { grp: d['g'].to_s } : {}
+      # its colour (2026-10-14 19:40, his "הקווים של פלאמבינג בכחול, של חשמל בירוק... מדידות כלליות בשחור")
+      gx[:color] = ELEV_DIM_COLORS[d['g'].to_s] if USE_ELEV_DIM_COLORS && ELEV_DIM_COLORS[d['g'].to_s]
       ln = ->(x1, y1, x2, y2) { a = tr.call(x1, y1); b = tr.call(x2, y2); lay.line(a[0], a[1], b[0], b[1], { elev_dim: true }.merge(gx)) }
       t = ELEV_TICK / 2.0
       words = d['t'].to_s
@@ -1413,6 +1421,7 @@ module InteriorPro
       fs = th / InteriorPro::PlanPDF::CAP_RATIO * 72.0
       tw = text_width_in(words, fs, sty[:bold], sty[:font])
       opts = { h: th, h0: ELEV_TEXT_H, align: :left, elev_dim: true }.merge(sty).merge(gx)
+      opts[:color] = sty[:color] if sty[:color]   # a colour he gave this one number wins over its layer's
       opts[:t0] = t0 if t0
       if d['k'].to_s == 'f'
         # one he drew (USE_PIC_DIMS): from his two points to its line, across or up
@@ -1445,14 +1454,16 @@ module InteriorPro
         x1 = elev_pt(main, u1, d['v'])[0]
         x2 = elev_pt(main, u2, d['v'])[0]
         yf = elev_pt(main, u1, d['v'])[1]
-        yl = yf - d['row'].to_i * ELEV_ROW
+        # 'up' (the kitchen's upper cabinets, 2026-10-15): the row stands OVER its line (the ceiling), not under it
+        sg = d['up'] ? -1.0 : 1.0
+        yl = yf - sg * d['row'].to_i * ELEV_ROW
         ln.call(x1, yl, x2, yl)
         reach = d['r'].is_a?(Array) ? d['r'] : []
         [[x1, u1, reach[0]], [x2, u2, reach[1]]].each do |x, uu, rv|
           ln.call(x - t, yl - t, x + t, yl + t)
-          # a part's line runs up to its middle (ElevationTool::USE_PART_REACH, 13:54)
-          top = rv ? elev_pt(main, uu, rv)[1] : yf - ELEV_GAP
-          ln.call(x, top, x, yl - ELEV_OVER)
+          # a part's line runs up to its middle (ElevationTool::USE_PART_REACH, 13:54); an upper cabinet's from its top
+          top = rv ? elev_pt(main, uu, rv)[1] : yf - sg * ELEV_GAP
+          ln.call(x, top, x, yl - sg * ELEV_OVER)
         end
         p = tr.call((x1 + x2) / 2.0 - tw / 2.0, yl + 0.035)
         lay.text(words, p[0], p[1], opts.merge(rotation: rot))
@@ -1466,7 +1477,12 @@ module InteriorPro
         yf = d['from'] ? elev_pt(main, u1, d['from'])[1] : nil
         [a[0], b[0]].each do |x|
           ln.call(x - t, y - t, x + t, y + t)
-          ln.call(x, yf - ELEV_GAP, x, y - ELEV_OVER) if yf
+          next unless yf
+          # the witness line from the thing to its row: the row under it (a niche's width), or over it (a row of
+          # distances over the wall lights, ElevationTool.elec_rows 2026-10-14)
+          if y < yf then ln.call(x, yf - ELEV_GAP, x, y - ELEV_OVER)
+          else ln.call(x, yf + ELEV_GAP, x, y + ELEV_OVER)
+          end
         end
         p = tr.call((a[0] + b[0]) / 2.0 - tw / 2.0, d['below'] ? y - 0.035 - th : y + 0.035)
         lay.text(words, p[0], p[1], opts.merge(rotation: rot))

@@ -17,6 +17,15 @@ module InteriorPro
   module PlanSheetDialog
     ATTR_DICT  = 'InteriorPro'    unless const_defined?(:ATTR_DICT, false)
     ATTR_STATE = 'sheet_state'    unless const_defined?(:ATTR_STATE, false)
+    # SEVERAL SHEET FILES (2026-10-15 17:13, his words: "קובץ שהוא רק של המטבח או קובץ שהוא רק של חדר מסויים ... והקובץ הראשי
+    # הוא יהיה של כל התוכניות ... לערוך רק אותו בלי לגעת בתוכניות"). The file OPEN now lives where it always lived
+    # (ATTR_STATE), so every part of the window, the elevations and the PDF work on it unchanged; the others wait under
+    # "sheet_state@<name>". Switching parks the open one and puts the other in its place. A new file starts with no plan
+    # sheet and no schedules - only what he adds (the elevations he takes while it is open) - and the main file's title
+    # block. "Main" is the file every model had before this. Kill switch: false = no list, the one file as before.
+    USE_SHEET_SETS = true unless const_defined?(:USE_SHEET_SETS, false)
+    SETS_KEY = 'sheet_sets' unless const_defined?(:SETS_KEY, false)
+    MAIN_SET = 'Main' unless const_defined?(:MAIN_SET, false)
     # The window is told where the paper really put the plan (2026-10-07,
     # see window_origin). false = it is handed the remembered place as before.
     USE_ORIGIN_SYNC = true unless const_defined?(:USE_ORIGIN_SYNC, false)
@@ -647,6 +656,35 @@ module InteriorPro
         # the file picker and the schedules from their own tick, but the plan
         # sheet has no other door. This is that door, and it only shows in the
         # window while the plan sheet is actually missing.
+        # several sheet files (USE_SHEET_SETS, 2026-10-15): open one, make one, throw one away
+        dlg.add_action_callback('sheet_set_switch') do |_, name|
+          begin
+            switch_set!(name.to_s)
+            @doc = nil
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] sheet_set_switch: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+        dlg.add_action_callback('sheet_set_new') do |_, name|
+          begin
+            new_set!(name.to_s)
+            @doc = nil
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] sheet_set_new: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+        dlg.add_action_callback('sheet_set_delete') do |_, name|
+          begin
+            delete_set!(name.to_s)
+            @doc = nil
+            push_all(dlg)
+          rescue StandardError => e
+            puts "[Sheet] sheet_set_delete: #{e.class}: #{e.message}\n  " + Array(e.backtrace).first(4).join("\n  ")
+          end
+        end
+
         dlg.add_action_callback('restore_plan') do |_|
           begin
             st = load_state
@@ -991,7 +1029,8 @@ module InteriorPro
           view_box: InteriorPro::PlanCanvas::USE_VIEW_BOX,
           box_crop: USE_BOX_CROP,
           dim_text_h: InteriorPro::PlanCanvas.mark_text_h,
-          dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF
+          dim_label_off: InteriorPro::PlanCanvas::DIM_LABEL_OFF,
+          sets: (USE_SHEET_SETS ? sets_info : nil)
         }
         dlg.execute_script("loadSheet(#{JSON.generate(payload)})")
       rescue StandardError => e
@@ -1429,7 +1468,8 @@ module InteriorPro
         # page_marks (2026-10-09): the plan's marks on an elevation's sheet, by its picture (USE_PIC_MARKS).
         # dim_off_p: the distance off for the next dimension there, paper inches.
         # hide (2026-10-09): the groups he switched off under "שכבות" (PlanCanvas::USE_LAYER_GROUPS).
-        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims image_hand page_marks dim_off_p hide]
+        # elev_size (2026-10-15): S / M / L of a room's drawings on its page, by sheet title (ElevationTool::USE_SHEET_SIZE).
+        %w[origin_x origin_y date active zoom view_box scale_f image_titles image_dims image_hand page_marks dim_off_p hide elev_size]
       end
 
       # -------------------------------------------------- the free geometry
@@ -1982,6 +2022,90 @@ module InteriorPro
         st
       end
 
+      # ---- several sheet files (USE_SHEET_SETS) ----------------------------------------------------------------------
+
+      # { 'active' => name, 'names' => [...] } - Main first, always there
+      def sets_info(model = Sketchup.active_model)
+        raw = model.get_attribute(ATTR_DICT, SETS_KEY)
+        h = raw ? JSON.parse(raw.to_s) : {}
+        h = {} unless h.is_a?(Hash)
+        names = Array(h['names']).map(&:to_s).reject(&:empty?).uniq
+        names.delete(MAIN_SET)
+        names.unshift(MAIN_SET)
+        active = h['active'].to_s
+        active = MAIN_SET unless names.include?(active)
+        { 'active' => active, 'names' => names }
+      rescue StandardError
+        { 'active' => MAIN_SET, 'names' => [MAIN_SET] }
+      end
+
+      def set_key(name)
+        "#{ATTR_STATE}@#{name}"
+      end
+
+      def write_raw!(key, json, model = Sketchup.active_model)
+        if defined?(InteriorPro::StateBackup)
+          InteriorPro::StateBackup.write!(key, json, model)
+        else
+          model.set_attribute(ATTR_DICT, key, json)
+        end
+      end
+
+      # a new file: no plan sheet, no schedules, no pictures - the main one's paper and title block
+      def new_set_state
+        cur = load_state
+        st = default_state
+        %w[size orientation address logo date sheet_number].each { |k| st[k] = cur[k] if cur.key?(k) }
+        st['drop_plan'] = true
+        st['hidden'] = ['SCHEDULES']
+        st['sheet_title'] = 'DETAILS'
+        st
+      end
+
+      # open another file: the one open now is parked under its name, the other takes its place. true = switched
+      def switch_set!(name, model = Sketchup.active_model)
+        return false unless USE_SHEET_SETS
+        info = sets_info(model)
+        name = name.to_s
+        return false unless info['names'].include?(name)
+        return true if name == info['active']
+        cur = model.get_attribute(ATTR_DICT, ATTR_STATE).to_s
+        write_raw!(set_key(info['active']), cur.empty? ? JSON.generate(default_state) : cur, model)
+        nxt = model.get_attribute(ATTR_DICT, set_key(name)).to_s
+        nxt = JSON.generate(new_set_state) if nxt.empty?
+        write_raw!(ATTR_STATE, nxt, model)
+        info['active'] = name
+        model.set_attribute(ATTR_DICT, SETS_KEY, JSON.generate(info))
+        @doc = nil
+        true
+      end
+
+      # a new file by that name, opened at once. false = no name / already there
+      def new_set!(name, model = Sketchup.active_model)
+        return false unless USE_SHEET_SETS
+        name = name.to_s.gsub(/[\r\n\t@]/, ' ').strip[0, 40]
+        info = sets_info(model)
+        return false if name.empty? || info['names'].any? { |n| n.casecmp?(name) }
+        write_raw!(set_key(name), JSON.generate(new_set_state), model)
+        info['names'] << name
+        model.set_attribute(ATTR_DICT, SETS_KEY, JSON.generate(info))
+        switch_set!(name, model)
+      end
+
+      # a file thrown away (never Main); if it is the open one, Main opens first. Its last state stays in the backup.
+      def delete_set!(name, model = Sketchup.active_model)
+        return false unless USE_SHEET_SETS
+        name = name.to_s
+        info = sets_info(model)
+        return false if name == MAIN_SET || !info['names'].include?(name)
+        switch_set!(MAIN_SET, model) if info['active'] == name
+        info = sets_info(model)
+        write_raw!(set_key(name), '', model)
+        info['names'].delete(name)
+        model.set_attribute(ATTR_DICT, SETS_KEY, JSON.generate(info))
+        true
+      end
+
       def save_state(st)
         keep  = default_state.keys + extra_state_keys
         clean = st.select { |k, _| keep.include?(k) }
@@ -2287,6 +2411,19 @@ module InteriorPro
                    a click." Only the page list starts open; the Export button
                    stays out of the boxes, because it is the point of the
                    window and should never be one click away. -->
+              <!-- several sheet files (2026-10-15): the main one with all the plans, and one of a room / the kitchen -->
+              <div class="sec" data-k="sets" id="setssec" style="display:none">
+                <h4><span class="ar">&#9656;</span>קבצים<span class="tag" id="setstag"></span></h4>
+                <div class="bd">
+                  <select id="setsel"></select>
+                  <div class="row" style="margin-top:6px">
+                    <input id="setname" placeholder="שם לקובץ חדש" style="flex:1">
+                    <button id="setnew" class="go2" style="width:auto;flex:none;padding:0 10px">קובץ חדש</button>
+                  </div>
+                  <button id="setdel">מחק את הקובץ</button>
+                </div>
+              </div>
+
               <div class="sec" data-k="pages">
                 <h4><span class="ar">&#9656;</span>דפים<span class="tag" id="pagestag"></span></h4>
                 <div class="bd">
@@ -7376,6 +7513,7 @@ module InteriorPro
             TXFONT = (p.text_font!==false);
             DRAFTS = p.drafts || [];
             fillDrafts();
+            fillSets(p.sets);
             if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
             fillFonts();           // the letterings on offer, from the rules just given
@@ -7877,6 +8015,17 @@ module InteriorPro
 
           function sections(){
             return document.querySelectorAll('#side .sec');
+          }
+
+          // the list of sheet files (USE_SHEET_SETS): the open one selected; Main cannot be thrown away
+          function fillSets(sets){
+            var sec=$('setssec'); if(!sec) return;
+            if(!sets || !sets.names){ sec.style.display='none'; return; }
+            sec.style.display='';
+            var sel=$('setsel'); sel.innerHTML='';
+            sets.names.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=(n==='Main'?'Main - כל התוכניות':n); if(n===sets.active) o.selected=true; sel.appendChild(o); });
+            tag('setstag', sets.active);
+            var d=$('setdel'); d.style.display = (sets.active==='Main') ? 'none' : ''; d.setAttribute('data-arm',''); d.textContent='מחק את הקובץ';
           }
 
           function openSection(key, on){
@@ -8391,6 +8540,15 @@ module InteriorPro
             // a press anywhere else shuts the list
             document.addEventListener('mousedown', function(e){ var m=$('txfontmenu'); if(m && m.className==='on' && !(e.target && (e.target===$('txfontbtn') || (e.target.parentNode===m)))) fontMenu(false); });
             $('drawbtn').onclick=function(){ addDrawing(); };
+            // several sheet files (2026-10-15)
+            $('setsel').onchange=function(){ sketchup.sheet_set_switch(this.value); };
+            $('setnew').onclick=function(){ var n=($('setname').value||'').trim(); if(!n) return; $('setname').value=''; sketchup.sheet_set_new(n); };
+            $('setname').onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); $('setnew').onclick(); } };
+            $('setdel').onclick=function(){
+              if(this.getAttribute('data-arm')!=='1'){ this.setAttribute('data-arm','1'); this.textContent='לחץ שוב כדי למחוק'; return; }
+              this.setAttribute('data-arm',''); this.textContent='מחק את הקובץ';
+              sketchup.sheet_set_delete($('setsel').value);
+            };
             // Back to whatever its group says, rather than back to 100 - the
             // group is the drawing's own standard and that is what "normal"
             // means for one label inside it.

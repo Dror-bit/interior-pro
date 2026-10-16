@@ -16,11 +16,15 @@ function zoomFit(view){
  const padding=25;view.fit={x:b.x-padding,y:b.y-padding,w:b.width+padding*2,h:b.height+padding*2};view.box={...view.fit};view.zoom=1;zoomApply(view);
 }
 function zoomPoint(view,event){const p=view.svg.createSVGPoint();p.x=event.clientX;p.y=event.clientY;return p.matrixTransform(view.svg.getScreenCTM().inverse());}
-function zoomChange(view,factor,anchor=null){
- if(!view.fit)return;const next=Math.max(.5,Math.min(8,view.zoom*factor)),ratio=view.zoom/next,b=view.box;
- if(!anchor){const cab=view.svg.querySelector('.cab');const bb=cab?.getBBox();anchor=view.zoom===1&&bb?{x:bb.x+bb.width/2,y:bb.y+bb.height/2}:{x:b.x+b.w/2,y:b.y+b.h/2};}
- view.box={x:anchor.x-(anchor.x-b.x)*ratio,y:anchor.y-(anchor.y-b.y)*ratio,w:b.w*ratio,h:b.h*ratio};view.zoom=next;zoomApply(view);
+function zoomChange(view,factor){
+ if(!view.fit)return;
+ const next=Math.max(.5,Math.min(8,view.zoom*factor));
+ const bb=view.svg.querySelector('.cab')?.getBBox();
+ const center=bb?{x:bb.x+bb.width/2,y:bb.y+bb.height/2}:{x:view.fit.x+view.fit.w/2,y:view.fit.y+view.fit.h/2};
+ const w=view.fit.w/next,h=view.fit.h/next;
+ view.box={x:center.x-w/2,y:center.y-h/2,w,h};view.zoom=next;zoomApply(view);
 }
+
 for(const [id,label] of [['cabinetPreview','Elevation'],['cabinetTopPreview','Top']]){
  const svgEl=$(id),pane=document.createElement('div');pane.className='cabinet-zoom-pane';svgEl.before(pane);pane.append(svgEl);
  const bar=document.createElement('div');bar.className='cabinet-zoom-toolbar';
@@ -30,7 +34,7 @@ for(const [id,label] of [['cabinetPreview','Elevation'],['cabinetTopPreview','To
   const button=document.createElement('button');button.type='button';button.textContent=text;button.setAttribute('aria-label',label+' '+(text==='+'?'zoom in':text==='−'?'zoom out':'fit drawing'));button.onclick=action;bar.append(button);
  }
  view.output=document.createElement('output');bar.append(view.output);pane.append(bar);CabinetPreviewZoom.views.set(id,view);
- svgEl.addEventListener('wheel',e=>{e.preventDefault();zoomChange(view,e.deltaY<0?1.15:1/1.15,zoomPoint(view,e));},{passive:false});
+ svgEl.addEventListener('wheel',e=>{e.preventDefault();zoomChange(view,e.deltaY<0?1.15:1/1.15);},{passive:false});
  svgEl.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();view.pan={id:e.pointerId,start:zoomPoint(view,e),box:{...view.box}};svgEl.setPointerCapture(e.pointerId);svgEl.classList.add('zoom-panning');});
  svgEl.addEventListener('pointermove',e=>{if(!view.pan||view.pan.id!==e.pointerId)return;const p=zoomPoint(view,e);view.box.x+=view.pan.start.x-p.x;view.box.y+=view.pan.start.y-p.y;zoomApply(view);});
  const stop=()=>{if(view.pan&&svgEl.hasPointerCapture(view.pan.id))svgEl.releasePointerCapture(view.pan.id);view.pan=null;svgEl.classList.remove('zoom-panning');};

@@ -40,13 +40,38 @@ module KitchenLab
       return [0,0,0] unless d.dig('appliance','category')=='cooktop'
       dim=d['appliance']['dimensions'];x,y,=ApplianceCatalog.cooktop_bounds(d)
       deck=manifest(d['appliance'])&.fetch('mounting_deck_z',nil)
-      [x,y+dim['depth'],d['height']+1.5-(deck || dim['height'])]
+      [x,y+dim['depth'],d['height']+KitchenLab.settings.fetch('countertop_thickness',1.5)-(deck || dim['height'])]
     end
     def self.parts(d)
       return PanelReady.parts(d) if PanelReady.appliance?(d)
       data=manifest(d['appliance']);return nil unless data
       ox,oy,oz=offset(d)
       data['parts'].map { |p| p.merge('x'=>p['x']+ox,'y'=>p['y']+oy,'z'=>p['z']+oz) }
+    end
+    def self.fit_hood_chimney(instance,d,data)
+      return unless KitchenLab::USE_HOOD_CHIMNEY_CEILING && d['kind']=='hood'
+      parts=data['parts'].select{|part|part['name'].to_s.match?(/chimney/i)}
+      return if parts.empty?
+      ceiling=KitchenLab.crown_ceiling_for(d);return unless ceiling
+      origin=data.fetch('origin',[0,0,0]);top=ceiling-KitchenLab.cabinet_transform(d).origin.z.to_f+origin[2]
+      instance.make_unique
+      instance.definition.delete_attribute('KitchenLabAsset','sha256')
+      adjust=lambda do |entities|
+        entities.each do |entity|
+          next unless entity.respond_to?(:transformation)
+          name=entity.name.to_s
+          if name.match?(/chimney/i)
+            bounds=entity.bounds;bottom=bounds.min.z.to_f;height=bounds.max.z.to_f-bottom
+            raise 'Hood canopy is above the ceiling.' if top<=bottom
+            entity.transform!(Geom::Transformation.scaling(Geom::Point3d.new(0,0,bottom),1,1,(top-bottom)/height)) if height>0.001
+          elsif entity.is_a?(Sketchup::ComponentInstance)
+            entity.make_unique;adjust.call(entity.definition.entities)
+          elsif entity.is_a?(Sketchup::Group)
+            entity.make_unique;adjust.call(entity.entities)
+          end
+        end
+      end
+      adjust.call(instance.definition.entities)
     end
     def self.build(entities,d)
       return PanelReady.build(entities,d) if PanelReady.appliance?(d)
@@ -62,6 +87,7 @@ module KitchenLab
         transform=Geom::Transformation.translation(3.times.map { |i| offset[i]-origin[i] })
         instance=entities.add_instance(definition,transform)
         instance.name=d['appliance']['model']
+        fit_hood_chimney(instance,d,data)
         instance.set_attribute('KitchenLab','blender_asset',d['appliance']['id'])
         return true
       end

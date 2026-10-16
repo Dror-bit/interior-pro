@@ -52,7 +52,7 @@ module KitchenLab
       KitchenLab.guard!
       model=Sketchup.active_model
       @settings_dialog.close if @settings_dialog && @settings_dialog.visible?
-      dlg=UI::HtmlDialog.new(dialog_title:'Kitchen countertops & backsplash',preferences_key:'KitchenLab.SurfaceSettings',width:540,height:760,resizable:true)
+      dlg=UI::HtmlDialog.new(dialog_title: focus=='backsplash' ? 'Kitchen backsplash' : 'Kitchen countertops',preferences_key:'KitchenLab.SurfaceSettings',width:540,height:760,resizable:true)
       @settings_dialog=dlg
       check=proc { raise 'Return to the kitchen model' unless Sketchup.active_model.equal?(model); KitchenLab.guard! }
       refresh=proc { dlg.execute_script("receiveKitchen(#{JSON.generate(KitchenLab.settings)});fill();") }
@@ -61,7 +61,7 @@ module KitchenLab
       dlg.add_action_callback('surface_update') do |_,json|
         begin
           check.call;raw=JSON.parse(json)
-          raise 'Invalid surface settings' unless raw.is_a?(Hash) && (raw.keys-%w[backsplash island_countertop_material]).empty?
+          raise 'Invalid surface settings' unless raw.is_a?(Hash) && (raw.keys-%w[backsplash island_countertop_material countertop_thickness]).empty?
           KitchenLab.update_settings(raw);refresh.call
         rescue StandardError=>e;error.call(e);end
       end
@@ -69,7 +69,9 @@ module KitchenLab
       dlg.add_action_callback('backsplash_materials') { |_,id,json| begin;check.call;show('kitchen',JSON.parse(json));rescue StandardError=>e;error.call(e);end }
       dlg.set_on_closed { @settings_dialog=nil if @settings_dialog.equal?(dlg) }
       html=File.read(File.join(KitchenLab::ROOT,'surface_settings.html'))
-      %w[countertop_editor.js backsplash_editor.js].each { |name| html.sub!("<!-- #{name} -->",'<script>'+File.read(File.join(KitchenLab::ROOT,name))+'</script>') }
+      html.sub!('Kitchen surfaces',focus=='backsplash' ? 'Kitchen backsplash' : 'Kitchen countertops')
+      scripts=focus=='backsplash' ? ['backsplash_editor.js'] : ['countertop_editor.js']
+      scripts.each { |name| html.sub!("<!-- #{name} -->",'<script>'+File.read(File.join(KitchenLab::ROOT,name))+'</script>') }
       dlg.set_html(html);dlg.show
     end
     def self.show(cabinet_id=nil, backsplash=nil, scope='kitchen')

@@ -3,7 +3,8 @@
 module KitchenLab
   def self.command_engine
     Engine.new(validator: ->(data,options) { d=validate(data,options);check_shaker(d,options);d },
-      settings_validator: ->(raw,current) { validate_settings(raw,current) }, reference_provider: -> { house_context['items'] })
+      settings_validator: ->(raw,current) { validate_settings(raw,current) }, reference_provider: -> { house_context['items'] },
+      ceiling_provider: ->(d,s) { ceiling=crown_ceiling_for(d); ceiling && ceiling-(cabinet_transform(d).origin.z.to_f-d['z'])-(s['crown_profile']=='none' ? 0 : s.fetch('crown_height',0)) })
   end
 
   def self.execute_commands(request, notify=true)

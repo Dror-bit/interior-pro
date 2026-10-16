@@ -1588,7 +1588,7 @@
             if(s.type==='line'){
               o.push('<line x1="'+P(s.x1,s.y1).split(',')[0]+'" y1="'+P(s.x1,s.y1).split(',')[1]+
                      '" x2="'+P(s.x2,s.y2).split(',')[0]+'" y2="'+P(s.x2,s.y2).split(',')[1]+
-                     '" stroke="#000" stroke-width="'+Math.max(w,0.6)+'"/>');
+                     '" stroke="'+(/^#[0-9a-f]{6}$/i.test(String(s.color||'')) ? s.color : '#000')+'" stroke-width="'+Math.max(w,0.6)+'"/>');
             } else if(s.type==='polyline'||s.type==='polygon'){
               var pts=s.points.map(function(p){ return P(p[0],p[1]); }).join(' ');
               if(s.fill){
@@ -4812,6 +4812,7 @@
             TXFONT = (p.text_font!==false);
             DRAFTS = p.drafts || [];
             fillDrafts();
+            fillSets(p.sets);
             if($('txwords') && $('txwords').style) $('txwords').style.display = TXWORDS ? '' : 'none';
             if(p.text_rules && p.text_rules.w) TXR=p.text_rules;
             fillFonts();           // the letterings on offer, from the rules just given
@@ -5315,6 +5316,17 @@
             return document.querySelectorAll('#side .sec');
           }
 
+          // the list of sheet files (USE_SHEET_SETS): the open one selected; Main cannot be thrown away
+          function fillSets(sets){
+            var sec=$('setssec'); if(!sec) return;
+            if(!sets || !sets.names){ sec.style.display='none'; return; }
+            sec.style.display='';
+            var sel=$('setsel'); sel.innerHTML='';
+            sets.names.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=(n==='Main'?'Main - כל התוכניות':n); if(n===sets.active) o.selected=true; sel.appendChild(o); });
+            tag('setstag', sets.active);
+            var d=$('setdel'); d.style.display = (sets.active==='Main') ? 'none' : ''; d.setAttribute('data-arm',''); d.textContent='מחק את הקובץ';
+          }
+
           function openSection(key, on){
             var l=sections();
             for(var i=0;i<l.length;i++){
@@ -5369,7 +5381,7 @@
 
           // his groups, in his words; the last four only once there is something of them (or one is off)
           var GROUP_ROWS=[['walls','קירות'],['doors','דלתות'],['windows','חלונות'],['dims','מידות'],['notes','הערות'],
-                          ['text','כיתובים'],['pics','תמונות'],['lines','קווים'],['tile','TILE'],['plumbing','PLUMBING'],['electric','ELECTRICAL']];
+                          ['text','כיתובים'],['pics','תמונות'],['lines','קווים'],['tile','TILE'],['plumbing','PLUMBING'],['electric','ELECTRICAL'],['kitchen','KITCHEN']];
           // the three of his law are always there, in English, his way (2026-10-09: "אני רוצה אותן באנגלית את ה3")
           var GROUP_ALWAYS=['walls','doors','windows','dims','notes','text','pics','tile','plumbing','electric'];
           function buildLayers(){
@@ -5827,6 +5839,15 @@
             // a press anywhere else shuts the list
             document.addEventListener('mousedown', function(e){ var m=$('txfontmenu'); if(m && m.className==='on' && !(e.target && (e.target===$('txfontbtn') || (e.target.parentNode===m)))) fontMenu(false); });
             $('drawbtn').onclick=function(){ addDrawing(); };
+            // several sheet files (2026-10-15)
+            $('setsel').onchange=function(){ sketchup.sheet_set_switch(this.value); };
+            $('setnew').onclick=function(){ var n=($('setname').value||'').trim(); if(!n) return; $('setname').value=''; sketchup.sheet_set_new(n); };
+            $('setname').onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); $('setnew').onclick(); } };
+            $('setdel').onclick=function(){
+              if(this.getAttribute('data-arm')!=='1'){ this.setAttribute('data-arm','1'); this.textContent='לחץ שוב כדי למחוק'; return; }
+              this.setAttribute('data-arm',''); this.textContent='מחק את הקובץ';
+              sketchup.sheet_set_delete($('setsel').value);
+            };
             // Back to whatever its group says, rather than back to 100 - the
             // group is the drawing's own standard and that is what "normal"
             // means for one label inside it.

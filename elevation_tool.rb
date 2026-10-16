@@ -29,6 +29,10 @@ require 'json'
 require 'tmpdir'
 module InteriorPro
   module ElevationTool
+    remove_const(:USE_SHEET_SIZE) if const_defined?(:USE_SHEET_SIZE, false)
+    USE_SHEET_SIZE = true
+    remove_const(:SHEET_SIZES) if const_defined?(:SHEET_SIZES, false)
+    SHEET_SIZES = {1 => 1, 2 => 2, 3 => 4}.freeze
     remove_const(:USE_KITCHEN_SHEET_GRID) if const_defined?(:USE_KITCHEN_SHEET_GRID, false)
     USE_KITCHEN_SHEET_GRID = true
     remove_const(:USE_KITCHEN_AUTO_DEPTH) if const_defined?(:USE_KITCHEN_AUTO_DEPTH, false)
@@ -107,6 +111,13 @@ module InteriorPro
     # kitchen group whose box starts more than ON_WALL_PIC off that wall's face is put aside - the pendants, the island,
     # a sconce on the next wall. A whole kitchen unit decides, not its parts (the hood's cover). Off = as before.
     USE_ON_WALL_ONLY = true unless const_defined?(:USE_ON_WALL_ONLY, false)
+    # THE TILE OF A WALL WITH A NICHE STAYS (2026-10-15 16:41, his "אין טייל בתוך הניצ" in the elevation; measured
+    # debug_niche_tile.rb → niche_tile_report.txt): Room 2's East tile runs 4" INTO the wall where the niche is (out -4.0..0.63),
+    # so its middle fell 1.69" outside the room's outline and USE_ROOM_ONLY put the whole East tile aside. A tile_wall /
+    # tile_niche whose middle is within FRAME_NEAR of the outline and that comes out onto one of this room's faces stays.
+    # Off = by its middle alone, as before.
+    USE_TILE_ON_FACE = true unless const_defined?(:USE_TILE_ON_FACE, false)
+    TILE_FACE_TYPES = %w[tile_wall tile_niche].freeze unless const_defined?(:TILE_FACE_TYPES, false)
     # (2026-10-15 13:00, his "מזה התמונה השלישית שניראת נורא" - measured south_black_report.txt): the continuous backsplash is
     # ONE kitchen group over the whole L, its box touches South, so it stayed - and the section plane cut its far piece (out
     # 104.5..214.5) into a big black shape. The PIECES of a worktop group that stand off this wall are put aside too (back
@@ -128,6 +139,8 @@ module InteriorPro
     # widths in a chain under the floor, the upper ones' over the ceiling, the heights by the nearer wall (the counter, the
     # uppers, a tall one). A cabinet's width is its box's (an appliance's 35 15/16 = 36 at the half inch). Off = none.
     USE_KITCHEN_DIMS = true unless const_defined?(:USE_KITCHEN_DIMS, false)
+    # 16:51: the kitchen numbers only on the Kitchen sheet, not on the room's own walls. Off = on both, as at 12:59.
+    USE_KITCHEN_DIMS_ONLY_KITCHEN = true unless const_defined?(:USE_KITCHEN_DIMS_ONLY_KITCHEN, false)
     UPPER_Z = 30.0 unless const_defined?(:UPPER_Z, false)     # a cabinet starting this high is an upper one
     TALL_Z = 80.0 unless const_defined?(:TALL_Z, false)       # a base one reaching this high is a tall one
     # ROWS OF ELECTRIC DISTANCES NEVER ON EACH OTHER (12:16, his "המידות מבולגנות", measured kitchen_dims_report: on West the
@@ -1033,6 +1046,14 @@ module InteriorPro
             u0, u1, z0, z1 = r
             z0, z1 = kitchen_body_heights(e, wxf, fr, [z0, z1])
             out << { kind: 'cabinet', a0: [u0, 0.0].max, a1: [u1, side.len].min, z0: z0, z1: z1, w: u1 - u0, name: e.name.to_s }
+            if defined?(KitchenLab::USE_CABINET_LIGHTING) && KitchenLab::USE_CABINET_LIGHTING
+              cabinet=kitchen_cab(e)
+              data=JSON.parse(cabinet.get_attribute(KITCHEN_DICT,'data','{}')) rescue {}
+              if data['under_lighting'] || (data['shelf_lighting'] && data['style']=='glass')
+                out << {kind:'kitchen_light',a0:[u0+1,0.0].max,a1:[u1-1,side.len].min,z0:z0,z1:z1,w:u1-u0-2,name:'Kitchen LED',
+                  shelves:data['shelf_lighting'] ? data.fetch('shelf_count',3) : 0}
+              end
+            end
           elsif e.name.to_s =~ /countertop/i
             u0, u1, _z0, z1, o0, = InteriorPro::ElectricalLibrary.box_in_frame(e, wxf, fr)
             next unless o0 <= ON_WALL_PIC && o0 > -ON_WALL_PIC && [u1, side.len].min - [u0, 0.0].max > 0
@@ -1102,6 +1123,18 @@ module InteriorPro
           sd = near.call(mid.call(bases))
           col.call(sd, [0.0, ctop], nil, 'kitchen') unless used[sd]
         end
+        items.select{|item|item[:kind]=='kitchen_light'}.each_with_index do |item,index|
+          row=3+index
+          note=item[:shelves]>0 ? "#{item[:shelves]} shelf LED strips" : 'Under-cabinet LED'
+          out << {'k'=>'h','row'=>row,'u'=>[ux.call(item[:a1]),ux.call(item[:a0])],'v'=>vz.call(0.0),
+            't'=>"#{note} #{fmt_in(item[:a1]-item[:a0])}",'g'=>'electric'}
+          rows=[rows,row].max
+        end
+        if items.any?{|item|item[:kind]=='kitchen_light'}
+          rows+=1
+          out << {'k'=>'h','row'=>rows,'u'=>[ux.call(0),ux.call(len)],'v'=>vz.call(0.0),
+            't'=>'LED: recessed channel + diffuser; accessible driver','g'=>'electric'}
+        end
         rows
       end
 
@@ -1156,8 +1189,23 @@ module InteriorPro
             next !foreign_frame?(poly, t, ids)
           end
           c = world_centre(t)
+          next true if c && USE_TILE_ON_FACE && TILE_FACE_TYPES.include?(t.type) && tile_on_face?(poly, t, c)
           c.nil? || inside?(poly, c.x, c.y)
         end
+      end
+
+      # a tile of ours that comes out onto one of this room's faces (USE_TILE_ON_FACE): its middle near the outline and its
+      # box in front of a side's face (out past 0.1) along that side. PURE apart from the box.
+      def tile_on_face?(poly, t, c)
+        return false unless defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:box_in_frame)
+        return false if outline_gap(poly, c.x, c.y) > FRAME_NEAR
+        bz = poly.first.z
+        sides(poly).any? do |sd|
+          u0, u1, _z0, _z1, o0, o1 = InteriorPro::ElectricalLibrary.box_in_frame(t.ent, t.xf, side_frame(sd, bz))
+          o1 > 0.1 && o0 < ON_WALL_PIC && [u1, sd.len].min - [u0, 0.0].max > 0.1
+        end
+      rescue StandardError
+        false
       end
 
       # the things NOT on this wall (USE_ON_WALL_ONLY): our Things (walls, doors, windows and the ones already aside
@@ -1805,6 +1853,8 @@ module InteriorPro
           # the kitchen for its numbers (USE_KITCHEN_DIMS) - read HERE, before any wall puts its far cabinets aside (12:44,
           # measured: read inside the loop it lost what West had put aside, and South got no cabinet)
           kit_d = USE_KITCHEN_DIMS ? (USE_ON_WALL_ONLY ? kitchen : kitchen_tops(model)) : nil
+          # (16:51, his "לא צריך את המידות לקאבינט ברום ... הם כבר מופיעות במטבח"): the cabinets' numbers on the Kitchen sheet only
+          kit_d = nil if USE_KITCHEN_DIMS_ONLY_KITCHEN && label != KITCHEN_LABEL
           capture_sides = label == KITCHEN_LABEL ? kitchen_view_sides(poly, kitchen, base_z) : sides(poly)
           capture_sides.each do |side|
             next if only && !only.key?(side.name)
@@ -2088,6 +2138,59 @@ module InteriorPro
       # Boxes for pictures in a row, at one scale, in the top half of area [x, y, w, h].
       # sizes: [[w_px, h_px]]; cols: how many columns of heights stand right of each - or
       # [left, right] since the heights stand by both walls (USE_CLEAN_DIMS, 15:57).
+      def sheet_sizes
+        state = InteriorPro::PlanSheetDialog.load_state
+        state['elev_size'].is_a?(Hash) ? state['elev_size'] : {}
+      end
+
+      def sheet_size(state, title)
+        value = (state['elev_size'].is_a?(Hash) ? state['elev_size'][title.to_s] : nil).to_i
+        SHEET_SIZES.key?(value) ? value : 1
+      end
+
+      def remember_size!(title, value)
+        state = InteriorPro::PlanSheetDialog.load_state
+        state['elev_size'] = {} unless state['elev_size'].is_a?(Hash)
+        value = value.to_i
+        state['elev_size'][title.to_s] = SHEET_SIZES.key?(value) ? value : 1
+        InteriorPro::PlanSheetDialog.save_state(state)
+      end
+
+      def grid_boxes(area, sizes, cols, up = 0, size = 1)
+        return row_boxes(area, sizes, cols, up) unless USE_SHEET_SIZE && [2,3].include?(size.to_i) && !sizes.empty?
+        ax, ay, aw, ah = area.map(&:to_f)
+        er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
+        pads = sizes.each_index.map do |i|
+          c = cols[i]; l,r = c.is_a?(Array) ? c : [0,c.to_i]
+          [l.to_i*er+ROW_GAP/2.0,r.to_i*er+ROW_GAP/2.0]
+        end
+        best = nil
+        (1..[SHEET_SIZES[size.to_i],sizes.size].min).each do |rows|
+          count = (sizes.size.to_f/rows).ceil
+          groups = sizes.each_index.to_a.each_slice(count).to_a
+          height = ah/groups.size
+          scales = groups.flat_map do |indices|
+            width = indices.sum { |i| sizes[i][0].to_f }
+            padding = indices.sum { |i| pads[i].sum }
+            [(aw-padding)/width,(height-(3+up)*er-ROW_GAP)/indices.map { |i| sizes[i][1].to_f }.max]
+          end
+          scale = scales.min
+          next unless scale > 0 && (!best || scale > best[0])
+          boxes = Array.new(sizes.size)
+          groups.each_with_index do |indices,row|
+            used = indices.sum { |i| sizes[i][0]*scale+pads[i].sum }
+            x = ax+(aw-used)/2.0
+            indices.each do |i|
+              w,h = sizes[i].map { |v| v.to_f*scale }
+              boxes[i] = [x+pads[i][0],ay+ah-row*height-up*er-ROW_GAP/2.0-h,w,h]
+              x += w+pads[i].sum
+            end
+          end
+          best = [scale,boxes]
+        end
+        best ? best[1] : row_boxes(area, sizes, cols, up)
+      end
+
       def row_boxes(area, sizes, cols, up = 0)
         ax, ay, aw, ah = area.map(&:to_f)
         er = defined?(InteriorPro::PlanCanvas::ELEV_ROW) ? InteriorPro::PlanCanvas::ELEV_ROW : 0.45
@@ -2201,6 +2304,7 @@ module InteriorPro
             # the kitchen's uppers' row stands over the ceiling (USE_KITCHEN_DIMS): room for it over the row of pictures
             ups = fresh.map { |p| Array(dd[p]).select { |x| x['up'] }.map { |x| x['row'].to_i }.max.to_i }.max.to_i
             boxes = row_boxes(pc.pic_area(pg), sizes, cols, ups)
+            boxes = grid_boxes(pc.pic_area(pg), sizes, cols, ups, sheet_size(st, sheet_title)) if USE_SHEET_SIZE && sheet_size(st, sheet_title) > 1
             boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups) if sheet_title == KITCHEN_LABEL
         boxes = kitchen_boxes(pc.pic_area(pg), sizes, cols, ups, plan: false) if sheet_title.to_s.start_with?("#{KITCHEN_LABEL} - Island ")
             fresh.each_with_index do |p, i|

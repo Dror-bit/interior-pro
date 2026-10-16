@@ -73,7 +73,7 @@ module KitchenLab
         end
       end
       if cooktop?(d)
-        x,y,right,back=cooktop_bounds(d);z=d['height']+1.5
+        x,y,right,back=cooktop_bounds(d);z=d['height']+KitchenLab.settings.fetch('countertop_thickness',1.5)
         cx,cy,cr,cb=cooktop_bounds(d,true)
         add.call('Cooktop body',cx+0.0625,cy+0.0625,z-h,cr-cx-0.125,cb-cy-0.125,h,glass)
         add.call('Cooktop surface',x,y,z,w,dep,0.08,a.dig('appearance','cooktop')=='gas' ? finish : glass)

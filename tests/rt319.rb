@@ -40,5 +40,6 @@ ok('no raytest (stub model): 0, no crash', L.kitchen_face_ray(fr, 10, 13, 40, 44
 src = File.read('./electrical_library.rb')
 ok('check and refront! take the larger of the box rule and the ray',
    src.scan('kitchen_face_ray(fr, u0, u1, z0, z1').size == 3 && src.include?('kf = [kf, kitchen_face_ray(fr, u0, u1, z0, z1, model)].max'))
+ok(%q(refront! can run inside the kitchen operation (op: false): no operation of its own), src.include?(%q(def self.refront!(model = Sketchup.active_model, op: true))) && src.include?(%q(start_operation(%q(Electrical To The Face), true) if op).sub(%q(%q(Electrical To The Face)), %q('Electrical To The Face'))) && src.include?(%q(model.commit_operation if op)))
 puts($fails.zero? ? "\nALL PASS" : "\n#{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

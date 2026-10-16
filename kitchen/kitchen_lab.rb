@@ -128,7 +128,12 @@ module KitchenLab
       raise 'Backsplash requires a base cabinet' if d['backsplash']['mode']!='none' && !Backsplash.eligible?(d)
     end
     raise 'Invalid hood molding option' if d.key?('hood_molding') && ![true,false].include?(d['hood_molding'])
-    d.slice('hood_molding','pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
+    %w[under_lighting shelf_lighting].each{|key|raise 'Invalid cabinet lighting option' if d.key?(key) && ![true,false].include?(d[key])}
+    if d.key?('shelf_count')
+      d['shelf_count']=Integer(d['shelf_count']);raise 'Choose 2 or 3 glass cabinet shelves' unless [2,3].include?(d['shelf_count'])
+    end
+    raise 'Invalid waterfall side' if d['waterfall'] && !%w[none left right both].include?(d['waterfall'])
+    d.slice('under_lighting','shelf_lighting','shelf_count','waterfall','appliance_garage','hood_molding','pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
   end
 
   # Row heights are visible front sizes, ordered from top to bottom.
@@ -186,13 +191,15 @@ module KitchenLab
 
   def self.validate_settings(raw,current=settings)
     raise 'Invalid kitchen settings' unless raw.is_a?(Hash)
-    allowed=%w[backsplash island_countertop_material countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
+    allowed=%w[countertop_thickness backsplash island_countertop_material countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
     raise 'Use placement commands for kitchen position' unless (raw.keys-allowed).empty?
     %w[global_door_handle_model global_drawer_handle_model].each { |key|HandleCatalog.validate_id(raw[key]) }
     CountertopMaterials.validate(raw['countertop_material']) if raw.key?('countertop_material')
     CountertopMaterials.validate(raw['island_countertop_material']) if raw.key?('island_countertop_material')
     raw=raw.merge('backsplash'=>Backsplash.validate(raw['backsplash'])) if raw.key?('backsplash')
     s=crown_settings(current.merge(raw))
+    s['countertop_thickness']=Float(s.fetch('countertop_thickness',1.5))
+    raise 'Countertop thickness must be 0.25–6 inches' unless s['countertop_thickness'].finite? && s['countertop_thickness'].between?(0.25,6)
     %w[shaker_width shaker_inset].each { |key| s[key]=Float(raw.fetch(key,current.fetch(key))) }
     raise 'Frame width must be 0.25–6 inches' unless s['shaker_width'].finite? && s['shaker_width'].between?(0.25,6)
     raise 'Panel inset must be 0–0.625 inches' unless s['shaker_inset'].finite? && s['shaker_inset'].between?(0,0.625)
@@ -295,11 +302,12 @@ module KitchenLab
     g.set_attribute(DICT,'kind','cabinet');g.set_attribute(DICT,'id',d['id']);g.set_attribute(DICT,'data',JSON.generate(d))
     g.set_attribute(DICT,'schema_version',1)
     if open_corner?(d)
-      build_corner_cabinet(g.entities,d);g.transformation=cabinet_transform(d);return g
+      build_corner_cabinet(g.entities,d);build_cabinet_lighting!(g.entities,d,material(d['finish'],FINISHES[d['finish']]));g.transformation=cabinet_transform(d);return g
     end
     if %w[fridge oven wall_oven dishwasher hood microwave].include?(d['kind'])
       build_appliance(g.entities,d)
       g.transformation=cabinet_transform(d)
+      g.set_attribute(DICT,'chimney_fit',JSON.generate([g.transformation.origin.z.to_f,crown_ceiling_for(d)])) if d['kind']=='hood' && USE_HOOD_CHIMNEY_CEILING
       return g
     end
     if %w[filler corner].include?(d['kind'])
@@ -368,10 +376,45 @@ module KitchenLab
       cursor-=gap
     end
     box(e,'Top panel',0,-dep+0.75,h-0.75,w,dep-0.75,0.75,finish) if %w[wall tall oven_tower micro_tower fridge_surround].include?(d['kind'])
+    build_cabinet_lighting!(e,d,finish)
     build_sink(e,d)
     build_catalog_appliance(e,d) if ApplianceCatalog.cooktop?(d)
     g.transformation=cabinet_transform(d)
     g
+  end
+
+  remove_const(:USE_CABINET_LIGHTING) if const_defined?(:USE_CABINET_LIGHTING,false)
+  USE_CABINET_LIGHTING=true
+  def self.build_cabinet_lighting!(entities,d,finish)
+    return unless USE_CABINET_LIGHTING
+    w=d['width'];depth=d['depth'];height=d['height'];levels=[]
+    if d['style']=='glass'
+      count=d.fetch('shelf_count',3);toe=%w[wall corner_upper].include?(d['kind']) ? 0 : d.fetch('toe_height',0)
+      count.times do |i|
+        z=toe+(height-toe)*(i+1)/(count+1.0)
+        if open_corner?(d)
+          corner_panel(entities,"Interior shelf #{i+1}",w-0.75,depth-1,z,0.75,finish)
+        else
+          box(entities,"Interior shelf #{i+1}",0.75,-depth+1,z,w-1.5,depth-1.5,0.75,finish)
+        end
+        levels<<z-0.2 if d['shelf_lighting']
+      end
+    end
+    levels<<-0.2 if d['under_lighting'] && %w[wall corner_upper].include?(d['kind']) && !d['appliance_garage']
+    light_mat=material('Kitchen LED diffuser','#FFF0D6')
+    levels.each_with_index do |z,i|
+      light=entities.add_group;light.name="LED strip #{i+1}"
+      a=box(light.entities,'Diffuser A',1,-depth+1.5,z,w-2,0.5,0.2,light_mat)
+      a.set_attribute(DICT,'led_emitter',true)
+      if open_corner?(d) && w>depth+1
+        b=box(light.entities,'Diffuser B',depth-2,-w+1,z,0.5,w-depth-1,0.2,light_mat)
+        b.set_attribute(DICT,'led_emitter',true)
+      end
+      light.layer=@model.layers['Kitchen lighting'] || @model.layers.add('Kitchen lighting')
+      light.set_attribute('InteriorPro','type','lighting')
+      light.set_attribute(DICT,'lighting',true)
+      light.set_attribute(DICT,'installation','LED in recessed aluminum channel with diffuser; concealed wiring to accessible driver; coordinate switching.')
+    end
   end
 
   def self.build_appliance(e,d)
@@ -425,8 +468,39 @@ module KitchenLab
     end
   end
 
+  remove_const(:USE_COUNTERTOP_WATERFALL) if const_defined?(:USE_COUNTERTOP_WATERFALL,false)
+  USE_COUNTERTOP_WATERFALL=true
+  remove_const(:USE_HOOD_CHIMNEY_CEILING) if const_defined?(:USE_HOOD_CHIMNEY_CEILING,false)
+  USE_HOOD_CHIMNEY_CEILING=true
+  def self.build_waterfalls!
+    return unless USE_COUNTERTOP_WATERFALL
+    data=state['cabinets'];thickness=settings.fetch('countertop_thickness',1.5)
+    data.each do |d|
+      next unless %w[doors drawers sink dishwasher corner_base corner_lazy].include?(d['kind']) && !d['surround_for']
+      sides=d['waterfall']=='both' ? %w[left right] : [d['waterfall']]
+      sides.each do |side|
+        next unless %w[left right].include?(side)
+        x=side=='left' ? -thickness : d['width']
+        xf=cabinet_transform(d)
+        probe=d.merge('kind'=>'doors','rotation'=>0,'offset_y'=>0,'width'=>thickness,'house_placement'=>{'x'=>xf.origin.x+x*xf.xaxis.x,'y'=>xf.origin.y+x*xf.xaxis.y,'angle'=>Math.atan2(xf.xaxis.y,xf.xaxis.x)*180/Math::PI,'handedness'=>xf.xaxis.cross(xf.yaxis).z>0 ? 1 : -1},'x'=>0,'flip_x'=>false,'flip_y'=>false)
+        raise 'Waterfall needs an exposed cabinet side.' if data.any?{|other|other['id']!=d['id'] && Spatial.overlap?(probe,other,settings)}
+        g=box(@model.entities,'Kitchen / Waterfall',x,-d['depth']-1,-d['z'],thickness,d['depth']+1,d['z']+d['height']+thickness,CountertopMaterials.for_cabinet(d))
+        g.transformation=xf;g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);g.set_attribute(DICT,'waterfall',side)
+      end
+    end
+  end
+
   def self.worktops!
     unpack_units!
+    if USE_HOOD_CHIMNEY_CEILING
+      cabinets.each do |g|
+        d=state['cabinets'].find{|c|c['id']==g.get_attribute(DICT,'id')}
+        next unless d && d['kind']=='hood'
+        fit=JSON.generate([cabinet_transform(d).origin.z.to_f,crown_ceiling_for(d)])
+        next if g.get_attribute(DICT,'chimney_fit')==fit
+        g.erase!;build(d)
+      end
+    end
     @model.entities.grep(Sketchup::Group).select { |g| g.get_attribute(DICT,'kind')=='worktop' }.each(&:erase!)
     bases=state['cabinets'].reject { |d| d['surround_for']||open_corner?(d)||%w[wall tall fridge oven wall_oven oven_tower micro_tower fridge_surround hood microwave].include?(d['kind']) }.sort_by { |d| [wall_of(d),d['x']] }
     runs=[]
@@ -438,7 +512,7 @@ module KitchenLab
       end
       holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.automatic_cooktop_cutout?(d)
       mat=CountertopMaterials.for_cabinet(d)
-      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],1.5,holes,mat)
+      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,settings.fetch('countertop_thickness',1.5),mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],settings.fetch('countertop_thickness',1.5),holes,mat)
       g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     bases.each do |d|
@@ -461,13 +535,13 @@ module KitchenLab
         x,y,right,back=ApplianceCatalog.cooktop_bounds(d,true);[d['x']+x,y,d['x']+right,back]
       end
       mat=CountertopMaterials.for_cabinet(d)
-      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',r[:start],-r[:depth]-overhang,r[:z],r[:end]-r[:start],r[:depth]+overhang,1.5,mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[r[:start],-r[:depth]-overhang,r[:end],0],r[:z],1.5,holes,mat)
+      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',r[:start],-r[:depth]-overhang,r[:z],r[:end]-r[:start],r[:depth]+overhang,settings.fetch('countertop_thickness',1.5),mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[r[:start],-r[:depth]-overhang,r[:end],0],r[:z],settings.fetch('countertop_thickness',1.5),holes,mat)
       g.transformation=wall_transform(r[:wall])
       g.set_attribute(DICT,'kind','worktop')
     end
     state['cabinets'].select { |d| %w[corner_base corner_lazy].include?(d['kind']) }.each do |d|
       top=d['height']
-      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,1.5,CountertopMaterials.for_cabinet(d));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
+      g=corner_panel(@model.entities,'Kitchen / Corner worktop',d['width'],d['depth']+1,top,settings.fetch('countertop_thickness',1.5),CountertopMaterials.for_cabinet(d));g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     # A base microwave bundle carries a worktop across its two side panels.
     state['cabinets'].select { |d| ApplianceCatalog.microwave_base?(d) }.each do |d|
@@ -476,14 +550,17 @@ module KitchenLab
       left=sides.find { |p| p['surround_part']=='left' };right=sides.find { |p| p['surround_part']=='right' }
       lp=Spatial.cabinet_point(left,0,0,settings);rp=Spatial.cabinet_point(right,right['width'],0,settings)
       width=Math.sqrt((rp[0]-lp[0])**2+(rp[1]-lp[1])**2)
-      slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,1.5,CountertopMaterials.for_cabinet(d))
+      slab=box(@model.entities,'Kitchen / Worktop',0,-left['depth']-1,left['height'],width,left['depth']+1,settings.fetch('countertop_thickness',1.5),CountertopMaterials.for_cabinet(d))
       slab.transformation=cabinet_transform(left);slab.set_attribute(DICT,'kind','worktop');slab.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(slab,left.merge('width'=>width),d)
     end
     Backsplash.build_ranges!
     ContinuousSurfaces.build!
+    build_waterfalls!
     crowns!
     pack_units!
     @model.set_attribute(DICT,'backsplash_opening_signature',Backsplash.opening_signature(@model))
+    # 2026-10-15 (Claude, his "הם צריכים לעקוב אחריו אוטומטית"): the outlets / switches on the backsplash go to its new face
+    (InteriorPro::ElectricalLibrary.refront!(@model, op: false) if defined?(InteriorPro::ElectricalLibrary) && InteriorPro::ElectricalLibrary.respond_to?(:refront!)) rescue nil
   end
 
   # Try the opposite edge when a width-only expansion hits a neighbour.
@@ -729,3 +806,49 @@ load File.join(__dir__,'kitchen_backsplash.rb')
 load File.join(__dir__,'kitchen_pullouts.rb')
 
 load File.join(__dir__,'kitchen_hood_miters.rb')
+
+# V-Ray's documented export notifications keep lights tied to visible model
+# geometry, including cabinet moves, deletion, copies and Undo.
+module KitchenLab
+  remove_const(:USE_VRAY_CABINET_LIGHTS) if const_defined?(:USE_VRAY_CABINET_LIGHTS,false)
+  USE_VRAY_CABINET_LIGHTS=true
+  class CabinetLightExport
+    def on_model_exporter_created(exporter);exporter.subscribe(self);end
+    def on_context_created(context);context.subscribe(self);end
+    def on_model_exported(exporter)
+      return unless KitchenLab::USE_VRAY_CABINET_LIGHTS
+      renderer=exporter.renderer;prefix='InteriorPro_Kitchen_LED_'
+      renderer.grep(:LightRectangle).to_a.each{|p|renderer.delete(p.name) if p.name.start_with?(prefix)}
+      walk=lambda do |entities,xf,path|
+        entities.each do |entity|
+          next unless entity.respond_to?(:transformation)
+          next if entity.hidden? || !entity.layer.visible?
+          transform=xf*entity.transformation;key=path+[entity.persistent_id]
+          if entity.get_attribute(KitchenLab::DICT,'led_emitter')
+            bounds=entity.definition.bounds
+            center=Geom::Point3d.new(bounds.center.x,bounds.center.y,bounds.min.z-0.01).transform(transform)
+            x=transform.xaxis;y=transform.yaxis;z=transform.zaxis
+            light=renderer.create(:LightRectangle,prefix+key.join('_'))
+            raise 'V-Ray could not create the kitchen LED emitter.' unless light
+            light[:transform]=VRay::Transform.new(x.x,x.y,x.z,-y.x,-y.y,-y.z,-z.x,-z.y,-z.z,center.x,center.y,center.z)
+            light[:u_size]=(bounds.max.x-bounds.min.x)/2.0;light[:v_size]=(bounds.max.y-bounds.min.y)/2.0
+            light[:color]=VRay::Color.new(1.0,0.82,0.62)
+            light[:intensity]=30.0;light[:units]=0;light[:invisible]=true
+          else
+            walk.call(entity.definition.entities,transform,key)
+          end
+        end
+      end
+      walk.call(exporter.model.entities,Geom::Transformation.new,[])
+    end
+  end
+  if defined?(VRay::Context)
+    if @cabinet_light_export
+      VRay::Context.unsubscribe(@cabinet_light_export)
+      VRay::Context.active&.unsubscribe(@cabinet_light_export)
+    end
+    @cabinet_light_export=CabinetLightExport.new
+    VRay::Context.subscribe(@cabinet_light_export)
+    VRay::Context.active&.subscribe(@cabinet_light_export)
+  end
+end

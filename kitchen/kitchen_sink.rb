@@ -89,7 +89,7 @@ module KitchenLab
 
   def self.build_sink(entities,d)
     return unless Sink.active?(d)
-    s=Sink.spec(d);x,y,right,back=Sink.bounds(d);w=right-x;dep=back-y;top=d['height']+1.5
+    s=Sink.spec(d);x,y,right,back=Sink.bounds(d);w=right-x;dep=back-y;top=d['height']+KitchenLab.settings.fetch('countertop_thickness',1.5)
     if s['product_id']
       SinkCatalog.build(entities,d)
     else
