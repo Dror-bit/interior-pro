@@ -38,9 +38,9 @@ SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m]
 ok('the niche is on the surfaces bar', SURF.include?("UI::Command.new('Niche')"))
 ok('after a separator line', SURF.index('tb.add_separator').to_i > SURF.index('tile_edit_cmd]').to_i)
 ok('and AFTER the old buttons, never in the middle of their list',
-   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]'))
+   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_split_cmd, tile_edit_cmd]'))
 ok('added by name, so a reload cannot duplicate it', SURF.include?('on_bar.include?'))
-ok('the one-day separate bar is hidden', BAR.include?("'Interior Pro Niche'].each"))
+ok('the one-day separate bar is hidden', BAR[/def self\.hide_old_bars!.*?\n    end\n/m].to_s.include?("'Interior Pro Niche'"))
 
 puts($fails.zero? ? 'rt193 OK' : "rt193 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)

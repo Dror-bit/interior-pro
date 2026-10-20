@@ -89,7 +89,8 @@ module InteriorPro
     # duplicates until he restarts and not seeing them at all.
     def self.hide_old_bars!
       [LEGACY_TOOLBAR_NAME, CLEAN_TOOLBAR_NAME, 'Interior Pro Floors',
-       'Interior Pro Tile', 'Interior Pro Surfaces', 'Interior Pro Niche'].each do |name|
+       'Interior Pro Tile', 'Interior Pro Surfaces', 'Interior Pro Niche',
+       'Interior Pro Surface Tools'].each do |name|
         tb = UI::Toolbar.new(name)
         # HIDE IT EVEN WHEN IT IS EMPTY (2026-09-18). He asked "מה הכלי
         # הריק הזה?" - it was the old Surfaces bar, length 0 and still
@@ -384,7 +385,11 @@ module InteriorPro
     # AND SO IT CANNOT HAPPEN AGAIN: the buttons are a list, and only the
     # ones past what the bar already holds are added. A new button from now
     # on is one more line in the list and nothing else.
-    SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools' unless const_defined?(:SURFACES_TOOLBAR_NAME, false)
+    # A NEW NAME AGAIN (2026-10-20, his picture with an arrow): Split Tile
+    # moves next to Stretch Tile. A button cannot be moved or slipped into
+    # the middle of a bar that exists, so the old bar is hidden and this
+    # one is built fresh in the new order.
+    SURFACES_TOOLBAR_NAME = 'Interior Pro Surfaces Bar' unless const_defined?(:SURFACES_TOOLBAR_NAME, false)
 
     def self.setup_surfaces_toolbar
       tb = UI::Toolbar.new(SURFACES_TOOLBAR_NAME)
@@ -427,7 +432,18 @@ module InteriorPro
       tile_edit_cmd.small_icon = icon_path('tile_edit')
       tile_edit_cmd.large_icon = icon_path('tile_edit')
 
-      buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_edit_cmd]
+      # SPLIT A TILED AREA (2026-09-23, his words: "כמו חיתוך קירות ואז זה
+      # מתייחס לכל קיר טיל בנפרד ואני יכול לערוך אותו"). Next to Stretch
+      # Tile since 2026-10-20 (his arrow) - was its own line further on.
+      tile_split_cmd = UI::Command.new('Split Tile') {
+        Sketchup.active_model.select_tool(InteriorPro::TileWallSplitTool.new)
+      }
+      tile_split_cmd.tooltip = 'Split Tile - cut a tiled area in two, each part edited on its own'
+      tile_split_cmd.status_bar_text = 'Move over a tiled area and click where to cut. Arrows: Up/Down = lying cut, Left/Right = standing cut'
+      tile_split_cmd.small_icon = icon_path('tile_split')
+      tile_split_cmd.large_icon = icon_path('tile_split')
+
+      buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_split_cmd, tile_edit_cmd]
       have = tb.length
       buttons.each_with_index { |cmd, i| tb.add_item(cmd) if i >= have }
 
@@ -500,19 +516,6 @@ module InteriorPro
       tb.add_separator unless on_bar.include?('Shower Floor')
       shower_buttons.each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
 
-      # SPLIT A TILED AREA (2026-09-23, his words: "כמו חיתוך קירות ואז זה
-      # מתייחס לכל קיר טיל בנפרד ואני יכול לערוך אותו"). Its own line on the
-      # END of the bar, added BY NAME - the same rule as the groups above.
-      tile_split_cmd = UI::Command.new('Split Tile') {
-        Sketchup.active_model.select_tool(InteriorPro::TileWallSplitTool.new)
-      }
-      tile_split_cmd.tooltip = 'Split Tile - cut a tiled area in two, each part edited on its own'
-      tile_split_cmd.status_bar_text = 'Move over a tiled area and click where to cut. Arrows: Up/Down = lying cut, Left/Right = standing cut'
-      tile_split_cmd.small_icon = icon_path('tile_split')
-      tile_split_cmd.large_icon = icon_path('tile_split')
-      tb.add_separator unless on_bar.include?('Split Tile')
-      tb.add_item(tile_split_cmd) unless on_bar.include?('Split Tile')
-
       # PLUMBING (2026-09-25, step 1): shower heads and toilets, picked from
       # a list with pictures and placed on a wall face with a ghost at a
       # set height. Its own line on the END of the bar, added BY NAME -
@@ -533,7 +536,13 @@ module InteriorPro
       fixture_edit_cmd.small_icon = icon_path('plumbing_edit')
       fixture_edit_cmd.large_icon = icon_path('plumbing_edit')
       tb.add_separator unless on_bar.include?('Plumbing')
-      [fixture_cmd, fixture_edit_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
+      vanity_cmd = UI::Command.new('Vanity') { InteriorPro::Vanity.open }
+      vanity_cmd.tooltip = 'Vanity - bathroom cabinets and makeup layouts'
+      vanity_cmd.status_bar_text = 'Create a Vanity, then place it with a ghost preview'
+      vanity_icon = File.join(File.dirname(__FILE__), 'vanity', 'vanity_icon.svg')
+      vanity_cmd.small_icon = vanity_icon
+      vanity_cmd.large_icon = vanity_icon
+      [fixture_cmd, fixture_edit_cmd, vanity_cmd].each { |cmd| tb.add_item(cmd) unless on_bar.include?(cmd.menu_text.to_s) }
 
       tb.restore
     end

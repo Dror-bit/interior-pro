@@ -106,7 +106,7 @@ ok('a cut through a niche is refused', ST.split_area!($area, :h, 50.0).nil? && $
 ok('a cut past the niche is fine', !ST.split_area!($area, :h, 30.0).nil?)
 
 src = File.read('./toolbar.rb')
-ok('a Split Tile button on the bar, added by name at the end', src.include?("UI::Command.new('Split Tile')") && src.include?("on_bar.include?('Split Tile')"))
+ok('a Split Tile button on the bar, next to Stretch Tile', src.include?("UI::Command.new('Split Tile')") && src.include?('tile_stretch_cmd, tile_split_cmd, tile_edit_cmd]'))
 ok('main.rb loads the tool', File.read('./main.rb').include?('tile_wall_split_tool.rb'))
 
 puts $fails.zero? ? 'ALL PASS' : "#{$fails} FAILED"

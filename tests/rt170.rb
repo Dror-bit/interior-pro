@@ -84,7 +84,11 @@ ok('the surfaces bar adds only the buttons it is missing',
 ok('and it has no count guard left to fall out of step with',
    SURF !~ /return if tb\.length >= \d+/)
 ok('the bar it builds is a NEW one, the old one cannot be cleaned up',
-   BAR.include?("SURFACES_TOOLBAR_NAME = 'Interior Pro Surface Tools'"))
+   BAR.include?("SURFACES_TOOLBAR_NAME = 'Interior Pro Surfaces Bar'"))
+ok('and the bar before it is hidden too (Split Tile moved, 2026-10-20)',
+   BAR[/def self\.hide_old_bars!.*?\n    end\n/m].to_s.include?("'Interior Pro Surface Tools'"))
+ok('Split Tile sits between Stretch Tile and Edit Tile',
+   SURF.include?('buttons = [floors_cmd, tile_wall_cmd, tile_stretch_cmd, tile_split_cmd, tile_edit_cmd]'))
 ok('and the old surfaces bar is hidden, or he keeps seeing both',
    BAR[/def self\.hide_old_bars!.*?\n    end\n/m].to_s.include?("'Interior Pro Surfaces'"))
 

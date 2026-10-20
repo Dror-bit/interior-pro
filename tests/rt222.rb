@@ -51,7 +51,7 @@ ok('back on the wall, height to the anchor point', lib.include?('Geom::Vector3d.
 BAR = File.read('./toolbar.rb')
 SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
 ok('Plumbing is on the surfaces bar', SURF.include?("UI::Command.new('Plumbing')"))
-ok('on the END, after Split Tile', SURF.index("'Plumbing'").to_i > SURF.index("tb.add_item(tile_split_cmd)").to_i)
+ok('on the END, after the shower floor', SURF.index("'Plumbing'").to_i > SURF.index("'Shower Floor'").to_i)
 ok('added by name, so a reload cannot duplicate it', SURF.include?("on_bar.include?('Plumbing')") && SURF.include?('on_bar.include?(cmd.menu_text.to_s)'))
 MAIN = File.read('./main.rb')
 ok('main loads the three files after the niche tool',
