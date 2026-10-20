@@ -31,12 +31,16 @@ module KitchenLab
       p=selected(d,horizontal,s);return nil unless p
       vertical=!horizontal && p['vertical_allowed'] && p['ctc']
       bounds=p['actual_bounds_in'];xmin,xmax=bounds[0];zmin,zmax=bounds[1]
-      xmin,xmax,zmin,zmax=-zmax,-zmin,xmin,xmax if vertical
       pos=d.fetch('handle_position','auto');auto=pos=='auto'
+      # A ceiling-fitted upper above a refrigerator may be shorter than the
+      # project pull. Keep that exact pull, horizontally centered, in Auto only.
+      rotate_to_fit=auto && d['surround_part']=='upper' && vertical && xmax-xmin>h-0.25 && xmax-xmin<=w-0.25
+      vertical=false if rotate_to_fit
+      xmin,xmax,zmin,zmax=-zmax,-zmin,xmin,xmax if vertical
       pos=horizontal || d['kind']=='tall' ? 'center' : (%w[wall corner_upper].include?(d['kind']) || d['_upper_front'] ? 'bottom' : 'top') if auto
       rail=%w[shaker glass].include?(d['style']) ? s.fetch('shaker_width',2.25) : 2.0
       offset=auto ? rail : d.fetch('handle_offset',rail);edge=auto ? rail/2 : d.fetch('handle_side',rail/2)
-      cx=horizontal ? w/2 : (left ? w-edge : edge)
+      cx=horizontal || rotate_to_fit ? w/2 : (left ? w-edge : edge)
       half=vertical ? p['ctc']/2.0 : 0
       cz=pos=='top' ? h-offset-half : pos=='bottom' ? offset+half : h/2
       cx=[[cx,0.125-xmin].max,w-0.125-xmax].min if auto

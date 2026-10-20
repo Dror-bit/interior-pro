@@ -58,7 +58,7 @@ module KitchenLab
   def self.write_document!(data,options);self.test_doc=Document.create(options,data,test_doc['revision']+1);end
   def self.cabinets;[];end
   def self.build(d);raise 'Injected geometry failure' if fail_build;end
-  def self.worktops!;end
+  def self.worktops!(previous: nil);end
   def self.publish(*);end
 end
 model=FakeKitchenModel.new

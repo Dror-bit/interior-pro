@@ -73,12 +73,56 @@ module InteriorPro
         next if zs.max <= z0 + 0.1 || zs.min >= z1 - 0.1
         next if ds.min > STOP_NEAR || ds.min < -8.0
         next if s[:kind] == :tile && ds.max > STOP_NEAR
+        # it must come out to THIS face: the tile of the room behind the wall (other face, out -5.13..-4.5,
+        # molding_stops_report 19:42) cut the molding of Room 1. A niche tile reaches the face (-4..0.63).
+        next if ds.max <= 0.05
         out << { a: ts.min, b: ts.max, kind: :stop }
       end
       out
     rescue StandardError => e
       puts "[Molding] stop_gaps: #{e.class}: #{e.message}"
       []
+    end
+
+    # Baseboard stops use carcasses, not the unit envelope containing crown/handles.
+    remove_const(:USE_BASEBOARD_CABINET_BODY) if const_defined?(:USE_BASEBOARD_CABINET_BODY, false)
+    USE_BASEBOARD_CABINET_BODY = true
+
+    def baseboard_cabinet_stoppers(ents = Sketchup.active_model.entities, outer = Geom::Transformation.new, depth = 0, out = [])
+      ents.each do |e|
+        next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
+        next unless e.valid?
+        next if e.respond_to?(:hidden?) && e.hidden?
+        type = e.get_attribute('InteriorPro', 'type').to_s
+        kind = e.get_attribute('KitchenLab', 'kind').to_s
+        next unless type.empty?
+        tr = outer * e.transformation
+        if kind == 'cabinet'
+          data = begin; JSON.parse(e.get_attribute('KitchenLab', 'data').to_s); rescue JSON::ParserError; {}; end
+          w, d, h = %w[width depth height].map { |key| data[key].to_f }
+          pts = if [w, d, h].all? { |v| v > 0 }
+                  [0.0, w].product([-d, 0.0], [0.0, h]).map { |xyz| Geom::Point3d.new(*xyz).transform(tr) }
+                else
+                  (0..7).map { |i| e.bounds.corner(i).transform(outer) }
+                end
+          out << { kind: :cab, pts: pts }
+        elsif (kind.empty? || kind == 'kitchen_unit') && depth < 5
+          kids = e.is_a?(Sketchup::ComponentInstance) ? e.definition.entities : e.entities
+          baseboard_cabinet_stoppers(kids, tr, depth + 1, out)
+        end
+      end
+      out
+    end
+
+    def baseboard_stop_gaps(wall, geo, z0, z1)
+      return stop_gaps(wall, geo, z0, z1) unless USE_BASEBOARD_CABINET_BODY
+      saved = @stoppers
+      begin
+        @stoppers = stoppers.reject { |s| s[:kind] == :cab } + baseboard_cabinet_stoppers
+        stop_gaps(wall, geo, z0, z1)
+      ensure
+        @stoppers = saved
+      end
     end
 
     # The two long face edges of a wall from its stored (mitered) corners.
@@ -165,7 +209,7 @@ module InteriorPro
         { a: g[:t] - g[:width] / 2.0, b: g[:t] + g[:width] / 2.0, kind: :door }
       end
       gaps += tee_gaps.map { |g| { a: g[:a], b: g[:b], kind: :tee } }
-      gaps += stop_gaps(wall, geo, 0.0, base_top)
+      gaps += baseboard_stop_gaps(wall, geo, 0.0, base_top)
       segs = segments_ex(geo[:len], gaps)
       make_molding_group(wall, 'baseboard', profile_name, side, height) do |ge|
         segs.each do |s|
@@ -648,6 +692,7 @@ module InteriorPro
         count += 1 if wall_built
       end
       end
+      KitchenLab::CrownJoints.refresh_from_house! if defined?(KitchenLab::CrownJoints)
       model.commit_operation
       puts "[Molding] applied to #{count}/#{ws.length} walls, #{built} runs (base=#{base_name.inspect} crown=#{crown_name.inspect})"
     rescue StandardError => e

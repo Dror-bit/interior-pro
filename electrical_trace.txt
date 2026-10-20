@@ -422,3 +422,8 @@
 2026-10-14 18:03:13 2D: drag plumb fix-tmlvkv-3799: GREEN wall 3b85b93f t 27.19 on 5.00..259.00 | sign h 78.317 w 9.843 hh 2.864 gangs undefined
 2026-10-14 18:03:13 2D plumbing: shower_set fix-tmlvkv-3799 MOVED: wall 3b85b93f side a u 27.19
 2026-10-14 20:34:19 Switch PLACED: wall c8a403d4 side a u 85.4 height 48.0 turn 0 off the wall 0.375
+2026-10-16 09:49:14 2D: recessed elec-tmvmun-7402 MOVED to -570.0, 368.17 - ceiling built again with the hole
+2026-10-16 09:49:16 2D: recessed elec-tmvmun-6142 MOVED to -654.67, 368.17 - ceiling built again with the hole
+2026-10-19 11:58:49 2D: drag plumb fix-tmwvvp-1156 (not moved): no wall under the mouse | sign h 14.665 w 15.827 hh 14.665 gangs undefined
+2026-10-19 11:58:52 2D: drag plumb fix-tmwvvp-1156: GREEN wall 849179b2 t 27.20 on 4.50..91.60 | sign h 14.665 w 15.827 hh 14.665 gangs undefined
+2026-10-19 11:58:52 2D plumbing: toilet fix-tmwvvp-1156 MOVED: wall 849179b2 side a u 27.2

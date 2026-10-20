@@ -1,25 +1,39 @@
-// t100 - TILE IN THE DRAWING (2026-10-14): a tiled wall strip and a shower floor (outline, drain, kind) draw without an
-// error, are never picked, and a click on them picks nothing. No floor grid.
-const api = require('./run.js');
-const g = (n) => api.get(n), c = (n, ...a) => api.call(n, ...a), s = (n, v) => api.set(n, v);
+// t100 - a flipped exterior loop keeps its corners closed (2026-10-16).
+// His words: "כשאני מצייר אותם הם בסדר אבל שאני שולח אותם ל3D אז הפינות נישברות".
+// Measured (wall_trace.txt 17:18): 4 walls of a rectangle flipped, every end 7.07" from its neighbour.
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const src = fs.readFileSync(path.join(__dirname, 'plan_editor.rb'), 'utf8');
+const grab = (name) => { const m = src.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n            \\}\\n')); if (!m) throw new Error('no ' + name); return m[0]; };
+const ctx = { Math };
+vm.createContext(ctx);
+vm.runInContext('var REJOIN_FLIPPED_CORNERS = true;\n' + grab('lineInt') + grab('rejoinFlippedCorners'), ctx);
 let fails = 0;
-const ok = (n, cd, x) => { console.log((cd ? 'PASS  ' : 'FAIL  ') + n + (cd ? '' : '   << ' + JSON.stringify(x))); if (!cd) fails++; };
-const click = (x, y) => global.fire('cv', 'mousedown', { button: 0, offsetX: c('sx', x), offsetY: c('sy', y), shiftKey: false, preventDefault() {} });
-s('pages', []); s('activePage', 0); s('homeStash', null);
-c('loadWalls', [{ id: 'w1', sx: 0, sy: 0, ex: 400, ey: 0, th: 5, ha: 'center', syms: [] }]);
-c('loadRooms', []);
-c('elecEnable', true, true, true, true, true, true);
-c('loadElec', [
-  { id: 'TW1', kind: 'tile', pts: [[10, 2.5], [60, 2.5], [60, 3.125], [10, 3.125]] },
-  { id: 'SH1', kind: 'shower', pts: [[100, 2.5], [140, 2.5], [140, 62.5], [100, 62.5]], drain: [[134.5, 20.5], [137.5, 20.5], [137.5, 44.5], [134.5, 44.5]], label: 'Curb 4"' },
-  { id: 'SH2', kind: 'shower', pts: [[200, 2.5], [240, 2.5], [240, 62.5], [200, 62.5]], drain: null, label: 'Curbless' },
-  { id: 'o1', kind: 'outlet', x: 300, y: 2.5, nx: 0, ny: 1, gangs: 1, h: 18 }]);
-c('setMode', 'sel'); s('scale', 4);
-let err = null; try { c('draw'); } catch (e) { err = String(e); }
-ok('tile strip, shower with a drain, shower without, and an outlet draw without an error', !err, err);
-ok('tile / shower never in elecShown', !g('elecShown').some(o => o.kind === 'tile' || o.kind === 'shower'), g('elecShown'));
-ok('the outlet still shown', g('elecShown').some(o => o.id === 'o1'));
-click(120, 30);
-ok('a click on the shower floor picks nothing', !g('elecSel'), g('elecSel'));
-console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');
+const ok = (n, c, x) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : '   << ' + JSON.stringify(x))); if (!c) fails++; };
+// what Ruby received at 17:18 (after the flip) and what was drawn before it
+const ext = [
+  { sx: 496.5, sy: 497.0, ex: 297.5, ey: 497.0, th: 5 },
+  { sx: 501.5, sy: 338.5, ex: 501.5, ey: 492.0, th: 5 },
+  { sx: 297.5, sy: 333.5, ex: 496.5, ey: 333.5, th: 5 },
+  { sx: 292.5, sy: 492.0, ex: 292.5, ey: 338.5, th: 5 }];
+const orig = [
+  { sx: 297.5, sy: 492.0, ex: 496.5, ey: 492.0 },
+  { sx: 496.5, sy: 492.0, ex: 496.5, ey: 338.5 },
+  { sx: 496.5, sy: 338.5, ex: 297.5, ey: 338.5 },
+  { sx: 297.5, sy: 338.5, ex: 297.5, ey: 492.0 }];
+const n = ctx.rejoinFlippedCorners(ext, orig, [0, 1, 2, 3]);
+ok('all 4 corners rejoined', n === 4, n);
+const pts = ext.map(w => [[w.sx, w.sy], [w.ex, w.ey]]).flat();
+const meets = pts.every(p => pts.filter(q => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-6).length === 2);
+ok('every end now sits on exactly one other end', meets, pts);
+ok('the walls run outer corner to outer corner', ext[0].sx === 501.5 && ext[0].sy === 497 && ext[0].ex === 292.5, ext[0]);
+ok('the lines stay where the flip put them (outer face)', ext.every(w => [497, 501.5, 333.5, 292.5].includes(w.sy === w.ey ? w.sy : w.sx)));
+// nothing flipped -> nothing moves
+const e2 = JSON.parse(JSON.stringify(orig)).map(w => Object.assign(w, { th: 5 }));
+ok('no flip = nothing touched', ctx.rejoinFlippedCorners(e2, orig, []) === 0 && JSON.stringify(e2.map(w => [w.sx, w.sy])) === JSON.stringify(orig.map(w => [w.sx, w.sy])));
+// a straight run is left alone
+const e3 = [{ sx: 100, sy: 5, ex: 0, ey: 5, th: 5 }, { sx: 100, sy: 0, ex: 200, ey: 0, th: 5 }];
+const o3 = [{ sx: 0, sy: 0, ex: 100, ey: 0 }, { sx: 100, sy: 0, ex: 200, ey: 0 }];
+ok('two walls in a straight line are not joined', ctx.rejoinFlippedCorners(e3, o3, [0]) === 0);
+ok('the call is wired into autoOrientExterior', src.includes('var rejoined = rejoinFlippedCorners(ext, orig, flips);'));
+console.log(fails ? '*** ' + fails + ' FAILED ***' : 'ALL PASS');
 process.exit(fails ? 1 : 0);

@@ -47,7 +47,8 @@ stop = [
   { kind: :cab, pts: box(110, 140, 0, 26.5, 0, 96) },         # tall
   { kind: :tile, pts: box(145.04, 213.88, -4.0, 0.63, 0, 59.74) }, # wall tile in the niche, thin on the face
   { kind: :tile, pts: box(213.88, 214.5, 0.63, 43.61, 0, 96) },    # the NEXT wall's tile, side-on: deep
-  { kind: :cab, pts: box(60, 90, 30, 55, 0, 34.5) }           # an island, away from the wall
+  { kind: :cab, pts: box(60, 90, 30, 55, 0, 34.5) },          # an island, away from the wall
+  { kind: :tile, pts: box(48.05, 90.97, -5.13, -4.5, 0, 59.74) } # the tile of the room BEHIND the wall (his 19:41)
 ]
 MB.instance_variable_set(:@stoppers, stop)
 base = MB.stop_gaps(W, GEO, 0.0, 4.25).map { |g| [g[:a].round(2), g[:b].round(2)] }.sort
@@ -57,6 +58,7 @@ ok('baseboard: stops at the wall tile (niche tile too)', base.include?([145.04, 
 ok('baseboard: NOT at the upper cabinet', !base.include?([0.0, 24.0]), base)
 ok('baseboard: NOT at the next wall\'s tile seen side-on', !base.include?([213.88, 214.5]), base)
 ok('baseboard: NOT at an island in the room', !base.include?([60.0, 90.0]), base)
+ok('baseboard: NOT at the tile on the other face of the wall', !base.include?([48.05, 90.97]), base)
 crown = MB.stop_gaps(W, GEO, 89.56, 96.0).map { |g| [g[:a].round(2), g[:b].round(2)] }.sort
 ok('crown: stops at the upper cabinet', crown.include?([0.0, 24.0]), crown)
 ok('crown: stops at the tall one', crown.include?([110.0, 140.0]), crown)

@@ -32,9 +32,10 @@ module KitchenLab
         geometry_settings_changed=previous['settings'].reject { |k,_| %w[island_dimensions island_match_kitchen_style].include?(k) }!=plan['document']['settings'].reject { |k,_| %w[island_dimensions island_match_kitchen_style].include?(k) }
         next_settings=plan['document']['settings']
         settings_keys=previous['settings'].keys|next_settings.keys
-        molding_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| k.start_with?('crown_') }
+        hood_flags_only=plan['changed_ids'].all? { |id| before[id] && after[id] && before[id].reject { |k,_| k=='hood_molding' }==after[id].reject { |k,_| k=='hood_molding' } }
+        molding_only=(plan['settings_changed'] || !plan['changed_ids'].empty?) && hood_flags_only && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| k.start_with?('crown_') }
         surface_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| %w[countertop_material island_countertop_material backsplash].include?(k) || k.start_with?('crown_') }
-        changed_ids=(molding_only || surface_only) ? [] : geometry_settings_changed ? (before.keys|after.keys) : plan['changed_ids']
+        changed_ids=molding_only ? plan['changed_ids'] : surface_only ? [] : geometry_settings_changed ? (before.keys|after.keys) : plan['changed_ids']
         changed_ids.each do |id|
           d=after[id];old=before[id]
           groups=cabinets.select { |g| g.get_attribute(DICT,'id')==id }
@@ -51,7 +52,7 @@ module KitchenLab
           crowns!
           pack_units!
         else
-          worktops! if surface_only || !changed_ids.empty?
+          worktops!(previous: previous) if surface_only || !changed_ids.empty?
         end
         @model.commit_operation
       rescue StandardError

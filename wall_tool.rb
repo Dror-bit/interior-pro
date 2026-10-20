@@ -637,9 +637,34 @@ module InteriorPro
       best || pt
     end
 
+    # WALL TRACE (2026-10-16, measuring only - "הפינות לא מתחברות יותר"). Every wall drawn writes its clicks and its
+    # stored ends at each stage (built / after corners / after rooms / after molding) to wall_trace.txt in the bridge
+    # folder. Changes nothing. false = off.
+    USE_WALL_TRACE = true unless const_defined?(:USE_WALL_TRACE, false)
+    WALL_TRACE_FILE = 'C:/Users/rordt/OneDrive/InteriorPro/wall_trace.txt' unless const_defined?(:WALL_TRACE_FILE, false)
+
+    def wall_trace(stage, group = nil, extra = nil)
+      return unless USE_WALL_TRACE
+      line = "#{Time.now.strftime('%H:%M:%S')} #{stage}"
+      if group && group.valid?
+        a = ->(k) { group.get_attribute('InteriorPro', k) }
+        c = a.call('corners_xy')
+        line += " id #{a.call('id').to_s[0, 8]} #{a.call('wall_category')} anchor #{a.call('anchor')} t #{a.call('thickness')}" \
+                " ends (#{a.call('start_x').to_f.round(3)},#{a.call('start_y').to_f.round(3)})->(#{a.call('end_x').to_f.round(3)},#{a.call('end_y').to_f.round(3)})" \
+                " corners #{c ? c.map { |v| v.to_f.round(2) }.each_slice(2).to_a.inspect : 'none'}"
+      elsif !group && @start_point && @end_point
+        line += " clicks (#{@start_point.x.to_f.round(3)},#{@start_point.y.to_f.round(3)})->(#{@end_point.x.to_f.round(3)},#{@end_point.y.to_f.round(3)}) anchor #{@anchor} cat #{@wall_category}"
+      end
+      line += " #{extra}" if extra
+      File.open(WALL_TRACE_FILE, 'a') { |f| f.puts(line) }
+    rescue StandardError
+      nil
+    end
+
     def create_wall
       return unless @start_point && @end_point
       return if @start_point.distance(@end_point) < 0.1
+      wall_trace('CLICK')
 
       clear_preview
 
@@ -650,6 +675,7 @@ module InteriorPro
       Sketchup.set_status_text("anchor=#{@anchor} t=#{@thickness} h=#{@height}", SB_PROMPT)
 
       group = build_wall_group(@start_point, @end_point, attrs, model)
+      wall_trace('BUILT', group) if group
       # Active level (2026-08-03): the new wall lands on the level the user
       # is working on — BEFORE join_corners, so miters only see its level.
       if group && defined?(InteriorPro::LevelManager)
@@ -667,12 +693,14 @@ module InteriorPro
       end
 
       model.commit_operation
+      wall_trace('JOINED', group) if group
 
       begin
         InteriorPro::RoomManager.sync_rooms! if group && defined?(InteriorPro::RoomManager)
       rescue StandardError => e
         puts "[Rooms] sync after wall create: #{e.message}"
       end
+      wall_trace('ROOMS', group) if group
       # Molding follows new walls automatically (no-op when the model has no
       # molding). Runs AFTER the rooms sync so side selection uses fresh
       # room polygons.
@@ -681,6 +709,7 @@ module InteriorPro
       rescue StandardError => e
         puts "[Molding] refresh after wall create: #{e.message}"
       end
+      wall_trace('MOLDING', group) if group
       # Levels (2026-08-04): a wall drawn above level 1 builds/refreshes the
       # structure between the levels automatically (walls rise + subfloor).
       begin

@@ -158,6 +158,19 @@ module InteriorPro
     # shares of the picture like the automatic dimensions), only the ones the picture really shows
     # (measured 19:21, debug_elev_snaps.rb: North 10,315 lines in front of the wall, some never drawn).
     USE_ELEV_SNAPS = true unless const_defined?(:USE_ELEV_SNAPS, false)
+    # ONLY THE LINES NEAR THE ROOM (2026-10-18, his "יש דרך לקצר?"). Measured (snap_time2_report): 170,557 edges in the
+    # model (fixtures 71k, kitchen 66k, electrical 21k), and side_segs walks ALL of them again for every wall - 1.1..2.1 s
+    # a wall, 6.3 of Room 2's 11 s. Once a room they are cut down to the ones whose box touches the room's box grown by
+    # the deepest cut; side_segs then sees only those. Same lines come out (its own test is stricter). false = all, as before.
+    # MEASURED AT HIS (20:35): kept 82,888 of 82,934 - USE_ROOM_ONLY already hides what is outside the room before the
+    # edges are read, and the 71k fixture + 21k electrical lines ARE in the room. Costs 0.7 s, saves nothing -> OFF.
+    USE_SNAP_NEAR = false unless const_defined?(:USE_SNAP_NEAR, false)
+    # A PRODUCT SNAPS BY ITS BOX (2026-10-19, his pick "1" / "מעולה"). Measured (snap_time2_report): 71k of the model's
+    # lines are the plumbing (the shower head alone 126k points), 21k the electrical - and every wall walked all of them.
+    # A plumbing / electrical product now gives the 12 edges of its world box instead of every line inside it: on the sheet one
+    # measures to a product's edge, not to a screw in it. false = every line, as before.
+    USE_SNAP_BOX = true unless const_defined?(:USE_SNAP_BOX, false)
+    SNAP_BOX_TYPES = %w[fixture electrical].freeze unless const_defined?(:SNAP_BOX_TYPES, false)
     # 2026-10-09, his law: "TILE , PLUMING , ELECTRIC בתוכניות חייבים להיות כשכבות" - and he chose to start with the
     # elevations. A picture is ONE picture, so each wall (and the view from above) is also taken once for every
     # mix of those things switched off that stands in front of it - without the tiles, without the plumbing,
@@ -406,11 +419,43 @@ module InteriorPro
             out << [e.start.position.transform(xf), e.end.position.transform(xf)]
           elsif e.is_a?(Sketchup::Group) || (defined?(Sketchup::ComponentInstance) && e.is_a?(Sketchup::ComponentInstance))
             next if e.hidden? || !e.layer.visible? || depth > 8
+            if USE_SNAP_BOX && SNAP_BOX_TYPES.include?(e.get_attribute(D, 'type').to_s)
+              box_edges(e, xf, out)
+              next
+            end
             kids = e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities
             model_edges(kids, xf * e.transformation, out, depth + 1)
           end
         end
         out
+      end
+
+      # the 12 edges of a product's box, in the world (its bounds are in its parent's space; xf takes them out). Pure.
+      def box_edges(e, xf, out)
+        bb = e.bounds
+        c = (0..7).map { |i| bb.corner(i).transform(xf) }
+        [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]].each do |i, j|
+          out << [c[i], c[j]] if c[i].distance(c[j]) > 0.01
+        end
+        out
+      rescue StandardError
+        out
+      end
+
+      # the edges whose box touches the room's box grown by reach (the deepest cut) + MARGIN + 1, between the floor and
+      # the ceiling (+-0.5). Pure. nil reach = the room's box alone (a whole-room cut stays inside it).
+      def near_room(edges, poly, base_z, wall_h, reach = nil)
+        return edges unless USE_SNAP_NEAR && poly && poly.size >= 3
+        g = reach.to_f + MARGIN + 1.0
+        xs = poly.map(&:x); ys = poly.map(&:y)
+        x0 = xs.min - g; x1 = xs.max + g; y0 = ys.min - g; y1 = ys.max + g
+        z0 = base_z.to_f - 0.5; z1 = base_z.to_f + wall_h.to_f + 0.5
+        edges.select do |p, q|
+          next false if [p.x, q.x].max < x0 || [p.x, q.x].min > x1
+          next false if [p.y, q.y].max < y0 || [p.y, q.y].min > y1
+          next false if [p.z, q.z].max < z0 || [p.z, q.z].min > z1
+          true
+        end
       end
 
       # the edges in front of one wall, within its cut, laid on its picture: [u1, v1, u2, v2] -
@@ -1849,6 +1894,7 @@ module InteriorPro
           ro['RenderMode'] = (style == 'shaded' ? 3 : 1)
           lines_drawn = []
           snap_edges = nil
+          near_edges = nil   # snap_edges cut down to the room (USE_SNAP_NEAR), once
           kitchen = USE_ON_WALL_ONLY ? kitchen_tops(model) : []
           # the kitchen for its numbers (USE_KITCHEN_DIMS) - read HERE, before any wall puts its far cabinets aside (12:44,
           # measured: read inside the loop it lost what West had put aside, and South got no cabinet)
@@ -1856,6 +1902,8 @@ module InteriorPro
           # (16:51, his "לא צריך את המידות לקאבינט ברום ... הם כבר מופיעות במטבח"): the cabinets' numbers on the Kitchen sheet only
           kit_d = nil if USE_KITCHEN_DIMS_ONLY_KITCHEN && label != KITCHEN_LABEL
           capture_sides = label == KITCHEN_LABEL ? kitchen_view_sides(poly, kitchen, base_z) : sides(poly)
+          # the deepest cut of any wall of this room - how far from its outline a snap line can still be
+          snap_reach = capture_sides.map { |sd| (label == KITCHEN_LABEL ? kitchen_view_cut(sd, kitchen, base_z, cut) : cut_for(cut, sd.name)).to_f }.max
           capture_sides.each do |side|
             next if only && !only.key?(side.name)
             next if sides && !sides.include?(side.name)
@@ -1919,7 +1967,12 @@ module InteriorPro
                 begin
                   t0 = Time.now
                   snap_edges ||= model_edges(model.entities)
-                  segs = side_segs(side, s[:cut], wall_h, base_z, snap_edges)
+                  if near_edges.nil?
+                    tn = Time.now
+                    near_edges = near_room(snap_edges, poly, base_z, wall_h, [snap_reach.to_f, s[:cut].to_f].max)
+                    trace("#{name}: near_room kept #{near_edges.size} of #{snap_edges.size} lines in #{((Time.now - tn) * 1000).round} ms (USE_SNAP_NEAR #{USE_SNAP_NEAR})")
+                  end
+                  segs = side_segs(side, s[:cut], wall_h, base_z, near_edges)
                   kept, how = seen_segs(path, segs)
                   File.write(snaps_file(path), JSON.generate('segs' => kept, 'w_in' => side.len.to_f + 2 * MARGIN, 'h_in' => wall_h.to_f + 2 * MARGIN))
                   trace("#{name} side #{side.name}: snaps #{kept.size} of #{segs.size} lines kept (#{how}), #{(Time.now - t0).round(2)} s")

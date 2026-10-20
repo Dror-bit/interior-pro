@@ -342,6 +342,14 @@ module KitchenLab
         raise 'Settings validation is unavailable' unless @settings_validator
         doc['settings']=@settings_validator.call(payload,s)
         doc['cabinets']=data.map { |c| Appearance.resolve(c,doc['settings']) }
+        # A deliberately selected decorative kitchen profile includes covered hoods.
+        # Later per-hood checkbox edits remain independent of this settings action.
+        if (payload.keys & %w[crown_profile crown_match_house]).any? && !%w[none flat].include?(doc['settings']['crown_profile'])
+          doc['cabinets'].each do |c|
+            next unless c['kind']=='hood' && data.any? { |p| p['surround_for']==c['id'] && p['surround_part']=='hood_front' }
+            c['hood_molding']=true
+          end
+        end
         fit_upper_clearance!(doc,s) if (payload.keys & %w[backsplash countertop_thickness]).any?
       when 'use_kitchen_style'
         raise 'Cabinet no longer exists' if id && data.none? { |c| c['id']==id }

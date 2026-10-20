@@ -38,9 +38,15 @@ ok('rectangle drawn the right way round: no gap', maxGap(g('pending')) < 0.01, g
 s('pending', loop(notch.slice().reverse(), 'left')); c('autoOrientExterior');
 const flipped = g('pending');
 ok('notch drawn backwards: walls stay straight', axisOnly(flipped), flipped);
+// 2026-10-16: the ends move to the outer corners after the turn (the corners used to open 7.07" - his
+// "כשאני שולח אותם ל3D אז הפינות נישברות"), so this compares DIRECTION, not length.
+const unit = (w) => { const L = Math.hypot(w.ex - w.sx, w.ey - w.sy); return [(w.ex - w.sx) / L, (w.ey - w.sy) / L]; };
 ok('notch drawn backwards: every wall turned (none left alone)',
    flipped.every((w, i) => { const o = loop(notch.slice().reverse(), 'left')[i];
-     return Math.abs((w.ex - w.sx) + (o.ex - o.sx)) < 1e-6 && Math.abs((w.ey - w.sy) + (o.ey - o.sy)) < 1e-6; }), flipped);
+     const a = unit(w), b = unit(o); return Math.abs(a[0] + b[0]) < 1e-6 && Math.abs(a[1] + b[1]) < 1e-6; }), flipped);
+ok('notch drawn backwards: NO GAP at any corner after the turn (2026-10-16)', maxGap(flipped) < 0.01, maxGap(flipped));
+s('pending', loop(rect.slice().reverse(), 'left')); c('autoOrientExterior');
+ok('rectangle drawn backwards: no gap after the turn (2026-10-16)', maxGap(g('pending')) < 0.01, g('pending'));
 
 // mixed drawing directions inside one loop: still decided per wall by the loop
 const mix = loop(notch, 'left');

@@ -2263,7 +2263,9 @@ module InteriorPro
           wt.wall_category = cat
           wt.side_a_color = attrs[:side_a_color]
           wt.side_b_color = attrs[:side_b_color]
+          wt.send(:wall_trace, '2D-IN', false, "row (#{s.x.round(3)},#{s.y.round(3)})->(#{e.x.round(3)},#{e.y.round(3)}) cat #{cat} th #{r['th']}") if wt.respond_to?(:wall_trace, true)
           g = wt.build_wall_group(s, e, attrs, model)
+          wt.send(:wall_trace, '2D-BUILT', g) if g && wt.respond_to?(:wall_trace, true)
           # Active level (2026-08-03): the new wall lands on the level the
           # user works on - BEFORE join_corners, exactly like create_wall.
           if g && defined?(InteriorPro::LevelManager)
@@ -2285,6 +2287,8 @@ module InteriorPro
         rescue StandardError => e
           puts "[PlanEditor] normalize orientation: #{e.message}"
         end
+        tr = InteriorPro::WallTool.new rescue nil
+        created.each { |g| tr.send(:wall_trace, '2D-NORMALIZED', g) } if tr && tr.respond_to?(:wall_trace, true)
         created.each do |g|
           begin
             InteriorPro::WallTool.join_corners(g, model)
@@ -2292,6 +2296,7 @@ module InteriorPro
             puts "[PlanEditor] join_corners: #{e.message}"
           end
         end
+        created.each { |g| tr.send(:wall_trace, '2D-JOINED', g) if g.valid? } if tr && tr.respond_to?(:wall_trace, true)
         model.commit_operation
         begin
           InteriorPro::RoomManager.sync_rooms! if created.any? && defined?(InteriorPro::RoomManager)
@@ -11776,6 +11781,7 @@ module InteriorPro
               // round flips nothing, and one drawn backwards flips every wall.
               var loopFlip = loopFlipMap(ext);
               var flips = [];
+              var orig = ext.map(function(w){ return { sx:w.sx, sy:w.sy, ex:w.ex, ey:w.ey }; });
               ext.forEach(function(w, wi){
                 var b = bandQuad(w); if (!b) return;
                 var mid = (b.p + b.q) / 2;
@@ -11808,9 +11814,59 @@ module InteriorPro
                   flips.push(wi);
                 }
               });
+              var rejoined = rejoinFlippedCorners(ext, orig, flips);
               claudeLog('autoOrientExterior: ' + ext.length + ' ext walls, ' +
-                        loopFlip.size + ' in closed loops, flipped [' + flips.join(',') + ']');
+                        loopFlip.size + ' in closed loops, flipped [' + flips.join(',') + '], corners rejoined ' + rejoined);
               draw();
+            }
+
+            // THE CORNERS STAY CLOSED AFTER A FLIP (2026-10-16, his words: "כשאני מצייר אותם הם בסדר אבל שאני
+            // שולח אותם ל3D אז הפינות נישברות"). Measured (wall_trace.txt 17:18): a rectangle drawn the other way
+            // round - all 4 walls flipped, each line slid one thickness out (correct, the band keeps its strip of
+            // floor), but its ENDS slid sideways with it, so every corner opened 7.07" (5 x sqrt 2) and Ruby found
+            // no neighbour to miter. Here every corner that two walls shared BEFORE the flip is put back: both ends
+            // go to the crossing of the two walls' new lines (the outer corner). Only corners where both walls
+            // turned; corners that were not shared, or two walls in a straight line, are left alone; never moves an
+            // end more than 2 thicknesses + 1".
+            // Kill switch: REJOIN_FLIPPED_CORNERS = false.
+            var REJOIN_FLIPPED_CORNERS = true;
+            function rejoinFlippedCorners(ext, orig, flips) {
+              if (!REJOIN_FLIPPED_CORNERS || !flips.length) return 0;
+              var TOL = 0.75, nodes = [];
+              var flipped = {};
+              flips.forEach(function(i) { flipped[i] = true; });
+              var nodeOf = function(x, y) {
+                for (var k = 0; k < nodes.length; k++) if (Math.hypot(nodes[k].x - x, nodes[k].y - y) <= TOL) return nodes[k];
+                var n = { x: x, y: y, ends: [] }; nodes.push(n); return n;
+              };
+              // an ORIGINAL start of a flipped wall is now its END (the flip swaps them), and the other way round
+              orig.forEach(function(o, i) {
+                nodeOf(o.sx, o.sy).ends.push({ i: i, end: flipped[i] ? 'e' : 's' });
+                nodeOf(o.ex, o.ey).ends.push({ i: i, end: flipped[i] ? 's' : 'e' });
+              });
+              var n = 0;
+              nodes.forEach(function(nd) {
+                if (nd.ends.length !== 2) return;
+                var a = nd.ends[0], b = nd.ends[1];
+                // only a corner where BOTH walls turned: one turned wall next to a still one leaves a gap of
+                // exactly one thickness along the still wall's line, and Ruby's weld_drifted_end! closes that.
+                if (a.i === b.i || !(flipped[a.i] && flipped[b.i])) return;
+                var wa = ext[a.i], wb = ext[b.i];
+                var da = { x: wa.ex - wa.sx, y: wa.ey - wa.sy }, db = { x: wb.ex - wb.sx, y: wb.ey - wb.sy };
+                var la = Math.hypot(da.x, da.y), lb = Math.hypot(db.x, db.y);
+                if (la < 0.01 || lb < 0.01) return;
+                if (Math.abs(da.x * db.y - da.y * db.x) / (la * lb) < 1e-3) return;   // straight on: nothing to close
+                var p = lineInt({ x: wa.sx, y: wa.sy }, da, { x: wb.sx, y: wb.sy }, db);
+                if (!p) return;
+                var lim = 2 * Math.max(wa.th || 0, wb.th || 0) + 1;
+                var pa = a.end === 's' ? { x: wa.sx, y: wa.sy } : { x: wa.ex, y: wa.ey };
+                var pb = b.end === 's' ? { x: wb.sx, y: wb.sy } : { x: wb.ex, y: wb.ey };
+                if (Math.hypot(p.x - pa.x, p.y - pa.y) > lim || Math.hypot(p.x - pb.x, p.y - pb.y) > lim) return;
+                if (a.end === 's') { wa.sx = p.x; wa.sy = p.y; } else { wa.ex = p.x; wa.ey = p.y; }
+                if (b.end === 's') { wb.sx = p.x; wb.sy = p.y; } else { wb.ex = p.x; wb.ey = p.y; }
+                n++;
+              });
+              return n;
             }
 
             // For every exterior wall that sits in a CLOSED loop (each corner

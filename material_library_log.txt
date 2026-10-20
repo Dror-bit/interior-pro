@@ -78,3 +78,15 @@
 17:19:12  texture -> C:/Users/rordt/OneDrive/InteriorPro/materials/textures/IP_MAT_0274.jpg
 17:19:12  material is not a V-Ray material yet
 17:25:53  card has no vray numbers
+09:33:59  card has no vray numbers
+09:34:12  card has no vray numbers
+09:34:12  RuntimeError: no brdf on live plugin
+09:34:22  card has no vray numbers
+09:34:22  RuntimeError: no brdf on live plugin
+09:34:29  card has no vray numbers
+09:34:29  RuntimeError: no brdf on live plugin
+09:34:35  card has no vray numbers
+09:34:35  RuntimeError: no brdf on live plugin
+09:34:44  card has no vray numbers
+09:35:03  card has no vray numbers
+09:35:20  card has no vray numbers

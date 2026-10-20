@@ -108,6 +108,7 @@ module InteriorPro
       plan_sheet_dialog.rb
       elevation_tool.rb
       elevation_dialog.rb
+      render_agent.rb
       plan_editor.rb
       landscape/fence_math.rb
       landscape/fence_tool.rb
@@ -115,6 +116,8 @@ module InteriorPro
       landscape/fence_library_dialog.rb
       landscape/fence_ref_tool.rb
       landscape/garden_wall_tool.rb
+      storage/tool.rb
+      vanity/tool.rb
       toolbar.rb
     ]
   end

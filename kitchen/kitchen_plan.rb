@@ -5,6 +5,7 @@ require_relative 'kitchen_spatial'
 require 'digest'
 require 'base64'
 require_relative 'kitchen_appliance_surround'
+require_relative 'standalone_shelves'
 
 module InteriorPro
   module KitchenPlan
@@ -149,6 +150,10 @@ module InteriorPro
     end
 
     def self.bind_catalog(dlg)
+      dlg.add_action_callback('kitchen_standalone_shelf') do |_|
+        dlg.close
+        InteriorPro::StandaloneShelves.show
+      end
       dlg.add_action_callback('kitchen_surfaces') do |_,focus|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR

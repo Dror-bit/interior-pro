@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Laundry cabinets</title>
+<style>
+*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#263e37;background:#f5f7f3;margin:20px}h1{font-size:21px}label{display:block;margin:14px 0 5px}input,select,button{font:inherit;padding:10px;border:1px solid #cbd6cc;border-radius:5px;width:100%;background:white;color:inherit}button{cursor:pointer;margin-top:12px}button.primary{background:#315e50;color:white}.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}#error{color:#a83221;min-height:22px;margin-top:12px}.hint{font-size:12px;line-height:1.5;color:#5d7269}button:disabled{opacity:.45;cursor:default}
+</style>
+<h1>Laundry cabinets</h1>
+<label for="cabinet">Cabinet</label><select id="cabinet" onchange="selectCabinet()"><option value="">New base cabinet</option></select>
+<div class="row"><div><label>Width (in)</label><input id="width" type="number" min="12" max="48" step="0.125" value="30"></div><div><label>Height (in)</label><input id="height" type="number" min="24" max="42" step="0.125" value="34.5"></div><div><label>Depth (in)</label><input id="depth" type="number" min="12" max="30" step="0.125" value="24"></div></div>
+<label>Front layout</label><select id="front"><option value="double">Double doors</option><option value="single">Single door</option><option value="drawers">Three drawers</option></select>
+<div class="row"><div><label>Front style</label><select id="style"><option value="shaker">Shaker</option><option value="slab">Slab</option></select></div><div><label>Finish</label><select id="finish"><option value="ivory">Warm white</option><option value="white">White</option><option value="gray">Gray</option></select></div></div>
+<label>Handles</label><select id="handle"><option value="brass">Brass pull</option><option value="black">Black pull</option><option value="none">No handles</option></select>
+<label>Rotation (degrees)</label><input id="angle" type="number" step="90" value="0">
+<button id="place" class="primary" onclick="send('place')">Place new cabinet</button>
+<button id="save" class="primary" onclick="send('save')">Save cabinet</button>
+<div class="row"><button id="move" onclick="send('move')">Move cabinet</button><button id="remove" onclick="send('remove')">Delete cabinet</button></div>
+<div class="row"><button onclick="send('undo')">Undo</button><button onclick="send('redo')">Redo</button></div>
+<p class="hint">Place or move: click the back-left corner on the floor. Press Esc to cancel. Use these controls to move or delete laundry cabinets.</p><p id="error" role="alert"></p>
+<script>
+let state={revision:0,cabinets:[]};const el=id=>document.getElementById(id);
+const defaults={width:30,height:34.5,depth:24,front:'double',style:'shaker',finish:'ivory',handle:'brass',position:{x:0,y:0,z:0,angle:0}};
+function render(data){let selected=el('cabinet').value;if(data.cabinets.length>state.cabinets.length)selected=data.cabinets[data.cabinets.length-1].id;state=data;el('cabinet').replaceChildren(new Option('New base cabinet',''));for(const c of data.cabinets)el('cabinet').add(new Option(`Base · ${c.width} in · ${c.id.slice(-4)}`,c.id));el('cabinet').value=data.cabinets.some(c=>c.id===selected)?selected:'';selectCabinet();}
+function selectCabinet(){const c=state.cabinets.find(c=>c.id===el('cabinet').value)||defaults;for(const k of ['width','height','depth','front','style','finish','handle'])el(k).value=c[k];el('angle').value=c.position.angle;const existing=!!el('cabinet').value;el('place').hidden=existing;for(const k of ['save','move','remove'])el(k).disabled=!existing;showError('');}
+function send(action){const c=state.cabinets.find(c=>c.id===el('cabinet').value)||defaults;const values={};for(const k of ['width','height','depth']){if(['place','save'].includes(action)&&!el(k).reportValidity())return;values[k]=Number(el(k).value);}for(const k of ['front','style','finish','handle'])values[k]=el(k).value;values.position={...c.position,angle:Number(el('angle').value)};window.sketchup.action(JSON.stringify({action,revision:state.revision,id:el('cabinet').value,values}));}
+function showError(message){el('error').textContent=message;}
+window.addEventListener('DOMContentLoaded',()=>window.sketchup.ready());
+</script></html>

@@ -1,5 +1,50 @@
 module KitchenLab
   module ContinuousSurfaces
+    remove_const(:USE_ISOLATED_SURFACE_REUSE) if const_defined?(:USE_ISOLATED_SURFACE_REUSE,false)
+    USE_ISOLATED_SURFACE_REUSE=true
+    # Prove that a change cannot affect existing surfaces. Uncertain cases use
+    # the original complete rebuild, including all surface producers and hoods.
+    def self.isolated_changes?(previous,current,surfaces,&bounds)
+      return false unless previous && previous['settings']==current['settings'] && !surfaces.empty?
+      before=previous['cabinets'].to_h { |d|[d['id'],d] }
+      after=current['cabinets'].to_h { |d|[d['id'],d] }
+      changed=(before.keys|after.keys).select { |id|before[id]!=after[id] }
+      changed.all? do |id|
+        next false if surfaces.any? { |s|s[:owners].include?(id) }
+        [before[id],after[id]].compact.all? do |d|
+          parent=before[d['surround_for']] || after[d['surround_for']]
+          next false unless %w[wall tall fridge fridge_surround corner_upper].include?(d['kind']) || (d['kind']=='filler' && parent && parent['kind']=='fridge')
+          next false if parent && parent['kind']!='fridge'
+          box=bounds.call(d)
+          # Include the backsplash clipping tolerance and slab overhang.
+          surfaces.none? { |s|3.times.all? { |i|box[1][i]+2>=s[:box][0][i] && s[:box][1][i]+2>=box[0][i] } }
+        end
+      end
+    end
+    def self.reusable?(previous)
+      return false unless USE_ISOLATED_SURFACE_REUSE && previous
+      model=KitchenLab.instance_variable_get(:@model)
+      return false unless model.get_attribute(KitchenLab::DICT,'backsplash_opening_signature')==Backsplash.opening_signature(model)
+      surfaces=[]
+      collect=lambda do |g,transform,owners|
+        world=transform*g.transformation
+        faces=g.entities.grep(Sketchup::Face)
+        unless faces.empty?
+          points=faces.flat_map(&:vertices).uniq.map { |v|v.position.transform(world).to_a.map(&:to_f) }
+          surfaces<<{owners:owners,box:[3.times.map { |i|points.map { |p|p[i] }.min },3.times.map { |i|points.map { |p|p[i] }.max }]}
+        end
+        g.entities.grep(Sketchup::Group).each { |child|collect.call(child,world,owners) }
+      end
+      model.entities.grep(Sketchup::Group).select { |g|g.get_attribute(KitchenLab::DICT,'kind')=='worktop' }.each do |g|
+        owners=g.get_attribute(KitchenLab::DICT,'owners',[]) + [g.get_attribute(KitchenLab::DICT,'owner_id')].compact
+        collect.call(g,Geom::Transformation.new,owners)
+      end
+      isolated_changes?(previous,KitchenLab.document,surfaces) do |d|
+        t=KitchenLab.cabinet_transform(d)
+        points=[0,d['width']].product([0,-d['depth']],[0,d['height']]).map { |p|Geom::Point3d.new(p).transform(t).to_a.map(&:to_f) }
+        [3.times.map { |i|points.map { |p|p[i] }.min },3.times.map { |i|points.map { |p|p[i] }.max }]
+      end
+    end
     EPS=0.001 unless const_defined?(:EPS,false)
     def self.touch?(a,b)
       aa=a.bounds;bb=b.bounds

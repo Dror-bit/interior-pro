@@ -26,7 +26,8 @@ module KitchenLab
     def self.resolve(model, value)
       validate(value)
       name='Kitchen countertop / '+value['key']
-      return model.materials[name] if model.materials[name]
+      existing=model.materials[name] || model.materials[name.tr('/','_')]
+      return existing if existing
       card=value['card'];mat=model.materials.add(name)
       c=card['color'];mat.color=Sketchup::Color.new(*c.first(3)) if c.is_a?(Array) && c.size>=3
       mat.alpha=card['alpha'] if card['alpha']
@@ -133,7 +134,8 @@ module KitchenLab
           else
             KitchenLab.update_settings({(scope=='island' ? 'island_countertop_material' : 'countertop_material')=>value})
           end
-          mat=model.materials['Kitchen countertop / '+value['key']]
+          name='Kitchen countertop / '+value['key']
+          mat=model.materials[name] || model.materials[name.tr('/','_')]
           if mat && card['vray']
             begin;InteriorPro::MaterialLibrary.apply_vray_numbers!(mat,card['vray']);rescue StandardError=>e;puts '[Kitchen material] V-Ray: '+e.message;end
           end

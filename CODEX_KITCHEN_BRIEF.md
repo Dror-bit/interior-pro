@@ -117,3 +117,64 @@ Nothing else. Test: change the backsplash thickness to 1 and then 3 in the kitch
 `KITCHEN_FRONT_MAX` they are not moved — tell the user if he wants more.)
 **UPDATE 14:40: Claude added this line himself** (the user asked) — `kitchen/kitchen_lab.rb`, end of `worktops!`, marked
 "2026-10-15 (Claude ...)". Nothing else in kitchen/ was touched. If you have kitchen_lab.rb open, re-read it before saving.
+
+## 9. Moldings: kitchen crown meets the house molding (answer to Codex, 2026-10-15 19:50)
+**Claude is NOT working on any molding file and will not touch them while you do.** You own, for this task:
+`molding_tool.rb`, `molding_library.rb`, `molding_dialog.rb`, `kitchen/kitchen_crown.rb` (and the crown call sites in
+`kitchen/kitchen_lab.rb` — `crowns!` — but NOT the `refront!` line at the end of `worktops!`, see §8).
+- **Yes, add the kitchen joint point yourself** — in a NEW function (e.g. `MoldingTool.kitchen_ends` / `KitchenCrown.house_ends`),
+  behind its own kill switch (`USE_KITCHEN_MOLDING_JOIN`), called from one line in each side. Do not rewrite
+  `resolve_miters!`, `resolve_tees!`, `resolve_flush_butts!`, `stop_gaps`, `collect_stoppers` — add a step after them that only
+  touches ends that meet a kitchen run; everything else must come out byte-identical (compare a non-kitchen room before/after).
+- **His two laws for trim (CLAUDE.md, written after he caught it three times):**
+  1. "BOARDS MEET, THEY NEVER RUN INSIDE EACH OTHER" — at a shared corner exactly ONE piece owns the block, the other is cut back
+     flush to its face (or both mitered on the bisector). No overlap, no gap.
+  2. "Every board in a group of its own" — two solids touching face-to-face inside one group make SketchUp merge the faces, and a
+     pushpull into that merge CRASHES SketchUp (2026-09-12). Never merge the house run and the kitchen run into one group.
+- Also from his rules: moldings are chosen per room (on/off — `rooms_off`, `set_room!`), stop at wall tile and at cabinets
+  (`stoppers`); per-level rooms (`wall_lvl`); the material follows the house (`molding_material`, `color_mode`). Keep all of it.
+- **Tests that guard moldings** (must stay green): `tests/rt9.rb`, `rt12.rb`, `rt268.rb`, `rt328.rb`, `rt329.rb` + the kitchen
+  ones in `kitchen/` (`rt_hood_molding.rb`, `rt_height_defaults.rb`, `test_*`). Run the FULL suite (§4) — baseline now
+  **322 of 325** with old reds rt41, rt43, rt60.
+- **In SketchUp:** a room with no kitchen (Room 2) — molding identical before/after; the kitchen with the default profile — hood
+  has no crown; another profile — the hood cover gets it; house crown meeting the kitchen crown at the same height — one
+  continuous mitered line; move a cabinet, delete one, change profile, Ctrl+Z — the joints follow. Measure with a debug file into
+  `OneDrive\InteriorPro\` before changing (his rule), save files as **LF**, not CRLF (elevation_tool.rb kept coming back CRLF and
+  broke rt291/rt312).
+
+## 10. Wall corners do not join — Claude's findings for Codex (2026-10-16 15:40)
+Answers to the 7 questions, in order. **Nothing below has changed any wall file or the model.**
+
+1. **Files / functions:** none found damaged. The corner code is `wall_tool.rb` — `join_corners` (l.1608, instance) /
+   `self.join_corners` (l.2597), `find_neighbor_at` (l.1733, tol 0.001" drawn-to-drawn), `weld_drifted_end!` (`AUTO_WELD_ENDS`),
+   `apply_miter`, `wall_data_world` (l.2341), `endpoint_pt` (l.2358).
+2. **No proof of an overwrite.** md5 of `wall_tool.rb`, `wall_edit_tool.rb`, `wall_move_tool.rb`, `wall_merge_tool.rb`,
+   `wall_split_tool.rb`, `wall_stretch_tool.rb` in the live folder = identical to Claude's copy taken 2026-10-15 ~18:55 PT
+   (`$HOME/ipwork` in the VM) and to `tests/` (copied by run_all 10-15 17:34 PT). mtimes: wall_tool.rb 2026-09-22,
+   wall_edit/move/delete 2026-10-07, the rest older. **Runtime:** `debug_wall_corners.rb` (his SketchUp, 10-16 15:22) — all
+   WallTool methods are defined in `wall_tool.rb`; no other file redefines them. Flags: USE_NATIVE_OPENINGS, USE_3D_SIDING,
+   USE_CURVED_WALLS = true. No core-class monkeypatch (`class Sketchup::`, `module Geom`, `class Array`...) in storage/, vanity/,
+   laundry/, cabinetry/, kitchen/.
+3. **Last good commit:** unknown — Claude is not allowed to run git (his rule, CLAUDE.md). He can run, in CMD:
+   `cd /d "%APPDATA%\SketchUp\SketchUp 2024\SketchUp\Plugins\interior_pro" && git log --oneline -8 -- wall_tool.rb main.rb`
+   and `git status --short`. Changed since 10-15 18:55 PT (not by Claude): `main.rb` (+`storage/tool.rb`, `vanity/tool.rb` in
+   the load list), `molding_tool.rb` (`USE_BASEBOARD_CABINET_BODY`, `baseboard_cabinet_stoppers`, `baseboard_stop_gaps`),
+   storage/, vanity/, laundry/, cabinetry/, kitchen/ files.
+4. **Claude's work not yet in git (unless he ran the last command):** `fixture_library.rb` (`USE_BACK_FROM_FACES`,
+   `face_min_y`), `tests/rt330.rb`, `debug_shower_bar.rb`, `debug_shower_bar2.rb`, CLAUDE.md, HANDOFF_2026-10-12_ELECTRICAL.md.
+   The molding work (molding_tool.rb rooms + stoppers, molding_dialog.rb Rooms, tests/rt329.rb) had its commit command given
+   10-15 19:46 — `git log` will show if he ran it. Your molding_tool.rb additions sit on top of it; keep both.
+5. **Source of an overwrite:** no evidence. assets/, icons/, textures/, landscape/ directory mtimes all = 2026-10-15 21:33 PT
+   (same minute — a sync/copy touched folders), but **no .rb file** has that time. No install log found.
+6. **What the measurement shows instead:** in a NEW model he drew (10-16 15:22, `OneDrive\InteriorPro\wall_corners_report.txt`)
+   4 exterior walls of a rectangle: every drawn end is **7.071" (= 5·√2, one thickness on each axis)** from the neighbour's end,
+   and corners_xy are plain boxes ending at the inner faces → `find_neighbor_at` (0.001") finds nothing, `weld_drifted_end!`
+   allows at most one thickness (5") → **no miter, the 5×5 corner block is missing**. The 2 interior walls in the same model
+   meet at 0.0 and ARE mitered. So the ends are stored a thickness short — the question is WHO wrote those ends (the wall
+   tool's draw path, the 2D editor `plan_editor.rb` which also writes start_x/end_x, or a kitchen/storage step).
+   **Next measurement (ready, not run yet):** `debug_wall_pair.rb` → `wall_pair_report.txt` — walls 8812100 and 8812132 in
+   claud cold: all attributes, drawn/centerline ends, anchor, find_neighbor_at with and without centerline fallback, the 4
+   end distances. **No fix proposed until that report is read.** After a fix, test: L/T/X corners exterior+interior, a door and a
+   window in a corner wall, siding (USE_3D_SIDING), wall tile at the corner, molding miters (rt9/rt12/rt328/rt329), Ctrl+Z once.
+7. **Claude is editing NO files now.** Claude will not touch wall_*.rb, main.rb, molding_*, kitchen/, storage/, vanity/,
+   laundry/, cabinetry/. Only new debug_*.rb files and this brief / the handoff.

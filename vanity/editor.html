@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{font:14px Segoe UI,sans-serif;background:#f5f4ef;color:#29332e;margin:20px}h1{font-size:23px}label{display:block;margin:11px 0}input,select,button{font:inherit;padding:7px;border:1px solid #c4cbc4;border-radius:5px}input[type=number]{width:100px}select{max-width:100%}button{cursor:pointer;background:#e4eae1;margin:4px 2px}fieldset{border:1px solid #ccd1c8;border-radius:8px;margin:14px 0}#error{color:#a1271c;white-space:pre-wrap}.hint{font-size:12px;color:#526057}#list{width:100%}.row{display:flex;gap:14px;flex-wrap:wrap}
+</style></head><body><h1>Vanity</h1>
+<label>Cabinets <select id="list" onchange="choose()"><option value="">New cabinet</option></select></label>
+<label>Product <select id="product"><option value="vanity">Bathroom vanity</option><option value="makeup">Makeup cabinet</option></select></label>
+<fieldset><legend>Cabinet · inches</legend><div class="row">
+<label>Width <input id="width" type="number" value="36" step="0.125"></label><label>Depth <input id="depth" type="number" value="21" step="0.125"></label><label>Height <input id="height" type="number" value="30" step="0.125"></label></div>
+<label>Mount <select id="mount"><option value="floor">On floor</option><option value="floating">Floating</option></select></label>
+<label><input id="legs" type="checkbox"> Legs (floor cabinets)</label><label>Leg height <input id="support_height" type="number" value="4" step="0.125"></label>
+<label>Front <select id="style"><option value="shaker">Shaker</option><option value="slab">Slab</option></select></label>
+<label>Finish <select id="finish"><option>white</option><option>ivory</option><option>gray</option></select></label>
+<label>Handles <select id="handle"><option>brass</option><option>black</option><option>none</option></select></label>
+<label>Basins <select id="basins"><option value="1">One</option><option value="2">Two</option></select></label>
+<p class="hint">Basin count defines door bays only. No sink, countertop or faucet is installed until a verified bathroom fixture adapter is available.</p>
+<label><input id="drawer" type="checkbox"> Makeup drawer</label></fieldset>
+<fieldset><legend>Position · inches / degrees</legend><div class="row"><label>X <input id="x" type="number" value="0" step="0.125"></label><label>Y <input id="y" type="number" value="0" step="0.125"></label><label>Bottom Z <input id="z" type="number" value="0" step="0.125"></label><label>Rotation <input id="angle" type="number" value="0"></label></div></fieldset>
+<button onclick="send('place')">Place new</button><button onclick="send('save')">Apply edits</button><button onclick="send('move')">Move</button><button onclick="send('remove')">Delete</button><button onclick="send('undo')">Undo</button><button onclick="send('redo')">Redo</button>
+<fieldset><legend>Cabinet gallery</legend><label>Name <input id="gallery_name" maxlength="80"></label><button onclick="send('capture')">Copy selected cabinet to gallery</button><label>Saved cabinets <select id="gallery"></select></label><button onclick="send('gallery_place')">Place gallery cabinet</button><p class="hint">Gallery cabinets retain their original geometry and size. Prepare local axes: back-left-bottom, front toward −Y. A gallery copy is a file and is independent of model Undo.</p></fieldset>
+<p id="error" role="alert"></p><script src="editor.js"></script></body></html>

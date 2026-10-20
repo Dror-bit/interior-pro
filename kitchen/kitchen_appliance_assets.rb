@@ -2,6 +2,31 @@ require 'digest'
 require_relative 'kitchen_panel_ready'
 module KitchenLab
   module ApplianceAssets
+    remove_const(:USE_FILE_DIGEST_CACHE) if const_defined?(:USE_FILE_DIGEST_CACHE,false)
+    USE_FILE_DIGEST_CACHE=true
+    # Preview, validation and placement often verify the same large SKP several
+    # times. Reuse its digest only while the filesystem identity is unchanged.
+    # Stat every access (including hits); missing/replaced files still fail.
+    def self.file_digest(path)
+      return Digest::SHA256.file(path).hexdigest unless USE_FILE_DIGEST_CACHE
+      path=File.expand_path(path)
+      stat=File.stat(path)
+      stamp=[stat.dev,stat.ino,stat.size,stat.mtime.to_r,stat.ctime.to_r]
+      @file_digests||={}
+      cached=@file_digests[path]
+      return cached[1] if cached && cached[0]==stamp
+      digest=Digest::SHA256.file(path).hexdigest
+      after=File.stat(path)
+      after_stamp=[after.dev,after.ino,after.size,after.mtime.to_r,after.ctime.to_r]
+      if stamp==after_stamp
+        @file_digests.shift if @file_digests.size>=128 && !@file_digests.key?(path)
+        @file_digests[path]=[stamp,digest]
+      else
+        @file_digests.delete(path)
+        raise 'Appliance asset changed while being verified; try again'
+      end
+      digest
+    end
     ROOT=File.join(__dir__,'assets','appliances','blender') unless const_defined?(:ROOT,false)
     def self.base(id)
       raise 'Invalid Blender asset ID' unless id.is_a?(String) && id.match?(/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/)
@@ -11,7 +36,7 @@ module KitchenLab
       file=base(id)+'.asset.json'
       begin;raw=File.read(file);rescue Errno::ENOENT;return nil;end
       a=JSON.parse(raw);return nil unless [1,2].include?(a['version']) && a['parts'] && (a['version']==2 ? a['skp_sha256'] : a['obj_sha256'])
-      {'id'=>id,'version'=>a['version'],'manifest_sha256'=>Digest::SHA256.file(file).hexdigest}
+      {'id'=>id,'version'=>a['version'],'manifest_sha256'=>file_digest(file)}
     end
     def self.manifest(a)
       asset=a['asset'];return nil unless asset
@@ -23,13 +48,13 @@ module KitchenLab
         retired=JSON.parse(File.read(File.join(__dir__,'appliance_catalog.json'))).fetch('retired_ids',[])
         return nil if retired.include?(asset['id'])
       end
-      raise 'Saved Blender asset changed or missing' unless Digest::SHA256.file(file).hexdigest==asset['manifest_sha256']
+      raise 'Saved Blender asset changed or missing' unless file_digest(file)==asset['manifest_sha256']
       data=JSON.parse(File.read(file));prefix=base(asset['id'])
       raise 'Blender dimensions differ from selection' unless data['dimensions']==a['dimensions']
       raise 'Asset schema changed' unless data['version']==asset['version']
       files=data['version']==2 ? {'.skp'=>'skp_sha256'} : {'.obj'=>'obj_sha256','.materials.json'=>'materials_sha256'}
       files.each do |ext,key|
-        raise 'Blender asset content changed' unless Digest::SHA256.file(prefix+ext).hexdigest==data[key]
+        raise 'Blender asset content changed' unless file_digest(prefix+ext)==data[key]
       end
       data
     end

@@ -21,6 +21,58 @@ module KitchenLab
       unit.set_attribute(DICT,'members',data.select{|d|owner.call(d['id'])==id}.map{|d|d['id']})
     end
     @model.set_attribute(DICT,'unit_owners',JSON.generate(unit_groups.map{|g|g.get_attribute(DICT,'id')}))
+    refresh_kitchen_baseboards!
+  end
+  remove_const(:USE_KITCHEN_BASEBOARD_SYNC) if const_defined?(:USE_KITCHEN_BASEBOARD_SYNC,false)
+  USE_KITCHEN_BASEBOARD_SYNC=true
+  # Runs inside the cabinet transaction. Never start an extra Undo operation or
+  # rebuild house crowns. Preserve per-side profiles, material and visibility.
+  def self.refresh_kitchen_baseboards!
+    return unless USE_KITCHEN_BASEBOARD_SYNC && defined?(InteriorPro::MoldingManager)
+    builder=InteriorPro::MoldingBuilder;manager=InteriorPro::MoldingManager
+    groups=@model.entities.grep(Sketchup::Group).select { |g|g.get_attribute('InteriorPro','type')=='baseboard' }
+    pending=JSON.parse(@model.get_attribute(DICT,'empty_baseboard_runs','[]'))
+    return if groups.empty? && pending.empty?
+    ws=manager.walls(@model);cent={};plan=[]
+    manager.wall_components(ws).each { |component|c=manager.house_centroid(component);component.each { |w|cent[w]=c } }
+    ws.each do |w|
+      next if w.get_attribute('InteriorPro','no_molding')
+      edges=builder.wall_edges(w);next unless edges
+      manager.sides_for(w,cent[w]).each do |side|
+        geo=builder.edge_geometry(w,edges[side]);next unless geo
+        plan<<{wall:w,side:side,edge:edges[side],geo:geo,shifts:{start:0,end:0},tee_gaps:[]}
+      end
+    end
+    manager.resolve_miters!(plan);manager.resolve_tees!(plan);manager.resolve_flush_butts!(plan)
+    records=groups.map { |g|{'wall'=>g.get_attribute('InteriorPro','host_wall_id'),'side'=>g.get_attribute('InteriorPro','side'),'profile'=>g.get_attribute('InteriorPro','profile'),'height'=>g.get_attribute('InteriorPro','profile_h'),'group'=>g} }
+    keys=records.map { |r|[r['wall'],r['side']] }
+    records+=pending.reject { |r|keys.include?([r['wall'],r['side']]) }
+    empty=[];updated=0
+    records.each do |record|
+      row=plan.find { |r|r[:wall].get_attribute('InteriorPro','id')==record['wall'] && r[:side].to_s==record['side'] };next unless row
+      wall=row[:wall];side=row[:side]
+      next if wall.get_attribute('InteriorPro',"no_molding_#{side}")
+      next if manager::USE_ROOM_MOLDING && manager.side_in_off_room?(wall,row[:geo],manager.rooms_off(@model))
+      profile=InteriorPro::MoldingLibrary.baseboard_profile_by_name(record['profile'],record['height']);next unless profile
+      gaps=builder.baseboard_stop_gaps(wall,row[:geo],0,profile.map(&:last).max)
+      signature=JSON.generate([gaps,row[:shifts],row[:tee_gaps]])
+      old=record['group']
+      next if old && old.get_attribute(DICT,'baseboard_cut_signature')==signature
+      replacement=builder.build_baseboard_on_edge!(wall,row[:edge],record['profile'],side,row[:shifts],record['height'],row[:tee_gaps])
+      if replacement && replacement.valid?
+        if old
+          replacement.material=old.material;replacement.layer=old.layer;replacement.hidden=old.hidden?
+        end
+        replacement.set_attribute(DICT,'baseboard_cut_signature',signature)
+      else
+        empty<<record.reject { |k,_|k=='group' }
+      end
+      old.erase! if old && old.valid?
+      updated+=1
+    end
+    serialized=JSON.generate(empty)
+    @model.set_attribute(DICT,'empty_baseboard_runs',serialized) unless @model.get_attribute(DICT,'empty_baseboard_runs','[]')==serialized
+    @last_baseboard_updates=updated
   end
   module UnitCabinets
     def cabinets
@@ -61,7 +113,7 @@ module KitchenLab
       cabinets.each do |g|
         d=data.find{|c|c['id']==g.get_attribute(DICT,'id')};g.set_attribute(DICT,'data',JSON.generate(d)) if d
       end
-      worktops!
+      worktops!(previous: doc)
       model.commit_operation
     rescue StandardError
       model.abort_operation

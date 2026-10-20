@@ -222,8 +222,13 @@ module KitchenLab
     if key=='Worktop' && settings['countertop_material']
       return CountertopMaterials.resolve(@model,settings['countertop_material'])
     end
-    m=@model.materials["KitchenLab / #{key}"] || @model.materials.add("KitchenLab / #{key}")
-    m.color=color;m
+    # V-Ray normalizes '/' in material names. Reuse that material too, so
+    # rebuilding geometry does not duplicate finishes or disturb renderer Undo.
+    name="KitchenLab / #{key}"
+    m=@model.materials[name] || @model.materials[name.tr('/','_')] || @model.materials.add(name)
+    wanted=Sketchup::Color.new(color)
+    m.color=wanted unless m.color.to_a==wanted.to_a
+    m
   end
 
   def self.box(ents,name,x,y,z,w,d,h,mat)
@@ -492,7 +497,7 @@ module KitchenLab
     end
   end
 
-  def self.worktops!
+  def self.worktops!(previous: nil)
     unpack_units!
     if USE_HOOD_CHIMNEY_CEILING
       cabinets.each do |g|
@@ -501,6 +506,14 @@ module KitchenLab
         fit=JSON.generate([cabinet_transform(d).origin.z.to_f,crown_ceiling_for(d)])
         next if g.get_attribute(DICT,'chimney_fit')==fit
         g.erase!;build(d)
+      end
+    end
+    if defined?(ContinuousSurfaces) && ContinuousSurfaces.reusable?(previous)
+      crowns!
+      # Ceiling fitting may resize an upper cabinet during the crown update.
+      if ContinuousSurfaces.reusable?(previous)
+        pack_units!
+        return
       end
     end
     @model.entities.grep(Sketchup::Group).select { |g| g.get_attribute(DICT,'kind')=='worktop' }.each(&:erase!)

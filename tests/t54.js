@@ -49,9 +49,22 @@ ok('every wall really was turned round (that is what the flip is for)',
                            return close(a.x, -b.x) && close(a.y, -b.y); }),
    after.map((w, i) => [dir(room[i]), dir(w)]));
 
+// 2026-10-16: after the turn the ends go to the outer corners (a thickness longer each way), so the
+// strip is the SAME LINES and the old strip lies inside the new one - it never moves sideways.
+function onLine(f, g) { // segment g on the line of f
+  const dx = f.X - f.x, dy = f.Y - f.y, L = Math.hypot(dx, dy);
+  const off = (px, py) => Math.abs((px - f.x) * dy - (py - f.y) * dx) / L;
+  return off(g.x, g.y) < 0.001 && off(g.X, g.Y) < 0.001;
+}
+function contains(f, g) { // old segment f inside new segment g
+  const dx = g.X - g.x, dy = g.Y - g.y, L2 = dx * dx + dy * dy;
+  const t = (px, py) => ((px - g.x) * dx + (py - g.y) * dy) / L2;
+  return [t(f.x, f.y), t(f.X, f.Y)].every(v => v > -1e-6 && v < 1 + 1e-6);
+}
 after.forEach((w, i) => {
-  ok('wall ' + i + ' covers the SAME strip of floor after the flip',
-     sameStrip(before[i], faces(w)), { before: before[i], after: faces(w) });
+  const nf = faces(w), of = before[i];
+  const okStrip = of.every(f => nf.some(g => onLine(f, g) && contains(f, g)));
+  ok('wall ' + i + ' covers the SAME strip of floor after the flip (same lines, not shorter)', okStrip, { before: of, after: nf });
 });
 
 // The centreline itself is allowed to move (it is one face of the band), but
