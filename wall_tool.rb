@@ -1641,6 +1641,13 @@ module InteriorPro
 
       [:start, :end].each do |side|
         break unless new_group.valid?
+        # Three walls at one point, two of them in one straight line: a T,
+        # not a corner (2026-10-20, tee_at_existing_corner!).
+        if tee_at_existing_corner!(new_group, side, model)
+          data = wall_data_world(new_group)
+          break unless data
+          next
+        end
         corner = endpoint_pt(data, side)
         other  = find_neighbor_at(corner, new_group, model, allow_centerline_fallback: allow_centerline_fallback)
         # Nothing found within 0.001"? A neighbour a hair further away is a
@@ -1657,6 +1664,125 @@ module InteriorPro
         data = wall_data_world(new_group)
         break unless data
       end
+    end
+
+    # ---------- a wall that CONTINUES another one at an existing corner ----
+    #
+    # His words (2026-10-19): "ציירתי 3 קירות חוץ ... את הקיר האחרון חיברתי
+    # לפינה ואז הוא שבר אותה". Measured on his model (room_add_watch.txt,
+    # 2026-10-20 13:15): the new bottom wall ran on in a straight line from
+    # the house's bottom wall and ended on the house's corner. That point
+    # already held TWO walls (the corner), and find_neighbor_at takes the
+    # first one it meets - the house's LEFT wall - and mitered against it.
+    # The left wall's corner turned inside out (inside -697,183 / outside
+    # -702,188) and the house's bottom wall kept a miter aimed at nothing.
+    #
+    # Three walls at one point with two of them in one straight line is a
+    # T, not a corner. So: the two in line meet with plain square ends
+    # (flush, no step), and the third one stops at their face. Whichever of
+    # the three is being joined, the answer is the same T - so a later
+    # join_corners on the house's left wall (a stretch, a neighbour deleted)
+    # keeps it instead of mitering it again.
+    #
+    # Only when the two in-line walls have the SAME cross-section at that
+    # point (same thickness, same side of the line) - anything else keeps
+    # the old path. Straight walls only.
+    #
+    # Kill switch: InteriorPro::WallTool::USE_TEE_AT_CORNER = false
+    USE_TEE_AT_CORNER = true unless const_defined?(:USE_TEE_AT_CORNER, false)
+
+    def tee_at_existing_corner!(group, side, model)
+      return false unless USE_TEE_AT_CORNER
+      return false unless group&.valid?
+      return false if InteriorPro::WallTool.curved_wall?(group)
+      data = wall_data_world(group)
+      return false unless data
+      pt = endpoint_pt(data, side)
+      my_level = (group.get_attribute('InteriorPro', 'level') || 1).to_i
+      hits = []
+      model.active_entities.grep(Sketchup::Group).each do |g|
+        next if g == group || !g.valid?
+        next unless g.get_attribute('InteriorPro', 'type') == 'wall'
+        next unless (g.get_attribute('InteriorPro', 'level') || 1).to_i == my_level
+        od = wall_data_world(g)
+        next unless od
+        [:start, :end].each do |os|
+          hits << [g, os, od] if endpoint_pt(od, os).distance(pt) < 0.001
+        end
+      end
+      return false unless hits.size == 2
+      return false if hits.any? { |g, _, _| InteriorPro::WallTool.curved_wall?(g) }
+
+      me = [group, side, data]
+      cont = hits.find { |h| in_line_flush?(me, h, pt) }
+      if cont
+        cross = hits.find { |h| !h.equal?(cont) }
+        line_a = me
+      elsif in_line_flush?(hits[0], hits[1], pt)
+        cont = hits[1]
+        line_a = hits[0]
+        cross = me
+      else
+        return false
+      end
+      square_corner!(line_a[0], line_a[1])
+      square_corner!(cont[0], cont[1])
+      square_corner!(cross[0], cross[1])
+      ok = butt_to_face!(cross[0], cross[1], cont[0])
+      wall_trace('TEE', group, "at (#{pt.x.to_f.round(2)},#{pt.y.to_f.round(2)}) line " \
+                 "#{line_a[0].get_attribute('InteriorPro', 'id').to_s[0, 8]}+#{cont[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} " \
+                 "stops #{cross[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} #{ok}")
+      puts "[WallTool] T at an existing corner: #{cross[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} stops at the wall line (#{ok})"
+      true
+    rescue StandardError => e
+      puts "[WallTool] tee_at_existing_corner!: #{e.message}"
+      false
+    end
+
+    # Two walls that meet end to end at pt, running away from it in opposite
+    # directions, with the same plain square cut there.
+    def in_line_flush?(a, b, pt)
+      fa = endpoint_pt(a[2], a[1] == :start ? :end : :start) - pt
+      fb = endpoint_pt(b[2], b[1] == :start ? :end : :start) - pt
+      return false if fa.length < 0.001 || fb.length < 0.001
+      fa.normalize!
+      fb.normalize!
+      return false unless fa.dot(fb) < -0.999
+      ca = natural_cut_world(a[0], a[1])
+      cb = natural_cut_world(b[0], b[1])
+      return false unless ca && cb
+      near = ->(p, q) { Math.sqrt(((p[0] - q[0])**2) + ((p[1] - q[1])**2)) < 0.01 }
+      ca.all? { |p| cb.any? { |q| near.call(p, q) } }
+    end
+
+    # Trim one end of `thin` back to the long face of `thick` that faces it.
+    def butt_to_face!(thin, thin_side, thick)
+      td = wall_data(thick)
+      nd = wall_data(thin)
+      return false unless td && nd
+      tc = compute_perpendicular_corners_from_data(td)
+      nc = compute_perpendicular_corners_from_data(nd)
+      return false unless tc && nc
+      tx = thick.transformation
+      nx = thin.transformation
+      w = ->(p, xf) { Geom::Point3d.new(p[0].to_f, p[1].to_f, 0).transform(xf) }
+      pos_face = [w.call(tc[0], tx), w.call(tc[1], tx) - w.call(tc[0], tx)]
+      neg_face = [w.call(tc[3], tx), w.call(tc[2], tx) - w.call(tc[3], tx)]
+      far = endpoint_pt(wall_data_world(thin), thin_side == :start ? :end : :start)
+      off = lambda do |line|
+        v = far - line[0]
+        u = line[1]
+        ((v.x * u.y) - (v.y * u.x)).abs / u.length
+      end
+      face = off.call(pos_face) < off.call(neg_face) ? pos_face : neg_face
+      i_pos, i_neg = thin_side == :start ? [0, 3] : [1, 2]
+      u = w.call(nc[1], nx) - w.call(nc[0], nx)
+      p_pos = Geom.intersect_line_line([w.call(nc[i_pos], nx), u], face)
+      p_neg = Geom.intersect_line_line([w.call(nc[i_neg], nx), u], face)
+      return false unless p_pos && p_neg
+      inv = nx.inverse
+      apply_miter_to_wall(thin, thin_side, p_pos.transform(inv), p_neg.transform(inv), nd)
+      true
     end
 
     # ---------- a corner that was MEANT, but missed by a hair -------------

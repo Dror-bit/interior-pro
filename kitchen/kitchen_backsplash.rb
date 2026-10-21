@@ -3,7 +3,7 @@ module KitchenLab
   module Backsplash
     BASE_KINDS=%w[doors drawers sink dishwasher filler corner corner_base corner_lazy].freeze unless const_defined?(:BASE_KINDS,false)
     def self.eligible?(d)
-      !d['surround_for'] && ((BASE_KINDS+['oven']).include?(d['kind']) || (defined?(ApplianceCatalog) && ApplianceCatalog.microwave_base?(d)))
+      d['wall']!='I' && !d['surround_for'] && ((BASE_KINDS+['oven']).include?(d['kind']) || (defined?(ApplianceCatalog) && ApplianceCatalog.microwave_base?(d)))
     end
     def self.product_dimensions(card)
       return nil unless card.is_a?(Hash)
@@ -119,14 +119,76 @@ module KitchenLab
         face.position_material(group.material,mapping,false)
       end
     end
-    def self.opening_signature(model)
-      rows=model.entities.select{|e|e.respond_to?(:transformation) && %w[wall window door].include?(e.get_attribute('InteriorPro','type'))}.map do |e|
+    remove_const(:USE_LOCAL_OPENING_SIGNATURE) if const_defined?(:USE_LOCAL_OPENING_SIGNATURE,false)
+    USE_LOCAL_OPENING_SIGNATURE=true
+    LOCAL_SIGNATURE_VERSION='kitchen-local-v1:' unless const_defined?(:LOCAL_SIGNATURE_VERSION,false)
+    # World-space influence volumes, one per cabinet (inches). Include returns,
+    # crown projection and the full configured backsplash height, on this floor.
+    def self.opening_regions(model)
+      raw=model.get_attribute(KitchenLab::DICT,'document')
+      return [] unless raw
+      doc=JSON.parse(raw);s=doc.fetch('settings');floor=Spatial.pose(s)['z']
+      doc.fetch('cabinets').map do |d|
+        points=Spatial.polygon(d,s);z=floor+d['z']
+        extra=[12.0,s.fetch('backsplash',{}).to_h.fetch('height',18).to_f+2].max
+        [points.map(&:first).min-12,points.map(&:last).min-12,z-12,
+         points.map(&:first).max+12,points.map(&:last).max+12,z+d['height']+extra]
+      end
+    rescue StandardError
+      nil # Unknown placement must conservatively retain the legacy dependency set.
+    end
+    def self.near_opening_regions?(min,max,regions)
+      regions.nil? || regions.any?{|r|3.times.all?{|i|max[i]>=r[i] && min[i]<=r[i+3]}}
+    end
+    def self.relevant_wall_openings(wall,regions)
+      return wall.get_attribute('InteriorPro','door_openings') unless defined?(InteriorPro::WallTool)
+      tool=InteriorPro::WallTool
+      sx,sy,ex,ey=%w[start_x start_y end_x end_y].map{|k|wall.get_attribute('InteriorPro',k).to_f}
+      va,ha=wall.get_attribute('InteriorPro','anchor','bottom-center').split('-')
+      offsets=tool.anchor_side_offsets(wall.get_attribute('InteriorPro','thickness').to_f,ha)
+      floor=tool.native_floor_z(va,wall.get_attribute('InteriorPro','height').to_f)
+      tool.read_door_openings(wall).select do |o|
+        pocket=tool.opening_pocket(sx,sy,ex,ey,wall.get_attribute('InteriorPro','arc_sag').to_f,o[:t],o[:width])
+        next true unless pocket
+        ux,uy=pocket[:dir];z=floor+o.fetch(:floor_offset,0)
+        points=[pocket[:p0],pocket[:p1]].product(offsets,[z,z+o[:height]+o.fetch(:arch_rise,0).to_f]).map do |p,y,h|
+          Geom::Point3d.new(p[0]-uy*y,p[1]+ux*y,h).transform(wall.transformation).to_a
+        end
+        near_opening_regions?(3.times.map{|i|points.map{|p|p[i]}.min},3.times.map{|i|points.map{|p|p[i]}.max},regions)
+      end
+    rescue StandardError
+      wall.get_attribute('InteriorPro','door_openings')
+    end
+    def self.opening_signature(model,local:USE_LOCAL_OPENING_SIGNATURE)
+      regions=local ? opening_regions(model) : nil
+      rows=model.entities.select{|e|e.respond_to?(:transformation) && %w[wall window door].include?(e.get_attribute('InteriorPro','type')) && near_opening_regions?(e.bounds.min.to_a,e.bounds.max.to_a,regions)}.map do |e|
         attrs=e.attribute_dictionary('InteriorPro')
         keys=%w[type id host_wall_id start_x start_y end_x end_y height thickness anchor arc_sag door_openings width_in height_in sill_height_in header_height_in position_along_wall_in]
-        [e.persistent_id,keys.map{|k|attrs && attrs[k]},e.transformation.to_a,e.bounds.min.to_a,e.bounds.max.to_a]
+        values=keys.map{|k|attrs && attrs[k]}
+        values[keys.index('door_openings')]=relevant_wall_openings(e,regions) if local && e.get_attribute('InteriorPro','type')=='wall'
+        [e.persistent_id,values,e.transformation.to_a,e.bounds.min.to_a,e.bounds.max.to_a]
       end.sort_by(&:first)
-      Digest::SHA256.hexdigest(JSON.generate(rows))
+      (local ? LOCAL_SIGNATURE_VERSION : '')+Digest::SHA256.hexdigest(JSON.generate(rows))
     end
+    # Seed old documents without writing model attributes or creating an Undo
+    # entry. Otherwise the first unrelated edit after upgrading would rebuild.
+    def self.prime_opening_signature!(model)
+      return unless USE_LOCAL_OPENING_SIGNATURE
+      saved=model.get_attribute(KitchenLab::DICT,'backsplash_opening_signature')
+      return unless saved && !saved.start_with?(LOCAL_SIGNATURE_VERSION) && saved==opening_signature(model,local:false)
+      @opening_baselines ||= {}
+      @opening_baselines[model]=[saved,opening_signature(model)]
+    end
+    def self.openings_changed?(model)
+      saved=model.get_attribute(KitchenLab::DICT,'backsplash_opening_signature')
+      if USE_LOCAL_OPENING_SIGNATURE && saved && !saved.start_with?(LOCAL_SIGNATURE_VERSION)
+        prime_opening_signature!(model) unless @opening_baselines && @opening_baselines[model]&.first==saved
+        baseline=@opening_baselines && @opening_baselines[model]
+        return baseline.last!=opening_signature(model) if baseline && baseline.first==saved
+      end
+      saved!=opening_signature(model)
+    end
+    prime_opening_signature!(Sketchup.active_model) if defined?(Sketchup) && Sketchup.respond_to?(:active_model)
     # Opening data is authoritative even when the rendered window is recessed.
     def self.opening_holes(model,inv,thick)
       walls=model.entities.select{|e|e.respond_to?(:transformation) && e.get_attribute('InteriorPro','type')=='wall'}

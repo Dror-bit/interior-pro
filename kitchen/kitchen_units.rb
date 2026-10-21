@@ -89,6 +89,8 @@ module KitchenLab
     origin=transform.origin;angle=Math.atan2(x.y,x.x)*180.0/Math::PI
     d.merge('house_placement'=>{'x'=>origin.x.to_f,'y'=>origin.y.to_f,'angle'=>angle,'handedness'=>x.cross(y).z>0 ? 1 : -1},'z'=>origin.z.to_f-Spatial.pose(options)['z'],'flip_x'=>false,'flip_y'=>false)
   end
+  remove_const(:USE_ISOLATED_KITCHEN_SYNC) if const_defined?(:USE_ISOLATED_KITCHEN_SYNC,false)
+  USE_ISOLATED_KITCHEN_SYNC=true
   def self.sync_unit_moves!(model)
     return if @unit_syncing || !model.equal?(@model) || !model.active_path.nil?
     raw=model.get_attribute(DICT,'document');return unless raw
@@ -96,7 +98,7 @@ module KitchenLab
     saved=JSON.parse(model.get_attribute(DICT,'unit_owners','[]'))
     removed=saved-units.map{|g|g.get_attribute(DICT,'id')}
     changed=units.select { |u|prev=u.get_attribute(DICT,'unit_transform');prev && u.transformation.to_a.zip(prev).any?{|a,b|(a-b).abs>0.000001} }
-    openings_changed=defined?(Backsplash) && model.get_attribute(DICT,'backsplash_opening_signature')!=Backsplash.opening_signature(model)
+    openings_changed=defined?(Backsplash) && Backsplash.openings_changed?(model)
     return if changed.empty? && removed.empty? && !openings_changed
     data=doc['cabinets'].reject{|d|removed.include?(d['surround_for']||d['id'])}
     changed.each do |u|
@@ -105,7 +107,9 @@ module KitchenLab
       data=data.map{|d|ids.include?(d['id']) ? unit_pose(d,delta*cabinet_transform(d),doc['settings']) : d}
     end
     @unit_syncing=true
-    model.start_operation('Kitchen: sync placement and openings',true,false,true)
+    # A failed transparent operation also aborts the user's preceding edit.
+    # Keep observer-driven kitchen rebuilding in its own undo transaction.
+    model.start_operation('Kitchen: sync placement and openings',true,false,!USE_ISOLATED_KITCHEN_SYNC)
     begin
       write_document!(data,doc['settings'])
       changed.each{|u|u.set_attribute(DICT,'unit_transform',u.transformation.to_a)}
@@ -149,6 +153,7 @@ end
 module KitchenLab
   def self.bind_saved_units(model)
     return unless model.equal?(Sketchup.active_model) && model.get_attribute(DICT,'unit_owners') && model.active_path.nil?
+    Backsplash.prime_opening_signature!(model) if defined?(Backsplash)
     InteriorPro::KitchenPlan.bind_active_model! if defined?(InteriorPro::KitchenPlan)
   rescue StandardError=>e
     puts '[Kitchen units] '+e.message
