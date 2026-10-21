@@ -1,0 +1,162 @@
+[
+  {
+    "id": "100.1000",
+    "label": "Flusso 100",
+    "revision": 2,
+    "units": "inches",
+    "height": 5.9,
+    "reach": 4.33,
+    "bounds": [
+      [
+        -1.1,
+        -4.65,
+        0.0
+      ],
+      [
+        1.1,
+        1.1,
+        5.9
+      ]
+    ]
+  },
+  {
+    "id": "196.1000",
+    "label": "Flusso 196 Single",
+    "revision": 2,
+    "units": "inches",
+    "height": 6.49,
+    "reach": 4.92,
+    "bounds": [
+      [
+        -0.91,
+        -5.4,
+        0.0
+      ],
+      [
+        0.91,
+        0.91,
+        6.49
+      ]
+    ]
+  },
+  {
+    "id": "196.2000",
+    "label": "Flusso 196 Widespread",
+    "revision": 2,
+    "units": "inches",
+    "height": 5.33,
+    "reach": 4.92,
+    "bounds": [
+      [
+        -6.54,
+        -5.4,
+        0.0
+      ],
+      [
+        6.54,
+        0.91,
+        5.33
+      ]
+    ]
+  },
+  {
+    "id": "240.2000",
+    "label": "Flusso 240",
+    "revision": 2,
+    "units": "inches",
+    "height": 4.366,
+    "reach": 5.491,
+    "bounds": [
+      [
+        -5.126,
+        -5.791,
+        0.0
+      ],
+      [
+        5.126,
+        1.126,
+        4.364798
+      ]
+    ]
+  },
+  {
+    "id": "567LF-MPU",
+    "label": "Delta Ara",
+    "revision": 2,
+    "units": "inches",
+    "height": 6.8125,
+    "reach": 5.5,
+    "bounds": [
+      [
+        -1.0,
+        -5.848641,
+        0.0
+      ],
+      [
+        1.0,
+        1.0,
+        6.8125
+      ]
+    ]
+  },
+  {
+    "id": "559LF-MPU",
+    "label": "Delta Trinsic",
+    "revision": 2,
+    "units": "inches",
+    "height": 6.25,
+    "reach": 5,
+    "bounds": [
+      [
+        -1.1875,
+        -5.477733,
+        0.0
+      ],
+      [
+        1.1875,
+        1.1875,
+        6.25
+      ]
+    ]
+  },
+  {
+    "id": "3536-MPU-DST",
+    "label": "Delta Saylor",
+    "revision": 2,
+    "units": "inches",
+    "height": 6.375,
+    "reach": 5.5625,
+    "bounds": [
+      [
+        -6.48,
+        -6.0325,
+        0.0
+      ],
+      [
+        6.48,
+        0.96875,
+        6.374627
+      ]
+    ]
+  },
+  {
+    "id": "3597-PD-DST",
+    "label": "Delta Cassidy",
+    "revision": 2,
+    "units": "inches",
+    "height": 8.5,
+    "reach": 5,
+    "bounds": [
+      [
+        -6.905,
+        -5.685872,
+        0.0
+      ],
+      [
+        6.905,
+        1.15625,
+        8.500087
+      ]
+    ]
+  }
+]
