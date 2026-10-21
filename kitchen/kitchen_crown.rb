@@ -94,13 +94,16 @@ module KitchenLab
 
   remove_const(:USE_APPLIANCE_PANEL_CROWN_FIT) if const_defined?(:USE_APPLIANCE_PANEL_CROWN_FIT,false)
   USE_APPLIANCE_PANEL_CROWN_FIT=true
-  def self.appliance_panel_crown_height(part,upper,s)
+  def self.appliance_flat_crown?(s)
     flat=s['crown_profile']=='flat'
     points=s.dig('crown_shape','points') if s['crown_profile'].to_s.start_with?('house:')
     if points && points.uniq.length==4
       flat=points.map(&:first).uniq.length==2 && points.map(&:last).uniq.length==2
     end
-    upper['z']+upper['height']-part['z']+(flat ? s['crown_height'] : 0)
+    flat
+  end
+  def self.appliance_panel_crown_height(part,upper,s)
+    upper['z']+upper['height']-part['z']+(appliance_flat_crown?(s) ? s['crown_height'] : 0)
   end
 
   def self.fit_cabinet_crowns!(height)
@@ -133,18 +136,16 @@ module KitchenLab
     end
     if USE_APPLIANCE_PANEL_CROWN_FIT
       s=crown_settings(doc['settings'])
-      if s['crown_profile']!='none'
-        data.select { |d|%w[fridge wall_oven].include?(d['kind']) }.each do |appliance|
-          parts=data.select { |d|d['surround_for']==appliance['id'] }
-          upper=parts.find { |d|d['surround_part']=='upper' };next unless upper
-          parts.select { |d|%w[left right].include?(d['surround_part']) }.each do |part|
-            target=appliance_panel_crown_height(part,upper,s)
-            ceiling=crown_ceiling_for(part)
-            target=[target,ceiling-cabinet_transform(part).origin.z.to_f].min if ceiling
-            raise 'Not enough height for appliance side panel.' unless target>0
-            next if (part['height']-target).abs<0.001
-            part['height']=target;changed<<part
-          end
+      data.select { |d|%w[fridge wall_oven microwave].include?(d['kind']) }.each do |appliance|
+        parts=data.select { |d|d['surround_for']==appliance['id'] }
+        upper=parts.find { |d|d['surround_part']=='upper' };next unless upper
+        parts.select { |d|%w[left right].include?(d['surround_part']) }.each do |part|
+          target=appliance_panel_crown_height(part,upper,s)
+          ceiling=crown_ceiling_for(part)
+          target=[target,ceiling-cabinet_transform(part).origin.z.to_f].min if ceiling
+          raise 'Not enough height for appliance side panel.' unless target>0
+          next if (part['height']-target).abs<0.001
+          part['height']=target;changed<<part
         end
       end
     end
@@ -253,18 +254,23 @@ module KitchenLab::CrownJoints
   def carriers(data,s)
     items=data.select { |d| s['crown_profile']!='none' && %w[wall tall oven_tower micro_tower fridge_surround corner_upper].include?(d['kind']) && d['surround_part']!='lower' }
     if USE_APPLIANCE_CROWN_ENVELOPE && s['crown_profile']!='none'
-      data.select { |d|%w[fridge wall_oven].include?(d['kind']) }.each do |appliance|
+      data.select { |d|%w[fridge wall_oven microwave].include?(d['kind']) }.each do |appliance|
         parts=data.select { |d|d['surround_for']==appliance['id'] }
         left=parts.find { |d|d['surround_part']=='left' };right=parts.find { |d|d['surround_part']=='right' };upper=parts.find { |d|d['surround_part']=='upper' }
         next unless left && right && upper
         # Crown follows the outside casing, including both side panels. Its
         # owner is the bundle, so its own panels cannot clip away the returns.
         items.reject! { |d|d['id']==upper['id'] }
-        items<<left.merge('id'=>appliance['id'],'kind'=>'fridge_surround',
+        if KitchenLab.appliance_flat_crown?(s)
+          # Extended side panels own the corners; the front fits between them.
+          items<<upper.merge('id'=>appliance['id'],'crown_front_only'=>true)
+        else
+          items<<left.merge('id'=>appliance['id'],'kind'=>'fridge_surround',
           'width'=>left['width']+upper['width']+right['width'],
           'height'=>upper['z']+upper['height']-left['z'],
           'depth'=>[left['depth'],upper['depth'],right['depth']].max,
           'finish'=>upper['finish'])
+        end
       end
     end
     data.select { |d| d['kind']=='hood' && KitchenLab.hood_molding?(d) }.each do |hood|
@@ -304,7 +310,7 @@ module KitchenLab::CrownJoints
       base=KitchenLab.cabinet_transform(d).origin.z.to_f+d['height']
       mat=s['crown_color']=='white' ? KitchenLab.material('Crown white','#F5F3ED') : KitchenLab.material(d['finish'],KitchenLab::FINISHES.fetch(d['finish']))
       # Back edges never receive a return. Mirrored transforms are supported.
-      indexes=d['kind']=='corner_upper' ? [1,2,3,4] : [1,2,3]
+      indexes=d['crown_front_only'] ? [2] : d['kind']=='corner_upper' ? [1,2,3,4] : [1,2,3]
       indexes.flat_map do |i|
         a=points[i];b=points[(i+1)%points.length];u=b-a;n=v(-u.y,u.x);n.normalize!
         # Local polygon has clockwise winding; reflection reverses it.
@@ -342,7 +348,7 @@ module KitchenLab::CrownJoints
       ss=d['kind']=='hood_crown' ? KitchenLab.hood_crown_settings : s
       pp=poly(d);base=KitchenLab.cabinet_transform(d).origin.z.to_f+d['height']
       area=pp.each_with_index.sum { |p,i|q=pp[(i+1)%pp.length];p.x*q.y-q.x*p.y }
-      indexes=d['kind']=='corner_upper' ? [1,2,3,4] : [1,2,3]
+      indexes=d['crown_front_only'] ? [2] : d['kind']=='corner_upper' ? [1,2,3,4] : [1,2,3]
       indexes.each do |i|
         a=pp[i];b=pp[(i+1)%pp.length];u=b-a;n=v(-u.y,u.x);n.normalize!;n.reverse! if area>0
         mat=s['crown_color']=='white' ? KitchenLab.material('Crown white','#F5F3ED') : KitchenLab.material(d['finish'],KitchenLab::FINISHES.fetch(d['finish']))

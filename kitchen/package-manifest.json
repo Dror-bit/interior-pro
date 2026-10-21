@@ -543,8 +543,8 @@
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 39593,
-      "sha256": "d5de9eda070f3f43b894ccb2a62f1bd77cc4d388d7930f9fb37581d1339914c6"
+      "bytes": 41497,
+      "sha256": "d098ebfd7d6e35bdf947fe39169ad6b6e9ca24208f9cbb73ecf42af1d1474108"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -2798,8 +2798,8 @@
     },
     {
       "path": "test_appliance_crown_envelope.rb",
-      "bytes": 1353,
-      "sha256": "764c3c2288ddaaacf163a219b612f091a72f5044f202471d9382ddb191231f6f"
+      "bytes": 1552,
+      "sha256": "3408960f701b09eb1f25c257bf5e4dfcdbd20686f5dd8539c87ae2e2a40191dc"
     },
     {
       "path": "test_appliance_panel_height.rb",
@@ -2930,6 +2930,11 @@
       "path": "test_manufacturer_fit.rb",
       "bytes": 2447,
       "sha256": "2539d1a8f9e25d9370578d274c41b049521b565e5baaa92e709c8a1fe84edb08"
+    },
+    {
+      "path": "test_appliance_crown_switch.rb",
+      "bytes": 2050,
+      "sha256": "76509638a274229eff1e2fd24dd0290cb9b78565308d1de9c1969b8c5d44949d"
     }
   ]
 }
