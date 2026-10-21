@@ -122,6 +122,9 @@ module KitchenLab
     remove_const(:USE_LOCAL_OPENING_SIGNATURE) if const_defined?(:USE_LOCAL_OPENING_SIGNATURE,false)
     USE_LOCAL_OPENING_SIGNATURE=true
     LOCAL_SIGNATURE_VERSION='kitchen-local-v1:' unless const_defined?(:LOCAL_SIGNATURE_VERSION,false)
+    remove_const(:USE_NATIVE_OPENING_DEPENDENCIES) if const_defined?(:USE_NATIVE_OPENING_DEPENDENCIES,false)
+    USE_NATIVE_OPENING_DEPENDENCIES=true
+    NATIVE_SIGNATURE_VERSION='kitchen-native-openings-v2:' unless const_defined?(:NATIVE_SIGNATURE_VERSION,false)
     # World-space influence volumes, one per cabinet (inches). Include returns,
     # crown projection and the full configured backsplash height, on this floor.
     def self.opening_regions(model)
@@ -159,34 +162,70 @@ module KitchenLab
     rescue StandardError
       wall.get_attribute('InteriorPro','door_openings')
     end
-    def self.opening_signature(model,local:USE_LOCAL_OPENING_SIGNATURE)
+    # A native wall owns the actual hole. Handles, casing and an open leaf can
+    # change their bounds/axes without changing that hole. Keeping those bodies
+    # in the dependency hash made a door edit (and its Undo) rebuild the kitchen
+    # in a second operation. Unhosted/legacy bodies retain the previous fallback.
+    def self.native_hosted_opening?(entity,walls)
+      return false unless defined?(InteriorPro::WallTool)
+      tool=InteriorPro::WallTool
+      return false unless tool.const_defined?(:USE_NATIVE_OPENINGS,false) && tool::USE_NATIVE_OPENINGS
+      wall=walls[entity.get_attribute('InteriorPro','host_wall_id').to_s]
+      return false unless wall
+      position=entity.get_attribute('InteriorPro','position_along_wall_in')
+      return false if position.nil?
+      tool.read_door_openings(wall).any?{|o|(o[:t].to_f-position.to_f).abs<0.001}
+    rescue StandardError
+      false
+    end
+    def self.opening_signature(model,local:USE_LOCAL_OPENING_SIGNATURE,native:USE_NATIVE_OPENING_DEPENDENCIES)
       regions=local ? opening_regions(model) : nil
-      rows=model.entities.select{|e|e.respond_to?(:transformation) && %w[wall window door].include?(e.get_attribute('InteriorPro','type')) && near_opening_regions?(e.bounds.min.to_a,e.bounds.max.to_a,regions)}.map do |e|
+      native=local && native
+      walls={}
+      if native
+        model.entities.each{|e|walls[e.get_attribute('InteriorPro','id').to_s]=e if e.respond_to?(:get_attribute) && e.get_attribute('InteriorPro','type')=='wall'}
+      end
+      rows=model.entities.select do |e|
+        next false unless e.respond_to?(:transformation)
+        type=e.get_attribute('InteriorPro','type')
+        next false unless %w[wall window door].include?(type)
+        next false if native && type!='wall' && native_hosted_opening?(e,walls)
+        near_opening_regions?(e.bounds.min.to_a,e.bounds.max.to_a,regions)
+      end.map do |e|
         attrs=e.attribute_dictionary('InteriorPro')
         keys=%w[type id host_wall_id start_x start_y end_x end_y height thickness anchor arc_sag door_openings width_in height_in sill_height_in header_height_in position_along_wall_in]
         values=keys.map{|k|attrs && attrs[k]}
         values[keys.index('door_openings')]=relevant_wall_openings(e,regions) if local && e.get_attribute('InteriorPro','type')=='wall'
         [e.persistent_id,values,e.transformation.to_a,e.bounds.min.to_a,e.bounds.max.to_a]
       end.sort_by(&:first)
-      (local ? LOCAL_SIGNATURE_VERSION : '')+Digest::SHA256.hexdigest(JSON.generate(rows))
+      (local ? (native ? NATIVE_SIGNATURE_VERSION : LOCAL_SIGNATURE_VERSION) : '')+Digest::SHA256.hexdigest(JSON.generate(rows))
     end
     # Seed old documents without writing model attributes or creating an Undo
     # entry. Otherwise the first unrelated edit after upgrading would rebuild.
     def self.prime_opening_signature!(model)
       return unless USE_LOCAL_OPENING_SIGNATURE
       saved=model.get_attribute(KitchenLab::DICT,'backsplash_opening_signature')
-      return unless saved && !saved.start_with?(LOCAL_SIGNATURE_VERSION) && saved==opening_signature(model,local:false)
+      return unless saved
+      current=opening_signature(model)
+      return if saved==current
+      previous=if saved.start_with?(LOCAL_SIGNATURE_VERSION)
+        opening_signature(model,native:false)
+      elsif !saved.start_with?(NATIVE_SIGNATURE_VERSION)
+        opening_signature(model,local:false)
+      end
+      return unless saved==previous
       @opening_baselines ||= {}
-      @opening_baselines[model]=[saved,opening_signature(model)]
+      @opening_baselines[model]=[saved,current]
     end
     def self.openings_changed?(model)
       saved=model.get_attribute(KitchenLab::DICT,'backsplash_opening_signature')
-      if USE_LOCAL_OPENING_SIGNATURE && saved && !saved.start_with?(LOCAL_SIGNATURE_VERSION)
+      current=opening_signature(model)
+      if USE_LOCAL_OPENING_SIGNATURE && saved && saved!=current
         prime_opening_signature!(model) unless @opening_baselines && @opening_baselines[model]&.first==saved
         baseline=@opening_baselines && @opening_baselines[model]
-        return baseline.last!=opening_signature(model) if baseline && baseline.first==saved
+        return baseline.last!=current if baseline && baseline.first==saved
       end
-      saved!=opening_signature(model)
+      saved!=current
     end
     prime_opening_signature!(Sketchup.active_model) if defined?(Sketchup) && Sketchup.respond_to?(:active_model)
     # Opening data is authoritative even when the rendered window is recessed.

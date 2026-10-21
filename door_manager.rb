@@ -3,6 +3,97 @@
 module InteriorPro
   module DoorManager
 
+    remove_const(:USE_PRELOAD_DOOR_HANDLES) if const_defined?(:USE_PRELOAD_DOOR_HANDLES, false)
+    USE_PRELOAD_DOOR_HANDLES = true
+
+    # Importing a SKP can commit its own operation; render observers may also
+    # create material transactions. Finish that cache-only work before writing
+    # any door attributes or geometry, so one Undo restores the whole edit.
+    # Never make this operation transparent: a failed import must not undo the
+    # user's preceding operation. Already cached handles need no transaction.
+    def self.prepare_door_handle!(model, tool)
+      return unless USE_PRELOAD_DOOR_HANDLES
+      return unless defined?(InteriorPro::DoorHandles) && tool.send(:handle_enabled?)
+      name = tool.handle_style.to_s
+      kind = tool.send(:handle_kind)
+      definition = model.definitions["InteriorPro_Handle_#{kind}_#{name}"]
+      return if definition && definition.valid?
+      path = File.join(InteriorPro::DoorHandles.assets_dir(kind), "#{name}.skp")
+      return unless File.file?(path)
+
+      model.start_operation('Load Door Handle', true)
+      begin
+        InteriorPro::DoorHandles.definition_for(model, name, kind)
+        model.commit_operation
+      rescue StandardError
+        model.abort_operation rescue nil
+        raise
+      end
+    end
+
+    remove_const(:USE_PRELOAD_DOOR_MATERIALS) if const_defined?(:USE_PRELOAD_DOOR_MATERIALS, false)
+    USE_PRELOAD_DOOR_MATERIALS = true
+
+    # Material observers run when the cache operation commits, before the real
+    # edit starts. Use the builders' existing material factories and colors.
+    def self.prepare_door_materials!(model, tool)
+      return unless USE_PRELOAD_DOOR_MATERIALS && model.respond_to?(:materials)
+      frame = tool.frame_color.to_s.delete('#').downcase
+      leaf = tool.door_color.to_s.delete('#').downcase
+      frame_name = tool.send(:parse_hex_color, tool.frame_color) ? "InteriorPro_Door_Frame_#{frame}" : 'InteriorPro_Door_Frame'
+      leaf_name = tool.send(:parse_hex_color, tool.door_color) ? "InteriorPro_Door_Leaf_#{leaf}" : 'InteriorPro_Door_Leaf'
+      jobs = [
+        [[frame_name, 'InteriorPro_Glass'], -> { tool.send(:door_body_materials) }],
+        [[leaf_name], -> {
+          tool.send(:door_leaf_material, model) ||
+            tool.send(:get_or_create_material, model, 'InteriorPro_Door_Leaf', Sketchup::Color.new(250,248,243), 1.0)
+        }],
+        [['InteriorPro_Hardware'], -> { tool.send(:hardware_material) }],
+        [['InteriorPro_Door_Hinge'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Door_Hinge', Sketchup::Color.new(85,88,92), 1.0)
+        }]
+      ]
+      if tool.door_category.to_s == 'exterior'
+        jobs << [['InteriorPro_Exterior_Aluminium'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Exterior_Aluminium', Sketchup::Color.new(155,158,161), 1.0)
+        }]
+        jobs << [['InteriorPro_Exterior_Seal'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Exterior_Seal', Sketchup::Color.new(55,57,59), 1.0)
+        }]
+      end
+      if tool.door_type.to_s == 'Garage Door'
+        jobs << [['InteriorPro_Track'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Track', Sketchup::Color.new(150,150,150), 1.0)
+        }]
+      elsif tool.door_category.to_s == 'interior' && tool.door_type.to_s == 'Pocket'
+        jobs << [['InteriorPro_Door_Pull'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Door_Pull', Sketchup::Color.new(176,148,62), 1.0)
+        }]
+      elsif tool.door_category.to_s == 'interior' && tool.door_type.to_s == 'Closet'
+        jobs << [['InteriorPro_Closet_Frame'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Closet_Frame', Sketchup::Color.new(74,60,48), 1.0)
+        }]
+        jobs << [['InteriorPro_Mirror'], -> {
+          tool.send(:get_or_create_material, model, 'InteriorPro_Mirror', Sketchup::Color.new(205,218,224), 1.0)
+        }]
+      end
+      if tool.door_type.to_s == 'Front Door'
+        names = ['InteriorPro_Front_Steel', 'InteriorPro_Front_Groove', 'InteriorPro_Glass']
+        names << (leaf_name.start_with?('InteriorPro_Door_Leaf_') ? leaf_name : 'InteriorPro_Door_Frame')
+        jobs << [names, -> { tool.send(:front_door_mats) }]
+      end
+      jobs.select! { |names, _| names.any? { |name| model.materials[name].nil? } }
+      return if jobs.empty?
+      model.start_operation('Prepare Door Materials', true)
+      begin
+        jobs.each { |_, create| create.call }
+        model.commit_operation
+      rescue StandardError
+        model.abort_operation rescue nil
+        raise
+      end
+    end
+
     def self.door_log(msg)
       puts msg if InteriorPro::DoorTool::DOOR_DEBUG_LOG
     end
@@ -1127,7 +1218,40 @@ module InteriorPro
       hit
     end
 
-    def self.update_door(door, settings)
+    remove_const(:USE_DEFER_NEW_DOOR_ASSETS) if const_defined?(:USE_DEFER_NEW_DOOR_ASSETS, false)
+    USE_DEFER_NEW_DOOR_ASSETS = true
+
+    # Give import/material observers their own event-loop turn before editing.
+    # No door or wall data is written until the cache transactions have ended.
+    # The completion block also lets the dialog refresh dependent trim only
+    # after the edit has actually succeeded.
+    def self.update_door(door, settings, &complete)
+      return false unless door_entity?(door)
+      model = Sketchup.active_model
+      tool = InteriorPro::DoorTool.new
+      InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings.transform_keys(&:to_s))
+      imported = prepare_door_handle!(model, tool)
+      materials = prepare_door_materials!(model, tool)
+      if USE_DEFER_NEW_DOOR_ASSETS && (imported || materials) && UI.respond_to?(:start_timer)
+        original = params_from_door(door)
+        pending_settings = settings.dup
+        UI.start_timer(0, false) {
+          if Sketchup.active_model.equal?(model) && door.valid? && params_from_door(door) == original
+            result = update_door_now(door, pending_settings)
+            complete.call(result) if complete
+          else
+            complete.call(false) if complete
+          end
+        }
+        true
+      else
+        result = update_door_now(door, settings)
+        complete.call(result) if complete
+        result
+      end
+    end
+
+    def self.update_door_now(door, settings)
       return false unless door_entity?(door)
 
       wall_id = door.get_attribute('InteriorPro', 'host_wall_id')
@@ -1176,6 +1300,8 @@ module InteriorPro
 
       tool = InteriorPro::DoorTool.new
       InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings)
+      prepare_door_handle!(model, tool)
+      prepare_door_materials!(model, tool)
 
       if opening_unchanged
         door_log '[DoorManager] edit: opening unchanged — regen door body (wall untouched)'

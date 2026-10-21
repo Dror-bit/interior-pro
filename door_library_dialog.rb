@@ -5,6 +5,9 @@
 module InteriorPro
   module DoorLibraryDialog
 
+    remove_const(:USE_OPENING_ONLY_REFRESH) if const_defined?(:USE_OPENING_ONLY_REFRESH, false)
+    USE_OPENING_ONLY_REFRESH = true
+
     DOOR_DIALOG_WIDTH = 400
     DOOR_DIALOG_MIN_HEIGHT = 900
 
@@ -306,9 +309,17 @@ module InteriorPro
 
       dialog.add_action_callback('apply_edit') { |_, data|
         door_settings = JSON.parse(data)
-        if InteriorPro::DoorManager.update_door(door, door_settings)
-          # Re-cut molding around the edited door (no-op when no molding in model).
-          if defined?(InteriorPro::MoldingManager)
+        previous = InteriorPro::DoorManager.settings_from_door(door)
+        opening_changed = %w[width height floor_offset].any? { |key|
+          (previous[key].to_f - door_settings[key].to_f).abs >= 0.001
+        }
+        # Body/style/swing edits leave the hole untouched. Rebuilding every
+        # molding and floor patch added independent Undo entries for no change.
+        refresh_opening = !USE_OPENING_ONLY_REFRESH || opening_changed
+        InteriorPro::DoorManager.update_door(door, door_settings) { |ok|
+          next unless ok
+          # Re-cut molding only when the physical opening changed.
+          if refresh_opening && defined?(InteriorPro::MoldingManager)
             begin
               InteriorPro::MoldingManager.refresh!
             rescue StandardError => e
@@ -317,7 +328,7 @@ module InteriorPro
           end
           # A wider or narrower door needs a wider or narrower threshold
           # (2026-08-15) - it used to keep the old one until Build Floors.
-          if defined?(InteriorPro::FloorManager)
+          if refresh_opening && defined?(InteriorPro::FloorManager)
             begin
               InteriorPro::FloorManager.refresh_door_patches!
             rescue StandardError => e
@@ -326,7 +337,7 @@ module InteriorPro
           end
           remember_session!(door_settings)
           dialog.close
-        end
+        }
       }
     end
 
