@@ -1,3 +1,7 @@
+exterior_details_file = File.join(__dir__, 'door_exterior_details.rb')
+# The regression runner copies this tool into tests/; use its parent helper there.
+exterior_details_file = File.expand_path('../door_exterior_details.rb', __dir__) unless File.file?(exterior_details_file)
+load exterior_details_file
 # Interior Pro - Door Tool
 # Cuts a door opening through a wall and builds a real body for French Hinged / exterior Sliding.
 # Modeled on WindowTool, but the opening sits on the wall floor + an optional
@@ -7,6 +11,7 @@ module InteriorPro
   class DoorTool
 
     DOOR_DEBUG_LOG = false unless const_defined?(:DOOR_DEBUG_LOG, false)
+    USE_INTERIOR_SWING = true unless const_defined?(:USE_INTERIOR_SWING, false)
 
     def door_log(msg)
       puts msg if DOOR_DEBUG_LOG
@@ -23,7 +28,7 @@ module InteriorPro
                   :front_config, :front_leaf_style, :front_glass_ratio, :sidelite_width, :transom, :transom_height,
                   :garage_style, :garage_top_windows, :garage_window_style, :garage_window_count,
                   :garage_ext_frame,
-                  :door_color, :frame_color, :arch_rise
+                  :door_color, :frame_color, :arch_rise, :door_state
 
     def initialize
       @placement_ready = false
@@ -54,6 +59,7 @@ module InteriorPro
       @floor_offset        = d['floor_offset'].to_f
       @swing_direction     = d['swing_direction']
       @swing_side          = d['swing_side']
+      @door_state          = d['door_state'] || 'closed'
       @slide_direction     = d['slide_direction']
       @glass_grid_style         = d['glass_grid_style']
       @exterior_casing_style    = InteriorPro::DoorLibrary.normalize_casing_style(d, 'exterior')
@@ -2856,6 +2862,7 @@ module InteriorPro
       door_group.set_attribute('InteriorPro', 'floor_offset_in',        @floor_offset.to_f)
       door_group.set_attribute('InteriorPro', 'swing_direction',        @swing_direction)
       door_group.set_attribute('InteriorPro', 'swing_side',             @swing_side)
+      door_group.set_attribute('InteriorPro', 'door_state',             @door_state == 'half_open' ? 'half_open' : 'closed')
       door_group.set_attribute('InteriorPro', 'slide_direction',        @slide_direction)
       door_group.set_attribute('InteriorPro', 'area_sqft',              area_sqft)
       door_group.set_attribute('InteriorPro', 'host_wall_id',           host_wall_id)
@@ -2863,6 +2870,12 @@ module InteriorPro
       door_group.set_attribute('InteriorPro', 'face_x',                 data[:fx].to_f)
       door_group.set_attribute('InteriorPro', 'face_y',                 data[:fy].to_f)
       door_group.set_attribute('InteriorPro', 'clicked_side',           clicked_side)
+      if interior_swing_enabled?
+        # Keep the existing plan/editor convention: clicked_side IS the side
+        # the door opens toward. Reverse is an action, consumed only once.
+        door_group.set_attribute('InteriorPro', 'clicked_side', interior_swing_sign(clicked_side))
+        door_group.set_attribute('InteriorPro', 'swing_side', 'auto')
+      end
       door_group.set_attribute('InteriorPro', 'bottom_z',               door_bot_z.to_f)
       door_group.set_attribute('InteriorPro', 'top_z',                  door_top_z.to_f)
       door_group.set_attribute('InteriorPro', 'created_at',             Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
@@ -2934,6 +2947,16 @@ module InteriorPro
     end
 
     def build_door_body_geometry!(parent_ents, data, unit, n, thickness)
+      ok=build_door_body_base_geometry!(parent_ents,data,unit,n,thickness)
+      if ok && @door_category.to_s=='exterior'
+        effective_n=exterior_effective_n(data,n)
+        InteriorPro::DoorExteriorDetails.apply!(parent_ents,@door_type.to_s,unit,effective_n,thickness,
+          {swing_direction:@swing_direction,slide_direction:@slide_direction,handle_style:@handle_style,stile_width:@glass_frame_width,front_config:@front_config})
+      end
+      ok
+    end
+
+    def build_door_body_base_geometry!(parent_ents, data, unit, n, thickness)
       t = @door_type.to_s.strip
       if arched_door_type?
         return build_arched_door_geometry!(parent_ents, data, unit, exterior_effective_n(data, n), thickness)
@@ -3326,6 +3349,11 @@ module InteriorPro
       leaf_t = InteriorPro::DoorLeafStyles::LEAF_THICKNESS
 
       # Leaf hangs on the face AWAY from the clicked one, resting against a stop.
+      # Swing doors instead hang at the opening face, matching the existing
+      # plan/editor clicked_side. The other interior mechanisms keep legacy depth.
+      if interior_swing_enabled?
+        clicked_is_v1 = interior_swing_sign(data[:clicked_side]) < 0
+      end
       leaf_setback = 0.25
       if clicked_is_v1
         lv0 = v0 + leaf_setback
@@ -3430,7 +3458,57 @@ module InteriorPro
         smooth_entity_edges(g.entities, 50.degrees)
         smooth_door_body(g.entities)
       end
+      # Add the approved swing-door details after legacy recursive smoothing.
+      # Sliding/pocket/folding doors keep their own hardware paths.
+      if %w[Single Double].include?(@door_type.to_s.strip) && InteriorPro::DoorLeafStyles::REALISTIC_DETAILS
+        sides = @door_type.to_s.strip == 'Double' ? [-1, 1] : [@swing_direction.to_s == 'right' ? 1 : -1]
+        sides.each do |side|
+          InteriorPro::DoorLeafStyles.build_hinges!(parent_ents, side*(iw-gap), side,
+            -half_h, w_top, lv0, lv1, clicked_is_v1 ? -1 : 1, unit, n, hardware_material)
+        end
+      end
+      apply_interior_swing!(parent_ents, iw-gap, lv0, lv1, clicked_is_v1 ? -1 : 1, unit, n)
       true
+    end
+
+    def interior_swing_enabled?
+      USE_INTERIOR_SWING && @door_category.to_s == 'interior' &&
+        %w[Single Double].include?(@door_type.to_s.strip)
+    end
+
+    def interior_swing_sign(clicked_side)
+      side = clicked_side.to_i < 0 ? -1 : 1
+      @swing_side.to_s == 'reverse' ? -side : side
+    end
+
+    # Only moving parts rotate. The jamb, casing, stop and fixed hinge plates
+    # stay put. Rebuild always starts closed, so repeated edits cannot drift.
+    def apply_interior_swing!(ents, hinge_u, lv0, lv1, opening_sign, unit, n)
+      return unless interior_swing_enabled? && @door_state.to_s == 'half_open'
+      sides = @door_type.to_s.strip == 'Double' ? [-1,1] : [@swing_direction.to_s == 'right' ? 1 : -1]
+      handedness = unit.x*n.y-unit.y*n.x
+      face_v = opening_sign > 0 ? lv1 : lv0
+      pivot_v = face_v+opening_sign*0.18
+      handles = ents.grep(Sketchup::ComponentInstance)
+      sides.each do |side|
+        leaf_name = @door_type.to_s.strip == 'Double' ? (side < 0 ? 'Leaf_Left' : 'Leaf_Right') : 'Leaf'
+        leaf = ents.grep(Sketchup::Group).find { |g| g.name == leaf_name }
+        next unless leaf
+        pivot = local_uvw(side*hinge_u, pivot_v, 0, unit, n)
+        turn = Geom::Transformation.rotation(pivot, Z_AXIS, -side*opening_sign*handedness*45.degrees)
+        moving = [leaf]
+        moving.concat(handles.select do |h|
+          center = h.bounds.center
+          @door_type.to_s.strip != 'Double' || (center.x*unit.x+center.y*unit.y)*side > 0
+        end)
+        ents.grep(Sketchup::Group).each do |hinge|
+          next unless hinge.name.start_with?("Hinge_#{side < 0 ? 'Left' : 'Right'}_")
+          hinge.entities.grep(Sketchup::Group).each do |part|
+            part.transform!(turn) if ['Leaf plate','Leaf screw'].include?(part.name)
+          end
+        end
+        moving.each { |part| part.transform!(turn) }
+      end
     end
 
     # Pocket door (closed state): NORMAL-width opening, no cavity. Strike jamb,

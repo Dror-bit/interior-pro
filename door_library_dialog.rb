@@ -96,6 +96,7 @@ module InteriorPro
       tool.floor_offset       = settings['floor_offset'].to_f
       tool.swing_direction    = settings['swing_direction']
       tool.swing_side         = settings['swing_side']
+      tool.door_state         = settings['door_state'] == 'half_open' ? 'half_open' : 'closed'
       tool.slide_direction    = settings['slide_direction']
       tool.glass_grid_style        = normalize_grid_style(settings)
       tool.exterior_casing_style   = InteriorPro::DoorLibrary.normalize_casing_style(settings, 'exterior')
@@ -565,20 +566,27 @@ module InteriorPro
             <div id="hingedFields">
               <div class="row">
                 <div>
-                  <label>Swing Direction</label>
+                  <label id="hingeSideLabel">Hinges</label>
                   <select id="swingDirection">
                     <option value="left">Left</option>
                     <option value="right">Right</option>
                   </select>
                 </div>
                 <div>
-                  <label>Swing Side</label>
+                  <label>Opening Side</label>
                   <select id="swingSide">
                     <option value="auto">Auto (click side)</option>
                     <option value="inward">Inward</option>
                     <option value="outward">Outward</option>
                   </select>
                 </div>
+              </div>
+              <div id="doorStateRow" style="display:none;">
+                <label>Door Position</label>
+                <select id="doorState">
+                  <option value="closed">Closed</option>
+                  <option value="half_open">Half Open (45°)</option>
+                </select>
               </div>
             </div>
             <div id="slidingFields">
@@ -631,6 +639,7 @@ module InteriorPro
         </div>
         <script>
           var doorPlaceMode = #{door_place_mode};
+          var interiorSwingEnabled = #{defined?(InteriorPro::DoorTool::USE_INTERIOR_SWING) && InteriorPro::DoorTool::USE_INTERIOR_SWING ? 'true' : 'false'};
           var panelWidthIn = #{panel_width_in};
           var jambTotalIn = #{jamb_total_in};
           var initialSettings = #{settings_json};
@@ -654,8 +663,13 @@ module InteriorPro
             return document.getElementById('doorCategory').value === 'exterior' &&
                    document.getElementById('doorType').value === 'Front Door';
           }
+          function isPatioDoorType() {
+            var t=document.getElementById('doorType').value;
+            return #{defined?(InteriorPro::DoorExteriorDetails::PATIO_HANDLES) && InteriorPro::DoorExteriorDetails::PATIO_HANDLES ? 'true' : 'false'} && document.getElementById('doorCategory').value === 'exterior' &&
+              (t === 'French Hinged' || t === 'Sliding' || t === '4-Panel Center Hinged' || isMultiPanelSliding(t) || isFolding(t));
+          }
           function currentHandleNames() {
-            return isFrontDoorType() ? FRONT_HANDLE_NAMES : HANDLE_NAMES;
+            return isPatioDoorType() ? ((document.getElementById('doorType').value === 'French Hinged' || document.getElementById('doorType').value === '4-Panel Center Hinged') ? ['Patio Lever'] : ['Sliding Flush Pull']) : (isFrontDoorType() ? FRONT_HANDLE_NAMES : HANDLE_NAMES);
           }
 
           function renderHandleOptions() {
@@ -674,6 +688,10 @@ module InteriorPro
           // ---- Handle gallery (collapsed by default, minimalist 2D thumbs) ----
           function handleThumbSvg(name) {
             var s;
+            if (name === 'Patio Lever' || name === 'Sliding Flush Pull') {
+              return '<svg viewBox="0 0 100 100"><rect x="39" y="12" width="22" height="76" rx="5" fill="#ccc" stroke="#555" stroke-width="2"/>' +
+                (name === 'Patio Lever' ? '<rect x="45" y="44" width="45" height="9" rx="4" fill="#999" stroke="#444"/>' : '<rect x="45" y="24" width="10" height="52" rx="4" fill="#555"/>') + '</svg>';
+            }
             switch (name) {
               case '1':
                 s = '<circle cx="30" cy="48" r="15" fill="#e8e6e1" stroke="#777" stroke-width="2"/>' +
@@ -1009,6 +1027,7 @@ if (window.ResizeObserver) {
             document.getElementById('floorOffset').value = s.floor_offset;
             document.getElementById('swingDirection').value = s.swing_direction;
             document.getElementById('swingSide').value = s.swing_side;
+            document.getElementById('doorState').value = s.door_state === 'half_open' ? 'half_open' : 'closed';
             document.getElementById('slideDirection').value = s.slide_direction;
             document.getElementById('glassGridStyle').value =
               s.glass_grid_style || (s.glass_grid ? '2x2' : 'none');
@@ -1095,11 +1114,11 @@ if (window.ResizeObserver) {
           }
 
           function isMultiPanelSliding(t) {
-            return /^\d+-Panel Sliding$/.test(t);
+            return /^[0-9]+-Panel Sliding$/.test(t);
           }
 
           function isFolding(t) {
-            return /^\d+-Panel Folding$/.test(t);
+            return /^[0-9]+-Panel Folding$/.test(t);
           }
 
           function applyTypeDefaults() {
@@ -1146,10 +1165,23 @@ if (window.ResizeObserver) {
             document.getElementById('slidingFields').style.display = (isSliding && !isGarage) ? 'block' : 'none';
             document.getElementById('hingedFields').style.display = (isSliding || closet || isGarage) ? 'none' : 'block';
             var isInterior = document.getElementById('doorCategory').value === 'interior';
+            var swingInterior = interiorSwingEnabled && isInterior && (t === 'Single' || t === 'Double');
+            document.getElementById('doorStateRow').style.display = swingInterior ? 'block' : 'none';
+            var sideSelect = document.getElementById('swingSide');
+            var sideMode = swingInterior ? 'interior' : 'legacy';
+            if (sideSelect.getAttribute('data-mode') !== sideMode) {
+              sideSelect.innerHTML = swingInterior
+                ? '<option value="auto">' + (doorPlaceMode ? 'Picked Side' : 'Keep Current Side') + '</option><option value="reverse">Other Side</option>'
+                : '<option value="auto">Auto (click side)</option><option value="inward">Inward</option><option value="outward">Outward</option>';
+              sideSelect.setAttribute('data-mode', sideMode);
+            }
+            if (!sideSelect.value || (swingInterior && ['auto','reverse'].indexOf(sideSelect.value) < 0)) sideSelect.value = 'auto';
+            document.getElementById('swingDirection').disabled = swingInterior && t === 'Double';
+            document.getElementById('hingeSideLabel').textContent = swingInterior && t === 'Double' ? 'Hinges (Both Sides)' : 'Hinges';
             document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
             document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
             if (closet) renderClosetGrid();
-            var showHandle = (isInterior && !closet && t !== 'Pocket') || isFront;
+            var showHandle = (isInterior && !closet && t !== 'Pocket') || isFront || isPatioDoorType();
             document.getElementById('handleSection').style.display = showHandle ? 'block' : 'none';
             if (showHandle) { renderHandleOptions(); syncHandleLabel(); }
             resizeDialogToContent();
@@ -1374,6 +1406,7 @@ if (window.ResizeObserver) {
               floor_offset: parseFloat(document.getElementById('floorOffset').value),
               swing_direction: document.getElementById('swingDirection').value,
               swing_side: document.getElementById('swingSide').value,
+              door_state: document.getElementById('doorStateRow').style.display === 'none' ? 'closed' : document.getElementById('doorState').value,
               slide_direction: document.getElementById('slideDirection').value,
               glass_grid_style: document.getElementById('glassGridStyle').value,
               exterior_casing_style: document.getElementById('doorCategory').value === 'interior'

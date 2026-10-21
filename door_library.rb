@@ -54,6 +54,7 @@ module InteriorPro
       'exterior' => {
         'door_category'          => 'exterior',
         'door_type'              => 'French Hinged',
+        'handle_style'           => 'Patio Lever',
         'width'                  => 60.0,
         'height'                 => 80.0,
         'frame_width'            => 1.5,
@@ -83,6 +84,7 @@ module InteriorPro
         'door_category'          => 'interior',
         'door_type'              => 'Single',
         'leaf_style'             => 'Flush',
+        'door_state'             => 'closed',
         'closet_leaf_count'      => 2,
         'handle_style'           => 'none',
         'width'                  => 32.0,
@@ -125,24 +127,24 @@ module InteriorPro
         'Cased Opening' => { 'width' => 48.0, 'height' => 84.0 }
       },
       'exterior' => {
-        'Front Door'              => { 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
+        'Front Door'              => { 'handle_style' => 'none', 'width' => 36.0, 'glass_frame_width' => 5.0, 'glass_grid_style' => 'none' },
         # Arched: full-glass door with a smooth arched top. Rise auto = semicircle
         # (blank arch_rise) unless set. Tall + narrow reads best.
-        'Arched'                  => { 'width' => 36.0, 'height' => 96.0, 'frame_width' => 2.0,
+        'Arched'                  => { 'handle_style' => 'none', 'width' => 36.0, 'height' => 96.0, 'frame_width' => 2.0,
                                        'glass_grid_style' => '2x3', 'arch_rise' => 0.0,
                                        'exterior_threshold' => false, 'exterior_casing_style' => 'none' },
         # Garage: standard 16ft x 7ft default; 18ft / 8ft picked via width/height.
-        'Garage Door'             => { 'width' => 192.0, 'height' => 84.0,
+        'Garage Door'             => { 'handle_style' => 'none', 'width' => 192.0, 'height' => 84.0,
                                        'exterior_threshold' => false,
                                        'exterior_casing_style' => 'none' },
-        'Sliding'                 => { 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
-        'French Hinged'           => { 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },
-        '4-Panel Center Hinged'   => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
-        '4-Panel Sliding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
-        '6-Panel Sliding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(6)),
-        '3-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(3)),
-        '4-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(4)),
-        '6-Panel Folding'         => MULTI_PANEL_GLASS.merge('width' => width_for_panel_count(6))
+        'Sliding'                 => { 'handle_style' => 'Sliding Flush Pull', 'glass_frame_width' => 2.0, 'glass_grid_style' => 'none' },
+        'French Hinged'           => { 'handle_style' => 'Patio Lever', 'glass_frame_width' => 5.0, 'glass_grid_style' => '2x2' },
+        '4-Panel Center Hinged'   => MULTI_PANEL_GLASS.merge('handle_style' => 'Patio Lever', 'width' => width_for_panel_count(4)),
+        '4-Panel Sliding'         => MULTI_PANEL_GLASS.merge('handle_style' => 'Sliding Flush Pull', 'width' => width_for_panel_count(4)),
+        '6-Panel Sliding'         => MULTI_PANEL_GLASS.merge('handle_style' => 'Sliding Flush Pull', 'width' => width_for_panel_count(6)),
+        '3-Panel Folding'         => MULTI_PANEL_GLASS.merge('handle_style' => 'Sliding Flush Pull', 'width' => width_for_panel_count(3)),
+        '4-Panel Folding'         => MULTI_PANEL_GLASS.merge('handle_style' => 'Sliding Flush Pull', 'width' => width_for_panel_count(4)),
+        '6-Panel Folding'         => MULTI_PANEL_GLASS.merge('handle_style' => 'Sliding Flush Pull', 'width' => width_for_panel_count(6))
       }
     }.freeze
 
