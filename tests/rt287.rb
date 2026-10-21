@@ -32,6 +32,9 @@ def ok(n, c, x = nil)
   $fails += 1 unless c
 end
 ET = InteriorPro::ElevationTool
+# Pin the legacy row path; the enabled sheet-size grid is exercised by rt326.
+ET.send(:remove_const, :USE_SHEET_SIZE)
+ET.const_set(:USE_SHEET_SIZE, false)
 PC = InteriorPro::PlanCanvas
 psd = InteriorPro::PlanSheetDialog
 

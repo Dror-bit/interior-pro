@@ -1,4 +1,5 @@
 require 'json'
+module KitchenLab; def self.settings; {}; end; end
 load File.join(__dir__,'countertop_materials.rb')
 module InteriorPro
   module MaterialLibrary

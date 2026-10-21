@@ -2,12 +2,14 @@
 # rt238 - NO 'Simple' NEXT TO HIS OWN PRODUCTS (2026-10-01). His words:
 # "תוריד את הסאמפלים מכל האופציות". Only while a kind has no file yet.
 require 'fileutils'
+require 'tmpdir'
 require './sketchup_stub'
 require './tile_wall_tool'
 require './tile_niche'
 require './tile_niche_tool'
 require './fixture_library'
-module InteriorPro; PLUGIN_DIR = '/tmp/ip_fake238' unless const_defined?(:PLUGIN_DIR); end
+module InteriorPro; PLUGIN_DIR = Dir.mktmpdir('interior-pro-rt238-') unless const_defined?(:PLUGIN_DIR); end
+raise 'Unexpected temporary fixture root' unless File.expand_path(InteriorPro::PLUGIN_DIR).start_with?(File.expand_path(Dir.tmpdir) + File::SEPARATOR)
 $fails = 0
 def ok(n, c, x = nil)
   puts((c ? 'PASS  ' : 'FAIL  ') + n + (c ? '' : "   << #{x.inspect}"))

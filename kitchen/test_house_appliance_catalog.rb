@@ -3,7 +3,10 @@ require_relative 'kitchen_lab'
 require_relative 'kitchen_plan'
 def check(value,message);raise message unless value;end
 source=KitchenLab::Document.create({'shaker_width'=>2.25,'shaker_inset'=>0.25},[])
-check(KitchenLab::ApplianceCatalog.products.all? { |p| p['manufacturer']=='Thermador' },'Retired brand is still offered')
+# Asset geometry offsets normally read the bound kitchen's settings.
+KitchenLab.define_singleton_method(:settings) { source['settings'] }
+# Brand-wide retirement is obsolete: newer approved models use multiple brands.
+check(KitchenLab::ApplianceCatalog.products.none?{|p|p['id']=='bosch-shp78cm5n'},'Retired model is still offered')
 retired={'schema_version'=>1,'id'=>'bosch-shp78cm5n','brand'=>'Bosch','manufacturer'=>'Bosch','model'=>'SHP78CM5N','name'=>'Saved dishwasher','category'=>'dishwasher','dimensions'=>{'width'=>24,'height'=>34.5,'depth'=>24},'asset'=>{'id'=>'bosch-shp78cm5n','version'=>1,'manifest_sha256'=>'retired'}}
 check(KitchenLab::ApplianceAssets.manifest(retired).nil?,'Retired snapshot cannot open without removed files')
 saved=KitchenLab.validate({'id'=>'saved-old','kind'=>'dishwasher','appliance'=>retired,'width'=>24,'height'=>34.5,'depth'=>24},source['settings'])

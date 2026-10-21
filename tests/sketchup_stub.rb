@@ -352,7 +352,7 @@ end
     def add(name = ''); d = ComponentDefinition.new(name); @list << d; d; end
     def [](name); @list.find { |d| d.name == name }; end
     def register!(path, defn); @by_path[path.to_s] = defn; @list << defn unless @list.include?(defn); defn; end
-    def load(path); @by_path[path.to_s]; end
+    def load(path, **_options); @by_path[path.to_s]; end
     def purge_unused; true; end
   end
 

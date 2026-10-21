@@ -11,6 +11,7 @@
 # board, metal drip edge, roof color + fascia color.
 module InteriorPro
   module RoofManager
+    USE_BUILDING_AREA_ORDER = true unless const_defined?(:USE_BUILDING_AREA_ORDER, false)
     DEFAULT_PITCH     = 4.0  unless const_defined?(:DEFAULT_PITCH, false)     # rise per 12" run
     DEFAULT_OVERHANG  = 12.0 unless const_defined?(:DEFAULT_OVERHANG, false)  # inches, all sides
     # The roof is a pure SURFACE with zero thickness (user 2026-08-05:
@@ -126,7 +127,25 @@ module InteriorPro
       # largest group, which is the old behaviour for it
       placed = groups.flatten
       rest = walls.reject { |w| placed.include?(w) }
-      groups = groups.sort_by { |g| -g.length }
+      areas = {}
+      if USE_BUILDING_AREA_ORDER && rm.respond_to?(:trace_faces)
+        # Reuse the graph above; do not rebuild/offset every footprint merely
+        # to sort the buildings. The outer face gives the full component area.
+        begin
+          rm.trace_faces(nodes, edges).each do |face|
+            ids = face[:node_ids]
+            next unless ids && ids.length >= 3
+            root = find.call(ids.first)
+            area = rm.signed_area(ids.map { |i| nodes[i] }).abs
+            areas[root] = [areas.fetch(root, 0.0), area].max
+          end
+        rescue StandardError
+          areas = {} # Unknown geometry retains the previous wall-count order.
+        end
+      end
+      wall_areas = {}
+      by_root.each { |root, ws| ws.compact.each { |w| wall_areas[w] = areas.fetch(root, 0.0) } }
+      groups = groups.sort_by { |g| [-wall_areas.fetch(g.first, 0.0), -g.length] }
       groups[0] = (groups[0] || []) + rest unless rest.empty?
       groups.reject(&:empty?)
     rescue StandardError => e

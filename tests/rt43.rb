@@ -20,8 +20,8 @@ ok('it opens the sheet window', tb =~ /UI::Command\.new\('Sheet'\)\s*\{\s*Interi
 ok('it is added to the toolbar', tb.include?('tb.add_item(sheet_cmd)'))
 ok('it has its own icon', tb.include?("icon_path('sheet_pdf')"))
 ok('the 2D editor button is still there', tb.include?('tb.add_item(editor_cmd)'))
-ok('the toolbar makes room for two buttons now',
-   tb =~ /Interior Pro 2D'\)\n.*\n\s*return if tb\.length >= 2/, tb[/Interior Pro 2D.{0,160}/m])
+ok('the toolbar guard makes room for the editor and sheet',
+   tb[/def self\.setup_2d_toolbar.*?\n    end/m].to_s.match?(/return if tb\.length >= [2-9]/), tb[/Interior Pro 2D.{0,160}/m])
 ok('it still has a tooltip and a status line',
    tb.include?('sheet_cmd.tooltip') && tb.include?('sheet_cmd.status_bar_text'))
 
@@ -38,8 +38,9 @@ end
 # --------------------------------------------------- the button in the editor
 ok('the 2D editor has a button that opens the sheet',
    pe.include?('sketchup.open_sheet()'), pe[/sketchup\.open_sheet\(\).{0,60}/])
-ok('the button carries a picture, not just a word', pe =~ /open_sheet\(\)".*?>\s*\S*[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}]/,
-   pe[/onclick="sketchup\.open_sheet\(\)".{0,90}/])
+ok('the button carries a picture, not just a word', pe =~ /openSheet\(\)".*?>\s*\S*[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}]/,
+   pe[/onclick="openSheet\(\)".{0,90}/])
+ok('the Sheet button saves its draft before calling Ruby', pe =~ /function openSheet\(\)\s*\{\s*saveDraft\(true\);\s*sketchup\.open_sheet\(\);/m)
 ok('the editor answers that button', pe.include?("add_action_callback('open_sheet')"))
 ok('and the answer is the sheet window',
    pe =~ /add_action_callback\('open_sheet'\).{0,200}PlanSheetDialog\.show/m,

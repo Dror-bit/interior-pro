@@ -24,6 +24,7 @@ require './roof_tile_math'
 require './roof_tile_parts'
 require './roof_tile_place'
 require './roof_manager'
+require_relative 'cyclic_test'
 require './roof_gable_tool'
 require './roof_pull_tool'
 
@@ -230,11 +231,11 @@ g = garage
 ok("his back wall, 120\": the garage says so, and the short edge along the house", log =~ /edge gN pulled out 120"/ && log =~ /a short edge along the wall behind, 120" long/ &&
                                                                                  log !~ /no edge of their own/ && log !~ /held to/, log.lines.grep(/pull|short edge|edge of their own/))
 ok("its outline: the gable 120\" back, a short edge along the house wall, the rest where it was",
-   fp(g) == [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 601.5], [-148.5, 601.5], [-148.5, 481.5]], fp(g))
+   CyclicTest.same?(fp(g), [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 601.5], [-148.5, 601.5], [-148.5, 481.5]]), fp(g))
 ok("nothing rose and nothing dropped - and it still comes down onto the house", (g.get_attribute("InteriorPro", "eave_z").to_f - FLAT[:ge]).abs < 0.001 &&
                                                                                (g.get_attribute("InteriorPro", "ridge_z").to_f - FLAT[:gr]).abs < 0.001 && log =~ /set 2\.8[78]" lower/)
 ok("the FRONT gable stays whole (not handed half to the eave by the new notch)", gable_walls(g) == FLAT[:gw], [FLAT[:gw], gable_walls(g)])
-ok("the roofs that meet it read the short edge as no slope", Array(g.get_attribute("InteriorPro", "gable_edges")).map(&:to_i).sort == [1, 3, 4] &&
+ok("the roofs that meet it read the short edge as no slope", Array(g.get_attribute("InteriorPro", "gable_edges")).map{|i|[fp(g)[i.to_i],fp(g)[(i.to_i+1)%fp(g).length]].sort}.sort == [[[-334.5,201.0],[-50.5,201.0]],[[-50.5,601.5],[-148.5,601.5]],[[-148.5,601.5],[-148.5,481.5]]].map(&:sort).sort &&
                                                              g.get_attribute("InteriorPro", "footprint_xy").length == 12, g.get_attribute("InteriorPro", "gable_edges"))
 fs = rawfaces(g)
 [-145.0, -100.0, -60.0].each do |x|
@@ -250,7 +251,7 @@ click("gN", "0")
 ok("0 puts it back", RF.edge_pulls == {} && norm(faces(garage)) == FLAT[:garage])
 log = his(%w[h5], { "gN" => 120.0, "gS" => 24.0 })
 ok("front and back together: both out, the house untouched", log =~ /edge gN pulled out 120"/ && log =~ /edge gS pulled out 24"/ &&
-                                                             fp(garage) == [[-334.5, 481.5], [-334.5, 177.0], [-50.5, 177.0], [-50.5, 601.5], [-148.5, 601.5], [-148.5, 481.5]] &&
+                                                             CyclicTest.same?(fp(garage), [[-334.5, 481.5], [-334.5, 177.0], [-50.5, 177.0], [-50.5, 601.5], [-148.5, 601.5], [-148.5, 481.5]]) &&
                                                              norm(faces(house)) == FLAT[:house], fp(garage))
 
 # ---- 6. the limit: a roof in front of it ---------------------------------------------------------------------

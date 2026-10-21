@@ -133,8 +133,7 @@ ok('at the interval it was given', t && t[:secs].to_i == 300, t && t[:secs])
 # tick! refuses to write over a name that already exists. That guard is right
 # (two backups in the same second say nothing), but it would make this check
 # pass for the wrong reason, so the earlier copy is cleared out first.
-Dir.entries(bdir).select { |n| n.start_with?('bronco_2026-08') }
-   .each { |n| File.delete(File.join(bdir, n)) }
+File.delete(out) if out && File.file?(out) # remove THIS run's copy, on any date
 before = m.copies.length
 UI.fire_timer!(id)
 ok('the timer really makes a backup when it fires',

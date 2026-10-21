@@ -157,7 +157,8 @@ ok('an ordinary redraw still draws the page strip', stripCount() === 1, stripCou
 vm.runInContext('setZoom(2)', sandbox);
 ok('ZOOMING DOES NOT REDRAW THE PAGE STRIP', stripCount() === 1, stripCount());
 ok('...and the sheet itself was redrawn at the new size', /width="/.test(nodes['sheetWrap'].innerHTML));
-const onMove = js.match(/function onMove\(e\)\{[\s\S]*?\n {10}\}\n/)[0];
+// Inspect the function the VM actually parsed; Ruby heredoc indentation is not behavior.
+const onMove = sandbox.onMove.toString();
 ok('DRAGGING THE PLAN DOES NOT REDRAW THE PAGE STRIP ON EVERY STEP',
    /STATE\.origin_y=DRAG\.oy\+\(e\.clientY-DRAG\.y\)\/k\/sf;\s*render\(true\);/.test(onMove));
 ok('when the drag ends Ruby is told, and its answer redraws everything, strip included',

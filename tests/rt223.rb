@@ -34,9 +34,9 @@ L = InteriorPro::FixtureLibrary
 ok('only a fixture instance counts', !L.fixture?(nil) && !L.fixture?(Object.new))
 
 BAR = File.read('./toolbar.rb')
-SURF = BAR[/def self\.setup_surfaces_toolbar.*?\n      tb\.restore\n    end\n/m].to_s
+SURF = BAR[/def self\.setup_surfaces_toolbar.*?(?=\n    def self\.|\z)/m].to_s
 ok('Edit Plumbing is on the bar, after Plumbing, by name',
-   SURF.include?("UI::Command.new('Edit Plumbing')") && SURF.include?('[fixture_cmd, fixture_edit_cmd].each'))
+   SURF.include?("UI::Command.new('Edit Plumbing')") && SURF.match?(/\[fixture_cmd,\s*fixture_edit_cmd(?:,\s*\w+)*\]\.each/))
 ok('no Delete Plumbing button', !SURF.include?('Delete Plumbing'))
 ok('main loads the edit tool', File.read('./main.rb').include?('fixture_edit_tool.rb'))
 

@@ -28,6 +28,9 @@ def ok(n, c, x = nil)
   $fails += 1 unless c
 end
 ET = InteriorPro::ElevationTool
+# Pin the legacy row path; the enabled sheet-size grid is exercised by rt326.
+ET.send(:remove_const, :USE_SHEET_SIZE)
+ET.const_set(:USE_SHEET_SIZE, false)
 P = Geom::Point3d
 # his Room 2: 87.1 x 70.08, at x -530.1..-443, y 332.42..402.5
 poly = [P.new(-530.1, 332.42, 0), P.new(-443.0, 332.42, 0), P.new(-443.0, 402.5, 0), P.new(-530.1, 402.5, 0)]

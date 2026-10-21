@@ -15,6 +15,10 @@ end
 module InteriorPro
   module KitchenPlan
     def self.bind_active_model!; @bound=true; end
+    module CabinetPicker
+      def self.activate;@activated=true;end
+      def self.activated?;@activated==true;end
+    end
   end
 end
 module KitchenLab
@@ -37,5 +41,6 @@ raise 'Did not restore toolbar' unless toolbar.restores==2
 raise 'Startup bound a model' if InteriorPro::KitchenPlan.instance_variable_get(:@bound)
 raise 'Startup opened editor' if KitchenLab.instance_variable_get(:@opened)
 toolbar.items.first.invoke
-raise 'Click did not open editor' unless KitchenLab.instance_variable_get(:@opened)
-puts 'PASS: startup restores one toolbar without model binding; click binds current model then opens editor.'
+raise 'Click did not activate cabinet picker' unless InteriorPro::KitchenPlan::CabinetPicker.activated?
+raise 'Toolbar bypassed the picker and opened an editor' if KitchenLab.instance_variable_get(:@opened)
+puts 'PASS: startup restores one toolbar without model binding; click delegates to the current cabinet picker.'

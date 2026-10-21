@@ -24,6 +24,7 @@ require './roof_tile_math'
 require './roof_tile_parts'
 require './roof_tile_place'
 require './roof_manager'
+require_relative 'cyclic_test'
 
 $fails = 0
 def ok(n, c, x = nil)
@@ -134,7 +135,7 @@ if house && garage
   ok('the builder says the wall is a gable end', log =~ /wall gN stands on the line this roof dies against with nothing behind it - a gable end/,
      log.lines.grep(/gable end/))
   ok('the garage stands on its four corners, with ONE more point on the back line where the house wall starts',
-     footprint(garage) == [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 481.5], [-148.5, 481.5]], footprint(garage))
+     CyclicTest.same?(footprint(garage), [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 481.5], [-148.5, 481.5]]), footprint(garage))
   ok('two gable ends: the front, and the back wall\'s stretch (98" of the back line)',
      gable_mids(garage) == [[-192.5, 201.0], [-99.5, 481.5]], gable_mids(garage))
   ok('the back wall is one of the roof\'s walls, the house walls it dies into are not',

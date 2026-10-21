@@ -11,6 +11,7 @@ class ReviewModel
   def initialize;@observers=[];end
   def add_observer(o);@observers<<o;end
   def remove_observer(o);@observers.delete(o);end
+  def get_attribute(*);nil;end
   def set_attribute(*);raise 'Startup must not write to the model';end
 end
 a=ReviewModel.new;b=ReviewModel.new;Sketchup.active_model=a

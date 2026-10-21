@@ -19,6 +19,7 @@ require './roof_tile_math'
 require './roof_tile_parts'
 require './roof_tile_place'
 require './roof_manager'
+require_relative 'cyclic_test'
 
 $fails = 0
 def ok(n, c, x = nil)
@@ -63,8 +64,8 @@ hse = bl.find { |b| !b[:abut] }
 ok('the storey is two buildings: the house and the dropped garage', bl.length == 2 && gar && hse, bl.length)
 eg = RF.eave_polygon(gar[:walls] + gar[:closers], 12.0, 3.0)
 ok('the garage outline is the same four corners as before',
-   eg[:pts].map { |p| p.map { |v| v.round(2) } } == [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 481.5]], eg[:pts])
-ok('...with the same wall on each edge', eg[:wall_ids] == %w[gW gS gE div], eg[:wall_ids])
+   CyclicTest.same?(eg[:pts].map { |p| p.map { |v| v.round(2) } }, [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 481.5]]), eg[:pts])
+ok('...with the same wall on each edge', CyclicTest.same?(eg[:pts].map { |p| p.map { |v| v.round(2) } }.zip(eg[:wall_ids]), [[-334.5, 481.5], [-334.5, 201.0], [-50.5, 201.0], [-50.5, 481.5]].zip(%w[gW gS gE div])), eg[:wall_ids])
 ok('the garage back wall is reported as merged into the divider', eg[:swallowed] == { 'div' => ['gN'] }, eg[:swallowed])
 eh = RF.eave_polygon(hse[:walls] + hse[:closers], 12.0, 3.0)
 ok('the house wall 68ea is reported as merged into the divider', eh[:swallowed] == { 'div' => ['h5'] }, eh[:swallowed])

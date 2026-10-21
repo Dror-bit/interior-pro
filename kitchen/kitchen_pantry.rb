@@ -1,8 +1,17 @@
 # encoding: utf-8
 module KitchenLab
   module Pantry
+    USE_FITTED_DEFAULTS = true unless const_defined?(:USE_FITTED_DEFAULTS, false)
     def self.defaults(d)
-      {'version'=>1,'drawer_height_basis'=>'section','top'=>'double','middle'=>'double','bottom'=>'combo_double','bottom_height'=>28.0,'middle_height'=>30.0,'drawers'=>3}
+      p = {'version'=>1,'drawer_height_basis'=>'section','top'=>'double','middle'=>'double','bottom'=>'combo_double','bottom_height'=>28.0,'middle_height'=>30.0,'drawers'=>3}
+      if USE_FITTED_DEFAULTS
+        # Replacing a shorter cabinet preserves its height. Fit NEW default
+        # sections to that space; never rewrite explicit/saved pantry settings.
+        usable = d.fetch('height',84.0).to_f - d.fetch('toe_height',4.0).to_f - 0.5
+        p['bottom_height'] = [[usable-16.0,14.0].max,28.0].min
+        p['middle_height'] = [[usable-p['bottom_height']-8.0,8.0].max,30.0].min
+      end
+      p
     end
     def self.rows(d)
       p=d['pantry'];return nil unless d['kind']=='tall' && p

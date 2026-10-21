@@ -1940,7 +1940,9 @@ module InteriorPro
       # become a path: a name with a slash or ".." in it would write outside the
       # folder we chose.
       def safe_name(name)
-        n = File.basename(name.to_s.tr('\\', '/'))
+        # On Windows File.basename treats a colon as an alternate data stream
+        # separator and drops the suffix before invalid characters are escaped.
+        n = name.to_s.tr('\\', '/').split('/').last.to_s
         n = n.gsub(/[<>:"|?*\x00-\x1f]/, '_').sub(/\A\.+/, '')
         n = 'image.jpg' if n.strip.empty?
         n[0, 120]

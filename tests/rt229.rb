@@ -3,6 +3,7 @@
 # סטים לכל צבע אלא אני בוחר את הסט ואז אני יכול לבחור את הצבע של הסט".
 # SHOWER SETS/<set>/<colour>/head.skp ... ; a flat set folder still works.
 require 'fileutils'
+require 'tmpdir'
 require 'json'
 require './sketchup_stub'
 require './tile_wall_tool'
@@ -10,7 +11,8 @@ require './tile_niche'
 require './tile_niche_tool'
 require './fixture_library'
 require './fixture_dialog'
-module InteriorPro; PLUGIN_DIR = '/tmp/ip_fake' unless const_defined?(:PLUGIN_DIR); end
+module InteriorPro; PLUGIN_DIR = Dir.mktmpdir('interior-pro-rt229-') unless const_defined?(:PLUGIN_DIR); end
+raise 'Unexpected temporary fixture root' unless File.expand_path(InteriorPro::PLUGIN_DIR).start_with?(File.expand_path(Dir.tmpdir) + File::SEPARATOR)
 
 $fails = 0
 def ok(n, c, x = nil)
@@ -50,7 +52,9 @@ html = InteriorPro::FixtureDialog.build_html({ 'kind' => 'shower_set', 'product'
                                              { 'shower_set' => { 'label' => 'Shower set', 'height' => 80, 'set' => true, 'dir' => '',
                                                                  'products' => [] } })
 js = html.scan(%r{<script>(.*?)</script>}m).map(&:first).join("\n")
-File.write('/tmp/rt229.js', js)
-ok('the window JS parses', system('node --check /tmp/rt229.js'))
+js_path = File.join(InteriorPro::PLUGIN_DIR, 'rt229.js')
+File.write(js_path, js)
+ok('the window JS parses', system('node', '--check', js_path))
+FileUtils.remove_entry(InteriorPro::PLUGIN_DIR)
 puts($fails.zero? ? 'rt229 OK' : "rt229 #{$fails} FAILED")
 exit($fails.zero? ? 0 : 1)
