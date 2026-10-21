@@ -1,6 +1,7 @@
 (function(){
  if(window.KitchenHouseAppliances)return;
- const categories={sink:'Sinks',fridge:'Refrigerators',range:'Ranges',rangetop:'Rangetops',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves'};
+ const applianceSize=v=>String(Math.round(Number(v)*8)/8);
+ const categories={sink:'Sinks',fridge:'Refrigerators',range:'Ranges',rangetop:'Rangetops',dishwasher:'Dishwashers',cooktop:'Cooktops',wall_oven:'Wall ovens',hood:'Hoods',microwave:'Microwaves',coffee_machine:'Coffee machines'};
  const kinds={sink:'sink',fridge:'fridge',oven:'range',dishwasher:'dishwasher',hood:'hood',microwave:'microwave',wall_oven:'wall_oven'};
  const section=document.getElementById('kp-kitchen'),library=document.getElementById('kp-cab-library');
  const panel=document.createElement('div');panel.id='kp-appliance-library';panel.hidden=true;
@@ -24,8 +25,10 @@
    if(product.image){const img=document.createElement('img');img.src=product.image;img.alt=product.model;button.append(img);}
    const title=document.createElement('strong');title.textContent=product.model;button.append(title);
    const name=document.createElement('span');name.textContent=product.name;button.append(name);
-   if(product.dimensions){const size=document.createElement('span');size.textContent=`${product.sku||product.model} · ${product.dimensions.width}″ W × ${product.dimensions.depth}″ D × ${product.dimensions.height}″ H`;button.append(size);}
+   if(product.dimensions){const size=document.createElement('span');size.textContent=`${product.sku||product.model} · ${applianceSize(product.dimensions.width)}″ W × ${applianceSize(product.dimensions.depth)}″ D × ${applianceSize(product.dimensions.height)}″ H`;button.append(size);}
    if(product.automatic_cutout_available===false||(product.category==='cooktop'&&product.automatic_cutout===false)){const status=document.createElement('span');status.textContent='Automatic countertop cutout unavailable — awaiting verified manufacturer template.';button.append(status);}
+   if(product.source_notes){const note=document.createElement('span');note.textContent=product.source_notes;button.append(note);}
+   if(product.installation_fit?.notes){const note=document.createElement('span');note.textContent=product.installation_fit.notes;button.append(note);}
    button.onclick=()=>{
     if(window.KitchenHouseInsert.state.pending||window.KitchenHouseInsert.state.waiting)return;
     error('');const request_id=window.KitchenHouseInsert.request();
@@ -40,7 +43,7 @@
  }
  function choose(){
   if(!window.KitchenHouseInsert.cancel())return;
-  without.checked=false;withoutLabel.style.display=['fridge','microwave','wall_oven','hood'].includes(category.value)?'flex':'none';
+  without.checked=false;withoutLabel.style.display=['fridge','microwave','wall_oven','hood','coffee_machine'].includes(category.value)?'flex':'none';
   coverLabel.style.display=category.value==='hood'?'grid':'none';cover.value='shaker';
   error('');cards.replaceChildren();brand.replaceChildren();
   if(cache.has(category.value))receive(category.value,cache.get(category.value));else sketchup.kitchen_appliance_library(category.value);

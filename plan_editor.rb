@@ -631,7 +631,11 @@ module InteriorPro
         # Plumbing from the drawing (USE_PLUMB_PLACE_2D): his Plumbing window first, then the clicks.
         dlg.add_action_callback('plumb_pick') do |_, _|
           if USE_PLUMB_2D && USE_PLUMB_PLACE_2D && defined?(InteriorPro::FixtureDialog)
-            InteriorPro::FixtureDialog.show do |cfg|
+            vanity_place = lambda do |cabinet|
+              @plumb_cfg = { 'kind' => 'vanity_builder', 'cabinet' => cabinet }
+              dlg.execute_script("elecArmed(#{JSON.generate(plumb_armed(@plumb_cfg))})")
+            end
+            InteriorPro::FixtureDialog.show(vanity_place: vanity_place) do |cfg|
               @plumb_cfg = cfg
               InteriorPro::ElectricalLibrary.trace("2D plumbing: chose #{cfg['kind']} #{cfg['product']}") if defined?(InteriorPro::ElectricalLibrary)
               dlg.execute_script("elecArmed(#{JSON.generate(plumb_armed(cfg))})")
@@ -1304,7 +1308,7 @@ module InteriorPro
           else puts "[PlanEditor] outlet #{attrs['id']} skipped: no direction off the wall"
           end
         end
-        tile_payload(model) + out + plumb_payload(model)   # the tile first: under everything
+        tile_payload(model) + out + plumb_payload(model) + (defined?(InteriorPro::Vanity::PlanBridge) ? InteriorPro::Vanity::PlanBridge.payload(model) : [])   # the tile first: under everything
       rescue StandardError => e
         puts "[PlanEditor] elec_payload: #{e.class}: #{e.message}"
         []
@@ -2963,6 +2967,7 @@ module InteriorPro
       # Delete one outlet / switch picked in the drawing (2026-10-13, his "אני לא יכול למחוק את הנקודת חשמל
       # מהתוכנת סירטוט"). ONE undo step. Returns true when it went.
       def delete_elec(r)
+        return InteriorPro::Vanity::PlanBridge.remove(r['id'])[:ok] if r['id'].to_s.start_with?('vanity/') && defined?(InteriorPro::Vanity::PlanBridge)
         model = Sketchup.active_model
         id = r['id'].to_s
         g = model.entities.to_a.find do |e|
@@ -3217,6 +3222,7 @@ module InteriorPro
       # the sign, half its width along the wall (hw) and where its middle sits off its line (bo), a0..a1 out of the
       # wall, its height band (height, hh) for the door / window check. A shower set = its head part. {} = nothing.
       def plumb_armed(cfg)
+        return InteriorPro::Vanity::PlanBridge.armed(cfg['cabinet']) if cfg['kind']=='vanity_builder' && defined?(InteriorPro::Vanity::PlanBridge)
         lib = InteriorPro::FixtureLibrary
         parts = lib.layout(Sketchup.active_model, cfg)
         p = cfg['kind'].to_s == 'shower_set' ? parts.find { |q| q[:part].to_s == 'head' } : parts.first
@@ -3238,6 +3244,7 @@ module InteriorPro
       # a shower head, no hole under a part, inside the clear run) and place! - exactly as the Plumbing tool does it.
       def place_plumb(r)
         cfg = @plumb_cfg
+        return InteriorPro::Vanity::PlanBridge.place(self,r,cfg['cabinet']) if cfg && cfg['kind']=='vanity_builder' && defined?(InteriorPro::Vanity::PlanBridge)
         return { ok: false, why: 'choose in the window first' } unless cfg
         lib = InteriorPro::FixtureLibrary
         tw = InteriorPro::TileWall
@@ -3291,6 +3298,7 @@ module InteriorPro
       # A plumbing product dragged in the drawing: the same product (its own settings) placed again on the wall face
       # he let go on - the fixture tool's own check and place! - the old one taken away, the id kept. ONE undo step.
       def move_plumb(r)
+        return InteriorPro::Vanity::PlanBridge.move(self,r) if r['id'].to_s.start_with?('vanity/') && defined?(InteriorPro::Vanity::PlanBridge)
         return { ok: false, why: 'switched off' } unless USE_PLUMB_MOVE
         g = find_plumb(r['id'].to_s)
         return { ok: false, why: 'not found' } unless g

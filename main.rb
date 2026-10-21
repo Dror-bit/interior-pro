@@ -53,6 +53,7 @@ module InteriorPro
       tile_sheet.rb
       tile_count_dialog.rb
       room_manager.rb
+      wall_inside.rb
       floor_manager.rb
       floor_pattern.rb
       tile_wall.rb

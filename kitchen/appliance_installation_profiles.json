@@ -1,0 +1,157 @@
+{
+  "lg-wcep6427f": {
+    "version": 1,
+    "product_id": "lg-wcep6427f",
+    "mode": "flush",
+    "opening_width": 30,
+    "opening_height": 44,
+    "cabinet_depth": 25,
+    "fascia_y": -24.375,
+    "source_url": "https://media.us.lg.com/m/7dad49e017cc5c17/original/WCEP6427F-LG-Builder-Spec-Sheets.pdf",
+    "notes": "Flush recess 30 x 44 x 25 in. Support and ventilation per installation manual. No exterior-dimension cutout.",
+    "opening_bottom": -0.09375,
+    "cleat": {
+      "inset": 1.375,
+      "width": 0.1875,
+      "depth": 1,
+      "height": 43.8125
+    }
+  },
+  "lg-wdep9427f": {
+    "version": 1,
+    "product_id": "lg-wdep9427f",
+    "mode": "flush",
+    "opening_width": 30,
+    "opening_height": 52.3125,
+    "cabinet_depth": 25,
+    "fascia_y": -24.375,
+    "source_url": "https://media.us.lg.com/m/5d3254857d15da1e/original/WDEP9427F-LG-Builder-Spec-Sheets.pdf",
+    "notes": "Flush recess 30 x 52 5/16 x 25 in. Support and ventilation per installation manual.",
+    "opening_bottom": -0.125,
+    "cleat": {
+      "inset": 1.375,
+      "width": 0.1875,
+      "depth": 1,
+      "height": 52.0625
+    }
+  },
+  "lg-wsep4723f": {
+    "version": 1,
+    "product_id": "lg-wsep4723f",
+    "mode": "flush",
+    "opening_width": 30,
+    "opening_height": 29.625,
+    "cabinet_depth": 25,
+    "fascia_y": -24.375,
+    "source_url": "https://www.lg.com/us/business/download/resources/CT00021979/WSEP4723_LG_Pro_Builder_Spec_Sheet%5B20240531_225000%5D.pdf",
+    "notes": "Flush recess 30 x 29 5/8 x 25 in. Keep bottom vent clear.",
+    "opening_bottom": -0.09375,
+    "cleat": {
+      "inset": 1.375,
+      "width": 0.1875,
+      "depth": 1,
+      "height": 29.4375
+    }
+  },
+  "wolf-ec2450te-s": {
+    "version": 1,
+    "product_id": "wolf-ec2450te-s",
+    "mode": "flush",
+    "opening_width": 23.75,
+    "opening_height": 18.125,
+    "cabinet_depth": 23,
+    "fascia_y": -19.875,
+    "source_url": "https://www.subzero-wolf.com/products/assets/wolf/coffee-systems/qr-sheets/ec2450te-fi.pdf",
+    "notes": "Flush recess 23 3/4 x 18 1/8 x 23 in; minimum 1/8 in reveals; finished slide supports required.",
+    "opening_bottom": -0.125,
+    "cleat": {
+      "inset": 0.875,
+      "width": 0.8125,
+      "depth": 0.75,
+      "height": 17.875
+    }
+  },
+  "miele-cva7845": {
+    "version": 1,
+    "product_id": "miele-cva7845",
+    "mode": "standard",
+    "opening_width": 23.62204724409449,
+    "opening_height": 18.070866141732285,
+    "cabinet_depth": 25,
+    "fascia_y": -18.6732283464567,
+    "source_url": "https://media.miele.com/downloads/7a/2a/01_7CED8D23BC481FE1A49A9150154E7A2A.pdf",
+    "notes": "US manual pp97-99: 562 mm inner width, 459 mm front opening height, >=633 mm depth; >=850 mm installation height. Rear shelf/service opening >=508 mm wide. US manual dimensions supersede earlier 450/550 mm handoff; source conflict retained.",
+    "minimum_bottom": 33.46456692913386,
+    "front_projection": 0.9173228346456693,
+    "niche_width": 22.125984251968504,
+    "rear_service_width": 20,
+    "rear_service_depth": 4
+  },
+  "thermador-tcm24ps": {
+    "version": 1,
+    "product_id": "thermador-tcm24ps",
+    "mode": "standard",
+    "opening_width": 23.625,
+    "opening_height": 18,
+    "cabinet_depth": 24,
+    "fascia_y": -14,
+    "source_url": "https://media3.bsh-group.com/Documents/specsheet/en-CA/TCM24PS.pdf",
+    "notes": "Standard 24 in installation: 560-568 mm inner width, 450-452 mm inner height; >=23 1/2 in depth INCLUDING transformer. Native body is only 14 in deep. Unavailable model per handoff. No optional TCMTK30RS kit included.",
+    "minimum_bottom": 37.5,
+    "front_projection": 0.75,
+    "niche_width": 22.125
+  },
+  "lg-mser2090s": {
+    "version": 1,
+    "product_id": "lg-mser2090s",
+    "mode": "trim",
+    "opening_width": 31.71875,
+    "opening_height": 21.0625,
+    "cabinet_depth": 24,
+    "fascia_y": -19.375,
+    "source_url": "https://lg-sks-content.s3.us-west-1.amazonaws.com/2020-06/sks_wall_oven_planning_installation_guide.pdf",
+    "notes": "MK2030NST purchased separately, now displayed with cabinet. Trim 29 23/32 x19 1/16; niche 25 1/2 x16 3/4 x19 1/2 in; preserve 1 in airflow outside trim on all sides. Use supplied duct/bracket templates for installation; trim is not included in native MSER SKP. Minimum trim bottom 36 in above floor.",
+    "minimum_bottom": 38.75,
+    "opening_bottom": -3.75,
+    "front_projection": 1.09375,
+    "trim_kit": {
+      "model": "MK2030NST",
+      "width": 29.71875,
+      "height": 19.0625,
+      "depth": 1.09375,
+      "inner_width": 24.609375,
+      "inner_height": 12.953125,
+      "bottom": -2.75,
+      "purchased_separately": true,
+      "cutout_width": 25.5,
+      "cutout_height": 16.75,
+      "cutout_depth": 19.5,
+      "perimeter_air_clearance": 1,
+      "source_url": "https://www.lg.com/us/support/products/documents/MK2030N%20Spec%20Sheet.pdf"
+    }
+  },
+  "lg-mhec1737f": {
+    "version": 1,
+    "product_id": "lg-mhec1737f",
+    "mode": "over_range",
+    "opening_width": 30,
+    "opening_height": 16.5,
+    "cabinet_depth": 13,
+    "fascia_y": -16.375,
+    "source_url": "https://media.us.lg.com/m/ecd44d176516cbc/original/MHEC1737_-LG-Builder-Spec-Sheet.pdf",
+    "notes": "30 in opening, upper cabinet depth maximum13 in. Mount to structural rear wall and upper cabinet; leave intake/vent uncovered. Not for island/peninsula. Upper cabinet underside >=30 in above cooking surface.",
+    "minimum_bottom": 54
+  },
+  "lg-mvel2033f": {
+    "version": 1,
+    "product_id": "lg-mvel2033f",
+    "mode": "over_range",
+    "opening_width": 30,
+    "opening_height": 16.4375,
+    "cabinet_depth": 13,
+    "fascia_y": -15.83,
+    "source_url": "https://www.lg.com/us/support/product/lg-MVEL2033F.BRSELGA?tab=1",
+    "notes": "30 in opening; cabinet depth maximum13 in. Follow LG installation guide, structural rear wall and upper cabinet mounting, unobstructed underside. Upper cabinet underside >=30 in above cooking surface.",
+    "minimum_bottom": 54
+  }
+}

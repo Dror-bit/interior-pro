@@ -625,3 +625,62 @@
 09:35:17   rehole: room room-tlj2de-3087 floor floor-tn0e2t-0478 -> 0 added, 2 stored
 14:19:36   rehole: room room-tlf7le-9399 floor floor-tn0r8o-2473 -> 0 added, 0 stored
 14:19:36   rehole: room room-tlj2de-3087 floor floor-tn0r8o-2198 -> 0 added, 2 stored
+19:39:12   rehole: room room-tlf7le-9399 floor floor-tn6q1c-5438 -> 0 added, 0 stored
+19:39:12   rehole: room room-tlj2de-3087 floor floor-tn6q1c-0171 -> 0 added, 2 stored
+19:43:27   rehole: room room-tlf7le-9399 floor floor-tn6q8f-7428 -> 0 added, 0 stored
+19:43:27   rehole: room room-tlj2de-3087 floor floor-tn6q8f-8099 -> 0 added, 2 stored
+19:51:29   rehole: room room-tlf7le-9399 floor floor-tn6qlt-9785 -> 0 added, 0 stored
+19:51:30   rehole: room room-tlj2de-3087 floor floor-tn6qlt-8703 -> 0 added, 2 stored
+19:51:38   rehole: room room-tlf7le-9399 floor floor-tn6qm2-7934 -> 0 added, 0 stored
+19:51:38   rehole: room room-tlj2de-3087 floor floor-tn6qm2-1528 -> 0 added, 2 stored
+19:51:47   rehole: room room-tlf7le-9399 floor floor-tn6qmb-6201 -> 0 added, 0 stored
+19:51:47   rehole: room room-tlj2de-3087 floor floor-tn6qmb-2408 -> 0 added, 2 stored
+19:51:56   rehole: room room-tlf7le-9399 floor floor-tn6qmk-7278 -> 0 added, 0 stored
+19:51:56   rehole: room room-tlj2de-3087 floor floor-tn6qmk-0692 -> 0 added, 2 stored
+19:52:40   under? floor floor-tn6qmk-7278 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+19:52:40   under? floor floor-tn6qmk-0692 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+19:52:40   under? floor_pattern  floor_id "floor-tn6qmk-7278" room room-tlf7le-9399 middle no holes 0 -> no
+19:52:40   under? floor_pattern  floor_id "floor-tn6qmk-0692" room room-tlj2de-3087 middle no holes 0 -> YES
+19:52:40   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+19:52:51   build! kind curb tile Same as the room floor settings {"kind"=>"curb", "rise"=>1.0, "curb_h"=>4.0, "curb_room"=>false, "wall_joints"=>true, "same_room"=>true, "drain"=>"linear_tile", "drain_w"=>3, "drain_l"=>24, "drain_side"=>"right", "drain_shift"=>0, "pattern"=>"Tile", "unit_w"=>0, "unit_l"=>0, "ox"=>0, "oy"=>0, "angle"=>0, "center"=>true, "texture"=>"", "grout"=>0.125, "grout_color"=>"light", "stagger"=>0, "material_card_id"=>"IS_d3240ce2-4644-4552-8d35-cc7f6a3f3e4c"}
+19:52:51   under? floor floor-tn6qmk-7278 floor_id nil room room-tlf7le-9399 middle no holes 0 -> no
+19:52:51   under? floor floor-tn6qmk-0692 floor_id nil room room-tlj2de-3087 middle yes holes 2 -> YES
+19:52:51   under? floor_pattern  floor_id "floor-tn6qmk-7278" room room-tlf7le-9399 middle no holes 0 -> no
+19:52:51   under? floor_pattern  floor_id "floor-tn6qmk-0692" room room-tlj2de-3087 middle no holes 0 -> YES
+19:52:51   loop [[-486.612, 401.875], [-486.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]] middle [-465.118, 367.459] z 0.05 found 2
+19:52:51   wall joints: side 1 TW028 along x -> [-465.087]
+19:52:51   wall joints: side 2 TW034 along y -> [350.084, 367.459, 384.959]
+19:52:51   wall joints: side 3 TW032 along x -> [-464.119]
+19:52:51   wall joints: the room tile could not be read - grid left as it was
+19:52:51   curb: sides walled [false, true, true, true] -> 1 curb piece(s), floor inside [[-482.612, 401.875], [-482.612, 333.043], [-443.625, 333.043], [-443.625, 401.875]]
+19:52:51   drain: linear_tile on the right side, 2.0" off the wall, shift 0.0
+19:52:51   drain: hole opened in the pad
+19:52:51   build! own no lay yes src floor pad_top 1.0 mat A smooth_ light gray surface with subtle texture and a faint line dividing two sections.
+19:52:52   build! tiles laid
+19:52:52   drain: linear_tile 3.0 x 24.0 at [-448.625, 355.459] z 1.05, 0 grate hole(s), tile inside: A smooth_ light gray surface with subtle texture and a faint line dividing two sections., channel yes
+19:52:52   curb: wears the shower floor - A smooth_ light gray surface with subtle texture and a faint line dividing two sections.
+19:52:52   curb: 1 of 1 built, 4.0" tall from z 0.05
+13:15:25   rehole: room room-tlf7le-9399 floor floor-tn82xp-2519 -> 0 added, 0 stored
+13:15:25   rehole: room room-tlj2de-3087 floor floor-tn82xp-2908 -> 0 added, 2 stored
+13:16:05   rehole: room room-tlf7le-9399 floor floor-tn82yt-1332 -> 0 added, 0 stored
+13:16:05   rehole: room room-tlj2de-3087 floor floor-tn82yt-5416 -> 0 added, 2 stored
+13:16:21   rehole: room room-tlf7le-9399 floor floor-tn82z9-3621 -> 0 added, 0 stored
+13:16:21   rehole: room room-tlj2de-3087 floor floor-tn82z9-1628 -> 0 added, 2 stored
+13:16:52   rehole: room room-tlf7le-9399 floor floor-tn8304-7848 -> 0 added, 0 stored
+13:16:52   rehole: room room-tlj2de-3087 floor floor-tn8304-0800 -> 0 added, 2 stored
+13:36:54   rehole: room room-tlf7le-9399 floor floor-tn83xi-2060 -> 0 added, 0 stored
+13:36:54   rehole: room room-tlj2de-3087 floor floor-tn83xi-5002 -> 0 added, 2 stored
+14:00:45   rehole: room room-tlf7le-9399 floor floor-tn8519-9570 -> 0 added, 0 stored
+14:00:45   rehole: room room-tlj2de-3087 floor floor-tn8519-5793 -> 0 added, 2 stored
+14:04:11   rehole: room room-tlf7le-9399 floor floor-tn856z-4388 -> 0 added, 0 stored
+14:04:11   rehole: room room-tlj2de-3087 floor floor-tn856z-7817 -> 0 added, 2 stored
+15:58:58   rehole: room room-tlf7le-9399 floor floor-tn8aia-9172 -> 0 added, 0 stored
+15:58:58   rehole: room room-tlj2de-3087 floor floor-tn8aia-8802 -> 0 added, 2 stored
+16:45:09   rehole: room room-tlf7le-9399 floor floor-tn8cn9-0519 -> 0 added, 0 stored
+16:45:09   rehole: room room-tlj2de-3087 floor floor-tn8cn9-0120 -> 0 added, 2 stored
+17:20:46   rehole: room room-tlf7le-9399 floor floor-tn8eam-7623 -> 0 added, 0 stored
+17:20:46   rehole: room room-tlj2de-3087 floor floor-tn8eam-6994 -> 0 added, 2 stored
+17:22:47   rehole: room room-tlf7le-9399 floor floor-tn8edz-6826 -> 0 added, 0 stored
+17:22:47   rehole: room room-tlj2de-3087 floor floor-tn8edz-7820 -> 0 added, 2 stored
+17:54:33   rehole: room room-tlf7le-9399 floor floor-tn8fux-2066 -> 0 added, 0 stored
+17:54:33   rehole: room room-tlj2de-3087 floor floor-tn8fux-9373 -> 0 added, 2 stored

@@ -13,7 +13,7 @@ module InteriorPro
   module DoorLeafStyles
 
     %i[LEAF_THICKNESS PANEL_RECESS RAISE_BACK ARCH_SEGMENTS FRAMES STYLES
-       PANEL_GAP SHOULDER_W RAISE_TOP_GAP].each do |c|
+       PANEL_GAP SHOULDER_W RAISE_TOP_GAP REALISTIC_DETAILS EDGE_RADIUS].each do |c|
       remove_const(c) if const_defined?(c, false)
     end
 
@@ -24,6 +24,8 @@ module InteriorPro
     PANEL_GAP      = 0.25   # visible groove between recess edge and raised field
     SHOULDER_W     = 0.75   # sloped shoulder width of the raised field
     RAISE_TOP_GAP  = 0.05   # raised field top sits this far below the slab face
+    REALISTIC_DETAILS = true # false restores sharp slabs, original rail and no new hinges.
+    EDGE_RADIUS = 0.06       # 1.524 mm; geometry, visible in rendered output too.
 
     # Frame member widths (inches) per family.
     FRAMES = {
@@ -41,7 +43,7 @@ module InteriorPro
     STYLES = {
       'Flush'            => { kind: :flush },
       '1 Panel Shaker'   => { kind: :stacked, frame: 'shaker', rows: 1 },
-      '2 Panel Shaker'   => { kind: :stacked, frame: 'shaker', rows: 2, mid_key: :lock },
+      '2 Panel Shaker'   => { kind: :stacked, frame: 'shaker', rows: 2, mid_key: :lock, handle_rail: true },
       '5 Panel Shaker'   => { kind: :stacked, frame: 'shaker', rows: 5 },
       '6 Panel Colonial' => { kind: :colonial, frame: 'colonial', raised: true },
       '1 Lite Clear'     => { kind: :lite, frame: 'french' },
@@ -81,7 +83,11 @@ module InteriorPro
       if spec[:kind] == :lite
         ok = build_lite_leaf!(le, spec, u0, u1, w0, w1, vf, vb, unit, n, glass_mat)
       else
-        ok = build_slab!(le, u0, u1, w0, w1, vf, vb, unit, n)
+        ok = if REALISTIC_DETAILS
+               build_rounded_slab!(le, u0, u1, w0, w1, vf, vb, unit, n)
+             else
+               build_slab!(le, u0, u1, w0, w1, vf, vb, unit, n)
+             end
         if ok && spec[:kind] != :flush
           panels = panel_rects(spec, u0, u1, w0, w1)
           panels.each do |p|
@@ -131,6 +137,16 @@ module InteriorPro
           rects << { u0: pu0, u1: pu1, w0: w_top - h, w1: w_top,
                      arch: (i.zero? ? spec[:arch] : nil) }
           w_top -= (h + mid)
+        end
+        if REALISTIC_DETAILS && spec[:handle_rail] && rows == 2
+          # Same 36-inch datum as DoorTool#place_leaf_handles!. Keep the top,
+          # bottom and rail widths; only the two panel heights change.
+          center = w0 + 36.0
+          lo, hi = center - mid / 2.0, center + mid / 2.0
+          if lo - rects.last[:w0] >= 2.0 && rects.first[:w1] - hi >= 2.0
+            rects.first[:w0] = hi
+            rects.last[:w1] = lo
+          end
         end
         rects
 
@@ -185,6 +201,143 @@ module InteriorPro
       depth = -depth if face.normal.dot(n) < 0
       face.pushpull(depth)
       true
+    end
+
+    # Build small rounds at 100x to avoid SketchUp's small-face tolerance.
+    # Only these outer seams are softened; panel outlines remain hard edges.
+    def self.build_rounded_slab!(le, u0, u1, w0, w1, vf, vb, unit, n)
+      y0, y1 = [vf, vb].minmax
+      r = [EDGE_RADIUS, (u1-u0)/4.0, (w1-w0)/4.0, (y1-y0)/4.0].min
+      return false unless r > 0.0
+      stations = 5.times.map do |i|
+        a = i * Math::PI / 8.0
+        [y0 + r * (1-Math.cos(a)), r * (1-Math.sin(a))]
+      end
+      stations += stations.reverse.map { |y, d| [y1-(y-y0), d] }
+      rings = stations.map do |y, d|
+        rounded_outline(u0+d, u1-d, w0+d, w1-d, y, r).map do |p|
+          Geom::Point3d.new(*p.map { |x| x * 100.0 })
+        end
+      end
+      front = le.add_face(rings.first)
+      return false unless front&.valid?
+      front.reverse! if front.normal.y > 0
+      back = le.add_face(rings.last.reverse)
+      return false unless back&.valid?
+      back.reverse! if back.normal.y < 0
+      rings.each_cons(2) do |a, b|
+        a.length.times do |i|
+          j = (i+1) % a.length
+          le.add_face(a[i], b[i], b[j])
+          le.add_face(a[i], b[j], a[j])
+        end
+      end
+      axes = Geom::Transformation.axes(ORIGIN, unit, n, Z_AXIS)
+      le.transform_entities(axes * Geom::Transformation.scaling(0.01), le.to_a)
+      soften_rounds!(le, 40.degrees)
+      true
+    end
+
+    def self.rounded_outline(u0, u1, w0, w1, v, r)
+      [[u0+r, w0+r, Math::PI], [u1-r, w0+r, 1.5*Math::PI],
+       [u1-r, w1-r, 0], [u0+r, w1-r, 0.5*Math::PI]].flat_map do |u, w, a|
+        5.times.map do |i|
+          angle = a + i * Math::PI / 8.0
+          [u+r*Math.cos(angle), v, w+r*Math.sin(angle)]
+        end
+      end
+    end
+
+    def self.soften_rounds!(ents, angle)
+      ents.grep(Sketchup::Edge).each do |edge|
+        next unless edge.faces.length == 2
+        next unless edge.faces[0].normal.angle_between(edge.faces[1].normal) < angle
+        edge.soft = true
+        edge.smooth = true
+      end
+    end
+
+    # Closed butt hinges: each plate/knuckle is its own solid. No wall editing,
+    # extra operation, or global style change. side is -1 left, +1 right.
+    def self.build_hinges!(ents, u, side, w0, w1, vf, vb, out_sign, unit, n, mat)
+      return unless REALISTIC_DETAILS
+      height = w1-w0
+      return if height < 8.0
+      margin = [8.75, height/5.0].min
+      centers = [w0+margin, (w0+w1)/2.0, w1-margin]
+      face_v = out_sign > 0 ? [vf,vb].max : [vf,vb].min
+      barrel_v = face_v + out_sign*0.18
+      plate_vs = [face_v-out_sign*1.27, face_v+out_sign*0.07].minmax
+      centers.each_with_index do |w, index|
+        hinge = ents.add_group
+        hinge.name = "Hinge_#{side < 0 ? 'Left' : 'Right'}_#{index+1}"
+        hinge.material = get_or_create_material(Sketchup.active_model,
+          'InteriorPro_Door_Hinge', [85, 88, 92], 1.0)
+        # Both plates sit ON their host surfaces, facing into the 1/8-inch
+        # reveal. The old intervals buried the plates and screws in the wood.
+        [[u, u+side*0.055], [u+side*0.125, u+side*0.070]].each_with_index do |us, k|
+          a,b = us.minmax
+          hinge_plate!(hinge.entities, k.zero? ? 'Leaf plate' : 'Jamb plate',
+            a, b, plate_vs[0], plate_vs[1], w, unit, n)
+          screw_u = u+side*(k.zero? ? 0.055 : 0.070)
+          screw_n = Geom::Vector3d.new(unit.x*side*(k.zero? ? 1 : -1), unit.y*side*(k.zero? ? 1 : -1), 0)
+          [-1.1,0,1.1].each do |dz|
+            hinge_cylinder!(hinge.entities, k.zero? ? 'Leaf screw' : 'Jamb screw',
+              local_uvw(screw_u, face_v-out_sign*0.69, w+dz, unit,n),
+              screw_n, 0.105, 0.024, slot_axis: n)
+          end
+        end
+        5.times do |i|
+          hinge_cylinder!(hinge.entities, 'Knuckle', local_uvw(u,barrel_v,w-1.75+i*0.7,unit,n), Z_AXIS, 0.22, 0.68)
+        end
+        hinge_cylinder!(hinge.entities, 'Pin cap', local_uvw(u,barrel_v,w+1.75,unit,n), Z_AXIS, 0.24, 0.06)
+      end
+    end
+
+    def self.hinge_plate!(ents, name, u0, u1, v0, v1, w, unit, n)
+      part = ents.add_group
+      part.name = name
+      le = part.entities
+      r = 0.125
+      pts = [[v0+r,w-1.75+r,Math::PI], [v1-r,w-1.75+r,1.5*Math::PI],
+             [v1-r,w+1.75-r,0], [v0+r,w+1.75-r,0.5*Math::PI]].flat_map do |v,z,a|
+        7.times.map do |i|
+          q = a+i*Math::PI/12.0
+          [u0*100, (v+r*Math.cos(q))*100, (z+r*Math.sin(q))*100]
+        end
+      end
+      face = le.add_face(pts)
+      face.reverse! if face.normal.x < 0
+      face.pushpull((u1-u0)*100)
+      axes = Geom::Transformation.axes(ORIGIN, unit, n, Z_AXIS)
+      le.transform_entities(axes * Geom::Transformation.scaling(0.01), le.to_a)
+      soften_rounds!(le, 25.degrees)
+      part
+    end
+
+    def self.hinge_cylinder!(ents, name, point, axis, radius, length, slot_axis: nil)
+      part = ents.add_group
+      part.name = name
+      le = part.entities
+      center = Geom::Point3d.new(*point.to_a.map { |v| v*100 })
+      edges = le.add_circle(center, axis, radius*100, 32)
+      face = le.add_face(edges)
+      face.reverse! if face.normal.dot(axis) < 0
+      face.pushpull(length*100)
+      if slot_axis
+        cap = point.offset(axis, length)
+        cross = [[-0.017,-0.070],[0.017,-0.070],[0.017,-0.017],[0.070,-0.017],
+                 [0.070,0.017],[0.017,0.017],[0.017,0.070],[-0.017,0.070],
+                 [-0.017,0.017],[-0.070,0.017],[-0.070,-0.017],[-0.017,-0.017]]
+        cut = le.add_face(cross.map do |v,w|
+          cap.offset(slot_axis,v).offset(Z_AXIS,w).to_a.map { |x| x*100 }
+        end)
+        cut.reverse! if cut.normal.dot(axis) < 0
+        cut.pushpull(-1.2)
+      end
+      le.transform_entities(Geom::Transformation.scaling(0.01), le.to_a)
+      soften_rounds!(le, 25.degrees)
+      part
     end
 
     # Carve one recessed panel on BOTH faces of the slab.
@@ -327,14 +480,23 @@ module InteriorPro
       hw1 = w1 - f[:top]
       return build_slab!(le, u0, u1, w0, w1, vf, vb, unit, n) if hu1 - hu0 < 2.0 || hw1 - hw0 < 2.0
 
-      outer = rect_pts(u0, u1, w0, w1, vf, unit, n)
-      face = le.add_face(outer)
-      return false unless face&.valid?
-      hole = le.add_face(rect_pts(hu0, hu1, hw0, hw1, vf, unit, n))
-      hole.erase! if hole&.valid?
-      depth = vb - vf
-      depth = -depth if face.normal.dot(n) < 0
-      face.pushpull(depth)
+      if REALISTIC_DETAILS
+        return false unless build_rounded_slab!(le, u0, u1, w0, w1, vf, vb, unit, n)
+        hole = le.add_face(rect_pts(hu0, hu1, hw0, hw1, vf, unit, n))
+        return false unless hole&.valid?
+        depth = vb-vf
+        depth = -depth if hole.normal.dot(n) < 0
+        hole.pushpull(depth)
+      else
+        outer = rect_pts(u0, u1, w0, w1, vf, unit, n)
+        face = le.add_face(outer)
+        return false unless face&.valid?
+        hole = le.add_face(rect_pts(hu0, hu1, hw0, hw1, vf, unit, n))
+        hole.erase! if hole&.valid?
+        depth = vb - vf
+        depth = -depth if face.normal.dot(n) < 0
+        face.pushpull(depth)
+      end
 
       vmid = (vf + vb) / 2.0
       gface = le.add_face(rect_pts(hu0, hu1, hw0, hw1, vmid, unit, n))

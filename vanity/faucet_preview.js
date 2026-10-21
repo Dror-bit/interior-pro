@@ -28,12 +28,13 @@ function faucetRaster(id,finish,px,py,depth){
  if(faucetRasterCache.size>64)faucetRasterCache.clear();
  faucetRasterCache.set(key,result);return result;
 }
-function faucetSvg(v){
+function faucetSvg(v){return sinkCenters(v).map((x,i)=>faucetOneSvg(basinPreview(v,i),x)).join('');}
+function faucetOneSvg(v,center){
  const asset=faucetAssets.find(a=>a.id===v.faucet_id);if(!asset)return '';
  const s=v.surfaces,px=300/v.width,py=150/v.height;
  const raster=faucetRaster(asset.id,s.faucet_finish,px,py,v.depth);
  const y=-(s.backsplash_height>0?s.countertop_thickness:0)-asset.bounds[1][1]-.25;
- return sinkCenters(v).map(x=>`<image data-faucet="${asset.id}" data-finish="${s.faucet_finish}" href="${raster.url}" x="${x*px+18+18*y/v.depth+raster.minX}" y="${-50-50*y/v.depth-s.countertop_thickness*py+raster.minY}" width="${raster.w}" height="${raster.h}"/>`).join('');
+ return [center].map(x=>`<image data-faucet="${asset.id}" data-finish="${s.faucet_finish}" href="${raster.url}" x="${x*px+18+18*y/v.depth+raster.minX}" y="${-50-50*y/v.depth-s.countertop_thickness*py+raster.minY}" width="${raster.w}" height="${raster.h}"/>`).join('');
 }
 function updateFaucetGallery(){
  const make=el('product').value!=='vanity'||current()?.product_id==='gallery';

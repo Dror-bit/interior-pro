@@ -154,7 +154,7 @@ module InteriorPro
               dy=cy+MuseSink.asset['drain'][1];z=h-MuseSink.asset['bowl_depth']
               drain=[ring(cx,dy,0.81,0.81,z+0.06),ring(cx,dy,0.65,0.65,z+0.06),
                      ring(cx,dy,0.65,0.65,z-0.3),ring(cx,dy,0.81,0.81,z-0.3)]
-              mesh(e,'Drain / '+s['faucet_finish'],shell(drain),material.call(s['faucet_finish']))
+              mesh(e,'Drain / '+Faucets.choices(c)[j]['finish'],shell(drain),material.call(Faucets.choices(c)[j]['finish']))
               next
             end
             # Closed ceramic wall: flange, inner bowl, drain hole and outer skin.
@@ -168,7 +168,7 @@ module InteriorPro
             mesh(e,'Ceramic undermount sink',shell(rings),ceramic)
             drain=[ring(cx,cy,0.79,0.79,h-depth+0.06),ring(cx,cy,0.65,0.65,h-depth+0.06),
                    ring(cx,cy,0.65,0.65,h-depth-0.3),ring(cx,cy,0.79,0.79,h-depth-0.3)]
-            mesh(e,'Drain / '+s['faucet_finish'],shell(drain),material.call(s['faucet_finish']))
+            mesh(e,'Drain / '+Faucets.choices(c)[j]['finish'],shell(drain),material.call(Faucets.choices(c)[j]['finish']))
           end
         end
         bh=s['backsplash_height']

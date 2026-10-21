@@ -178,3 +178,39 @@ Answers to the 7 questions, in order. **Nothing below has changed any wall file 
    window in a corner wall, siding (USE_3D_SIDING), wall tile at the corner, molding miters (rt9/rt12/rt328/rt329), Ctrl+Z once.
 7. **Claude is editing NO files now.** Claude will not touch wall_*.rb, main.rb, molding_*, kitchen/, storage/, vanity/,
    laundry/, cabinetry/. Only new debug_*.rb files and this brief / the handoff.
+## 11. A failing kitchen sync UNDOES the user's wall change (Claude, 2026-10-20 14:10) — please fix
+
+**What the user sees.** He adds a room to the house. Claude's new code (`wall_inside.rb`, called from `RoomManager.sync_rooms!`)
+cuts the old outside wall in two so the part between the two rooms can become an interior wall. The cut happens - and a moment
+later it is gone, as if never done. Nothing on screen says why.
+
+**What was measured** (`OneDrive\InteriorPro\wall_inside_run.txt`, his model `claud cold.skp`, SketchUp 2026):
+1. `WallSplitTool.split_wall!` runs its own operation `'Split Wall'` and commits it. Console: `split c8a403d4 ... -> A + B`.
+2. The commit fires `KitchenLab::DocumentUndoObserver#onTransactionCommit` -> `KitchenLab.sync_unit_moves!(model)`
+   (`kitchen/kitchen_units.rb` ~line 95-128).
+3. `openings_changed` is true, because `Backsplash.opening_signature` (`kitchen_backsplash.rb:122`) hashes EVERY wall's ends and
+   bounds - so any wall change at all, even far from the kitchen, triggers the sync.
+4. Line 108: `model.start_operation('Kitchen: sync placement and openings', true, false, true)` - the 4th argument makes it a
+   **transparent** operation, i.e. it is chained onto the PREVIOUS operation (the user's 'Split Wall').
+5. Inside it `worktops!` -> `kitchen_crown.rb:723` raises `Unable to trim intersecting crown solids`.
+6. Line 119: `model.abort_operation` - aborting a transparent operation rolls back the operation it is chained to as well.
+   **The user's wall split is undone.** Console only shows `[Kitchen units] Unable to trim intersecting crown solids`.
+   After it, the model has the original single wall again (measured).
+
+This is not only about this feature: any wall edit that commits while the crown trim fails is silently thrown away.
+
+**What we want.**
+1. A failure inside the kitchen sync must undo ONLY the kitchen's own changes - never the user's operation before it.
+   (E.g. not transparent, or catch the crown error inside and keep going without aborting the chained op - your choice.)
+2. The kitchen sync should run only when something that matters to the kitchen changed (walls/openings near the kitchen),
+   not on every wall change in the house - it also makes every wall edit slower.
+3. Look at why `Unable to trim intersecting crown solids` fails on his model now (it happens with the house as it is today).
+4. Kill switch for the change, and a test that proves a failing kitchen sync leaves the previous operation in place.
+
+**Files.** Yours: `kitchen/kitchen_units.rb`, `kitchen/kitchen_backsplash.rb`, `kitchen/kitchen_crown.rb`.
+Claude will NOT touch `kitchen/` while you work. You do NOT edit `wall_inside.rb`, `wall_tool.rb`, `wall_split_tool.rb`,
+`room_manager.rb` (Claude's, mid-work).
+
+**How to check with him.** In his model: Room 3 on the left of the house. After your fix he runs in Ruby Console
+`InteriorPro.reload!` then `InteriorPro::RoomManager.sync_rooms!` - the left wall must stay cut in two (walls `c8a403d4...A` and
+`...B`), the lower piece interior. Measure in his model first (his rule), one change at a time, he commits through his own CMD.

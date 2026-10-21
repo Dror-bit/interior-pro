@@ -1,5 +1,39 @@
 module KitchenLab
   module ContinuousSurfaces
+    remove_const(:USE_ISLAND_OVERHANG) if const_defined?(:USE_ISLAND_OVERHANG,false)
+    USE_ISLAND_OVERHANG=true
+    def self.validate_overhang(raw)
+      raise 'Invalid island overhang' unless raw.is_a?(Hash) && (raw.keys-%w[side depth]).empty?
+      side=raw.fetch('side','none')
+      depth=Float(raw.fetch('depth',0))
+      raise 'Choose an island side' unless %w[none front back left right].include?(side)
+      raise 'Overhang must be 0–36 inches, in 1/8-inch increments' unless depth.finite? && depth.between?(0,36) && (depth*8-(depth*8).round).abs<0.00001
+      {'side'=>side,'depth'=>depth}
+    end
+    # Use the unmirrored island axes, so flipping doors does not move seating.
+    # Extend only perimeter edges; neighbouring slabs cannot cover a sink cutout.
+    def self.slab_bounds(d,data=KitchenLab.state['cabinets'],settings=KitchenLab.settings)
+      bounds=[0.0,-d['depth']-1.0,d['width'],0.0]
+      option=settings.fetch('island_overhang',{})
+      return bounds unless USE_ISLAND_OVERHANG && d['wall']=='I' && option.fetch('depth',0)>0 && option.fetch('side','none')!='none'
+      island=data.select { |c|c['wall']=='I' && !c['surround_for'] && %w[doors drawers sink dishwasher].include?(c['kind']) }
+      reference=island.first
+      return bounds unless reference
+      reference=reference.merge('flip_x'=>false,'flip_y'=>false)
+      origin=Spatial.cabinet_point(reference,0,0,settings)
+      delta={'front'=>[0,-1],'back'=>[0,1],'left'=>[-1,0],'right'=>[1,0]}.fetch(option['side'])
+      point=Spatial.cabinet_point(reference,*delta,settings)
+      direction=point.zip(origin).map { |a,b|a-b }
+      project=lambda { |p|p[0]*direction[0]+p[1]*direction[1] }
+      limit=island.flat_map { |c|Spatial.polygon(c,settings) }.map(&project).max
+      edges=[[[0,0],[0,-d['depth']],0,-1],[[0,-d['depth']],[d['width'],-d['depth']],1,-1],[[d['width'],0],[d['width'],-d['depth']],2,1],[[0,0],[d['width'],0],3,1]]
+      edges.each do |a,b,index,sign|
+        next unless [a,b].all? { |p|(project.call(Spatial.cabinet_point(d,*p,settings))-limit).abs<0.001 }
+        value=[0,-d['depth'],d['width'],0][index]+sign*option['depth']
+        bounds[index]=sign<0 ? [bounds[index],value].min : [bounds[index],value].max
+      end
+      bounds
+    end
     remove_const(:USE_ISOLATED_SURFACE_REUSE) if const_defined?(:USE_ISOLATED_SURFACE_REUSE,false)
     USE_ISOLATED_SURFACE_REUSE=true
     # Prove that a change cannot affect existing surfaces. Uncertain cases use
@@ -59,10 +93,66 @@ module KitchenLab
       g.set_attribute(KitchenLab::DICT,'owners',owners.uniq.sort)
       g.set_attribute(KitchenLab::DICT,'assembly',assembly)
     end
-    def self.build!
+    remove_const(:USE_ISLAND_FLIP_UPDATE) if const_defined?(:USE_ISLAND_FLIP_UPDATE,false)
+    USE_ISLAND_FLIP_UPDATE=true
+    remove_const(:USE_ISLAND_EDIT_UPDATE) if const_defined?(:USE_ISLAND_EDIT_UPDATE,false)
+    USE_ISLAND_EDIT_UPDATE=true
+    def self.plain_island_edit?(previous,current)
+      return false unless USE_ISLAND_EDIT_UPDATE && previous['settings']==current['settings']
+      before=previous['cabinets'].to_h { |d|[d['id'],d] };after=current['cabinets'].to_h { |d|[d['id'],d] }
+      changed=(before.keys|after.keys).select { |id|before[id]!=after[id] }
+      return false if changed.empty?
+      return false unless changed.all? { |id|[before[id],after[id]].compact.all? { |d|d['wall']=='I' } }
+      [previous,current].all? do |doc|
+        island=doc['cabinets'].select { |d|d['wall']=='I' }
+        island.all? { |d|%w[doors drawers].include?(d['kind']) && !d['surround_for'] && !d['appliance'] && !d['sink'] && [nil,'none'].include?(d['waterfall']) && !d['appliance_garage'] } &&
+          island_clear_of_walls?(doc['cabinets'],doc['settings'])
+      end
+    end
+    def self.plain_island_flip?(previous,current)
+      return false unless USE_ISLAND_FLIP_UPDATE && previous['settings']==current['settings']
+      before=previous['cabinets'].to_h { |d|[d['id'],d] }
+      after=current['cabinets'].to_h { |d|[d['id'],d] }
+      return false unless before.keys.sort==after.keys.sort
+      changed=after.keys.select { |id|before[id]!=after[id] }
+      return false if changed.empty?
+      return false unless changed.all? { |id|after[id]['wall']=='I' && before[id].reject { |k,_|%w[flip_x flip_y].include?(k) }==after[id].reject { |k,_|%w[flip_x flip_y].include?(k) } }
+      after.values.select { |d|d['wall']=='I' }.all? do |d|
+        %w[doors drawers].include?(d['kind']) && !d['surround_for'] && !d['appliance'] &&
+          !d['sink'] && [nil,'none'].include?(d['waterfall']) && !d['appliance_garage']
+      end
+    end
+    def self.rebuild_plain_island!
+      model=KitchenLab.instance_variable_get(:@model)
+      model.entities.grep(Sketchup::Group).select { |g|g.get_attribute(KitchenLab::DICT,'kind')=='worktop' && g.get_attribute(KitchenLab::DICT,'assembly')=='island' }.each(&:erase!)
+      KitchenLab.state['cabinets'].select { |d|d['wall']=='I' }.each do |d|
+        x,y,right,back=slab_bounds(d)
+        g=KitchenLab.box(model.entities,'Kitchen / Worktop',x,y,d['height'],right-x,back-y,KitchenLab.settings.fetch('countertop_thickness',1.5),CountertopMaterials.for_cabinet(d))
+        g.transformation=KitchenLab.cabinet_transform(d)
+        g.set_attribute(KitchenLab::DICT,'kind','worktop')
+        g.set_attribute(KitchenLab::DICT,'owner_id',d['id'])
+        Backsplash.build!(g,d)
+      end
+      build!(assembly:'island')
+    end
+    def self.island_clear_of_walls?(data=KitchenLab.state['cabinets'],settings=KitchenLab.settings)
+      model=KitchenLab.instance_variable_get(:@model)
+      walls=model.entities.select { |g|g.respond_to?(:bounds) && g.get_attribute('InteriorPro','type')=='wall' }
+      other=data.reject { |d|d['wall']=='I' }.map { |d|Spatial.polygon(d,settings) }
+      data.select { |d|d['wall']=='I' }.all? do |d|
+        points=Spatial.polygon(d,settings)
+        separate=other.none? { |poly|2.times.all? { |i|points.map { |p|p[i] }.max+3>=poly.map { |p|p[i] }.min && points.map { |p|p[i] }.min-3<=poly.map { |p|p[i] }.max } }
+        separate && walls.none? do |wall|
+          b=wall.bounds
+          2.times.all? { |i|points.map { |p|p[i] }.max+3>=b.min[i] && points.map { |p|p[i] }.min-3<=b.max[i] }
+        end
+      end
+    end
+    def self.build!(assembly: nil)
+      target_assembly=assembly
       model=KitchenLab.instance_variable_get(:@model);roots=model.entities
       data=KitchenLab.state['cabinets'].to_h{|d|[d['id'],d]}
-      tops=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'kind')=='worktop'}
+      tops=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'kind')=='worktop' && (!target_assembly || data[g.get_attribute(KitchenLab::DICT,'owner_id')]&.fetch('wall',nil)=='I')}
       pieces=[]
       tops.each do |top|
         id=top.get_attribute(KitchenLab::DICT,'owner_id');d=data[id];next unless d
@@ -100,11 +190,12 @@ module KitchenLab
       end
       config=Backsplash.validate(KitchenLab.settings['backsplash'])
       roots.grep(Sketchup::Group).each do |g|
+        next if target_assembly && g.get_attribute(KitchenLab::DICT,'assembly')!=target_assembly
         Backsplash.map_tile_photo!(g,config) if g.get_attribute(KitchenLab::DICT,'surface_finish')=='Tile' && g.get_attribute(KitchenLab::DICT,'tile_cell')
       end
       # A kitchen backsplash is one selectable object, including disconnected wall runs.
       # Preserve real gaps/windows in its geometry; the island remains independent.
-      backs=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'surface_role')=='backsplash'}
+      backs=roots.grep(Sketchup::Group).select{|g|g.get_attribute(KitchenLab::DICT,'surface_role')=='backsplash' && (!target_assembly || g.get_attribute(KitchenLab::DICT,'assembly')==target_assembly)}
       backs.group_by{|g|g.get_attribute(KitchenLab::DICT,'assembly')}.each do |assembly,groups|
         next if groups.length==1
         owners=groups.flat_map{|g|g.get_attribute(KitchenLab::DICT,'owners')}

@@ -1,16 +1,19 @@
 # Public, inch-based manufacturer catalog. Saved selections are snapshots, so
 # a later catalog refresh cannot silently change the user's kitchen.
+require_relative 'kitchen_installation_fit'
 module KitchenLab
   module ApplianceCatalog
-    KINDS={'fridge'=>'fridge','range'=>'oven','rangetop'=>'oven','wall_oven'=>'wall_oven','dishwasher'=>'dishwasher','hood'=>'hood','microwave'=>'microwave','cooktop'=>'doors'}.freeze unless const_defined?(:KINDS,false)
+    remove_const(:KINDS) if const_defined?(:KINDS,false)
+    KINDS={'fridge'=>'fridge','range'=>'oven','rangetop'=>'oven','wall_oven'=>'wall_oven','dishwasher'=>'dishwasher','hood'=>'hood','microwave'=>'microwave','cooktop'=>'doors','coffee_machine'=>'microwave'}.freeze unless const_defined?(:KINDS,false)
     def self.products
-      JSON.parse(File.read(File.join(__dir__,'appliance_catalog.json')))['products'].select { |p| p['dimensions'] && p['verified_at'] }
+      fits=InstallationFit.profiles
+      JSON.parse(File.read(File.join(__dir__,'appliance_catalog.json')))['products'].select { |p| p['dimensions'] && p['verified_at'] }.map { |p| f=fits[p['id']];f ? p.merge('installation_fit'=>f) : p }
     end
     def self.find(id)
       products.find { |p| p['id']==id } || raise('Appliance model is not in the verified US catalog')
     end
     def self.snapshot(id)
-      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at','panel_ready','automatic_cutout','source_asset_id','geometry_sha256').merge('schema_version'=>1)
+      a=find(id).slice('id','brand','manufacturer','category','model','name','dimensions','depth_basis','cutout','appearance','product_url','spec_url','verified_at','panel_ready','automatic_cutout','source_asset_id','geometry_sha256','asset_id','sku','source_notes','handoff','installation_fit').merge('schema_version'=>1)
       asset=ApplianceAssets.selection(id);a['asset']=asset if asset;a
     end
     def self.microwave_base?(d)
@@ -20,7 +23,7 @@ module KitchenLab
     def self.options(id)
       a=snapshot(id);dim=a['dimensions'];category=a['category']
       d={'kind'=>KINDS.fetch(category),'appliance'=>a,'appliance_finish'=>a.fetch('appearance',{}).fetch('finish','stainless')}.merge(dim)
-      d['z']=case category;when 'wall_oven';28;when 'hood';66;when 'microwave';a.dig('appearance','installation')=='over_range' ? 54 : 36;else;0;end
+      d['z']=case category;when 'wall_oven';28;when 'hood';66;when 'coffee_machine';36;when 'microwave';a.dig('appearance','installation')=='over_range' ? 54 : 36;else;0;end
       d['z']=34.5-d['height']-1 if microwave_base?(d)
       d['z']=36-d['height'] if category=='rangetop'
       if category=='cooktop'
@@ -30,6 +33,7 @@ module KitchenLab
     end
     def self.validate(d)
       return unless d['appliance']
+      InstallationFit.validate(d)
       a=d['appliance'];raise 'Invalid appliance selection' unless a.is_a?(Hash) && a['schema_version']==1 && KINDS.key?(a['category'])
       %w[id brand manufacturer model name].each { |k| raise "Missing appliance #{k}" unless a[k].is_a?(String) && !a[k].empty? && a[k].length<=240 }
       dim=a['dimensions'];raise 'Missing appliance dimensions' unless dim.is_a?(Hash)

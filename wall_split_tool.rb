@@ -195,14 +195,16 @@ module InteriorPro
     end
 
     # Split `wall` into A (start..pos) and B (pos..end). Returns [a, b] or nil.
-    def self.split_wall!(wall, pos)
+    # sync: false / quiet: true (2026-10-20) - for WallInside, which splits a
+    # wall from inside the room sync: no second room sync, no message boxes.
+    def self.split_wall!(wall, pos, sync: true, quiet: false)
       drawn = drawn_line_world(wall)
       return nil unless drawn
       wall_vec = drawn[1] - drawn[0]
       wall_len = wall_vec.length
       return nil if wall_len < 2.0
       if pos < 1.0 || pos > wall_len - 1.0
-        UI.messagebox('Split point is at the wall end — nothing to split.')
+        UI.messagebox('Split point is at the wall end — nothing to split.') unless quiet
         return nil
       end
       unit = wall_vec.clone
@@ -212,7 +214,7 @@ module InteriorPro
       openings = InteriorPro::WallTool.read_door_openings(wall)
       blocking = openings.find { |o| (o[:t] - pos).abs < o[:width] / 2.0 + 1.0 }
       if blocking
-        UI.messagebox('Split point crosses a door/window opening — move it aside first.')
+        UI.messagebox('Split point crosses a door/window opening — move it aside first.') unless quiet
         return nil
       end
 
@@ -297,7 +299,7 @@ module InteriorPro
 
         model.commit_operation
         begin
-          InteriorPro::RoomManager.sync_rooms! if defined?(InteriorPro::RoomManager)
+          InteriorPro::RoomManager.sync_rooms! if sync && defined?(InteriorPro::RoomManager)
         rescue StandardError => e
           puts "[Rooms] sync after split: #{e.message}"
         end
@@ -305,7 +307,8 @@ module InteriorPro
         [group_a, group_b]
       rescue StandardError => e
         model.abort_operation rescue nil
-        UI.messagebox("Split failed: #{e.message}")
+        UI.messagebox("Split failed: #{e.message}") unless quiet
+        puts "[WallSplitTool] split failed: #{e.message}"
         nil
       end
     end

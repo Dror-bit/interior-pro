@@ -90,3 +90,10 @@
 09:34:44  card has no vray numbers
 09:35:03  card has no vray numbers
 09:35:20  card has no vray numbers
+19:51:33  RuntimeError: no brdf on live plugin
+19:51:41  card has no vray numbers
+19:51:41  RuntimeError: no brdf on live plugin
+19:51:51  card has no vray numbers
+19:51:51  RuntimeError: no brdf on live plugin
+19:52:00  card has no vray numbers
+13:58:16  RuntimeError: no brdf on live plugin

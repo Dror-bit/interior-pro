@@ -575,6 +575,7 @@ module KitchenLab::CrownJoints
     grouped=runs.group_by { |r|r[:owner] }
     existing=model.entities.grep(Sketchup::Group).select { |g|g.get_attribute(KitchenLab::DICT,'kind')=='crown' }
     reused=0
+    changed_owners=[]
     grouped.each do |owner,own_runs|
       signature=crown_signature(own_runs,runs+house,obstacles)
       old=existing.select { |g|g.valid? && g.get_attribute(KitchenLab::DICT,'owner_id')==owner }
@@ -583,6 +584,7 @@ module KitchenLab::CrownJoints
         next
       end
       old.each(&:erase!)
+      changed_owners<<owner
       g=model.entities.add_group;g.name='Kitchen / Crown'
       g.set_attribute(KitchenLab::DICT,'kind','crown');g.set_attribute(KitchenLab::DICT,'owner_id',owner)
       own_runs.each { |r|make_piece(g.entities,r,obstacles) }
@@ -600,13 +602,14 @@ module KitchenLab::CrownJoints
         next
       end
       old=record[:group];replacement=model.entities.add_group;replacement.name=old.name;replacement.material=old.material;replacement.layer=old.layer;replacement.hidden=old.hidden?
+      changed_owners<<'house'
       old.attribute_dictionaries&.each { |dict| dict.each_pair { |key,value|replacement.set_attribute(dict.name,key,value) } }
       replacement.set_attribute(KitchenLab::DICT,'house_join_source',source)
       own_runs.each { |r|make_piece(replacement.entities,r) }
       replacement.set_attribute(KitchenLab::DICT,'house_geometry_signature',signature)
       old.erase!
     end
-    trimmed=trim_overlaps! if USE_CROWN_OVERLAP_TRIM
+    trimmed=trim_overlaps!(changed_owners:changed_owners) if USE_CROWN_OVERLAP_TRIM
     @report={reused_owners:reused,reused_house_sides:reused_house,trimmed_overlaps:trimmed.to_i,kitchen_runs:runs.length,house_runs:house.length,house_sides:affected.length,jointed_ends:(runs+house).sum { |r|[:a_offset,:b_offset].count { |k|r[k] } }}
   end
   # Miter resolution handles matching endpoints. This second pass handles
@@ -615,6 +618,8 @@ module KitchenLab::CrownJoints
   # touching boards or alter unrelated house-only joints.
   remove_const(:USE_CROWN_OVERLAP_TRIM) if const_defined?(:USE_CROWN_OVERLAP_TRIM,false)
   USE_CROWN_OVERLAP_TRIM=true
+  remove_const(:USE_INCREMENTAL_CROWN_TRIM) if const_defined?(:USE_INCREMENTAL_CROWN_TRIM,false)
+  USE_INCREMENTAL_CROWN_TRIM=true
   def crown_solids(entities,transform=Geom::Transformation.new,owner=nil,result=[])
     entities.grep(Sketchup::Group).each do |group|
       own=owner
@@ -685,7 +690,34 @@ module KitchenLab::CrownJoints
     copy.material=row[:group].material
     copy
   end
-  def trim_overlaps!
+  remove_const(:USE_SEPARATE_CROWN_SHELLS) if const_defined?(:USE_SEPARATE_CROWN_SHELLS,false)
+  USE_SEPARATE_CROWN_SHELLS=true
+  # Subtraction can leave two closed shells touching along one edge. SketchUp
+  # merges that edge into four incident faces, so the combined group is not a
+  # solid. Move the existing faces into separate groups; never patch a hole or
+  # discard a face to make a failed boolean appear valid.
+  def closed_crown_parts(group)
+    return [] unless group && group.valid?
+    return [group] if group.manifold?
+    return [] unless USE_SEPARATE_CROWN_SHELLS
+    unseen=group.entities.grep(Sketchup::Face).to_h { |face|[face,true] }
+    components=[]
+    until unseen.empty?
+      queue=[unseen.keys.first];faces=[]
+      until queue.empty?
+        face=queue.pop
+        next unless unseen.delete(face)
+        faces<<face
+        face.edges.each { |edge|queue.concat(edge.faces) if edge.faces.length==2 }
+      end
+      components<<faces
+    end
+    return [] if components.length<2
+    parts=components.map { |faces|group.entities.add_group(faces+faces.flat_map(&:edges).uniq) }
+    parts.all?(&:manifold?) ? parts : []
+  end
+  def trim_overlaps!(changed_owners: nil)
+    changed_owners=nil unless USE_INCREMENTAL_CROWN_TRIM
     model=Sketchup.active_model
     rows=crown_solids(model.entities).sort_by { |r|[r[:owner]=='house' ? 0 : 1,r[:owner],r[:group].persistent_id] }
     trimmed=0
@@ -696,6 +728,7 @@ module KitchenLab::CrownJoints
         rows.drop(i+1).each do |target|
           next unless target[:group].valid?
           next if winner[:owner]=='house' && target[:owner]=='house'
+          next if changed_owners && !changed_owners.include?(winner[:owner]) && !changed_owners.include?(target[:owner])
           next unless boxes_overlap?(solid_bounds(winner),solid_bounds(target))
           next if separated_projections?(solid_projection(winner),solid_projection(target))
           a=b=intersection=cutter=nil
@@ -713,11 +746,20 @@ module KitchenLab::CrownJoints
             name=original.name;mat=original.material;layer=original.layer;hidden=original.hidden?
             cutter=solid_copy(original.parent.entities,winner,target[:parent])
             replacement=cutter.subtract(original)
-            raise 'Unable to trim intersecting crown solids' unless replacement && replacement.valid? && replacement.manifold?
+            parts=closed_crown_parts(replacement)
+            raise 'Unable to trim intersecting crown solids' if parts.empty?
             replacement.name=name;replacement.material=mat;replacement.layer=layer;replacement.hidden=hidden
-            InteriorPro::MoldingBuilder.soften_facets!(replacement.entities)
-            target[:group]=replacement;target[:world]=target[:parent]*replacement.transformation
-            target.delete(:projection)
+            parent=parts.first.equal?(replacement) ? target[:parent] : target[:parent]*replacement.transformation
+            updated=parts.map do |part|
+              part.name=name;part.material=mat;part.layer=layer;part.hidden=hidden
+              InteriorPro::MoldingBuilder.soften_facets!(part.entities)
+              {group:part,owner:target[:owner],parent:parent,world:parent*part.transformation}
+            end
+            # Every new shell must still be tested against subsequent cutters.
+            # Array#each visits appended rows, preserving later overlap checks.
+            target.replace(updated.shift)
+            rows.concat(updated)
+            changed_owners<<target[:owner] if changed_owners
             trimmed+=1
           ensure
             [a,b,intersection,cutter].compact.each { |g|g.erase! if g.valid? }

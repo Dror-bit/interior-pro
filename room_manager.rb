@@ -450,6 +450,16 @@ module InteriorPro
       # matched only against its own rooms - levels share x/y, so a level-2
       # room sits right over a level-1 room and must never steal its id.
       detected = wall_levels.flat_map { |lv| detect_rooms!(verbose: false, level: lv) }
+      # A wall that is now between two rooms turns interior, and back
+      # (2026-10-20, wall_inside.rb). If it cut or changed a wall, the rooms
+      # are found again from the walls as they are now.
+      begin
+        if defined?(InteriorPro::WallInside) && InteriorPro::WallInside.update!(detected, model)
+          detected = wall_levels.flat_map { |lv| detect_rooms!(verbose: false, level: lv) }
+        end
+      rescue StandardError => e
+        puts "[Rooms] wall inside/outside: #{e.message}"
+      end
       existing = rooms_in_model
       model.start_operation('InteriorPro Sync Rooms', true)
       used = []

@@ -231,6 +231,7 @@ module KitchenLab
         supplied=payload.fetch('overrides',{})
         raise 'Invalid appliance overrides' unless supplied.is_a?(Hash)
         permitted=%w[x z house_placement]
+        permitted+=%w[manufacturer_fit flip_x flip_y] if options.dig('appliance','installation_fit')
         permitted+=%w[installation_depth depth] if ApplianceCatalog.microwave_base?(options) && supplied.key?('installation_depth')
         raise 'Only placement may override a catalog appliance' unless (supplied.keys-permitted).empty?
         c=create_data(doc,payload.merge('kind'=>options['kind'],'overrides'=>options.reject { |k,_| k=='kind' }.merge(supplied)))

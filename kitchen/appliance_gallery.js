@@ -1,6 +1,7 @@
+const applianceSize=v=>String(Math.round(Number(v)*8)/8);
 /* Manufacturer selection uses the same domain commands as cabinet editing. */
 let applianceProducts=[];
-const applianceCategories={wall_oven:'Wall ovens',range:'Ranges',rangetop:'Rangetops',fridge:'Refrigerators',dishwasher:'Dishwashers',cooktop:'Cooktops',hood:'Range hoods',microwave:'Microwaves'};
+const applianceCategories={wall_oven:'Wall ovens',range:'Ranges',rangetop:'Rangetops',fridge:'Refrigerators',dishwasher:'Dishwashers',cooktop:'Cooktops',hood:'Range hoods',microwave:'Microwaves',coffee_machine:'Coffee machines'};
 const gallery=document.createElement('dialog');gallery.id='applianceGallery';
 gallery.innerHTML='<header><h2>US appliance catalog</h2><button type="button" id="closeApplianceGallery" class="subtle">Close ✕</button></header><div class="gallery-filters"><label>Category<select id="applianceCategory"></select></label><label>Brand<select id="applianceBrand"></select></label></div><p class="tiny">Dimensions in inches · Parametric exterior models for kitchen planning. Check manufacturer installation specifications.</p><div id="applianceCards"></div>';
 document.body.append(gallery);
@@ -14,7 +15,7 @@ function galleryCards(){
   if(p.image_path||p.image_url){const img=document.createElement('img');img.src=p.image_path||p.image_url;img.alt=p.manufacturer+' '+p.model;img.loading='lazy';img.addEventListener('error',()=>{img.remove();});card.append(img);}
   const heading=document.createElement('h3');heading.textContent=p.model;card.append(heading);
   if(p.reference_image_path){const badge=document.createElement('strong');badge.textContent='Custom exterior model · Ready for SketchUp';badge.style.color='#216348';card.append(badge);}
-  for(const value of [p.name,`${p.dimensions.width}″ W × ${p.dimensions.height}″ H × ${p.dimensions.depth}″ D`,p.depth_basis,p.category==='cooktop'&&p.automatic_cutout===false?'Automatic countertop cutout unavailable — awaiting verified manufacturer template.':null]){if(!value)continue;const text=document.createElement('p');text.textContent=value;card.append(text);}
+  for(const value of [p.name,`${applianceSize(p.dimensions.width)}″ W × ${applianceSize(p.dimensions.height)}″ H × ${applianceSize(p.dimensions.depth)}″ D`,p.depth_basis,p.source_notes,p.installation_fit?.notes,p.category==='cooktop'&&p.automatic_cutout===false?'Automatic countertop cutout unavailable — awaiting verified manufacturer template.':null]){if(!value)continue;const text=document.createElement('p');text.textContent=value;card.append(text);}
   const link=document.createElement('a');link.href=p.spec_url||p.product_url;link.target='_blank';link.rel='noopener';link.textContent='Manufacturer specifications';card.append(link);
   const button=document.createElement('button');button.className='primary';button.textContent='Add to kitchen';button.addEventListener('click',()=>{if(busy)return;if(!window.sketchup?.command){$('status').textContent='Open this catalog from SketchUp to add a model';return;}pending(true);sendCommands([{type:'create_catalog_appliance',payload:{product_id:p.id,wall:activeWall}}]);gallery.close();});card.append(button);$('applianceCards').append(card);
  }

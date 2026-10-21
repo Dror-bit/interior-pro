@@ -76,20 +76,22 @@ function renderPreview(v,imported){
  if(imported)return '<svg viewBox="0 0 400 330"><text x="200" y="110" text-anchor="middle">ארון מהגלריה · מידות מקוריות</text></svg>';
  const s=v.surfaces,W=300,px=W/v.width,py=150/v.height,depth=50,th=s.countertop_thickness*py,bh=s.backsplash_height*py;
  const ratio=Math.min(1.1,Math.max(.6,v.width/36)),x=200-150*ratio,top=colors[s.countertop_color],fill=v.finish==='white_oak'?'url(#oak)':colors[v.finish];
+ const accessoryRise=accessoryItems.length?Math.max(...accessoryItems.map(a=>(accessoryPosition(a,v).above+a.height)*5))+60:0;
  const bottom=Math.max(350,95+Math.min(18,v.position.z)+(150+(v.mount==='floor'&&v.legs?v.support_height*150/v.height:0))*v.height/30+85);
  let sinks='';
  for(const center of sinkCenters(v)){
-  if(s.sink_shape==='icera_muse'){sinks+=museSvg(v,center,sinkCenters(v).indexOf(center));continue;}
+  if(s.sink_shape==='icera_muse'){sinks+=museSvg(basinPreview(v,sinkCenters(v).indexOf(center)),center,sinkCenters(v).indexOf(center));continue;}
   const cx=center*px+9,rx=s.sink_width*px/2,ry=s.sink_depth/v.depth*depth/2,cy=-th-depth/2;
   const bowl=(x,y,a,b,color)=>s.sink_shape==='square'?`<rect x="${x-a}" y="${y-b}" width="${a*2}" height="${b*2}" rx="${a*.22}" ry="${b*.22}" fill="${color}" stroke="#778078"/>`:`<ellipse cx="${x}" cy="${y}" rx="${a}" ry="${b}" fill="${color}" stroke="#778078"/>`;
   sinks+=`${bowl(cx,cy,rx,ry,'#5c6665')}
   ${bowl(cx,cy+Math.min(4,s.sink_height*.6),rx*.85,ry*.75,colors[s.sink_color])}
-  <ellipse cx="${cx}" cy="${cy+Math.min(4,s.sink_height*.6)}" rx="${Math.max(2,.8*px)}" ry="2" fill="${colors[s.faucet_finish]}" stroke="#717876" stroke-width=".5"/>`;
+  <ellipse cx="${cx}" cy="${cy+Math.min(4,s.sink_height*.6)}" rx="${Math.max(2,.8*px)}" ry="2" fill="${colors[basinPreview(v,sinkCenters(v).indexOf(center)).surfaces.faucet_finish]}" stroke="#717876" stroke-width=".5"/>`;
  }
- return `<svg viewBox="-20 -20 460 ${bottom+20}" role="img"><defs><pattern id="oak" width="80" height="120" patternUnits="userSpaceOnUse"><image href="textures/white_oak.jpg" width="120" height="80" transform="translate(80 0) rotate(90)"/></pattern></defs>
+ return `<svg viewBox="-20 ${-20-accessoryRise} 460 ${bottom+20+accessoryRise}" role="img"><defs><pattern id="oak" width="80" height="120" patternUnits="userSpaceOnUse"><image href="textures/white_oak.jpg" width="120" height="80" transform="translate(80 0) rotate(90)"/></pattern></defs>
  <ellipse cx="200" cy="310" rx="150" ry="9" fill="#d8dcd2"/>
  <g transform="translate(${x} ${95+Math.min(18,v.position.z)}) scale(${ratio} ${v.height/30})">
  <path d="M300 0L318 -${depth}V${150-depth}L300 150Z" fill="${fill}" stroke="#899185"/>
+ ${accessorySvg(v)}
  ${frontSvg(v,columns)}
  <path d="M0 0V-${th}L18 -${depth+th}H318V-${depth}L300 0Z" fill="${top}" stroke="#899185"/>
  <path d="M0 -${th}L18 -${depth+th}H318L300 -${th}Z" fill="${top}" stroke="#899185"/>

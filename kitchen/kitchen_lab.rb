@@ -133,7 +133,7 @@ module KitchenLab
       d['shelf_count']=Integer(d['shelf_count']);raise 'Choose 2 or 3 glass cabinet shelves' unless [2,3].include?(d['shelf_count'])
     end
     raise 'Invalid waterfall side' if d['waterfall'] && !%w[none left right both].include?(d['waterfall'])
-    d.slice('under_lighting','shelf_lighting','shelf_count','waterfall','appliance_garage','hood_molding','pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
+    d.slice('manufacturer_fit','under_lighting','shelf_lighting','shelf_count','waterfall','appliance_garage','hood_molding','pantry','pullout','backsplash','panel_options','door_handle_model','drawer_handle_model','front_overlay','installation_depth','id','wall',*DEFAULTS.keys,'flip_x','flip_y','rotation','offset_y','rotation_pivot','house_placement','appliance_finish','front_layout','drawer_heights','toe_height','toe_setback','handle_position','handle_offset','handle_side','appliance_width','appliance_height','appliance_bottom','microwave_height','appearance_overrides','sink','appliance','surround_for','surround_part')
   end
 
   # Row heights are visible front sizes, ordered from top to bottom.
@@ -191,12 +191,13 @@ module KitchenLab
 
   def self.validate_settings(raw,current=settings)
     raise 'Invalid kitchen settings' unless raw.is_a?(Hash)
-    allowed=%w[countertop_thickness backsplash island_countertop_material countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
+    allowed=%w[island_overhang countertop_thickness backsplash island_countertop_material countertop_material global_door_handle_model global_drawer_handle_model shaker_width shaker_inset crown_match_house crown_profile crown_height crown_depth crown_color global_finish global_handle_type global_handle_color]
     raise 'Use placement commands for kitchen position' unless (raw.keys-allowed).empty?
     %w[global_door_handle_model global_drawer_handle_model].each { |key|HandleCatalog.validate_id(raw[key]) }
     CountertopMaterials.validate(raw['countertop_material']) if raw.key?('countertop_material')
     CountertopMaterials.validate(raw['island_countertop_material']) if raw.key?('island_countertop_material')
     raw=raw.merge('backsplash'=>Backsplash.validate(raw['backsplash'])) if raw.key?('backsplash')
+    raw=raw.merge('island_overhang'=>ContinuousSurfaces.validate_overhang(raw['island_overhang'])) if raw.key?('island_overhang')
     s=crown_settings(current.merge(raw))
     thickness=Float(s.fetch('countertop_thickness',1.5))
     raise 'Countertop thickness must be 0.25–6 inches' unless thickness.finite? && thickness.between?(0.25,6)
@@ -331,7 +332,7 @@ module KitchenLab
           face.pushpull(d['width']);panel.material=mat
           panel.entities.grep(Sketchup::Face).each { |f| f.material=mat;f.back_material=mat }
         else
-          box(g.entities,'Surround panel',0,-d['depth'],0,d['width'],d['depth'],d['height'],mat)
+          box(g.entities,'Surround panel',0,-d['depth'],0,d['width'],d['depth'],d['height'],mat) unless InstallationFit.build_support(g.entities,d,mat)
         end
         g.transformation=cabinet_transform(d);return g
       end
@@ -527,7 +528,8 @@ module KitchenLab
       end
       holes<<ApplianceCatalog.cooktop_bounds(d,true) if ApplianceCatalog.automatic_cooktop_cutout?(d)
       mat=CountertopMaterials.for_cabinet(d)
-      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',0,-d['depth']-1,d['height'],d['width'],d['depth']+1,settings.fetch('countertop_thickness',1.5),mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[0,-d['depth']-1,d['width'],0],d['height'],settings.fetch('countertop_thickness',1.5),holes,mat)
+      x,y,right,back=ContinuousSurfaces.slab_bounds(d)
+      g=holes.empty? ? box(@model.entities,'Kitchen / Worktop',x,y,d['height'],right-x,back-y,settings.fetch('countertop_thickness',1.5),mat) : slab_with_holes(@model.entities,'Kitchen / Worktop',[x,y,right,back],d['height'],settings.fetch('countertop_thickness',1.5),holes,mat)
       g.transformation=cabinet_transform(d);g.set_attribute(DICT,'kind','worktop');g.set_attribute(DICT,'owner_id',d['id']);Backsplash.build!(g,d)
     end
     bases.each do |d|

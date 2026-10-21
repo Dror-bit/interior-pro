@@ -5369,7 +5369,15 @@
           }
 
           // what each heading says about itself when it is shut
+          function roomDrawingSizeUI(){
+            var pg=DOC&&DOC.pages&&DOC.pages[STATE.active||0];
+            var path=pg&&pg.kind==='image'&&(STATE.images||[])[pg.ref];
+            var title=path&&(STATE.image_titles||{})[path];
+            $('roomDrawingSizeBox').style.display=title?'':'none';
+            if(title) $('roomDrawingSize').value=String((STATE.elev_size||{})[title]||1);
+          }
           function headings(){
+            roomDrawingSizeUI();
             layerCount();
             var n=marks().length;
             tag('markstag', n ? (n + ' על הדף') : '');
@@ -5690,6 +5698,7 @@
 
           // ---- wiring -----------------------------------------------------
           window.addEventListener('load',function(){
+            $('roomDrawingSize').onchange=function(){ sketchup.resize_room_drawings(JSON.stringify({state:STATE,size:Number(this.value)})); };
             $('size').onchange=function(){ STATE.size=this.value; push(); };
             // Picking a scale from the list puts the drawing on that EXACT scale:
             // a size set by hand is forgotten. ("Any size" itself is not a choice.)

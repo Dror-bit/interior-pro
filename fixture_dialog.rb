@@ -16,6 +16,8 @@ require 'fileutils'
 
 module InteriorPro
   module FixtureDialog
+    remove_const(:USE_VANITY_BUILDER) if const_defined?(:USE_VANITY_BUILDER,false)
+    USE_VANITY_BUILDER=true
     def self.defaults
       k = InteriorPro::FixtureLibrary.kinds.keys.first
       { 'kind' => k, 'product' => InteriorPro::FixtureLibrary.products(k).first,
@@ -56,7 +58,7 @@ module InteriorPro
       out
     end
 
-    def self.show(prefill = nil, button: 'Place', &on_ok)
+    def self.show(prefill = nil, button: 'Place', vanity_place: nil, &on_ok)
       data = defaults.merge(last).merge(prefill || {})
       if @dialog
         begin; @dialog.close; rescue StandardError; end
@@ -66,6 +68,13 @@ module InteriorPro
       @button = button
       dlg = UI::HtmlDialog.new(dialog_title: 'Interior Pro - Plumbing', preferences_key: 'InteriorPro_Fixture',
                                width: 470, height: 300, resizable: true)
+      dlg.add_action_callback('vanity_builder') do |_|
+        next unless USE_VANITY_BUILDER && defined?(InteriorPro::Vanity) && InteriorPro::Vanity::USE_VANITY
+        dlg.close
+        @dialog=nil
+        Sketchup.active_model.select_tool(nil)
+        InteriorPro::Vanity.open(on_place: vanity_place)
+      end
       dlg.add_action_callback('ok') do |_, json|
         cfg = JSON.parse(json)
         corner = cfg['corner']
@@ -364,6 +373,7 @@ module InteriorPro
               renderProducts();
             }
             function pickKind(k) {
+              if (k === 'vanity' && #{USE_VANITY_BUILDER && defined?(InteriorPro::Vanity) && InteriorPro::Vanity::USE_VANITY ? 'true' : 'false'}) { sketchup.vanity_builder(); return; }
               if (k !== kind) document.getElementById('height').value = CAT[k].height;
               if (k !== kind && CAT[k].gap !== null && CAT[k].gap !== undefined) document.getElementById('gap').value = CAT[k].gap;
               if (k !== kind) parts = null;

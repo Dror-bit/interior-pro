@@ -1,3 +1,5 @@
+load File.join(File.dirname(__FILE__), 'window_appearance.rb')
+
 # Interior Pro - Window Tool (Step 2: cuts opening through wall, no body yet)
 
 module InteriorPro
@@ -631,9 +633,9 @@ module InteriorPro
 
         # Profile widths (in the plane of the wall) and the air gap between the
         # fixed jamb and the operable sash.
-        jamb_width = 1.0
+        jamb_width = WindowAppearance::ENABLED ? 0.70 : 1.0
         gap        = 0.0
-        sash_width = 1.0
+        sash_width = WindowAppearance::ENABLED ? 0.70 : 1.0
 
         # Half-extents from the opening edge inward, along u (width) and w (height).
         jo_w = half_w;                     jo_h = half_h                     # jamb outer = opening edge
@@ -704,6 +706,7 @@ module InteriorPro
           build_grid_panes(ents, cols, rows, so_w, so_h, sash_width,
                            sash_back, sash_front, glass_v, unit, n, frame_mat, glass_mat, 0.0625)
         end
+        WindowAppearance.apply!(window_group, @window_type, unit, n, clicked_side)
         true
       rescue => e
         puts "[WindowTool] casement body error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
@@ -742,6 +745,7 @@ module InteriorPro
         half_w = @width / 2.0
         half_h = @height / 2.0
         fw = (@frame_width && @frame_width > 1.0) ? @frame_width : 1.5   # frame face width in-plane
+        fw = 1.1 if WindowAppearance::ENABLED && fw == 1.5
         rise = [[rise, 0.01].max, half_w].min
 
         # Outer arch circle (matches the wall hole): apex at +half_h, center on u=0.
@@ -798,6 +802,7 @@ module InteriorPro
         soften_casing_edges(jamb_grp.entities) if jamb_grp&.valid?
         soften_casing_edges(gg.entities) if gg&.valid?
 
+        WindowAppearance.apply!(window_group, @window_type, unit, n, clicked_side)
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil
@@ -876,7 +881,7 @@ module InteriorPro
         # Each panel: a UNIFORM 2" frame ring with real depth (pushed INWARD into
         # the box) + glass recessed 1/8" behind the outer face.
         glass = lambda do |quad|
-          inner = inset_quad_uvw(quad, 2.0)
+          inner = inset_quad_uvw(quad, WindowAppearance::ENABLED ? 1.25 : 2.0)
           box_c = [0.0, out / 2.0, (front_top - hh) / 2.0]
           inw = panel_inward_uvw(quad, box_c)
           wi = Geom::Vector3d.new(inw[0] * unit.x + inw[1] * n.x,
@@ -919,6 +924,7 @@ module InteriorPro
         # Slanted top glass (back-top at the wall down to the front top).
         glass.call([[-hw, 0, hh], [hw, 0, hh], [hw, out, front_top], [-hw, out, front_top]])
 
+        WindowAppearance.apply!(window_group, @window_type, unit, n, clicked_side)
         model.commit_operation
       rescue => e
         model.abort_operation rescue nil

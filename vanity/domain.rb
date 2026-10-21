@@ -1,6 +1,7 @@
 require_relative '../cabinetry/core'
 require_relative 'surfaces'
 require_relative 'faucets'
+require_relative 'accessories'
 module InteriorPro
   module Vanity
     module Domain
@@ -89,6 +90,7 @@ module InteriorPro
           raise ArgumentError,'Invalid basin count' unless c['basins'].is_a?(Integer) && (c['product_id']=='vanity' ? [1,2] : [0]).include?(c['basins'])
           raise ArgumentError,'Makeup drawer only' if c['drawer'] && c['product_id']!='makeup'
           raise ArgumentError,'Insufficient body height' if c['height']-body_bottom(c)<8
+          Accessories.validate(c)
           Surfaces.validate(c)
           if c['product_id']=='vanity'
             raise ArgumentError,'Two basins require at least 48 inches' if c['basins']==2 && c['width']<48

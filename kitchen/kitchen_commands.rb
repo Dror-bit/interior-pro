@@ -1,6 +1,8 @@
 # SketchUp adapter owns persistence, geometry and one Undo per command batch.
 # UI and future automation call execute_commands with the same JSON envelope.
 module KitchenLab
+  remove_const(:USE_CABINET_POSE_REUSE) if const_defined?(:USE_CABINET_POSE_REUSE,false)
+  USE_CABINET_POSE_REUSE=true
   def self.command_engine
     Engine.new(validator: ->(data,options) { d=validate(data,options);check_shaker(d,options);d },
       settings_validator: ->(raw,current) { validate_settings(raw,current) }, reference_provider: -> { house_context['items'] },
@@ -23,6 +25,10 @@ module KitchenLab
       end
     end
     plan=command_engine.plan(previous,commands,expected_revision:request['expected_revision'])
+    island_flip=defined?(ContinuousSurfaces) && ContinuousSurfaces.respond_to?(:plain_island_flip?) && ContinuousSurfaces.plain_island_flip?(previous,plan['document']) && ContinuousSurfaces.island_clear_of_walls? &&
+      @model.get_attribute(DICT,'backsplash_opening_signature')==Backsplash.opening_signature(@model)
+    island_edit=defined?(ContinuousSurfaces) && ContinuousSurfaces.respond_to?(:plain_island_edit?) && ContinuousSurfaces.plain_island_edit?(previous,plan['document']) &&
+      @model.get_attribute(DICT,'backsplash_opening_signature')==Backsplash.opening_signature(@model)
     unless plan['changed_ids'].empty? && !plan['settings_changed']
       @model.start_operation('Kitchen: commands',true)
       begin
@@ -34,20 +40,31 @@ module KitchenLab
         settings_keys=previous['settings'].keys|next_settings.keys
         hood_flags_only=plan['changed_ids'].all? { |id| before[id] && after[id] && before[id].reject { |k,_| k=='hood_molding' }==after[id].reject { |k,_| k=='hood_molding' } }
         molding_only=(plan['settings_changed'] || !plan['changed_ids'].empty?) && hood_flags_only && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| k.start_with?('crown_') }
-        surface_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| %w[countertop_material island_countertop_material backsplash].include?(k) || k.start_with?('crown_') }
+        surface_only=plan['settings_changed'] && plan['changed_ids'].empty? && settings_keys.select { |k| previous['settings'][k]!=next_settings[k] }.all? { |k| %w[countertop_material island_countertop_material island_overhang backsplash].include?(k) || k.start_with?('crown_') }
         changed_ids=molding_only ? plan['changed_ids'] : surface_only ? [] : geometry_settings_changed ? (before.keys|after.keys) : plan['changed_ids']
         changed_ids.each do |id|
           d=after[id];old=before[id]
           groups=cabinets.select { |g| g.get_attribute(DICT,'id')==id }
-          if !plan['settings_changed'] && d && old && d.reject { |k,_| %w[x z wall].include?(k) }==old.reject { |k,_| %w[x z wall].include?(k) } && groups.length==1
-            groups.first.transformation=cabinet_transform(d)
+          pose_keys=USE_CABINET_POSE_REUSE ? %w[x z wall house_placement rotation rotation_pivot offset_y flip_x flip_y] : (island_edit ? %w[x z wall house_placement rotation rotation_pivot offset_y flip_x flip_y] : %w[x z wall])
+          if groups.length==1 && (island_flip || (!plan['settings_changed'] && d && old && d.reject { |k,_| pose_keys.include?(k) }==old.reject { |k,_| pose_keys.include?(k) }))
+            # Packed units have their own axes; the child needs local placement.
+            unit=unit_groups.find { |u|u.entities.include?(groups.first) }
+            groups.first.transformation=(unit ? unit.transformation.inverse : Geom::Transformation.new)*cabinet_transform(d)
             groups.first.set_attribute(DICT,'data',JSON.generate(d))
           else
             groups.each(&:erase!)
             build(d) if d
           end
         end
-        if molding_only
+        if island_edit
+          unit_groups.select { |u|u.entities.length==0 }.each(&:erase!)
+          ContinuousSurfaces.rebuild_plain_island!
+          # Pack only new/rebuilt roots. Existing cabinet wrappers retain IDs,
+          # materials and their local axes; house moldings remain untouched.
+          pack_units! unless island_flip
+        elsif island_flip
+          ContinuousSurfaces.rebuild_plain_island!
+        elsif molding_only
           unpack_units!
           crowns!
           pack_units!

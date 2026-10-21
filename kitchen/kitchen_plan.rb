@@ -208,8 +208,9 @@ module InteriorPro
           products=products.reject { |p| products.any? { |q| q['id']=='thermador-custom-'+p['id'].sub(/^thermador-/,'') } }
           products=products.select { |p| p['category']==category.to_s }.sort_by { |p| [p['reference_image_path'] ? 0 : 1,p['brand'],p['model']] }
           cards=products.map do |p|
-            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path','sku','automatic_cutout_available','automatic_cutout')
+            card=p.slice('id','brand','category','model','name','dimensions','reference_image_path','sku','automatic_cutout_available','automatic_cutout','source_notes','depth_basis')
             relative=p['image_path'].to_s
+            card['image']=relative if relative.start_with?('data:image/jpeg;base64,')
             file=File.expand_path(relative,__dir__)
             if file.start_with?(File.expand_path('assets/appliances',__dir__)+File::SEPARATOR) && File.file?(file)
               mime={'.png'=>'image/png','.jpg'=>'image/jpeg','.jpeg'=>'image/jpeg','.webp'=>'image/webp'}[File.extname(file).downcase]
@@ -301,6 +302,26 @@ module InteriorPro
     end
 
     def self.bind_drag(dlg)
+      dlg.add_action_callback('kitchen_flip_cabinet') do |_,json|
+        begin
+          raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR
+          KitchenLab.guard!
+          request=JSON.parse(json.to_s)
+          source=KitchenLab.document
+          level=defined?(InteriorPro::LevelManager) ? InteriorPro::LevelManager.active_level.to_i : 1
+          raise 'Kitchen belongs to another floor.' unless KitchenLab::Spatial.pose(source['settings'])['level'].to_i==level
+          raise 'Kitchen changed. Select the cabinet again.' unless request['revision']==source['revision']
+          cabinet=source['cabinets'].find { |c|c['id']==request['id'] }
+          raise 'Cabinet no longer exists' unless cabinet
+          raise 'Corner cabinets stay aligned to their wall junction.' if cabinet['kind'].start_with?('corner')
+          KitchenLab.execute_commands({'expected_revision'=>request['revision'],'commands'=>[{'type'=>'flip_cabinet','payload'=>{'id'=>cabinet['id'],'axis'=>request['axis']}}]},false)
+          push(dlg)
+          dlg.execute_script('window.KitchenHouseDrag?.result(null);')
+        rescue StandardError=>error
+          push(dlg)
+          dlg.execute_script("window.KitchenHouseDrag?.result(#{JSON.generate(error.message)});")
+        end
+      end
       dlg.add_action_callback('kitchen_delete_cabinet') do |_,json|
         begin
           raise 'Kitchen integration is disabled' unless USE_KITCHEN_IN_EDITOR

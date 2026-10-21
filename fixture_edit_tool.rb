@@ -12,7 +12,11 @@ module InteriorPro
 
     def activate
       @hit = nil
-      Sketchup.set_status_text('Edit Plumbing: click a shower head or a toilet to change it. Esc = done.', SB_PROMPT)
+      selection=Sketchup.active_model.selection.to_a
+      if selection.length==1 && vanity?(selection.first)
+        return if InteriorPro::Vanity.edit_entity(selection.first)
+      end
+      Sketchup.set_status_text('Edit Plumbing: click a fixture or Vanity to edit it. Esc = done.', SB_PROMPT)
     end
 
     def deactivate(view)
@@ -32,7 +36,12 @@ module InteriorPro
     def onLButtonDown(_flags, x, y, view)
       hit = pick(view, x, y)
       if hit.nil?
-        Sketchup.set_status_text('Edit Plumbing: that is not a shower head or a toilet - click on one.', SB_PROMPT)
+        Sketchup.set_status_text('Edit Plumbing: click a fixture or Vanity.', SB_PROMPT)
+        return
+      end
+      if vanity?(hit)
+        InteriorPro::Vanity.edit_entity(hit)
+        @hit=nil;view.invalidate
         return
       end
       prefill = InteriorPro::FixtureLibrary.settings_of(hit)
@@ -54,12 +63,15 @@ module InteriorPro
       ph.count.times do |i|
         path = ph.path_at(i)
         next unless path
-        path.each { |e| return e if InteriorPro::FixtureLibrary.fixture?(e) }
+        path.each { |e| return e if vanity?(e) || InteriorPro::FixtureLibrary.fixture?(e) }
       end
       nil
     rescue StandardError => e
       puts "[Fixture] edit pick failed: #{e.message}"
       nil
+    end
+    def vanity?(entity)
+      defined?(InteriorPro::Vanity) && InteriorPro::Vanity.respond_to?(:editable?) && InteriorPro::Vanity.editable?(entity)
     end
 
     def draw(view)

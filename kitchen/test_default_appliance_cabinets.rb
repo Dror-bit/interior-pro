@@ -19,7 +19,8 @@ KitchenLab::ApplianceCatalog.products.each do |product|
   check(plan['document']['cabinets'].drop(1).all?{|c|c['surround_for']==appliance['id']},'Broken surround link')
   bundle=InteriorPro::KitchenPlan.catalog_bundle_preview(source,payload,without,1)
   if supported&&!without
-   check((bundle['row']['cabinet']['width']-appliance['width']-2).abs<0.00001,'Preview omits side panels')
+   expected_width=product['installation_fit'] ? product['installation_fit']['opening_width']+1.5 : appliance['width']+2
+   check((bundle['row']['cabinet']['width']-expected_width).abs<0.00001,'Preview omits side panels')
    check(bundle['parts'].length==commands.length,'Preview omits cabinet parts')
   else
    check(bundle['parts'].nil?,'Bare/chimney appliance received cabinet preview')

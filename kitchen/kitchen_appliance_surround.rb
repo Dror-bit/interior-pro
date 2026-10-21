@@ -47,6 +47,8 @@ module InteriorPro
       appliance=source['cabinets'].find { |c| c['id']==id }
       raise 'Select a refrigerator, microwave, wall oven or built-in hood.' unless appliance && surround_supported?(appliance)
       raise 'This appliance already has a surround.' if source['cabinets'].any? { |c| c['surround_for']==id }
+      fitted=KitchenLab::InstallationFit.commands(source,appliance,options)
+      return fitted if fitted
       number=lambda do |key,default,min,max|
         value=Float(options.fetch(key,default))
         raise "Invalid #{key.tr('_',' ')}." unless value.finite? && value.between?(min,max)

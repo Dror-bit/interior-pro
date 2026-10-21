@@ -54,7 +54,7 @@ module KitchenLab
       raise 'Asset schema changed' unless data['version']==asset['version']
       files=data['version']==2 ? {'.skp'=>'skp_sha256'} : {'.obj'=>'obj_sha256','.materials.json'=>'materials_sha256'}
       files.each do |ext,key|
-        raise 'Blender asset content changed' unless file_digest(prefix+ext)==data[key]
+        raise 'Blender asset content changed' unless file_digest(ext=='.skp' ? data.fetch('skp_path',prefix+ext) : prefix+ext)==data[key]
       end
       data
     end
@@ -71,7 +71,7 @@ module KitchenLab
       return PanelReady.parts(d) if PanelReady.appliance?(d)
       data=manifest(d['appliance']);return nil unless data
       ox,oy,oz=offset(d)
-      data['parts'].map { |p| p.merge('x'=>p['x']+ox,'y'=>p['y']+oy,'z'=>p['z']+oz) }
+      data['parts'].map { |p| p.merge('x'=>p['x']+ox,'y'=>p['y']+oy,'z'=>p['z']+oz) }+InstallationFit.parts(d)
     end
     def self.fit_hood_chimney(instance,d,data)
       return unless KitchenLab::USE_HOOD_CHIMNEY_CEILING && d['kind']=='hood'
@@ -105,7 +105,7 @@ module KitchenLab
         model=entities.model
         definition=model.definitions.find { |v| v.get_attribute('KitchenLabAsset','sha256')==data['skp_sha256'] }
         unless definition
-          definition=model.definitions.load(base(d['appliance']['id'])+'.skp')
+          definition=model.definitions.load(data.fetch('skp_path',base(d['appliance']['id'])+'.skp'))
           definition.set_attribute('KitchenLabAsset','sha256',data['skp_sha256'])
         end
         origin=data.fetch('origin');offset=offset(d)
@@ -113,6 +113,7 @@ module KitchenLab
         instance=entities.add_instance(definition,transform)
         instance.name=d['appliance']['model']
         fit_hood_chimney(instance,d,data)
+        InstallationFit.build(entities,d)
         instance.set_attribute('KitchenLab','blender_asset',d['appliance']['id'])
         return true
       end

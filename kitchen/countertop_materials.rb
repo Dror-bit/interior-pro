@@ -97,7 +97,7 @@ module KitchenLab
       dlg.add_action_callback('surface_update') do |_,json|
         begin
           check.call;raw=JSON.parse(json)
-          raise 'Invalid surface settings' unless raw.is_a?(Hash) && (raw.keys-%w[backsplash island_countertop_material countertop_thickness]).empty?
+          raise 'Invalid surface settings' unless raw.is_a?(Hash) && (raw.keys-%w[backsplash island_countertop_material countertop_thickness island_overhang]).empty?
           KitchenLab.update_settings(raw);refresh.call
         rescue StandardError=>e;error.call(e);end
       end

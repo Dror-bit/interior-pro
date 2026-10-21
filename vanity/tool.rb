@@ -150,7 +150,7 @@ module InteriorPro
       install_observers
       @dialog=UI::HtmlDialog.new(dialog_title:'Interior Pro · Vanity',preferences_key:'InteriorProVanitySimple',width:1100,height:800,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
       @dialog.set_file(File.join(__dir__,'editor.html'))
-      @dialog.add_action_callback('ready') { refresh }
+      @dialog.add_action_callback('ready') { @dialog.execute_script("setLightingCatalog(#{JSON.generate(Accessories.catalog)})");refresh }
       @dialog.add_action_callback('action') do |_,raw|
         begin
           raise 'Reopen Vanity in the active model' unless Sketchup.active_model==@service.model

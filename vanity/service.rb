@@ -50,6 +50,7 @@ module InteriorPro
         end
         return source if candidate==source && rebuilding.empty?
         prepare_assets(candidate.merge('cabinets'=>rebuilding)) unless transparent
+        transparent=false if (source['cabinets']+candidate['cabinets']).any? { |c|Accessories.items(c).any? { |a|a['kind']=='light' } }
         @busy=true
         @model.start_operation('Vanity: edit',true,false,transparent)
         begin
@@ -72,6 +73,9 @@ module InteriorPro
               end
             end
           end
+          (old.keys|now.keys).each do |id|
+            Accessories.sync_lights(self,now[id],id) if old[id]!=now[id] || refresh_ids.include?(id)
+          end
           @model.commit_operation
         rescue Exception
           @model.abort_operation;raise
@@ -93,7 +97,7 @@ module InteriorPro
       def prepare_assets(doc)
         palette={'white'=>'#F5F5F0','ivory'=>'#E8E4D9','gray'=>'#969C9B','brass'=>'#B39456','black'=>'#242729','white_oak'=>'#D9C7A9','chrome'=>'#BAC2C7'}
         palette.merge!(Faucets.colors)
-        faucets=doc['cabinets'].select { |c|Faucets.selected(c) }.map { |c|c['faucet_id'] }.uniq
+        faucets=doc['cabinets'].flat_map { |c|Faucets.choices(c).map { |a|a['id'] } }.reject { |id|id=='none' }.uniq
         muse=doc['cabinets'].any? { |c|c['product_id']=='vanity' && MuseSink.selected(Surfaces.settings(c)) }
         handles=doc['cabinets'].map { |c|c['handle'] }.select { |id|%w[keaton warwick globe hunter].include?(id) }.uniq
         @handle_definitions||={}
@@ -157,6 +161,9 @@ module InteriorPro
           end
           faucets.each { |id|Faucets.definition(@model,id,material('black',palette.fetch('black'))) }
           MuseSink.definition(@model) if muse
+          (old.keys|now.keys).each do |id|
+            Accessories.sync_lights(self,now[id],id) if old[id]!=now[id] || refresh_ids.include?(id)
+          end
           @model.commit_operation
           true
         rescue Exception
@@ -342,6 +349,7 @@ module InteriorPro
             end }
           end
         end
+        Accessories.build_mirrors(e,c,material('mirror','#BCD4DC'),->(key,color){material('mirror_'+key,color)}) if Accessories.items(c).any? { |a|a['kind']=='mirror' }
         g
       end
       def leg_positions(c)

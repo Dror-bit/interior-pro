@@ -1714,25 +1714,46 @@ module InteriorPro
       return false if hits.any? { |g, _, _| InteriorPro::WallTool.curved_wall?(g) }
 
       me = [group, side, data]
-      cont = hits.find { |h| in_line_flush?(me, h, pt) }
-      if cont
-        cross = hits.find { |h| !h.equal?(cont) }
-        line_a = me
-      elsif in_line_flush?(hits[0], hits[1], pt)
-        cont = hits[1]
-        line_a = hits[0]
+      pair = nil
+      cross = nil
+      hits.each do |h|
+        next unless in_line_flush?(me, h, pt)
+        pair = [me, h]
+        cross = hits.find { |x| !x.equal?(h) }
+        break
+      end
+      if pair.nil? && in_line_flush?(hits[0], hits[1], pt)
+        pair = [hits[0], hits[1]]
         cross = me
+      end
+      return false unless pair
+      cat = ->(h) { (h[0].get_attribute('InteriorPro', 'wall_category') || 'exterior').to_s }
+      idn = ->(h) { h[0].get_attribute('InteriorPro', 'id').to_s[0, 8] }
+      if cat.call(pair[0]) == cat.call(pair[1])
+        # the in-line pair is ONE wall line: flush square ends, the third stops at its face
+        square_corner!(pair[0][0], pair[0][1])
+        square_corner!(pair[1][0], pair[1][1])
+        square_corner!(cross[0], cross[1])
+        ok = butt_to_face!(cross[0], cross[1], pair[1][0])
+        wall_trace('TEE', group, "at (#{pt.x.to_f.round(2)},#{pt.y.to_f.round(2)}) line #{idn.call(pair[0])}+#{idn.call(pair[1])} stops #{idn.call(cross)} #{ok}")
+        puts "[WallTool] T at an existing corner: #{idn.call(cross)} stops at the wall line (#{ok})"
+      elsif cat.call(cross) == 'exterior'
+        # WALL GONE INSIDE (2026-10-20, his picture): the line is half
+        # exterior, half interior - the piece that turned interior between
+        # two rooms. The exterior half and the third wall are the outside of
+        # the house: a real mitered corner. The interior half stops at the
+        # third wall's face.
+        ext, int = cat.call(pair[0]) == 'exterior' ? pair : pair.reverse
+        square_corner!(ext[0], ext[1])
+        square_corner!(int[0], int[1])
+        square_corner!(cross[0], cross[1])
+        apply_miter(ext[0], ext[1], cross[0], cross[1], model)
+        ok = butt_to_face!(int[0], int[1], cross[0])
+        wall_trace('CORNER+BUTT', group, "at (#{pt.x.to_f.round(2)},#{pt.y.to_f.round(2)}) corner #{idn.call(ext)}+#{idn.call(cross)} stops #{idn.call(int)} #{ok}")
+        puts "[WallTool] corner #{idn.call(ext)}+#{idn.call(cross)}, inside wall #{idn.call(int)} stops at it (#{ok})"
       else
         return false
       end
-      square_corner!(line_a[0], line_a[1])
-      square_corner!(cont[0], cont[1])
-      square_corner!(cross[0], cross[1])
-      ok = butt_to_face!(cross[0], cross[1], cont[0])
-      wall_trace('TEE', group, "at (#{pt.x.to_f.round(2)},#{pt.y.to_f.round(2)}) line " \
-                 "#{line_a[0].get_attribute('InteriorPro', 'id').to_s[0, 8]}+#{cont[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} " \
-                 "stops #{cross[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} #{ok}")
-      puts "[WallTool] T at an existing corner: #{cross[0].get_attribute('InteriorPro', 'id').to_s[0, 8]} stops at the wall line (#{ok})"
       true
     rescue StandardError => e
       puts "[WallTool] tee_at_existing_corner!: #{e.message}"

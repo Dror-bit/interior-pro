@@ -279,6 +279,10 @@
                     <button id="port">לאורך</button>
                   </div>
                   <select id="scale" style="margin-top:8px"></select>
+                  <div id="roomDrawingSizeBox" style="margin-top:8px;display:none">
+                    <label for="roomDrawingSize">גודל השרטוטים בחדר</label>
+                    <select id="roomDrawingSize"><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option></select>
+                  </div>
                   <div id="fit"></div>
                   <button id="fitplan" class="go2">התאם את התוכנית לדף</button>
                   <button id="center">מרכז את התוכנית</button>
@@ -5904,7 +5908,15 @@
           }
 
           // what each heading says about itself when it is shut
+          function roomDrawingSizeUI(){
+            var pg=DOC&&DOC.pages&&DOC.pages[STATE.active||0];
+            var path=pg&&pg.kind==='image'&&(STATE.images||[])[pg.ref];
+            var title=path&&(STATE.image_titles||{})[path];
+            $('roomDrawingSizeBox').style.display=title?'':'none';
+            if(title) $('roomDrawingSize').value=String((STATE.elev_size||{})[title]||1);
+          }
           function headings(){
+            roomDrawingSizeUI();
             layerCount();
             var n=marks().length;
             tag('markstag', n ? (n + ' על הדף') : '');
@@ -6225,6 +6237,7 @@
 
           // ---- wiring -----------------------------------------------------
           window.addEventListener('load',function(){
+            $('roomDrawingSize').onchange=function(){ sketchup.resize_room_drawings(JSON.stringify({state:STATE,size:Number(this.value)})); };
             $('size').onchange=function(){ STATE.size=this.value; push(); };
             // Picking a scale from the list puts the drawing on that EXACT scale:
             // a size set by hand is forgotten. ("Any size" itself is not a choice.)

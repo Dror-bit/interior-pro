@@ -896,6 +896,40 @@ module InteriorPro
       bb.empty? ? defn.bounds : bb
     end
 
+    # THE BACK OF A SET PART = ITS NEAREST FACE (2026-10-15). His words: "shower handle הבר שלה רחוק מהקיר באיזה
+    # אינץ'". Measured (shower_bar_report / shower_bar2_report): DAWN (round) Black hand.skp - its box reaches
+    # y -0.79 but its nearest face is at -0.041 (the Brush nickle copy of the same file: -0.041 both), so the bar
+    # stood 0.75" off the tile face (1.374 vs 0.625). The head and valve sit exactly on it. For a shower-set part
+    # the back is the nearest VISIBLE FACE, any depth. Cached per definition. false = the box, as before.
+    USE_BACK_FROM_FACES = true unless const_defined?(:USE_BACK_FROM_FACES, false)
+
+    def self.face_min_y(defn)
+      @face_min_y ||= {}
+      key = "#{defn.name}|#{defn.entities.length}"
+      return @face_min_y[key] if @face_min_y.key?(key)
+      y = nil
+      walk = lambda do |ents, xf, depth|
+        ents.each do |e|
+          next if e.respond_to?(:hidden?) && e.hidden?
+          next if e.respond_to?(:layer) && e.layer && !e.layer.visible?
+          if e.is_a?(Sketchup::Face)
+            e.vertices.each do |v|
+              yy = (xf ? v.position.transform(xf) : v.position).y.to_f
+              y = yy if y.nil? || yy < y
+            end
+          elsif (e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)) && depth < 12
+            kids = e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities
+            walk.call(kids, xf ? xf * e.transformation : e.transformation, depth + 1)
+          end
+        end
+      end
+      walk.call(defn.entities, nil, 0)
+      @face_min_y[key] = y
+    rescue StandardError => e
+      puts "[Fixture] nearest face of #{defn.name} not read: #{e.message}"
+      nil
+    end
+
     # THE HIDDEN THINGS GO (2026-09-27, his pick "שידלג עליהם בעצמו").
     # Measured: Set 2 valve.skp and hand.skp carry hidden things up to 47"
     # off the part, Set 1 head.skp 64" - the placed set was selected as a
@@ -939,6 +973,10 @@ module InteriorPro
         b = visible_bounds(d)
         ax, az = anchor_xz(b.min.x, b.max.x, b.min.z, b.max.z, !k.nil?)
         minx, maxx, miny, maxy = b.min.x.to_f, b.max.x.to_f, b.min.y.to_f, b.max.y.to_f
+        if USE_BACK_FROM_FACES && !k.nil?
+          fy = face_min_y(d)
+          miny = fy if fy && fy > miny && fy < maxy
+        end
         sx, sy = resize?(kind) ? scale_for(cfg['len'], cfg['wid'], maxx - minx, maxy - miny) : [1.0, 1.0]
         minx, maxx, ax = minx * sx, maxx * sx, ax.to_f * sx
         miny, maxy = miny * sy, maxy * sy
