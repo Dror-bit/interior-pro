@@ -174,6 +174,7 @@ module InteriorPro
         'floor_offset'          => door.get_attribute('InteriorPro', 'floor_offset_in', 0).to_f,
         'swing_direction'       => door.get_attribute('InteriorPro', 'swing_direction', 'left'),
         'swing_side'            => door.get_attribute('InteriorPro', 'swing_side', 'auto'),
+        'door_state'            => door.get_attribute('InteriorPro', 'door_state', 'closed'),
         'slide_direction'       => door.get_attribute('InteriorPro', 'slide_direction', 'left'),
         'glass_grid_style'      => door.get_attribute('InteriorPro', 'glass_grid_style', '2x2'),
         'exterior_casing_style' => door.get_attribute('InteriorPro', 'exterior_casing_style', 'none'),
@@ -198,14 +199,15 @@ module InteriorPro
     # Parametric door layer — single source of truth for regen (Stage 1).
     DOOR_PARAM_DICT = 'InteriorPro_door' unless const_defined?(:DOOR_PARAM_DICT, false)
 
+    remove_const(:DOOR_SETTING_KEYS) if const_defined?(:DOOR_SETTING_KEYS, false)
     DOOR_SETTING_KEYS = %w[
       door_category door_type leaf_style closet_leaf_count handle_style width height frame_width glass_frame_width
-      interior_depth floor_offset swing_direction swing_side slide_direction
+      interior_depth floor_offset swing_direction swing_side slide_direction door_state
       glass_grid_style exterior_casing_style interior_casing_style exterior_threshold
       front_config front_leaf_style front_glass_ratio sidelite_width transom transom_height
       garage_style garage_top_windows garage_window_style garage_window_count garage_ext_frame
       door_color frame_color arch_rise
-    ].freeze unless const_defined?(:DOOR_SETTING_KEYS, false)
+    ].freeze
 
     DOOR_PLACEMENT_KEYS = %w[
       door_id mark host_wall_id position_t face_x face_y clicked_side bottom_z top_z
@@ -273,6 +275,7 @@ module InteriorPro
       door.set_attribute('InteriorPro', 'floor_offset_in',        params['floor_offset'].to_f)
       door.set_attribute('InteriorPro', 'swing_direction',        params['swing_direction'])
       door.set_attribute('InteriorPro', 'swing_side',             params['swing_side'])
+      door.set_attribute('InteriorPro', 'door_state',             params['door_state'] == 'half_open' ? 'half_open' : 'closed')
       door.set_attribute('InteriorPro', 'slide_direction',        params['slide_direction'])
       door.set_attribute('InteriorPro', 'glass_grid_style',       params['glass_grid_style'])
       door.set_attribute('InteriorPro', 'exterior_casing_style',  params['exterior_casing_style'])
@@ -347,6 +350,15 @@ module InteriorPro
       params = params_from_door(door)
       if settings
         params = params.merge(settings.transform_keys(&:to_s))
+        motion_enabled = (InteriorPro::DoorTool::USE_INTERIOR_SWING && params['door_category'] == 'interior' &&
+                          %w[Single Double].include?(params['door_type'])) ||
+                         (InteriorPro::DoorExteriorMotion::ENABLED && params['door_category'] == 'exterior')
+        if motion_enabled && params['swing_side'] == 'reverse'
+          # Consume the UI action once; plan-editor side flips already write
+          # clicked_side directly and continue through the same body-only path.
+          params['clicked_side'] = params['clicked_side'].to_i < 0 ? 1 : -1
+          params['swing_side'] = 'auto'
+        end
         write_door_params!(door, params)
       end
 
@@ -360,6 +372,13 @@ module InteriorPro
       ctx = opening_context(door, geo)
       tool = InteriorPro::DoorTool.new
       InteriorPro::DoorLibraryDialog.apply_to_tool(tool, settings_from_params(params))
+      if tool.send(:interior_swing_enabled?)
+        # clicked_side is also edited by the existing 2D flip command. Refresh
+        # the face anchor from that side so fallback depth never uses stale XY.
+        ctx[:fx], ctx[:fy] = opening_face_xy(ctx, geo, use_stored_face: false)
+        params['face_x'], params['face_y'] = ctx[:fx], ctx[:fy]
+        write_door_params!(door, params)
+      end
 
       data = tool.build_opening_data(
         wall, geo,

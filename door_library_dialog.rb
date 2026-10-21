@@ -502,7 +502,7 @@ module InteriorPro
             <div id="archedDoorSection" style="display:none;">
               <div class="section-title">Arched Door</div>
               <label>Configuration</label>
-              <select id="archConfig">
+              <select id="archConfig" onchange="syncTypeFields()">
                 <option value="single">Single</option>
                 <option value="double">Double</option>
               </select>
@@ -565,7 +565,7 @@ module InteriorPro
             <div class="section-title">Opening Direction</div>
             <div id="hingedFields">
               <div class="row">
-                <div>
+                <div id="hingeDirectionField">
                   <label id="hingeSideLabel">Hinges</label>
                   <select id="swingDirection">
                     <option value="left">Left</option>
@@ -581,19 +581,19 @@ module InteriorPro
                   </select>
                 </div>
               </div>
+            </div>
               <div id="doorStateRow" style="display:none;">
                 <label>Door Position</label>
                 <select id="doorState">
                   <option value="closed">Closed</option>
-                  <option value="half_open">Half Open (45°)</option>
+                  <option value="half_open">Half Open</option>
                 </select>
               </div>
-            </div>
             <div id="slidingFields">
-              <label>Slide Direction</label>
+              <label id="slideDirectionLabel">Slide Direction</label>
               <select id="slideDirection">
-                <option value="left">Slide Left</option>
-                <option value="right">Slide Right</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
               </select>
             </div>
 
@@ -640,6 +640,7 @@ module InteriorPro
         <script>
           var doorPlaceMode = #{door_place_mode};
           var interiorSwingEnabled = #{defined?(InteriorPro::DoorTool::USE_INTERIOR_SWING) && InteriorPro::DoorTool::USE_INTERIOR_SWING ? 'true' : 'false'};
+          var exteriorMotionEnabled = #{defined?(InteriorPro::DoorExteriorMotion::ENABLED) && InteriorPro::DoorExteriorMotion::ENABLED ? 'true' : 'false'};
           var panelWidthIn = #{panel_width_in};
           var jambTotalIn = #{jamb_total_in};
           var initialSettings = #{settings_json};
@@ -1040,6 +1041,7 @@ if (window.ResizeObserver) {
             if (s.leaf_style) selectedLeafStyle = s.leaf_style;
             if (s.closet_leaf_count) selectedClosetPanels = parseInt(s.closet_leaf_count, 10) || 2;
             if (s.front_config) document.getElementById('frontConfig').value = s.front_config;
+            document.getElementById('archConfig').value = s.front_config === 'double' ? 'double' : 'single';
             if (s.front_leaf_style) selectedFrontStyle = s.front_leaf_style;
             if (s.garage_style) document.getElementById('garageStyle').value = s.garage_style;
             document.getElementById('garageTopWindows').checked = !!s.garage_top_windows;
@@ -1109,7 +1111,7 @@ if (window.ResizeObserver) {
           }
 
           function panelCountFromType(t) {
-            var m = t.match(/^(\d+)-Panel/);
+            var m = t.match(/^([0-9]+)-Panel/);
             return m ? parseInt(m[1], 10) : null;
           }
 
@@ -1166,18 +1168,24 @@ if (window.ResizeObserver) {
             document.getElementById('hingedFields').style.display = (isSliding || closet || isGarage) ? 'none' : 'block';
             var isInterior = document.getElementById('doorCategory').value === 'interior';
             var swingInterior = interiorSwingEnabled && isInterior && (t === 'Single' || t === 'Double');
-            document.getElementById('doorStateRow').style.display = swingInterior ? 'block' : 'none';
+            var motionExterior = exteriorMotionEnabled && !isInterior;
+            if (motionExterior && isFolding(t)) document.getElementById('hingedFields').style.display = 'block';
+            document.getElementById('hingeDirectionField').style.display = motionExterior && isFolding(t) ? 'none' : 'block';
+            document.getElementById('slideDirectionLabel').textContent = motionExterior && isFolding(t) ? 'Fold Toward' : 'Slide Direction';
+            var explicitSide = swingInterior || motionExterior;
+            document.getElementById('doorStateRow').style.display = explicitSide ? 'block' : 'none';
             var sideSelect = document.getElementById('swingSide');
-            var sideMode = swingInterior ? 'interior' : 'legacy';
+            var sideMode = explicitSide ? 'motion' : 'legacy';
             if (sideSelect.getAttribute('data-mode') !== sideMode) {
-              sideSelect.innerHTML = swingInterior
+              sideSelect.innerHTML = explicitSide
                 ? '<option value="auto">' + (doorPlaceMode ? 'Picked Side' : 'Keep Current Side') + '</option><option value="reverse">Other Side</option>'
                 : '<option value="auto">Auto (click side)</option><option value="inward">Inward</option><option value="outward">Outward</option>';
               sideSelect.setAttribute('data-mode', sideMode);
             }
-            if (!sideSelect.value || (swingInterior && ['auto','reverse'].indexOf(sideSelect.value) < 0)) sideSelect.value = 'auto';
-            document.getElementById('swingDirection').disabled = swingInterior && t === 'Double';
-            document.getElementById('hingeSideLabel').textContent = swingInterior && t === 'Double' ? 'Hinges (Both Sides)' : 'Hinges';
+            if (!sideSelect.value || (explicitSide && ['auto','reverse'].indexOf(sideSelect.value) < 0)) sideSelect.value = 'auto';
+            var bothHinges = (swingInterior && t === 'Double') || (motionExterior && (t === 'French Hinged' || t === '4-Panel Center Hinged' || (isFront && document.getElementById('frontConfig').value === 'double') || (isArched && document.getElementById('archConfig').value === 'double')));
+            document.getElementById('swingDirection').disabled = bothHinges;
+            document.getElementById('hingeSideLabel').textContent = bothHinges ? 'Hinges (Both Sides)' : 'Hinges';
             document.getElementById('leafDesignSection').style.display = (isInterior && !closet) ? 'block' : 'none';
             document.getElementById('closetSection').style.display = closet ? 'block' : 'none';
             if (closet) renderClosetGrid();
@@ -1347,6 +1355,7 @@ if (window.ResizeObserver) {
           }
 
           function onFrontConfigChange() {
+            syncTypeFields();
             if (!doorPlaceMode) return;
             var cfg = document.getElementById('frontConfig').value;
             var sl = parseFloat(document.getElementById('sideliteWidth').value) || 14;

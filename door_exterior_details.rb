@@ -6,11 +6,13 @@ module InteriorPro
     HANDLE_STYLES = ['Patio Lever', 'Sliding Flush Pull'].freeze unless const_defined?(:HANDLE_STYLES, false)
 
     def self.apply!(ents,type,unit,n,thickness,settings)
-      return true unless ENABLED || PATIO_HANDLES
+      motion=defined?(InteriorPro::DoorExteriorMotion) && InteriorPro::DoorExteriorMotion::ENABLED
+      return true unless ENABLED || PATIO_HANDLES || motion
       axes=Geom::Transformation.axes(ORIGIN,unit,n,Z_AXIS)
       inverse=axes.inverse
       ents.transform_entities(inverse,ents.to_a) unless axes.identity?
       begin
+        InteriorPro::DoorExteriorMotion.prepare!(ents,type,settings) if motion
         if ENABLED
           upgrade(ents,type,thickness,settings)
         elsif PATIO_HANDLES
@@ -19,6 +21,7 @@ module InteriorPro
           leaves.each{|g|normalize_leaf(g)}
           add_patio_handles(ents,type,leaves.map{|g|[g,g.bounds]},settings,mat)
         end
+        InteriorPro::DoorExteriorMotion.apply!(ents,type,settings) if motion
       ensure
         ents.transform_entities(axes,ents.to_a) unless axes.identity?
       end
@@ -79,7 +82,7 @@ module InteriorPro
     aluminum=Sketchup.active_model.materials['InteriorPro_Exterior_Aluminium']||Sketchup.active_model.materials.add('InteriorPro_Exterior_Aluminium')
     aluminum.color=[155,158,161]
     seal=Sketchup.active_model.materials['InteriorPro_Exterior_Seal']||Sketchup.active_model.materials.add('InteriorPro_Exterior_Seal');seal.color=[55,57,59]
-    leaves=ents.grep(Sketchup::Group).select{|g|g.name.start_with?('Leaf') && !g.name.include?('Glass') && !g.name.include?('Grid') && !g.name.include?('Sidelite') && !g.name.include?('Transom')}
+    leaves=ents.grep(Sketchup::Group).select{|g|g.name.start_with?('Leaf') && !g.name.match?(/Glass|Grid|Sidelite|Transom|_Lines/)}
     changes=[]
     leaves.each{|g|normalize_leaf(g)}
     original_bounds=leaves.map{|g|[g,g.bounds]}

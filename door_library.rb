@@ -53,6 +53,7 @@ module InteriorPro
     CATEGORY_DEFAULTS = {
       'exterior' => {
         'door_category'          => 'exterior',
+        'door_state'             => 'closed',
         'door_type'              => 'French Hinged',
         'handle_style'           => 'Patio Lever',
         'width'                  => 60.0,

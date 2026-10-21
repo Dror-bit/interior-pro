@@ -2,6 +2,9 @@ exterior_details_file = File.join(__dir__, 'door_exterior_details.rb')
 # The regression runner copies this tool into tests/; use its parent helper there.
 exterior_details_file = File.expand_path('../door_exterior_details.rb', __dir__) unless File.file?(exterior_details_file)
 load exterior_details_file
+exterior_motion_file = File.join(__dir__, 'door_exterior_motion.rb')
+exterior_motion_file = File.expand_path('../door_exterior_motion.rb', __dir__) unless File.file?(exterior_motion_file)
+load exterior_motion_file
 # Interior Pro - Door Tool
 # Cuts a door opening through a wall and builds a real body for French Hinged / exterior Sliding.
 # Modeled on WindowTool, but the opening sits on the wall floor + an optional
@@ -2876,6 +2879,10 @@ module InteriorPro
         door_group.set_attribute('InteriorPro', 'clicked_side', interior_swing_sign(clicked_side))
         door_group.set_attribute('InteriorPro', 'swing_side', 'auto')
       end
+      if exterior_motion_enabled?
+        door_group.set_attribute('InteriorPro','clicked_side',InteriorPro::DoorExteriorMotion.side(clicked_side,@swing_side))
+        door_group.set_attribute('InteriorPro','swing_side','auto')
+      end
       door_group.set_attribute('InteriorPro', 'bottom_z',               door_bot_z.to_f)
       door_group.set_attribute('InteriorPro', 'top_z',                  door_top_z.to_f)
       door_group.set_attribute('InteriorPro', 'created_at',             Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
@@ -2951,7 +2958,8 @@ module InteriorPro
       if ok && @door_category.to_s=='exterior'
         effective_n=exterior_effective_n(data,n)
         InteriorPro::DoorExteriorDetails.apply!(parent_ents,@door_type.to_s,unit,effective_n,thickness,
-          {swing_direction:@swing_direction,slide_direction:@slide_direction,handle_style:@handle_style,stile_width:@glass_frame_width,front_config:@front_config})
+          {swing_direction:@swing_direction,slide_direction:@slide_direction,handle_style:@handle_style,stile_width:@glass_frame_width,front_config:@front_config,
+           door_state:@door_state,opening_sign:InteriorPro::DoorExteriorMotion.side(data[:clicked_side],@swing_side)*(n.dot(effective_n)<0 ? -1 : 1)})
       end
       ok
     end
@@ -3469,6 +3477,10 @@ module InteriorPro
       end
       apply_interior_swing!(parent_ents, iw-gap, lv0, lv1, clicked_is_v1 ? -1 : 1, unit, n)
       true
+    end
+
+    def exterior_motion_enabled?
+      InteriorPro::DoorExteriorMotion::ENABLED && @door_category.to_s=='exterior'
     end
 
     def interior_swing_enabled?
