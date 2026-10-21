@@ -543,8 +543,8 @@
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 41497,
-      "sha256": "d098ebfd7d6e35bdf947fe39169ad6b6e9ca24208f9cbb73ecf42af1d1474108"
+      "bytes": 44270,
+      "sha256": "6d05d783ae7e114a8e94017c4a89ac4b0408128ceab949d4a7a5b97f58caa85e"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -583,8 +583,8 @@
     },
     {
       "path": "kitchen_lab.rb",
-      "bytes": 48845,
-      "sha256": "3556b134c4d8c0c5e589a4945744d8d1c3c6f569d2bafacf5ba426a6c46fe9ba"
+      "bytes": 48948,
+      "sha256": "e8ed48f014945b5bedb2b154bc02643695e8871a34a1d35022804d3a4fd229f5"
     },
     {
       "path": "kitchen_layout.rb",
@@ -1533,8 +1533,8 @@
     },
     {
       "path": "kitchen_store.rb",
-      "bytes": 4371,
-      "sha256": "987fc2b8170e24d59bf19caaa6eefa3ddd754b9709e171789cd09f1a3b01730d"
+      "bytes": 5740,
+      "sha256": "abced1fbe4aa8690058ff543c06f7f740de5ab4cfbd7b8e7d9229de27dad2013"
     },
     {
       "path": "test_handle_defaults.rb",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "kitchen_units.rb",
-      "bytes": 9044,
-      "sha256": "85f08d95d63916565c035b4f04073a1a09c6132e04384dff734434f589dda935"
+      "bytes": 9545,
+      "sha256": "86548316d921c1ef7c15f5c1824da19a913ec2fdbc18f01bd787a136054156f1"
     },
     {
       "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
@@ -1698,8 +1698,8 @@
     },
     {
       "path": "kitchen_backsplash.rb",
-      "bytes": 13740,
-      "sha256": "159715e798e1a24e1ea5428a3d482c0407795e8a6ed97bb69023434c139ca385"
+      "bytes": 17804,
+      "sha256": "e18713f9af5ca42dda183f7b5fedc568f213933e4d2364968adb120d0ae09450"
     },
     {
       "path": "backsplash_editor.js",
@@ -2935,6 +2935,26 @@
       "path": "test_appliance_crown_switch.rb",
       "bytes": 2050,
       "sha256": "76509638a274229eff1e2fd24dd0290cb9b78565308d1de9c1969b8c5d44949d"
+    },
+    {
+      "path": "test_sync_undo.rb",
+      "bytes": 3392,
+      "sha256": "3b055b01608b1dc7d224f9289080d1eecc32511c38a11f884122bfdff8128611"
+    },
+    {
+      "path": "test_local_opening_sync.rb",
+      "bytes": 5440,
+      "sha256": "d8f3c8f784d85def5736f909e2eed8ad504c81f7aa9356ca195f3c30b7009f90"
+    },
+    {
+      "path": "test_operation_document_memo.rb",
+      "bytes": 1747,
+      "sha256": "09662d5d235c6ceec16912d518e917ee1194b695fb41f1b90094803e8e3385b4"
+    },
+    {
+      "path": "test_crown_performance_native.rb",
+      "bytes": 3881,
+      "sha256": "29ebd7b6404a4778ee3018d34942676343b366e6a9d9e62c4bd098a541613df5"
     }
   ]
 }

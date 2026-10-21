@@ -38,6 +38,7 @@ module KitchenLab
   module Document;def self.read(raw);JSON.parse(raw);end;end
   def self.unit_groups;[];end
   def self.cabinets;[];end
+  def self.document; Document.read(@model.get_attribute(DICT,'document')); end
   def self.write_document!(*);end
   def self.worktops!(previous:);@builds=(@builds||0)+1;end
   def self.publish;end

@@ -11,6 +11,7 @@ module KitchenLab
   end
   def self.unit_groups; []; end
   def self.cabinets; []; end
+  def self.document; Document.read(@model.get_attribute(DICT,'document')); end
   def self.write_document!(data,settings); @model.set_attribute(DICT,'partial_kitchen',true); end
   def self.worktops!(previous:)
     raise 'Unable to trim intersecting crown solids' if @fail
@@ -24,6 +25,7 @@ class UndoModel
   attr_reader :attrs,:history,:starts
   def initialize
     @attrs={['KitchenLab','document']=>JSON.generate({'cabinets'=>[],'settings'=>{}})}
+    @attrs[['KitchenLab','unit_owners']]='["deleted"]'
     @history=[];@starts=[]
   end
   def active_path; nil; end

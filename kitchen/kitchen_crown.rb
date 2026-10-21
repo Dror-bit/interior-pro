@@ -157,7 +157,51 @@ module KitchenLab
     end
   end
 
+  remove_const(:USE_CROWN_DEPENDENCY_GATE) if const_defined?(:USE_CROWN_DEPENDENCY_GATE,false)
+  USE_CROWN_DEPENDENCY_GATE=true
+  # Persist the dependency stamp in the model so Undo restores geometry AND
+  # its matching stamp. Geometry IDs only matter for newly rebuilt house trim.
+  def self.crown_dependency_signature
+    return nil unless USE_CROWN_DEPENDENCY_GATE && @model.respond_to?(:get_attribute)
+    doc=document;s=crown_settings(doc['settings']);data=doc['cabinets']
+    regions=data.map do |d|
+      pp=Spatial.polygon(d,doc['settings']);floor=Spatial.pose(doc['settings'])['z']
+      [pp.map(&:first).min-24,pp.map(&:last).min-24,floor+d['z']-12,
+       pp.map(&:first).max+24,pp.map(&:last).max+24,floor+d['z']+d['height']+24]
+    end
+    nearby=lambda do |g|
+      b=g.bounds
+      regions.any? { |r| 3.times.all? { |i|b.max.to_a[i]>=r[i] && b.min.to_a[i]<=r[i+3] } }
+    end
+    dependencies=@model.entities.grep(Sketchup::Group).filter_map do |g|
+      type=g.get_attribute('InteriorPro','type')
+      next unless %w[wall ceiling room crown].include?(type)
+      relevant=nearby.call(g)
+      if type=='room' && (xy=g.get_attribute('InteriorPro','boundary_xy')) && xy.length>=6
+        xs=xy.each_slice(2).map(&:first);ys=xy.each_slice(2).map(&:last)
+        relevant=regions.any? { |r|xs.max>=r[0] && xs.min<=r[3] && ys.max>=r[1] && ys.min<=r[4] }
+      end
+      next unless relevant
+      attrs=g.attribute_dictionary('InteriorPro')
+      [type,g.persistent_id,attrs ? attrs.to_a.sort_by(&:first) : [],g.transformation.to_a,g.bounds.min.to_a,g.bounds.max.to_a,g.material&.name]
+    end.sort_by { |r|r[1] }
+    roots=@model.entities.grep(Sketchup::Group)
+    crowns=roots+roots.select { |g|g.get_attribute(DICT,'kind')=='kitchen_unit' }.flat_map { |g|g.entities.grep(Sketchup::Group) }
+    outputs=crowns.select { |g|g.get_attribute(DICT,'kind')=='crown' }.map { |g|[g.get_attribute(DICT,'owner_id'),g.get_attribute(DICT,'geometry_signature'),g.entities.length] }.sort_by { |r|JSON.generate(r) }
+    Digest::SHA256.hexdigest(JSON.generate([doc['settings'],data,s,dependencies,outputs]))
+  end
+  def self.crown_dependencies_changed?
+    signature=crown_dependency_signature
+    !signature || @model.get_attribute(DICT,'crown_dependency_signature')!=signature
+  end
   def self.crowns!
+    signature=crown_dependency_signature
+    return :unchanged if signature && @model.get_attribute(DICT,'crown_dependency_signature')==signature
+    result=rebuild_crowns!
+    @model.set_attribute(DICT,'crown_dependency_signature',crown_dependency_signature) if signature
+    result
+  end
+  def self.rebuild_crowns!
     s=crown_settings(settings)
     fit_cabinet_crowns!(s['crown_profile']=='none' ? 0 : s['crown_height']) if USE_KITCHEN_CEILING_FIT
     return CrownJoints.build!(s) if USE_KITCHEN_MOLDING_JOIN && defined?(InteriorPro::MoldingBuilder)
@@ -794,8 +838,11 @@ module KitchenLab::CrownJoints
   def refresh_from_house!
     return unless KitchenLab::USE_KITCHEN_MOLDING_JOIN && !@refreshing && Sketchup.active_model.get_attribute(KitchenLab::DICT,'document')
     return unless KitchenLab.instance_variable_get(:@model).equal?(Sketchup.active_model)
+    return unless KitchenLab.with_document_snapshot { KitchenLab.crown_dependencies_changed? }
     @refreshing=true
-    KitchenLab.unpack_units!;KitchenLab.crowns!;KitchenLab.pack_units!
+    KitchenLab.with_document_snapshot do
+      KitchenLab.unpack_units!;KitchenLab.crowns!;KitchenLab.pack_units!(refresh_baseboards:false)
+    end
   ensure
     @refreshing=false
   end

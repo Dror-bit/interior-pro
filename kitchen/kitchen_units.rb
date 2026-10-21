@@ -7,7 +7,7 @@ module KitchenLab
     return unless @model.respond_to?(:entities)
     unit_groups.each(&:explode)
   end
-  def self.pack_units!
+  def self.pack_units!(refresh_baseboards: true)
     data=state['cabinets'];by_id=data.to_h { |d|[d['id'],d] }
     owner=lambda { |id|by_id[id] && (by_id[id]['surround_for'] || id) }
     members=@model.entities.grep(Sketchup::Group).select { |g|%w[cabinet worktop crown].include?(g.get_attribute(DICT,'kind')) }.group_by do |g|
@@ -21,7 +21,7 @@ module KitchenLab
       unit.set_attribute(DICT,'members',data.select{|d|owner.call(d['id'])==id}.map{|d|d['id']})
     end
     @model.set_attribute(DICT,'unit_owners',JSON.generate(unit_groups.map{|g|g.get_attribute(DICT,'id')}))
-    refresh_kitchen_baseboards!
+    refresh_kitchen_baseboards! if refresh_baseboards
   end
   remove_const(:USE_KITCHEN_BASEBOARD_SYNC) if const_defined?(:USE_KITCHEN_BASEBOARD_SYNC,false)
   USE_KITCHEN_BASEBOARD_SYNC=true
@@ -94,12 +94,13 @@ module KitchenLab
   def self.sync_unit_moves!(model)
     return if @unit_syncing || !model.equal?(@model) || !model.active_path.nil?
     raw=model.get_attribute(DICT,'document');return unless raw
-    doc=Document.read(raw);units=unit_groups
+    doc=document;units=unit_groups
     saved=JSON.parse(model.get_attribute(DICT,'unit_owners','[]'))
     removed=saved-units.map{|g|g.get_attribute(DICT,'id')}
     changed=units.select { |u|prev=u.get_attribute(DICT,'unit_transform');prev && u.transformation.to_a.zip(prev).any?{|a,b|(a-b).abs>0.000001} }
     openings_changed=defined?(Backsplash) && Backsplash.openings_changed?(model)
-    return if changed.empty? && removed.empty? && !openings_changed
+    crown_changed=respond_to?(:crown_dependencies_changed?) && crown_dependencies_changed?
+    return if changed.empty? && removed.empty? && !openings_changed && !crown_changed
     data=doc['cabinets'].reject{|d|removed.include?(d['surround_for']||d['id'])}
     changed.each do |u|
       delta=u.transformation*Geom::Transformation.new(u.get_attribute(DICT,'unit_transform')).inverse
@@ -111,7 +112,7 @@ module KitchenLab
     # Keep observer-driven kitchen rebuilding in its own undo transaction.
     model.start_operation('Kitchen: sync placement and openings',true,false,!USE_ISOLATED_KITCHEN_SYNC)
     begin
-      write_document!(data,doc['settings'])
+      write_document!(data,doc['settings']) unless changed.empty? && removed.empty?
       changed.each{|u|u.set_attribute(DICT,'unit_transform',u.transformation.to_a)}
       model.set_attribute(DICT,'unit_owners',JSON.generate(units.map{|u|u.get_attribute(DICT,'id')}))
       cabinets.each do |g|

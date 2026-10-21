@@ -127,7 +127,7 @@ module KitchenLab
     def self.opening_regions(model)
       raw=model.get_attribute(KitchenLab::DICT,'document')
       return [] unless raw
-      doc=JSON.parse(raw);s=doc.fetch('settings');floor=Spatial.pose(s)['z']
+      doc=KitchenLab.instance_variable_get(:@model).equal?(model) ? KitchenLab.document : JSON.parse(raw);s=doc.fetch('settings');floor=Spatial.pose(s)['z']
       doc.fetch('cabinets').map do |d|
         points=Spatial.polygon(d,s);z=floor+d['z']
         extra=[12.0,s.fetch('backsplash',{}).to_h.fetch('height',18).to_f+2].max

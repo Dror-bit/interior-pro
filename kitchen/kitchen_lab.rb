@@ -514,6 +514,7 @@ module KitchenLab
       # Ceiling fitting may resize an upper cabinet during the crown update.
       if ContinuousSurfaces.reusable?(previous)
         pack_units!
+        @model.set_attribute(DICT,'backsplash_opening_signature',Backsplash.opening_signature(@model))
         return
       end
     end

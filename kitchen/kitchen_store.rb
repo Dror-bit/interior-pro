@@ -1,7 +1,30 @@
 # Standalone SketchUp storage adapter. A future Interior Pro adapter can use
 # the same Document without importing its generated SketchUp geometry.
 module KitchenLab
+  remove_const(:USE_OPERATION_DOCUMENT_MEMO) if const_defined?(:USE_OPERATION_DOCUMENT_MEMO,false)
+  USE_OPERATION_DOCUMENT_MEMO=true
+  def self.with_document_snapshot
+    return yield unless USE_OPERATION_DOCUMENT_MEMO
+    outer=@document_snapshot_depth.to_i==0
+    @document_snapshot_depth=@document_snapshot_depth.to_i+1
+    yield
+  ensure
+    if USE_OPERATION_DOCUMENT_MEMO
+      @document_snapshot_depth=@document_snapshot_depth.to_i-1
+      @document_snapshot=nil if outer
+    end
+  end
   def self.document
+    return read_document_uncached unless USE_OPERATION_DOCUMENT_MEMO && @document_snapshot_depth.to_i>0
+    guard!
+    raw=@model.get_attribute(DICT,'document')
+    memo=@document_snapshot
+    return memo[2] if memo && memo[0].equal?(@model) && memo[1]==raw
+    value=read_document_uncached
+    @document_snapshot=[@model,raw,value]
+    value
+  end
+  def self.read_document_uncached
     guard!
     raw=@model.get_attribute(DICT,'document')
     return Document.read(raw) unless raw.nil?
@@ -106,4 +129,15 @@ module KitchenLab
     @document_observer=DocumentUndoObserver.new
     @model.add_observer(@document_observer)
   end
+end
+
+module KitchenLab
+  module OperationDocumentSnapshot
+    %i[crowns! worktops! sync_unit_moves! pack_units! refresh_kitchen_baseboards! execute_commands generate_geometry!].each do |name|
+      define_method(name) do |*args,**kwargs,&block|
+        with_document_snapshot { kwargs.empty? ? super(*args,&block) : super(*args,**kwargs,&block) }
+      end
+    end
+  end
+  singleton_class.prepend(OperationDocumentSnapshot) unless singleton_class.ancestors.include?(OperationDocumentSnapshot)
 end
