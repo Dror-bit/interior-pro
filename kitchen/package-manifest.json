@@ -543,8 +543,8 @@
     },
     {
       "path": "kitchen_crown.rb",
-      "bytes": 44270,
-      "sha256": "6d05d783ae7e114a8e94017c4a89ac4b0408128ceab949d4a7a5b97f58caa85e"
+      "bytes": 46805,
+      "sha256": "822d51e8f170519e19e4d584b4bcb05a99345304b46cbfcf1ce633f3a8318c24"
     },
     {
       "path": "kitchen_dimensions.rb",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "kitchen_units.rb",
-      "bytes": 9545,
-      "sha256": "86548316d921c1ef7c15f5c1824da19a913ec2fdbc18f01bd787a136054156f1"
+      "bytes": 13816,
+      "sha256": "0dc2ad890baf03cb0ff1f11280b97a805a72bc44ab9399bb915232a04c10d853"
     },
     {
       "sha256": "cb0f984dec41f941832819b8f83f37a169b3e9981c288ad1adeae98771464192",
@@ -2955,6 +2955,16 @@
       "path": "test_crown_performance_native.rb",
       "bytes": 3881,
       "sha256": "29ebd7b6404a4778ee3018d34942676343b366e6a9d9e62c4bd098a541613df5"
+    },
+    {
+      "path": "test_crown_boolean_placement_native.rb",
+      "bytes": 1863,
+      "sha256": "ee157882198ae1aa2c61699de132b7ef364bf0ac7a6d95120f6142cad56a77f2"
+    },
+    {
+      "path": "test_molding_feedback_native.rb",
+      "bytes": 2286,
+      "sha256": "b18f2da65160a56c214a4fbfc2196da0c62edc91275fc5cfdd5555df35a197fe"
     }
   ]
 }

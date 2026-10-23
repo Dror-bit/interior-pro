@@ -29,7 +29,19 @@ module KitchenLab
   # rebuild house crowns. Preserve per-side profiles, material and visibility.
   def self.refresh_kitchen_baseboards!
     return unless USE_KITCHEN_BASEBOARD_SYNC && defined?(InteriorPro::MoldingManager)
+    @last_baseboard_updates=0
     builder=InteriorPro::MoldingBuilder;manager=InteriorPro::MoldingManager
+    builder.singleton_class.prepend(BaseboardStopSnapshot) unless builder.singleton_class.ancestors.include?(BaseboardStopSnapshot)
+    builder.with_kitchen_baseboard_snapshot { refresh_kitchen_baseboard_runs!(builder,manager) }
+  end
+  def self.refresh_kitchen_baseboard_runs!(builder,manager)
+    doc=document
+    regions=doc['cabinets'].map do |d|
+      pp=Spatial.polygon(d,doc['settings'])
+      [pp.map(&:first).min-8,pp.map(&:last).min-8,pp.map(&:first).max+8,pp.map(&:last).max+8]
+    end
+    previous=JSON.parse(@model.get_attribute(DICT,'baseboard_kitchen_regions','[]'))
+    affected=regions+previous
     groups=@model.entities.grep(Sketchup::Group).select { |g|g.get_attribute('InteriorPro','type')=='baseboard' }
     pending=JSON.parse(@model.get_attribute(DICT,'empty_baseboard_runs','[]'))
     return if groups.empty? && pending.empty?
@@ -48,16 +60,32 @@ module KitchenLab
     keys=records.map { |r|[r['wall'],r['side']] }
     records+=pending.reject { |r|keys.include?([r['wall'],r['side']]) }
     empty=[];updated=0
+    rooms_off=manager.rooms_off(@model) if manager::USE_ROOM_MOLDING
     records.each do |record|
       row=plan.find { |r|r[:wall].get_attribute('InteriorPro','id')==record['wall'] && r[:side].to_s==record['side'] };next unless row
       wall=row[:wall];side=row[:side]
+      old=record['group']
+      p0,p1=row[:edge];xs=[p0.x,p1.x];ys=[p0.y,p1.y]
+      relevant=affected.any? { |r|xs.max>=r[0] && xs.min<=r[2] && ys.max>=r[1] && ys.min<=r[3] }
+      # Previously cut runs must also recover after the last cabinet moves away.
+      relevant ||= previous.empty? && old && old.get_attribute(DICT,'baseboard_cut_signature')
+      unless relevant
+        empty<<record.reject { |k,_|k=='group' } unless old
+        next
+      end
       next if wall.get_attribute('InteriorPro',"no_molding_#{side}")
-      next if manager::USE_ROOM_MOLDING && manager.side_in_off_room?(wall,row[:geo],manager.rooms_off(@model))
+      next if manager::USE_ROOM_MOLDING && manager.side_in_off_room?(wall,row[:geo],rooms_off)
       profile=InteriorPro::MoldingLibrary.baseboard_profile_by_name(record['profile'],record['height']);next unless profile
       gaps=builder.baseboard_stop_gaps(wall,row[:geo],0,profile.map(&:last).max)
       signature=JSON.generate([gaps,row[:shifts],row[:tee_gaps]])
-      old=record['group']
-      next if old && old.get_attribute(DICT,'baseboard_cut_signature')==signature
+      saved=old && old.get_attribute(DICT,'baseboard_cut_signature')
+      next if saved==signature
+      # House refresh can recreate a correctly cut run without our metadata.
+      # Compare existing spans before deciding to replace any geometry.
+      if !saved && baseboard_spans_match?(old,row,profile,gaps,builder)
+        empty<<record.reject { |k,_|k=='group' } unless old
+        next
+      end
       replacement=builder.build_baseboard_on_edge!(wall,row[:edge],record['profile'],side,row[:shifts],record['height'],row[:tee_gaps])
       if replacement && replacement.valid?
         if old
@@ -72,8 +100,65 @@ module KitchenLab
     end
     serialized=JSON.generate(empty)
     @model.set_attribute(DICT,'empty_baseboard_runs',serialized) unless @model.get_attribute(DICT,'empty_baseboard_runs','[]')==serialized
+    value=JSON.generate(regions)
+    @model.set_attribute(DICT,'baseboard_kitchen_regions',value) unless @model.get_attribute(DICT,'baseboard_kitchen_regions')==value
     @last_baseboard_updates=updated
   end
+  # Cache both tile stoppers and cabinet carcasses only for this operation.
+  # Defined on the kitchen side; house calls outside this scope are unchanged.
+  module BaseboardStopSnapshot
+    def with_kitchen_baseboard_snapshot
+      return yield if @kitchen_baseboard_snapshot
+      owns_snapshot=true
+      saved_stoppers=@stoppers
+      @kitchen_baseboard_snapshot=true
+      with_stoppers { yield }
+    ensure
+      if owns_snapshot
+        @kitchen_baseboard_snapshot=false
+        @kitchen_carcass_stoppers=nil
+        @stoppers=saved_stoppers
+      end
+    end
+    def baseboard_cabinet_stoppers(*args)
+      return super unless @kitchen_baseboard_snapshot && args.empty?
+      @kitchen_carcass_stoppers ||= super
+    end
+  end
+
+  # Compare disconnected solid spans in wall coordinates. Includes profile
+  # depth/height and miter extensions, without constructing a throwaway solid.
+  def self.baseboard_spans_match?(group,row,profile,stops,builder)
+    geo=row[:geo];wall=row[:wall];top=profile.map(&:last).max
+    gaps=InteriorPro::WallTool.read_door_openings(wall).select { |o|o[:floor_offset].to_f<top }.map do |o|
+      c=o[:t]+geo[:offset0];{a:c-o[:width]/2.0,b:c+o[:width]/2.0,kind: :door}
+    end
+    gaps+=builder.door_bbox_gaps(wall,geo).map { |g|{a:g[:t]-g[:width]/2.0,b:g[:t]+g[:width]/2.0,kind: :door} }
+    gaps+=row[:tee_gaps].map { |g|{a:g[:a],b:g[:b],kind: :tee} }
+    extent=lambda { |pts|3.times.map { |i|pts.map { |p|p[i] }.min }+3.times.map { |i|pts.map { |p|p[i] }.max } }
+    expected=builder.segments_ex(geo[:len],gaps+stops).filter_map do |s|
+      sa=s[:start_kind]==:run ? row[:shifts][:start] : (s[:start_kind]==:tee ? 1 : 0)
+      sb=s[:end_kind]==:run ? row[:shifts][:end] : (s[:end_kind]==:tee ? -1 : 0)
+      next if s[:b]-s[:a]<0.5
+      next if (!sa.zero? || !sb.zero?) && s[:b]-s[:a]<profile.map(&:first).max*2+0.5
+      extent.call(profile.flat_map { |d,z|[[s[:a]+sa*d,d,z],[s[:b]+sb*d,d,z]] })
+    end.sort
+    return expected.empty? unless group && group.valid?
+    seen={};actual=[];p0=geo[:p0];u=geo[:u];nd=geo[:nd];bz=builder.wall_base_z(wall)
+    group.entities.grep(Sketchup::Edge).each do |edge|
+      next if seen[edge]
+      edges=edge.all_connected.grep(Sketchup::Edge)
+      edges.each { |e|seen[e]=true }
+      points=edges.flat_map(&:vertices).uniq.map do |v|
+        p=v.position.transform(group.transformation)
+        [(p.x-p0.x)*u.x+(p.y-p0.y)*u.y,(p.x-p0.x)*nd.x+(p.y-p0.y)*nd.y,p.z-bz]
+      end
+      actual<<extent.call(points) unless points.empty?
+    end
+    actual.sort!
+    actual.length==expected.length && actual.zip(expected).all? { |a,b|a.zip(b).all? { |x,y|(x-y).abs<0.001 } }
+  end
+
   module UnitCabinets
     def cabinets
       roots=super

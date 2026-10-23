@@ -23,7 +23,7 @@ module KitchenLab
     raise 'Invalid crown profile' unless %w[none flat crown].include?(s['crown_profile']) || s['crown_profile'].to_s.start_with?('house:')
     raise 'Invalid crown color' unless %w[cabinet white].include?(s['crown_color'])
     %w[crown_height crown_depth].each do |k|
-      s[k]=Float(s[k]);raise 'Crown dimensions must be 0.5–12 inches' unless s[k].finite? && s[k].between?(k=='crown_depth' && s['crown_shape'] ? 0.01 : 0.5,12)
+      s[k]=Float(s[k]);raise 'Crown dimensions must be 0.5Ã¢â‚¬â€œ12 inches' unless s[k].finite? && s[k].between?(k=='crown_depth' && s['crown_shape'] ? 0.01 : 0.5,12)
     end
     s
   end
@@ -160,7 +160,7 @@ module KitchenLab
   remove_const(:USE_CROWN_DEPENDENCY_GATE) if const_defined?(:USE_CROWN_DEPENDENCY_GATE,false)
   USE_CROWN_DEPENDENCY_GATE=true
   # Persist the dependency stamp in the model so Undo restores geometry AND
-  # its matching stamp. Geometry IDs only matter for newly rebuilt house trim.
+  # its matching stamp. Recreated house groups are identified by content, not IDs.
   def self.crown_dependency_signature
     return nil unless USE_CROWN_DEPENDENCY_GATE && @model.respond_to?(:get_attribute)
     doc=document;s=crown_settings(doc['settings']);data=doc['cabinets']
@@ -183,11 +183,11 @@ module KitchenLab
       end
       next unless relevant
       attrs=g.attribute_dictionary('InteriorPro')
-      [type,g.persistent_id,attrs ? attrs.to_a.sort_by(&:first) : [],g.transformation.to_a,g.bounds.min.to_a,g.bounds.max.to_a,g.material&.name]
-    end.sort_by { |r|r[1] }
+      [type,attrs ? attrs.to_a.reject { |k,_| type=='crown' && %w[id persistent_id].include?(k) }.sort_by(&:first) : [],g.transformation.to_a,g.bounds.min.to_a,g.bounds.max.to_a,g.material&.name]
+    end.sort_by { |r|JSON.generate(r) }
     roots=@model.entities.grep(Sketchup::Group)
-    crowns=roots+roots.select { |g|g.get_attribute(DICT,'kind')=='kitchen_unit' }.flat_map { |g|g.entities.grep(Sketchup::Group) }
-    outputs=crowns.select { |g|g.get_attribute(DICT,'kind')=='crown' }.map { |g|[g.get_attribute(DICT,'owner_id'),g.get_attribute(DICT,'geometry_signature'),g.entities.length] }.sort_by { |r|JSON.generate(r) }
+    crowns=roots.map { |g|[g,Geom::Transformation.new] }+roots.select { |g|g.get_attribute(DICT,'kind')=='kitchen_unit' }.flat_map { |u|u.entities.grep(Sketchup::Group).map { |g|[g,u.transformation] } }
+    outputs=crowns.select { |g,t|g.get_attribute(DICT,'kind')=='crown' }.map { |g,t|[g.get_attribute(DICT,'owner_id'),g.get_attribute(DICT,'geometry_signature'),CrownJoints.output_geometry_key(g,t)] }.sort_by { |r|JSON.generate(r) }
     Digest::SHA256.hexdigest(JSON.generate([doc['settings'],data,s,dependencies,outputs]))
   end
   def self.crown_dependencies_changed?
@@ -560,8 +560,10 @@ module KitchenLab::CrownJoints
         raise 'Invalid molding boundary' unless face
         face.reverse! if face.normal.z<0;face.pushpull(o[:hi]-o[:lo])
         # Each operand is a separate solid. Never pushpull joined trim geometry.
-        clipped=cutter.subtract(g)
+        clipped=subtract_crown({group:cutter,world:cutter.transformation},
+                               {group:g,world:g.transformation,parent:Geom::Transformation.new})
         raise 'Unable to trim molding at boundary' unless clipped && clipped.valid? && clipped.manifold?
+        g.erase! if g.valid? && !g.equal?(clipped)
         g=clipped;g.name='Crown segment';g.material=r[:mat]
         InteriorPro::MoldingBuilder.soften_facets!(g.entities)
       ensure
@@ -604,7 +606,7 @@ module KitchenLab::CrownJoints
     own_keys=normalize.call(own.map{|r|[run_points(r),r[:mat]&.name]}).sort_by{|x|JSON.generate(x)}
     nearby=normalize.call(nearby).sort_by{|x|JSON.generate(x)}
     cutters=normalize.call(cutters).sort_by{|x|JSON.generate(x)}
-    Digest::SHA256.hexdigest(JSON.generate([own_keys,nearby,cutters]))
+    Digest::SHA256.hexdigest(JSON.generate([2,own_keys,nearby,cutters]))
   end
 
   def build!(s)
@@ -629,7 +631,7 @@ module KitchenLab::CrownJoints
     grouped.each do |owner,own_runs|
       signature=crown_signature(own_runs,runs+house,obstacles)
       old=existing.select { |g|g.valid? && g.get_attribute(KitchenLab::DICT,'owner_id')==owner }
-      if USE_CROWN_REUSE && old.length==1 && old.first.get_attribute(KitchenLab::DICT,'geometry_signature')==signature
+      if USE_CROWN_REUSE && old.length==1 && old.first.get_attribute(KitchenLab::DICT,'geometry_signature')==signature && output_intact?(old.first)
         reused+=1
         next
       end
@@ -646,7 +648,7 @@ module KitchenLab::CrownJoints
       own_runs=house.select { |r|r[:house].equal?(record) }
       signature=crown_signature(own_runs,runs+house,[])
       source=JSON.generate({shifts:record[:shifts],tee_gaps:record[:tee_gaps]})
-      if USE_CROWN_REUSE && record[:group].get_attribute(KitchenLab::DICT,'house_geometry_signature')==signature
+      if USE_CROWN_REUSE && record[:group].get_attribute(KitchenLab::DICT,'house_geometry_signature')==signature && output_intact?(record[:group])
         record[:group].set_attribute(KitchenLab::DICT,'house_join_source',source) unless record[:group].get_attribute(KitchenLab::DICT,'house_join_source')==source
         reused_house+=1
         next
@@ -660,6 +662,10 @@ module KitchenLab::CrownJoints
       old.erase!
     end
     trimmed=trim_overlaps!(changed_owners:changed_owners) if USE_CROWN_OVERLAP_TRIM
+    model.entities.grep(Sketchup::Group).each do |g|
+      next unless g.get_attribute(KitchenLab::DICT,'kind')=='crown' || g.get_attribute(KitchenLab::DICT,'house_geometry_signature')
+      g.set_attribute(KitchenLab::DICT,'crown_output_key',JSON.generate(output_geometry_key(g)))
+    end
     @report={reused_owners:reused,reused_house_sides:reused_house,trimmed_overlaps:trimmed.to_i,kitchen_runs:runs.length,house_runs:house.length,house_sides:affected.length,jointed_ends:(runs+house).sum { |r|[:a_offset,:b_offset].count { |k|r[k] } }}
   end
   # Miter resolution handles matching endpoints. This second pass handles
@@ -670,6 +676,43 @@ module KitchenLab::CrownJoints
   USE_CROWN_OVERLAP_TRIM=true
   remove_const(:USE_INCREMENTAL_CROWN_TRIM) if const_defined?(:USE_INCREMENTAL_CROWN_TRIM,false)
   USE_INCREMENTAL_CROWN_TRIM=true
+  remove_const(:USE_SAFE_CROWN_SUBTRACTION) if const_defined?(:USE_SAFE_CROWN_SUBTRACTION,false)
+  USE_SAFE_CROWN_SUBTRACTION=true
+  # Hash only the small generated trim hierarchy, not every vertex in the house.
+  # Include placement so moved/reset pieces invalidate both levels of caching.
+  def output_geometry_key(group,parent=Geom::Transformation.new)
+    world=parent*group.transformation
+    children=group.entities.grep(Sketchup::Group)
+    if children.empty?
+      box=Geom::BoundingBox.new
+      8.times { |i|box.add(group.definition.bounds.corner(i).transform(world)) }
+      [[box.min.to_a.map { |v|v.to_f.round(6) },box.max.to_a.map { |v|v.to_f.round(6) },group.entities.length]]
+    else
+      children.flat_map { |g|output_geometry_key(g,world) }.sort_by { |r|JSON.generate(r) }
+    end
+  end
+  def output_intact?(group)
+    group.get_attribute(KitchenLab::DICT,'crown_output_key')==JSON.generate(output_geometry_key(group))
+  end
+  # SU boolean operations can reparent their result and reset an operand.
+  # Operate on disposable root-level copies, then explicitly place the result
+  # back in the original parent's coordinates. Never pass the live board.
+  def subtract_crown(cutter_row,target_row)
+    return cutter_row[:group].subtract(target_row[:group]) unless USE_SAFE_CROWN_SUBTRACTION
+    model=Sketchup.active_model
+    a=b=result=nil
+    begin
+      a=solid_copy(model.entities,cutter_row)
+      b=solid_copy(model.entities,target_row)
+      result=a.subtract(b)
+      raise 'Unable to subtract crown copies' unless result && result.valid?
+      copy=solid_copy(target_row[:group].parent.entities,
+                      {group:result,world:result.transformation},target_row[:parent])
+      copy
+    ensure
+      [a,b,result].compact.uniq.each { |g|g.erase! if g.valid? }
+    end
+  end
   def crown_solids(entities,transform=Geom::Transformation.new,owner=nil,result=[])
     entities.grep(Sketchup::Group).each do |group|
       own=owner
@@ -794,10 +837,10 @@ module KitchenLab::CrownJoints
               original.erase!;trimmed+=1;next
             end
             name=original.name;mat=original.material;layer=original.layer;hidden=original.hidden?
-            cutter=solid_copy(original.parent.entities,winner,target[:parent])
-            replacement=cutter.subtract(original)
+            replacement=subtract_crown(winner,target)
             parts=closed_crown_parts(replacement)
             raise 'Unable to trim intersecting crown solids' if parts.empty?
+            original.erase! if original.valid? && !original.equal?(replacement)
             replacement.name=name;replacement.material=mat;replacement.layer=layer;replacement.hidden=hidden
             parent=parts.first.equal?(replacement) ? target[:parent] : target[:parent]*replacement.transformation
             updated=parts.map do |part|
